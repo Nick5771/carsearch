@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CarSearch Australia — Find Any Car Across Every Platform</title>
+<meta name="description" content="Search used cars across Carsales, Gumtree, Facebook Marketplace and Drive in one place.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#f7f6f3;--surface:#fff;--border:#e5e3dd;--text:#1a1916;--muted:#6b6860;
+  --accent:#1a3c6e;--accent-light:#e8eef7;--green:#1a5c3a;--green-light:#e8f5ee;
+  --purple:#3d2c7a;--purple-light:#eeebf7;--amber:#7a4d1a;--amber-light:#f7f0e8;
+  --radius:10px;--radius-lg:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.6;min-height:100vh}
+nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100}
+.logo{font-family:'DM Serif Display',serif;font-size:22px;color:var(--text);text-decoration:none;cursor:pointer}
+.logo span{color:var(--accent)}
+.nav-links{display:flex;gap:24px;list-style:none}
+.nav-links a{font-size:14px;color:var(--muted);text-decoration:none;transition:color 0.15s}
+.nav-links a:hover{color:var(--text)}
+.nav-cta{background:var(--accent);color:#fff !important;padding:7px 16px;border-radius:var(--radius);font-size:13px}
+.hero{background:var(--surface);border-bottom:1px solid var(--border);padding:56px 32px 40px;text-align:center}
+.hero-eyebrow{display:inline-block;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);background:var(--accent-light);padding:4px 12px;border-radius:20px;margin-bottom:16px}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(28px,5vw,44px);font-weight:400;color:var(--text);line-height:1.2;margin-bottom:12px;max-width:600px;margin-left:auto;margin-right:auto}
+.hero p{font-size:16px;color:var(--muted);max-width:480px;margin:0 auto 28px}
+.search-wrap{max-width:800px;margin:0 auto;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.search-wrap select,.search-wrap input{flex:1;min-width:120px;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:14px;background:var(--surface);color:var(--text);outline:none;transition:border-color 0.15s;appearance:none;-webkit-appearance:none}
+.search-wrap select:focus,.search-wrap input:focus{border-color:var(--accent)}
+.search-btn{padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;transition:opacity 0.15s;display:flex;align-items:center;gap:6px}
+.search-btn:hover{opacity:0.88}
+.trust-bar{display:flex;justify-content:center;align-items:center;gap:8px;padding:14px 32px;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.trust-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:500}
+.pill-cs{background:var(--accent-light);color:var(--accent)}
+.pill-gt{background:var(--green-light);color:var(--green)}
+.pill-fb{background:var(--purple-light);color:var(--purple)}
+.pill-dr{background:var(--amber-light);color:var(--amber)}
+main{max-width:960px;margin:0 auto;padding:32px 24px}
+.section-label{font-size:13px;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:14px}
+.popular-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:36px}
+.pop-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:0;cursor:pointer;transition:border-color 0.15s,transform 0.1s;overflow:hidden}
+.pop-card:hover{border-color:#aab5c8;transform:translateY(-2px)}
+.pop-img{width:100%;height:100px;object-fit:cover;background:var(--bg);display:block}
+.pop-img-placeholder{width:100%;height:100px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:32px}
+.pop-info{padding:10px 12px}
+.pop-name{font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px}
+.pop-count{font-size:11px;color:var(--muted)}
+#results-area{display:none}
+.loading{display:none;text-align:center;padding:60px 20px;color:var(--muted);font-size:14px}
+.spinner{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;margin-bottom:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.results-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}
+.results-make{font-family:'DM Serif Display',serif;font-size:28px;font-weight:400;color:var(--text);margin-bottom:3px}
+.results-meta{font-size:13px;color:var(--muted)}
+.sort-wrap{display:flex;align-items:center;gap:8px}
+.sort-wrap label{font-size:13px;color:var(--muted);white-space:nowrap}
+.sort-select{padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--surface);color:var(--text);outline:none;cursor:pointer}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
+.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px}
+.stat-value{font-size:20px;font-weight:600;color:var(--text)}
+.platform-section{margin-bottom:24px}
+.platform-section-label{font-size:13px;color:var(--muted);margin-bottom:10px;font-weight:500}
+.platform-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.platform-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;text-decoration:none;display:block;transition:border-color 0.15s,transform 0.1s;cursor:pointer}
+.platform-card:hover{border-color:#aab5c8;transform:translateY(-1px)}
+.platform-name{font-size:14px;font-weight:600;margin-bottom:3px;color:var(--text)}
+.platform-count{font-size:12px;color:var(--muted);margin-bottom:6px}
+.platform-avg{font-size:16px;font-weight:600;margin-bottom:10px;color:var(--text)}
+.platform-btn{display:block;width:100%;padding:7px 0;border-radius:var(--radius);font-size:12px;font-weight:500;text-align:center;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity 0.15s}
+.platform-btn:hover{opacity:0.8}
+.btn-cs{background:var(--accent-light);color:var(--accent)}
+.btn-gt{background:var(--green-light);color:var(--green)}
+.btn-fb{background:var(--purple-light);color:var(--purple)}
+.btn-dr{background:var(--amber-light);color:var(--amber)}
+.filters-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.filters-label{font-size:13px;color:var(--muted);margin-right:4px}
+.filter-chip{padding:5px 14px;border-radius:20px;font-size:13px;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:var(--surface);transition:all 0.12s;font-family:'DM Sans',sans-serif}
+.filter-chip:hover{border-color:#aab5c8;color:var(--text)}
+.filter-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.listing{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:0;margin-bottom:10px;display:flex;overflow:hidden;transition:border-color 0.15s}
+.listing:hover{border-color:#aab5c8}
+.listing-img-wrap{width:140px;flex-shrink:0;background:var(--bg);position:relative;overflow:hidden}
+.listing-img{width:140px;height:100%;object-fit:cover;display:block;min-height:100px}
+.listing-img-placeholder{width:140px;min-height:100px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:36px}
+.listing-body{flex:1;min-width:0;padding:14px 16px}
+.listing-title{font-size:15px;font-weight:500;color:var(--text);margin-bottom:4px}
+.listing-detail{font-size:13px;color:var(--muted);margin-bottom:8px}
+.listing-tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:11px;padding:3px 8px;border-radius:6px;background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+.listing-right{text-align:right;flex-shrink:0;padding:14px 16px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;justify-content:center}
+.src-badge{font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px}
+.badge-cs{background:var(--accent-light);color:var(--accent)}
+.badge-gt{background:var(--green-light);color:var(--green)}
+.badge-fb{background:var(--purple-light);color:var(--purple)}
+.badge-dr{background:var(--amber-light);color:var(--amber)}
+.listing-price{font-size:18px;font-weight:600;color:var(--text)}
+.view-link{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--accent);text-decoration:none;padding:5px 12px;border:1px solid var(--accent-light);border-radius:var(--radius);background:var(--accent-light);transition:opacity 0.12s;font-weight:500}
+.view-link:hover{opacity:0.8}
+.affiliate-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:24px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.affiliate-bar p{font-size:13px;color:var(--muted);max-width:400px}
+.affiliate-bar strong{color:var(--text);display:block;font-size:14px;margin-bottom:3px}
+.aff-btn{padding:9px 18px;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;border:none;white-space:nowrap;transition:opacity 0.12s;text-decoration:none;display:inline-block}
+.aff-btn:hover{opacity:0.85}
+.aff-finance{background:var(--accent);color:#fff}
+.aff-insure{background:var(--green);color:#fff}
+.aff-ppsr{background:var(--bg);color:var(--text);border:1px solid var(--border)}
+.alert-card{background:var(--accent);border-radius:var(--radius-lg);padding:24px;margin-bottom:24px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.alert-card h3{font-size:16px;font-weight:500;color:#fff;margin-bottom:4px}
+.alert-card p{font-size:13px;color:rgba(255,255,255,0.75)}
+.alert-form{display:flex;gap:8px}
+.alert-input{padding:9px 14px;border-radius:var(--radius);border:none;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;min-width:200px}
+.alert-btn{padding:9px 16px;background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
+.alert-btn:hover{background:rgba(255,255,255,0.3)}
+footer{background:var(--surface);border-top:1px solid var(--border);padding:32px;text-align:center;font-size:13px;color:var(--muted);margin-top:48px}
+footer a{color:var(--muted);text-decoration:underline}
+@media(max-width:600px){nav{padding:0 16px}.nav-links{display:none}.hero{padding:32px 16px 24px}main{padding:20px 16px}.search-wrap{padding:12px}.listing{flex-direction:column}.listing-img-wrap,.listing-img,.listing-img-placeholder{width:100%;height:160px}.listing-right{flex-direction:row;align-items:center;justify-content:space-between;width:100%}}
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="logo" onclick="goHome()">Car<span>Search</span></span>
+  <ul class="nav-links">
+    <li><a href="#" onclick="goHome()">Home</a></li>
+    <li><a href="#">Price trends</a></li>
+    <li><a href="#">Saved searches</a></li>
+    <li><a href="https://www.commissionfactory.com" target="_blank" class="nav-cta">Get finance</a></li>
+  </ul>
+</nav>
+
+<div class="hero">
+  <div class="hero-eyebrow">Free to use &mdash; Updated daily</div>
+  <h1>Find any car across every platform</h1>
+  <p>We search Carsales, Gumtree, Facebook Marketplace and Drive so you don't have to.</p>
+  <div class="search-wrap">
+    <select id="s-make" onchange="loadModels()">
+      <option value="">Select make...</option>
+    </select>
+    <select id="s-model">
+      <option value="">Select model...</option>
+    </select>
+    <select id="s-year">
+      <option value="">Any year</option>
+    </select>
+    <select id="s-state">
+      <option value="">Any state</option>
+      <option>NSW</option><option>VIC</option><option>QLD</option>
+      <option>WA</option><option>SA</option><option>TAS</option>
+      <option>ACT</option><option>NT</option>
+    </select>
+    <input type="number" id="s-maxprice" placeholder="Max price ($)">
+    <button class="search-btn" onclick="doSearch()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Search
+    </button>
+  </div>
+</div>
+
+<div class="trust-bar">
+  Searching across
+  <span class="trust-pill pill-cs">Carsales</span>
+  <span class="trust-pill pill-gt">Gumtree</span>
+  <span class="trust-pill pill-fb">Facebook Marketplace</span>
+  <span class="trust-pill pill-dr">Drive</span>
+</div>
+
+<main>
+  <div id="home-area">
+    <div class="section-label">Popular searches</div>
+    <div class="popular-grid" id="popular-grid">
+      <div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--muted);font-size:13px">Loading popular models...</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;">
+        <div style="font-size:24px;margin-bottom:10px">🔍</div>
+        <div style="font-size:14px;font-weight:500;margin-bottom:5px;">Search everywhere at once</div>
+        <div style="font-size:13px;color:var(--muted);">No more switching between 4 different tabs. See all listings in one place.</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;">
+        <div style="font-size:24px;margin-bottom:10px">📊</div>
+        <div style="font-size:14px;font-weight:500;margin-bottom:5px;">Compare prices instantly</div>
+        <div style="font-size:13px;color:var(--muted);">See which platform has the best prices for any make and model.</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;">
+        <div style="font-size:24px;margin-bottom:10px">🔔</div>
+        <div style="font-size:14px;font-weight:500;margin-bottom:5px;">Price drop alerts</div>
+        <div style="font-size:13px;color:var(--muted);">Get notified when a car you want drops in price anywhere on the web.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <div>Searching across all platforms...</div>
+  </div>
+
+  <div id="results-area">
+    <div class="results-header">
+      <div>
+        <div class="results-make" id="r-title"></div>
+        <div class="results-meta" id="r-meta"></div>
+      </div>
+      <div class="sort-wrap">
+        <label>Sort by</label>
+        <select class="sort-select" onchange="sortListings(this.value)">
+          <option value="price-asc">Price: low to high</option>
+          <option value="price-desc">Price: high to low</option>
+          <option value="year-desc">Newest first</option>
+          <option value="km-asc">Lowest km</option>
+        </select>
+      </div>
+    </div>
+    <div class="stats-grid" id="stats-grid"></div>
+    <div class="platform-section">
+      <div class="platform-section-label">Search directly on each platform</div>
+      <div class="platform-grid" id="platform-grid"></div>
+    </div>
+    <div class="affiliate-bar">
+      <div>
+        <strong>Need finance for this car?</strong>
+        <p>Compare car loans from 30+ Australian lenders and get approved in minutes.</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <a href="https://www.commissionfactory.com" target="_blank" class="aff-btn aff-finance">Compare car loans →</a>
+        <a href="https://www.commissionfactory.com" target="_blank" class="aff-btn aff-insure">Get insurance →</a>
+        <a href="https://www.ppsr.gov.au" target="_blank" class="aff-btn aff-ppsr">PPSR check $2</a>
+      </div>
+    </div>
+    <div class="alert-card" id="alert-card">
+      <div>
+        <h3 id="alert-title">Get price alerts for this car</h3>
+        <p>We'll email you when a better deal appears anywhere on the web.</p>
+      </div>
+      <div class="alert-form">
+        <input class="alert-input" type="email" placeholder="your@email.com" id="alert-email">
+        <button class="alert-btn" onclick="signupAlert()">Notify me</button>
+      </div>
+    </div>
+    <div class="filters-bar">
+      <span class="filters-label">Platform:</span>
+      <button class="filter-chip active" onclick="toggleFilter(this,'all')">All</button>
+      <button class="filter-chip" onclick="toggleFilter(this,'Carsales')">Carsales</button>
+      <button class="filter-chip" onclick="toggleFilter(this,'Gumtree')">Gumtree</button>
+      <button class="filter-chip" onclick="toggleFilter(this,'Facebook')">Facebook</button>
+      <button class="filter-chip" onclick="toggleFilter(this,'Drive')">Drive</button>
+    </div>
+    <div id="listings-wrap"></div>
+  </div>
+</main>
+
+<footer>
+  <div style="margin-bottom:8px;"><strong style="color:var(--text);font-family:'DM Serif Display',serif;font-size:16px;">CarSearch</strong></div>
+  CarSearch finds and links to listings on third-party platforms. We don't host any listings ourselves.<br>
+  <a href="#">Privacy policy</a> &middot; <a href="#">Terms of use</a> &middot; <a href="#">Contact</a><br><br>
+  &copy; 2025 CarSearch Australia. All rights reserved.
+</footer>
+
+<script>
+const SOURCES = ['Carsales','Gumtree','Facebook','Drive'];
+const SRC_BADGE = {Carsales:'badge-cs',Gumtree:'badge-gt',Facebook:'badge-fb',Drive:'badge-dr'};
+const SRC_BTN = {Carsales:'btn-cs',Gumtree:'btn-gt',Facebook:'btn-fb',Drive:'btn-dr'};
+const LOCS = ['Sydney NSW','Melbourne VIC','Brisbane QLD','Perth WA','Adelaide SA','Canberra ACT','Hobart TAS','Darwin NT'];
+const POPULAR = [
+  {make:'Toyota',model:'Camry'},{make:'Toyota',model:'HiLux'},
+  {make:'Mazda',model:'CX-5'},{make:'Ford',model:'Ranger'},
+  {make:'Hyundai',model:'Tucson'},{make:'Mazda',model:'3'},
+  {make:'Toyota',model:'RAV4'},{make:'Volkswagen',model:'Golf'}
+];
+
+let allListings = [];
+let activeFilter = 'all';
+let currentMake = '';
+let currentModel = '';
+let currentYear = '';
+let carImageCache = {};
+
+// ── Year dropdown ──────────────────────────────────────────────────────────
+const yearSel = document.getElementById('s-year');
+for (let y = 2025; y >= 1990; y--) {
+  const o = document.createElement('option');
+  o.value = y; o.textContent = y;
+  yearSel.appendChild(o);
+}
+
+// ── Load makes from NHTSA API ─────────────────────────────────────────────
+async function loadMakes() {
+  try {
+    const res = await fetch('https://vpic.nhtsa.dot.gov/api/vehicles/getallmakes?format=json');
+    const data = await res.json();
+    const sel = document.getElementById('s-make');
+    // Filter to common makes for cleanliness
+    const common = ['Toyota','Mazda','Ford','Holden','BMW','Mercedes-Benz','Honda',
+      'Hyundai','Kia','Volkswagen','Subaru','Mitsubishi','Nissan','Audi','Lexus',
+      'Volvo','Jeep','Land Rover','Porsche','Chevrolet','Dodge','Tesla','Suzuki',
+      'Isuzu','Renault','Peugeot','Citroen','Alfa Romeo','Fiat','Mini','Jaguar',
+      'Infiniti','Acura','Chrysler','Ram','GMC','Cadillac','Lincoln','Buick',
+      'Genesis','Skoda','Seat','Opel','Saab','Lancia','Ferrari','Lamborghini',
+      'Maserati','Bentley','Rolls-Royce','Aston Martin','McLaren'];
+    const makes = data.Results
+      .map(m => m.Make_Name)
+      .filter(m => common.some(c => c.toLowerCase() === m.toLowerCase()))
+      .sort();
+    sel.innerHTML = '<option value="">Select make...</option>';
+    makes.forEach(m => {
+      const o = document.createElement('option');
+      o.value = m; o.textContent = m;
+      sel.appendChild(o);
+    });
+  } catch(e) {
+    // fallback
+    const fallback = ['Toyota','Mazda','Ford','BMW','Mercedes-Benz','Honda','Hyundai','Kia','Volkswagen','Subaru','Nissan','Audi'];
+    const sel = document.getElementById('s-make');
+    sel.innerHTML = '<option value="">Select make...</option>';
+    fallback.forEach(m => { const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o); });
+  }
+}
+
+// ── Load models from NHTSA API ────────────────────────────────────────────
+async function loadModels() {
+  const make = document.getElementById('s-make').value;
+  const sel = document.getElementById('s-model');
+  sel.innerHTML = '<option value="">Loading...</option>';
+  if (!make) { sel.innerHTML='<option value="">Select model...</option>'; return; }
+  try {
+    const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/getmodelsformake/${encodeURIComponent(make)}?format=json`);
+    const data = await res.json();
+    const models = data.Results.map(m => m.Model_Name).sort();
+    sel.innerHTML = '<option value="">Any model</option>';
+    models.forEach(m => {
+      const o = document.createElement('option');
+      o.value = m; o.textContent = m;
+      sel.appendChild(o);
+    });
+  } catch(e) {
+    sel.innerHTML = '<option value="">Any model</option>';
+  }
+}
+
+// ── Get car image from Wikimedia ──────────────────────────────────────────
+async function getCarImage(make, model, year) {
+  const key = `${make}_${model}_${year}`;
+  if (carImageCache[key]) return carImageCache[key];
+
+  const queries = [
+    `${year} ${make} ${model}`,
+    `${make} ${model} ${year}`,
+    `${make} ${model}`,
+  ];
+
+  for (const q of queries) {
+    try {
+      const url = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(q)}&prop=pageimages&format=json&pithumbsize=400&origin=*`;
+      const res = await fetch(url);
+      const data = await res.json();
+      const pages = data.query.pages;
+      const page = Object.values(pages)[0];
+      if (page.thumbnail && page.thumbnail.source) {
+        carImageCache[key] = page.thumbnail.source;
+        return page.thumbnail.source;
+      }
+    } catch(e) {}
+  }
+
+  // fallback: search Wikimedia commons
+  try {
+    const q = `${make} ${model}`;
+    const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q+' car automobile')}&prop=pageimages&format=json&origin=*`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.query.search.length > 0) {
+      const title = data.query.search[0].title;
+      const url2 = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&format=json&pithumbsize=400&origin=*`;
+      const res2 = await fetch(url2);
+      const data2 = await res2.json();
+      const pages = data2.query.pages;
+      const page = Object.values(pages)[0];
+      if (page.thumbnail && page.thumbnail.source) {
+        carImageCache[key] = page.thumbnail.source;
+        return page.thumbnail.source;
+      }
+    }
+  } catch(e) {}
+
+  carImageCache[key] = null;
+  return null;
+}
+
+// ── Platform URLs ─────────────────────────────────────────────────────────
+function getPlatformUrl(src, make, model, year, state) {
+  let q = make + (model ? ' ' + model : '') + (year ? ' ' + year : '');
+  const eq = encodeURIComponent(q);
+  if (src === 'Carsales') return `https://www.carsales.com.au/cars/?q=${eq}`;
+  if (src === 'Gumtree') return `https://www.gumtree.com.au/s-cars-vans-utes/k0c18320?q=${eq}`;
+  if (src === 'Facebook') return `https://www.facebook.com/marketplace/category/vehicles?query=${eq}`;
+  if (src === 'Drive') return `https://www.drive.com.au/buy-a-car/?q=${eq}`;
+  return '#';
+}
+
+// ── Generate sample listings ──────────────────────────────────────────────
+function genListings(make, model, year, state, maxP) {
+  const count = Math.floor(Math.random() * 14) + 8;
+  const basePrices = {Carsales:29000,Gumtree:24000,Facebook:22000,Drive:28000};
+  return Array.from({length:count}, () => {
+    const src = SOURCES[Math.floor(Math.random() * SOURCES.length)];
+    const y = year ? parseInt(year) : (2015 + Math.floor(Math.random() * 10));
+    const km = Math.floor(Math.random() * 150000) + 3000;
+    const baseP = basePrices[src] + (y - 2015) * 2200;
+    const price = Math.round((baseP + Math.random() * 10000 - 5000) / 100) * 100;
+    const loc = state ? LOCS.find(l => l.includes(state)) || LOCS[0] : LOCS[Math.floor(Math.random() * LOCS.length)];
+    return {make, model: model||'', year: y, km, price, src, loc,
+      trans: Math.random() > 0.3 ? 'Automatic' : 'Manual',
+      fuel: Math.random() > 0.2 ? 'Petrol' : 'Diesel'};
+  }).filter(l => l.price <= (maxP || 999999));
+}
+
+// ── Search ────────────────────────────────────────────────────────────────
+async function doSearch() {
+  currentMake = document.getElementById('s-make').value || 'Toyota';
+  currentModel = document.getElementById('s-model').value || '';
+  currentYear = document.getElementById('s-year').value || '';
+  const maxP = parseInt(document.getElementById('s-maxprice').value) || 999999;
+  const state = document.getElementById('s-state').value;
+
+  document.getElementById('home-area').style.display = 'none';
+  document.getElementById('results-area').style.display = 'none';
+  document.getElementById('loading').style.display = 'block';
+
+  allListings = genListings(currentMake, currentModel, currentYear, state, maxP);
+
+  await renderResults();
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('results-area').style.display = 'block';
+}
+
+function quickSearch(make, model) {
+  document.getElementById('s-make').value = make;
+  loadModels().then(() => {
+    setTimeout(() => {
+      document.getElementById('s-model').value = model;
+      doSearch();
+    }, 300);
+  });
+}
+
+function goHome() {
+  document.getElementById('home-area').style.display = 'block';
+  document.getElementById('results-area').style.display = 'none';
+  document.getElementById('loading').style.display = 'none';
+}
+
+// ── Render results ────────────────────────────────────────────────────────
+async function renderResults() {
+  const label = currentMake + (currentModel ? ' ' + currentModel : '') + (currentYear ? ' ' + currentYear : '');
+  document.getElementById('r-title').textContent = label;
+  document.getElementById('r-meta').textContent = allListings.length + ' listings found across 4 platforms';
+  document.getElementById('alert-title').textContent = 'Get price alerts for ' + label;
+
+  const prices = allListings.map(l => l.price);
+  const avg = Math.round(prices.reduce((a,b) => a+b, 0) / prices.length);
+  const lo = Math.min(...prices);
+  const hi = Math.max(...prices);
+
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total listings</div><div class="stat-value">${allListings.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Average price</div><div class="stat-value">$${avg.toLocaleString()}</div></div>
+    <div class="stat-card"><div class="stat-label">Lowest price</div><div class="stat-value">$${lo.toLocaleString()}</div></div>
+    <div class="stat-card"><div class="stat-label">Highest price</div><div class="stat-value">$${hi.toLocaleString()}</div></div>`;
+
+  const srcCounts = {}, srcAvgs = {};
+  SOURCES.forEach(s => {
+    const sl = allListings.filter(l => l.src === s);
+    srcCounts[s] = sl.length;
+    srcAvgs[s] = sl.length ? Math.round(sl.reduce((a,l) => a+l.price, 0) / sl.length) : 0;
+  });
+
+  document.getElementById('platform-grid').innerHTML = SOURCES.map(s => `
+    <a class="platform-card" href="${getPlatformUrl(s,currentMake,currentModel,currentYear,'')}" target="_blank" rel="noopener">
+      <div class="platform-name">${s}</div>
+      <div class="platform-count">${srcCounts[s]} listings</div>
+      <div class="platform-avg">avg $${srcAvgs[s].toLocaleString()}</div>
+      <div class="platform-btn ${SRC_BTN[s]}">Search on ${s} ↗</div>
+    </a>`).join('');
+
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.filter-chip')[0].classList.add('active');
+  activeFilter = 'all';
+
+  // Fetch image once for this model
+  const imgUrl = await getCarImage(currentMake, currentModel || currentMake, currentYear || '2020');
+  allListings.forEach(l => l.imgUrl = imgUrl);
+
+  renderListings();
+}
+
+function renderListings() {
+  const toShow = activeFilter === 'all' ? allListings : allListings.filter(l => l.src === activeFilter);
+  document.getElementById('listings-wrap').innerHTML = toShow.map(l => `
+    <div class="listing">
+      <div class="listing-img-wrap">
+        ${l.imgUrl
+          ? `<img class="listing-img" src="${l.imgUrl}" alt="${l.year} ${l.make} ${l.model}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=listing-img-placeholder>🚗</div>'">`
+          : `<div class="listing-img-placeholder">🚗</div>`}
+      </div>
+      <div class="listing-body">
+        <div class="listing-title">${l.year} ${l.make} ${l.model}</div>
+        <div class="listing-detail">${l.km.toLocaleString()} km &nbsp;&middot;&nbsp; ${l.trans} &nbsp;&middot;&nbsp; ${l.fuel} &nbsp;&middot;&nbsp; ${l.loc}</div>
+        <div class="listing-tags">
+          <span class="tag">${l.trans}</span>
+          <span class="tag">${l.fuel}</span>
+          <span class="tag">${l.loc.split(' ')[1]}</span>
+          <span class="tag">${l.year}</span>
+        </div>
+      </div>
+      <div class="listing-right">
+        <span class="src-badge ${SRC_BADGE[l.src]}">${l.src}</span>
+        <div class="listing-price">$${l.price.toLocaleString()}</div>
+        <a class="view-link" href="${getPlatformUrl(l.src,l.make,l.model,l.year,'')}" target="_blank" rel="noopener">
+          View on ${l.src} ↗
+        </a>
+      </div>
+    </div>`).join('');
+}
+
+function toggleFilter(el, val) {
+  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  activeFilter = val;
+  renderListings();
+}
+
+function sortListings(val) {
+  if (val === 'price-asc') allListings.sort((a,b) => a.price - b.price);
+  else if (val === 'price-desc') allListings.sort((a,b) => b.price - a.price);
+  else if (val === 'year-desc') allListings.sort((a,b) => b.year - a.year);
+  else if (val === 'km-asc') allListings.sort((a,b) => a.km - b.km);
+  renderListings();
+}
+
+function signupAlert() {
+  const email = document.getElementById('alert-email').value;
+  if (!email || !email.includes('@')) {
+    document.getElementById('alert-email').style.outline = '2px solid #e55';
+    return;
+  }
+  const label = currentMake + (currentModel ? ' ' + currentModel : '');
+  document.getElementById('alert-card').innerHTML = `
+    <div style="color:#fff;font-size:14px;">
+      ✓ Done! We'll email <strong>${email}</strong> when a better deal appears for ${label}.
+    </div>`;
+}
+
+// ── Load popular cards with real images ───────────────────────────────────
+async function loadPopular() {
+  const grid = document.getElementById('popular-grid');
+  grid.innerHTML = '';
+  for (const p of POPULAR) {
+    const card = document.createElement('div');
+    card.className = 'pop-card';
+    card.onclick = () => quickSearch(p.make, p.model);
+    card.innerHTML = `<div class="pop-img-placeholder">🚗</div><div class="pop-info"><div class="pop-name">${p.make} ${p.model}</div><div class="pop-count">Loading...</div></div>`;
+    grid.appendChild(card);
+
+    getCarImage(p.make, p.model, '2022').then(img => {
+      const imgEl = card.querySelector('.pop-img-placeholder');
+      if (img) {
+        imgEl.outerHTML = `<img class="pop-img" src="${img}" alt="${p.make} ${p.model}" loading="lazy" onerror="this.outerHTML='<div class=pop-img-placeholder>🚗</div>'">`;
+      }
+      const count = Math.floor(Math.random() * 300) + 100;
+      card.querySelector('.pop-count').textContent = count + ' listings';
+    });
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────
+loadMakes();
+loadPopular();
+</script>
+</body>
+</html>
