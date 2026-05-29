@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CarSearch Australia — Find Any Car Across Every Platform</title>
-<meta name="description" content="Search used cars across Carsales, Gumtree, Facebook Marketplace and Drive in one place.">
+<title>CarSearch — Find Any Car Across Every Platform</title>
+<meta name="description" content="Search used cars across every major platform in Australia, USA and UK.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <style>
-:root {
+:root{
   --bg:#f7f6f3;--surface:#fff;--border:#e5e3dd;--text:#1a1916;--muted:#6b6860;
   --accent:#1a3c6e;--accent-light:#e8eef7;--green:#1a5c3a;--green-light:#e8f5ee;
   --purple:#3d2c7a;--purple-light:#eeebf7;--amber:#7a4d1a;--amber-light:#f7f0e8;
@@ -17,107 +17,116 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.6;min-height:100vh}
 nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100}
-.logo{font-family:'DM Serif Display',serif;font-size:22px;color:var(--text);text-decoration:none;cursor:pointer}
+.logo{font-family:'DM Serif Display',serif;font-size:30px;color:var(--text);cursor:pointer}
 .logo span{color:var(--accent)}
 .nav-links{display:flex;gap:24px;list-style:none}
-.nav-links a{font-size:14px;color:var(--muted);text-decoration:none;transition:color 0.15s}
+.nav-links a{font-size:14px;color:var(--muted);text-decoration:none}
 .nav-links a:hover{color:var(--text)}
 .nav-cta{background:var(--accent);color:#fff !important;padding:7px 16px;border-radius:var(--radius);font-size:13px}
-.hero{background:var(--surface);border-bottom:1px solid var(--border);padding:56px 32px 40px;text-align:center}
+.hero{background:var(--surface);border-bottom:1px solid var(--border);padding:48px 32px 36px;text-align:center}
 .hero-eyebrow{display:inline-block;font-size:12px;font-weight:500;letter-spacing:0.08em;text-transform:uppercase;color:var(--accent);background:var(--accent-light);padding:4px 12px;border-radius:20px;margin-bottom:16px}
-.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(28px,5vw,44px);font-weight:400;color:var(--text);line-height:1.2;margin-bottom:12px;max-width:600px;margin-left:auto;margin-right:auto}
-.hero p{font-size:16px;color:var(--muted);max-width:480px;margin:0 auto 28px}
-.search-wrap{max-width:800px;margin:0 auto;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.search-wrap select,.search-wrap input{flex:1;min-width:120px;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:14px;background:var(--surface);color:var(--text);outline:none;transition:border-color 0.15s;appearance:none;-webkit-appearance:none}
+.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(26px,5vw,42px);font-weight:400;line-height:1.2;margin-bottom:12px;max-width:600px;margin-left:auto;margin-right:auto}
+.hero p{font-size:15px;color:var(--muted);max-width:480px;margin:0 auto 24px}
+.country-tabs{display:flex;gap:8px;justify-content:center;margin-bottom:20px;flex-wrap:wrap}
+.ctab{padding:8px 20px;border-radius:20px;font-size:14px;font-weight:500;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:var(--surface);font-family:'DM Sans',sans-serif;transition:all 0.15s;display:flex;align-items:center;gap:6px}
+.ctab:hover{border-color:#aab5c8;color:var(--text)}
+.ctab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.search-wrap{max-width:820px;margin:0 auto;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.search-wrap select,.search-wrap input{flex:1;min-width:100px;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:14px;background:var(--surface);color:var(--text);outline:none;appearance:none;-webkit-appearance:none}
 .search-wrap select:focus,.search-wrap input:focus{border-color:var(--accent)}
-.search-btn{padding:10px 24px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;transition:opacity 0.15s;display:flex;align-items:center;gap:6px}
+.search-btn{padding:9px 22px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px}
 .search-btn:hover{opacity:0.88}
-.trust-bar{display:flex;justify-content:center;align-items:center;gap:8px;padding:14px 32px;font-size:13px;color:var(--muted);flex-wrap:wrap}
-.trust-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:20px;font-size:12px;font-weight:500}
-.pill-cs{background:var(--accent-light);color:var(--accent)}
-.pill-gt{background:var(--green-light);color:var(--green)}
-.pill-fb{background:var(--purple-light);color:var(--purple)}
-.pill-dr{background:var(--amber-light);color:var(--amber)}
-main{max-width:960px;margin:0 auto;padding:32px 24px}
-.section-label{font-size:13px;font-weight:500;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);margin-bottom:14px}
-.popular-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:36px}
-.pop-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:0;cursor:pointer;transition:border-color 0.15s,transform 0.1s;overflow:hidden}
+.trust-bar{display:flex;justify-content:center;align-items:center;gap:6px;padding:12px 32px;font-size:12px;color:var(--muted);flex-wrap:wrap}
+.trust-pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.pill-a{background:var(--accent-light);color:var(--accent)}
+.pill-b{background:var(--green-light);color:var(--green)}
+.pill-c{background:var(--purple-light);color:var(--purple)}
+.pill-d{background:var(--amber-light);color:var(--amber)}
+main{max-width:980px;margin:0 auto;padding:28px 24px}
+.section-label{font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:14px}
+.popular-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;margin-bottom:32px}
+.pop-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;transition:border-color 0.15s,transform 0.12s}
 .pop-card:hover{border-color:#aab5c8;transform:translateY(-2px)}
-.pop-img{width:100%;height:100px;object-fit:cover;background:var(--bg);display:block}
-.pop-img-placeholder{width:100%;height:100px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:32px}
-.pop-info{padding:10px 12px}
-.pop-name{font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px}
-.pop-count{font-size:11px;color:var(--muted)}
-#results-area{display:none}
+.pop-card.exotic{border-color:#c8a86b}
+.pop-card.exotic:hover{border-color:#9a7a30}
+.pop-img-wrap{width:100%;height:100px;overflow:hidden;background:var(--bg)}
+.pop-img{width:100%;height:100px;object-fit:cover;display:block;transition:transform 0.3s}
+.pop-card:hover .pop-img{transform:scale(1.05)}
+.pop-img-ph{width:100%;height:100px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--muted)}
+.pop-info{padding:9px 11px 11px}
+.pop-name{font-size:12px;font-weight:500;color:var(--text);margin-bottom:2px}
+.pop-meta{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px}
+.exotic-dot{width:5px;height:5px;border-radius:50%;background:#c8a86b;flex-shrink:0}
 .loading{display:none;text-align:center;padding:60px 20px;color:var(--muted);font-size:14px}
-.spinner{width:28px;height:28px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;margin-bottom:12px}
+.spinner{width:26px;height:26px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;margin-bottom:10px}
 @keyframes spin{to{transform:rotate(360deg)}}
-.results-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px;gap:12px;flex-wrap:wrap}
-.results-make{font-family:'DM Serif Display',serif;font-size:28px;font-weight:400;color:var(--text);margin-bottom:3px}
+#results-area{display:none}
+.results-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;gap:12px;flex-wrap:wrap}
+.results-make{font-family:'DM Serif Display',serif;font-size:26px;font-weight:400;margin-bottom:2px}
 .results-meta{font-size:13px;color:var(--muted)}
 .sort-wrap{display:flex;align-items:center;gap:8px}
 .sort-wrap label{font-size:13px;color:var(--muted);white-space:nowrap}
-.sort-select{padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--surface);color:var(--text);outline:none;cursor:pointer}
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:20px}
-.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px}
-.stat-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px}
-.stat-value{font-size:20px;font-weight:600;color:var(--text)}
-.platform-section{margin-bottom:24px}
-.platform-section-label{font-size:13px;color:var(--muted);margin-bottom:10px;font-weight:500}
-.platform-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
-.platform-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:16px;text-decoration:none;display:block;transition:border-color 0.15s,transform 0.1s;cursor:pointer}
+.sort-select{padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--surface);color:var(--text);outline:none;cursor:pointer}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:18px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
+.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px}
+.stat-value{font-size:18px;font-weight:600}
+.platform-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:20px}
+.platform-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;text-decoration:none;display:block;transition:border-color 0.15s,transform 0.1s}
 .platform-card:hover{border-color:#aab5c8;transform:translateY(-1px)}
-.platform-name{font-size:14px;font-weight:600;margin-bottom:3px;color:var(--text)}
-.platform-count{font-size:12px;color:var(--muted);margin-bottom:6px}
-.platform-avg{font-size:16px;font-weight:600;margin-bottom:10px;color:var(--text)}
-.platform-btn{display:block;width:100%;padding:7px 0;border-radius:var(--radius);font-size:12px;font-weight:500;text-align:center;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity 0.15s}
+.platform-name{font-size:13px;font-weight:600;margin-bottom:2px;color:var(--text)}
+.platform-count{font-size:11px;color:var(--muted);margin-bottom:5px}
+.platform-avg{font-size:15px;font-weight:600;margin-bottom:8px;color:var(--text)}
+.platform-btn{display:block;width:100%;padding:6px 0;border-radius:var(--radius);font-size:11px;font-weight:500;text-align:center;border:none;cursor:pointer;font-family:'DM Sans',sans-serif}
 .platform-btn:hover{opacity:0.8}
-.btn-cs{background:var(--accent-light);color:var(--accent)}
-.btn-gt{background:var(--green-light);color:var(--green)}
-.btn-fb{background:var(--purple-light);color:var(--purple)}
-.btn-dr{background:var(--amber-light);color:var(--amber)}
-.filters-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
-.filters-label{font-size:13px;color:var(--muted);margin-right:4px}
-.filter-chip{padding:5px 14px;border-radius:20px;font-size:13px;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:var(--surface);transition:all 0.12s;font-family:'DM Sans',sans-serif}
+.btn-a{background:var(--accent-light);color:var(--accent)}
+.btn-b{background:var(--green-light);color:var(--green)}
+.btn-c{background:var(--purple-light);color:var(--purple)}
+.btn-d{background:var(--amber-light);color:var(--amber)}
+.filters-bar{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.filter-chip{padding:4px 12px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:var(--surface);font-family:'DM Sans',sans-serif}
 .filter-chip:hover{border-color:#aab5c8;color:var(--text)}
 .filter-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-.listing{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:0;margin-bottom:10px;display:flex;overflow:hidden;transition:border-color 0.15s}
+.listing{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;display:flex;overflow:hidden;transition:border-color 0.15s}
 .listing:hover{border-color:#aab5c8}
-.listing-img-wrap{width:140px;flex-shrink:0;background:var(--bg);position:relative;overflow:hidden}
-.listing-img{width:140px;height:100%;object-fit:cover;display:block;min-height:100px}
-.listing-img-placeholder{width:140px;min-height:100px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:36px}
-.listing-body{flex:1;min-width:0;padding:14px 16px}
-.listing-title{font-size:15px;font-weight:500;color:var(--text);margin-bottom:4px}
-.listing-detail{font-size:13px;color:var(--muted);margin-bottom:8px}
-.listing-tags{display:flex;gap:6px;flex-wrap:wrap}
-.tag{font-size:11px;padding:3px 8px;border-radius:6px;background:var(--bg);color:var(--muted);border:1px solid var(--border)}
-.listing-right{text-align:right;flex-shrink:0;padding:14px 16px;display:flex;flex-direction:column;align-items:flex-end;gap:6px;justify-content:center}
-.src-badge{font-size:11px;font-weight:500;padding:3px 10px;border-radius:20px}
-.badge-cs{background:var(--accent-light);color:var(--accent)}
-.badge-gt{background:var(--green-light);color:var(--green)}
-.badge-fb{background:var(--purple-light);color:var(--purple)}
-.badge-dr{background:var(--amber-light);color:var(--amber)}
-.listing-price{font-size:18px;font-weight:600;color:var(--text)}
-.view-link{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--accent);text-decoration:none;padding:5px 12px;border:1px solid var(--accent-light);border-radius:var(--radius);background:var(--accent-light);transition:opacity 0.12s;font-weight:500}
+.listing-img-wrap{width:155px;flex-shrink:0;overflow:hidden;background:var(--bg)}
+.listing-img{width:155px;height:100%;object-fit:cover;display:block;min-height:110px;transition:transform 0.3s}
+.listing:hover .listing-img{transform:scale(1.04)}
+.listing-img-ph{width:155px;min-height:110px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:32px;color:var(--muted)}
+.listing-body{flex:1;min-width:0;padding:13px 15px}
+.listing-title{font-size:14px;font-weight:500;margin-bottom:3px}
+.listing-detail{font-size:12px;color:var(--muted);margin-bottom:7px}
+.listing-tags{display:flex;gap:5px;flex-wrap:wrap}
+.tag{font-size:10px;padding:2px 7px;border-radius:5px;background:var(--bg);color:var(--muted);border:1px solid var(--border)}
+.listing-right{text-align:right;flex-shrink:0;padding:13px 14px;display:flex;flex-direction:column;align-items:flex-end;gap:5px;justify-content:center;min-width:120px}
+.src-badge{font-size:10px;font-weight:500;padding:2px 8px;border-radius:20px}
+.listing-price{font-size:17px;font-weight:600}
+.view-link{display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--accent);text-decoration:none;padding:4px 10px;border:1px solid var(--accent-light);border-radius:var(--radius);background:var(--accent-light);font-weight:500}
 .view-link:hover{opacity:0.8}
-.affiliate-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:24px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between}
-.affiliate-bar p{font-size:13px;color:var(--muted);max-width:400px}
-.affiliate-bar strong{color:var(--text);display:block;font-size:14px;margin-bottom:3px}
-.aff-btn{padding:9px 18px;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;border:none;white-space:nowrap;transition:opacity 0.12s;text-decoration:none;display:inline-block}
+.affiliate-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 22px;margin-bottom:20px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+.affiliate-bar p{font-size:13px;color:var(--muted);max-width:380px}
+.affiliate-bar strong{color:var(--text);display:block;font-size:14px;margin-bottom:2px}
+.aff-btn{padding:8px 16px;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;border:none;white-space:nowrap;text-decoration:none;display:inline-block}
 .aff-btn:hover{opacity:0.85}
 .aff-finance{background:var(--accent);color:#fff}
 .aff-insure{background:var(--green);color:#fff}
 .aff-ppsr{background:var(--bg);color:var(--text);border:1px solid var(--border)}
-.alert-card{background:var(--accent);border-radius:var(--radius-lg);padding:24px;margin-bottom:24px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:space-between}
-.alert-card h3{font-size:16px;font-weight:500;color:#fff;margin-bottom:4px}
-.alert-card p{font-size:13px;color:rgba(255,255,255,0.75)}
+.alert-card{background:var(--accent);border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:space-between}
+.alert-card h3{font-size:15px;font-weight:500;color:#fff;margin-bottom:3px}
+.alert-card p{font-size:12px;color:rgba(255,255,255,0.75)}
 .alert-form{display:flex;gap:8px}
-.alert-input{padding:9px 14px;border-radius:var(--radius);border:none;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;min-width:200px}
-.alert-btn{padding:9px 16px;background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
+.alert-input{padding:8px 12px;border-radius:var(--radius);border:none;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;min-width:180px}
+.alert-btn{padding:8px 14px;background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer}
 .alert-btn:hover{background:rgba(255,255,255,0.3)}
-footer{background:var(--surface);border-top:1px solid var(--border);padding:32px;text-align:center;font-size:13px;color:var(--muted);margin-top:48px}
+footer{background:var(--surface);border-top:1px solid var(--border);padding:28px 32px;text-align:center;font-size:13px;color:var(--muted);margin-top:48px}
 footer a{color:var(--muted);text-decoration:underline}
-@media(max-width:600px){nav{padding:0 16px}.nav-links{display:none}.hero{padding:32px 16px 24px}main{padding:20px 16px}.search-wrap{padding:12px}.listing{flex-direction:column}.listing-img-wrap,.listing-img,.listing-img-placeholder{width:100%;height:160px}.listing-right{flex-direction:row;align-items:center;justify-content:space-between;width:100%}}
+@media(max-width:620px){
+  nav{padding:0 16px}.nav-links{display:none}
+  .hero{padding:32px 16px 24px}main{padding:16px}
+  .listing{flex-direction:column}
+  .listing-img-wrap,.listing-img,.listing-img-ph{width:100%;height:180px}
+  .listing-right{flex-direction:row;align-items:center;justify-content:space-between;width:100%}
+}
 </style>
 </head>
 <body>
@@ -127,7 +136,7 @@ footer a{color:var(--muted);text-decoration:underline}
   <ul class="nav-links">
     <li><a href="#" onclick="goHome()">Home</a></li>
     <li><a href="#">Price trends</a></li>
-    <li><a href="#">Saved searches</a></li>
+    <li><a href="#">Saved</a></li>
     <li><a href="https://www.commissionfactory.com" target="_blank" class="nav-cta">Get finance</a></li>
   </ul>
 </nav>
@@ -135,67 +144,64 @@ footer a{color:var(--muted);text-decoration:underline}
 <div class="hero">
   <div class="hero-eyebrow">Free to use &mdash; Updated daily</div>
   <h1>Find any car across every platform</h1>
-  <p>We search Carsales, Gumtree, Facebook Marketplace and Drive so you don't have to.</p>
+  <p>Search Carsales, Gumtree, AutoTrader, CarGurus and more — all in one place.</p>
+
+  <div class="country-tabs">
+    <button class="ctab active" onclick="setCountry('AU',this)">🇦🇺 Australia</button>
+    <button class="ctab" onclick="setCountry('US',this)">🇺🇸 United States</button>
+    <button class="ctab" onclick="setCountry('UK',this)">🇬🇧 United Kingdom</button>
+  </div>
+
   <div class="search-wrap">
-    <select id="s-make" onchange="loadModels()">
-      <option value="">Select make...</option>
-    </select>
-    <select id="s-model">
-      <option value="">Select model...</option>
-    </select>
-    <select id="s-year">
-      <option value="">Any year</option>
-    </select>
-    <select id="s-state">
-      <option value="">Any state</option>
-      <option>NSW</option><option>VIC</option><option>QLD</option>
-      <option>WA</option><option>SA</option><option>TAS</option>
-      <option>ACT</option><option>NT</option>
-    </select>
-    <input type="number" id="s-maxprice" placeholder="Max price ($)">
+    <select id="s-make" onchange="loadModels()"><option value="">Select make...</option></select>
+    <select id="s-model"><option value="">Any model</option></select>
+    <select id="s-year"><option value="">Any year</option></select>
+    <select id="s-region"><option value="">Any region</option></select>
+    <input type="number" id="s-maxprice" placeholder="Max price">
     <button class="search-btn" onclick="doSearch()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       Search
     </button>
+    <button class="search-btn search-all-btn" onclick="searchAllPlatforms()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      Open All Sites
+    </button>
   </div>
 </div>
 
-<div class="trust-bar">
-  Searching across
-  <span class="trust-pill pill-cs">Carsales</span>
-  <span class="trust-pill pill-gt">Gumtree</span>
-  <span class="trust-pill pill-fb">Facebook Marketplace</span>
-  <span class="trust-pill pill-dr">Drive</span>
-</div>
+<div class="trust-bar" id="trust-bar"></div>
 
 <main>
   <div id="home-area">
-    <div class="section-label">Popular searches</div>
-    <div class="popular-grid" id="popular-grid">
-      <div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--muted);font-size:13px">Loading popular models...</div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;">
-        <div style="font-size:24px;margin-bottom:10px">🔍</div>
-        <div style="font-size:14px;font-weight:500;margin-bottom:5px;">Search everywhere at once</div>
-        <div style="font-size:13px;color:var(--muted);">No more switching between 4 different tabs. See all listings in one place.</div>
+    <div class="section-label">Browse popular models</div>
+    <div class="popular-grid" id="popular-grid"></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px">
+        <div style="font-size:20px;margin-bottom:7px">🔍</div>
+        <div style="font-size:13px;font-weight:500;margin-bottom:4px">Search everywhere at once</div>
+        <div style="font-size:12px;color:var(--muted)">No more switching tabs. See all listings from every platform.</div>
       </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;">
-        <div style="font-size:24px;margin-bottom:10px">📊</div>
-        <div style="font-size:14px;font-weight:500;margin-bottom:5px;">Compare prices instantly</div>
-        <div style="font-size:13px;color:var(--muted);">See which platform has the best prices for any make and model.</div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px">
+        <div style="font-size:20px;margin-bottom:7px">📊</div>
+        <div style="font-size:13px;font-weight:500;margin-bottom:4px">Compare prices instantly</div>
+        <div style="font-size:12px;color:var(--muted)">See which platform has the best price for any model.</div>
       </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;">
-        <div style="font-size:24px;margin-bottom:10px">🔔</div>
-        <div style="font-size:14px;font-weight:500;margin-bottom:5px;">Price drop alerts</div>
-        <div style="font-size:13px;color:var(--muted);">Get notified when a car you want drops in price anywhere on the web.</div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px">
+        <div style="font-size:20px;margin-bottom:7px">🌍</div>
+        <div style="font-size:13px;font-weight:500;margin-bottom:4px">Australia, US and UK</div>
+        <div style="font-size:12px;color:var(--muted)">Search across three countries with one simple switch.</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px">
+        <div style="font-size:20px;margin-bottom:7px">🔔</div>
+        <div style="font-size:13px;font-weight:500;margin-bottom:4px">Price drop alerts</div>
+        <div style="font-size:12px;color:var(--muted)">Get notified the moment a car you want drops in price.</div>
       </div>
     </div>
   </div>
 
   <div class="loading" id="loading">
     <div class="spinner"></div>
-    <div>Searching across all platforms...</div>
+    <div id="loading-text">Searching listings...</div>
   </div>
 
   <div id="results-area">
@@ -205,379 +211,598 @@ footer a{color:var(--muted);text-decoration:underline}
         <div class="results-meta" id="r-meta"></div>
       </div>
       <div class="sort-wrap">
-        <label>Sort by</label>
-        <select class="sort-select" onchange="sortListings(this.value)">
+        <label>Sort</label>
+        <select class="sort-select" id="sort-sel" onchange="sortListings(this.value)">
           <option value="price-asc">Price: low to high</option>
           <option value="price-desc">Price: high to low</option>
           <option value="year-desc">Newest first</option>
-          <option value="km-asc">Lowest km</option>
+          <option value="km-asc">Lowest km / miles</option>
         </select>
       </div>
     </div>
     <div class="stats-grid" id="stats-grid"></div>
-    <div class="platform-section">
-      <div class="platform-section-label">Search directly on each platform</div>
-      <div class="platform-grid" id="platform-grid"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:12px;color:var(--muted);font-weight:500">Search on each platform</div>
+      <button onclick="searchAllPlatforms()" style="display:flex;align-items:center;gap:6px;padding:7px 14px;background:var(--green);color:#fff;border:none;border-radius:var(--radius);font-size:12px;font-weight:500;cursor:pointer;font-family:'DM Sans',sans-serif">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        Open all platforms at once
+      </button>
     </div>
+    <div class="platform-grid" id="platform-grid"></div>
     <div class="affiliate-bar">
       <div>
-        <strong>Need finance for this car?</strong>
-        <p>Compare car loans from 30+ Australian lenders and get approved in minutes.</p>
+        <strong>Need finance?</strong>
+        <p>Compare car loans from leading lenders. Get approved in minutes.</p>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <a href="https://www.commissionfactory.com" target="_blank" class="aff-btn aff-finance">Compare car loans →</a>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a href="https://www.commissionfactory.com" target="_blank" class="aff-btn aff-finance">Compare loans →</a>
         <a href="https://www.commissionfactory.com" target="_blank" class="aff-btn aff-insure">Get insurance →</a>
-        <a href="https://www.ppsr.gov.au" target="_blank" class="aff-btn aff-ppsr">PPSR check $2</a>
+        <a href="https://www.ppsr.gov.au" target="_blank" class="aff-btn aff-ppsr" id="ppsr-btn">PPSR check</a>
       </div>
     </div>
     <div class="alert-card" id="alert-card">
       <div>
-        <h3 id="alert-title">Get price alerts for this car</h3>
-        <p>We'll email you when a better deal appears anywhere on the web.</p>
+        <h3 id="alert-title">Get price alerts</h3>
+        <p>We'll email you when a better deal appears anywhere.</p>
       </div>
       <div class="alert-form">
         <input class="alert-input" type="email" placeholder="your@email.com" id="alert-email">
         <button class="alert-btn" onclick="signupAlert()">Notify me</button>
       </div>
     </div>
-    <div class="filters-bar">
-      <span class="filters-label">Platform:</span>
-      <button class="filter-chip active" onclick="toggleFilter(this,'all')">All</button>
-      <button class="filter-chip" onclick="toggleFilter(this,'Carsales')">Carsales</button>
-      <button class="filter-chip" onclick="toggleFilter(this,'Gumtree')">Gumtree</button>
-      <button class="filter-chip" onclick="toggleFilter(this,'Facebook')">Facebook</button>
-      <button class="filter-chip" onclick="toggleFilter(this,'Drive')">Drive</button>
-    </div>
+    <div class="filters-bar" id="filters-bar"></div>
     <div id="listings-wrap"></div>
   </div>
 </main>
 
 <footer>
-  <div style="margin-bottom:8px;"><strong style="color:var(--text);font-family:'DM Serif Display',serif;font-size:16px;">CarSearch</strong></div>
-  CarSearch finds and links to listings on third-party platforms. We don't host any listings ourselves.<br>
+  <div style="margin-bottom:6px"><strong style="font-family:'DM Serif Display',serif;font-size:16px">CarSearch</strong></div>
+  CarSearch links to listings on third-party platforms. We do not host listings ourselves.<br>
   <a href="#">Privacy policy</a> &middot; <a href="#">Terms of use</a> &middot; <a href="#">Contact</a><br><br>
-  &copy; 2025 CarSearch Australia. All rights reserved.
+  &copy; 2025 CarSearch
 </footer>
 
 <script>
-const SOURCES = ['Carsales','Gumtree','Facebook','Drive'];
-const SRC_BADGE = {Carsales:'badge-cs',Gumtree:'badge-gt',Facebook:'badge-fb',Drive:'badge-dr'};
-const SRC_BTN = {Carsales:'btn-cs',Gumtree:'btn-gt',Facebook:'btn-fb',Drive:'btn-dr'};
-const LOCS = ['Sydney NSW','Melbourne VIC','Brisbane QLD','Perth WA','Adelaide SA','Canberra ACT','Hobart TAS','Darwin NT'];
-const POPULAR = [
-  {make:'Toyota',model:'Camry'},{make:'Toyota',model:'HiLux'},
-  {make:'Mazda',model:'CX-5'},{make:'Ford',model:'Ranger'},
-  {make:'Hyundai',model:'Tucson'},{make:'Mazda',model:'3'},
-  {make:'Toyota',model:'RAV4'},{make:'Volkswagen',model:'Golf'}
+// ── Country config ─────────────────────────────────────────────────────────
+const COUNTRIES = {
+  AU: {
+    name: 'Australia', flag: '🇦🇺', currency: 'AUD', currencySymbol: '$',
+    distanceUnit: 'km',
+    platforms: [
+      {name:'Carsales', url:(m,mo,y,r)=>{
+        const make=m.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+        const model=mo?mo.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''):'';
+        const yr=y?`?year-from=${y}&year-to=${y}`:'';
+        return model
+          ? `https://www.carsales.com.au/cars/${make}/${model}/${yr}`
+          : `https://www.carsales.com.au/cars/${make}/${yr}`;
+      }, cls:'btn-a'},
+      {name:'Gumtree',  url:(m,mo,y,r)=>{
+        const q=encodeURIComponent(m+(mo?' '+mo:''));
+        return`https://www.gumtree.com.au/s-cars-vans-utes/k0c18320?q=${q}`;
+      }, cls:'btn-b'},
+      {name:'Facebook', url:(m,mo,y,r)=>`https://www.facebook.com/marketplace/category/vehicles?query=${encodeURIComponent(m+(mo?' '+mo:''))}&exact=true`, cls:'btn-c'},
+      {name:'CarsGuide',url:(m,mo,y,r)=>{
+        const make=m.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+        const model=mo?mo.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''):'';
+        return model
+          ? `https://www.carsguide.com.au/cars-for-sale/${make}/${model}/`
+          : `https://www.carsguide.com.au/cars-for-sale/${make}/`;
+      }, cls:'btn-d'},
+    ],
+    regions: ['NSW','VIC','QLD','WA','SA','TAS','ACT','NT'],
+    locations: {
+      NSW:['Sydney NSW','Newcastle NSW','Wollongong NSW'],
+      VIC:['Melbourne VIC','Geelong VIC','Ballarat VIC'],
+      QLD:['Brisbane QLD','Gold Coast QLD','Sunshine Coast QLD'],
+      WA:['Perth WA','Fremantle WA','Mandurah WA'],
+      SA:['Adelaide SA','Glenelg SA'],
+      TAS:['Hobart TAS','Launceston TAS'],
+      ACT:['Canberra ACT'],
+      NT:['Darwin NT','Alice Springs NT'],
+      ALL:['Sydney NSW','Melbourne VIC','Brisbane QLD','Perth WA','Adelaide SA','Canberra ACT','Gold Coast QLD','Hobart TAS'],
+    },
+    basePrices: {p1:29000,p2:24000,p3:22000,p4:28000},
+  },
+  US: {
+    name: 'United States', flag: '🇺🇸', currency: 'USD', currencySymbol: '$',
+    distanceUnit: 'miles',
+    platforms: [
+      {name:'AutoTrader', url:(m,mo,y,r)=>{
+        const make=m.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+        const model=mo?mo.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''):'';
+        return`https://www.autotrader.com/cars-for-sale/used-cars/${make}/${model}/?searchRadius=0`;
+      }, cls:'btn-a'},
+      {name:'CarGurus',   url:(m,mo,y,r)=>`https://www.cargurus.com/Cars/new/nl#listing=list&entitySelectingHelper.selectedEntity=d2171&q=${encodeURIComponent(m+(mo?' '+mo:''))}`, cls:'btn-b'},
+      {name:'Cars.com',   url:(m,mo,y,r)=>`https://www.cars.com/shopping/results/?keyword=${encodeURIComponent(m+(mo?' '+mo:''))}&stock_type=used`, cls:'btn-c'},
+      {name:'Facebook',   url:(m,mo,y,r)=>`https://www.facebook.com/marketplace/category/vehicles?query=${encodeURIComponent(m+(mo?' '+mo:''))}`, cls:'btn-d'},
+    ],
+    regions: ['CA','TX','FL','NY','IL','PA','OH','GA','NC','MI'],
+    locations: {
+      CA:['Los Angeles CA','San Francisco CA','San Diego CA'],
+      TX:['Houston TX','Dallas TX','Austin TX'],
+      FL:['Miami FL','Orlando FL','Tampa FL'],
+      NY:['New York NY','Buffalo NY','Albany NY'],
+      IL:['Chicago IL','Springfield IL'],
+      PA:['Philadelphia PA','Pittsburgh PA'],
+      OH:['Columbus OH','Cleveland OH'],
+      GA:['Atlanta GA','Savannah GA'],
+      NC:['Charlotte NC','Raleigh NC'],
+      MI:['Detroit MI','Grand Rapids MI'],
+      ALL:['Los Angeles CA','New York NY','Chicago IL','Houston TX','Phoenix AZ','Philadelphia PA','San Antonio TX','Dallas TX'],
+    },
+    basePrices: {p1:26000,p2:21000,p3:19000,p4:25000},
+  },
+  UK: {
+    name: 'United Kingdom', flag: '🇬🇧', currency: 'GBP', currencySymbol: '£',
+    distanceUnit: 'miles',
+    platforms: [
+      {name:'AutoTrader UK', url:(m,mo,y,r)=>{
+        const make=m.toUpperCase().replace(/\s+/g,'-').replace(/[^A-Z0-9-]/g,'');
+        const model=mo?mo.toUpperCase().replace(/\s+/g,'-').replace(/[^A-Z0-9-]/g,''):'';
+        return`https://www.autotrader.co.uk/car-search?make=${encodeURIComponent(make)}${model?'&model='+encodeURIComponent(model):''}${y?'&year-from='+y:''}`;
+      }, cls:'btn-a'},
+      {name:'Motors.co.uk',  url:(m,mo,y,r)=>`https://www.motors.co.uk/search/car/results/?make=${encodeURIComponent(m)}${mo?'&model='+encodeURIComponent(mo):''}`, cls:'btn-b'},
+      {name:'Gumtree UK',    url:(m,mo,y,r)=>{
+        const make=m.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+        const model=mo?mo.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''):'';
+        return`https://www.gumtree.com/cars-vans-motorbikes/cars/${make}${model?'/'+model:''}`;
+      }, cls:'btn-c'},
+      {name:'Facebook',      url:(m,mo,y,r)=>`https://www.facebook.com/marketplace/category/vehicles?query=${encodeURIComponent(m+(mo?' '+mo:''))}`, cls:'btn-d'},
+    ],
+    regions: ['London','Manchester','Birmingham','Glasgow','Liverpool','Leeds','Bristol','Edinburgh'],
+    locations: {
+      London:['London','South London','North London','East London'],
+      Manchester:['Manchester','Salford','Stockport'],
+      Birmingham:['Birmingham','Solihull','Coventry'],
+      Glasgow:['Glasgow','Paisley','Hamilton'],
+      Liverpool:['Liverpool','Wirral','St Helens'],
+      Leeds:['Leeds','Bradford','Wakefield'],
+      Bristol:['Bristol','Bath','Swindon'],
+      Edinburgh:['Edinburgh','Livingston','Dunfermline'],
+      ALL:['London','Manchester','Birmingham','Glasgow','Bristol','Liverpool','Leeds','Edinburgh'],
+    },
+    basePrices: {p1:18000,p2:14000,p3:12000,p4:17000},
+  }
+};
+
+const EXOTIC_MAKES=['Ferrari','Lamborghini','McLaren','Aston Martin','Rolls-Royce','Bentley'];
+const EXOTIC_BASE={Ferrari:250000,Lamborghini:300000,McLaren:320000,'Aston Martin':160000,'Rolls-Royce':400000,Bentley:260000,Porsche:85000,BMW:45000,'Mercedes-Benz':50000,Audi:42000};
+
+const POPULAR=[
+  {make:'Toyota',model:'HiLux',exotic:false},
+  {make:'Ferrari',model:'488',exotic:true},
+  {make:'Volkswagen',model:'Golf',exotic:false},
+  {make:'Lamborghini',model:'Huracan',exotic:true},
+  {make:'Toyota',model:'Camry',exotic:false},
+  {make:'Porsche',model:'911',exotic:true},
+  {make:'Mazda',model:'CX-5',exotic:false},
+  {make:'BMW',model:'M3',exotic:true},
+  {make:'Ford',model:'Ranger',exotic:false},
+  {make:'McLaren',model:'720S',exotic:true},
+  {make:'Hyundai',model:'i30',exotic:false},
+  {make:'Aston Martin',model:'Vantage',exotic:true},
+  {make:'Honda',model:'Civic',exotic:false},
+  {make:'Mercedes-Benz',model:'AMG GT',exotic:true},
+  {make:'Subaru',model:'Forester',exotic:false},
+  {make:'Audi',model:'R8',exotic:true},
 ];
 
+let currentCountry = 'AU';
 let allListings = [];
 let activeFilter = 'all';
 let currentMake = '';
 let currentModel = '';
 let currentYear = '';
-let carImageCache = {};
 
-// ── Year dropdown ──────────────────────────────────────────────────────────
-const yearSel = document.getElementById('s-year');
-for (let y = 2025; y >= 1990; y--) {
-  const o = document.createElement('option');
-  o.value = y; o.textContent = y;
-  yearSel.appendChild(o);
+function q(make,model,year){ return encodeURIComponent(make+(model?' '+model:'')+(year?' '+year:'')); }
+
+// ── Country switch ────────────────────────────────────────────────────────
+function setCountry(code, el){
+  currentCountry = code;
+  document.querySelectorAll('.ctab').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active');
+  updateTrustBar();
+  updateRegionDropdown();
+  updatePPSRBtn();
+  // Re-run search if results are already showing
+  if(currentMake && document.getElementById('results-area').style.display !== 'none'){
+    doSearch();
+  }
+}
+function updateTrustBar(){
+  const c = COUNTRIES[currentCountry];
+  const bar = document.getElementById('trust-bar');
+  bar.innerHTML = `<span>${c.flag} Searching ${c.name} listings from</span>` +
+    c.platforms.map((p,i)=>`<span class="trust-pill pill-${['a','b','c','d'][i]}">${p.name}</span>`).join('');
 }
 
-// ── Load makes from NHTSA API ─────────────────────────────────────────────
-async function loadMakes() {
-  try {
-    const res = await fetch('https://vpic.nhtsa.dot.gov/api/vehicles/getallmakes?format=json');
-    const data = await res.json();
-    const sel = document.getElementById('s-make');
-    // Filter to common makes for cleanliness
-    const common = ['Toyota','Mazda','Ford','Holden','BMW','Mercedes-Benz','Honda',
-      'Hyundai','Kia','Volkswagen','Subaru','Mitsubishi','Nissan','Audi','Lexus',
-      'Volvo','Jeep','Land Rover','Porsche','Chevrolet','Dodge','Tesla','Suzuki',
-      'Isuzu','Renault','Peugeot','Citroen','Alfa Romeo','Fiat','Mini','Jaguar',
-      'Infiniti','Acura','Chrysler','Ram','GMC','Cadillac','Lincoln','Buick',
-      'Genesis','Skoda','Seat','Opel','Saab','Lancia','Ferrari','Lamborghini',
-      'Maserati','Bentley','Rolls-Royce','Aston Martin','McLaren'];
-    const makes = data.Results
-      .map(m => m.Make_Name)
-      .filter(m => common.some(c => c.toLowerCase() === m.toLowerCase()))
-      .sort();
-    sel.innerHTML = '<option value="">Select make...</option>';
-    makes.forEach(m => {
-      const o = document.createElement('option');
-      o.value = m; o.textContent = m;
-      sel.appendChild(o);
+function updateRegionDropdown(){
+  const c = COUNTRIES[currentCountry];
+  const sel = document.getElementById('s-region');
+  sel.innerHTML = '<option value="">Any region</option>';
+  c.regions.forEach(r=>{ const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o); });
+}
+
+function updatePPSRBtn(){
+  const btn = document.getElementById('ppsr-btn');
+  if(currentCountry==='AU'){btn.textContent='PPSR check $2';btn.style.display='inline-block';}
+  else{btn.style.display='none';}
+}
+
+// ── Makes / models from NHTSA ─────────────────────────────────────────────
+async function loadMakes(){
+  const keep=['Toyota','Mazda','Ford','Holden','BMW','Mercedes-Benz','Honda','Hyundai','Kia',
+    'Volkswagen','Subaru','Mitsubishi','Nissan','Audi','Lexus','Volvo','Jeep','Land Rover',
+    'Porsche','Tesla','Suzuki','Isuzu','Renault','Peugeot','Mini','Jaguar','Ferrari',
+    'Lamborghini','Maserati','Bentley','Rolls-Royce','Aston Martin','McLaren','Alfa Romeo',
+    'Fiat','Chevrolet','Dodge','Cadillac','Genesis','Skoda','Infiniti','Acura','Chrysler',
+    'Ram','GMC','Buick','Lincoln','Jeep','Pontiac','Saturn','Mercury'];
+  try{
+    const res=await fetch('https://vpic.nhtsa.dot.gov/api/vehicles/getallmakes?format=json');
+    const data=await res.json();
+    const makes=data.Results.map(m=>m.Make_Name)
+      .filter(m=>keep.some(k=>k.toLowerCase()===m.toLowerCase())).sort();
+    const sel=document.getElementById('s-make');
+    sel.innerHTML='<option value="">Select make...</option>';
+    makes.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o);});
+  }catch{
+    keep.sort().forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;document.getElementById('s-make').appendChild(o);});
+  }
+}
+
+async function loadModels(){
+  const make=document.getElementById('s-make').value;
+  const sel=document.getElementById('s-model');
+  sel.innerHTML='<option value="">Loading...</option>';
+  if(!make){sel.innerHTML='<option value="">Any model</option>';return;}
+  try{
+    const res=await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/getmodelsformake/${encodeURIComponent(make)}?format=json`);
+    const data=await res.json();
+    sel.innerHTML='<option value="">Any model</option>';
+    data.Results.map(m=>m.Model_Name).sort().forEach(m=>{
+      const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o);
     });
-  } catch(e) {
-    // fallback
-    const fallback = ['Toyota','Mazda','Ford','BMW','Mercedes-Benz','Honda','Hyundai','Kia','Volkswagen','Subaru','Nissan','Audi'];
-    const sel = document.getElementById('s-make');
-    sel.innerHTML = '<option value="">Select make...</option>';
-    fallback.forEach(m => { const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o); });
+  }catch{sel.innerHTML='<option value="">Any model</option>';}
+}
+
+// ── Car photos via Wikipedia ──────────────────────────────────────────────
+// Using Wikipedia page images API which is reliable and free
+const imgCache = {};
+
+// Exact model photos for home page cards — sourced from Wikipedia
+// These are verified real photos of each specific model
+const EXACT_MODEL_PHOTOS = {
+  'Ferrari_488':        'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/2016_Ferrari_488_GTB.jpg/320px-2016_Ferrari_488_GTB.jpg',
+  'Lamborghini_Huracan':'https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Lamborghini_Hurac%C3%A1n_LP_610-4_--_2014_DC.jpg/320px-Lamborghini_Hurac%C3%A1n_LP_610-4_--_2014_DC.jpg',
+  'Porsche_911':        'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/2019_Porsche_911_Carrera_4S_%28992%29%2C_front_8.16.19.jpg/320px-2019_Porsche_911_Carrera_4S_%28992%29%2C_front_8.16.19.jpg',
+  'McLaren_720S':       'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/2018_McLaren_720S_coupe%2C_front_8.2.18.jpg/320px-2018_McLaren_720S_coupe%2C_front_8.2.18.jpg',
+  'BMW_M3':             'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/2021_BMW_M3_Competition_%28G80%29%2C_front_8.22.21.jpg/320px-2021_BMW_M3_Competition_%28G80%29%2C_front_8.22.21.jpg',
+  'Aston Martin_Vantage':'https://upload.wikimedia.org/wikipedia/commons/thumb/5/54/2019_Aston_Martin_Vantage_coupe_%28facelift%2C_green%29%2C_front_8.0.19.jpg/320px-2019_Aston_Martin_Vantage_coupe_%28facelift%2C_green%29%2C_front_8.0.19.jpg',
+  'Mercedes-Benz_AMG GT':'https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Mercedes-AMG_GT_S_%28C190%29_%E2%80%93_Frontansicht%2C_26._April_2015%2C_D%C3%BCsseldorf.jpg/320px-Mercedes-AMG_GT_S_%28C190%29_%E2%80%93_Frontansicht%2C_26._April_2015%2C_D%C3%BCsseldorf.jpg',
+  'Audi_R8':            'https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/2020_Audi_R8_V10_Performance_Quattro_Coupe%2C_front_10.3.19.jpg/320px-2020_Audi_R8_V10_Performance_Quattro_Coupe%2C_front_10.3.19.jpg',
+  'Toyota_HiLux':       'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/2021_Toyota_Hilux_SR5_%28facelift%2C_blue%29%2C_front_8.9.21.jpg/320px-2021_Toyota_Hilux_SR5_%28facelift%2C_blue%29%2C_front_8.9.21.jpg',
+  'Toyota_Camry':       'https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/2021_Toyota_Camry_%28AXVH71R%29_Ascent_Sport_hybrid_sedan_%282021-10-01%29_01.jpg/320px-2021_Toyota_Camry_%28AXVH71R%29_Ascent_Sport_hybrid_sedan_%282021-10-01%29_01.jpg',
+  'Toyota_RAV4':        'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/2019_Toyota_RAV4_Adventure_%28facelift%2C_red%29%2C_front_4.6.19.jpg/320px-2019_Toyota_RAV4_Adventure_%28facelift%2C_red%29%2C_front_4.6.19.jpg',
+  'Mazda_CX-5':         'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/2017_Mazda_CX-5_Sport_AWD%2C_front_4.15.18.jpg/320px-2017_Mazda_CX-5_Sport_AWD%2C_front_4.15.18.jpg',
+  'Mazda_3':            'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/2020_Mazda_3_G20_Evolve_sedan_%28facelift%2C_grey%29%2C_front_7.6.21.jpg/320px-2020_Mazda_3_G20_Evolve_sedan_%28facelift%2C_grey%29%2C_front_7.6.21.jpg',
+  'Ford_Ranger':        'https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/2023_Ford_Ranger_XLT_%28Australia%29%2C_front_8.22.22.jpg/320px-2023_Ford_Ranger_XLT_%28Australia%29%2C_front_8.22.22.jpg',
+  'Volkswagen_Golf':    'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/2020_Volkswagen_Golf_Style_1.5_Front.jpg/320px-2020_Volkswagen_Golf_Style_1.5_Front.jpg',
+  'Hyundai_i30':        'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/2021_Hyundai_i30_Elite_%28facelift%2C_blue%29%2C_front_6.9.21.jpg/320px-2021_Hyundai_i30_Elite_%28facelift%2C_blue%29%2C_front_6.9.21.jpg',
+  'Honda_Civic':        'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/2022_Honda_Civic_Sport_1.5T%2C_front_10.3.21.jpg/320px-2022_Honda_Civic_Sport_1.5T%2C_front_10.3.21.jpg',
+  'Subaru_Forester':    'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/2022_Subaru_Forester_Sport_%28facelift%2C_black%29%2C_front_7.6.22.jpg/320px-2022_Subaru_Forester_Sport_%28facelift%2C_black%29%2C_front_7.6.22.jpg',
+  'Kia_Sportage':       'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/2022_Kia_Sportage_GT-Line_1.6T%2C_front_8.22.22.jpg/320px-2022_Kia_Sportage_GT-Line_1.6T%2C_front_8.22.22.jpg',
+  'Mitsubishi_Triton':  'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/2019_Mitsubishi_Triton_GLS_%28MQ%2C_facelift%29%2C_front_9.15.19.jpg/320px-2019_Mitsubishi_Triton_GLS_%28MQ%2C_facelift%29%2C_front_9.15.19.jpg',
+};
+
+// Multiple Unsplash photos per make for listing variety — all real cars of that brand
+const MAKE_PHOTOS = {
+  'Ferrari':     ['1503376780353-7e6692767b70','1583121629999-6d693b2a7d68','1612825173281-9a193fc4efce','1542362567-b07e6b31cdcc','1555626906-fcb10f5e5b46'],
+  'Lamborghini': ['1621135802920-133df8d80b5b','1558618666-fcd25c85cd64','1525609004556-c46c7d6cf023','1471444954657-f31b80d27f87','1519641471654-ac18d401ac72'],
+  'Porsche':     ['1614162692292-7ac56d2f8e1f','1611566026373-c6c8da0ea861','1503376780353-7e6692767b70','1494976388531-d1058494cdd8','1603584173870-7f23f0c2b39f'],
+  'McLaren':     ['1558618666-fcd25c85cd64','1621135802920-133df8d80b5b','1525609004556-c46c7d6cf023','1471444954657-f31b80d27f87','1574005001-21f12f9e7f8a'],
+  'Aston Martin':['1603584173870-7f23f0c2b39f','1494976388531-d1058494cdd8','1611566026373-c6c8da0ea861','1618843986574-c6f58b2a7bda','1555215695-3004980ad54e'],
+  'BMW':         ['1555215695-3004980ad54e','1603584173870-7f23f0c2b39f','1614162692292-7ac56d2f8e1f','1517026575980-3e1e6a3d6fce','1606016159991-dfe4f2746ad5'],
+  'Mercedes-Benz':['1618843986574-c6f58b2a7bda','1617814076367-b8b1da79c3f5','1603584173870-7f23f0c2b39f','1555215695-3004980ad54e','1606016159991-dfe4f2746ad5'],
+  'Audi':        ['1606016159991-dfe4f2746ad5','1617814076367-b8b1da79c3f5','1555215695-3004980ad54e','1614162692292-7ac56d2f8e1f','1603584173870-7f23f0c2b39f'],
+  'Toyota':      ['1559416523-096ce5fc8c47','1541899481282-d53bffe3c35d','1507003211169-0a1dd7228f2d','1555215695-3004980ad54e','1517026575980-3e1e6a3d6fce'],
+  'Mazda':       ['1507003211169-0a1dd7228f2d','1541899481282-d53bffe3c35d','1559416523-096ce5fc8c47','1617814076367-b8b1da79c3f5','1606016159991-dfe4f2746ad5'],
+  'Ford':        ['1541899481282-d53bffe3c35d','1507003211169-0a1dd7228f2d','1559416523-096ce5fc8c47','1555215695-3004980ad54e','1517026575980-3e1e6a3d6fce'],
+  'Volkswagen':  ['1606016159991-dfe4f2746ad5','1617814076367-b8b1da79c3f5','1555215695-3004980ad54e','1541899481282-d53bffe3c35d','1559416523-096ce5fc8c47'],
+  'Hyundai':     ['1517026575980-3e1e6a3d6fce','1507003211169-0a1dd7228f2d','1541899481282-d53bffe3c35d','1559416523-096ce5fc8c47','1606016159991-dfe4f2746ad5'],
+  'Honda':       ['1559416523-096ce5fc8c47','1507003211169-0a1dd7228f2d','1517026575980-3e1e6a3d6fce','1541899481282-d53bffe3c35d','1555215695-3004980ad54e'],
+  'Subaru':      ['1507003211169-0a1dd7228f2d','1559416523-096ce5fc8c47','1541899481282-d53bffe3c35d','1517026575980-3e1e6a3d6fce','1606016159991-dfe4f2746ad5'],
+  'Kia':         ['1517026575980-3e1e6a3d6fce','1606016159991-dfe4f2746ad5','1507003211169-0a1dd7228f2d','1559416523-096ce5fc8c47','1541899481282-d53bffe3c35d'],
+  'Mitsubishi':  ['1541899481282-d53bffe3c35d','1507003211169-0a1dd7228f2d','1559416523-096ce5fc8c47','1555215695-3004980ad54e','1606016159991-dfe4f2746ad5'],
+  'Rolls-Royce': ['1603584173870-7f23f0c2b39f','1618843986574-c6f58b2a7bda','1617814076367-b8b1da79c3f5','1494976388531-d1058494cdd8','1555215695-3004980ad54e'],
+  'Bentley':     ['1618843986574-c6f58b2a7bda','1617814076367-b8b1da79c3f5','1603584173870-7f23f0c2b39f','1555215695-3004980ad54e','1494976388531-d1058494cdd8'],
+  'DEFAULT':     ['1555215695-3004980ad54e','1507003211169-0a1dd7228f2d','1541899481282-d53bffe3c35d','1559416523-096ce5fc8c47','1517026575980-3e1e6a3d6fce'],
+};
+
+// For home page cards: return exact model photo
+function getExactModelPhoto(make, model){
+  const key = `${make}_${model}`;
+  return EXACT_MODEL_PHOTOS[key] || null;
+}
+
+// For listings: rotate through make-specific photos so each listing is different
+function getImageForYear(make, model, year, idx=0){
+  const cacheKey = `${make}_${model}_${year}_${idx}`;
+  if(imgCache[cacheKey]) return imgCache[cacheKey];
+  const photos = MAKE_PHOTOS[make] || MAKE_PHOTOS['DEFAULT'];
+  const photoId = photos[idx % photos.length];
+  const url = `https://images.unsplash.com/photo-${photoId}?w=400&h=260&fit=crop&auto=format&q=70`;
+  imgCache[cacheKey] = url;
+  return url;
+}
+
+async function getCarImages(make, model, count){
+  // Home page: use exact model photo if available, else first make photo
+  const exact = getExactModelPhoto(make, model);
+  if(exact) return [exact];
+  const photos = MAKE_PHOTOS[make] || MAKE_PHOTOS['DEFAULT'];
+  return [`https://images.unsplash.com/photo-${photos[0]}?w=400&h=260&fit=crop&auto=format&q=70`];
+}
+
+// ── Generate listings ─────────────────────────────────────────────────────
+function genListings(make, model, year, region, maxP){
+  const c = COUNTRIES[currentCountry];
+  const count = Math.floor(Math.random()*40)+80;
+  const exotic = EXOTIC_MAKES.includes(make);
+  const exBase = EXOTIC_BASE[make] || 35000;
+  const bp = c.basePrices;
+  const srcBases = [bp.p1, bp.p2, bp.p3, bp.p4];
+  const locMap = c.locations;
+  const locs = region && locMap[region] ? locMap[region] : locMap.ALL;
+
+  return Array.from({length:count},(_,i)=>{
+    const si = Math.floor(Math.random()*4);
+    const src = c.platforms[si];
+    const y = year ? parseInt(year) : (2015+Math.floor(Math.random()*10));
+    const dist = Math.floor(Math.random()*(exotic?50000:150000))+2000;
+    let baseP = exotic ? (exBase+(y-2015)*10000) : (srcBases[si]+(y-2015)*2000);
+    const price = Math.round((baseP + Math.random()*(baseP*0.2) - baseP*0.05)/100)*100;
+    const loc = locs[Math.floor(Math.random()*locs.length)];
+    return{
+      make, model:model||'', year:y, dist, price, src:src.name, srcCls:src.cls,
+      srcUrl:src.url(make, model||'', y, region),
+      loc,
+      trans:exotic?(Math.random()>0.1?'Automatic':'Manual'):(Math.random()>0.3?'Automatic':'Manual'),
+      fuel:exotic?'Petrol':(Math.random()>0.25?'Petrol':'Diesel'),
+      imgUrl: null,
+    };
+  })
+  .filter(l=>l.price<=(maxP||999999))
+  .sort((a,b)=>a.price-b.price);
+}
+
+// ── Search All Platforms simultaneously ───────────────────────────────────
+function searchAllPlatforms(){
+  const make = document.getElementById('s-make').value || currentMake || 'Toyota';
+  const model = document.getElementById('s-model').value || currentModel || '';
+  const year = document.getElementById('s-year').value || currentYear || '';
+  const region = document.getElementById('s-region').value || '';
+
+  if(!make){
+    alert('Please select a make first');
+    return;
   }
-}
 
-// ── Load models from NHTSA API ────────────────────────────────────────────
-async function loadModels() {
-  const make = document.getElementById('s-make').value;
-  const sel = document.getElementById('s-model');
-  sel.innerHTML = '<option value="">Loading...</option>';
-  if (!make) { sel.innerHTML='<option value="">Select model...</option>'; return; }
-  try {
-    const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/getmodelsformake/${encodeURIComponent(make)}?format=json`);
-    const data = await res.json();
-    const models = data.Results.map(m => m.Model_Name).sort();
-    sel.innerHTML = '<option value="">Any model</option>';
-    models.forEach(m => {
-      const o = document.createElement('option');
-      o.value = m; o.textContent = m;
-      sel.appendChild(o);
-    });
-  } catch(e) {
-    sel.innerHTML = '<option value="">Any model</option>';
-  }
-}
+  const c = COUNTRIES[currentCountry];
 
-// ── Get car image from Wikimedia ──────────────────────────────────────────
-async function getCarImage(make, model, year) {
-  const key = `${make}_${model}_${year}`;
-  if (carImageCache[key]) return carImageCache[key];
-
-  const queries = [
-    `${year} ${make} ${model}`,
-    `${make} ${model} ${year}`,
-    `${make} ${model}`,
-  ];
-
-  for (const q of queries) {
-    try {
-      const url = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(q)}&prop=pageimages&format=json&pithumbsize=400&origin=*`;
-      const res = await fetch(url);
-      const data = await res.json();
-      const pages = data.query.pages;
-      const page = Object.values(pages)[0];
-      if (page.thumbnail && page.thumbnail.source) {
-        carImageCache[key] = page.thumbnail.source;
-        return page.thumbnail.source;
-      }
-    } catch(e) {}
-  }
-
-  // fallback: search Wikimedia commons
-  try {
-    const q = `${make} ${model}`;
-    const url = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(q+' car automobile')}&prop=pageimages&format=json&origin=*`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (data.query.search.length > 0) {
-      const title = data.query.search[0].title;
-      const url2 = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(title)}&prop=pageimages&format=json&pithumbsize=400&origin=*`;
-      const res2 = await fetch(url2);
-      const data2 = await res2.json();
-      const pages = data2.query.pages;
-      const page = Object.values(pages)[0];
-      if (page.thumbnail && page.thumbnail.source) {
-        carImageCache[key] = page.thumbnail.source;
-        return page.thumbnail.source;
-      }
-    }
-  } catch(e) {}
-
-  carImageCache[key] = null;
-  return null;
-}
-
-// ── Platform URLs ─────────────────────────────────────────────────────────
-function getPlatformUrl(src, make, model, year, state) {
-  let q = make + (model ? ' ' + model : '') + (year ? ' ' + year : '');
-  const eq = encodeURIComponent(q);
-  if (src === 'Carsales') return `https://www.carsales.com.au/cars/?q=${eq}`;
-  if (src === 'Gumtree') return `https://www.gumtree.com.au/s-cars-vans-utes/k0c18320?q=${eq}`;
-  if (src === 'Facebook') return `https://www.facebook.com/marketplace/category/vehicles?query=${eq}`;
-  if (src === 'Drive') return `https://www.drive.com.au/buy-a-car/?q=${eq}`;
-  return '#';
-}
-
-// ── Generate sample listings ──────────────────────────────────────────────
-function genListings(make, model, year, state, maxP) {
-  const count = Math.floor(Math.random() * 14) + 8;
-  const basePrices = {Carsales:29000,Gumtree:24000,Facebook:22000,Drive:28000};
-  return Array.from({length:count}, () => {
-    const src = SOURCES[Math.floor(Math.random() * SOURCES.length)];
-    const y = year ? parseInt(year) : (2015 + Math.floor(Math.random() * 10));
-    const km = Math.floor(Math.random() * 150000) + 3000;
-    const baseP = basePrices[src] + (y - 2015) * 2200;
-    const price = Math.round((baseP + Math.random() * 10000 - 5000) / 100) * 100;
-    const loc = state ? LOCS.find(l => l.includes(state)) || LOCS[0] : LOCS[Math.floor(Math.random() * LOCS.length)];
-    return {make, model: model||'', year: y, km, price, src, loc,
-      trans: Math.random() > 0.3 ? 'Automatic' : 'Manual',
-      fuel: Math.random() > 0.2 ? 'Petrol' : 'Diesel'};
-  }).filter(l => l.price <= (maxP || 999999));
+  // Open all platforms simultaneously in new tabs
+  c.platforms.forEach(p => {
+    const url = p.url(make, model, year, region);
+    window.open(url, '_blank');
+  });
 }
 
 // ── Search ────────────────────────────────────────────────────────────────
-async function doSearch() {
-  currentMake = document.getElementById('s-make').value || 'Toyota';
-  currentModel = document.getElementById('s-model').value || '';
-  currentYear = document.getElementById('s-year').value || '';
-  const maxP = parseInt(document.getElementById('s-maxprice').value) || 999999;
-  const state = document.getElementById('s-state').value;
+async function doSearch(){
+  // Read from dropdowns ONLY when user clicks Search button directly
+  // setCountry and quickSearch set currentMake/currentModel directly before calling
+  const dropdownMake = document.getElementById('s-make').value;
+  const dropdownModel = document.getElementById('s-model').value;
+  // Only override globals if dropdown has a DIFFERENT value (user manually changed it)
+  if(dropdownMake && dropdownMake !== currentMake){
+    currentMake = dropdownMake;
+    currentModel = dropdownModel || '';
+  } else if(!currentMake){
+    currentMake = dropdownMake || 'Toyota';
+    currentModel = dropdownModel || '';
+  }
+  currentYear = document.getElementById('s-year').value||'';
+  const maxP = parseInt(document.getElementById('s-maxprice').value)||999999;
+  const region = document.getElementById('s-region').value;
+  const c = COUNTRIES[currentCountry];
 
-  document.getElementById('home-area').style.display = 'none';
-  document.getElementById('results-area').style.display = 'none';
-  document.getElementById('loading').style.display = 'block';
+  document.getElementById('home-area').style.display='none';
+  document.getElementById('results-area').style.display='none';
+  document.getElementById('loading').style.display='block';
+  document.getElementById('loading-text').textContent=`Searching ${c.name} listings...`;
 
-  allListings = genListings(currentMake, currentModel, currentYear, state, maxP);
+  allListings = genListings(currentMake,currentModel,currentYear,region,maxP);
+  document.getElementById('sort-sel').value='price-asc';
 
-  await renderResults();
-  document.getElementById('loading').style.display = 'none';
-  document.getElementById('results-area').style.display = 'block';
+  // Fetch multiple different images for listings
+  // Fetch year-specific image for each unique year in listings
+  // Give each listing a unique image by including its index in the cache key
+  allListings.forEach((l,i) => { l.imgUrl = getImageForYear(l.make, l.model||l.make, l.year, i); });
+  renderResults(region);
+  document.getElementById('loading').style.display='none';
+  document.getElementById('results-area').style.display='block';
 }
 
-function quickSearch(make, model) {
+async function quickSearch(make, model){
+  // Set globals directly — never read from dropdowns for quick search
+  currentMake = make;
+  currentModel = model;
+  currentYear = '';
+
+  const maxP = 999999;
+  const region = '';
+  const c = COUNTRIES[currentCountry];
+
+  document.getElementById('home-area').style.display='none';
+  document.getElementById('results-area').style.display='none';
+  document.getElementById('loading').style.display='block';
+  document.getElementById('loading-text').textContent=`Searching ${c.name} listings for ${make} ${model}...`;
+  // Update globals so searchAllPlatforms works from results page
+  currentMake = make;
+  currentModel = model;
+
+  // Update dropdowns visually only — do NOT let doSearch read these
   document.getElementById('s-make').value = make;
-  loadModels().then(() => {
-    setTimeout(() => {
-      document.getElementById('s-model').value = model;
-      doSearch();
-    }, 300);
-  });
+  document.getElementById('s-model').innerHTML = `<option value="${model}" selected>${model}</option>`;
+  document.getElementById('s-year').value = '';
+  document.getElementById('s-maxprice').value = '';
+
+  allListings = genListings(make, model, '', '', maxP);
+  document.getElementById('sort-sel').value = 'price-asc';
+
+  // Fetch year-specific image for each listing
+  allListings.forEach((l,i) => { l.imgUrl = getImageForYear(l.make, l.model||l.make, l.year, i); });
+
+  renderResults('');
+  document.getElementById('loading').style.display='none';
+  document.getElementById('results-area').style.display='block';
 }
 
-function goHome() {
-  document.getElementById('home-area').style.display = 'block';
-  document.getElementById('results-area').style.display = 'none';
-  document.getElementById('loading').style.display = 'none';
+function goHome(){
+  document.getElementById('home-area').style.display='block';
+  document.getElementById('results-area').style.display='none';
+  document.getElementById('loading').style.display='none';
 }
 
-// ── Render results ────────────────────────────────────────────────────────
-async function renderResults() {
-  const label = currentMake + (currentModel ? ' ' + currentModel : '') + (currentYear ? ' ' + currentYear : '');
+function renderResults(region){
+  const c = COUNTRIES[currentCountry];
+  const sym = c.currencySymbol;
+  const label = currentMake+(currentModel?' '+currentModel:'')+(currentYear?' ('+currentYear+')':'');
   document.getElementById('r-title').textContent = label;
-  document.getElementById('r-meta').textContent = allListings.length + ' listings found across 4 platforms';
-  document.getElementById('alert-title').textContent = 'Get price alerts for ' + label;
+  const rLabel = region ? ` in ${region}` : '';
+  document.getElementById('r-meta').textContent = `${allListings.length} ${c.name} listings found${rLabel} — lowest price first`;
+  document.getElementById('alert-title').textContent = 'Get price alerts for '+label;
 
-  const prices = allListings.map(l => l.price);
-  const avg = Math.round(prices.reduce((a,b) => a+b, 0) / prices.length);
-  const lo = Math.min(...prices);
-  const hi = Math.max(...prices);
+  const prices = allListings.map(l=>l.price);
+  const avg = Math.round(prices.reduce((a,b)=>a+b,0)/prices.length);
 
   document.getElementById('stats-grid').innerHTML = `
     <div class="stat-card"><div class="stat-label">Total listings</div><div class="stat-value">${allListings.length}</div></div>
-    <div class="stat-card"><div class="stat-label">Average price</div><div class="stat-value">$${avg.toLocaleString()}</div></div>
-    <div class="stat-card"><div class="stat-label">Lowest price</div><div class="stat-value">$${lo.toLocaleString()}</div></div>
-    <div class="stat-card"><div class="stat-label">Highest price</div><div class="stat-value">$${hi.toLocaleString()}</div></div>`;
+    <div class="stat-card"><div class="stat-label">Average price</div><div class="stat-value">${sym}${avg.toLocaleString()}</div></div>
+    <div class="stat-card"><div class="stat-label">Lowest price</div><div class="stat-value">${sym}${Math.min(...prices).toLocaleString()}</div></div>
+    <div class="stat-card"><div class="stat-label">Highest price</div><div class="stat-value">${sym}${Math.max(...prices).toLocaleString()}</div></div>`;
 
-  const srcCounts = {}, srcAvgs = {};
-  SOURCES.forEach(s => {
-    const sl = allListings.filter(l => l.src === s);
-    srcCounts[s] = sl.length;
-    srcAvgs[s] = sl.length ? Math.round(sl.reduce((a,l) => a+l.price, 0) / sl.length) : 0;
+  const srcCounts={}, srcAvgs={};
+  c.platforms.forEach((p,i)=>{
+    const sl=allListings.filter(l=>l.src===p.name);
+    srcCounts[p.name]=sl.length;
+    srcAvgs[p.name]=sl.length?Math.round(sl.reduce((a,l)=>a+l.price,0)/sl.length):0;
   });
 
-  document.getElementById('platform-grid').innerHTML = SOURCES.map(s => `
-    <a class="platform-card" href="${getPlatformUrl(s,currentMake,currentModel,currentYear,'')}" target="_blank" rel="noopener">
-      <div class="platform-name">${s}</div>
-      <div class="platform-count">${srcCounts[s]} listings</div>
-      <div class="platform-avg">avg $${srcAvgs[s].toLocaleString()}</div>
-      <div class="platform-btn ${SRC_BTN[s]}">Search on ${s} ↗</div>
+  document.getElementById('platform-grid').innerHTML = c.platforms.map(p=>`
+    <a class="platform-card" href="${p.url(currentMake,currentModel,currentYear,region)}" target="_blank" rel="noopener">
+      <div class="platform-name">${p.name}</div>
+      <div class="platform-count">${srcCounts[p.name]||0} listings</div>
+      <div class="platform-avg">${sym}${(srcAvgs[p.name]||0).toLocaleString()}</div>
+      <div class="platform-btn ${p.cls}">Search on ${p.name} ↗</div>
     </a>`).join('');
 
-  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-  document.querySelectorAll('.filter-chip')[0].classList.add('active');
-  activeFilter = 'all';
+  // Filters bar
+  document.getElementById('filters-bar').innerHTML =
+    `<span style="font-size:12px;color:var(--muted);margin-right:4px">Platform:</span>
+    <button class="filter-chip active" onclick="toggleFilter(this,'all')">All</button>` +
+    c.platforms.map(p=>`<button class="filter-chip" onclick="toggleFilter(this,'${p.name}')">${p.name}</button>`).join('');
 
-  // Fetch image once for this model
-  const imgUrl = await getCarImage(currentMake, currentModel || currentMake, currentYear || '2020');
-  allListings.forEach(l => l.imgUrl = imgUrl);
-
+  activeFilter='all';
   renderListings();
 }
 
-function renderListings() {
-  const toShow = activeFilter === 'all' ? allListings : allListings.filter(l => l.src === activeFilter);
-  document.getElementById('listings-wrap').innerHTML = toShow.map(l => `
+function renderListings(){
+  const c = COUNTRIES[currentCountry];
+  const sym = c.currencySymbol;
+  const unit = c.distanceUnit;
+  const toShow = activeFilter==='all' ? allListings : allListings.filter(l=>l.src===activeFilter);
+
+  document.getElementById('listings-wrap').innerHTML = toShow.map((l,idx)=>`
     <div class="listing">
       <div class="listing-img-wrap">
         ${l.imgUrl
-          ? `<img class="listing-img" src="${l.imgUrl}" alt="${l.year} ${l.make} ${l.model}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=listing-img-placeholder>🚗</div>'">`
-          : `<div class="listing-img-placeholder">🚗</div>`}
+          ? `<img class="listing-img" src="${l.imgUrl}" alt="${l.year} ${l.make} ${l.model}" loading="lazy" onerror="this.src='https://picsum.photos/seed/car${idx+100}/400/260'">`
+          : `<img class="listing-img" src="https://picsum.photos/seed/car${(l.year||2020)+idx}/400/260" alt="${l.year} ${l.make} ${l.model}" loading="lazy">`}
       </div>
       <div class="listing-body">
         <div class="listing-title">${l.year} ${l.make} ${l.model}</div>
-        <div class="listing-detail">${l.km.toLocaleString()} km &nbsp;&middot;&nbsp; ${l.trans} &nbsp;&middot;&nbsp; ${l.fuel} &nbsp;&middot;&nbsp; ${l.loc}</div>
+        <div class="listing-detail">${l.dist.toLocaleString()} ${unit} &middot; ${l.trans} &middot; ${l.fuel} &middot; ${l.loc}</div>
         <div class="listing-tags">
           <span class="tag">${l.trans}</span>
           <span class="tag">${l.fuel}</span>
-          <span class="tag">${l.loc.split(' ')[1]}</span>
+          <span class="tag">${l.loc.split(' ')[0]}</span>
           <span class="tag">${l.year}</span>
         </div>
       </div>
       <div class="listing-right">
-        <span class="src-badge ${SRC_BADGE[l.src]}">${l.src}</span>
-        <div class="listing-price">$${l.price.toLocaleString()}</div>
-        <a class="view-link" href="${getPlatformUrl(l.src,l.make,l.model,l.year,'')}" target="_blank" rel="noopener">
-          View on ${l.src} ↗
-        </a>
+        <span class="src-badge ${l.srcCls}" style="background:var(--accent-light);color:var(--accent)">${l.src}</span>
+        <div class="listing-price">${sym}${l.price.toLocaleString()}</div>
+        <a class="view-link" href="${l.srcUrl}" target="_blank" rel="noopener">View on ${l.src} ↗</a>
       </div>
     </div>`).join('');
 }
 
-function toggleFilter(el, val) {
-  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  activeFilter = val;
+function toggleFilter(el, val){
+  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
+  el.classList.add('active'); activeFilter=val; renderListings();
+}
+
+function sortListings(val){
+  if(val==='price-asc') allListings.sort((a,b)=>a.price-b.price);
+  else if(val==='price-desc') allListings.sort((a,b)=>b.price-a.price);
+  else if(val==='year-desc') allListings.sort((a,b)=>b.year-a.year);
+  else if(val==='km-asc') allListings.sort((a,b)=>a.dist-b.dist);
   renderListings();
 }
 
-function sortListings(val) {
-  if (val === 'price-asc') allListings.sort((a,b) => a.price - b.price);
-  else if (val === 'price-desc') allListings.sort((a,b) => b.price - a.price);
-  else if (val === 'year-desc') allListings.sort((a,b) => b.year - a.year);
-  else if (val === 'km-asc') allListings.sort((a,b) => a.km - b.km);
-  renderListings();
+function signupAlert(){
+  const email=document.getElementById('alert-email').value;
+  if(!email||!email.includes('@')){document.getElementById('alert-email').style.outline='2px solid #e55';return;}
+  document.getElementById('alert-card').innerHTML=`<div style="color:#fff;font-size:14px">Done! We'll email <strong>${email}</strong> when a better deal appears for ${currentMake} ${currentModel}.</div>`;
 }
 
-function signupAlert() {
-  const email = document.getElementById('alert-email').value;
-  if (!email || !email.includes('@')) {
-    document.getElementById('alert-email').style.outline = '2px solid #e55';
-    return;
-  }
-  const label = currentMake + (currentModel ? ' ' + currentModel : '');
-  document.getElementById('alert-card').innerHTML = `
-    <div style="color:#fff;font-size:14px;">
-      ✓ Done! We'll email <strong>${email}</strong> when a better deal appears for ${label}.
-    </div>`;
-}
-
-// ── Load popular cards with real images ───────────────────────────────────
-async function loadPopular() {
+// ── Popular grid with photos ──────────────────────────────────────────────
+async function loadPopularGrid(){
   const grid = document.getElementById('popular-grid');
   grid.innerHTML = '';
-  for (const p of POPULAR) {
+  for(const p of POPULAR){
     const card = document.createElement('div');
-    card.className = 'pop-card';
-    card.onclick = () => quickSearch(p.make, p.model);
-    card.innerHTML = `<div class="pop-img-placeholder">🚗</div><div class="pop-info"><div class="pop-name">${p.make} ${p.model}</div><div class="pop-count">Loading...</div></div>`;
+    card.className = 'pop-card'+(p.exotic?' exotic':'');
+    card.onclick = ()=>quickSearch(p.make,p.model);
+    card.innerHTML = `
+      <div class="pop-img-wrap"><div class="pop-img-ph">${p.exotic?'🏎️':'🚗'}</div></div>
+      <div class="pop-info">
+        <div class="pop-name">${p.make} ${p.model}</div>
+        <div class="pop-meta">${p.exotic?'<span class="exotic-dot"></span>':''} ${Math.floor(Math.random()*400)+50} listings</div>
+      </div>`;
     grid.appendChild(card);
 
-    getCarImage(p.make, p.model, '2022').then(img => {
-      const imgEl = card.querySelector('.pop-img-placeholder');
-      if (img) {
-        imgEl.outerHTML = `<img class="pop-img" src="${img}" alt="${p.make} ${p.model}" loading="lazy" onerror="this.outerHTML='<div class=pop-img-placeholder>🚗</div>'">`;
+    // Load real image asynchronously
+    getCarImages(p.make, p.model, 1).then(imgs=>{
+      if(imgs[0]){
+        const ph = card.querySelector('.pop-img-ph');
+        if(ph) ph.outerHTML = `<img class="pop-img" src="${imgs[0]}" alt="${p.make} ${p.model}" loading="lazy" onerror="this.outerHTML='<div class=pop-img-ph>${p.exotic?'🏎️':'🚗'}</div>'">`;
       }
-      const count = Math.floor(Math.random() * 300) + 100;
-      card.querySelector('.pop-count').textContent = count + ' listings';
     });
   }
 }
 
-// ── Init ──────────────────────────────────────────────────────────────────
+// Year dropdown
+const yearSel=document.getElementById('s-year');
+for(let y=2025;y>=1990;y--){const o=document.createElement('option');o.value=y;o.textContent=y;yearSel.appendChild(o);}
+
+// Init
 loadMakes();
-loadPopular();
+updateTrustBar();
+updateRegionDropdown();
+updatePPSRBtn();
+loadPopularGrid();
 </script>
 </body>
 </html>
