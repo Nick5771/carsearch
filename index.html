@@ -182,7 +182,30 @@ footer a{color:rgba(255,255,255,0.6);text-decoration:underline}
     <button class="ctab" onclick="setCountry('UK',this)">🇬🇧 United Kingdom</button>
   </div>
 
-  <div class="search-wrap">
+  <!-- AI Search Bar -->
+  <div class="ai-search-wrap">
+    <div class="ai-search-inner">
+      <div class="ai-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+      </div>
+      <input class="ai-input" id="ai-input" type="text"
+        placeholder='Try: "Show me a Porsche 911 for $100k"'
+        onkeydown="if(event.key==='Enter')aiSearch()">
+      <button class="ai-btn" onclick="aiSearch()" id="ai-btn">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        Search with AI
+      </button>
+    </div>
+    <div class="ai-examples">
+      <span onclick="setAiExample(this)">🏎️ Sports car under $80k</span>
+      <span onclick="setAiExample(this)">🚙 Family SUV Melbourne</span>
+      <span onclick="setAiExample(this)">🛻 HiLux 4x4 under $50k</span>
+      <span onclick="setAiExample(this)">⚡ Electric car under $60k</span>
+    </div>
+  </div>
+
+  <!-- Advanced search always visible below AI search -->
+  <div class="search-wrap" id="advanced-search" style="margin-top:10px">
     <select id="s-make" onchange="loadModels()"><option value="">Select make...</option></select>
     <select id="s-model"><option value="">Any model</option></select>
     <select id="s-year"><option value="">Any year</option></select>
@@ -192,7 +215,6 @@ footer a{color:rgba(255,255,255,0.6);text-decoration:underline}
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       Search all platforms
     </button>
-
   </div>
 </div>
 
