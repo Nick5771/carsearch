@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CarSearch — Find Any Car Across Every Platform</title>
-<meta name="description" content="Search every car platform in one click. Australia, USA and UK.">
+<title>CarSearch — Find Any Car on eBay</title>
+<meta name="description" content="Search every car platform in one click. Australia, USA, UK and Germany.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23185FA5'/><rect x='15' y='52' width='70' height='22' rx='6' fill='white'/><path d='M25 52 L35 34 L65 34 L75 52 Z' fill='white'/><circle cx='30' cy='74' r='9' fill='%23185FA5'/><circle cx='70' cy='74' r='9' fill='%23185FA5'/><circle cx='30' cy='74' r='4' fill='white'/><circle cx='70' cy='74' r='4' fill='white'/><rect x='38' y='37' width='24' height='13' rx='2' fill='%23185FA5'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
 <style>
@@ -17,22 +18,22 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.6;min-height:100vh}
 nav{background:#fff;border-bottom:1px solid var(--border);padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:64px;position:sticky;top:0;z-index:100}
-
-
 .nav-links{display:flex;gap:24px;list-style:none}
 .nav-links a{font-size:14px;color:var(--muted);text-decoration:none}
 .nav-links a:hover{color:var(--text)}
 .nav-cta{background:var(--accent);color:#fff !important;padding:7px 16px;border-radius:var(--radius);font-size:13px}
-.hero{position:relative;border-bottom:none;padding:80px 32px 80px;text-align:center;overflow:hidden;min-height:620px;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.hero-bg{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;object-position:center center;z-index:0}
-.hero-overlay{position:absolute;top:0;left:0;width:100%;height:100%;background:linear-gradient(to bottom,rgba(0,0,0,0.05) 0%,rgba(0,0,0,0.1) 30%,rgba(0,0,0,0.35) 70%,rgba(0,0,0,0.5) 100%);z-index:1}
-.hero>*:not(.hero-bg):not(.hero-overlay){position:relative;z-index:2}
-.hero-eyebrow{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:500;letter-spacing:0.06em;text-transform:uppercase;color:#fff;background:#185FA5;padding:6px 16px;border-radius:20px;margin-bottom:20px}
-.hero h1{font-family:'DM Serif Display',serif;font-size:clamp(36px,6vw,60px);font-weight:400;line-height:1.1;margin-bottom:16px;max-width:700px;margin-left:auto;margin-right:auto;color:#fff;text-shadow:0 2px 20px rgba(0,0,0,0.4)}
-.hero p{font-size:17px;color:rgba(255,255,255,0.88);max-width:520px;margin:0 auto 28px;text-shadow:0 1px 6px rgba(0,0,0,0.3)}
-.country-tabs{display:flex;gap:10px;justify-content:center;margin-bottom:24px;flex-wrap:wrap}
-.ctab{padding:10px 22px;border-radius:30px;font-size:14px;font-weight:500;cursor:pointer;border:2px solid rgba(255,255,255,0.9);color:var(--text);background:rgba(255,255,255,0.95);font-family:'DM Sans',sans-serif;transition:all 0.15s;display:flex;align-items:center;gap:6px}
-.ctab:hover{background:#fff;border-color:#fff}
+.hero-img-wrap{position:relative;width:100%;height:420px;overflow:hidden;background:#111}
+.hero-img-wrap img{width:100%;height:100%;object-fit:cover;object-position:center 40%;display:block}
+.hero-img-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.1) 0%,rgba(0,0,0,0.45) 100%)}
+.hero-img-title{position:absolute;bottom:28px;left:0;right:0;text-align:center;color:#fff;font-family:'DM Serif Display',serif;font-size:clamp(28px,5vw,52px);font-weight:400;text-shadow:0 2px 16px rgba(0,0,0,0.5);line-height:1.1}
+.hero-img-sub{position:absolute;bottom:0;left:0;right:0;text-align:center;padding-bottom:10px}
+.search-panel{background:#fff;border-radius:16px 16px 0 0;padding:16px 32px 10px;margin-top:-48px;position:relative;z-index:10;box-shadow:0 -4px 24px rgba(0,0,0,0.12);max-width:1100px;margin-left:auto;margin-right:auto;margin-top:-48px}
+.search-panel-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px}
+.search-panel-title{font-size:17px;font-weight:600;color:var(--text)}
+.ebay-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.country-tabs{display:flex;gap:8px;flex-wrap:wrap}
+.ctab{padding:7px 18px;border-radius:30px;font-size:13px;font-weight:500;cursor:pointer;border:1.5px solid var(--border);color:var(--muted);background:#fff;font-family:'DM Sans',sans-serif;transition:all 0.15s;display:flex;align-items:center;gap:5px}
+.ctab:hover{border-color:#185FA5;color:#185FA5}
 .ctab.active{background:#185FA5;color:#fff;border-color:#185FA5;font-weight:600}
 .search-wrap{max-width:900px;margin:0 auto;background:#fff;border:none;border-radius:16px;padding:10px 12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;box-shadow:0 8px 40px rgba(0,0,0,0.25)}
 .search-wrap select,.search-wrap input{flex:1;min-width:100px;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:14px;background:var(--surface);color:var(--text);outline:none;appearance:none;-webkit-appearance:none}
@@ -48,12 +49,8 @@ nav{background:#fff;border-bottom:1px solid var(--border);padding:0 32px;display
 .ai-btn:hover{opacity:0.88}
 .ai-btn.loading{opacity:0.7;pointer-events:none}
 .ai-examples{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:center}
-.ai-examples span{background:rgba(255,255,255,0.15);color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;border:1px solid rgba(255,255,255,0.25);transition:background 0.15s;backdrop-filter:blur(4px)}
+.ai-examples span{background:rgba(255,255,255,0.15);color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;border:1px solid rgba(255,255,255,0.25);transition:background 0.15s;backdrop-filter:blur(4px);cursor:pointer}
 .ai-examples span:hover{background:rgba(255,255,255,0.25)}
-.ai-result-card{background:var(--accent-light);border:1px solid #b5d4f4;border-radius:var(--radius-lg);padding:16px 20px;margin-bottom:20px;display:flex;align-items:flex-start;gap:12px}
-.ai-result-icon{font-size:20px;flex-shrink:0}
-.ai-result-text{font-size:14px;color:var(--accent);line-height:1.6}
-.ai-result-text strong{color:var(--text)}
 .trust-bar{display:flex;justify-content:center;align-items:center;gap:6px;padding:10px 32px;font-size:12px;color:var(--muted);flex-wrap:wrap;background:var(--bg);border-bottom:1px solid var(--border)}
 .trust-pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
 .pill-a{background:var(--accent-light);color:var(--accent)}
@@ -62,19 +59,34 @@ nav{background:#fff;border-bottom:1px solid var(--border);padding:0 32px;display
 .pill-d{background:var(--amber-light);color:var(--amber)}
 main{max-width:980px;margin:0 auto;padding:28px 24px}
 .section-label{font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:14px}
-.popular-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;margin-bottom:32px}
-.pop-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;transition:border-color 0.15s,transform 0.12s,box-shadow 0.15s}
-.pop-card:hover{border-color:#185FA5;transform:translateY(-2px);box-shadow:0 4px 12px rgba(24,95,165,0.12)}
-.pop-card.exotic{border-color:#c8a86b}
-.pop-card.exotic:hover{border-color:#9a7a30}
-.pop-img-wrap{width:100%;height:100px;overflow:hidden;background:var(--bg)}
-.pop-img{width:100%;height:100px;object-fit:cover;display:block;transition:transform 0.3s}
-.pop-card:hover .pop-img{transform:scale(1.05)}
-.pop-img-ph{width:100%;height:100px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--muted)}
-.pop-info{padding:9px 11px 11px}
-.pop-name{font-size:12px;font-weight:500;color:var(--text);margin-bottom:2px}
-.pop-meta{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:4px}
-.exotic-dot{width:5px;height:5px;border-radius:50%;background:#c8a86b;flex-shrink:0}
+
+/* ── Live listings grid on homepage ── */
+.live-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:32px}
+.live-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;transition:border-color 0.15s,transform 0.12s,box-shadow 0.15s;text-decoration:none;display:block;color:inherit}
+.live-card:hover{border-color:#185FA5;transform:translateY(-2px);box-shadow:0 4px 12px rgba(24,95,165,0.12)}
+.live-card.exotic{border-color:#c8a86b}
+.live-card.exotic:hover{border-color:#9a7a30}
+.live-card-img{width:100%;height:140px;object-fit:cover;display:block;background:var(--bg);transition:transform 0.3s}
+.live-card:hover .live-card-img{transform:scale(1.04)}
+.live-card-ph{width:100%;height:140px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:32px;color:var(--muted)}
+.live-card-body{padding:10px 12px 12px}
+.live-card-title{font-size:12px;font-weight:500;color:var(--text);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.live-card-sub{font-size:11px;color:var(--muted);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.live-card-footer{display:flex;align-items:center;justify-content:space-between}
+.live-card-price{font-size:15px;font-weight:600;color:var(--accent)}
+.live-card-badge{font-size:10px;padding:2px 7px;border-radius:5px;background:var(--accent-light);color:var(--accent);font-weight:500}
+.live-card-badge.auction{background:var(--amber-light);color:var(--amber)}
+
+/* skeleton loader */
+.skel{background:linear-gradient(90deg,var(--bg) 25%,var(--border) 50%,var(--bg) 75%);background-size:200% 100%;animation:shimmer 1.2s infinite}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.skel-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
+.skel-img{width:100%;height:140px}
+.skel-body{padding:10px 12px 12px}
+.skel-line{height:11px;border-radius:4px;margin-bottom:6px}
+.skel-line.w80{width:80%}
+.skel-line.w50{width:50%}
+
 .loading{display:none;text-align:center;padding:60px 20px;color:var(--muted);font-size:14px}
 .spinner{width:26px;height:26px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;margin-bottom:10px}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -139,11 +151,63 @@ main{max-width:980px;margin:0 auto;padding:28px 24px}
 footer{background:#0C447C;border-top:none;padding:28px 32px;text-align:center;font-size:13px;color:rgba(255,255,255,0.7);margin-top:48px}
 footer a{color:rgba(255,255,255,0.6);text-decoration:underline}
 @media(max-width:620px){
-  nav{padding:0 16px}.nav-links{display:none}
-  .hero{padding:32px 16px 24px}main{padding:16px}
+  /* Nav */
+  nav{padding:0 16px}
+  .nav-links{display:none}
+
+  /* Hero image shorter on mobile */
+  .hero-img-wrap{height:260px}
+
+  /* Search panel — tighter padding */
+  .search-panel{padding:16px 16px 12px;margin-top:-32px;border-radius:12px 12px 0 0}
+
+  /* Heading smaller */
+  .search-panel-top div:first-child div:first-child{font-size:20px !important}
+
+  /* Country tabs — wrap and shrink */
+  .country-tabs{gap:6px}
+  .ctab{padding:6px 12px;font-size:12px}
+
+  /* Search dropdowns — stack in 2x2 grid */
+  .search-wrap{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px}
+  .search-wrap select,.search-wrap input{min-width:0;font-size:13px;padding:8px 10px}
+  .search-btn{grid-column:1/-1;width:100%;justify-content:center;padding:10px}
+
+  /* AI search bar */
+  #ai-input{font-size:14px}
+  #ai-btn{padding:8px 12px;font-size:13px}
+
+  /* Live listings grid — 2 columns */
+  .live-grid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .live-card-img,.live-card-ph{height:110px}
+  .live-card-body{padding:8px 10px 10px}
+  .live-card-title{font-size:11px}
+  .live-card-price{font-size:13px}
+
+  /* Results listings — stack vertically */
   .listing{flex-direction:column}
   .listing-img-wrap,.listing-img,.listing-img-ph{width:100%;height:180px}
-  .listing-right{flex-direction:row;align-items:center;justify-content:space-between;width:100%}
+  .listing-right{flex-direction:row;align-items:center;justify-content:space-between;width:100%;padding:10px 12px}
+
+  /* Stats grid — 2 columns */
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+
+  /* Platform grid — 2 columns */
+  .platform-grid{grid-template-columns:repeat(2,1fr)}
+
+  /* Main padding */
+  main{padding:16px}
+
+  /* Alert form — stack */
+  .alert-card{flex-direction:column}
+  .alert-form{width:100%}
+  .alert-input{min-width:0;flex:1}
+
+  /* Affiliate bar — stack */
+  .affiliate-bar{flex-direction:column}
+
+  /* Footer */
+  footer{padding:20px 16px}
 }
 </style>
 </head>
@@ -169,52 +233,58 @@ footer a{color:rgba(255,255,255,0.6);text-decoration:underline}
   </ul>
 </nav>
 
-<div class="hero">
-  <img class="hero-bg" src="https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=1600&q=90&auto=format&fit=crop&crop=center" alt="Classic Ferrari" loading="eager">
-  <div class="hero-overlay"></div>
-  <div class="hero-eyebrow">✦ FREE TO USE — UPDATED DAILY</div>
-  <h1>Find any car across every platform</h1>
-  <p>Search Carsales, Gumtree, AutoTrader, CarGurus and more — all in one place.</p>
+<!-- Ferrari hero image — no text on top -->
+<div class="hero-img-wrap">
+  <img src="./ChatGPT Image May 31, 2026, 04_30_10 PM.png" alt="Ferrari Dino" loading="eager">
+  <div class="hero-img-overlay"></div>
+</div>
 
-  <div class="country-tabs">
-    <button class="ctab active" onclick="setCountry('AU',this)">🇦🇺 Australia</button>
-    <button class="ctab" onclick="setCountry('US',this)">🇺🇸 United States</button>
-    <button class="ctab" onclick="setCountry('UK',this)">🇬🇧 United Kingdom</button>
+<!-- Search panel below the image — clean white like Carsales -->
+<div class="search-panel">
+  <div class="search-panel-top">
+    <div style="text-align:center;width:100%;margin-bottom:8px">
+      <div style="font-family:'DM Serif Display',serif;font-size:clamp(20px,3vw,32px);font-weight:400;color:var(--text);line-height:1.2;margin-bottom:2px">Use AI to find your dream car worldwide</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:4px">Browse car listings from the biggest websites, including:</div>
+      <span style="font-family:Arial,sans-serif;font-size:42px;font-weight:900;letter-spacing:-1px;line-height:1"><span style="color:#E53238">e</span><span style="color:#0064D2">b</span><span style="color:#F5AF02">a</span><span style="color:#86B817">y</span></span>
+    </div>
+    <div class="country-tabs" style="justify-content:center;width:100%;margin-bottom:8px">
+      <button class="ctab active" onclick="setCountry('AU',this)">🇦🇺 Australia</button>
+      <button class="ctab" onclick="setCountry('US',this)">🇺🇸 United States</button>
+      <button class="ctab" onclick="setCountry('UK',this)">🇬🇧 United Kingdom</button>
+      <button class="ctab" onclick="setCountry('DE',this)">🇩🇪 Germany</button>
+    </div>
   </div>
 
-  <!-- AI Search Bar -->
-  <div class="ai-search-wrap">
-    <div class="ai-search-inner">
-      <div class="ai-icon">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-      </div>
-      <input class="ai-input" id="ai-input" type="text"
-        placeholder='Try: "Show me a Porsche 911 for $100k"'
-        onkeydown="if(event.key==='Enter')aiSearch()">
-      <button class="ai-btn" onclick="aiSearch()" id="ai-btn">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+  <!-- AI search first -->
+  <div style="max-width:900px;margin:0 auto 8px">
+    <div style="display:flex;align-items:center;background:#fff;border:1.5px solid #185FA5;border-radius:var(--radius-lg);padding:8px 8px 8px 14px;gap:8px;box-shadow:0 2px 12px rgba(24,95,165,0.1)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2" style="flex-shrink:0"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+      <input id="ai-input" type="text" placeholder='Try: "Show me a Porsche 911 under $100k"' style="flex:1;border:none;outline:none;font-size:15px;font-family:'DM Sans',sans-serif;background:transparent;color:var(--text)" onkeydown="if(event.key==='Enter')aiSearch()">
+      <button id="ai-btn" onclick="aiSearch()" style="padding:9px 20px;background:#185FA5;color:#fff;border:none;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
         Search with AI
       </button>
     </div>
-    <div class="ai-examples">
-      <span onclick="setAiExample(this)">🏎️ Sports car under $80k</span>
-      <span onclick="setAiExample(this)">🚙 Family SUV Melbourne</span>
-      <span onclick="setAiExample(this)">🛻 HiLux 4x4 under $50k</span>
-      <span onclick="setAiExample(this)">⚡ Electric car under $60k</span>
-    </div>
   </div>
 
-  <!-- Advanced search always visible below AI search -->
-  <div class="search-wrap" id="advanced-search" style="margin-top:10px">
-    <select id="s-make" onchange="loadModels()"><option value="">Select make...</option></select>
-    <select id="s-model"><option value="">Any model</option></select>
-    <select id="s-year"><option value="">Any year</option></select>
-    <select id="s-region"><option value="">Any region</option></select>
-    <input type="number" id="s-maxprice" placeholder="Max price">
-    <button class="search-btn" onclick="doSearch()">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      Search all platforms
-    </button>
+  <!-- Advanced search second -->
+  <div style="max-width:900px;margin:0 auto">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;margin-top:2px">
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:600">Advanced Search</div>
+      <div style="flex:1;height:1px;background:var(--border)"></div>
+    </div>
+    <div class="search-wrap" id="advanced-search" style="margin-bottom:0;box-shadow:0 2px 12px rgba(0,0,0,0.06)">
+      <select id="s-make" onchange="loadModels()"><option value="">Select make...</option></select>
+      <select id="s-model"><option value="">Any model</option></select>
+      <select id="s-year"><option value="">Any year</option></select>
+      <select id="s-region"><option value="">Any region</option></select>
+      <input type="number" id="s-maxprice" placeholder="Max price">
+      <button class="search-btn" onclick="doSearch()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        Search
+      </button>
+    </div>
   </div>
 </div>
 
@@ -222,8 +292,9 @@ footer a{color:rgba(255,255,255,0.6);text-decoration:underline}
 
 <main>
   <div id="home-area">
-    <div class="section-label">Browse popular models</div>
-    <div class="popular-grid" id="popular-grid"></div>
+    <div class="section-label" id="live-section-label">Live eBay listings</div>
+    <div class="live-grid" id="live-grid"></div>
+
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px">
         <div style="font-size:20px;margin-bottom:7px">🔍</div>
@@ -272,7 +343,6 @@ footer a{color:rgba(255,255,255,0.6);text-decoration:underline}
     <div class="stats-grid" id="stats-grid"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
       <div style="font-size:12px;color:var(--muted);font-weight:500">Search on each platform</div>
-
     </div>
     <div class="platform-grid" id="platform-grid"></div>
     <div class="filters-bar" id="filters-bar"></div>
@@ -327,129 +397,71 @@ footer a{color:rgba(255,255,255,0.6);text-decoration:underline}
 </footer>
 
 <script>
-// ── Country config ─────────────────────────────────────────────────────────
+const EBAY_WORKER_URL = 'https://api.carsearchapi.workers.dev';
+
+// ── Country config ────────────────────────────────────────────────────────
 const COUNTRIES = {
   AU: {
     name: 'Australia', flag: '🇦🇺', currency: 'AUD', currencySymbol: '$',
     distanceUnit: 'km',
     platforms: [
-      {name:'Carsales', url:(m,mo,y,r)=>{
-        const make=m.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
-        const model=mo?mo.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''):'';
-        const yr=y?`?year-from=${y}&year-to=${y}`:'';
-        return model
-          ? `https://www.carsales.com.au/cars/${make}/${model}/${yr}`
-          : `https://www.carsales.com.au/cars/${make}/${yr}`;
-      }, cls:'btn-a'},
-      {name:'Gumtree',  url:(m,mo,y,r)=>{
-        const q=encodeURIComponent(m+(mo?' '+mo:''));
-        return`https://www.gumtree.com.au/s-cars-vans-utes/k0c18320?q=${q}`;
-      }, cls:'btn-b'},
+      {name:'Carsales', url:(m,mo,y,r)=>{const make=m.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');const model=mo?mo.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''):'';const yr=y?`?year-from=${y}&year-to=${y}`:'';return model?`https://www.carsales.com.au/cars/${make}/${model}/${yr}`:`https://www.carsales.com.au/cars/${make}/${yr}`;}, cls:'btn-a'},
+      {name:'Gumtree',  url:(m,mo,y,r)=>{const q=encodeURIComponent(m+(mo?' '+mo:''));return`https://www.gumtree.com.au/s-cars-vans-utes/k0c18320?q=${q}`;}, cls:'btn-b'},
       {name:'Facebook', url:(m,mo,y,r)=>`https://www.facebook.com/marketplace/category/vehicles?query=${encodeURIComponent(m+(mo?' '+mo:''))}&exact=true`, cls:'btn-c'},
-      {name:'CarsGuide',url:(m,mo,y,r)=>{
-        const make=m.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
-        const model=mo?mo.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''):'';
-        return model
-          ? `https://www.carsguide.com.au/cars-for-sale/${make}/${model}/`
-          : `https://www.carsguide.com.au/cars-for-sale/${make}/`;
-      }, cls:'btn-d'},
+      {name:'CarsGuide',url:(m,mo,y,r)=>{const make=m.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');const model=mo?mo.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''):'';return model?`https://www.carsguide.com.au/cars-for-sale/${make}/${model}/`:`https://www.carsguide.com.au/cars-for-sale/${make}/`;}, cls:'btn-d'},
     ],
     regions: ['NSW','VIC','QLD','WA','SA','TAS','ACT','NT'],
-    locations: {
-      NSW:['Sydney NSW','Newcastle NSW','Wollongong NSW'],
-      VIC:['Melbourne VIC','Geelong VIC','Ballarat VIC'],
-      QLD:['Brisbane QLD','Gold Coast QLD','Sunshine Coast QLD'],
-      WA:['Perth WA','Fremantle WA','Mandurah WA'],
-      SA:['Adelaide SA','Glenelg SA'],
-      TAS:['Hobart TAS','Launceston TAS'],
-      ACT:['Canberra ACT'],
-      NT:['Darwin NT','Alice Springs NT'],
-      ALL:['Sydney NSW','Melbourne VIC','Brisbane QLD','Perth WA','Adelaide SA','Canberra ACT','Gold Coast QLD','Hobart TAS'],
-    },
+    locations: {NSW:['Sydney NSW','Newcastle NSW'],VIC:['Melbourne VIC','Geelong VIC'],QLD:['Brisbane QLD','Gold Coast QLD'],WA:['Perth WA'],SA:['Adelaide SA'],TAS:['Hobart TAS'],ACT:['Canberra ACT'],NT:['Darwin NT'],ALL:['Sydney NSW','Melbourne VIC','Brisbane QLD','Perth WA','Adelaide SA','Canberra ACT']},
     basePrices: {p1:29000,p2:24000,p3:22000,p4:28000},
   },
   US: {
     name: 'United States', flag: '🇺🇸', currency: 'USD', currencySymbol: '$',
     distanceUnit: 'miles',
     platforms: [
-      {name:'AutoTrader', url:(m,mo,y,r)=>{
-        const make=m.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
-        const model=mo?mo.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''):'';
-        return`https://www.autotrader.com/cars-for-sale/used-cars/${make}/${model}/?searchRadius=0`;
-      }, cls:'btn-a'},
-      {name:'CarGurus',   url:(m,mo,y,r)=>`https://www.cargurus.com/Cars/new/nl#listing=list&entitySelectingHelper.selectedEntity=d2171&q=${encodeURIComponent(m+(mo?' '+mo:''))}`, cls:'btn-b'},
+      {name:'AutoTrader', url:(m,mo,y,r)=>{const make=m.toLowerCase().replace(/\s+/g,'-');const model=mo?mo.toLowerCase().replace(/\s+/g,'-'):'';return`https://www.autotrader.com/cars-for-sale/used-cars/${make}/${model}/?searchRadius=0`;}, cls:'btn-a'},
+      {name:'CarGurus',   url:(m,mo,y,r)=>`https://www.cargurus.com/Cars/new/nl#listing=list&q=${encodeURIComponent(m+(mo?' '+mo:''))}`, cls:'btn-b'},
       {name:'Cars.com',   url:(m,mo,y,r)=>`https://www.cars.com/shopping/results/?keyword=${encodeURIComponent(m+(mo?' '+mo:''))}&stock_type=used`, cls:'btn-c'},
       {name:'Facebook',   url:(m,mo,y,r)=>`https://www.facebook.com/marketplace/category/vehicles?query=${encodeURIComponent(m+(mo?' '+mo:''))}`, cls:'btn-d'},
     ],
     regions: ['CA','TX','FL','NY','IL','PA','OH','GA','NC','MI'],
-    locations: {
-      CA:['Los Angeles CA','San Francisco CA','San Diego CA'],
-      TX:['Houston TX','Dallas TX','Austin TX'],
-      FL:['Miami FL','Orlando FL','Tampa FL'],
-      NY:['New York NY','Buffalo NY','Albany NY'],
-      IL:['Chicago IL','Springfield IL'],
-      PA:['Philadelphia PA','Pittsburgh PA'],
-      OH:['Columbus OH','Cleveland OH'],
-      GA:['Atlanta GA','Savannah GA'],
-      NC:['Charlotte NC','Raleigh NC'],
-      MI:['Detroit MI','Grand Rapids MI'],
-      ALL:['Los Angeles CA','New York NY','Chicago IL','Houston TX','Phoenix AZ','Philadelphia PA','San Antonio TX','Dallas TX'],
-    },
+    locations: {CA:['Los Angeles CA','San Francisco CA'],TX:['Houston TX','Dallas TX'],FL:['Miami FL','Orlando FL'],NY:['New York NY'],IL:['Chicago IL'],PA:['Philadelphia PA'],OH:['Columbus OH'],GA:['Atlanta GA'],NC:['Charlotte NC'],MI:['Detroit MI'],ALL:['Los Angeles CA','New York NY','Chicago IL','Houston TX','Dallas TX']},
     basePrices: {p1:26000,p2:21000,p3:19000,p4:25000},
+  },
+  DE: {
+    name: 'Germany', flag: '🇩🇪', currency: 'EUR', currencySymbol: '€',
+    distanceUnit: 'km',
+    platforms: [
+      {name:'eBay.de', url:(m,mo,y,r)=>`https://www.ebay.de/sch/i.html?_nkw=${encodeURIComponent(m+(mo?' '+mo:''))}&_sacat=6001`, cls:'btn-a'},
+    ],
+    regions: ['Bayern','NRW','Baden-Württemberg','Berlin','Hamburg','Hessen','Sachsen','Niedersachsen'],
+    locations: {Bayern:['München','Nürnberg'],NRW:['Köln','Düsseldorf','Dortmund'],Berlin:['Berlin'],'Baden-Württemberg':['Stuttgart','Mannheim'],Hamburg:['Hamburg'],Hessen:['Frankfurt'],Sachsen:['Dresden','Leipzig'],Niedersachsen:['Hannover'],ALL:['München','Berlin','Hamburg','Köln','Frankfurt','Stuttgart','Düsseldorf','Hannover']},
+    basePrices: {p1:28000,p2:22000,p3:20000,p4:26000},
   },
   UK: {
     name: 'United Kingdom', flag: '🇬🇧', currency: 'GBP', currencySymbol: '£',
     distanceUnit: 'miles',
     platforms: [
-      {name:'AutoTrader UK', url:(m,mo,y,r)=>{
-        const make=m.toUpperCase().replace(/\s+/g,'-').replace(/[^A-Z0-9-]/g,'');
-        const model=mo?mo.toUpperCase().replace(/\s+/g,'-').replace(/[^A-Z0-9-]/g,''):'';
-        return`https://www.autotrader.co.uk/car-search?make=${encodeURIComponent(make)}${model?'&model='+encodeURIComponent(model):''}${y?'&year-from='+y:''}`;
-      }, cls:'btn-a'},
+      {name:'AutoTrader UK', url:(m,mo,y,r)=>`https://www.autotrader.co.uk/car-search?make=${encodeURIComponent(m.toUpperCase())}${mo?'&model='+encodeURIComponent(mo.toUpperCase()):''}`, cls:'btn-a'},
       {name:'Motors.co.uk',  url:(m,mo,y,r)=>`https://www.motors.co.uk/search/car/results/?make=${encodeURIComponent(m)}${mo?'&model='+encodeURIComponent(mo):''}`, cls:'btn-b'},
-      {name:'Gumtree UK',    url:(m,mo,y,r)=>{
-        const make=m.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
-        const model=mo?mo.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''):'';
-        return`https://www.gumtree.com/cars-vans-motorbikes/cars/${make}${model?'/'+model:''}`;
-      }, cls:'btn-c'},
+      {name:'Gumtree UK',    url:(m,mo,y,r)=>`https://www.gumtree.com/cars-vans-motorbikes/cars/${m.toLowerCase().replace(/\s+/g,'-')}`, cls:'btn-c'},
       {name:'Facebook',      url:(m,mo,y,r)=>`https://www.facebook.com/marketplace/category/vehicles?query=${encodeURIComponent(m+(mo?' '+mo:''))}`, cls:'btn-d'},
     ],
     regions: ['London','Manchester','Birmingham','Glasgow','Liverpool','Leeds','Bristol','Edinburgh'],
-    locations: {
-      London:['London','South London','North London','East London'],
-      Manchester:['Manchester','Salford','Stockport'],
-      Birmingham:['Birmingham','Solihull','Coventry'],
-      Glasgow:['Glasgow','Paisley','Hamilton'],
-      Liverpool:['Liverpool','Wirral','St Helens'],
-      Leeds:['Leeds','Bradford','Wakefield'],
-      Bristol:['Bristol','Bath','Swindon'],
-      Edinburgh:['Edinburgh','Livingston','Dunfermline'],
-      ALL:['London','Manchester','Birmingham','Glasgow','Bristol','Liverpool','Leeds','Edinburgh'],
-    },
+    locations: {London:['London'],Manchester:['Manchester'],Birmingham:['Birmingham'],Glasgow:['Glasgow'],Liverpool:['Liverpool'],Leeds:['Leeds'],Bristol:['Bristol'],Edinburgh:['Edinburgh'],ALL:['London','Manchester','Birmingham','Glasgow','Bristol']},
     basePrices: {p1:18000,p2:14000,p3:12000,p4:17000},
   }
 };
 
-const EXOTIC_MAKES=['Ferrari','Lamborghini','McLaren','Aston Martin','Rolls-Royce','Bentley'];
-const EXOTIC_BASE={Ferrari:250000,Lamborghini:300000,McLaren:320000,'Aston Martin':160000,'Rolls-Royce':400000,Bentley:260000,Porsche:85000,BMW:45000,'Mercedes-Benz':50000,Audi:42000};
-
-const POPULAR=[
-  {make:'Toyota',model:'HiLux',exotic:false},
-  {make:'Ferrari',model:'488',exotic:true},
-  {make:'Volkswagen',model:'Golf',exotic:false},
-  {make:'Lamborghini',model:'Huracan',exotic:true},
-  {make:'Toyota',model:'Camry',exotic:false},
-  {make:'Porsche',model:'911',exotic:true},
-  {make:'Mazda',model:'CX-5',exotic:false},
-  {make:'BMW',model:'M3',exotic:true},
-  {make:'Ford',model:'Ranger',exotic:false},
-  {make:'McLaren',model:'720S',exotic:true},
-  {make:'Hyundai',model:'i30',exotic:false},
-  {make:'Aston Martin',model:'Vantage',exotic:true},
-  {make:'Honda',model:'Civic',exotic:false},
-  {make:'Mercedes-Benz',model:'AMG GT',exotic:true},
-  {make:'Subaru',model:'Forester',exotic:false},
-  {make:'Audi',model:'R8',exotic:true},
+// Featured searches for homepage live grid — one API call each, cached for 15 min
+const FEATURED_SEARCHES = [
+  {make:'Porsche', model:'911',      country:'US', exotic:true},
+  {make:'Toyota',  model:'Camry',    country:'AU', exotic:false},
+  {make:'BMW',     model:'M3',       country:'DE', exotic:true},
+  {make:'Ford',    model:'Ranger',   country:'AU', exotic:false},
+  {make:'Ferrari', model:'488',      country:'US', exotic:true},
+  {make:'Honda',   model:'Civic',    country:'AU', exotic:false},
+  {make:'Lamborghini', model:'Huracan', country:'US', exotic:true},
+  {make:'Mazda',   model:'CX-5',     country:'AU', exotic:false},
 ];
 
 let currentCountry = 'AU';
@@ -459,26 +471,76 @@ let currentMake = '';
 let currentModel = '';
 let currentYear = '';
 
-const EBAY_WORKER_URL = 'https://api.carsearchapi.workers.dev';
-
-async function fetchEbayListings(make, model, year, maxPrice, country){
-  const params = new URLSearchParams({
-    make: make || '',
-    model: model || '',
-    year: year || '',
-    maxPrice: maxPrice || '',
-    country: country || 'US'
-  });
-
-  const res = await fetch(`${EBAY_WORKER_URL}/?${params.toString()}`);
-  const data = await res.json();
-
-  if(!res.ok) throw new Error(data.error || 'eBay API failed');
-
-  return data.items || [];
+// ── Homepage live grid ────────────────────────────────────────────────────
+function renderSkeletons() {
+  const grid = document.getElementById('live-grid');
+  grid.innerHTML = Array.from({length: 8}, () => `
+    <div class="skel-card">
+      <div class="skel skel-img"></div>
+      <div class="skel-body">
+        <div class="skel skel-line w80"></div>
+        <div class="skel skel-line w50"></div>
+      </div>
+    </div>`).join('');
 }
 
-function q(make,model,year){ return encodeURIComponent(make+(model?' '+model:'')+(year?' '+year:'')); }
+async function loadLiveGrid() {
+  renderSkeletons();
+  const grid = document.getElementById('live-grid');
+  const label = document.getElementById('live-section-label');
+  const cards = [];
+
+  // Fetch all featured searches in parallel
+  const results = await Promise.allSettled(
+    FEATURED_SEARCHES.map(s =>
+      fetch(`${EBAY_WORKER_URL}/?make=${encodeURIComponent(s.make)}&model=${encodeURIComponent(s.model)}&country=${s.country}`)
+        .then(r => r.json())
+        .then(d => ({ ...s, items: d.items || [] }))
+        .catch(() => ({ ...s, items: [] }))
+    )
+  );
+
+  results.forEach(r => {
+    if (r.status === 'fulfilled') cards.push(r.value);
+  });
+
+  // Pick the first listing with an image from each search
+  const picked = cards.map(c => {
+    const withImg = c.items.find(i => i.image);
+    const item = withImg || c.items[0];
+    if (!item) return null;
+    return { ...item, searchMake: c.make, searchModel: c.model, exotic: c.exotic };
+  }).filter(Boolean);
+
+  if (picked.length === 0) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--muted);font-size:14px">Live listings will appear here once the eBay API rate limit resets.</div>';
+    label.textContent = 'Popular models';
+    return;
+  }
+
+  label.textContent = `Live eBay listings — updated now`;
+
+  grid.innerHTML = picked.map(item => {
+    const price = item.price ? `$${Number(item.price).toLocaleString()}` : 'See listing';
+    const isAuction = item.listingType === 'Auction';
+    const badgeClass = isAuction ? 'auction' : '';
+    const badgeText = isAuction ? 'Auction' : 'Buy Now';
+    return `
+      <a class="live-card${item.exotic ? ' exotic' : ''}" href="${item.url || '#'}" target="_blank" rel="noopener">
+        ${item.image
+          ? `<img class="live-card-img" src="${item.image}" alt="${(item.title||'').replace(/"/g,'')}" loading="lazy" onerror="this.outerHTML='<div class=live-card-ph>🚗</div>'">`
+          : `<div class="live-card-ph">${item.exotic ? '🏎️' : '🚗'}</div>`}
+        <div class="live-card-body">
+          <div class="live-card-title">${item.searchMake} ${item.searchModel}</div>
+          <div class="live-card-sub">${(item.title||'').substring(0,40)}${item.title&&item.title.length>40?'…':''}</div>
+          <div class="live-card-footer">
+            <div class="live-card-price">${price}</div>
+            <div class="live-card-badge ${badgeClass}">${badgeText}</div>
+          </div>
+        </div>
+      </a>`;
+  }).join('');
+}
 
 // ── Country switch ────────────────────────────────────────────────────────
 function setCountry(code, el){
@@ -488,16 +550,12 @@ function setCountry(code, el){
   updateTrustBar();
   updateRegionDropdown();
   updatePPSRBtn();
-  // Re-run search if results are already showing
-  if(currentMake && document.getElementById('results-area').style.display !== 'none'){
-    doSearch();
-  }
+  if(currentMake && document.getElementById('results-area').style.display !== 'none') doSearch();
 }
+
 function updateTrustBar(){
-  const c = COUNTRIES[currentCountry];
   const bar = document.getElementById('trust-bar');
-  bar.innerHTML = `<span>${c.flag} Opening real listings from</span>` +
-    c.platforms.map((p,i)=>`<span class="trust-pill pill-${['a','b','c','d'][i]}">${p.name}</span>`).join('');
+  bar.innerHTML = `<span style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)">Live listings from &nbsp;<span style="font-family:Arial,sans-serif;font-size:18px;font-weight:900;letter-spacing:-0.5px"><span style="color:#E53238">e</span><span style="color:#0064D2">b</span><span style="color:#F5AF02">a</span><span style="color:#86B817">y</span></span></span>`;
 }
 
 function updateRegionDropdown(){
@@ -513,19 +571,13 @@ function updatePPSRBtn(){
   else{btn.style.display='none';}
 }
 
-// ── Makes / models from NHTSA ─────────────────────────────────────────────
+// ── Makes / models ────────────────────────────────────────────────────────
 async function loadMakes(){
-  const keep=['Toyota','Mazda','Ford','Holden','BMW','Mercedes-Benz','Honda','Hyundai','Kia',
-    'Volkswagen','Subaru','Mitsubishi','Nissan','Audi','Lexus','Volvo','Jeep','Land Rover',
-    'Porsche','Tesla','Suzuki','Isuzu','Renault','Peugeot','Mini','Jaguar','Ferrari',
-    'Lamborghini','Maserati','Bentley','Rolls-Royce','Aston Martin','McLaren','Alfa Romeo',
-    'Fiat','Chevrolet','Dodge','Cadillac','Genesis','Skoda','Infiniti','Acura','Chrysler',
-    'Ram','GMC','Buick','Lincoln','Jeep','Pontiac','Saturn','Mercury'];
+  const keep=['Toyota','Mazda','Ford','Holden','BMW','Mercedes-Benz','Honda','Hyundai','Kia','Volkswagen','Subaru','Mitsubishi','Nissan','Audi','Lexus','Volvo','Jeep','Land Rover','Porsche','Tesla','Suzuki','Isuzu','Renault','Peugeot','Mini','Jaguar','Ferrari','Lamborghini','Maserati','Bentley','Rolls-Royce','Aston Martin','McLaren','Alfa Romeo','Fiat','Chevrolet','Dodge','Cadillac','Genesis','Skoda','Infiniti','Acura','Chrysler','Ram','GMC','Buick','Lincoln'];
   try{
     const res=await fetch('https://vpic.nhtsa.dot.gov/api/vehicles/getallmakes?format=json');
     const data=await res.json();
-    const makes=data.Results.map(m=>m.Make_Name)
-      .filter(m=>keep.some(k=>k.toLowerCase()===m.toLowerCase())).sort();
+    const makes=data.Results.map(m=>m.Make_Name).filter(m=>keep.some(k=>k.toLowerCase()===m.toLowerCase())).sort();
     const sel=document.getElementById('s-make');
     sel.innerHTML='<option value="">Select make...</option>';
     makes.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o);});
@@ -549,146 +601,21 @@ async function loadModels(){
   }catch{sel.innerHTML='<option value="">Any model</option>';}
 }
 
-// ── Car photos via Wikipedia ──────────────────────────────────────────────
-// Using Wikipedia page images API which is reliable and free
-const imgCache = {};
-
-// Exact model photos for home page cards — sourced from Wikipedia
-// These are verified real photos of each specific model
-const EXACT_MODEL_PHOTOS = {
-  'Ferrari_488':        'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/2016_Ferrari_488_GTB.jpg/320px-2016_Ferrari_488_GTB.jpg',
-  'Lamborghini_Huracan':'https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/Lamborghini_Hurac%C3%A1n_LP_610-4_--_2014_DC.jpg/320px-Lamborghini_Hurac%C3%A1n_LP_610-4_--_2014_DC.jpg',
-  'Porsche_911':        'https://upload.wikimedia.org/wikipedia/commons/thumb/a/ad/2019_Porsche_911_Carrera_4S_%28992%29%2C_front_8.16.19.jpg/320px-2019_Porsche_911_Carrera_4S_%28992%29%2C_front_8.16.19.jpg',
-  'McLaren_720S':       'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/2018_McLaren_720S_coupe%2C_front_8.2.18.jpg/320px-2018_McLaren_720S_coupe%2C_front_8.2.18.jpg',
-  'BMW_M3':             'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c2/2021_BMW_M3_Competition_%28G80%29%2C_front_8.22.21.jpg/320px-2021_BMW_M3_Competition_%28G80%29%2C_front_8.22.21.jpg',
-  'Aston Martin_Vantage':'https://upload.wikimedia.org/wikipedia/commons/thumb/5/54/2019_Aston_Martin_Vantage_coupe_%28facelift%2C_green%29%2C_front_8.0.19.jpg/320px-2019_Aston_Martin_Vantage_coupe_%28facelift%2C_green%29%2C_front_8.0.19.jpg',
-  'Mercedes-Benz_AMG GT':'https://upload.wikimedia.org/wikipedia/commons/thumb/4/43/Mercedes-AMG_GT_S_%28C190%29_%E2%80%93_Frontansicht%2C_26._April_2015%2C_D%C3%BCsseldorf.jpg/320px-Mercedes-AMG_GT_S_%28C190%29_%E2%80%93_Frontansicht%2C_26._April_2015%2C_D%C3%BCsseldorf.jpg',
-  'Audi_R8':            'https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/2020_Audi_R8_V10_Performance_Quattro_Coupe%2C_front_10.3.19.jpg/320px-2020_Audi_R8_V10_Performance_Quattro_Coupe%2C_front_10.3.19.jpg',
-  'Toyota_HiLux':       'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2d/2021_Toyota_Hilux_SR5_%28facelift%2C_blue%29%2C_front_8.9.21.jpg/320px-2021_Toyota_Hilux_SR5_%28facelift%2C_blue%29%2C_front_8.9.21.jpg',
-  'Toyota_Camry':       'https://upload.wikimedia.org/wikipedia/commons/thumb/1/16/2021_Toyota_Camry_%28AXVH71R%29_Ascent_Sport_hybrid_sedan_%282021-10-01%29_01.jpg/320px-2021_Toyota_Camry_%28AXVH71R%29_Ascent_Sport_hybrid_sedan_%282021-10-01%29_01.jpg',
-  'Toyota_RAV4':        'https://upload.wikimedia.org/wikipedia/commons/thumb/7/7a/2019_Toyota_RAV4_Adventure_%28facelift%2C_red%29%2C_front_4.6.19.jpg/320px-2019_Toyota_RAV4_Adventure_%28facelift%2C_red%29%2C_front_4.6.19.jpg',
-  'Mazda_CX-5':         'https://upload.wikimedia.org/wikipedia/commons/thumb/a/a5/2017_Mazda_CX-5_Sport_AWD%2C_front_4.15.18.jpg/320px-2017_Mazda_CX-5_Sport_AWD%2C_front_4.15.18.jpg',
-  'Mazda_3':            'https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/2020_Mazda_3_G20_Evolve_sedan_%28facelift%2C_grey%29%2C_front_7.6.21.jpg/320px-2020_Mazda_3_G20_Evolve_sedan_%28facelift%2C_grey%29%2C_front_7.6.21.jpg',
-  'Ford_Ranger':        'https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/2023_Ford_Ranger_XLT_%28Australia%29%2C_front_8.22.22.jpg/320px-2023_Ford_Ranger_XLT_%28Australia%29%2C_front_8.22.22.jpg',
-  'Volkswagen_Golf':    'https://upload.wikimedia.org/wikipedia/commons/thumb/3/35/2020_Volkswagen_Golf_Style_1.5_Front.jpg/320px-2020_Volkswagen_Golf_Style_1.5_Front.jpg',
-  'Hyundai_i30':        'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/2021_Hyundai_i30_Elite_%28facelift%2C_blue%29%2C_front_6.9.21.jpg/320px-2021_Hyundai_i30_Elite_%28facelift%2C_blue%29%2C_front_6.9.21.jpg',
-  'Honda_Civic':        'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/2022_Honda_Civic_Sport_1.5T%2C_front_10.3.21.jpg/320px-2022_Honda_Civic_Sport_1.5T%2C_front_10.3.21.jpg',
-  'Subaru_Forester':    'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/2022_Subaru_Forester_Sport_%28facelift%2C_black%29%2C_front_7.6.22.jpg/320px-2022_Subaru_Forester_Sport_%28facelift%2C_black%29%2C_front_7.6.22.jpg',
-  'Kia_Sportage':       'https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/2022_Kia_Sportage_GT-Line_1.6T%2C_front_8.22.22.jpg/320px-2022_Kia_Sportage_GT-Line_1.6T%2C_front_8.22.22.jpg',
-  'Mitsubishi_Triton':  'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1c/2019_Mitsubishi_Triton_GLS_%28MQ%2C_facelift%29%2C_front_9.15.19.jpg/320px-2019_Mitsubishi_Triton_GLS_%28MQ%2C_facelift%29%2C_front_9.15.19.jpg',
-};
-
-// Multiple Unsplash photos per make for listing variety — all real cars of that brand
-const MAKE_PHOTOS = {
-  'Ferrari':     ['1503376780353-7e6692767b70','1583121629999-6d693b2a7d68','1612825173281-9a193fc4efce','1542362567-b07e6b31cdcc','1555626906-fcb10f5e5b46'],
-  'Lamborghini': ['1621135802920-133df8d80b5b','1558618666-fcd25c85cd64','1525609004556-c46c7d6cf023','1471444954657-f31b80d27f87','1519641471654-ac18d401ac72'],
-  'Porsche':     ['1614162692292-7ac56d2f8e1f','1611566026373-c6c8da0ea861','1503376780353-7e6692767b70','1494976388531-d1058494cdd8','1603584173870-7f23f0c2b39f'],
-  'McLaren':     ['1558618666-fcd25c85cd64','1621135802920-133df8d80b5b','1525609004556-c46c7d6cf023','1471444954657-f31b80d27f87','1574005001-21f12f9e7f8a'],
-  'Aston Martin':['1603584173870-7f23f0c2b39f','1494976388531-d1058494cdd8','1611566026373-c6c8da0ea861','1618843986574-c6f58b2a7bda','1555215695-3004980ad54e'],
-  'BMW':         ['1555215695-3004980ad54e','1603584173870-7f23f0c2b39f','1614162692292-7ac56d2f8e1f','1517026575980-3e1e6a3d6fce','1606016159991-dfe4f2746ad5'],
-  'Mercedes-Benz':['1618843986574-c6f58b2a7bda','1617814076367-b8b1da79c3f5','1603584173870-7f23f0c2b39f','1555215695-3004980ad54e','1606016159991-dfe4f2746ad5'],
-  'Audi':        ['1606016159991-dfe4f2746ad5','1617814076367-b8b1da79c3f5','1555215695-3004980ad54e','1614162692292-7ac56d2f8e1f','1603584173870-7f23f0c2b39f'],
-  'Toyota':      ['1559416523-096ce5fc8c47','1541899481282-d53bffe3c35d','1507003211169-0a1dd7228f2d','1555215695-3004980ad54e','1517026575980-3e1e6a3d6fce'],
-  'Mazda':       ['1507003211169-0a1dd7228f2d','1541899481282-d53bffe3c35d','1559416523-096ce5fc8c47','1617814076367-b8b1da79c3f5','1606016159991-dfe4f2746ad5'],
-  'Ford':        ['1541899481282-d53bffe3c35d','1507003211169-0a1dd7228f2d','1559416523-096ce5fc8c47','1555215695-3004980ad54e','1517026575980-3e1e6a3d6fce'],
-  'Volkswagen':  ['1606016159991-dfe4f2746ad5','1617814076367-b8b1da79c3f5','1555215695-3004980ad54e','1541899481282-d53bffe3c35d','1559416523-096ce5fc8c47'],
-  'Hyundai':     ['1517026575980-3e1e6a3d6fce','1507003211169-0a1dd7228f2d','1541899481282-d53bffe3c35d','1559416523-096ce5fc8c47','1606016159991-dfe4f2746ad5'],
-  'Honda':       ['1559416523-096ce5fc8c47','1507003211169-0a1dd7228f2d','1517026575980-3e1e6a3d6fce','1541899481282-d53bffe3c35d','1555215695-3004980ad54e'],
-  'Subaru':      ['1507003211169-0a1dd7228f2d','1559416523-096ce5fc8c47','1541899481282-d53bffe3c35d','1517026575980-3e1e6a3d6fce','1606016159991-dfe4f2746ad5'],
-  'Kia':         ['1517026575980-3e1e6a3d6fce','1606016159991-dfe4f2746ad5','1507003211169-0a1dd7228f2d','1559416523-096ce5fc8c47','1541899481282-d53bffe3c35d'],
-  'Mitsubishi':  ['1541899481282-d53bffe3c35d','1507003211169-0a1dd7228f2d','1559416523-096ce5fc8c47','1555215695-3004980ad54e','1606016159991-dfe4f2746ad5'],
-  'Rolls-Royce': ['1603584173870-7f23f0c2b39f','1618843986574-c6f58b2a7bda','1617814076367-b8b1da79c3f5','1494976388531-d1058494cdd8','1555215695-3004980ad54e'],
-  'Bentley':     ['1618843986574-c6f58b2a7bda','1617814076367-b8b1da79c3f5','1603584173870-7f23f0c2b39f','1555215695-3004980ad54e','1494976388531-d1058494cdd8'],
-  'DEFAULT':     ['1555215695-3004980ad54e','1507003211169-0a1dd7228f2d','1541899481282-d53bffe3c35d','1559416523-096ce5fc8c47','1517026575980-3e1e6a3d6fce'],
-};
-
-// For home page cards: return exact model photo
-function getExactModelPhoto(make, model){
-  const key = `${make}_${model}`;
-  return EXACT_MODEL_PHOTOS[key] || null;
-}
-
-// For listings: rotate through make-specific photos so each listing is different
-function getImageForYear(make, model, year, idx=0){
-  const cacheKey = `${make}_${model}_${year}_${idx}`;
-  if(imgCache[cacheKey]) return imgCache[cacheKey];
-  const photos = MAKE_PHOTOS[make] || MAKE_PHOTOS['DEFAULT'];
-  const photoId = photos[idx % photos.length];
-  const url = `https://images.unsplash.com/photo-${photoId}?w=400&h=260&fit=crop&auto=format&q=70`;
-  imgCache[cacheKey] = url;
-  return url;
-}
-
-async function getCarImages(make, model, count){
-  // Home page: use exact model photo if available, else first make photo
-  const exact = getExactModelPhoto(make, model);
-  if(exact) return [exact];
-  const photos = MAKE_PHOTOS[make] || MAKE_PHOTOS['DEFAULT'];
-  return [`https://images.unsplash.com/photo-${photos[0]}?w=400&h=260&fit=crop&auto=format&q=70`];
-}
-
-// ── Generate listings ─────────────────────────────────────────────────────
-function genListings(make, model, year, region, maxP){
-  const c = COUNTRIES[currentCountry];
-  const count = Math.floor(Math.random()*40)+80;
-  const exotic = EXOTIC_MAKES.includes(make);
-  const exBase = EXOTIC_BASE[make] || 35000;
-  const bp = c.basePrices;
-  const srcBases = [bp.p1, bp.p2, bp.p3, bp.p4];
-  const locMap = c.locations;
-  const locs = region && locMap[region] ? locMap[region] : locMap.ALL;
-
-  return Array.from({length:count},(_,i)=>{
-    const si = Math.floor(Math.random()*4);
-    const src = c.platforms[si];
-    const y = year ? parseInt(year) : (2015+Math.floor(Math.random()*10));
-    const dist = Math.floor(Math.random()*(exotic?50000:150000))+2000;
-    let baseP = exotic ? (exBase+(y-2015)*10000) : (srcBases[si]+(y-2015)*2000);
-    const price = Math.round((baseP + Math.random()*(baseP*0.2) - baseP*0.05)/100)*100;
-    const loc = locs[Math.floor(Math.random()*locs.length)];
-    return{
-      make, model:model||'', year:y, dist, price, src:src.name, srcCls:src.cls,
-      srcUrl:src.url(make, model||'', y, region),
-      loc,
-      trans:exotic?(Math.random()>0.1?'Automatic':'Manual'):(Math.random()>0.3?'Automatic':'Manual'),
-      fuel:exotic?'Petrol':(Math.random()>0.25?'Petrol':'Diesel'),
-      imgUrl: null,
-    };
-  })
-  .filter(l=>l.price<=(maxP||999999))
-  .sort((a,b)=>a.price-b.price);
-}
-
-// ── Search All Platforms simultaneously ───────────────────────────────────
-function searchAllPlatforms(){
-  const make = document.getElementById('s-make').value || currentMake || 'Toyota';
-  const model = document.getElementById('s-model').value || currentModel || '';
-  const year = document.getElementById('s-year').value || currentYear || '';
-  const region = document.getElementById('s-region').value || '';
-
-  if(!make){
-    alert('Please select a make first');
-    return;
-  }
-
-  const c = COUNTRIES[currentCountry];
-
-  // Open all platforms simultaneously in new tabs
-  c.platforms.forEach(p => {
-    const url = p.url(make, model, year, region);
-    window.open(url, '_blank');
-  });
-}
-
 // ── Search ────────────────────────────────────────────────────────────────
+async function fetchEbayListings(make, model, year, maxPrice, country){
+  const params = new URLSearchParams({make:make||'',model:model||'',year:year||'',maxPrice:maxPrice||'',country:country||'US'});
+  const res = await fetch(`${EBAY_WORKER_URL}/?${params.toString()}`);
+  const data = await res.json();
+  if(!res.ok) throw new Error(data.error || 'eBay API failed');
+  return data.items || [];
+}
+
 async function doSearch(){
   const dropdownMake = document.getElementById('s-make').value;
   const dropdownModel = document.getElementById('s-model').value;
-
   currentMake = dropdownMake || currentMake || 'Porsche';
   currentModel = dropdownModel || currentModel || '';
   currentYear = document.getElementById('s-year').value || '';
-
   const maxP = document.getElementById('s-maxprice').value || '';
   const region = document.getElementById('s-region').value;
   const c = COUNTRIES[currentCountry];
@@ -700,23 +627,12 @@ async function doSearch(){
 
   try{
     const items = await fetchEbayListings(currentMake,currentModel,currentYear,maxP,currentCountry);
-
     allListings = items.map(item => ({
-      make: currentMake,
-      model: currentModel,
-      year: '',
-      dist: '',
+      make:currentMake, model:currentModel, year:'', dist:'',
       price: item.price || 0,
-      src: 'eBay',
-      srcCls: 'btn-a',
-      srcUrl: item.url,
-      loc: item.location || '',
-      trans: '',
-      fuel: '',
-      imgUrl: item.image,
-      title: item.title,
-      condition: item.condition || '',
-      currency: item.currency || c.currency
+      src:'eBay', srcCls:'btn-a', srcUrl:item.url, loc:item.location||'',
+      trans:'', fuel:'', imgUrl:item.image, title:item.title,
+      condition:item.condition||'', currency:item.currency||c.currency
     }));
   }catch(err){
     console.error('Live eBay search failed:', err);
@@ -726,21 +642,16 @@ async function doSearch(){
   document.getElementById('sort-sel').value='price-asc';
   renderResults(region);
   renderListings();
-
   document.getElementById('loading').style.display='none';
   document.getElementById('results-area').style.display='block';
 }
 
 async function quickSearch(make, model){
-  currentMake = make;
-  currentModel = model;
-  currentYear = '';
-
+  currentMake = make; currentModel = model; currentYear = '';
   document.getElementById('s-make').value = make;
   document.getElementById('s-model').innerHTML = `<option value="${model}" selected>${model}</option>`;
   document.getElementById('s-year').value = '';
   document.getElementById('s-maxprice').value = '';
-
   await doSearch();
 }
 
@@ -755,25 +666,23 @@ function renderResults(region){
   const sym = c.currencySymbol;
   const label = currentMake+(currentModel?' '+currentModel:'')+(currentYear?' ('+currentYear+')':'');
   document.getElementById('r-title').textContent = label;
-  const rLabel = region ? ` in ${region}` : '';
-  document.getElementById('r-meta').textContent = `${allListings.length} ${c.name} live eBay listings found${rLabel} — lowest price first`;
+  document.getElementById('r-meta').textContent = `${allListings.length} ${c.name} live eBay listings found${region?' in '+region:''} — lowest price first`;
   document.getElementById('alert-title').textContent = 'Get price alerts for '+label;
 
-  const prices = allListings.map(l=>Number(l.price || 0)).filter(p=>p>0);
+  const prices = allListings.map(l=>Number(l.price||0)).filter(p=>p>0);
   const avg = prices.length ? Math.round(prices.reduce((a,b)=>a+b,0)/prices.length) : null;
   const lowest = prices.length ? Math.min(...prices) : null;
   const highest = prices.length ? Math.max(...prices) : null;
 
   document.getElementById('stats-grid').innerHTML = `
     <div class="stat-card"><div class="stat-label">Total listings</div><div class="stat-value">${allListings.length}</div></div>
-    <div class="stat-card"><div class="stat-label">Average price</div><div class="stat-value">${avg ? sym+avg.toLocaleString() : '-'}</div></div>
-    <div class="stat-card"><div class="stat-label">Lowest price</div><div class="stat-value">${lowest ? sym+lowest.toLocaleString() : '-'}</div></div>
-    <div class="stat-card"><div class="stat-label">Highest price</div><div class="stat-value">${highest ? sym+highest.toLocaleString() : '-'}</div></div>`;
+    <div class="stat-card"><div class="stat-label">Average price</div><div class="stat-value">${avg?sym+avg.toLocaleString():'-'}</div></div>
+    <div class="stat-card"><div class="stat-label">Lowest price</div><div class="stat-value">${lowest?sym+lowest.toLocaleString():'-'}</div></div>
+    <div class="stat-card"><div class="stat-label">Highest price</div><div class="stat-value">${highest?sym+highest.toLocaleString():'-'}</div></div>`;
 
   const ebayAvg = allListings.length ? Math.round(allListings.reduce((a,l)=>a+Number(l.price||0),0)/allListings.length) : 0;
-  const ebayUrl = `${EBAY_WORKER_URL}/?make=${encodeURIComponent(currentMake)}&model=${encodeURIComponent(currentModel)}&country=${currentCountry}`;
   const platformCards = [
-    {name:'eBay', href: ebayUrl, count: `${allListings.length} live listings`, avg: ebayAvg ? `${sym}${ebayAvg.toLocaleString()}` : '-', cls:'btn-a', label:'Search on eBay'},
+    {name:'eBay', href:`${EBAY_WORKER_URL}/?make=${encodeURIComponent(currentMake)}&model=${encodeURIComponent(currentModel)}&country=${currentCountry}`, count:`${allListings.length} live listings`, avg:ebayAvg?`${sym}${ebayAvg.toLocaleString()}`:'-', cls:'btn-a', label:'Search on eBay'},
     ...c.platforms.map(p=>({name:p.name, href:p.url(currentMake,currentModel,currentYear,region), count:'Open external search', avg:'-', cls:p.cls, label:`Search on ${p.name}`}))
   ];
 
@@ -785,74 +694,54 @@ function renderResults(region){
       <div class="platform-btn ${p.cls}">${p.label} ↗</div>
     </a>`).join('');
 
-  const filtersEl = document.getElementById('filters-bar');
-  if(filtersEl){
-    filtersEl.innerHTML = `
-      <span style="font-size:12px;color:var(--muted);margin-right:4px">Platform:</span>
-      <button class="filter-chip active" onclick="toggleFilter(this,'all')">All</button>
-      <button class="filter-chip" onclick="toggleFilter(this,'eBay')">eBay</button>`;
-  }
+  document.getElementById('filters-bar').innerHTML = `
+    <span style="font-size:12px;color:var(--muted);margin-right:4px">Platform:</span>
+    <button class="filter-chip active" onclick="toggleFilter(this,'all')">All</button>
+    <button class="filter-chip" onclick="toggleFilter(this,'eBay')">eBay</button>`;
 
-  activeFilter='all';
+  activeFilter = 'all';
 
   const exotic = ['Ferrari','Lamborghini','McLaren','Aston Martin','Rolls-Royce','Bentley'].includes(currentMake);
   const premium = ['Porsche','BMW','Mercedes-Benz','Audi'].includes(currentMake);
-  const basePrice = exotic ? 250000 : premium ? 60000 : 25000;
-  const lo = lowest || Math.round(basePrice * 0.7 / 1000) * 1000;
-  const hi = highest || Math.round(basePrice * 1.8 / 1000) * 1000;
-
-  const priceEl = document.getElementById('price-range-display');
-  const topEl = document.getElementById('top-platform-display');
-  const bestEl = document.getElementById('best-value-display');
-  if(priceEl) priceEl.textContent = `${sym}${lo.toLocaleString()} – ${sym}${hi.toLocaleString()}`;
-  if(topEl) topEl.textContent = 'eBay';
-  if(bestEl) bestEl.textContent = allListings.length ? 'eBay' : (currentCountry === 'AU' ? 'Carsales/Gumtree' : 'eBay');
+  const basePrice = exotic?250000:premium?60000:25000;
+  const lo = lowest||Math.round(basePrice*0.7/1000)*1000;
+  const hi = highest||Math.round(basePrice*1.8/1000)*1000;
+  document.getElementById('price-range-display').textContent = `${sym}${lo.toLocaleString()} – ${sym}${hi.toLocaleString()}`;
+  document.getElementById('top-platform-display').textContent = 'eBay';
+  document.getElementById('best-value-display').textContent = allListings.length?'eBay':(currentCountry==='AU'?'Carsales/Gumtree':'eBay');
 }
 
 function renderListings(){
   const wrap = document.getElementById('listings-wrap');
-  if(!wrap) return;
-
-  const listings = activeFilter === 'all'
-    ? allListings
-    : allListings.filter(l => l.src === activeFilter);
+  const listings = activeFilter==='all' ? allListings : allListings.filter(l=>l.src===activeFilter);
 
   if(!listings.length){
-    wrap.innerHTML = `
-      <div style="background:white;border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:14px">
-        No live eBay listings found. Try <strong>United States + Porsche 911</strong> or <strong>BMW M3</strong> first.
-      </div>`;
+    wrap.innerHTML=`<div style="background:white;border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:14px">No live eBay listings found. Try <strong>United States + Porsche 911</strong> or <strong>BMW M3</strong> first.</div>`;
     return;
   }
 
-  wrap.innerHTML = listings.map(l => `
+  wrap.innerHTML = listings.map(l=>`
     <div class="listing">
       <div class="listing-img-wrap">
-        ${l.imgUrl
-          ? `<img class="listing-img" src="${l.imgUrl}" alt="${(l.title || '').replace(/"/g,'&quot;')}">`
-          : `<div class="listing-img-ph">🚗</div>`}
+        ${l.imgUrl?`<img class="listing-img" src="${l.imgUrl}" alt="${(l.title||'').replace(/"/g,'&quot;')}" onerror="this.outerHTML='<div class=listing-img-ph>🚗</div>'">`:`<div class="listing-img-ph">🚗</div>`}
       </div>
       <div class="listing-body">
-        <div class="listing-title">${l.title || `${l.make} ${l.model}`}</div>
-        <div class="listing-detail">${l.loc || 'Location not listed'} ${l.condition ? '• ' + l.condition : ''}</div>
-        <div class="listing-tags">
-          <span class="tag">eBay</span>
-          <span class="tag">Live listing</span>
-        </div>
+        <div class="listing-title">${l.title||`${l.make} ${l.model}`}</div>
+        <div class="listing-detail">${l.loc||'Location not listed'}${l.condition?' • '+l.condition:''}</div>
+        <div class="listing-tags"><span class="tag">eBay</span><span class="tag">Live listing</span></div>
       </div>
       <div class="listing-right">
         <div class="src-badge pill-a">eBay</div>
-        <div class="listing-price">$${Number(l.price || 0).toLocaleString()}</div>
+        <div class="listing-price">$${Number(l.price||0).toLocaleString()}</div>
         <a class="view-link" href="${l.srcUrl}" target="_blank" rel="noopener">View listing ↗</a>
       </div>
-    </div>
-  `).join('');
+    </div>`).join('');
 }
 
 function toggleFilter(el,val){
   document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
   el.classList.add('active');
-  activeFilter = val;
+  activeFilter=val;
   renderListings();
 }
 
@@ -870,49 +759,7 @@ function signupAlert(){
   document.getElementById('alert-card').innerHTML=`<div style="color:#fff;font-size:14px">Done! We'll email <strong>${email}</strong> when a better deal appears for ${currentMake} ${currentModel}.</div>`;
 }
 
-// ── Popular grid with photos ──────────────────────────────────────────────
-async function loadPopularGrid(){
-  const grid = document.getElementById('popular-grid');
-  grid.innerHTML = '';
-  for(const p of POPULAR){
-    const card = document.createElement('div');
-    card.className = 'pop-card'+(p.exotic?' exotic':'');
-    card.onclick = ()=>quickSearch(p.make,p.model);
-    card.innerHTML = `
-      <div class="pop-img-wrap"><div class="pop-img-ph">${p.exotic?'🏎️':'🚗'}</div></div>
-      <div class="pop-info">
-        <div class="pop-name">${p.make} ${p.model}</div>
-        <div class="pop-meta">${p.exotic?'<span class="exotic-dot"></span>':''} ${Math.floor(Math.random()*400)+50} listings</div>
-      </div>`;
-    grid.appendChild(card);
-
-    // Load real image asynchronously
-    getCarImages(p.make, p.model, 1).then(imgs=>{
-      if(imgs[0]){
-        const ph = card.querySelector('.pop-img-ph');
-        if(ph) ph.outerHTML = `<img class="pop-img" src="${imgs[0]}" alt="${p.make} ${p.model}" loading="lazy" onerror="this.outerHTML='<div class=pop-img-ph>${p.exotic?'🏎️':'🚗'}</div>'">`;
-      }
-    });
-  }
-}
-
-// Year dropdown
-const yearSel=document.getElementById('s-year');
-for(let y=2025;y>=1990;y--){const o=document.createElement('option');o.value=y;o.textContent=y;yearSel.appendChild(o);}
-
-// Init
-loadMakes();
-updateTrustBar();
-updateRegionDropdown();
-updatePPSRBtn();
-loadPopularGrid();
-
-// ── AI Search ─────────────────────────────────────────────────────────────────
-function toggleAdvanced(){
-  const el = document.getElementById('advanced-search');
-  el.style.display = el.style.display === 'none' ? 'flex' : 'none';
-}
-
+// ── AI Search ─────────────────────────────────────────────────────────────
 function setAiExample(el){
   document.getElementById('ai-input').value = el.textContent.replace(/^[^\s]+\s/,'').trim();
   document.getElementById('ai-input').focus();
@@ -920,49 +767,41 @@ function setAiExample(el){
 
 async function aiSearch(){
   const query = document.getElementById('ai-input').value.trim();
-  if(!query){ document.getElementById('ai-input').focus(); return; }
-
+  if(!query){document.getElementById('ai-input').focus();return;}
   const btn = document.getElementById('ai-btn');
   btn.classList.add('loading');
-  btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Searching...';
-
+  btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Searching...';
   try{
-    const text = query.toLowerCase();
-    const knownMakes = ['Porsche','BMW','Mercedes-Benz','Mercedes','Audi','Ferrari','Lamborghini','McLaren','Toyota','Volkswagen','Ford','Mazda','Honda','Hyundai','Kia','Subaru','Nissan','Holden','Aston Martin','Bentley','Rolls-Royce'];
-    const foundMake = knownMakes.find(m => text.includes(m.toLowerCase()));
-
-    let make = foundMake || currentMake || 'Porsche';
-    if(make === 'Mercedes') make = 'Mercedes-Benz';
-
-    let afterMake = text;
-    if(foundMake) afterMake = text.split(foundMake.toLowerCase())[1] || '';
-    const modelMatch = afterMake.match(/\b([a-z0-9]{1,10})(?:\s|$)/i);
-    let model = modelMatch ? modelMatch[1].toUpperCase() : '';
-
-    const priceMatch = text.match(/(?:under|below|for|max|less than)\s*\$?\s*([0-9,.]+)\s*(k|m)?/i);
-    if(priceMatch){
-      let price = parseFloat(priceMatch[1].replace(/,/g,''));
-      if(priceMatch[2] === 'k') price *= 1000;
-      if(priceMatch[2] === 'm') price *= 1000000;
-      document.getElementById('s-maxprice').value = Math.round(price);
-    }
-
-    currentMake = make;
-    currentModel = model;
-    currentYear = '';
-
-    document.getElementById('s-make').value = make;
-    document.getElementById('s-model').innerHTML = `<option value="${model}" selected>${model || 'Any model'}</option>`;
-
+    const text=query.toLowerCase();
+    const knownMakes=['Porsche','BMW','Mercedes-Benz','Mercedes','Audi','Ferrari','Lamborghini','McLaren','Toyota','Volkswagen','Ford','Mazda','Honda','Hyundai','Kia','Subaru','Nissan','Holden','Aston Martin','Bentley','Rolls-Royce'];
+    const foundMake=knownMakes.find(m=>text.includes(m.toLowerCase()));
+    let make=foundMake||currentMake||'Porsche';
+    if(make==='Mercedes') make='Mercedes-Benz';
+    let afterMake=text;
+    if(foundMake) afterMake=text.split(foundMake.toLowerCase())[1]||'';
+    const modelMatch=afterMake.match(/\b([a-z0-9]{1,10})(?:\s|$)/i);
+    let model=modelMatch?modelMatch[1].toUpperCase():'';
+    const priceMatch=text.match(/(?:under|below|for|max|less than)\s*\$?\s*([0-9,.]+)\s*(k|m)?/i);
+    if(priceMatch){let price=parseFloat(priceMatch[1].replace(/,/g,''));if(priceMatch[2]==='k')price*=1000;if(priceMatch[2]==='m')price*=1000000;document.getElementById('s-maxprice').value=Math.round(price);}
+    currentMake=make; currentModel=model; currentYear='';
+    document.getElementById('s-make').value=make;
+    document.getElementById('s-model').innerHTML=`<option value="${model}" selected>${model||'Any model'}</option>`;
     await doSearch();
-  }catch(err){
-    console.error('AI search error:', err);
-    await doSearch();
-  }finally{
+  }catch(err){console.error('AI search error:',err);await doSearch();}
+  finally{
     btn.classList.remove('loading');
-    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Search with AI';
+    btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Search with AI';
   }
 }
+
+// ── Init ──────────────────────────────────────────────────────────────────
+const yearSel=document.getElementById('s-year');
+for(let y=2025;y>=1990;y--){const o=document.createElement('option');o.value=y;o.textContent=y;yearSel.appendChild(o);}
+loadMakes();
+updateTrustBar();
+updateRegionDropdown();
+updatePPSRBtn();
+loadLiveGrid(); // Load real eBay listings on homepage
 </script>
 </body>
 </html>
