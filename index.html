@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!-- Google Analytics -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-SRSCS0W200"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -11,805 +10,434 @@
   gtag('js', new Date());
   gtag('config', 'G-SRSCS0W200');
 </script>
-<title>CarSearch — Find Any Car on eBay</title>
-<meta name="description" content="Search every car platform in one click. Australia, USA, UK and Germany.">
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23185FA5'/><rect x='15' y='52' width='70' height='22' rx='6' fill='white'/><path d='M25 52 L35 34 L65 34 L75 52 Z' fill='white'/><circle cx='30' cy='74' r='9' fill='%23185FA5'/><circle cx='70' cy='74' r='9' fill='%23185FA5'/><circle cx='30' cy='74' r='4' fill='white'/><circle cx='70' cy='74' r='4' fill='white'/><rect x='38' y='37' width='24' height='13' rx='2' fill='%23185FA5'/></svg>">
+<title>FindAI — Search Every Listing</title>
+<meta name="description" content="The AI that finds anything — cars, property, jobs, products and more.">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23000'/><text x='50' y='68' text-anchor='middle' font-family='Arial' font-size='52' font-weight='900' fill='white'>f</text></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{
-  --bg:#f7f6f3;--surface:#fff;--border:#e5e3dd;--text:#1a1916;--muted:#6b6860;
-  --accent:#1a3c6e;--accent-light:#e8eef7;--green:#1a5c3a;--green-light:#e8f5ee;
-  --purple:#3d2c7a;--purple-light:#eeebf7;--amber:#7a4d1a;--amber-light:#f7f0e8;
-  --radius:10px;--radius-lg:16px;
-}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.6;min-height:100vh}
-nav{background:#fff;border-bottom:1px solid var(--border);padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:64px;position:sticky;top:0;z-index:100}
-.nav-links{display:flex;gap:24px;list-style:none}
-.nav-links a{font-size:14px;color:var(--muted);text-decoration:none}
-.nav-links a:hover{color:var(--text)}
-.nav-cta{background:var(--accent);color:#fff !important;padding:7px 16px;border-radius:var(--radius);font-size:13px}
-.hero-img-wrap{position:relative;width:100%;height:420px;overflow:hidden;background:#111}
-.hero-img-wrap img{width:100%;height:100%;object-fit:cover;object-position:center 40%;display:block}
-.hero-img-overlay{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.1) 0%,rgba(0,0,0,0.45) 100%)}
-.hero-img-title{position:absolute;bottom:28px;left:0;right:0;text-align:center;color:#fff;font-family:'DM Serif Display',serif;font-size:clamp(28px,5vw,52px);font-weight:400;text-shadow:0 2px 16px rgba(0,0,0,0.5);line-height:1.1}
-.hero-img-sub{position:absolute;bottom:0;left:0;right:0;text-align:center;padding-bottom:10px}
-.search-panel{background:#fff;border-radius:16px 16px 0 0;padding:16px 32px 10px;margin-top:-48px;position:relative;z-index:10;box-shadow:0 -4px 24px rgba(0,0,0,0.12);max-width:1100px;margin-left:auto;margin-right:auto;margin-top:-48px}
-.search-panel-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px}
-.search-panel-title{font-size:17px;font-weight:600;color:var(--text)}
-.ebay-badge{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
-.country-tabs{display:flex;gap:8px;flex-wrap:wrap}
-.ctab{padding:7px 18px;border-radius:30px;font-size:13px;font-weight:500;cursor:pointer;border:1.5px solid var(--border);color:var(--muted);background:#fff;font-family:'DM Sans',sans-serif;transition:all 0.15s;display:flex;align-items:center;gap:5px}
-.ctab:hover{border-color:#185FA5;color:#185FA5}
-.ctab.active{background:#185FA5;color:#fff;border-color:#185FA5;font-weight:600}
-.search-wrap{max-width:900px;margin:0 auto;background:#fff;border:none;border-radius:16px;padding:10px 12px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;box-shadow:0 8px 40px rgba(0,0,0,0.25)}
-.search-wrap select,.search-wrap input{flex:1;min-width:100px;padding:9px 12px;border:1px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:14px;background:var(--surface);color:var(--text);outline:none;appearance:none;-webkit-appearance:none}
-.search-wrap select:focus,.search-wrap input:focus{border-color:var(--accent)}
-.search-btn{padding:9px 22px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px}
-.search-btn:hover{opacity:0.88}
-.ai-search-wrap{max-width:780px;margin:0 auto;position:relative;z-index:2}
-.ai-search-inner{display:flex;align-items:center;background:#fff;border-radius:16px;padding:8px 8px 8px 16px;box-shadow:0 8px 40px rgba(0,0,0,0.25);gap:8px}
-.ai-icon{color:#185FA5;flex-shrink:0;display:flex;align-items:center}
-.ai-input{flex:1;border:none;outline:none;font-size:15px;font-family:'DM Sans',sans-serif;color:var(--text);background:transparent;min-width:0}
-.ai-input::placeholder{color:#aaa}
-.ai-btn{padding:10px 20px;background:#185FA5;color:#fff;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:6px;flex-shrink:0;box-shadow:0 2px 8px rgba(24,95,165,0.3)}
-.ai-btn:hover{opacity:0.88}
-.ai-btn.loading{opacity:0.7;pointer-events:none}
-.ai-examples{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;justify-content:center}
-.ai-examples span{background:rgba(255,255,255,0.15);color:#fff;padding:5px 12px;border-radius:20px;font-size:12px;border:1px solid rgba(255,255,255,0.25);transition:background 0.15s;backdrop-filter:blur(4px);cursor:pointer}
-.ai-examples span:hover{background:rgba(255,255,255,0.25)}
-.trust-bar{display:flex;justify-content:center;align-items:center;gap:6px;padding:10px 32px;font-size:12px;color:var(--muted);flex-wrap:wrap;background:var(--bg);border-bottom:1px solid var(--border)}
-.trust-pill{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
-.pill-a{background:var(--accent-light);color:var(--accent)}
-.pill-b{background:var(--green-light);color:var(--green)}
-.pill-c{background:var(--purple-light);color:var(--purple)}
-.pill-d{background:var(--amber-light);color:var(--amber)}
-main{max-width:980px;margin:0 auto;padding:28px 24px}
-.section-label{font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:14px}
+body{font-family:'DM Sans',sans-serif;background:#000;color:#fff;min-height:100vh;display:flex;flex-direction:column}
 
-/* ── Live listings grid on homepage ── */
-.live-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:32px}
-.live-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;transition:border-color 0.15s,transform 0.12s,box-shadow 0.15s;text-decoration:none;display:block;color:inherit}
-.live-card:hover{border-color:#185FA5;transform:translateY(-2px);box-shadow:0 4px 12px rgba(24,95,165,0.12)}
-.live-card.exotic{border-color:#c8a86b}
-.live-card.exotic:hover{border-color:#9a7a30}
-.live-card-img{width:100%;height:140px;object-fit:cover;display:block;background:var(--bg);transition:transform 0.3s}
-.live-card:hover .live-card-img{transform:scale(1.04)}
-.live-card-ph{width:100%;height:140px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:32px;color:var(--muted)}
-.live-card-body{padding:10px 12px 12px}
-.live-card-title{font-size:12px;font-weight:500;color:var(--text);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.live-card-sub{font-size:11px;color:var(--muted);margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.live-card-footer{display:flex;align-items:center;justify-content:space-between}
-.live-card-price{font-size:15px;font-weight:600;color:var(--accent)}
-.live-card-badge{font-size:10px;padding:2px 7px;border-radius:5px;background:var(--accent-light);color:var(--accent);font-weight:500}
-.live-card-badge.auction{background:var(--amber-light);color:var(--amber)}
+/* ── NAV ── */
+nav{padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:56px;position:sticky;top:0;z-index:100;background:#000}
+.nav-logo{font-size:18px;font-weight:600;color:#fff;cursor:pointer;letter-spacing:-0.3px;font-family:'DM Sans',sans-serif}
+.nav-links{display:flex;gap:6px}
+.nav-link{padding:6px 14px;border-radius:20px;font-size:13px;color:#888;background:transparent;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;transition:color 0.15s}
+.nav-link:hover{color:#fff}
 
-/* skeleton loader */
-.skel{background:linear-gradient(90deg,var(--bg) 25%,var(--border) 50%,var(--bg) 75%);background-size:200% 100%;animation:shimmer 1.2s infinite}
+/* ── LAYOUT ── */
+.app{display:flex;flex:1;height:calc(100vh - 56px)}
+
+/* ── SIDEBAR ── */
+.sidebar{width:240px;padding:12px 8px;display:flex;flex-direction:column;gap:2px;border-right:1px solid #1a1a1a;flex-shrink:0}
+.sb-new{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:8px;cursor:pointer;font-size:14px;color:#888;background:none;border:none;font-family:'DM Sans',sans-serif;width:100%;text-align:left;transition:all 0.15s;margin-bottom:8px}
+.sb-new:hover{background:#111;color:#fff}
+.sb-section{font-size:11px;color:#555;padding:8px 12px 4px;font-weight:500;text-transform:uppercase;letter-spacing:0.06em}
+.sb-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:13px;color:#888;background:none;border:none;font-family:'DM Sans',sans-serif;width:100%;text-align:left;transition:all 0.15s}
+.sb-item:hover{background:#111;color:#fff}
+.sb-item.active{background:#111;color:#fff}
+.sb-dot{width:6px;height:6px;border-radius:50%;background:#19c37d;flex-shrink:0}
+.sb-dot-grey{width:6px;height:6px;border-radius:50%;background:#333;flex-shrink:0}
+
+/* ── CHAT AREA ── */
+.chat{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* ── WELCOME ── */
+.welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px;text-align:center}
+.welcome h1{font-size:clamp(26px,4vw,38px);font-weight:500;color:#fff;margin-bottom:10px;letter-spacing:-0.5px}
+.welcome-sub{font-size:15px;color:#666;margin-bottom:36px}
+
+/* preview grid */
+.preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;max-width:760px;width:100%;margin:0 auto 32px}
+.prev-card{background:#111;border:1px solid #222;border-radius:10px;overflow:hidden;cursor:pointer;transition:opacity 0.5s,transform 0.5s,border-color 0.15s;text-decoration:none;display:block;color:inherit}
+.prev-card:hover{border-color:#444;transform:translateY(-1px)}
+.prev-card.fade-out{opacity:0;transform:translateY(6px)}
+.prev-card-img{width:100%;height:100px;object-fit:cover;display:block;background:#1a1a1a}
+.prev-card-ph{width:100%;height:100px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:24px}
+.prev-card-body{padding:8px 10px}
+.prev-card-make{font-size:11px;color:#888;margin-bottom:2px}
+.prev-card-price{font-size:14px;font-weight:600;color:#19c37d}
+
+/* ── MESSAGES ── */
+.messages{flex:1;overflow-y:auto;padding:32px 24px;display:flex;flex-direction:column;gap:20px;max-width:860px;width:100%;margin:0 auto}
+.msg{display:flex;gap:12px;width:100%}
+.msg.user{flex-direction:row-reverse}
+.msg-av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
+.msg-av.u{background:#19c37d;color:#000}
+.msg-av.a{background:#fff;color:#000;font-size:11px;font-weight:800;font-family:Arial}
+.msg-body{max-width:calc(100% - 44px);font-size:14px;line-height:1.65;color:#e5e5e5;padding:12px 16px;border-radius:12px;background:#111;border:1px solid #222}
+.msg.user .msg-body{background:#19c37d;color:#000;border-color:#19c37d}
+
+/* listings in chat */
+.chat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-top:12px}
+.chat-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:10px;overflow:hidden;text-decoration:none;display:block;color:inherit;transition:border-color 0.15s,transform 0.15s}
+.chat-card:hover{border-color:#19c37d;transform:translateY(-1px)}
+.chat-card-img{width:100%;height:110px;object-fit:cover;display:block;background:#222}
+.chat-card-ph{width:100%;height:110px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:26px}
+.chat-card-body{padding:9px 11px}
+.chat-card-title{font-size:11px;color:#aaa;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-card-price{font-size:14px;font-weight:700;color:#19c37d}
+.chat-card-loc{font-size:10px;color:#555;margin-top:2px}
+
+/* thinking */
+.thinking{display:flex;gap:5px;padding:12px 16px;background:#111;border:1px solid #222;border-radius:12px;width:fit-content}
+.thinking span{width:7px;height:7px;background:#444;border-radius:50%;animation:bounce 1.2s infinite}
+.thinking span:nth-child(2){animation-delay:0.2s}
+.thinking span:nth-child(3){animation-delay:0.4s}
+@keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-7px)}}
+
+/* ── INPUT ── */
+.input-area{padding:12px 24px 20px;background:#000}
+.input-wrap{max-width:760px;margin:0 auto;background:#111;border:1px solid #2a2a2a;border-radius:14px;display:flex;align-items:flex-end;gap:8px;padding:10px 12px 10px 16px;transition:border-color 0.15s}
+.input-wrap:focus-within{border-color:#444}
+.chat-in{flex:1;background:transparent;border:none;outline:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:15px;resize:none;max-height:120px;min-height:24px;line-height:1.5}
+.chat-in::placeholder{color:#555}
+.send-btn{width:34px;height:34px;border-radius:8px;background:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background 0.15s}
+.send-btn:hover{background:#e0e0e0}
+.send-btn:disabled{background:#222;cursor:not-allowed}
+.input-hint{text-align:center;font-size:11px;color:#444;margin-top:8px;max-width:760px;margin-left:auto;margin-right:auto}
+
+/* skel */
+.skel{background:linear-gradient(90deg,#111 25%,#1a1a1a 50%,#111 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;border-radius:6px}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-.skel-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden}
-.skel-img{width:100%;height:140px}
-.skel-body{padding:10px 12px 12px}
-.skel-line{height:11px;border-radius:4px;margin-bottom:6px}
-.skel-line.w80{width:80%}
-.skel-line.w50{width:50%}
 
-.loading{display:none;text-align:center;padding:60px 20px;color:var(--muted);font-size:14px}
-.spinner{width:26px;height:26px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;margin-bottom:10px}
-@keyframes spin{to{transform:rotate(360deg)}}
-#results-area{display:none}
-.results-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px;gap:12px;flex-wrap:wrap}
-.results-make{font-family:'DM Serif Display',serif;font-size:26px;font-weight:400;margin-bottom:2px}
-.results-meta{font-size:13px;color:var(--muted)}
-.sort-wrap{display:flex;align-items:center;gap:8px}
-.sort-wrap label{font-size:13px;color:var(--muted);white-space:nowrap}
-.sort-select{padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;background:var(--surface);color:var(--text);outline:none;cursor:pointer}
-.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-bottom:18px}
-.stat-card{background:var(--surface);border:1px solid var(--border);border-top:3px solid #185FA5;border-radius:var(--radius);padding:12px 14px}
-.stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:3px}
-.stat-value{font-size:18px;font-weight:600}
-.platform-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin-bottom:20px}
-.platform-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:14px;text-decoration:none;display:block;transition:border-color 0.15s,transform 0.1s,box-shadow 0.15s}
-.platform-card:hover{border-color:#185FA5;transform:translateY(-1px);box-shadow:0 4px 16px rgba(24,95,165,0.1)}
-.platform-name{font-size:13px;font-weight:600;margin-bottom:2px;color:var(--text)}
-.platform-count{font-size:11px;color:var(--muted);margin-bottom:5px}
-.platform-avg{font-size:15px;font-weight:600;margin-bottom:8px;color:var(--text)}
-.platform-btn{display:block;width:100%;padding:6px 0;border-radius:var(--radius);font-size:11px;font-weight:500;text-align:center;border:none;cursor:pointer;font-family:'DM Sans',sans-serif}
-.platform-btn:hover{opacity:0.8}
-.btn-a{background:var(--accent-light);color:var(--accent)}
-.btn-b{background:var(--green-light);color:var(--green)}
-.btn-c{background:var(--purple-light);color:var(--purple)}
-.btn-d{background:var(--amber-light);color:var(--amber)}
-.filters-bar{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
-.filter-chip{padding:4px 12px;border-radius:20px;font-size:12px;cursor:pointer;border:1px solid var(--border);color:var(--muted);background:var(--surface);font-family:'DM Sans',sans-serif}
-.filter-chip:hover{border-color:#aab5c8;color:var(--text)}
-.filter-chip.active{background:var(--accent);color:#fff;border-color:var(--accent)}
-.listing{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);margin-bottom:8px;display:flex;overflow:hidden;transition:border-color 0.15s}
-.listing:hover{border-color:#aab5c8}
-.listing-img-wrap{width:155px;flex-shrink:0;overflow:hidden;background:var(--bg)}
-.listing-img{width:155px;height:100%;object-fit:cover;display:block;min-height:110px;transition:transform 0.3s}
-.listing:hover .listing-img{transform:scale(1.04)}
-.listing-img-ph{width:155px;min-height:110px;background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:32px;color:var(--muted)}
-.listing-body{flex:1;min-width:0;padding:13px 15px}
-.listing-title{font-size:14px;font-weight:500;margin-bottom:3px}
-.listing-detail{font-size:12px;color:var(--muted);margin-bottom:7px}
-.listing-tags{display:flex;gap:5px;flex-wrap:wrap}
-.tag{font-size:10px;padding:2px 7px;border-radius:5px;background:var(--bg);color:var(--muted);border:1px solid var(--border)}
-.listing-right{text-align:right;flex-shrink:0;padding:13px 14px;display:flex;flex-direction:column;align-items:flex-end;gap:5px;justify-content:center;min-width:120px}
-.src-badge{font-size:10px;font-weight:500;padding:2px 8px;border-radius:20px}
-.listing-price{font-size:17px;font-weight:600}
-.view-link{display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--accent);text-decoration:none;padding:4px 10px;border:1px solid var(--accent-light);border-radius:var(--radius);background:var(--accent-light);font-weight:500}
-.view-link:hover{opacity:0.8}
-.affiliate-bar{background:linear-gradient(135deg,#e8eef7,#eef3fb);border:1px solid #c5d8f0;border-radius:var(--radius-lg);padding:18px 22px;margin-bottom:20px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between}
-.affiliate-bar p{font-size:13px;color:var(--muted);max-width:380px}
-.affiliate-bar strong{color:var(--text);display:block;font-size:14px;margin-bottom:2px}
-.aff-btn{padding:8px 16px;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;border:none;white-space:nowrap;text-decoration:none;display:inline-block}
-.aff-btn:hover{opacity:0.85}
-.aff-finance{background:var(--accent);color:#fff}
-.aff-insure{background:var(--green);color:#fff}
-.aff-ppsr{background:var(--bg);color:var(--text);border:1px solid var(--border)}
-.alert-card{background:var(--accent);border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:space-between}
-.alert-card h3{font-size:15px;font-weight:500;color:#fff;margin-bottom:3px}
-.alert-card p{font-size:12px;color:rgba(255,255,255,0.75)}
-.alert-form{display:flex;gap:8px}
-.alert-input{padding:8px 12px;border-radius:var(--radius);border:none;font-family:'DM Sans',sans-serif;font-size:13px;outline:none;min-width:180px}
-.alert-btn{padding:8px 14px;background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.3);border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer}
-.alert-btn:hover{background:rgba(255,255,255,0.3)}
-footer{background:#0C447C;border-top:none;padding:28px 32px;text-align:center;font-size:13px;color:rgba(255,255,255,0.7);margin-top:48px}
-footer a{color:rgba(255,255,255,0.6);text-decoration:underline}
-@media(max-width:620px){
-  /* Nav */
-  nav{padding:0 16px}
-  .nav-links{display:none}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-thumb{background:#222;border-radius:3px}
 
-  /* Hero image shorter on mobile */
-  .hero-img-wrap{height:260px}
-
-  /* Search panel — tighter padding */
-  .search-panel{padding:16px 16px 12px;margin-top:-32px;border-radius:12px 12px 0 0}
-
-  /* Heading smaller */
-  .search-panel-top div:first-child div:first-child{font-size:20px !important}
-
-  /* Country tabs — wrap and shrink */
-  .country-tabs{gap:6px}
-  .ctab{padding:6px 12px;font-size:12px}
-
-  /* Search dropdowns — stack in 2x2 grid */
-  .search-wrap{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px}
-  .search-wrap select,.search-wrap input{min-width:0;font-size:13px;padding:8px 10px}
-  .search-btn{grid-column:1/-1;width:100%;justify-content:center;padding:10px}
-
-  /* AI search bar */
-  #ai-input{font-size:14px}
-  #ai-btn{padding:8px 12px;font-size:13px}
-
-  /* Live listings grid — 2 columns */
-  .live-grid{grid-template-columns:repeat(2,1fr);gap:8px}
-  .live-card-img,.live-card-ph{height:110px}
-  .live-card-body{padding:8px 10px 10px}
-  .live-card-title{font-size:11px}
-  .live-card-price{font-size:13px}
-
-  /* Results listings — stack vertically */
-  .listing{flex-direction:column}
-  .listing-img-wrap,.listing-img,.listing-img-ph{width:100%;height:180px}
-  .listing-right{flex-direction:row;align-items:center;justify-content:space-between;width:100%;padding:10px 12px}
-
-  /* Stats grid — 2 columns */
-  .stats-grid{grid-template-columns:repeat(2,1fr)}
-
-  /* Platform grid — 2 columns */
-  .platform-grid{grid-template-columns:repeat(2,1fr)}
-
-  /* Main padding */
-  main{padding:16px}
-
-  /* Alert form — stack */
-  .alert-card{flex-direction:column}
-  .alert-form{width:100%}
-  .alert-input{min-width:0;flex:1}
-
-  /* Affiliate bar — stack */
-  .affiliate-bar{flex-direction:column}
-
-  /* Footer */
-  footer{padding:20px 16px}
+@media(max-width:700px){
+  .sidebar{display:none}
+  .chat-grid,.preview-grid{grid-template-columns:repeat(2,1fr)}
 }
 </style>
 </head>
 <body>
 
 <nav>
-  <span onclick="goHome()" style="cursor:pointer;display:flex;align-items:center;gap:0;text-decoration:none;flex-shrink:0">
-  <svg width="54" height="54" viewBox="0 0 108 108" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="50" cy="50" r="50" fill="#185FA5"/>
-    <rect x="22" y="45" width="56" height="20" rx="5" fill="white"/>
-    <rect x="30" y="28" width="36" height="20" rx="4" fill="white"/>
-    <circle cx="33" cy="66" r="8" fill="#185FA5"/>
-    <circle cx="67" cy="66" r="8" fill="#185FA5"/>
-    <line x1="88" y1="80" x2="105" y2="97" stroke="#185FA5" stroke-width="10" stroke-linecap="round"/>
-  </svg>
-  <span style="font-family:Georgia,serif;font-size:28px;font-weight:500;line-height:1;margin-left:4px"><span style="color:var(--text)">Car</span><span style="color:#185FA5">Search</span></span>
-</span>
-  <ul class="nav-links">
-    <li><a href="#" onclick="goHome()">Home</a></li>
-    <li><a href="#">Price trends</a></li>
-    <li><a href="#">Saved</a></li>
-    <li><a href="https://www.commissionfactory.com" target="_blank" class="nav-cta">Get finance</a></li>
-  </ul>
+  <span class="nav-logo" onclick="resetChat()">FindAI</span>
+  <div class="nav-links">
+    <button class="nav-link" onclick="resetChat()">New search</button>
+  </div>
 </nav>
 
-<!-- Ferrari hero image — no text on top -->
-<div class="hero-img-wrap">
-  <img src="./ChatGPT Image May 31, 2026, 04_30_10 PM.png" alt="Ferrari Dino" loading="eager">
-  <div class="hero-img-overlay"></div>
+<div class="app">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <button class="sb-new" onclick="resetChat()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+      New search
+    </button>
+
+    <div class="sb-section">Categories</div>
+    <button class="sb-item active" onclick="quickSearch('Show me cars for sale')">🚗 &nbsp;Cars</button>
+    <button class="sb-item" onclick="quickSearch('Show me boats for sale')">⛵ &nbsp;Boats</button>
+    <button class="sb-item" onclick="quickSearch('Show me motorcycles for sale')">🏍️ &nbsp;Motorcycles</button>
+    <button class="sb-item" onclick="quickSearch('Show me trucks and vans')">🚚 &nbsp;Trucks & Vans</button>
+    <button class="sb-item" onclick="quickSearch('Show me farm equipment')">🚜 &nbsp;Farm Equipment</button>
+
+    <div class="sb-section" style="margin-top:8px">Platforms</div>
+    <div class="sb-item" style="cursor:default">
+      <span class="sb-dot"></span>
+      <span style="font-family:Arial,sans-serif;font-size:13px;font-weight:900;letter-spacing:-0.5px">
+        <span style="color:#E53238">e</span><span style="color:#0064D2">b</span><span style="color:#F5AF02">a</span><span style="color:#86B817">y</span>
+      </span>
+      <span style="font-size:10px;color:#19c37d;margin-left:auto">Live</span>
+    </div>
+    <div class="sb-item" style="cursor:default;opacity:0.4"><span class="sb-dot-grey"></span>Domain.com.au <span style="font-size:10px;margin-left:auto">Soon</span></div>
+    <div class="sb-item" style="cursor:default;opacity:0.4"><span class="sb-dot-grey"></span>Amazon <span style="font-size:10px;margin-left:auto">Soon</span></div>
+    <div class="sb-item" style="cursor:default">
+      <span class="sb-dot"></span>
+      <span style="font-size:13px;font-weight:600;color:#F1641E">Etsy</span>
+      <span style="font-size:10px;color:#19c37d;margin-left:auto">Live</span>
+    </div>
+
+    <div class="sb-section" style="margin-top:8px">Country</div>
+    <button class="sb-item active" id="c-AU" onclick="setCountry('AU',this)">🇦🇺 &nbsp;Australia</button>
+    <button class="sb-item" id="c-US" onclick="setCountry('US',this)">🇺🇸 &nbsp;United States</button>
+    <button class="sb-item" id="c-UK" onclick="setCountry('UK',this)">🇬🇧 &nbsp;United Kingdom</button>
+    <button class="sb-item" id="c-DE" onclick="setCountry('DE',this)">🇩🇪 &nbsp;Germany</button>
+  </div>
+
+  <!-- Chat -->
+  <div class="chat">
+    <!-- Welcome -->
+    <div class="welcome" id="welcome">
+      <h1>What are you looking for?</h1>
+      <p class="welcome-sub">Search any listing in the world — just describe what you want</p>
+      <div class="preview-grid" id="preview-grid"></div>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages" id="messages" style="display:none"></div>
+
+    <!-- Input -->
+    <div class="input-area">
+      <div class="input-wrap">
+        <textarea id="chat-in" class="chat-in" placeholder='Try "Show me a Porsche 911 under $100k" or "Find me a boat in Australia"' rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button class="send-btn" id="send-btn" onclick="sendMsg()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+        </button>
+      </div>
+      <div class="input-hint">FindAI searches eBay listings in real time across AU · US · UK · DE</div>
+    </div>
+  </div>
 </div>
-
-<!-- Search panel below the image — clean white like Carsales -->
-<div class="search-panel">
-  <div class="search-panel-top">
-    <div style="text-align:center;width:100%;margin-bottom:8px">
-      <div style="font-family:'DM Serif Display',serif;font-size:clamp(20px,3vw,32px);font-weight:400;color:var(--text);line-height:1.2;margin-bottom:2px">Use AI to find your dream car worldwide</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:4px">Browse car listings from the biggest websites, including:</div>
-      <span style="font-family:Arial,sans-serif;font-size:42px;font-weight:900;letter-spacing:-1px;line-height:1"><span style="color:#E53238">e</span><span style="color:#0064D2">b</span><span style="color:#F5AF02">a</span><span style="color:#86B817">y</span></span>
-    </div>
-    <div class="country-tabs" style="justify-content:center;width:100%;margin-bottom:8px">
-      <button class="ctab active" onclick="setCountry('AU',this)">🇦🇺 Australia</button>
-      <button class="ctab" onclick="setCountry('US',this)">🇺🇸 United States</button>
-      <button class="ctab" onclick="setCountry('UK',this)">🇬🇧 United Kingdom</button>
-      <button class="ctab" onclick="setCountry('DE',this)">🇩🇪 Germany</button>
-    </div>
-  </div>
-
-  <!-- AI search first -->
-  <div style="max-width:900px;margin:0 auto 8px">
-    <div style="display:flex;align-items:center;background:#fff;border:1.5px solid #185FA5;border-radius:var(--radius-lg);padding:8px 8px 8px 14px;gap:8px;box-shadow:0 2px 12px rgba(24,95,165,0.1)">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#185FA5" stroke-width="2" style="flex-shrink:0"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-      <input id="ai-input" type="text" placeholder='Try: "Show me a Porsche 911 under $100k"' style="flex:1;border:none;outline:none;font-size:15px;font-family:'DM Sans',sans-serif;background:transparent;color:var(--text)" onkeydown="if(event.key==='Enter')aiSearch()">
-      <button id="ai-btn" onclick="aiSearch()" style="padding:9px 20px;background:#185FA5;color:#fff;border:none;border-radius:var(--radius);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;display:flex;align-items:center;gap:5px">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        Search with AI
-      </button>
-    </div>
-  </div>
-
-  <!-- Advanced search second -->
-  <div style="max-width:900px;margin:0 auto">
-    <div style="display:flex;align-items:center;gap:12px;margin-bottom:6px;margin-top:2px">
-      <div style="flex:1;height:1px;background:var(--border)"></div>
-      <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;font-weight:600">Advanced Search</div>
-      <div style="flex:1;height:1px;background:var(--border)"></div>
-    </div>
-    <div class="search-wrap" id="advanced-search" style="margin-bottom:0;box-shadow:0 2px 12px rgba(0,0,0,0.06)">
-      <select id="s-make" onchange="loadModels()"><option value="">Select make...</option></select>
-      <select id="s-model"><option value="">Any model</option></select>
-      <select id="s-year"><option value="">Any year</option></select>
-      <select id="s-region"><option value="">Any region</option></select>
-      <input type="number" id="s-maxprice" placeholder="Max price">
-      <button class="search-btn" onclick="doSearch()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-        Search
-      </button>
-    </div>
-  </div>
-</div>
-
-<div class="trust-bar" id="trust-bar"></div>
-
-<main>
-  <div id="home-area">
-    <div class="section-label" id="live-section-label">Live eBay listings</div>
-    <div class="live-grid" id="live-grid"></div>
-
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px">
-        <div style="font-size:20px;margin-bottom:7px">🔍</div>
-        <div style="font-size:13px;font-weight:500;margin-bottom:4px">Search everywhere at once</div>
-        <div style="font-size:12px;color:var(--muted)">No more switching tabs. See all listings from every platform.</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px">
-        <div style="font-size:20px;margin-bottom:7px">📊</div>
-        <div style="font-size:13px;font-weight:500;margin-bottom:4px">Compare prices instantly</div>
-        <div style="font-size:12px;color:var(--muted)">See which platform has the best price for any model.</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px">
-        <div style="font-size:20px;margin-bottom:7px">🌍</div>
-        <div style="font-size:13px;font-weight:500;margin-bottom:4px">Australia, US and UK</div>
-        <div style="font-size:12px;color:var(--muted)">Search across three countries with one simple switch.</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px">
-        <div style="font-size:20px;margin-bottom:7px">🔔</div>
-        <div style="font-size:13px;font-weight:500;margin-bottom:4px">Price drop alerts</div>
-        <div style="font-size:12px;color:var(--muted)">Get notified the moment a car you want drops in price.</div>
-      </div>
-    </div>
-  </div>
-
-  <div class="loading" id="loading">
-    <div class="spinner"></div>
-    <div id="loading-text">Searching listings...</div>
-  </div>
-
-  <div id="results-area">
-    <div class="results-header">
-      <div>
-        <div class="results-make" id="r-title"></div>
-        <div class="results-meta" id="r-meta"></div>
-      </div>
-      <div class="sort-wrap">
-        <label>Sort</label>
-        <select class="sort-select" id="sort-sel" onchange="sortListings(this.value)">
-          <option value="price-asc">Price: low to high</option>
-          <option value="price-desc">Price: high to low</option>
-          <option value="year-desc">Newest first</option>
-          <option value="km-asc">Lowest km / miles</option>
-        </select>
-      </div>
-    </div>
-    <div class="stats-grid" id="stats-grid"></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-      <div style="font-size:12px;color:var(--muted);font-weight:500">Search on each platform</div>
-    </div>
-    <div class="platform-grid" id="platform-grid"></div>
-    <div class="filters-bar" id="filters-bar"></div>
-    <div id="listings-wrap"></div>
-    <div class="affiliate-bar">
-      <div>
-        <strong>Need finance?</strong>
-        <p>Compare car loans from leading lenders. Get approved in minutes.</p>
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <a href="https://www.commissionfactory.com" target="_blank" class="aff-btn aff-finance">Compare loans →</a>
-        <a href="https://www.commissionfactory.com" target="_blank" class="aff-btn aff-insure">Get insurance →</a>
-        <a href="https://www.ppsr.gov.au" target="_blank" class="aff-btn aff-ppsr" id="ppsr-btn">PPSR check</a>
-      </div>
-    </div>
-    <div class="alert-card" id="alert-card">
-      <div>
-        <h3 id="alert-title">Get price alerts</h3>
-        <p>We'll email you when a better deal appears anywhere.</p>
-      </div>
-      <div class="alert-form">
-        <input class="alert-input" type="email" placeholder="your@email.com" id="alert-email">
-        <button class="alert-btn" onclick="signupAlert()">Notify me</button>
-      </div>
-    </div>
-    <div id="platform-summary" style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;margin-bottom:20px;text-align:center">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:8px">Based on historical data across all platforms</div>
-      <div style="font-size:15px;color:var(--text)">Click <strong>Open all platforms at once</strong> above to see every real listing available right now across all four sites simultaneously.</div>
-      <div style="margin-top:16px;display:flex;justify-content:center;gap:8px;flex-wrap:wrap">
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;text-align:center">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">TYPICAL PRICE RANGE</div>
-          <div style="font-size:16px;font-weight:600;color:var(--text)" id="price-range-display"></div>
-        </div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;text-align:center">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">MOST LISTINGS ON</div>
-          <div style="font-size:16px;font-weight:600;color:var(--text)" id="top-platform-display"></div>
-        </div>
-        <div style="background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:10px 16px;text-align:center">
-          <div style="font-size:11px;color:var(--muted);margin-bottom:3px">BEST VALUE ON</div>
-          <div style="font-size:16px;font-weight:600;color:var(--text)" id="best-value-display"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</main>
-
-<footer>
-  <div style="margin-bottom:6px"><strong style="font-family:'DM Serif Display',serif;font-size:16px">CarSearch</strong></div>
-  CarSearch links to listings on third-party platforms. We do not host listings ourselves.<br>
-  <a href="#">Privacy policy</a> &middot; <a href="#">Terms of use</a> &middot; <a href="#">Contact</a><br><br>
-  &copy; 2025 CarSearch
-</footer>
 
 <script>
-const EBAY_WORKER_URL = 'https://api.carsearchapi.workers.dev';
+const WORKER = 'https://api.carsearchapi.workers.dev';
+let country = 'AU';
+let busy = false;
+let previewItems = [];
+let previewIdx = 0;
 
-// ── Country config ────────────────────────────────────────────────────────
-const COUNTRIES = {
-  AU: {
-    name: 'Australia', flag: '🇦🇺', currency: 'AUD', currencySymbol: '$',
-    distanceUnit: 'km',
-    platforms: [
-      {name:'Carsales', url:(m,mo,y,r)=>{const make=m.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');const model=mo?mo.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''):'';const yr=y?`?year-from=${y}&year-to=${y}`:'';return model?`https://www.carsales.com.au/cars/${make}/${model}/${yr}`:`https://www.carsales.com.au/cars/${make}/${yr}`;}, cls:'btn-a'},
-      {name:'Gumtree',  url:(m,mo,y,r)=>{const q=encodeURIComponent(m+(mo?' '+mo:''));return`https://www.gumtree.com.au/s-cars-vans-utes/k0c18320?q=${q}`;}, cls:'btn-b'},
-      {name:'Facebook', url:(m,mo,y,r)=>`https://www.facebook.com/marketplace/category/vehicles?query=${encodeURIComponent(m+(mo?' '+mo:''))}&exact=true`, cls:'btn-c'},
-      {name:'CarsGuide',url:(m,mo,y,r)=>{const make=m.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');const model=mo?mo.toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,''):'';return model?`https://www.carsguide.com.au/cars-for-sale/${make}/${model}/`:`https://www.carsguide.com.au/cars-for-sale/${make}/`;}, cls:'btn-d'},
-    ],
-    regions: ['NSW','VIC','QLD','WA','SA','TAS','ACT','NT'],
-    locations: {NSW:['Sydney NSW','Newcastle NSW'],VIC:['Melbourne VIC','Geelong VIC'],QLD:['Brisbane QLD','Gold Coast QLD'],WA:['Perth WA'],SA:['Adelaide SA'],TAS:['Hobart TAS'],ACT:['Canberra ACT'],NT:['Darwin NT'],ALL:['Sydney NSW','Melbourne VIC','Brisbane QLD','Perth WA','Adelaide SA','Canberra ACT']},
-    basePrices: {p1:29000,p2:24000,p3:22000,p4:28000},
-  },
-  US: {
-    name: 'United States', flag: '🇺🇸', currency: 'USD', currencySymbol: '$',
-    distanceUnit: 'miles',
-    platforms: [
-      {name:'AutoTrader', url:(m,mo,y,r)=>{const make=m.toLowerCase().replace(/\s+/g,'-');const model=mo?mo.toLowerCase().replace(/\s+/g,'-'):'';return`https://www.autotrader.com/cars-for-sale/used-cars/${make}/${model}/?searchRadius=0`;}, cls:'btn-a'},
-      {name:'CarGurus',   url:(m,mo,y,r)=>`https://www.cargurus.com/Cars/new/nl#listing=list&q=${encodeURIComponent(m+(mo?' '+mo:''))}`, cls:'btn-b'},
-      {name:'Cars.com',   url:(m,mo,y,r)=>`https://www.cars.com/shopping/results/?keyword=${encodeURIComponent(m+(mo?' '+mo:''))}&stock_type=used`, cls:'btn-c'},
-      {name:'Facebook',   url:(m,mo,y,r)=>`https://www.facebook.com/marketplace/category/vehicles?query=${encodeURIComponent(m+(mo?' '+mo:''))}`, cls:'btn-d'},
-    ],
-    regions: ['CA','TX','FL','NY','IL','PA','OH','GA','NC','MI'],
-    locations: {CA:['Los Angeles CA','San Francisco CA'],TX:['Houston TX','Dallas TX'],FL:['Miami FL','Orlando FL'],NY:['New York NY'],IL:['Chicago IL'],PA:['Philadelphia PA'],OH:['Columbus OH'],GA:['Atlanta GA'],NC:['Charlotte NC'],MI:['Detroit MI'],ALL:['Los Angeles CA','New York NY','Chicago IL','Houston TX','Dallas TX']},
-    basePrices: {p1:26000,p2:21000,p3:19000,p4:25000},
-  },
-  DE: {
-    name: 'Germany', flag: '🇩🇪', currency: 'EUR', currencySymbol: '€',
-    distanceUnit: 'km',
-    platforms: [
-      {name:'eBay.de', url:(m,mo,y,r)=>`https://www.ebay.de/sch/i.html?_nkw=${encodeURIComponent(m+(mo?' '+mo:''))}&_sacat=6001`, cls:'btn-a'},
-    ],
-    regions: ['Bayern','NRW','Baden-Württemberg','Berlin','Hamburg','Hessen','Sachsen','Niedersachsen'],
-    locations: {Bayern:['München','Nürnberg'],NRW:['Köln','Düsseldorf','Dortmund'],Berlin:['Berlin'],'Baden-Württemberg':['Stuttgart','Mannheim'],Hamburg:['Hamburg'],Hessen:['Frankfurt'],Sachsen:['Dresden','Leipzig'],Niedersachsen:['Hannover'],ALL:['München','Berlin','Hamburg','Köln','Frankfurt','Stuttgart','Düsseldorf','Hannover']},
-    basePrices: {p1:28000,p2:22000,p3:20000,p4:26000},
-  },
-  UK: {
-    name: 'United Kingdom', flag: '🇬🇧', currency: 'GBP', currencySymbol: '£',
-    distanceUnit: 'miles',
-    platforms: [
-      {name:'AutoTrader UK', url:(m,mo,y,r)=>`https://www.autotrader.co.uk/car-search?make=${encodeURIComponent(m.toUpperCase())}${mo?'&model='+encodeURIComponent(mo.toUpperCase()):''}`, cls:'btn-a'},
-      {name:'Motors.co.uk',  url:(m,mo,y,r)=>`https://www.motors.co.uk/search/car/results/?make=${encodeURIComponent(m)}${mo?'&model='+encodeURIComponent(mo):''}`, cls:'btn-b'},
-      {name:'Gumtree UK',    url:(m,mo,y,r)=>`https://www.gumtree.com/cars-vans-motorbikes/cars/${m.toLowerCase().replace(/\s+/g,'-')}`, cls:'btn-c'},
-      {name:'Facebook',      url:(m,mo,y,r)=>`https://www.facebook.com/marketplace/category/vehicles?query=${encodeURIComponent(m+(mo?' '+mo:''))}`, cls:'btn-d'},
-    ],
-    regions: ['London','Manchester','Birmingham','Glasgow','Liverpool','Leeds','Bristol','Edinburgh'],
-    locations: {London:['London'],Manchester:['Manchester'],Birmingham:['Birmingham'],Glasgow:['Glasgow'],Liverpool:['Liverpool'],Leeds:['Leeds'],Bristol:['Bristol'],Edinburgh:['Edinburgh'],ALL:['London','Manchester','Birmingham','Glasgow','Bristol']},
-    basePrices: {p1:18000,p2:14000,p3:12000,p4:17000},
-  }
-};
-
-// Featured searches for homepage live grid — one API call each, cached for 15 min
-const FEATURED_SEARCHES = [
-  {make:'Porsche', model:'911',      country:'US', exotic:true},
-  {make:'Toyota',  model:'Camry',    country:'AU', exotic:false},
-  {make:'BMW',     model:'M3',       country:'DE', exotic:true},
-  {make:'Ford',    model:'Ranger',   country:'AU', exotic:false},
-  {make:'Ferrari', model:'488',      country:'US', exotic:true},
-  {make:'Honda',   model:'Civic',    country:'AU', exotic:false},
-  {make:'Lamborghini', model:'Huracan', country:'US', exotic:true},
-  {make:'Mazda',   model:'CX-5',     country:'AU', exotic:false},
-];
-
-let currentCountry = 'AU';
-let allListings = [];
-let activeFilter = 'all';
-let currentMake = '';
-let currentModel = '';
-let currentYear = '';
-
-// ── Homepage live grid ────────────────────────────────────────────────────
-function renderSkeletons() {
-  const grid = document.getElementById('live-grid');
-  grid.innerHTML = Array.from({length: 8}, () => `
-    <div class="skel-card">
-      <div class="skel skel-img"></div>
-      <div class="skel-body">
-        <div class="skel skel-line w80"></div>
-        <div class="skel skel-line w50"></div>
-      </div>
-    </div>`).join('');
+function setCountry(code, el) {
+  country = code;
+  document.querySelectorAll('[id^="c-"]').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
 }
 
-async function loadLiveGrid() {
-  renderSkeletons();
-  const grid = document.getElementById('live-grid');
-  const label = document.getElementById('live-section-label');
-  const cards = [];
+function resetChat() {
+  document.getElementById('welcome').style.display = 'flex';
+  document.getElementById('messages').style.display = 'none';
+  document.getElementById('messages').innerHTML = '';
+  document.getElementById('chat-in').value = '';
+}
 
-  // Fetch all featured searches in parallel
+function showChat() {
+  document.getElementById('welcome').style.display = 'none';
+  document.getElementById('messages').style.display = 'flex';
+}
+
+function addMsg(role, html) {
+  const msgs = document.getElementById('messages');
+  const d = document.createElement('div');
+  d.className = `msg ${role}`;
+  const av = role === 'user'
+    ? `<div class="msg-av u">U</div>`
+    : `<div class="msg-av a">f</div>`;
+  d.innerHTML = role === 'user'
+    ? `${av}<div class="msg-body">${html}</div>`
+    : `${av}<div class="msg-body">${html}</div>`;
+  msgs.appendChild(d);
+  msgs.scrollTop = msgs.scrollHeight;
+  return d.querySelector('.msg-body');
+}
+
+function addThinking() {
+  const msgs = document.getElementById('messages');
+  const d = document.createElement('div');
+  d.className = 'msg assistant';
+  d.id = 'thinking';
+  d.innerHTML = `<div class="msg-av a">f</div><div class="thinking"><span></span><span></span><span></span></div>`;
+  msgs.appendChild(d);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function removeThinking() {
+  const t = document.getElementById('thinking');
+  if (t) t.remove();
+}
+
+function parseQuery(text) {
+  const lower = text.toLowerCase();
+  const makes = ['porsche','bmw','mercedes-benz','mercedes','audi','ferrari','lamborghini','mclaren',
+    'toyota','volkswagen','vw','ford','mazda','honda','hyundai','kia','subaru','nissan',
+    'holden','aston martin','bentley','rolls-royce','tesla','jeep','chevrolet','chevy',
+    'dodge','lexus','volvo','land rover','jaguar','mitsubishi','isuzu'];
+  const found = makes.find(m => lower.includes(m));
+  let make = found || 'Toyota';
+  if (make === 'vw') make = 'Volkswagen';
+  if (make === 'chevy') make = 'Chevrolet';
+  if (make === 'mercedes') make = 'Mercedes-Benz';
+  make = make.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+  let model = '';
+  if (found) {
+    const after = lower.split(found)[1] || '';
+    const m = after.match(/\b([a-z0-9][\w-]{1,12})\b/i);
+    if (m && !['in','at','for','under','below','the','a','an','me','show','find'].includes(m[1].toLowerCase())) {
+      model = m[1].toUpperCase();
+    }
+  }
+
+  let maxPrice = '';
+  const pm = lower.match(/(?:under|below|max|less than|for)\s*\$?\s*([0-9,.]+)\s*(k|m)?/i);
+  if (pm) {
+    let p = parseFloat(pm[1].replace(/,/g,''));
+    if (pm[2]==='k') p*=1000;
+    if (pm[2]==='m') p*=1000000;
+    maxPrice = Math.round(p);
+  }
+
+  let c = country;
+  if (lower.includes('australia')) c='AU';
+  else if (lower.includes('united states')||lower.includes('america')||lower.match(/\bus\b/)) c='US';
+  else if (lower.includes('united kingdom')||lower.includes('england')||lower.match(/\buk\b/)) c='UK';
+  else if (lower.includes('germany')||lower.includes('german')) c='DE';
+
+  return {make, model, maxPrice, country:c};
+}
+
+function renderCards(items, make, model, maxPrice, c, ebayCount, etsyCount) {
+  const sym = c==='UK'?'£':c==='DE'?'€':'$';
+  if (!items.length) return `<p style="color:#666;font-size:14px;margin-top:8px">No listings found right now. Try a different search or check back after 9am when the eBay API resets.</p>`;
+  const top = items.slice(0,12);
+
+  let summary = `Found `;
+  if (ebayCount > 0) summary += `<strong style="color:#fff">${ebayCount} eBay</strong>`;
+  if (ebayCount > 0 && etsyCount > 0) summary += ` + `;
+  if (etsyCount > 0) summary += `<strong style="color:#F1641E">${etsyCount} Etsy</strong>`;
+  summary += ` listings`;
+  if (make) summary += ` for ${make}${model?' '+model:''}`;
+  if (maxPrice) summary += ` under ${sym}${Number(maxPrice).toLocaleString()}`;
+  summary += `. Showing top ${top.length}:`;
+
+  const cards = top.map(item => {
+    const price = item.price ? `${sym}${Number(item.price).toLocaleString()}` : 'See listing';
+    const isEtsy = item.source === 'Etsy';
+    const badge = isEtsy
+      ? `<span style="font-size:9px;background:#F1641E;color:white;padding:2px 6px;border-radius:4px;font-weight:600">Etsy</span>`
+      : `<span style="font-size:9px;font-family:Arial,sans-serif;font-weight:900;letter-spacing:-0.3px"><span style="color:#E53238">e</span><span style="color:#0064D2">b</span><span style="color:#F5AF02">a</span><span style="color:#86B817">y</span></span>`;
+    return `<a class="chat-card" href="${item.url||'#'}" target="_blank" rel="noopener">
+      ${item.image
+        ? `<img class="chat-card-img" src="${item.image}" alt="" loading="lazy" onerror="this.outerHTML='<div class=chat-card-ph>🛍️</div>'">`
+        : `<div class="chat-card-ph">${isEtsy?'🎨':'🚗'}</div>`}
+      <div class="chat-card-body">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">${badge}</div>
+        <div class="chat-card-title">${(item.title||'').substring(0,44)}${item.title&&item.title.length>44?'…':''}</div>
+        <div class="chat-card-price">${price}</div>
+        <div class="chat-card-loc">${item.location||''}</div>
+      </div>
+    </a>`;
+  }).join('');
+  return `<p style="font-size:13px;color:#888;margin-bottom:10px">${summary}</p><div class="chat-grid">${cards}</div>`;
+}
+
+async function sendMsg() {
+  const inp = document.getElementById('chat-in');
+  const q = inp.value.trim();
+  if (!q || busy) return;
+  busy = true;
+  document.getElementById('send-btn').disabled = true;
+  inp.value = '';
+  inp.style.height = 'auto';
+  showChat();
+  addMsg('user', q);
+  addThinking();
+  const {make, model, maxPrice, country:c} = parseQuery(q);
+  const isCar = ['porsche','bmw','mercedes','audi','ferrari','lamborghini','mclaren',
+    'toyota','volkswagen','ford','mazda','honda','hyundai','kia','subaru','nissan',
+    'holden','jeep','chevrolet','dodge','lexus','volvo','tesla','mitsubishi','bentley',
+    'rolls-royce','aston martin'].some(m => q.toLowerCase().includes(m));
+
+  try {
+    let params;
+    if (isCar) {
+      params = new URLSearchParams({make, model, maxPrice, country:c, q:''});
+    } else {
+      params = new URLSearchParams({make:'', model:'', maxPrice, country:c, q:q});
+    }
+    const res = await fetch(`${WORKER}/?${params}`);
+    const data = await res.json();
+    removeThinking();
+    addMsg('assistant', renderCards(data.items||[], make||q, model, maxPrice, c, data.ebayCount||0, data.etsyCount||0));
+  } catch(e) {
+    removeThinking();
+    addMsg('assistant', 'Sorry, could not fetch listings right now. Please try again.');
+  }
+  busy = false;
+  document.getElementById('send-btn').disabled = false;
+  inp.focus();
+}
+
+function quickSearch(text) {
+  document.getElementById('chat-in').value = text;
+  sendMsg();
+}
+
+function handleKey(e) {
+  if (e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}
+}
+
+function autoResize(el) {
+  el.style.height='auto';
+  el.style.height=Math.min(el.scrollHeight,120)+'px';
+}
+
+// ── Rotating preview listings ─────────────────────────────────────────────
+const PREVIEWS = [
+  {make:'Porsche',model:'911',country:'US'},
+  {make:'Ferrari',model:'488',country:'US'},
+  {make:'Toyota',model:'Camry',country:'AU'},
+  {make:'BMW',model:'M3',country:'DE'},
+  {make:'Ford',model:'Ranger',country:'AU'},
+  {make:'Lamborghini',model:'Huracan',country:'US'},
+];
+
+async function loadPreviews() {
+  const grid = document.getElementById('preview-grid');
+  if (!grid) return;
+  grid.innerHTML = Array.from({length:6},()=>`
+    <div class="prev-card">
+      <div class="skel prev-card-img"></div>
+      <div class="prev-card-body">
+        <div class="skel" style="height:9px;width:60%;margin-bottom:5px"></div>
+        <div class="skel" style="height:12px;width:40%"></div>
+      </div>
+    </div>`).join('');
+
   const results = await Promise.allSettled(
-    FEATURED_SEARCHES.map(s =>
-      fetch(`${EBAY_WORKER_URL}/?make=${encodeURIComponent(s.make)}&model=${encodeURIComponent(s.model)}&country=${s.country}`)
-        .then(r => r.json())
-        .then(d => ({ ...s, items: d.items || [] }))
-        .catch(() => ({ ...s, items: [] }))
+    PREVIEWS.map(s =>
+      fetch(`${WORKER}/?make=${encodeURIComponent(s.make)}&model=${encodeURIComponent(s.model)}&country=${s.country}`)
+        .then(r=>r.json())
+        .then(d=>(d.items||[]).filter(i=>i.image).slice(0,3).map(i=>({...i,searchMake:s.make,searchModel:s.model,country:s.country})))
+        .catch(()=>[])
     )
   );
 
-  results.forEach(r => {
-    if (r.status === 'fulfilled') cards.push(r.value);
-  });
+  results.forEach(r=>{if(r.status==='fulfilled')previewItems.push(...r.value);});
 
-  // Pick the first listing with an image from each search
-  const picked = cards.map(c => {
-    const withImg = c.items.find(i => i.image);
-    const item = withImg || c.items[0];
-    if (!item) return null;
-    return { ...item, searchMake: c.make, searchModel: c.model, exotic: c.exotic };
-  }).filter(Boolean);
+  if (!previewItems.length) { grid.innerHTML=''; return; }
 
-  if (picked.length === 0) {
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--muted);font-size:14px">Live listings will appear here once the eBay API rate limit resets.</div>';
-    label.textContent = 'Popular models';
-    return;
-  }
-
-  label.textContent = `Live eBay listings — updated now`;
-
-  grid.innerHTML = picked.map(item => {
-    const price = item.price ? `$${Number(item.price).toLocaleString()}` : 'See listing';
-    const isAuction = item.listingType === 'Auction';
-    const badgeClass = isAuction ? 'auction' : '';
-    const badgeText = isAuction ? 'Auction' : 'Buy Now';
-    return `
-      <a class="live-card${item.exotic ? ' exotic' : ''}" href="${item.url || '#'}" target="_blank" rel="noopener">
-        ${item.image
-          ? `<img class="live-card-img" src="${item.image}" alt="${(item.title||'').replace(/"/g,'')}" loading="lazy" onerror="this.outerHTML='<div class=live-card-ph>🚗</div>'">`
-          : `<div class="live-card-ph">${item.exotic ? '🏎️' : '🚗'}</div>`}
-        <div class="live-card-body">
-          <div class="live-card-title">${item.searchMake} ${item.searchModel}</div>
-          <div class="live-card-sub">${(item.title||'').substring(0,40)}${item.title&&item.title.length>40?'…':''}</div>
-          <div class="live-card-footer">
-            <div class="live-card-price">${price}</div>
-            <div class="live-card-badge ${badgeClass}">${badgeText}</div>
-          </div>
-        </div>
-      </a>`;
-  }).join('');
+  const show = previewItems.slice(0,6);
+  grid.innerHTML = show.map(buildPrevCard).join('');
+  previewIdx = 6;
+  setInterval(rotatePrev, 3500);
 }
 
-// ── Country switch ────────────────────────────────────────────────────────
-function setCountry(code, el){
-  currentCountry = code;
-  document.querySelectorAll('.ctab').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active');
-  updateTrustBar();
-  updateRegionDropdown();
-  updatePPSRBtn();
-  if(currentMake && document.getElementById('results-area').style.display !== 'none') doSearch();
+function buildPrevCard(item) {
+  const sym = item.country==='UK'?'£':item.country==='DE'?'€':'$';
+  const price = item.price ? `${sym}${Number(item.price).toLocaleString()}` : '';
+  return `<a class="prev-card" href="${item.url||'#'}" target="_blank" rel="noopener">
+    ${item.image
+      ? `<img class="prev-card-img" src="${item.image}" alt="" loading="lazy" onerror="this.outerHTML='<div class=prev-card-ph>🚗</div>'">`
+      : `<div class="prev-card-ph">🚗</div>`}
+    <div class="prev-card-body">
+      <div class="prev-card-make">${item.searchMake} ${item.searchModel}</div>
+      <div class="prev-card-price">${price}</div>
+    </div>
+  </a>`;
 }
 
-function updateTrustBar(){
-  const bar = document.getElementById('trust-bar');
-  bar.innerHTML = `<span style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)">Live listings from &nbsp;<span style="font-family:Arial,sans-serif;font-size:18px;font-weight:900;letter-spacing:-0.5px"><span style="color:#E53238">e</span><span style="color:#0064D2">b</span><span style="color:#F5AF02">a</span><span style="color:#86B817">y</span></span></span>`;
+function rotatePrev() {
+  if (previewItems.length < 7) return;
+  const grid = document.getElementById('preview-grid');
+  if (!grid) return;
+  const cards = grid.querySelectorAll('.prev-card');
+  if (!cards.length) return;
+  const idx = Math.floor(Math.random()*cards.length);
+  const card = cards[idx];
+  card.classList.add('fade-out');
+  setTimeout(()=>{
+    const newItem = previewItems[previewIdx % previewItems.length];
+    previewIdx++;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = buildPrevCard(newItem);
+    card.replaceWith(tmp.firstElementChild);
+  }, 500);
 }
 
-function updateRegionDropdown(){
-  const c = COUNTRIES[currentCountry];
-  const sel = document.getElementById('s-region');
-  sel.innerHTML = '<option value="">Any region</option>';
-  c.regions.forEach(r=>{ const o=document.createElement('option');o.value=r;o.textContent=r;sel.appendChild(o); });
-}
-
-function updatePPSRBtn(){
-  const btn = document.getElementById('ppsr-btn');
-  if(currentCountry==='AU'){btn.textContent='PPSR check $2';btn.style.display='inline-block';}
-  else{btn.style.display='none';}
-}
-
-// ── Makes / models ────────────────────────────────────────────────────────
-async function loadMakes(){
-  const keep=['Toyota','Mazda','Ford','Holden','BMW','Mercedes-Benz','Honda','Hyundai','Kia','Volkswagen','Subaru','Mitsubishi','Nissan','Audi','Lexus','Volvo','Jeep','Land Rover','Porsche','Tesla','Suzuki','Isuzu','Renault','Peugeot','Mini','Jaguar','Ferrari','Lamborghini','Maserati','Bentley','Rolls-Royce','Aston Martin','McLaren','Alfa Romeo','Fiat','Chevrolet','Dodge','Cadillac','Genesis','Skoda','Infiniti','Acura','Chrysler','Ram','GMC','Buick','Lincoln'];
-  try{
-    const res=await fetch('https://vpic.nhtsa.dot.gov/api/vehicles/getallmakes?format=json');
-    const data=await res.json();
-    const makes=data.Results.map(m=>m.Make_Name).filter(m=>keep.some(k=>k.toLowerCase()===m.toLowerCase())).sort();
-    const sel=document.getElementById('s-make');
-    sel.innerHTML='<option value="">Select make...</option>';
-    makes.forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o);});
-  }catch{
-    keep.sort().forEach(m=>{const o=document.createElement('option');o.value=m;o.textContent=m;document.getElementById('s-make').appendChild(o);});
-  }
-}
-
-async function loadModels(){
-  const make=document.getElementById('s-make').value;
-  const sel=document.getElementById('s-model');
-  sel.innerHTML='<option value="">Loading...</option>';
-  if(!make){sel.innerHTML='<option value="">Any model</option>';return;}
-  try{
-    const res=await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/getmodelsformake/${encodeURIComponent(make)}?format=json`);
-    const data=await res.json();
-    sel.innerHTML='<option value="">Any model</option>';
-    data.Results.map(m=>m.Model_Name).sort().forEach(m=>{
-      const o=document.createElement('option');o.value=m;o.textContent=m;sel.appendChild(o);
-    });
-  }catch{sel.innerHTML='<option value="">Any model</option>';}
-}
-
-// ── Search ────────────────────────────────────────────────────────────────
-async function fetchEbayListings(make, model, year, maxPrice, country){
-  const params = new URLSearchParams({make:make||'',model:model||'',year:year||'',maxPrice:maxPrice||'',country:country||'US'});
-  const res = await fetch(`${EBAY_WORKER_URL}/?${params.toString()}`);
-  const data = await res.json();
-  if(!res.ok) throw new Error(data.error || 'eBay API failed');
-  return data.items || [];
-}
-
-async function doSearch(){
-  const dropdownMake = document.getElementById('s-make').value;
-  const dropdownModel = document.getElementById('s-model').value;
-  currentMake = dropdownMake || currentMake || 'Porsche';
-  currentModel = dropdownModel || currentModel || '';
-  currentYear = document.getElementById('s-year').value || '';
-  const maxP = document.getElementById('s-maxprice').value || '';
-  const region = document.getElementById('s-region').value;
-  const c = COUNTRIES[currentCountry];
-
-  document.getElementById('home-area').style.display='none';
-  document.getElementById('results-area').style.display='none';
-  document.getElementById('loading').style.display='block';
-  document.getElementById('loading-text').textContent=`Searching live eBay ${c.name} listings...`;
-
-  try{
-    const items = await fetchEbayListings(currentMake,currentModel,currentYear,maxP,currentCountry);
-    allListings = items.map(item => ({
-      make:currentMake, model:currentModel, year:'', dist:'',
-      price: item.price || 0,
-      src:'eBay', srcCls:'btn-a', srcUrl:item.url, loc:item.location||'',
-      trans:'', fuel:'', imgUrl:item.image, title:item.title,
-      condition:item.condition||'', currency:item.currency||c.currency
-    }));
-  }catch(err){
-    console.error('Live eBay search failed:', err);
-    allListings = [];
-  }
-
-  document.getElementById('sort-sel').value='price-asc';
-  renderResults(region);
-  renderListings();
-  document.getElementById('loading').style.display='none';
-  document.getElementById('results-area').style.display='block';
-}
-
-async function quickSearch(make, model){
-  currentMake = make; currentModel = model; currentYear = '';
-  document.getElementById('s-make').value = make;
-  document.getElementById('s-model').innerHTML = `<option value="${model}" selected>${model}</option>`;
-  document.getElementById('s-year').value = '';
-  document.getElementById('s-maxprice').value = '';
-  await doSearch();
-}
-
-function goHome(){
-  document.getElementById('home-area').style.display='block';
-  document.getElementById('results-area').style.display='none';
-  document.getElementById('loading').style.display='none';
-}
-
-function renderResults(region){
-  const c = COUNTRIES[currentCountry];
-  const sym = c.currencySymbol;
-  const label = currentMake+(currentModel?' '+currentModel:'')+(currentYear?' ('+currentYear+')':'');
-  document.getElementById('r-title').textContent = label;
-  document.getElementById('r-meta').textContent = `${allListings.length} ${c.name} live eBay listings found${region?' in '+region:''} — lowest price first`;
-  document.getElementById('alert-title').textContent = 'Get price alerts for '+label;
-
-  const prices = allListings.map(l=>Number(l.price||0)).filter(p=>p>0);
-  const avg = prices.length ? Math.round(prices.reduce((a,b)=>a+b,0)/prices.length) : null;
-  const lowest = prices.length ? Math.min(...prices) : null;
-  const highest = prices.length ? Math.max(...prices) : null;
-
-  document.getElementById('stats-grid').innerHTML = `
-    <div class="stat-card"><div class="stat-label">Total listings</div><div class="stat-value">${allListings.length}</div></div>
-    <div class="stat-card"><div class="stat-label">Average price</div><div class="stat-value">${avg?sym+avg.toLocaleString():'-'}</div></div>
-    <div class="stat-card"><div class="stat-label">Lowest price</div><div class="stat-value">${lowest?sym+lowest.toLocaleString():'-'}</div></div>
-    <div class="stat-card"><div class="stat-label">Highest price</div><div class="stat-value">${highest?sym+highest.toLocaleString():'-'}</div></div>`;
-
-  const ebayAvg = allListings.length ? Math.round(allListings.reduce((a,l)=>a+Number(l.price||0),0)/allListings.length) : 0;
-  const platformCards = [
-    {name:'eBay', href:`${EBAY_WORKER_URL}/?make=${encodeURIComponent(currentMake)}&model=${encodeURIComponent(currentModel)}&country=${currentCountry}`, count:`${allListings.length} live listings`, avg:ebayAvg?`${sym}${ebayAvg.toLocaleString()}`:'-', cls:'btn-a', label:'Search on eBay'},
-    ...c.platforms.map(p=>({name:p.name, href:p.url(currentMake,currentModel,currentYear,region), count:'Open external search', avg:'-', cls:p.cls, label:`Search on ${p.name}`}))
-  ];
-
-  document.getElementById('platform-grid').innerHTML = platformCards.map(p=>`
-    <a class="platform-card" href="${p.href}" target="_blank" rel="noopener">
-      <div class="platform-name">${p.name}</div>
-      <div class="platform-count">${p.count}</div>
-      <div class="platform-avg">${p.avg}</div>
-      <div class="platform-btn ${p.cls}">${p.label} ↗</div>
-    </a>`).join('');
-
-  document.getElementById('filters-bar').innerHTML = `
-    <span style="font-size:12px;color:var(--muted);margin-right:4px">Platform:</span>
-    <button class="filter-chip active" onclick="toggleFilter(this,'all')">All</button>
-    <button class="filter-chip" onclick="toggleFilter(this,'eBay')">eBay</button>`;
-
-  activeFilter = 'all';
-
-  const exotic = ['Ferrari','Lamborghini','McLaren','Aston Martin','Rolls-Royce','Bentley'].includes(currentMake);
-  const premium = ['Porsche','BMW','Mercedes-Benz','Audi'].includes(currentMake);
-  const basePrice = exotic?250000:premium?60000:25000;
-  const lo = lowest||Math.round(basePrice*0.7/1000)*1000;
-  const hi = highest||Math.round(basePrice*1.8/1000)*1000;
-  document.getElementById('price-range-display').textContent = `${sym}${lo.toLocaleString()} – ${sym}${hi.toLocaleString()}`;
-  document.getElementById('top-platform-display').textContent = 'eBay';
-  document.getElementById('best-value-display').textContent = allListings.length?'eBay':(currentCountry==='AU'?'Carsales/Gumtree':'eBay');
-}
-
-function renderListings(){
-  const wrap = document.getElementById('listings-wrap');
-  const listings = activeFilter==='all' ? allListings : allListings.filter(l=>l.src===activeFilter);
-
-  if(!listings.length){
-    wrap.innerHTML=`<div style="background:white;border:1px solid var(--border);border-radius:16px;padding:22px;margin-bottom:14px">No live eBay listings found. Try <strong>United States + Porsche 911</strong> or <strong>BMW M3</strong> first.</div>`;
-    return;
-  }
-
-  wrap.innerHTML = listings.map(l=>`
-    <div class="listing">
-      <div class="listing-img-wrap">
-        ${l.imgUrl?`<img class="listing-img" src="${l.imgUrl}" alt="${(l.title||'').replace(/"/g,'&quot;')}" onerror="this.outerHTML='<div class=listing-img-ph>🚗</div>'">`:`<div class="listing-img-ph">🚗</div>`}
-      </div>
-      <div class="listing-body">
-        <div class="listing-title">${l.title||`${l.make} ${l.model}`}</div>
-        <div class="listing-detail">${l.loc||'Location not listed'}${l.condition?' • '+l.condition:''}</div>
-        <div class="listing-tags"><span class="tag">eBay</span><span class="tag">Live listing</span></div>
-      </div>
-      <div class="listing-right">
-        <div class="src-badge pill-a">eBay</div>
-        <div class="listing-price">$${Number(l.price||0).toLocaleString()}</div>
-        <a class="view-link" href="${l.srcUrl}" target="_blank" rel="noopener">View listing ↗</a>
-      </div>
-    </div>`).join('');
-}
-
-function toggleFilter(el,val){
-  document.querySelectorAll('.filter-chip').forEach(c=>c.classList.remove('active'));
-  el.classList.add('active');
-  activeFilter=val;
-  renderListings();
-}
-
-function sortListings(val){
-  if(val==='price-asc') allListings.sort((a,b)=>a.price-b.price);
-  else if(val==='price-desc') allListings.sort((a,b)=>b.price-a.price);
-  else if(val==='year-desc') allListings.sort((a,b)=>b.year-a.year);
-  else if(val==='km-asc') allListings.sort((a,b)=>a.dist-b.dist);
-  renderListings();
-}
-
-function signupAlert(){
-  const email=document.getElementById('alert-email').value;
-  if(!email||!email.includes('@')){document.getElementById('alert-email').style.outline='2px solid #e55';return;}
-  document.getElementById('alert-card').innerHTML=`<div style="color:#fff;font-size:14px">Done! We'll email <strong>${email}</strong> when a better deal appears for ${currentMake} ${currentModel}.</div>`;
-}
-
-// ── AI Search ─────────────────────────────────────────────────────────────
-function setAiExample(el){
-  document.getElementById('ai-input').value = el.textContent.replace(/^[^\s]+\s/,'').trim();
-  document.getElementById('ai-input').focus();
-}
-
-async function aiSearch(){
-  const query = document.getElementById('ai-input').value.trim();
-  if(!query){document.getElementById('ai-input').focus();return;}
-  const btn = document.getElementById('ai-btn');
-  btn.classList.add('loading');
-  btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Searching...';
-  try{
-    const text=query.toLowerCase();
-    const knownMakes=['Porsche','BMW','Mercedes-Benz','Mercedes','Audi','Ferrari','Lamborghini','McLaren','Toyota','Volkswagen','Ford','Mazda','Honda','Hyundai','Kia','Subaru','Nissan','Holden','Aston Martin','Bentley','Rolls-Royce'];
-    const foundMake=knownMakes.find(m=>text.includes(m.toLowerCase()));
-    let make=foundMake||currentMake||'Porsche';
-    if(make==='Mercedes') make='Mercedes-Benz';
-    let afterMake=text;
-    if(foundMake) afterMake=text.split(foundMake.toLowerCase())[1]||'';
-    const modelMatch=afterMake.match(/\b([a-z0-9]{1,10})(?:\s|$)/i);
-    let model=modelMatch?modelMatch[1].toUpperCase():'';
-    const priceMatch=text.match(/(?:under|below|for|max|less than)\s*\$?\s*([0-9,.]+)\s*(k|m)?/i);
-    if(priceMatch){let price=parseFloat(priceMatch[1].replace(/,/g,''));if(priceMatch[2]==='k')price*=1000;if(priceMatch[2]==='m')price*=1000000;document.getElementById('s-maxprice').value=Math.round(price);}
-    currentMake=make; currentModel=model; currentYear='';
-    document.getElementById('s-make').value=make;
-    document.getElementById('s-model').innerHTML=`<option value="${model}" selected>${model||'Any model'}</option>`;
-    await doSearch();
-  }catch(err){console.error('AI search error:',err);await doSearch();}
-  finally{
-    btn.classList.remove('loading');
-    btn.innerHTML='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> Search with AI';
-  }
-}
-
-// ── Init ──────────────────────────────────────────────────────────────────
-const yearSel=document.getElementById('s-year');
-for(let y=2025;y>=1990;y--){const o=document.createElement('option');o.value=y;o.textContent=y;yearSel.appendChild(o);}
-loadMakes();
-updateTrustBar();
-updateRegionDropdown();
-updatePPSRBtn();
-loadLiveGrid(); // Load real eBay listings on homepage
+loadPreviews();
 </script>
 </body>
 </html>
