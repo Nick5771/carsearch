@@ -48,15 +48,16 @@ nav{padding:0 24px;display:flex;align-items:center;justify-content:space-between
 .welcome h1{font-size:clamp(26px,4vw,38px);font-weight:500;color:#fff;margin-bottom:10px;letter-spacing:-0.5px}
 .welcome-sub{font-size:15px;color:#666;margin-bottom:36px}
 
-/* preview grid */
-.preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:8px;max-width:760px;width:100%;margin:0 auto 32px}
+/* preview grid — 8 cards, wider */
+.preview-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:960px;width:100%;margin:0 auto 32px}
 .prev-card{background:#111;border:1px solid #222;border-radius:10px;overflow:hidden;cursor:pointer;transition:opacity 0.5s,transform 0.5s,border-color 0.15s;text-decoration:none;display:block;color:inherit}
 .prev-card:hover{border-color:#444;transform:translateY(-1px)}
 .prev-card.fade-out{opacity:0;transform:translateY(6px)}
-.prev-card-img{width:100%;height:100px;object-fit:cover;display:block;background:#1a1a1a}
-.prev-card-ph{width:100%;height:100px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:24px}
+.prev-card-img{width:100%;height:110px;object-fit:cover;display:block;background:#1a1a1a}
+.prev-card-ph{width:100%;height:110px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:24px}
 .prev-card-body{padding:8px 10px}
-.prev-card-make{font-size:11px;color:#888;margin-bottom:2px}
+.prev-card-make{font-size:11px;color:#888;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prev-card-title{font-size:11px;color:#aaa;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prev-card-price{font-size:14px;font-weight:600;color:#19c37d}
 
 /* ── MESSAGES ── */
@@ -65,20 +66,22 @@ nav{padding:0 24px;display:flex;align-items:center;justify-content:space-between
 .msg.user{flex-direction:row-reverse}
 .msg-av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
 .msg-av.u{background:#19c37d;color:#000}
-.msg-av.a{background:#fff;color:#000;font-size:11px;font-weight:800;font-family:Arial}
+/* AI avatar — no letter, just a subtle dot */
+.msg-av.a{background:#111;border:1px solid #333;position:relative}
+.msg-av.a::after{content:'';width:8px;height:8px;border-radius:50%;background:#19c37d;position:absolute}
 .msg-body{max-width:calc(100% - 44px);font-size:14px;line-height:1.65;color:#e5e5e5;padding:12px 16px;border-radius:12px;background:#111;border:1px solid #222}
 .msg.user .msg-body{background:#19c37d;color:#000;border-color:#19c37d}
 
-/* listings in chat */
-.chat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin-top:12px}
-.chat-card{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:10px;overflow:hidden;text-decoration:none;display:block;color:inherit;transition:border-color 0.15s,transform 0.15s}
-.chat-card:hover{border-color:#19c37d;transform:translateY(-1px)}
-.chat-card-img{width:100%;height:200px;object-fit:cover;display:block;background:#222}
-.chat-card-ph{width:100%;height:200px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:26px}
-.chat-card-body{padding:9px 11px}
-.chat-card-title{font-size:11px;color:#aaa;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.chat-card-price{font-size:14px;font-weight:700;color:#19c37d}
-.chat-card-loc{font-size:10px;color:#555;margin-top:2px}
+/* listings in chat — white cards, wider */
+.chat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin-top:12px}
+.chat-card{background:#fff;border:1px solid #e8e8e8;border-radius:12px;overflow:hidden;text-decoration:none;display:block;color:inherit;transition:box-shadow 0.15s,transform 0.15s}
+.chat-card:hover{box-shadow:0 4px 20px rgba(0,0,0,0.12);transform:translateY(-2px)}
+.chat-card-img{width:100%;height:220px;object-fit:cover;display:block;background:#f5f5f5}
+.chat-card-ph{width:100%;height:220px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:32px}
+.chat-card-body{padding:12px 14px}
+.chat-card-title{font-size:13px;color:#222;margin-bottom:5px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.chat-card-price{font-size:16px;font-weight:700;color:#19c37d}
+.chat-card-loc{font-size:11px;color:#999;margin-top:3px}
 
 /* thinking */
 .thinking{display:flex;gap:5px;padding:12px 16px;background:#111;border:1px solid #222;border-radius:12px;width:fit-content}
@@ -108,7 +111,8 @@ nav{padding:0 24px;display:flex;align-items:center;justify-content:space-between
 @media(max-width:700px){
   .sidebar{display:none}
   .input-area{left:0}
-  .chat-grid,.preview-grid{grid-template-columns:repeat(2,1fr)}
+  .chat-grid{grid-template-columns:repeat(2,1fr)}
+  .preview-grid{grid-template-columns:repeat(2,1fr)}
 }
 </style>
 </head>
@@ -140,8 +144,6 @@ nav{padding:0 24px;display:flex;align-items:center;justify-content:space-between
     <button class="sb-item" onclick="quickSearch('Show me vintage collectibles')">🏺 &nbsp;Collectibles</button>
     <button class="sb-item" onclick="quickSearch('Show me electronics and tech gadgets')">💻 &nbsp;Electronics</button>
     <button class="sb-item" onclick="quickSearch('Show me sports equipment')">⚽ &nbsp;Sports</button>
-
-
   </div>
 
   <!-- Chat -->
@@ -200,10 +202,9 @@ function addMsg(role, html) {
   d.className = `msg ${role}`;
   const av = role === 'user'
     ? `<div class="msg-av u">U</div>`
-    : `<div class="msg-av a">f</div>`;
-  d.innerHTML = role === 'user'
-    ? `${av}<div class="msg-body">${html}</div>`
-    : `${av}<div class="msg-body">${html}</div>`;
+    : `<div class="msg-av a"></div>`;
+  d.innerHTML = `${role === 'user' ? av : av}<div class="msg-body">${html}</div>`;
+  if (role === 'user') d.innerHTML = `${av}<div class="msg-body">${html}</div>`;
   msgs.appendChild(d);
   msgs.scrollTop = msgs.scrollHeight;
   return d.querySelector('.msg-body');
@@ -214,7 +215,7 @@ function addThinking() {
   const d = document.createElement('div');
   d.className = 'msg assistant';
   d.id = 'thinking';
-  d.innerHTML = `<div class="msg-av a">f</div><div class="thinking"><span></span><span></span><span></span></div>`;
+  d.innerHTML = `<div class="msg-av a"></div><div class="thinking"><span></span><span></span><span></span></div>`;
   msgs.appendChild(d);
   msgs.scrollTop = msgs.scrollHeight;
 }
@@ -269,11 +270,15 @@ function renderCards(items, make, model, maxPrice, c, ebayCount, etsyCount) {
   if (!items.length) return `<p style="color:#666;font-size:14px;margin-top:8px">No listings found right now. Try a different search or check back after 9am when the eBay API resets.</p>`;
   const top = items.slice(0,12);
 
-  let summary = `Found `;
-  if (ebayCount > 0) summary += `<strong style="color:#fff">${ebayCount} eBay</strong>`;
-  if (ebayCount > 0 && etsyCount > 0) summary += ` + `;
-  if (etsyCount > 0) summary += `<strong style="color:#F1641E">${etsyCount} Etsy</strong>`;
-  summary += ` listings`;
+  const totalFound = ebayCount + etsyCount;
+  let summary = `Found <strong style="color:#fff">${totalFound} listing${totalFound!==1?'s':''}</strong>`;
+  if (ebayCount > 0 && etsyCount > 0) {
+    summary += ` <span style="color:#555;font-size:12px">(${ebayCount} eBay · ${etsyCount} Etsy)</span>`;
+  } else if (ebayCount > 0) {
+    summary += ` <span style="color:#555;font-size:12px">on eBay</span>`;
+  } else if (etsyCount > 0) {
+    summary += ` <span style="color:#555;font-size:12px">on Etsy</span>`;
+  }
   if (make) summary += ` for ${make}${model?' '+model:''}`;
   if (maxPrice) summary += ` under ${sym}${Number(maxPrice).toLocaleString()}`;
   summary += `. Showing top ${top.length}:`;
@@ -284,13 +289,15 @@ function renderCards(items, make, model, maxPrice, c, ebayCount, etsyCount) {
     const badge = isEtsy
       ? `<span style="font-size:9px;background:#F1641E;color:white;padding:2px 6px;border-radius:4px;font-weight:600">Etsy</span>`
       : `<span style="font-size:9px;font-family:Arial,sans-serif;font-weight:900;letter-spacing:-0.3px"><span style="color:#E53238">e</span><span style="color:#0064D2">b</span><span style="color:#F5AF02">a</span><span style="color:#86B817">y</span></span>`;
+    // Upgrade eBay image to higher resolution
+    const imgSrc = item.image ? item.image.replace(/s-l\d+\./, 's-l600.') : null;
     return `<a class="chat-card" href="${item.url||'#'}" target="_blank" rel="noopener">
-      ${item.image
-        ? `<img class="chat-card-img" src="${item.image}" alt="" loading="lazy" onerror="this.outerHTML='<div class=chat-card-ph>🛍️</div>'">`
-        : `<div class="chat-card-ph">${isEtsy?'🎨':'🚗'}</div>`}
+      ${imgSrc
+        ? `<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" onerror="this.src='${item.image}'">`
+        : `<div class="chat-card-ph">${isEtsy?'🎨':'🛍️'}</div>`}
       <div class="chat-card-body">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">${badge}</div>
-        <div class="chat-card-title">${(item.title||'').substring(0,44)}${item.title&&item.title.length>44?'…':''}</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">${badge}</div>
+        <div class="chat-card-title">${item.title||''}</div>
         <div class="chat-card-price">${price}</div>
         <div class="chat-card-loc">${item.location||''}</div>
       </div>
@@ -350,28 +357,33 @@ function autoResize(el) {
   el.style.height=Math.min(el.scrollHeight,120)+'px';
 }
 
-// ── Rotating preview listings ─────────────────────────────────────────────
+// ── Rotating preview listings — 8 cards, popular searches ────────────────
 const PREVIEWS = [
-  {q:'Porsche 911', country:'US'},
+  {q:'Porsche 911', country:'AU'},
   {q:'Ferrari 488', country:'US'},
-  {q:'vintage leather jacket', country:'US'},
-  {q:'BMW M3', country:'DE'},
-  {q:'Toyota Camry', country:'AU'},
-  {q:'Nike Air Jordan', country:'US'},
+  {q:'vintage Rolex watch', country:'US'},
+  {q:'BMW M3', country:'AU'},
+  {q:'Nike Air Jordan sneakers', country:'US'},
   {q:'Lamborghini Huracan', country:'US'},
-  {q:'vintage watch Rolex', country:'US'},
+  {q:'Louis Vuitton bag', country:'US'},
   {q:'Ford Ranger', country:'AU'},
   {q:'vintage vinyl records', country:'UK'},
+  {q:'PlayStation 5', country:'AU'},
+  {q:'Harley Davidson motorcycle', country:'US'},
+  {q:'Apple MacBook', country:'AU'},
 ];
 
 async function loadPreviews() {
   const grid = document.getElementById('preview-grid');
   if (!grid) return;
-  grid.innerHTML = Array.from({length:6},()=>`
+
+  // Show 8 skeleton cards
+  grid.innerHTML = Array.from({length:8},()=>`
     <div class="prev-card">
       <div class="skel prev-card-img"></div>
       <div class="prev-card-body">
-        <div class="skel" style="height:9px;width:60%;margin-bottom:5px"></div>
+        <div class="skel" style="height:9px;width:70%;margin-bottom:4px"></div>
+        <div class="skel" style="height:9px;width:85%;margin-bottom:5px"></div>
         <div class="skel" style="height:12px;width:40%"></div>
       </div>
     </div>`).join('');
@@ -387,30 +399,34 @@ async function loadPreviews() {
 
   results.forEach(r=>{if(r.status==='fulfilled')previewItems.push(...r.value);});
 
+  // Shuffle for variety
+  previewItems = previewItems.sort(()=>Math.random()-0.5);
+
   if (!previewItems.length) { grid.innerHTML=''; return; }
 
-  const show = previewItems.slice(0,6);
+  const show = previewItems.slice(0,8);
   grid.innerHTML = show.map(buildPrevCard).join('');
-  previewIdx = 6;
-  setInterval(rotatePrev, 3500);
+  previewIdx = 8;
+  setInterval(rotatePrev, 3200);
 }
 
 function buildPrevCard(item) {
   const sym = item.country==='UK'?'£':item.country==='DE'?'€':'$';
   const price = item.price ? `${sym}${Number(item.price).toLocaleString()}` : '';
+  const title = (item.title||'').substring(0,40) + (item.title&&item.title.length>40?'…':'');
   return `<a class="prev-card" href="${item.url||'#'}" target="_blank" rel="noopener">
     ${item.image
-      ? `<img class="prev-card-img" src="${item.image}" alt="" loading="lazy" onerror="this.outerHTML='<div class=prev-card-ph>🚗</div>'">`
-      : `<div class="prev-card-ph">🚗</div>`}
+      ? `<img class="prev-card-img" src="${item.image}" alt="" loading="lazy" onerror="this.outerHTML='<div class=prev-card-ph>🛍️</div>'">`
+      : `<div class="prev-card-ph">🛍️</div>`}
     <div class="prev-card-body">
-      <div class="prev-card-make">${item.searchMake} ${item.searchModel}</div>
+      <div class="prev-card-title">${title}</div>
       <div class="prev-card-price">${price}</div>
     </div>
   </a>`;
 }
 
 function rotatePrev() {
-  if (previewItems.length < 7) return;
+  if (previewItems.length < 9) return;
   const grid = document.getElementById('preview-grid');
   if (!grid) return;
   const cards = grid.querySelectorAll('.prev-card');
