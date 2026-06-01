@@ -271,7 +271,7 @@ function parseQuery(text) {
   return { q: cleaned, maxPrice, country: c };
 }
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 40;
 let searchCount = 0;
 const searchStates = {};
 
@@ -281,7 +281,7 @@ function renderCards(items, label, _model, maxPrice, c, ebayCount, etsyCount) {
   
   searchCount++;
   const sid = searchCount;
-  searchStates[sid] = { items, shown: Math.min(PAGE_SIZE, items.length) };
+  searchStates[sid] = { items, shown: Math.min(PAGE_SIZE, items.length), query: label };
   const top = items.slice(0, searchStates[sid].shown);
 
   const totalFound = ebayCount + etsyCount;
@@ -316,7 +316,7 @@ function renderCards(items, label, _model, maxPrice, c, ebayCount, etsyCount) {
   const remaining0 = items.length - searchStates[sid].shown;
   const showMoreBtnFinal = remaining0 > 0 ? `<div id="${bId}" style="text-align:center;margin-top:16px">
     <button onclick="showMoreCards(${sid})" style="background:#111;border:1px solid #333;color:#fff;padding:10px 28px;border-radius:8px;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background 0.15s" onmouseover="this.style.background='#222'" onmouseout="this.style.background='#111'">
-      Show more (${remaining0} remaining)
+      Show more
     </button>
   </div>` : '';
   return `<p style="font-size:13px;color:#888;margin-bottom:10px">${summary}</p><div class="chat-grid" id="${gId}">${cards}</div>${showMoreBtnFinal}`;
@@ -347,8 +347,18 @@ function showMoreCards(sid) {
   });
   if (btnWrap) {
     const rem = state.items.length - state.shown;
-    if (rem <= 0) { btnWrap.style.display = 'none'; }
-    else { const b = btnWrap.querySelector('button'); if (b) b.textContent = `Show more (${rem} remaining)`; }
+    const b = btnWrap.querySelector('button');
+    if (rem <= 0) {
+      // No more local items — keep button but change text
+      if (b) {
+        b.textContent = 'Search eBay for more';
+        b.onclick = function() {
+          window.open('https://www.ebay.com.au/sch/i.html?_nkw=' + encodeURIComponent(state.query||''), '_blank');
+        };
+      }
+    } else {
+      if (b) b.textContent = 'Show more';
+    }
   }
   const msgs = document.getElementById('messages');
   setTimeout(() => { msgs.scrollTop = msgs.scrollHeight; }, 100);
@@ -478,7 +488,7 @@ async function loadPreviews() {
   const shuffled = [...PREVIEWS].sort(()=>Math.random()-0.5).slice(0,8);
   const results = await Promise.allSettled(
     shuffled.map(s =>
-      fetch(`${WORKER}/?q=${encodeURIComponent(s.q)}&country=${s.country}&limit=3`)
+      fetch(`${WORKER}/?q=${encodeURIComponent(s.q)}&country=${s.country}`)
         .then(r=>r.json())
         .then(d=>(d.items||[]).filter(i=>i.image).slice(0,2).map(i=>({...i,searchMake:s.q,searchModel:'',country:s.country})))
         .catch(()=>[])
