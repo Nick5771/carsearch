@@ -164,12 +164,12 @@ nav{padding:0 24px;display:flex;align-items:center;justify-content:space-between
     <!-- Input -->
     <div class="input-area">
       <div class="input-wrap">
-        <textarea id="chat-in" class="chat-in" placeholder='Try "Find me a Macbook Pro for less than $750" or "Show me a Porsche 911 under $100k"' rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <textarea id="chat-in" class="chat-in" placeholder='Try "Find me a Macbook Pro for less than $750"' rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
         <button class="send-btn" id="send-btn" onclick="sendMsg()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
         </button>
       </div>
-      <div class="input-hint">FindAI searches eBay listings in real time across AU · US · UK · DE</div>
+
     </div>
   </div>
 </div>
@@ -271,7 +271,7 @@ function parseQuery(text) {
   return { q: cleaned, maxPrice, country: c };
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 100;
 let searchCount = 0;
 const searchStates = {};
 
@@ -314,11 +314,11 @@ function renderCards(items, label, _model, maxPrice, c, ebayCount, etsyCount) {
   const gId = 'chat-grid-' + sid;
   const bId = 'show-more-' + sid;
   const remaining0 = items.length - searchStates[sid].shown;
-  const showMoreBtnFinal = `<div id="${bId}" style="text-align:center;margin-top:16px;${remaining0>0?'':'display:none'}">
-    <button onclick="showMoreCards(${sid})" style="background:#111;border:1px solid #333;color:#fff;padding:10px 28px;border-radius:8px;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif" onmouseover="this.style.background='#222'" onmouseout="this.style.background='#111'">
+  const showMoreBtnFinal = remaining0 > 0 ? `<div id="${bId}" style="text-align:center;margin-top:16px">
+    <button onclick="showMoreCards(${sid})" style="background:#111;border:1px solid #333;color:#fff;padding:10px 28px;border-radius:8px;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background 0.15s" onmouseover="this.style.background='#222'" onmouseout="this.style.background='#111'">
       Show more (${remaining0} remaining)
     </button>
-  </div>`;
+  </div>` : '';
   return `<p style="font-size:13px;color:#888;margin-bottom:10px">${summary}</p><div class="chat-grid" id="${gId}">${cards}</div>${showMoreBtnFinal}`;
 }
 
@@ -474,11 +474,13 @@ async function loadPreviews() {
       </div>
     </div>`).join('');
 
+  // Only fetch 8 random previews at a time for speed
+  const shuffled = [...PREVIEWS].sort(()=>Math.random()-0.5).slice(0,8);
   const results = await Promise.allSettled(
-    PREVIEWS.map(s =>
-      fetch(`${WORKER}/?q=${encodeURIComponent(s.q)}&country=${s.country}`)
+    shuffled.map(s =>
+      fetch(`${WORKER}/?q=${encodeURIComponent(s.q)}&country=${s.country}&limit=3`)
         .then(r=>r.json())
-        .then(d=>(d.items||[]).filter(i=>i.image).slice(0,3).map(i=>({...i,searchMake:s.q,searchModel:'',country:s.country})))
+        .then(d=>(d.items||[]).filter(i=>i.image).slice(0,2).map(i=>({...i,searchMake:s.q,searchModel:'',country:s.country})))
         .catch(()=>[])
     )
   );
