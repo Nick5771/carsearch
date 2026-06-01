@@ -61,28 +61,28 @@ nav{padding:0 24px;display:flex;align-items:center;justify-content:space-between
 .prev-card-price{font-size:14px;font-weight:600;color:#19c37d}
 
 /* ── MESSAGES ── */
-.messages{flex:1;overflow-y:auto;padding:32px 24px 120px;display:flex;flex-direction:column;gap:20px;width:100%;align-self:stretch}
-.messages-inner{max-width:860px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:20px;flex:1}
+.messages{flex:1;overflow-y:auto;padding:24px 32px 120px;display:flex;flex-direction:column;gap:20px;width:100%;align-self:stretch}
+.messages-inner{max-width:1100px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:20px;flex:1}
 .msg{display:flex;gap:12px;width:100%}
 .msg.user{flex-direction:row-reverse}
 .msg-av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
-.msg-av.u{background:#19c37d;color:#000}
+.msg-av.u{background:#fff;color:#000;border:1px solid #e0e0e0}
 /* AI avatar — no letter, just a subtle dot */
-.msg-av.a{background:#111;border:1px solid #333;position:relative}
-.msg-av.a::after{content:'';width:8px;height:8px;border-radius:50%;background:#19c37d;position:absolute}
+.msg-av.a{background:#fff;border:1px solid #e0e0e0}
 .msg-body{max-width:calc(100% - 44px);font-size:14px;line-height:1.65;color:#e5e5e5;padding:12px 16px;border-radius:12px;background:#111;border:1px solid #222}
-.msg.user .msg-body{background:#19c37d;color:#000;border-color:#19c37d}
+.msg.assistant .msg-body{max-width:100%;width:100%}
+.msg.user .msg-body{background:#fff;color:#000;border-color:#e0e0e0}
 
 /* listings in chat — white cards, wider */
-.chat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px;margin-top:12px}
-.chat-card{background:#fff;border:1px solid #e8e8e8;border-radius:12px;overflow:hidden;text-decoration:none;display:block;color:inherit;transition:box-shadow 0.15s,transform 0.15s}
-.chat-card:hover{box-shadow:0 6px 24px rgba(0,0,0,0.13);transform:translateY(-2px)}
-.chat-card-img{width:100%;height:260px;object-fit:cover;display:block;background:#f5f5f5}
-.chat-card-ph{width:100%;height:260px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:40px}
-.chat-card-body{padding:14px 16px}
-.chat-card-title{font-size:13px;color:#444;margin-bottom:8px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.chat-card-price{font-size:20px;font-weight:800;color:#000;letter-spacing:-0.5px}
-.chat-card-loc{font-size:11px;color:#999;margin-top:4px}
+.chat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px;width:100%}
+.chat-card{background:#fff;border:1px solid #e8e8e8;border-radius:10px;overflow:hidden;text-decoration:none;display:block;color:inherit;transition:box-shadow 0.15s,transform 0.15s}
+.chat-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.1);transform:translateY(-2px)}
+.chat-card-img{width:100%;height:160px;object-fit:cover;display:block;background:#f5f5f5}
+.chat-card-ph{width:100%;height:160px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:32px}
+.chat-card-body{padding:10px 12px}
+.chat-card-title{font-size:12px;color:#444;margin-bottom:6px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.chat-card-price{font-size:16px;font-weight:800;color:#19c37d;letter-spacing:-0.3px}
+.chat-card-loc{font-size:10px;color:#999;margin-top:3px}
 
 /* thinking */
 .thinking{display:flex;gap:5px;padding:12px 16px;background:#111;border:1px solid #222;border-radius:12px;width:fit-content}
@@ -112,7 +112,7 @@ nav{padding:0 24px;display:flex;align-items:center;justify-content:space-between
 @media(max-width:700px){
   .sidebar{display:none}
   .input-area{left:0}
-  .chat-grid{grid-template-columns:repeat(2,1fr)}
+  .chat-grid{grid-template-columns:repeat(2,1fr);gap:8px;width:100%}
   .preview-grid{grid-template-columns:repeat(2,1fr)}
 }
 </style>
@@ -135,16 +135,16 @@ nav{padding:0 24px;display:flex;align-items:center;justify-content:space-between
     </button>
 
     <div class="sb-section">Categories</div>
-    <button class="sb-item active" onclick="quickSearch('Show me cars for sale')">🚗 &nbsp;Cars</button>
-    <button class="sb-item" onclick="quickSearch('Show me houses and property for sale')">🏠 &nbsp;Property</button>
-    <button class="sb-item" onclick="quickSearch('Show me designer clothes and fashion')">👗 &nbsp;Fashion</button>
-    <button class="sb-item" onclick="quickSearch('Show me sneakers and shoes')">👟 &nbsp;Sneakers</button>
-    <button class="sb-item" onclick="quickSearch('Show me watches and jewellery')">⌚ &nbsp;Watches</button>
-    <button class="sb-item" onclick="quickSearch('Show me motorcycles for sale')">🏍️ &nbsp;Motorcycles</button>
-    <button class="sb-item" onclick="quickSearch('Show me boats for sale')">⛵ &nbsp;Boats</button>
-    <button class="sb-item" onclick="quickSearch('Show me vintage collectibles')">🏺 &nbsp;Collectibles</button>
-    <button class="sb-item" onclick="quickSearch('Show me electronics and tech gadgets')">💻 &nbsp;Electronics</button>
-    <button class="sb-item" onclick="quickSearch('Show me sports equipment')">⚽ &nbsp;Sports</button>
+    <button class="sb-item active" onclick="categorySearch('cars', 'cars')">🚗 &nbsp;Cars</button>
+    <button class="sb-item" onclick="categorySearch('property real estate', 'property')">🏠 &nbsp;Property</button>
+    <button class="sb-item" onclick="categorySearch('designer fashion clothing', 'fashion')">👗 &nbsp;Fashion</button>
+    <button class="sb-item" onclick="categorySearch('sneakers nike jordan adidas', 'sneakers')">👟 &nbsp;Sneakers</button>
+    <button class="sb-item" onclick="categorySearch('luxury watches rolex omega', 'watches')">⌚ &nbsp;Watches</button>
+    <button class="sb-item" onclick="categorySearch('motorcycles harley davidson', 'motorcycles')">🏍️ &nbsp;Motorcycles</button>
+    <button class="sb-item" onclick="categorySearch('boats yacht sailing', 'boats')">⛵ &nbsp;Boats</button>
+    <button class="sb-item" onclick="categorySearch('vintage collectibles rare antique', 'collectibles')">🏺 &nbsp;Collectibles</button>
+    <button class="sb-item" onclick="categorySearch('electronics apple samsung sony', 'electronics')">💻 &nbsp;Electronics</button>
+    <button class="sb-item" onclick="categorySearch('sports equipment fitness gym', 'sports')">⚽ &nbsp;Sports</button>
   </div>
 
   <!-- Chat -->
@@ -164,7 +164,7 @@ nav{padding:0 24px;display:flex;align-items:center;justify-content:space-between
     <!-- Input -->
     <div class="input-area">
       <div class="input-wrap">
-        <textarea id="chat-in" class="chat-in" placeholder='Try "Show me a Porsche 911 under $100k" or "Find me a boat in Australia"' rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <textarea id="chat-in" class="chat-in" placeholder='Try "Find me a Macbook Pro for less than $750" or "Show me a Porsche 911 under $100k"' rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
         <button class="send-btn" id="send-btn" onclick="sendMsg()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
         </button>
@@ -263,39 +263,39 @@ function parseQuery(text) {
 
   // Country detection
   let c = country;
-  if (lower.includes('australia')) c='AU';
-  else if (lower.includes('united states')||lower.includes('america')) c='US';
-  else if (lower.includes('united kingdom')||lower.includes('england')) c='UK';
-  else if (lower.includes('germany')||lower.includes('german')) c='DE';
+  if (lower.match(/\b(australia|australian|aus|in au)\b/)) c='AU';
+  else if (lower.match(/\b(united states|america|american|in us|in the us|from us|from the us|usa)\b/)) c='US';
+  else if (lower.match(/\b(united kingdom|england|english|in uk|in the uk|from uk|britain|british)\b/)) c='UK';
+  else if (lower.match(/\b(germany|german|deutschland|in germany)\b/)) c='DE';
 
   return { q: cleaned, maxPrice, country: c };
 }
 
+const PAGE_SIZE = 20;
+let searchCount = 0;
+const searchStates = {};
+
 function renderCards(items, label, _model, maxPrice, c, ebayCount, etsyCount) {
   const sym = c==='UK'?'£':c==='DE'?'€':'$';
   if (!items.length) return `<p style="color:#666;font-size:14px;margin-top:8px">No listings found right now. Try a different search.</p>`;
-  const top = items.slice(0,12);
+  
+  searchCount++;
+  const sid = searchCount;
+  searchStates[sid] = { items, shown: Math.min(PAGE_SIZE, items.length) };
+  const top = items.slice(0, searchStates[sid].shown);
 
   const totalFound = ebayCount + etsyCount;
   const displayCount = totalFound > 0 ? totalFound : items.length;
   let summary = `Found <strong style="color:#fff">${displayCount} listing${displayCount!==1?'s':''}</strong>`;
-  if (ebayCount > 0 && etsyCount > 0) {
-    summary += ` <span style="color:#555;font-size:12px">(${ebayCount} eBay · ${etsyCount} Etsy)</span>`;
-  } else if (ebayCount > 0) {
-    summary += ` <span style="color:#555;font-size:12px">on eBay</span>`;
-  } else if (etsyCount > 0) {
-    summary += ` <span style="color:#555;font-size:12px">on Etsy</span>`;
-  }
+  summary += ` <span style="color:#555;font-size:12px">on eBay</span>`;
   if (label) summary += ` for <em style="color:#ccc">${label}</em>`;
   if (maxPrice) summary += ` under ${sym}${Number(maxPrice).toLocaleString()}`;
-  summary += `. Showing top ${top.length}:`;
+  summary += `. Showing ${searchStates[sid].shown}:`;
 
   const cards = top.map(item => {
     const price = item.price ? `${sym}${Number(item.price).toLocaleString()}` : 'See listing';
     const isEtsy = item.source === 'Etsy';
-    const badge = isEtsy
-      ? `<span style="font-size:13px;background:#F1641E;color:white;padding:3px 10px;border-radius:5px;font-weight:700">Etsy</span>`
-      : `<span style="font-size:22px;font-family:Arial,sans-serif;font-weight:900;letter-spacing:-0.5px;line-height:1"><span style="color:#E53238">e</span><span style="color:#0064D2">b</span><span style="color:#F5AF02">a</span><span style="color:#86B817">y</span></span>`;
+    const badge = `<span style="font-size:16px;font-family:Arial,sans-serif;font-weight:900;letter-spacing:-0.3px;line-height:1"><span style="color:#E53238">e</span><span style="color:#0064D2">b</span><span style="color:#F5AF02">a</span><span style="color:#86B817">y</span></span>`;
     // Upgrade eBay image to higher resolution
     const imgSrc = item.image ? item.image.replace(/s-l\d+\./, 's-l600.') : null;
     return `<a class="chat-card" href="${item.url||'#'}" target="_blank" rel="noopener">
@@ -310,7 +310,48 @@ function renderCards(items, label, _model, maxPrice, c, ebayCount, etsyCount) {
       </div>
     </a>`;
   }).join('');
-  return `<p style="font-size:13px;color:#888;margin-bottom:10px">${summary}</p><div class="chat-grid">${cards}</div>`;
+
+  const gId = 'chat-grid-' + sid;
+  const bId = 'show-more-' + sid;
+  const remaining0 = items.length - searchStates[sid].shown;
+  const showMoreBtnFinal = `<div id="${bId}" style="text-align:center;margin-top:16px;${remaining0>0?'':'display:none'}">
+    <button onclick="showMoreCards(${sid})" style="background:#111;border:1px solid #333;color:#fff;padding:10px 28px;border-radius:8px;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif" onmouseover="this.style.background='#222'" onmouseout="this.style.background='#111'">
+      Show more (${remaining0} remaining)
+    </button>
+  </div>`;
+  return `<p style="font-size:13px;color:#888;margin-bottom:10px">${summary}</p><div class="chat-grid" id="${gId}">${cards}</div>${showMoreBtnFinal}`;
+}
+
+function showMoreCards(sid) {
+  const state = searchStates[sid];
+  if (!state || state.shown >= state.items.length) return;
+  const sym = country==='UK'?'£':country==='DE'?'€':'$';
+  const grid = document.getElementById('chat-grid-' + sid);
+  const btnWrap = document.getElementById('show-more-' + sid);
+  if (!grid) return;
+  const nextBatch = state.items.slice(state.shown, state.shown + PAGE_SIZE);
+  if (!nextBatch.length) return;
+  state.shown += nextBatch.length;
+  nextBatch.forEach(item => {
+    const price = item.price ? `${sym}${Number(item.price).toLocaleString()}` : 'See listing';
+    const badge = `<span style="font-size:16px;font-family:Arial,sans-serif;font-weight:900;letter-spacing:-0.3px;line-height:1"><span style="color:#E53238">e</span><span style="color:#0064D2">b</span><span style="color:#F5AF02">a</span><span style="color:#86B817">y</span></span>`;
+    const imgSrc = item.image ? item.image.replace(/s-l\d+\./, 's-l600.') : null;
+    const card = document.createElement('a');
+    card.className = 'chat-card';
+    card.href = item.url || '#';
+    card.target = '_blank';
+    card.rel = 'noopener';
+    card.innerHTML = (imgSrc ? `<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" onerror="this.src='${item.image||''}'">` : `<div class="chat-card-ph">🛍️</div>`) +
+      `<div class="chat-card-body"><div style="margin-bottom:5px">${badge}</div><div class="chat-card-title">${item.title||''}</div><div class="chat-card-price">${price}</div><div class="chat-card-loc">${item.location||''}</div></div>`;
+    grid.appendChild(card);
+  });
+  if (btnWrap) {
+    const rem = state.items.length - state.shown;
+    if (rem <= 0) { btnWrap.style.display = 'none'; }
+    else { const b = btnWrap.querySelector('button'); if (b) b.textContent = `Show more (${rem} remaining)`; }
+  }
+  const msgs = document.getElementById('messages');
+  setTimeout(() => { msgs.scrollTop = msgs.scrollHeight; }, 100);
 }
 
 async function sendMsg() {
@@ -324,6 +365,9 @@ async function sendMsg() {
   showChat();
   addMsg('user', q);
   addThinking();
+  // Instantly scroll to bottom as soon as thinking appears
+  const msgsEl = document.getElementById('messages');
+  if (msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
   const { q: cleanQ, maxPrice, country: c } = parseQuery(q);
 
   try {
@@ -333,7 +377,15 @@ async function sendMsg() {
     removeThinking();
     addMsg('assistant', renderCards(data.items||[], cleanQ, '', maxPrice, c, data.ebayCount||0, data.etsyCount||0));
     const msgs2 = document.getElementById('messages');
-    setTimeout(() => { msgs2.scrollTop = msgs2.scrollHeight; }, 100);
+    // Scroll to the new results — find the last assistant message
+    setTimeout(() => {
+      const inner = document.getElementById('messages-inner');
+      const allMsgs = inner ? inner.querySelectorAll('.msg') : [];
+      if (allMsgs.length) {
+        allMsgs[allMsgs.length - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+      msgs2.scrollTop = msgs2.scrollHeight;
+    }, 150);
   } catch(e) {
     removeThinking();
     addMsg('assistant', 'Sorry, could not fetch listings right now. Please try again.');
@@ -347,6 +399,15 @@ async function sendMsg() {
 
 function quickSearch(text) {
   document.getElementById('chat-in').value = text;
+  sendMsg();
+}
+
+function categorySearch(query, label) {
+  // Mark active sidebar item
+  document.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  // Set input and trigger search
+  document.getElementById('chat-in').value = query;
   sendMsg();
 }
 
@@ -373,6 +434,29 @@ const PREVIEWS = [
   {q:'PlayStation 5', country:'AU'},
   {q:'Harley Davidson motorcycle', country:'US'},
   {q:'Apple MacBook', country:'AU'},
+  {q:'Omega Seamaster watch', country:'UK'},
+  {q:'Mercedes AMG', country:'DE'},
+  {q:'Supreme hoodie', country:'US'},
+  {q:'vintage Levi jeans', country:'US'},
+  {q:'Ducati motorcycle', country:'AU'},
+  {q:'sailing yacht', country:'AU'},
+  {q:'Sony PlayStation vintage', country:'US'},
+  {q:'Rolex Submariner', country:'UK'},
+  {q:'Tesla Model 3', country:'AU'},
+  {q:'Gucci sneakers', country:'US'},
+  {q:'Patek Philippe watch', country:'UK'},
+  {q:'Aston Martin', country:'UK'},
+  {q:'vintage Nintendo game', country:'US'},
+  {q:'Off White shoes', country:'US'},
+  {q:'Yeezy sneakers', country:'US'},
+  {q:'iPhone 15 Pro', country:'AU'},
+  {q:'Canon camera lens', country:'AU'},
+  {q:'vintage Pokemon cards', country:'US'},
+  {q:'Bentley Continental', country:'UK'},
+  {q:'Kawasaki ninja motorcycle', country:'AU'},
+  {q:'Cartier bracelet', country:'UK'},
+  {q:'Prada bag', country:'US'},
+  {q:'surfboard longboard', country:'AU'},
 ];
 
 async function loadPreviews() {
@@ -401,8 +485,9 @@ async function loadPreviews() {
 
   results.forEach(r=>{if(r.status==='fulfilled')previewItems.push(...r.value);});
 
-  // Shuffle for variety
-  previewItems = previewItems.sort(()=>Math.random()-0.5);
+  // Shuffle with time-based seed so it's different each visit
+  const seed = Date.now();
+  previewItems = previewItems.sort(() => Math.sin(seed + Math.random()) - 0.5);
 
   if (!previewItems.length) { grid.innerHTML=''; return; }
 
