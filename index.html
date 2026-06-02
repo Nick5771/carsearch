@@ -403,8 +403,6 @@ async function sendMsg() {
   addMsg('user', q);
   addThinking();
   // Scroll to top so user sees their query first
-  const msgsEl = document.getElementById('messages');
-  if (msgsEl) msgsEl.scrollTop = 0;
   const { q: cleanQ, maxPrice, country: c } = parseQuery(q);
 
   try {
@@ -413,15 +411,12 @@ async function sendMsg() {
     const data = await res.json();
     removeThinking();
     addMsg('assistant', renderCards(data.items||[], cleanQ, '', maxPrice, c, data.ebayCount||0, data.etsyCount||0));
-    const msgs2 = document.getElementById('messages');
-    // Scroll to the new results — find the last assistant message
     setTimeout(() => {
       const inner = document.getElementById('messages-inner');
-      const allMsgs = inner ? inner.querySelectorAll('.msg') : [];
-      if (allMsgs.length) {
-        allMsgs[allMsgs.length - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const userMsgs = inner ? inner.querySelectorAll('.msg.user') : [];
+      if (userMsgs.length) {
+        userMsgs[userMsgs.length - 1].scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-      msgs2.scrollTop = msgs2.scrollHeight;
     }, 150);
   } catch(e) {
     removeThinking();
