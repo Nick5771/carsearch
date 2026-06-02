@@ -306,11 +306,17 @@ function renderCards(items, label, _model, maxPrice, c, ebayCount, etsyCount) {
 
   const totalFound = ebayCount + etsyCount;
   const displayCount = totalFound > 0 ? totalFound : items.length;
-  let summary = `Found <strong style="color:#fff">${displayCount} listing${displayCount!==1?'s':''}</strong>`;
-  summary += ` <span style="color:#555;font-size:12px">on eBay</span>`;
-  if (label) summary += ` for <em style="color:#ccc">${label}</em>`;
-  if (maxPrice) summary += ` under ${sym}${Number(maxPrice).toLocaleString()}`;
-  summary += `. Showing ${searchStates[sid].shown}:`;
+  let summary = '';
+  if (label) {
+    const labelClean = label.charAt(0).toUpperCase() + label.slice(1);
+    summary = `Here's what I found for <strong style="color:#fff">${labelClean}</strong>`;
+    if (maxPrice) summary += ` under ${sym}${Number(maxPrice).toLocaleString()}`;
+    summary += ` <span style="color:#555;font-size:12px">(${displayCount} listings · showing ${searchStates[sid].shown})</span>`;
+  } else {
+    summary = `Found <strong style="color:#fff">${displayCount} listing${displayCount!==1?'s':''}</strong> on eBay`;
+    if (maxPrice) summary += ` under ${sym}${Number(maxPrice).toLocaleString()}`;
+    summary += ` <span style="color:#555;font-size:12px">· showing ${searchStates[sid].shown}</span>`;
+  }
 
   const cards = top.map(item => {
     const price = item.price ? `${sym}${Number(item.price).toLocaleString()}` : 'See listing';
