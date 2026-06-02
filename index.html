@@ -205,6 +205,14 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 <script>
 const WORKER = 'https://api.carsearchapi.workers.dev';
 let country = 'AU';
+
+const EBAY_CAMPAIGN_ID = '5339155260';
+
+function makeEbayAffiliateUrl(rawUrl, customId = 'findai') {
+  if (!rawUrl || !rawUrl.includes('ebay.')) return rawUrl || '#';
+  // If already has campid from worker, use rover for extra reliability
+  return `https://rover.ebay.com/rover/1/711-53200-19255-0/1?ff3=4&pub=5575525286&toolid=10001&campid=${EBAY_CAMPAIGN_ID}&customid=${encodeURIComponent(customId)}&mpre=${encodeURIComponent(rawUrl)}`;
+}
 let busy = false;
 let previewItems = [];
 let previewIdx = 0;
@@ -329,7 +337,7 @@ function renderCards(items, label, _model, maxPrice, c, ebayCount, etsyCount) {
     const badge = `<span style="font-size:16px;font-family:Arial,sans-serif;font-weight:900;letter-spacing:-0.3px;line-height:1"><span style="color:#E53238">e</span><span style="color:#0064D2">b</span><span style="color:#F5AF02">a</span><span style="color:#86B817">y</span></span>`;
     // Upgrade eBay image to higher resolution
     const imgSrc = item.image ? item.image.replace(/s-l\d+\./, 's-l600.') : null;
-    return `<a class="chat-card" href="${item.url||'#'}" target="_blank" rel="noopener">
+    return `<a class="chat-card" href="${makeEbayAffiliateUrl(item.url, 'search-result')}" target="_blank" rel="noopener">
       ${imgSrc
         ? `<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" onerror="this.src='${item.image}'">`
         : `<div class="chat-card-ph">${isEtsy?'🎨':'🛍️'}</div>`}
@@ -369,7 +377,7 @@ function showMoreCards(sid) {
     const imgSrc = item.image ? item.image.replace(/s-l\d+\./, 's-l600.') : null;
     const card = document.createElement('a');
     card.className = 'chat-card';
-    card.href = item.url || '#';
+    card.href = makeEbayAffiliateUrl(item.url, 'show-more');
     card.target = '_blank';
     card.rel = 'noopener';
     card.innerHTML = (imgSrc ? `<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" onerror="this.src='${item.image||''}'">` : `<div class="chat-card-ph">🛍️</div>`) +
@@ -531,7 +539,7 @@ function buildPrevCard(item) {
   const sym = item.country==='UK'?'£':item.country==='DE'?'€':'$';
   const price = item.price ? `${sym}${Number(item.price).toLocaleString()}` : '';
   const title = (item.title||'').substring(0,40) + (item.title&&item.title.length>40?'…':'');
-  return `<a class="prev-card" href="${item.url||'#'}" target="_blank" rel="noopener">
+  return `<a class="prev-card" href="${makeEbayAffiliateUrl(item.url, 'homepage-preview')}" target="_blank" rel="noopener">
     ${item.image
       ? `<img class="prev-card-img" src="${item.image}" alt="" loading="lazy" onerror="this.outerHTML='<div class=prev-card-ph>🛍️</div>'">`
       : `<div class="prev-card-ph">🛍️</div>`}
