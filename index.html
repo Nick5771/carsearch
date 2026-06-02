@@ -404,11 +404,13 @@ async function sendMsg() {
   inp.value = '';
   inp.style.height = 'auto';
   showChat();
+  // Scroll to top of messages first so user sees their query at top
+  const msgsEl = document.getElementById('messages');
+  if (msgsEl) msgsEl.scrollTop = 0;
   addMsg('user', q);
   addThinking();
-  // Instantly scroll to bottom as soon as thinking appears
-  const msgsEl = document.getElementById('messages');
-  if (msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight;
+  // Then scroll down just enough to show the thinking dots
+  setTimeout(() => { if (msgsEl) msgsEl.scrollTop = msgsEl.scrollHeight; }, 50);
   const { q: cleanQ, maxPrice, country: c } = parseQuery(q);
 
   try {
