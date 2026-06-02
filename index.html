@@ -236,7 +236,6 @@ function addMsg(role, html) {
     ? `${av}<div class="msg-body">${html}</div>`
     : `${av}<div class="msg-body">${html}</div>`;
   inner.appendChild(d);
-  msgs.scrollTop = msgs.scrollHeight;
   return d.querySelector('.msg-body');
 }
 
@@ -390,7 +389,6 @@ function showMoreCards(sid) {
     }
   }
   const msgs = document.getElementById('messages');
-  setTimeout(() => { msgs.scrollTop = msgs.scrollHeight; }, 100);
 }
 
 async function sendMsg() {
@@ -428,8 +426,6 @@ async function sendMsg() {
   } catch(e) {
     removeThinking();
     addMsg('assistant', 'Sorry, could not fetch listings right now. Please try again.');
-    const msgs2 = document.getElementById('messages');
-    setTimeout(() => { msgs2.scrollTop = msgs2.scrollHeight; }, 100);
   }
   busy = false;
   document.getElementById('send-btn').disabled = false;
