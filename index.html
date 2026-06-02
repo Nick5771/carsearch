@@ -241,14 +241,12 @@ function addMsg(role, html) {
 }
 
 function addThinking() {
-  const msgs = document.getElementById('messages');
   const inner = document.getElementById('messages-inner');
   const d = document.createElement('div');
   d.className = 'msg assistant';
   d.id = 'thinking';
   d.innerHTML = `<div class="msg-av a"></div><div class="thinking"><span></span><span></span><span></span></div>`;
   inner.appendChild(d);
-  msgs.scrollTop = msgs.scrollHeight;
 }
 
 function removeThinking() {
@@ -404,20 +402,11 @@ async function sendMsg() {
   inp.value = '';
   inp.style.height = 'auto';
   showChat();
-  // Scroll window and messages to top immediately
-  window.scrollTo(0, 0);
-  document.body.scrollTop = 0;
-  document.documentElement.scrollTop = 0;
-  const msgsEl = document.getElementById('messages');
-  if (msgsEl) msgsEl.scrollTop = 0;
-  const inner = document.getElementById('messages-inner');
-  if (inner) inner.scrollTop = 0;
   addMsg('user', q);
   addThinking();
-  setTimeout(() => {
-    if (msgsEl) msgsEl.scrollTop = 0;
-    window.scrollTo(0, 0);
-  }, 30);
+  // Scroll to top so user sees their query first
+  const msgsEl = document.getElementById('messages');
+  if (msgsEl) msgsEl.scrollTop = 0;
   const { q: cleanQ, maxPrice, country: c } = parseQuery(q);
 
   try {
