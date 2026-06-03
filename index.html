@@ -52,9 +52,10 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .chat{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
 
 /* ── WELCOME ── */
-.welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 24px 120px;text-align:center}
+.welcome{flex:1;display:flex;flex-direction:column;align-items:center;padding:40px 24px 140px;text-align:center;overflow-y:auto}
+.welcome-top{display:flex;flex-direction:column;align-items:center;margin-bottom:36px}
 .welcome h1{font-size:clamp(26px,4vw,38px);font-weight:500;color:#fff;margin-bottom:10px;letter-spacing:-0.5px}
-.welcome-sub{font-size:15px;color:#666;margin-bottom:36px}
+.welcome-sub{font-size:15px;color:#666}
 
 /* preview grid */
 .preview-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:960px;width:100%;margin:0 auto 32px}
@@ -75,7 +76,8 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .msg.user{flex-direction:row-reverse}
 .msg-av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
 .msg-av.u{background:#fff;color:#000;border:1px solid #e0e0e0}
-.msg-av.a{background:#fff;border:1px solid #e0e0e0}
+.msg-av.a{background:#fff;border:1px solid #e0e0e0;position:relative}
+.msg-av.a::after{content:'';position:absolute;width:10px;height:10px;border-radius:50%;background:#000}
 .msg-body{max-width:calc(100% - 44px);font-size:14px;line-height:1.65;color:#e5e5e5;padding:12px 16px;border-radius:12px;background:#111;border:1px solid #222}
 .msg.assistant .msg-body{max-width:100%;width:100%}
 .msg.user .msg-body{background:#fff;color:#000;border-color:#e0e0e0}
@@ -100,10 +102,10 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 
 /* ── INPUT ── */
 .input-area{padding:12px 24px calc(20px + env(safe-area-inset-bottom));background:#000;position:fixed;bottom:0;left:240px;right:0;z-index:1000;border-top:1px solid #1a1a1a}
-.input-wrap{max-width:760px;margin:0 auto;background:#111;border:1px solid #2a2a2a;border-radius:14px;display:flex;align-items:flex-end;gap:8px;padding:10px 12px 10px 16px;transition:border-color 0.15s}
+.input-wrap{max-width:760px;margin:0 auto;background:#111;border:1px solid #2a2a2a;border-radius:14px;display:flex;align-items:flex-end;gap:8px;padding:16px 14px 16px 20px;transition:border-color 0.15s}
 .input-wrap:focus-within{border-color:#444}
-.chat-in{flex:1;background:transparent;border:none;outline:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:15px;resize:none;max-height:120px;min-height:24px;line-height:1.5}
-.chat-in::placeholder{color:#555}
+.chat-in{flex:1;background:transparent;border:none;outline:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:16px;resize:none;max-height:120px;min-height:28px;line-height:1.6;caret-color:#fff}
+.chat-in::placeholder{color:#aaa}
 .send-btn{width:34px;height:34px;border-radius:8px;background:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background 0.15s}
 .send-btn:hover{background:#e0e0e0}
 .send-btn:disabled{background:#222;cursor:not-allowed}
@@ -123,7 +125,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
   .chat{height:calc(100dvh - 52px);overflow:hidden;display:flex;flex-direction:column}
   .messages{flex:1;overflow-y:auto;padding:12px 4px 170px;-webkit-overflow-scrolling:touch}
   .input-area{position:fixed;left:0;right:0;bottom:0;z-index:9999;padding:8px 8px calc(20px + env(safe-area-inset-bottom));background:#000;border-top:1px solid #1a1a1a}
-  .welcome{padding-top:16px;padding-bottom:200px;overflow-y:auto}
+  .welcome{padding-top:16px;padding-bottom:200px;overflow-y:auto;justify-content:flex-start}
   .chat-grid{grid-template-columns:repeat(3,1fr);gap:3px;width:100%}
   .preview-grid{grid-template-columns:repeat(2,1fr)}
   .chat-card{border-radius:6px}
@@ -174,8 +176,10 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 
   <div class="chat">
     <div class="welcome" id="welcome">
-      <h1>What are you looking for?</h1>
-      <p class="welcome-sub">Search any listing in the world — just describe what you want</p>
+      <div class="welcome-top">
+        <h1>What are you looking for?</h1>
+        <p class="welcome-sub">Search any listing in the world — just describe what you want</p>
+      </div>
       <div class="preview-grid" id="preview-grid"></div>
     </div>
 
@@ -326,13 +330,13 @@ function renderCards(items, label, _model, maxPrice, c, ebayCount, etsyCount) {
   let summary = '';
   if (label) {
     const labelClean = label.charAt(0).toUpperCase() + label.slice(1);
-    summary = `Here's what I found for <strong style="color:#fff">${labelClean}</strong>`;
+    summary = `Here's what I found for <strong>${labelClean}</strong>`;
     if (maxPrice) summary += ` under ${sym}${Number(maxPrice).toLocaleString()}`;
-    summary += ` <span style="color:#555;font-size:12px">(${displayCount} listings · showing ${searchStates[sid].shown})</span>`;
+    summary += ` <span style="color:#666;font-size:12px">(${displayCount} listings · showing ${searchStates[sid].shown})</span>`;
   } else {
-    summary = `Found <strong style="color:#fff">${displayCount} listing${displayCount!==1?'s':''}</strong> on eBay`;
+    summary = `Found <strong>${displayCount} listing${displayCount!==1?'s':''}</strong> on eBay`;
     if (maxPrice) summary += ` under ${sym}${Number(maxPrice).toLocaleString()}`;
-    summary += ` <span style="color:#555;font-size:12px">· showing ${searchStates[sid].shown}</span>`;
+    summary += ` <span style="color:#666;font-size:12px">· showing ${searchStates[sid].shown}</span>`;
   }
 
   const cards = top.map(item => {
@@ -360,7 +364,7 @@ function renderCards(items, label, _model, maxPrice, c, ebayCount, etsyCount) {
       Show more
     </button>
   </div>` : '';
-  return `<p style="font-size:13px;color:#888;margin-bottom:10px">${summary}</p><div class="chat-grid" id="${gId}">${cards}</div>${showMoreBtnFinal}`;
+  return `<p style="font-size:14px;color:#fff;margin-bottom:12px;padding:0 2px">${summary}</p><div class="chat-grid" id="${gId}">${cards}</div>${showMoreBtnFinal}`;
 }
 
 function showMoreCards(sid) {
@@ -459,43 +463,84 @@ function autoResize(el) {
 }
 
 const PREVIEWS = [
-  {q:'Yeezy 350 sneakers', country:'US'},
   {q:'Labubu collectible figure', country:'US'},
-  {q:'Pokemon cards booster box', country:'AU'},
-  {q:'Rolex Daytona watch', country:'UK'},
-  {q:'Rolex Submariner watch', country:'US'},
-  {q:'Nike SB Dunk sneakers', country:'US'},
-  {q:'MacBook Pro laptop', country:'AU'},
-  {q:'Louis Vuitton bag', country:'US'},
-  {q:'Dior Sauvage cologne', country:'UK'},
-  {q:'Armani cologne perfume', country:'AU'},
+  {q:'Labubu blind box Pop Mart', country:'AU'},
+  {q:'Yeezy 350 V2', country:'US'},
   {q:'Yeezy Foam Runner', country:'US'},
-  {q:'Labubu blind box', country:'US'},
-  {q:'Pokemon Charizard card', country:'US'},
-  {q:'Rolex GMT Master', country:'UK'},
-  {q:'Nike SB Dunk Low', country:'AU'},
-  {q:'MacBook Pro M3', country:'AU'},
-  {q:'Louis Vuitton Neverfull', country:'US'},
-  {q:'Dior cologne', country:'UK'},
-  {q:'Giorgio Armani cologne', country:'AU'},
   {q:'Yeezy 700 sneakers', country:'US'},
-  {q:'Pokemon graded card PSA', country:'US'},
-  {q:'Audemars Piguet watch', country:'UK'},
+  {q:'Nike SB Dunk Low', country:'US'},
+  {q:'Air Jordan 1 Retro High', country:'US'},
   {q:'Off White Nike sneakers', country:'US'},
+  {q:'Nike Dunk High', country:'AU'},
+  {q:'Dior Sauvage cologne', country:'AU'},
+  {q:'Chanel No 5 perfume', country:'UK'},
+  {q:'Giorgio Armani Acqua Di Gio', country:'AU'},
+  {q:'Tom Ford cologne', country:'UK'},
+  {q:'Creed Aventus cologne', country:'US'},
+  {q:'Versace Eros cologne', country:'AU'},
+  {q:'Louis Vuitton neverfull bag', country:'US'},
+  {q:'Louis Vuitton speedy bag', country:'UK'},
+  {q:'Gucci GG Marmont bag', country:'US'},
+  {q:'Chanel classic flap bag', country:'UK'},
+  {q:'Hermes Birkin bag', country:'US'},
+  {q:'Rolex Submariner watch', country:'UK'},
+  {q:'Rolex Daytona watch', country:'US'},
+  {q:'Rolex GMT Master II', country:'UK'},
+  {q:'Audemars Piguet Royal Oak', country:'US'},
+  {q:'Patek Philippe Nautilus', country:'UK'},
   {q:'Supreme box logo hoodie', country:'US'},
-  {q:'Gucci bag', country:'US'},
-  {q:'Chanel perfume', country:'UK'},
-  {q:'Balenciaga sneakers', country:'US'},
-  {q:'Air Jordan 1 retro', country:'US'},
-  {q:'Patek Philippe watch', country:'UK'},
+  {q:'Supreme bogo tee', country:'US'},
+  {q:'Balenciaga Triple S sneakers', country:'US'},
+  {q:'Balenciaga Speed Runner', country:'UK'},
+  {q:'Gucci Ace sneakers', country:'US'},
+  {q:'Pokemon Charizard PSA 10', country:'US'},
+  {q:'Pokemon booster box sealed', country:'AU'},
+  {q:'Pokemon graded card', country:'US'},
+  {q:'MacBook Pro M3', country:'AU'},
+  {q:'iPhone 15 Pro Max', country:'AU'},
+  {q:'Sony PlayStation 5', country:'AU'},
+  {q:'Nintendo Switch OLED', country:'AU'},
+  {q:'AirPods Pro 2', country:'AU'},
+  {q:'Bape hoodie shark', country:'US'},
+  {q:'Travis Scott Jordan sneakers', country:'US'},
+  {q:'New Balance 550', country:'US'},
+  {q:'Samba Adidas', country:'AU'},
+  {q:'Stussy hoodie', country:'US'},
   {q:'Porsche 911', country:'AU'},
+  {q:'Ferrari for sale', country:'AU'},
+  {q:'Omega Speedmaster watch', country:'UK'},
+  {q:'Cartier Santos watch', country:'US'},
+  {q:'Prada Re-Edition bag', country:'US'},
+  {q:'Bottega Veneta pouch', country:'UK'},
+  {q:'Dior Jordan 1 sneakers', country:'US'},
 ];
+
+const INITIAL_ROWS = 4;
+const CARDS_PER_ROW = 4;
+const INITIAL_CARDS = INITIAL_ROWS * CARDS_PER_ROW;
+let previewLoadedAll = false;
+let previewLoadingMore = false;
+
+async function fetchPreviewBatch(queries) {
+  const results = await Promise.allSettled(
+    queries.map(s =>
+      fetch(`${WORKER}/?q=${encodeURIComponent(s.q)}&country=${s.country}`)
+        .then(r=>r.json())
+        .then(d=>(d.items||[]).filter(i=>i.image).slice(0,3).map(i=>({...i,searchQ:s.q,country:s.country})))
+        .catch(()=>[])
+    )
+  );
+  const items = [];
+  results.forEach(r=>{if(r.status==='fulfilled') items.push(...r.value);});
+  return items.sort(()=>Math.random()-0.5);
+}
 
 async function loadPreviews() {
   const grid = document.getElementById('preview-grid');
   if (!grid) return;
 
-  grid.innerHTML = Array.from({length:8},()=>`
+  // Show skeletons
+  grid.innerHTML = Array.from({length:INITIAL_CARDS},()=>`
     <div class="prev-card">
       <div class="skel prev-card-img"></div>
       <div class="prev-card-body">
@@ -505,27 +550,65 @@ async function loadPreviews() {
       </div>
     </div>`).join('');
 
-  const shuffled = [...PREVIEWS].sort(()=>Math.random()-0.5).slice(0,8);
-  const results = await Promise.allSettled(
-    shuffled.map(s =>
-      fetch(`${WORKER}/?q=${encodeURIComponent(s.q)}&country=${s.country}`)
-        .then(r=>r.json())
-        .then(d=>(d.items||[]).filter(i=>i.image).slice(0,2).map(i=>({...i,searchMake:s.q,searchModel:'',country:s.country})))
-        .catch(()=>[])
-    )
-  );
-
-  results.forEach(r=>{if(r.status==='fulfilled')previewItems.push(...r.value);});
-
-  const seed = Date.now();
-  previewItems = previewItems.sort(() => Math.sin(seed + Math.random()) - 0.5);
+  // Shuffle and fetch first batch (16 queries for 16 cards)
+  const shuffled = [...PREVIEWS].sort(()=>Math.random()-0.5);
+  const firstBatch = shuffled.slice(0, INITIAL_CARDS);
+  const items = await fetchPreviewBatch(firstBatch);
+  previewItems.push(...items);
 
   if (!previewItems.length) { grid.innerHTML=''; return; }
 
-  const show = previewItems.slice(0,8);
-  grid.innerHTML = show.map(buildPrevCard).join('');
-  previewIdx = 8;
-  setInterval(rotatePrev, 3200);
+  grid.innerHTML = previewItems.slice(0, INITIAL_CARDS).map(buildPrevCard).join('');
+  previewIdx = INITIAL_CARDS;
+
+  // Rotate cards every 2.5s
+  setInterval(rotatePrev, 2500);
+
+  // Set up infinite scroll — load more when near bottom of welcome
+  const welcome = document.getElementById('welcome');
+  if (welcome) {
+    welcome.addEventListener('scroll', async () => {
+      if (previewLoadingMore || previewLoadedAll) return;
+      const distFromBottom = welcome.scrollHeight - welcome.scrollTop - welcome.clientHeight;
+      if (distFromBottom < 300) {
+        previewLoadingMore = true;
+        // Add skeleton row
+        const skelRow = document.createElement('div');
+        skelRow.id = 'skel-row';
+        skelRow.style.cssText = 'display:contents';
+        skelRow.innerHTML = Array.from({length:CARDS_PER_ROW},()=>`
+          <div class="prev-card">
+            <div class="skel prev-card-img"></div>
+            <div class="prev-card-body">
+              <div class="skel" style="height:9px;width:70%;margin-bottom:4px"></div>
+              <div class="skel" style="height:9px;width:85%;margin-bottom:5px"></div>
+              <div class="skel" style="height:12px;width:40%"></div>
+            </div>
+          </div>`).join('');
+        grid.appendChild(skelRow);
+
+        // Fetch next batch
+        const nextBatch = [...PREVIEWS].sort(()=>Math.random()-0.5).slice(0, CARDS_PER_ROW * 2);
+        const newItems = await fetchPreviewBatch(nextBatch);
+
+        // Remove skeletons
+        const sr = document.getElementById('skel-row');
+        if (sr) sr.remove();
+
+        if (newItems.length) {
+          newItems.forEach(item => {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = buildPrevCard(item);
+            grid.appendChild(tmp.firstElementChild);
+          });
+          previewItems.push(...newItems);
+        } else {
+          previewLoadedAll = true;
+        }
+        previewLoadingMore = false;
+      }
+    });
+  }
 }
 
 function buildPrevCard(item) {
@@ -544,13 +627,15 @@ function buildPrevCard(item) {
 }
 
 function rotatePrev() {
-  if (previewItems.length < 9) return;
+  if (previewItems.length < 5) return;
   const grid = document.getElementById('preview-grid');
   if (!grid) return;
-  const cards = grid.querySelectorAll('.prev-card');
+  const cards = grid.querySelectorAll('.prev-card:not(.fade-out)');
   if (!cards.length) return;
-  const idx = Math.floor(Math.random()*cards.length);
-  const card = cards[idx];
+  // Only rotate cards in the first 2 rows so scrolled content stays stable
+  const rotatePool = Array.from(cards).slice(0, INITIAL_CARDS);
+  const idx = Math.floor(Math.random() * rotatePool.length);
+  const card = rotatePool[idx];
   card.classList.add('fade-out');
   setTimeout(()=>{
     const newItem = previewItems[previewIdx % previewItems.length];
