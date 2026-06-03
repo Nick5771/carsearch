@@ -56,7 +56,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .welcome h1{font-size:clamp(26px,4vw,38px);font-weight:500;color:#fff;margin-bottom:10px;letter-spacing:-0.5px}
 .welcome-sub{font-size:15px;color:#666;margin-bottom:36px}
 
-/* preview grid — 8 cards, wider */
+/* preview grid */
 .preview-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:960px;width:100%;margin:0 auto 32px}
 .prev-card{background:#111;border:1px solid #222;border-radius:10px;overflow:hidden;cursor:pointer;transition:opacity 0.5s,transform 0.5s,border-color 0.15s;text-decoration:none;display:block;color:inherit}
 .prev-card:hover{border-color:#444;transform:translateY(-1px)}
@@ -75,13 +75,12 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .msg.user{flex-direction:row-reverse}
 .msg-av{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
 .msg-av.u{background:#fff;color:#000;border:1px solid #e0e0e0}
-/* AI avatar — no letter, just a subtle dot */
 .msg-av.a{background:#fff;border:1px solid #e0e0e0}
 .msg-body{max-width:calc(100% - 44px);font-size:14px;line-height:1.65;color:#e5e5e5;padding:12px 16px;border-radius:12px;background:#111;border:1px solid #222}
 .msg.assistant .msg-body{max-width:100%;width:100%}
 .msg.user .msg-body{background:#fff;color:#000;border-color:#e0e0e0}
 
-/* listings in chat — white cards, wider */
+/* listings in chat */
 .chat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px;width:100%}
 .chat-card{background:#fff;border:1px solid #e8e8e8;border-radius:10px;overflow:hidden;text-decoration:none;display:block;color:inherit;transition:box-shadow 0.15s,transform 0.15s}
 .chat-card:hover{box-shadow:0 4px 16px rgba(0,0,0,0.1);transform:translateY(-2px)}
@@ -155,13 +154,11 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 </nav>
 
 <div class="app">
-  <!-- Sidebar -->
   <div class="sidebar">
     <button class="sb-new" onclick="resetChat()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
       New search
     </button>
-
     <div class="sb-section">Categories</div>
     <button class="sb-item active" onclick="categorySearch('cars', 'cars')">🚗 &nbsp;Cars</button>
     <button class="sb-item" onclick="categorySearch('property real estate', 'property')">🏠 &nbsp;Property</button>
@@ -175,21 +172,17 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
     <button class="sb-item" onclick="categorySearch('sports equipment fitness gym', 'sports')">⚽ &nbsp;Sports</button>
   </div>
 
-  <!-- Chat -->
   <div class="chat">
-    <!-- Welcome -->
     <div class="welcome" id="welcome">
       <h1>What are you looking for?</h1>
       <p class="welcome-sub">Search any listing in the world — just describe what you want</p>
       <div class="preview-grid" id="preview-grid"></div>
     </div>
 
-    <!-- Messages -->
     <div class="messages" id="messages" style="display:none">
       <div class="messages-inner" id="messages-inner"></div>
     </div>
 
-    <!-- Input -->
     <div class="input-area">
       <div class="input-wrap">
         <textarea id="chat-in" class="chat-in" placeholder='Try "Find me a Macbook Pro for less than $750"' rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
@@ -197,7 +190,6 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
         </button>
       </div>
-
     </div>
   </div>
 </div>
@@ -208,11 +200,30 @@ let country = 'AU';
 
 const EBAY_CAMPAIGN_ID = '5339155260';
 
-function makeEbayAffiliateUrl(rawUrl, customId = 'findai') {
+const EPN_MKRID = {
+  US: '711-53200-19255-0',
+  AU: '705-53470-19255-0',
+  UK: '710-53481-19255-0',
+  DE: '707-53477-19255-0',
+};
+
+function makeEbayAffiliateUrl(rawUrl, customId = 'findai', countryCode = null) {
   if (!rawUrl || !rawUrl.includes('ebay.')) return rawUrl || '#';
-  // If already has campid from worker, use rover for extra reliability
-  return `https://rover.ebay.com/rover/1/711-53200-19255-0/1?ff3=4&pub=5575525286&toolid=10001&campid=${EBAY_CAMPAIGN_ID}&customid=${encodeURIComponent(customId)}&mpre=${encodeURIComponent(rawUrl)}`;
+  try {
+    const u = new URL(rawUrl);
+    const c = countryCode || country || 'AU';
+    u.searchParams.set('mkevt', '1');
+    u.searchParams.set('mkcid', '1');
+    u.searchParams.set('mkrid', EPN_MKRID[c] || EPN_MKRID.AU);
+    u.searchParams.set('campid', EBAY_CAMPAIGN_ID);
+    u.searchParams.set('toolid', '10001');
+    u.searchParams.set('customid', customId);
+    return u.toString();
+  } catch (_) {
+    return rawUrl;
+  }
 }
+
 let busy = false;
 let previewItems = [];
 let previewIdx = 0;
@@ -236,7 +247,6 @@ function showChat() {
 }
 
 function addMsg(role, html) {
-  const msgs = document.getElementById('messages');
   const inner = document.getElementById('messages-inner');
   const d = document.createElement('div');
   d.className = `msg ${role}`;
@@ -266,8 +276,6 @@ function removeThinking() {
 
 function parseQuery(text) {
   const lower = text.toLowerCase();
-
-  // Strip filler phrases at start
   let cleaned = lower
     .replace(/^(show me|find me|search for|look for|i want|get me|can you find|find|show|search)\s+/i, '')
     .replace(/\b(a|an|the|some|any)\s+/gi, ' ')
@@ -275,7 +283,6 @@ function parseQuery(text) {
     .replace(/\s+/g, ' ')
     .trim();
 
-  // Price extraction — must happen before stripping "for"
   let maxPrice = '';
   const pm = cleaned.match(/(?:under|below|max|less than|for less than|up to|no more than|for)\s*\$?\s*([0-9,.]+)\s*(k|m|thousand|dollars|dollar|usd|aud)?/i);
   if (pm) {
@@ -284,17 +291,14 @@ function parseQuery(text) {
     if (unit==='k') p *= 1000;
     if (unit==='m') p *= 1000000;
     maxPrice = Math.round(p);
-    // Remove the entire price phrase
     cleaned = cleaned.replace(/(?:under|below|max|less than|for less than|up to|no more than|for)\s*\$?\s*[0-9,.]+\s*(k|m|thousand|dollars|dollar|usd|aud)?/i, '');
   }
 
-  // Clean up leftover words
   cleaned = cleaned
     .replace(/\b(dollars|dollar|usd|aud|less|than)\b/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
 
-  // Country detection
   let c = country;
   if (lower.match(/\b(australia|australian|aus|in au)\b/)) c='AU';
   else if (lower.match(/\b(united states|america|american|in us|in the us|from us|from the us|usa)\b/)) c='US';
@@ -311,7 +315,7 @@ const searchStates = {};
 function renderCards(items, label, _model, maxPrice, c, ebayCount, etsyCount) {
   const sym = c==='UK'?'£':c==='DE'?'€':'$';
   if (!items.length) return `<p style="color:#666;font-size:14px;margin-top:8px">No listings found right now. Try a different search.</p>`;
-  
+
   searchCount++;
   const sid = searchCount;
   searchStates[sid] = { items, shown: Math.min(PAGE_SIZE, items.length), query: label };
@@ -333,14 +337,12 @@ function renderCards(items, label, _model, maxPrice, c, ebayCount, etsyCount) {
 
   const cards = top.map(item => {
     const price = item.price ? `${sym}${Number(item.price).toLocaleString()}` : 'See listing';
-    const isEtsy = item.source === 'Etsy';
     const badge = `<span style="font-size:16px;font-family:Arial,sans-serif;font-weight:900;letter-spacing:-0.3px;line-height:1"><span style="color:#E53238">e</span><span style="color:#0064D2">b</span><span style="color:#F5AF02">a</span><span style="color:#86B817">y</span></span>`;
-    // Upgrade eBay image to higher resolution
     const imgSrc = item.image ? item.image.replace(/s-l\d+\./, 's-l600.') : null;
     return `<a class="chat-card" href="${makeEbayAffiliateUrl(item.url, 'search-result')}" target="_blank" rel="noopener">
       ${imgSrc
         ? `<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" onerror="this.src='${item.image}'">`
-        : `<div class="chat-card-ph">${isEtsy?'🎨':'🛍️'}</div>`}
+        : `<div class="chat-card-ph">🛍️</div>`}
       <div class="chat-card-body">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">${badge}</div>
         <div class="chat-card-title">${item.title||''}</div>
@@ -388,7 +390,6 @@ function showMoreCards(sid) {
     const rem = state.items.length - state.shown;
     const b = btnWrap.querySelector('button');
     if (rem <= 0) {
-      // No more local items — keep button but change text
       if (b) {
         b.textContent = 'Search eBay for more';
         b.onclick = function() {
@@ -399,7 +400,6 @@ function showMoreCards(sid) {
       if (b) b.textContent = 'Show more';
     }
   }
-  const msgs = document.getElementById('messages');
 }
 
 async function sendMsg() {
@@ -413,7 +413,6 @@ async function sendMsg() {
   showChat();
   addMsg('user', q);
   addThinking();
-  // Scroll to top so user sees their query first
   const { q: cleanQ, maxPrice, country: c } = parseQuery(q);
 
   try {
@@ -444,10 +443,8 @@ function quickSearch(text) {
 }
 
 function categorySearch(query, label) {
-  // Mark active sidebar item
   document.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'));
   event.currentTarget.classList.add('active');
-  // Set input and trigger search
   document.getElementById('chat-in').value = query;
   sendMsg();
 }
@@ -461,7 +458,6 @@ function autoResize(el) {
   el.style.height=Math.min(el.scrollHeight,120)+'px';
 }
 
-// ── Rotating preview listings — 8 cards, popular searches ────────────────
 const PREVIEWS = [
   {q:'Yeezy 350 sneakers', country:'US'},
   {q:'Labubu collectible figure', country:'US'},
@@ -499,7 +495,6 @@ async function loadPreviews() {
   const grid = document.getElementById('preview-grid');
   if (!grid) return;
 
-  // Show 8 skeleton cards
   grid.innerHTML = Array.from({length:8},()=>`
     <div class="prev-card">
       <div class="skel prev-card-img"></div>
@@ -510,7 +505,6 @@ async function loadPreviews() {
       </div>
     </div>`).join('');
 
-  // Only fetch 8 random previews at a time for speed
   const shuffled = [...PREVIEWS].sort(()=>Math.random()-0.5).slice(0,8);
   const results = await Promise.allSettled(
     shuffled.map(s =>
@@ -523,7 +517,6 @@ async function loadPreviews() {
 
   results.forEach(r=>{if(r.status==='fulfilled')previewItems.push(...r.value);});
 
-  // Shuffle with time-based seed so it's different each visit
   const seed = Date.now();
   previewItems = previewItems.sort(() => Math.sin(seed + Math.random()) - 0.5);
 
