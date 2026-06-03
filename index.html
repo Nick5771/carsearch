@@ -339,7 +339,7 @@ function renderCards(items, label, _model, maxPrice, c, ebayCount, etsyCount) {
     const price = item.price ? `${sym}${Number(item.price).toLocaleString()}` : 'See listing';
     const badge = `<span style="font-size:16px;font-family:Arial,sans-serif;font-weight:900;letter-spacing:-0.3px;line-height:1"><span style="color:#E53238">e</span><span style="color:#0064D2">b</span><span style="color:#F5AF02">a</span><span style="color:#86B817">y</span></span>`;
     const imgSrc = item.image ? item.image.replace(/s-l\d+\./, 's-l600.') : null;
-    return `<a class="chat-card" href="${makeEbayAffiliateUrl(item.url, 'search-result')}" target="_blank" rel="noopener">
+    return `<a class="chat-card" href="${item.url}" target="_blank" rel="noopener">
       ${imgSrc
         ? `<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" onerror="this.src='${item.image}'">`
         : `<div class="chat-card-ph">🛍️</div>`}
@@ -379,7 +379,7 @@ function showMoreCards(sid) {
     const imgSrc = item.image ? item.image.replace(/s-l\d+\./, 's-l600.') : null;
     const card = document.createElement('a');
     card.className = 'chat-card';
-    card.href = makeEbayAffiliateUrl(item.url, 'show-more');
+    card.href = item.url;
     card.target = '_blank';
     card.rel = 'noopener';
     card.innerHTML = (imgSrc ? `<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" onerror="this.src='${item.image||''}'">` : `<div class="chat-card-ph">🛍️</div>`) +
@@ -532,7 +532,7 @@ function buildPrevCard(item) {
   const sym = item.country==='UK'?'£':item.country==='DE'?'€':'$';
   const price = item.price ? `${sym}${Number(item.price).toLocaleString()}` : '';
   const title = (item.title||'').substring(0,40) + (item.title&&item.title.length>40?'…':'');
-  return `<a class="prev-card" href="${makeEbayAffiliateUrl(item.url, 'homepage-preview')}" target="_blank" rel="noopener">
+  return `<a class="prev-card" href="${item.url}" target="_blank" rel="noopener">
     ${item.image
       ? `<img class="prev-card-img" src="${item.image}" alt="" loading="lazy" onerror="this.outerHTML='<div class=prev-card-ph>🛍️</div>'">`
       : `<div class="prev-card-ph">🛍️</div>`}
