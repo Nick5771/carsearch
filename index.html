@@ -160,16 +160,14 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
     <div class="sb-section" id="recent-section" style="display:none">Recent</div>
     <div id="recent-searches"></div>
     <div class="sb-section" style="margin-top:8px">Categories</div>
-    <button class="sb-item active" onclick="categorySearch('cars','cars')">🚗 &nbsp;Cars</button>
-    <button class="sb-item" onclick="categorySearch('property real estate','property')">🏠 &nbsp;Property</button>
-    <button class="sb-item" onclick="categorySearch('designer fashion clothing','fashion')">👗 &nbsp;Fashion</button>
-    <button class="sb-item" onclick="categorySearch('sneakers nike jordan adidas','sneakers')">👟 &nbsp;Sneakers</button>
-    <button class="sb-item" onclick="categorySearch('luxury watches rolex omega','watches')">⌚ &nbsp;Watches</button>
-    <button class="sb-item" onclick="categorySearch('motorcycles harley davidson','motorcycles')">🏍️ &nbsp;Motorcycles</button>
-    <button class="sb-item" onclick="categorySearch('boats yacht sailing','boats')">⛵ &nbsp;Boats</button>
-    <button class="sb-item" onclick="categorySearch('vintage collectibles rare antique','collectibles')">🏺 &nbsp;Collectibles</button>
-    <button class="sb-item" onclick="categorySearch('electronics apple samsung sony','electronics')">💻 &nbsp;Electronics</button>
-    <button class="sb-item" onclick="categorySearch('sports equipment fitness gym','sports')">⚽ &nbsp;Sports</button>
+    <button class="sb-item" onclick="categorySearch('Yeezy 350 Air Jordan 1 Nike Dunk sneakers','sneakers')">👟 &nbsp;Sneakers</button>
+    <button class="sb-item" onclick="categorySearch('Gucci Chanel Louis Vuitton Prada designer fashion','fashion')">🪡 &nbsp;Fashion</button>
+    <button class="sb-item" onclick="categorySearch('Rolex Omega Audemars Piguet luxury watch','watches')">🕰️ &nbsp;Watches</button>
+    <button class="sb-item" onclick="categorySearch('Labubu Pop Mart Pokemon cards graded collectible','collectibles')">🃏 &nbsp;Collectibles</button>
+    <button class="sb-item" onclick="categorySearch('PlayStation 5 MacBook Pro iPhone Apple Sony electronics','electronics')">💻 &nbsp;Electronics</button>
+    <button class="sb-item" onclick="categorySearch('cars sports luxury ferrari porsche bmw','cars')">🚗 &nbsp;Cars</button>
+    <button class="sb-item" onclick="categorySearch('Cartier Tiffany Van Cleef diamond gold jewellery','jewellery')">💍 &nbsp;Jewellery</button>
+    <button class="sb-item" onclick="categorySearch('gym fitness weights sports equipment','sports')">🏋️ &nbsp;Sports</button>
   </div>
   <div class="chat">
     <div class="welcome" id="welcome">
@@ -387,17 +385,30 @@ async function fetchAliBestSellers() {
 
 // ── EBAY PREVIEW QUERIES ──────────────────────────────────────────────────
 const PREVIEWS=[
-  {q:'Air Jordan 1 Retro High OG',country:'US'},{q:'Nike SB Dunk Low',country:'US'},{q:'Yeezy 350 V2',country:'US'},
-  {q:'New Balance 550',country:'US'},{q:'Adidas Samba',country:'AU'},{q:'Travis Scott Jordan',country:'US'},
-  {q:'iPhone 15 Pro Max',country:'AU'},{q:'MacBook Pro M3',country:'AU'},{q:'Sony PlayStation 5',country:'AU'},
-  {q:'AirPods Pro 2',country:'AU'},{q:'Nintendo Switch OLED',country:'AU'},
-  {q:'Rolex Submariner',country:'UK'},{q:'Rolex Daytona',country:'US'},{q:'Audemars Piguet Royal Oak',country:'US'},
-  {q:'Omega Speedmaster',country:'UK'},{q:'Cartier Santos',country:'US'},
-  {q:'Louis Vuitton bag',country:'US'},{q:'Chanel classic flap',country:'UK'},{q:'Hermes Birkin',country:'US'},
-  {q:'Gucci bag',country:'US'},{q:'Prada bag',country:'US'},
-  {q:'Supreme hoodie',country:'US'},{q:'Bape shark hoodie',country:'US'},{q:'Off White sneakers',country:'US'},
-  {q:'Pokemon Charizard PSA 10',country:'US'},{q:'Pokemon booster box',country:'AU'},
-  {q:'Labubu Pop Mart',country:'AU'},{q:'Ferrari',country:'AU'},{q:'Porsche 911',country:'AU'},
+  // Sneakers — highest demand
+  {q:'Yeezy 350 V2',country:'US'},{q:'Air Jordan 1 Retro High OG',country:'US'},
+  {q:'Nike SB Dunk Low',country:'US'},{q:'Travis Scott Jordan 1',country:'US'},
+  {q:'New Balance 550',country:'AU'},{q:'Adidas Samba',country:'AU'},
+  {q:'Off White Nike',country:'US'},{q:'Nike Dunk High',country:'US'},
+  // Watches
+  {q:'Rolex Submariner',country:'UK'},{q:'Rolex Daytona',country:'US'},
+  {q:'Audemars Piguet Royal Oak',country:'US'},{q:'Omega Speedmaster',country:'UK'},
+  {q:'Omega x Swatch Moonswatch',country:'AU'},{q:'Cartier Santos watch',country:'US'},
+  // Fashion
+  {q:'Gucci bag',country:'US'},{q:'Chanel classic flap bag',country:'UK'},
+  {q:'Louis Vuitton Neverfull',country:'US'},{q:'Hermes Birkin',country:'US'},
+  {q:'Prada bag',country:'US'},{q:'Supreme box logo hoodie',country:'US'},
+  {q:'Bape shark hoodie',country:'US'},{q:'Balenciaga Triple S',country:'US'},
+  // Electronics
+  {q:'Sony PlayStation 5',country:'AU'},{q:'MacBook Pro M3',country:'AU'},
+  {q:'iPhone 15 Pro Max',country:'AU'},{q:'AirPods Pro 2',country:'AU'},
+  // Collectibles
+  {q:'Labubu Pop Mart',country:'AU'},{q:'Pokemon Charizard PSA 10',country:'US'},
+  {q:'Pokemon booster box sealed',country:'AU'},{q:'Pokemon graded card',country:'US'},
+  // Cars
+  {q:'Porsche 911',country:'AU'},{q:'Ferrari',country:'AU'},
+  // Jewellery
+  {q:'Cartier love bracelet',country:'US'},{q:'Van Cleef Arpels',country:'US'},
 ];
 
 const INITIAL_ROWS=3,CARDS_PER_ROW=4,INITIAL_CARDS=INITIAL_ROWS*CARDS_PER_ROW;
@@ -408,7 +419,7 @@ async function fetchPreviewBatch(queries){
     queries.map(s=>
       fetch(`${WORKER}/?q=${encodeURIComponent(s.q)}&country=${s.country}`)
         .then(r=>r.json())
-        .then(d=>(d.items||[]).filter(i=>i.image).slice(0,3).map(i=>({...i,searchQ:s.q,country:s.country})))
+        .then(d=>(d.items||[]).filter(i=>i.image).slice(0,2).map(i=>({...i,searchQ:s.q,country:s.country})))
         .catch(()=>[])
     )
   );
@@ -435,11 +446,16 @@ async function loadPreviews(){
   // Fetch 16 queries to ensure we get at least 8 unique items
   const ebayItems = await fetchPreviewBatch(shuffled.slice(0, 16));
 
-  // Deduplicate by itemId
+  // Deduplicate by itemId AND title (catch same item with different IDs)
   const seen = new Set();
+  const seenTitles = new Set();
   const unique = ebayItems.filter(i => {
     if (!i.itemId || seen.has(i.itemId)) return false;
+    // Also dedupe by first 30 chars of title
+    const titleKey = (i.title||'').substring(0,30).toLowerCase();
+    if (seenTitles.has(titleKey)) return false;
     seen.add(i.itemId);
+    seenTitles.add(titleKey);
     return true;
   });
 
@@ -502,7 +518,7 @@ function buildPrevCard(item){
   const sourceLine=isAli
     ?`<div class="prev-card-source">${aliLogoHtml()}</div>`
     :`<div class="prev-card-source">${ebayLogoHtml()}</div>`;
-  return `<a class="prev-card${isAli?' ali-card':''}" data-id="${item.itemId||''}" href="${item.url}" target="_blank" rel="noopener">
+  return `<a class="prev-card${isAli?' ali-card':''}" data-id="${item.itemId||''}" data-title="${(item.title||'').substring(0,30).toLowerCase()}" href="${item.url}" target="_blank" rel="noopener">
     ${item.image
       ?`<img class="prev-card-img" src="${item.image}" alt="" loading="lazy" onerror="this.outerHTML='<div class=prev-card-ph>🛍️</div>'">`
       :`<div class="prev-card-ph">🛍️</div>`}
@@ -519,6 +535,7 @@ function rotatePrev(){
 
   // Get currently visible itemIds to avoid duplicates
   const visibleIds=new Set(Array.from(grid.querySelectorAll('.prev-card[data-id]')).map(c=>c.dataset.id));
+  const visibleTitles=new Set(Array.from(grid.querySelectorAll('.prev-card[data-title]')).map(c=>c.dataset.title));
 
   const rotateable=allCards.slice(0,INITIAL_CARDS).filter(c=>!c.classList.contains('ali-card'));
   if(!rotateable.length)return;
@@ -531,7 +548,8 @@ function rotatePrev(){
       const candidate=previewItems[previewIdx%previewItems.length];
       previewIdx++;
       attempts++;
-      if(!visibleIds.has(candidate.itemId)){newItem=candidate;break;}
+      const candTitle=(candidate.title||'').substring(0,30).toLowerCase();
+      if(!visibleIds.has(candidate.itemId)&&!visibleTitles.has(candTitle)){newItem=candidate;break;}
     }
     if(!newItem)newItem=previewItems[previewIdx%previewItems.length];
     const tmp=document.createElement('div');
