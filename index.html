@@ -48,7 +48,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .welcome-top{display:flex;flex-direction:column;align-items:center;margin-bottom:36px}
 .welcome h1{font-size:clamp(26px,4vw,38px);font-weight:500;color:#fff;margin-bottom:10px;letter-spacing:-0.5px}
 .welcome-sub{font-size:15px;color:#666}
-.preview-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:960px;width:100%;margin:0 auto 32px}
+.preview-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-width:960px;width:100%;margin:0 auto 48px}
 .prev-card{background:#111;border:1px solid #222;border-radius:10px;overflow:hidden;cursor:pointer;transition:opacity 0.5s,transform 0.5s,border-color 0.15s;text-decoration:none;display:block;color:inherit;position:relative}
 .prev-card:hover{border-color:#444;transform:translateY(-1px)}
 .prev-card.fade-out{opacity:0;transform:translateY(6px)}
@@ -93,11 +93,11 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .thinking span:nth-child(2){animation-delay:0.2s}
 .thinking span:nth-child(3){animation-delay:0.4s}
 @keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-7px)}}
-.input-area{padding:12px 24px calc(20px + env(safe-area-inset-bottom));background:#000;position:fixed;bottom:0;left:240px;right:0;z-index:1000;border-top:1px solid #1a1a1a}
-.input-wrap{max-width:760px;margin:0 auto;background:#111;border:1px solid #2a2a2a;border-radius:14px;display:flex;align-items:flex-end;gap:8px;padding:16px 14px 16px 20px;transition:border-color 0.15s}
-.input-wrap:focus-within{border-color:#444}
+.input-area{padding:20px 24px calc(24px + env(safe-area-inset-bottom));background:linear-gradient(to top,#000 80%,transparent);position:fixed;bottom:0;left:240px;right:0;z-index:1000;border-top:none}
+.input-wrap{max-width:820px;margin:0 auto;background:#1a1a1a;border:1.5px solid #333;border-radius:20px;display:flex;align-items:flex-end;gap:8px;padding:20px 16px 20px 24px;transition:border-color 0.2s,box-shadow 0.2s;box-shadow:0 4px 32px rgba(0,0,0,0.6)}
+.input-wrap:focus-within{border-color:#555;box-shadow:0 4px 40px rgba(255,255,255,0.08)}
 .chat-in{flex:1;background:transparent;border:none;outline:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:16px;resize:none;max-height:120px;min-height:28px;line-height:1.6;caret-color:#fff}
-.chat-in::placeholder{color:#aaa}
+.chat-in::placeholder{color:#888;font-size:16px}
 .send-btn{width:34px;height:34px;border-radius:8px;background:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background 0.15s}
 .send-btn:hover{background:#e0e0e0}
 .send-btn:disabled{background:#222;cursor:not-allowed}
@@ -111,7 +111,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
   .app{height:calc(100dvh - 52px);margin-top:52px}
   .chat{height:calc(100dvh - 52px);overflow:hidden;display:flex;flex-direction:column}
   .messages{flex:1;overflow-y:auto;padding:12px 4px 170px;-webkit-overflow-scrolling:touch}
-  .input-area{position:fixed;left:0;right:0;bottom:0;z-index:9999;padding:8px 8px calc(20px + env(safe-area-inset-bottom));background:#000;border-top:1px solid #1a1a1a}
+  .input-area{position:fixed;left:0;right:0;bottom:0;z-index:9999;padding:12px 12px calc(20px + env(safe-area-inset-bottom));background:linear-gradient(to top,#000 80%,transparent);border-top:none}
   .welcome{padding-top:8px;padding-bottom:160px;overflow-y:auto;justify-content:flex-start}
   .welcome-sub{display:none}
   .welcome h1{font-size:24px;margin-bottom:6px}
@@ -401,7 +401,7 @@ const PREVIEWS=[
   {q:'Prada Re-Edition bag',country:'US'},{q:'Bottega Veneta pouch',country:'UK'},{q:'Dior Jordan 1 sneakers',country:'US'},
 ];
 
-const INITIAL_ROWS=4,CARDS_PER_ROW=4,INITIAL_CARDS=INITIAL_ROWS*CARDS_PER_ROW;
+const INITIAL_ROWS=2,CARDS_PER_ROW=4,INITIAL_CARDS=INITIAL_ROWS*CARDS_PER_ROW;
 let previewLoadedAll=false,previewLoadingMore=false;
 // Ali rotation pool for the 2 pinned slots
 async function fetchPreviewBatch(queries){
