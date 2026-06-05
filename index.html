@@ -12,11 +12,11 @@
   gtag('js', new Date());
   gtag('config', 'G-SRSCS0W200');
 </script>
-<title>FindAI — Search Every Marketplace</title>
-<meta name="description" content="FindAI is an AI-powered search tool that finds real eBay listings instantly. Just describe what you want — cars, watches, sneakers, electronics and more.">
-<meta name="keywords" content="AI search, eBay search, find anything, AI shopping, buy cars, find watches, find sneakers">
-<meta property="og:title" content="FindAI — Search Every Listing"/>
-<meta property="og:description" content="AI-powered search that finds real eBay listings instantly. Just describe what you want."/>
+<title>FindAI: Search eBay &amp; AliExpress Instantly</title>
+<meta name="description" content="FindAI is your AI market searcher that instantly browses billions of listings on eBay and AliExpress, and Amazon coming soon.">
+<meta name="keywords" content="AI search, eBay search, AliExpress search, find anything, AI shopping, buy cars, find watches, find sneakers">
+<meta property="og:title" content="FindAI: Search eBay &amp; AliExpress Instantly"/>
+<meta property="og:description" content="FindAI is your AI market searcher that instantly browses billions of listings on eBay and AliExpress, and Amazon coming soon."/>
 <meta property="og:url" content="https://findai.au"/>
 <meta property="og:type" content="website"/>
 <link rel="canonical" href="https://findai.au"/>
@@ -175,7 +175,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
     <div class="welcome" id="welcome">
       <div class="welcome-top">
         <h1>What are you looking for?</h1>
-        <p class="welcome-sub">Search any listing in the world — just describe what you want</p>
+        <p class="welcome-sub">Search eBay and AliExpress instantly, just describe what you want</p>
       </div>
       <div class="preview-grid" id="preview-grid"></div>
     </div>
@@ -354,21 +354,45 @@ function categorySearch(query,label){
 function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}}
 function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
 
-// ── FEATURED ALIEXPRESS POP MART ITEMS (homepage — 2 pinned slots) ─────────
-// Pulls 2 real, popular Pop Mart / Labubu items from the worker's ?home=1
-// endpoint. The worker returns a fresh random pair each call, so re-fetching
-// rotates the photos. Each item has a real image + affiliate-tracked link.
-async function fetchAliFeatured() {
+// ── FEATURED ALIEXPRESS ITEMS (homepage) ──────────────────────────────────
+// Two featured slots: slot 0 = Pop Mart / Labubu, slot 1 = a second category.
+// We fetch a POOL for each from the worker's ?home=1, cache it, and rotate
+// through it client-side so the two cards refresh INDEPENDENTLY (not in sync)
+// and move around the grid — without hammering the API.
+let aliPools = { popmart: [], other: [] };
+
+function tagAli(i){ return { ...i, source: 'AliExpress', _isAli: true, country: 'AU' }; }
+
+async function fetchAliPools() {
   try {
     const res = await fetch(`${WORKER}/?home=1`, { cache: 'no-store' });
     const data = await res.json();
-    return (data.items || [])
-      .filter(i => i.image && i.url)
-      .slice(0, 2)
-      .map(i => ({ ...i, source: 'AliExpress', _isAli: true, _pinned: true, country: 'AU' }));
-  } catch (_) {
-    return [];
-  }
+    aliPools.popmart = (data.popmart || []).filter(i => i.image && i.url).map(tagAli);
+    aliPools.other   = (data.other   || []).filter(i => i.image && i.url).map(tagAli);
+    // Fallback if the worker only returned the 2-item "items" array
+    if (!aliPools.popmart.length && !aliPools.other.length) {
+      const items = (data.items || []).filter(i => i.image && i.url).map(tagAli);
+      aliPools.popmart = items.slice(0, 1);
+      aliPools.other   = items.slice(1, 2);
+    }
+  } catch (_) {}
+}
+
+// Pick a random item from a slot's pool, avoiding the one currently shown
+function pickAli(slot, excludeId) {
+  const pool = slot === 0 ? aliPools.popmart : aliPools.other;
+  if (!pool.length) return null;
+  const avail = pool.filter(i => String(i.itemId) !== String(excludeId));
+  const arr = avail.length ? avail : pool;
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+// Swap two sibling DOM elements' positions
+function swapElements(a, b) {
+  const aParent = a.parentNode;
+  const aNext = (a.nextSibling === b) ? a : a.nextSibling;
+  b.parentNode.insertBefore(a, b);
+  aParent.insertBefore(b, aNext);
 }
 
 // ── EBAY PREVIEW QUERIES ──────────────────────────────────────────────────
@@ -429,10 +453,10 @@ async function loadPreviews(){
       <div class="skel" style="height:11px;width:35%"></div>
     </div></div>`).join('');
 
-  // Fetch the 2 featured AliExpress Pop Mart items AND the eBay previews together
+  // Fetch the AliExpress featured pools AND the eBay previews together
   const shuffled=[...PREVIEWS].sort(()=>Math.random()-0.5);
-  const [aliFeatured, ebayItems] = await Promise.all([
-    fetchAliFeatured(),
+  const [, ebayItems] = await Promise.all([
+    fetchAliPools(),
     fetchPreviewBatch(shuffled.slice(0, 16)),
   ]);
 
@@ -462,23 +486,37 @@ async function loadPreviews(){
   previewItems.push(...ebayUnique);
 
   // Build grid: eBay ALWAYS fills the first 3 slots; the (up to 2) AliExpress
-  // items get inserted at RANDOM positions after slot 3 — looks organic, not
-  // like two ads pinned to the front.
-  const aliSlots = aliFeatured.slice(0, 2);
-  const ebayNeeded = Math.max(0, INITIAL_CARDS - aliSlots.length);
-  const firstScreen = ebayUnique.slice(0, ebayNeeded);
-  aliSlots.forEach(item => {
+  // featured items (slot 0 = Pop Mart, slot 1 = second category) get inserted
+  // at RANDOM positions after slot 3 — looks organic, not like pinned ads.
+  const aliPicks = [];
+  const p0 = pickAli(0); if (p0) aliPicks.push({ item: p0, slot: 0 });
+  const p1 = pickAli(1); if (p1) aliPicks.push({ item: p1, slot: 1 });
+
+  const ebayNeeded = Math.max(0, INITIAL_CARDS - aliPicks.length);
+  const firstScreen = ebayUnique.slice(0, ebayNeeded).map(it => ({ it, slot: null }));
+  aliPicks.forEach(p => {
     const minPos = Math.min(3, firstScreen.length); // never slots 1–3 (those stay eBay)
     const maxPos = firstScreen.length;
     const pos = Math.floor(Math.random() * (maxPos - minPos + 1)) + minPos;
-    firstScreen.splice(pos, 0, item);
+    firstScreen.splice(pos, 0, { it: p.item, slot: p.slot });
   });
   if(!firstScreen.length){grid.innerHTML='';return;}
-  grid.innerHTML=firstScreen.map(buildPrevCard).join('');
+  grid.innerHTML=firstScreen.map(o => buildPrevCard(o.it)).join('');
+
+  // Tag the AliExpress cards with their slot so each refreshes from the right pool
+  const cardEls = Array.from(grid.children);
+  firstScreen.forEach((o, idx) => {
+    if (o.slot !== null && cardEls[idx]) cardEls[idx].setAttribute('data-ali-slot', String(o.slot));
+  });
+
   previewIdx=ebayNeeded;
 
-  setInterval(rotatePrev,4000);   // rotate the eBay cards
-  setInterval(rotateAli,9000);    // refresh the AliExpress photos in place
+  setInterval(rotatePrev, 4000);                 // rotate the eBay cards
+  // Staggered, INDEPENDENT refresh for each AliExpress card (different intervals + start
+  // offsets → they never change at the same time; each also moves to a new spot)
+  if (grid.querySelector('.prev-card.ali-card[data-ali-slot="0"]')) setTimeout(() => setInterval(refreshAliCard(0), 8000),  2500);
+  if (grid.querySelector('.prev-card.ali-card[data-ali-slot="1"]')) setTimeout(() => setInterval(refreshAliCard(1), 11000), 6500);
+  setInterval(fetchAliPools, 180000);            // refresh the pools every 3 min
 
   // Infinite scroll — eBay only for extra rows
   const welcome=document.getElementById('welcome');
@@ -563,24 +601,31 @@ function rotatePrev(){
   },500);
 }
 
-// Refresh the 2 pinned AliExpress Pop Mart cards with new items (rotating photos)
-async function rotateAli(){
-  const grid=document.getElementById('preview-grid');
-  if(!grid)return;
-  const aliCards=Array.from(grid.querySelectorAll('.prev-card.ali-card'));
-  if(!aliCards.length)return;
-  const fresh=await fetchAliFeatured();
-  if(!fresh.length)return;
-  aliCards.forEach((card,idx)=>{
-    const item=fresh[idx % fresh.length];
+// Refresh ONE AliExpress card (by slot): swap in a new item from its pool with a
+// fade, then MOVE it to a new random spot (swap with a random eBay card after slot 3).
+function refreshAliCard(slot){
+  return function(){
+    const grid=document.getElementById('preview-grid');
+    if(!grid)return;
+    const card=grid.querySelector(`.prev-card.ali-card[data-ali-slot="${slot}"]`);
+    if(!card)return;
+    const item=pickAli(slot, card.getAttribute('data-id'));
     if(!item)return;
     card.classList.add('fade-out');
     setTimeout(()=>{
       const tmp=document.createElement('div');
       tmp.innerHTML=buildPrevCard(item);
-      card.replaceWith(tmp.firstElementChild);
+      const newCard=tmp.firstElementChild;
+      newCard.setAttribute('data-ali-slot', String(slot));
+      card.replaceWith(newCard);
+      // Move it: swap with a random eBay card sitting after slot 3
+      const cards=Array.from(grid.children);
+      const candidates=cards.filter((c,i)=>i>=3 && c!==newCard && !c.classList.contains('ali-card'));
+      if(candidates.length){
+        swapElements(newCard, candidates[Math.floor(Math.random()*candidates.length)]);
+      }
     },500);
-  });
+  };
 }
 
 loadPreviews();
