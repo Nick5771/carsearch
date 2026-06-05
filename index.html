@@ -58,7 +58,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .prev-card-ph{width:100%;height:110px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:24px}
 .prev-card-body{padding:7px 10px 8px}
 .prev-card-title{font-size:11px;color:#aaa;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.prev-card-price{font-size:13px;font-weight:700;color:#19c37d}
+.prev-card-price{font-size:16px;font-weight:800;color:#fff}
 /* source logo row */
 .prev-card-source{display:flex;align-items:center;gap:4px;margin-bottom:4px}
 /* eBay inline logo */
@@ -88,7 +88,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .chat-card-ph{width:100%;height:160px;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:32px}
 .chat-card-body{padding:10px 12px}
 .chat-card-title{font-size:12px;color:#444;margin-bottom:6px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.chat-card-price{font-size:16px;font-weight:800;color:#19c37d;letter-spacing:-0.3px}
+.chat-card-price{font-size:17px;font-weight:800;color:#fff;letter-spacing:-0.3px}
 .chat-card-loc{font-size:10px;color:#999;margin-top:3px}
 .thinking{display:flex;gap:5px;padding:12px 16px;background:#111;border:1px solid #222;border-radius:12px;width:fit-content}
 .thinking span{width:7px;height:7px;background:#444;border-radius:50%;animation:bounce 1.2s infinite}
@@ -128,7 +128,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
   .prev-card-ph{height:100px}
   .prev-card-body{padding:5px 7px}
   .prev-card-title{font-size:10px}
-  .prev-card-price{font-size:12px}
+  .prev-card-price{font-size:14px}
   .chat-card{border-radius:6px}
   .chat-card-img{height:130px}
   .chat-card-ph{height:130px}
@@ -411,9 +411,9 @@ const PREVIEWS=[
   {q:'Louis Vuitton Neverfull',country:'US'},{q:'Hermes Birkin',country:'US'},
   {q:'Prada bag',country:'US'},{q:'Supreme box logo hoodie',country:'US'},
   {q:'Bape shark hoodie',country:'US'},{q:'Balenciaga Triple S',country:'US'},
-  // Electronics
-  {q:'Sony PlayStation 5',country:'AU'},{q:'MacBook Pro M3',country:'AU'},
-  {q:'iPhone 15 Pro Max',country:'AU'},{q:'AirPods Pro 2',country:'AU'},
+  // More grails
+  {q:'Off White Jordan 1',country:'US'},{q:'Jordan 4 Retro',country:'US'},
+  {q:'Patek Philippe Nautilus',country:'US'},{q:'Dior Jordan 1',country:'US'},
   // Collectibles
   {q:'Labubu Pop Mart',country:'AU'},{q:'Pokemon Charizard PSA 10',country:'US'},
   {q:'Pokemon booster box sealed',country:'AU'},{q:'Pokemon graded card',country:'US'},
@@ -511,11 +511,11 @@ async function loadPreviews(){
 
   previewIdx=ebayNeeded;
 
-  setInterval(rotatePrev, 4000);                 // rotate the eBay cards
+  setInterval(rotatePrev, 6500);                 // rotate the eBay cards (slower)
   // Staggered, INDEPENDENT refresh for each AliExpress card (different intervals + start
   // offsets → they never change at the same time; each also moves to a new spot)
-  if (grid.querySelector('.prev-card.ali-card[data-ali-slot="0"]')) setTimeout(() => setInterval(refreshAliCard(0), 8000),  2500);
-  if (grid.querySelector('.prev-card.ali-card[data-ali-slot="1"]')) setTimeout(() => setInterval(refreshAliCard(1), 11000), 6500);
+  if (grid.querySelector('.prev-card.ali-card[data-ali-slot="0"]')) setTimeout(() => setInterval(refreshAliCard(0), 16000),  4000);
+  if (grid.querySelector('.prev-card.ali-card[data-ali-slot="1"]')) setTimeout(() => setInterval(refreshAliCard(1), 22000), 10000);
   setInterval(fetchAliPools, 180000);            // refresh the pools every 3 min
 
   // Infinite scroll — eBay only for extra rows
