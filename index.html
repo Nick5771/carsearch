@@ -79,7 +79,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .msg-av.a{background:#fff;border:1px solid #e0e0e0;position:relative}
 .msg-av.a::after{content:'';position:absolute;width:10px;height:10px;border-radius:50%;background:#000}
 .msg-body{max-width:calc(100% - 44px);font-size:14px;line-height:1.65;color:#e5e5e5;padding:12px 16px;border-radius:12px;background:#111;border:1px solid #222}
-.msg.assistant .msg-body{max-width:100%;width:100%}
+.msg.assistant .msg-body{max-width:100%;width:100%;background:transparent;border:none;padding:6px 2px}
 .msg.user .msg-body{background:#fff;color:#000;border-color:#e0e0e0}
 .chat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px;width:100%}
 .chat-card{background:#111;border:1px solid #222;border-radius:10px;overflow:hidden;text-decoration:none;display:block;color:inherit;transition:border-color 0.15s,transform 0.15s}
@@ -103,9 +103,14 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .send-btn{width:34px;height:34px;border-radius:8px;background:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background 0.15s}
 .send-btn:hover{background:#e0e0e0}
 .send-btn:disabled{background:#222;cursor:not-allowed}
-.plus-btn{width:34px;height:34px;border-radius:8px;background:transparent;border:1.5px solid #444;color:#bbb;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:border-color .15s,color .15s}
-.plus-btn:hover{border-color:#777;color:#fff}
-.plus-btn:disabled{opacity:.4;cursor:not-allowed}
+.plus-wrap{position:relative;flex-shrink:0;display:flex}
+.plus-btn{width:34px;height:34px;border-radius:8px;background:#fff;border:none;color:#000;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s}
+.plus-btn:hover{background:#e0e0e0}
+.plus-btn:disabled{background:#222;color:#666;cursor:not-allowed}
+.plus-menu{position:absolute;bottom:46px;left:0;background:#1c1c1c;border:1px solid #333;border-radius:12px;padding:6px;display:none;box-shadow:0 8px 28px rgba(0,0,0,.55);z-index:1100;min-width:160px}
+.plus-menu.open{display:block}
+.plus-menu button{width:100%;background:transparent;border:none;color:#eee;font-family:inherit;font-size:14px;text-align:left;padding:9px 11px;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:9px;white-space:nowrap}
+.plus-menu button:hover{background:#2a2a2a}
 .skel{background:linear-gradient(90deg,#111 25%,#1a1a1a 50%,#111 75%);background-size:200% 100%;animation:shimmer 1.2s infinite;border-radius:6px}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 ::-webkit-scrollbar{width:5px}
@@ -187,9 +192,17 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
     </div>
     <div class="input-area">
       <div class="input-wrap">
-        <button class="plus-btn" id="plus-btn" onclick="document.getElementById('img-input').click()" title="Search by image" aria-label="Search by image">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-        </button>
+        <div class="plus-wrap">
+          <button class="plus-btn" id="plus-btn" onclick="togglePlusMenu(event)" title="Add" aria-label="Add">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <div class="plus-menu" id="plus-menu">
+            <button type="button" onclick="pickImageFromMenu()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+              Upload file
+            </button>
+          </div>
+        </div>
         <input type="file" id="img-input" accept="image/*" style="display:none" onchange="onImagePicked(this)">
         <textarea id="chat-in" class="chat-in" placeholder='Try "Find me a Macbook Pro for less than $750"' rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
         <button class="send-btn" id="send-btn" onclick="sendMsg()">
@@ -242,6 +255,22 @@ function addThinking(){
   inner.appendChild(d);
 }
 function removeThinking(){const t=document.getElementById('thinking');if(t)t.remove();}
+function togglePlusMenu(e){if(e)e.stopPropagation();const m=document.getElementById('plus-menu');if(m)m.classList.toggle('open');}
+function pickImageFromMenu(){const m=document.getElementById('plus-menu');if(m)m.classList.remove('open');document.getElementById('img-input').click();}
+document.addEventListener('click',function(e){const m=document.getElementById('plus-menu');if(m&&m.classList.contains('open')&&!e.target.closest('.plus-wrap'))m.classList.remove('open');});
+function typeReply(bodyEl,replyText,cardsHtml){
+  const p=document.createElement('p');
+  p.style.cssText='font-size:15px;color:#f0f0f0;line-height:1.55;margin:0;padding:0 2px;white-space:pre-wrap';
+  bodyEl.appendChild(p);
+  const text=String(replyText||'');
+  const appendCards=function(){ if(cardsHtml){ p.style.margin='0 0 12px'; const slot=document.createElement('div'); slot.innerHTML=cardsHtml; bodyEl.appendChild(slot);} };
+  if(!text){ appendCards(); return; }
+  let i=0; const step=2, speed=12;
+  (function tick(){
+    if(i<text.length){ i=Math.min(i+step,text.length); p.textContent=text.slice(0,i); setTimeout(tick,speed); }
+    else { p.textContent=text; appendCards(); }
+  })();
+}
 
 function parseQuery(text){
   const lower=text.toLowerCase();
@@ -355,14 +384,14 @@ async function sendMsg(){
     conversation.push({role:'assistant',content:reply});
     const c=data.country||country;
     const hasItems=Array.isArray(data.items)&&data.items.length>0;
-    let html=reply?`<p style="font-size:15px;color:#f0f0f0;line-height:1.55;margin:0 0 ${hasItems?'12px':'0'};padding:0 2px">${escapeHtml(reply)}</p>`:'';
+    let cardsHtml='';
     if(hasItems){
       const lbl=(data.search&&data.search.query)||q;
       const mp=(data.search&&data.search.maxPrice)||'';
-      html+=renderCards(data.items,lbl,'',mp,c,(data.meta&&data.meta.ebayCount)||0,(data.meta&&data.meta.etsyCount)||0,true);
+      cardsHtml=renderCards(data.items,lbl,'',mp,c,(data.meta&&data.meta.ebayCount)||0,(data.meta&&data.meta.etsyCount)||0,true);
     }
-    if(!html)html=`<p style="color:#888;font-size:14px">Hmm, I didn't catch that — want to try rephrasing?</p>`;
-    addMsg('assistant',html);
+    const body=addMsg('assistant','');
+    typeReply(body, reply||(hasItems?'':"Hmm, I didn't catch that — want to try rephrasing?"), cardsHtml);
     setTimeout(()=>{
       const inner=document.getElementById('messages-inner');
       const userMsgs=inner?inner.querySelectorAll('.msg.user'):[];
@@ -421,10 +450,9 @@ async function sendImage(dataUrl){
     const c=data.country||country;
     const hasItems=Array.isArray(data.items)&&data.items.length>0;
     if(data.query){conversation.push({role:'user',content:`find ${data.query}`});conversation.push({role:'assistant',content:reply||`Here's what I found for ${data.query}.`});}
-    let html=reply?`<p style="font-size:15px;color:#f0f0f0;line-height:1.55;margin:0 0 ${hasItems?'12px':'0'};padding:0 2px">${escapeHtml(reply)}</p>`:'';
-    if(hasItems)html+=renderCards(data.items,data.query||'image','','',c,(data.meta&&data.meta.ebayCount)||0,(data.meta&&data.meta.etsyCount)||0,true);
-    if(!html)html=`<p style="color:#888;font-size:14px">I couldn't find a match for that image — try a clearer photo of the item.</p>`;
-    addMsg('assistant',html);
+    let cardsHtml=hasItems?renderCards(data.items,data.query||'image','','',c,(data.meta&&data.meta.ebayCount)||0,(data.meta&&data.meta.etsyCount)||0,true):'';
+    const body=addMsg('assistant','');
+    typeReply(body, reply||(hasItems?'':"I couldn't find a match for that image — try a clearer photo of the item."), cardsHtml);
     setTimeout(()=>{
       const inner=document.getElementById('messages-inner');
       const userMsgs=inner?inner.querySelectorAll('.msg.user'):[];
