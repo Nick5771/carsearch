@@ -207,8 +207,11 @@ function aliLogoHtml() {
 }
 
 let busy=false, previewItems=[], previewIdx=0;
+let conversation=[];
+function escapeHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 function resetChat(){
+  conversation=[];
   document.getElementById('welcome').style.display='flex';
   document.getElementById('messages').style.display='none';
   document.getElementById('messages-inner').innerHTML='';
@@ -258,7 +261,7 @@ function parseQuery(text){
 
 const PAGE_SIZE=40; let searchCount=0; const searchStates={};
 
-function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount){
+function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
   const sym=c==='UK'?'£':c==='DE'?'€':'$';
   if(!items.length) return `<p style="color:#666;font-size:14px;margin-top:8px">No listings found right now. Try a different search.</p>`;
   searchCount++; const sid=searchCount;
@@ -277,6 +280,7 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount){
     if(maxPrice)summary+=` under ${sym}${Number(maxPrice).toLocaleString()}`;
     summary+=` <span style="color:#666;font-size:12px">· showing ${searchStates[sid].shown}</span>`;
   }
+  if(quiet)summary='';
   const cards=top.map(item=>{
     const price=item.price?`${sym}${Number(item.price).toLocaleString()}`:'See listing';
     const isAli=item.source==='AliExpress';
@@ -289,7 +293,8 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount){
   const gId='chat-grid-'+sid,bId='show-more-'+sid;
   const rem0=items.length-searchStates[sid].shown;
   const smBtn=rem0>0?`<div id="${bId}" style="text-align:center;margin-top:16px"><button onclick="showMoreCards(${sid})" style="background:#111;border:1px solid #333;color:#fff;padding:10px 28px;border-radius:8px;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif" onmouseover="this.style.background='#222'" onmouseout="this.style.background='#111'">Show more</button></div>`:'';
-  return `<p style="font-size:14px;color:#fff;margin-bottom:12px;padding:0 2px">${summary}</p><div class="chat-grid" id="${gId}">${cards}</div>${smBtn}`;
+  const summaryHtml = summary ? `<p style="font-size:14px;color:#fff;margin-bottom:12px;padding:0 2px">${summary}</p>` : '';
+  return `${summaryHtml}<div class="chat-grid" id="${gId}">${cards}</div>${smBtn}`;
 }
 
 function showMoreCards(sid){
@@ -329,20 +334,34 @@ async function sendMsg(){
   saveRecentSearch(q);
   busy=true; document.getElementById('send-btn').disabled=true;
   inp.value=''; inp.style.height='auto';
-  showChat(); addMsg('user',q); addThinking();
-  const{q:cleanQ,maxPrice,country:c}=parseQuery(q);
+  showChat(); addMsg('user',escapeHtml(q)); addThinking();
+  conversation.push({role:'user',content:q});
   try{
-    const params=new URLSearchParams({q:cleanQ,maxPrice:maxPrice||'',country:c});
-    const res=await fetch(`${WORKER}/?${params}`);
+    const res=await fetch(`${WORKER}/?chat=1`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:conversation.slice(-12)})
+    });
     const data=await res.json();
     removeThinking();
-    addMsg('assistant',renderCards(data.items||[],cleanQ,'',maxPrice,c,data.ebayCount||0,data.etsyCount||0));
+    const reply=(data.reply||'').trim();
+    conversation.push({role:'assistant',content:reply});
+    const c=data.country||country;
+    const hasItems=Array.isArray(data.items)&&data.items.length>0;
+    let html=reply?`<p style="font-size:15px;color:#f0f0f0;line-height:1.55;margin:0 0 ${hasItems?'12px':'0'};padding:0 2px">${escapeHtml(reply)}</p>`:'';
+    if(hasItems){
+      const lbl=(data.search&&data.search.query)||q;
+      const mp=(data.search&&data.search.maxPrice)||'';
+      html+=renderCards(data.items,lbl,'',mp,c,(data.meta&&data.meta.ebayCount)||0,(data.meta&&data.meta.etsyCount)||0,true);
+    }
+    if(!html)html=`<p style="color:#888;font-size:14px">Hmm, I didn't catch that — want to try rephrasing?</p>`;
+    addMsg('assistant',html);
     setTimeout(()=>{
       const inner=document.getElementById('messages-inner');
       const userMsgs=inner?inner.querySelectorAll('.msg.user'):[];
       if(userMsgs.length)userMsgs[userMsgs.length-1].scrollIntoView({behavior:'smooth',block:'start'});
     },150);
-  }catch(e){removeThinking();addMsg('assistant','Sorry, could not fetch listings right now. Please try again.');}
+  }catch(e){removeThinking();addMsg('assistant','Sorry, I had trouble just now. Please try again.');}
   busy=false; document.getElementById('send-btn').disabled=false; inp.focus();
 }
 
