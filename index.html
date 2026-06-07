@@ -648,12 +648,11 @@ async function loadPreviews(){
   // eBay pool drives the rotating slots
   previewItems.push(...ebayUnique);
 
-  // Build grid: eBay ALWAYS fills the first 3 slots; the (up to 2) AliExpress
-  // featured items (slot 0 = Pop Mart, slot 1 = second category) get inserted
-  // at RANDOM positions after slot 3 — looks organic, not like pinned ads.
+  // Build grid: eBay ALWAYS fills the first 3 slots; ONE AliExpress featured item
+  // (slot 0 = Labubu) gets inserted at a RANDOM position after slot 3 — looks organic.
+  // (Slot 1 removed → that spot is now just an eBay listing.)
   const aliPicks = [];
   const p0 = pickAli(0); if (p0) aliPicks.push({ item: p0, slot: 0 });
-  const p1 = pickAli(1); if (p1) aliPicks.push({ item: p1, slot: 1 });
 
   const ebayNeeded = Math.max(0, INITIAL_CARDS - aliPicks.length);
   const firstScreen = ebayUnique.slice(0, ebayNeeded).map(it => ({ it, slot: null }));
@@ -675,10 +674,8 @@ async function loadPreviews(){
   previewIdx=ebayNeeded;
 
   setInterval(rotatePrev, 6500);                 // rotate the eBay cards (slower)
-  // Staggered, INDEPENDENT refresh for each AliExpress card (different intervals + start
-  // offsets → they never change at the same time; each also moves to a new spot)
+  // Refresh the single AliExpress card (slot 0 = Labubu) on its own interval.
   if (grid.querySelector('.prev-card.ali-card[data-ali-slot="0"]')) setTimeout(() => setInterval(refreshAliCard(0), 16000),  4000);
-  if (grid.querySelector('.prev-card.ali-card[data-ali-slot="1"]')) setTimeout(() => setInterval(refreshAliCard(1), 22000), 10000);
   setInterval(fetchAliPools, 180000);            // refresh the pools every 3 min
 
   // Infinite scroll — eBay only for extra rows
