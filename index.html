@@ -667,6 +667,8 @@ async function loadPreviews(){
   const otherSearch = searchArrs.slice(1).flat();   // earlier searches → blended in
   // Most-recent-search cluster + the exact clicked items lead; then a fresh shuffle of the rest.
   const ebayItems = [...topSearch, ...pinned, ...shufflePool([...otherSearch, ...basePool])];
+  // These personalised items must NOT be rotated away — protect them.
+  const protectedKeys = new Set([...topSearch, ...pinned].filter(Boolean).map(i=>String(i.itemId||i.url)));
 
   // Deduplicate eBay by itemId AND title (catch same item with different IDs)
   const seen = new Set();
@@ -714,7 +716,9 @@ async function loadPreviews(){
   // Tag the AliExpress cards with their slot so each refreshes from the right pool
   const cardEls = Array.from(grid.children);
   firstScreen.forEach((o, idx) => {
-    if (o.slot !== null && cardEls[idx]) cardEls[idx].setAttribute('data-ali-slot', String(o.slot));
+    if (!cardEls[idx]) return;
+    if (o.slot !== null) cardEls[idx].setAttribute('data-ali-slot', String(o.slot));
+    else if (o.it && protectedKeys.has(String(o.it.itemId||o.it.url))) cardEls[idx].setAttribute('data-pinned','1');
   });
 
   previewIdx=ebayNeeded;
@@ -789,7 +793,7 @@ function rotatePrev(){
   const visibleIds=new Set(Array.from(grid.querySelectorAll('.prev-card[data-id]')).map(c=>c.dataset.id));
   const visibleTitles=new Set(Array.from(grid.querySelectorAll('.prev-card[data-title]')).map(c=>c.dataset.title));
 
-  const rotateable=allCards.slice(0,INITIAL_CARDS).filter(c=>!c.classList.contains('ali-card'));
+  const rotateable=allCards.slice(0,INITIAL_CARDS).filter(c=>!c.classList.contains('ali-card') && !c.hasAttribute('data-pinned'));
   if(!rotateable.length)return;
   const card=rotateable[Math.floor(Math.random()*rotateable.length)];
   card.classList.add('fade-out');
@@ -829,7 +833,7 @@ function refreshAliCard(slot){
       card.replaceWith(newCard);
       // Move it: swap with a random eBay card sitting after slot 3
       const cards=Array.from(grid.children);
-      const candidates=cards.filter((c,i)=>i>=3 && c!==newCard && !c.classList.contains('ali-card'));
+      const candidates=cards.filter((c,i)=>i>=3 && c!==newCard && !c.classList.contains('ali-card') && !c.hasAttribute('data-pinned'));
       if(candidates.length){
         swapElements(newCard, candidates[Math.floor(Math.random()*candidates.length)]);
       }
