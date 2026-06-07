@@ -598,14 +598,30 @@ async function loadPreviews(){
       <div class="skel" style="height:11px;width:35%"></div>
     </div></div>`).join('');
 
-  // The eBay preview pool now comes from ONE edge-cached worker call (?previews=1)
-  // instead of 16 live searches → near-instant. Shuffle client-side for per-visit freshness.
+  // The base hype pool comes from ONE edge-cached worker call (?previews=1).
   const shufflePool = a => a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(z=>z[1]);
   const shuffled=[...PREVIEWS].sort(()=>Math.random()-0.5); // still used by the padding + infinite-scroll fetches below
-  const [, ebayItems] = await Promise.all([
+
+  // Personalise: also pull listings for the user's most recent searches (stored locally),
+  // so the homepage reflects what THEY look for — not just the default hype pool.
+  let recentQs=[];
+  try{ recentQs=JSON.parse(localStorage.getItem('findai_recents')||'[]').slice(0,3); }catch(_){}
+  const recentFetch = recentQs.length
+    ? Promise.all(recentQs.map(rq=>
+        fetch(`${WORKER}/?q=${encodeURIComponent(rq)}&country=${country}`)
+          .then(r=>r.json())
+          .then(d=>(d.items||[]).filter(i=>i.image && Number(i.price)>=100 && i.source==='eBay').slice(0,3))
+          .catch(()=>[])
+      )).then(a=>a.flat())
+    : Promise.resolve([]);
+
+  const [, basePool, personalItems] = await Promise.all([
     fetchAliPools(),
-    fetch(`${WORKER}/?previews=1`).then(r=>r.json()).then(d=>shufflePool(d.items||[])).catch(()=>[]),
+    fetch(`${WORKER}/?previews=1`).then(r=>r.json()).then(d=>d.items||[]).catch(()=>[]),
+    recentFetch,
   ]);
+  // Blend the user's interests into the hype pool, then shuffle so it still feels fresh each visit.
+  const ebayItems = shufflePool([...personalItems, ...basePool]);
 
   // Deduplicate eBay by itemId AND title (catch same item with different IDs)
   const seen = new Set();
