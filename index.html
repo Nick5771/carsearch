@@ -272,12 +272,13 @@ function typeReply(bodyEl,replyText,cardsHtml){
   p.style.cssText='font-size:15px;color:#f0f0f0;line-height:1.55;margin:0;padding:0 2px;white-space:pre-wrap';
   bodyEl.appendChild(p);
   const text=String(replyText||'');
-  const appendCards=function(){ if(cardsHtml){ p.style.margin='0 0 12px'; const slot=document.createElement('div'); slot.innerHTML=cardsHtml; bodyEl.appendChild(slot);} };
-  if(!text){ appendCards(); return; }
-  let i=0; const step=2, speed=12;
+  // Show the result cards IMMEDIATELY — don't wait for the reply to finish typing.
+  if(cardsHtml){ p.style.margin='0 0 12px'; const slot=document.createElement('div'); slot.innerHTML=cardsHtml; bodyEl.appendChild(slot); }
+  if(!text){ return; }
+  let i=0; const step=3, speed=10;
   (function tick(){
     if(i<text.length){ i=Math.min(i+step,text.length); p.textContent=text.slice(0,i); setTimeout(tick,speed); }
-    else { p.textContent=text; appendCards(); }
+    else { p.textContent=text; }
   })();
 }
 
