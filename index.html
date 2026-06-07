@@ -243,6 +243,7 @@ function resetChat(){
   document.getElementById('messages').style.display='none';
   document.getElementById('messages-inner').innerHTML='';
   document.getElementById('chat-in').value='';
+  if(typeof loadPreviews==='function') loadPreviews(); // rebuild grid → reflects latest searches/clicks
 }
 function showChat(){
   document.getElementById('welcome').style.display='none';
@@ -331,7 +332,7 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
       ?`<span style="font-size:11px;font-weight:800;color:#ff4747;font-family:'DM Sans',sans-serif">AliExpress</span>`
       :ebayLogoHtml();
     const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,'s-l600.'):item.image;
-    return `<a class="chat-card" href="${item.url}" target="_blank" rel="noopener">${imgSrc?`<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" onerror="this.parentNode.querySelector('.chat-card-ph')&&(this.style.display='none')">`:`<div class="chat-card-ph">🛍️</div>`}<div class="chat-card-body"><div style="margin-bottom:5px">${srcBadge}</div><div class="chat-card-title">${item.title||''}</div><div class="chat-card-price">${price}</div><div class="chat-card-loc">${item.location||''}</div></div></a>`;
+    return `<a class="chat-card" data-q="${escapeHtml(label||'')}" href="${item.url}" target="_blank" rel="noopener">${imgSrc?`<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" onerror="this.parentNode.querySelector('.chat-card-ph')&&(this.style.display='none')">`:`<div class="chat-card-ph">🛍️</div>`}<div class="chat-card-body"><div style="margin-bottom:5px">${srcBadge}</div><div class="chat-card-title">${item.title||''}</div><div class="chat-card-price">${price}</div><div class="chat-card-loc">${item.location||''}</div></div></a>`;
   }).join('');
   const gId='chat-grid-'+sid,bId='show-more-'+sid;
   const rem0=items.length-searchStates[sid].shown;
@@ -384,6 +385,7 @@ async function sendMsg(){
   }
   if(!q)return;
   saveRecentSearch(q);
+  noteInterest(q, false);
   busy=true; document.getElementById('send-btn').disabled=true;
   inp.value=''; inp.style.height='auto';
   showChat(); addMsg('user',escapeHtml(q)); addThinking();
@@ -585,9 +587,37 @@ async function fetchPreviewBatch(queries){
   return items.sort(()=>Math.random()-0.5);
 }
 
+// ── User interest tracking (searches + clicks) → personalised homepage ──
+function noteInterest(q, strong){
+  q=(q||'').trim(); if(q.length<2) return;
+  let list=[];
+  try{ list=JSON.parse(localStorage.getItem('findai_interests')||'[]'); }catch(_){}
+  const key=q.toLowerCase();
+  const entry=list.find(e=>(e.q||'').toLowerCase()===key);
+  if(entry){ entry.score=(entry.score||0)+(strong?3:1); entry.q=q; entry.t=Date.now(); }
+  else{ list.push({q, score:(strong?3:1), t:Date.now()}); }
+  list.sort((a,b)=> (b.score-a.score) || (b.t-a.t)); // strongest, then most recent
+  list=list.slice(0,12);
+  try{ localStorage.setItem('findai_interests', JSON.stringify(list)); }catch(_){}
+}
+function topInterests(n){
+  let list=[];
+  try{ list=JSON.parse(localStorage.getItem('findai_interests')||'[]'); }catch(_){}
+  return list.slice(0,n).map(e=>e.q).filter(Boolean);
+}
+function fetchInterestItems(q, n){
+  return fetch(`${WORKER}/?q=${encodeURIComponent(q)}&country=${country}`)
+    .then(r=>r.json())
+    .then(d=>(d.items||[]).filter(i=>i.image && Number(i.price)>=100 && i.source==='eBay')
+      .slice(0,n).map(i=>({...i, searchQ:q})))
+    .catch(()=>[]);
+}
+
+let _homeIntervalsSet=false;
 async function loadPreviews(){
   const grid=document.getElementById('preview-grid');
   if(!grid)return;
+  previewLoadedAll=false;
 
   // Skeletons
   grid.innerHTML=Array.from({length:INITIAL_CARDS},()=>`
@@ -602,26 +632,22 @@ async function loadPreviews(){
   const shufflePool = a => a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(z=>z[1]);
   const shuffled=[...PREVIEWS].sort(()=>Math.random()-0.5); // still used by the padding + infinite-scroll fetches below
 
-  // Personalise: also pull listings for the user's most recent searches (stored locally),
-  // so the homepage reflects what THEY look for — not just the default hype pool.
-  let recentQs=[];
-  try{ recentQs=JSON.parse(localStorage.getItem('findai_recents')||'[]').slice(0,3); }catch(_){}
-  const recentFetch = recentQs.length
-    ? Promise.all(recentQs.map(rq=>
-        fetch(`${WORKER}/?q=${encodeURIComponent(rq)}&country=${country}`)
-          .then(r=>r.json())
-          .then(d=>(d.items||[]).filter(i=>i.image && Number(i.price)>=100 && i.source==='eBay').slice(0,3))
-          .catch(()=>[])
-      )).then(a=>a.flat())
+  // Personalise from tracked INTERESTS (searches + clicks). The strongest interest's
+  // items go to the FRONT (the "2–3 Lego Harry Potter" cluster); the rest are blended.
+  const interests = topInterests(3);
+  const interestFetch = interests.length
+    ? Promise.all(interests.map((q,idx)=> fetchInterestItems(q, idx===0?3:2)))
     : Promise.resolve([]);
 
-  const [, basePool, personalItems] = await Promise.all([
+  const [, basePool, interestArrs] = await Promise.all([
     fetchAliPools(),
     fetch(`${WORKER}/?previews=1`).then(r=>r.json()).then(d=>d.items||[]).catch(()=>[]),
-    recentFetch,
+    interestFetch,
   ]);
-  // Blend the user's interests into the hype pool, then shuffle so it still feels fresh each visit.
-  const ebayItems = shufflePool([...personalItems, ...basePool]);
+  const topItems   = (interestArrs[0] || []);          // strongest interest → front cluster
+  const otherItems = interestArrs.slice(1).flat();     // other interests → blended in
+  // Front cluster first, then a fresh shuffle of everything else.
+  const ebayItems = [...topItems, ...shufflePool([...otherItems, ...basePool])];
 
   // Deduplicate eBay by itemId AND title (catch same item with different IDs)
   const seen = new Set();
@@ -645,7 +671,8 @@ async function loadPreviews(){
     ebayUnique = [...ebayUnique, ...extraUnique];
   }
 
-  // eBay pool drives the rotating slots
+  // eBay pool drives the rotating slots (reset so repeated builds don't grow it)
+  previewItems.length = 0;
   previewItems.push(...ebayUnique);
 
   // Build grid: eBay ALWAYS fills the first 3 slots; ONE AliExpress featured item
@@ -673,6 +700,8 @@ async function loadPreviews(){
 
   previewIdx=ebayNeeded;
 
+  if(!_homeIntervalsSet){
+  _homeIntervalsSet=true;
   setInterval(rotatePrev, 6500);                 // rotate the eBay cards (slower)
   // Refresh the single AliExpress card (slot 0 = Labubu) on its own interval.
   if (grid.querySelector('.prev-card.ali-card[data-ali-slot="0"]')) setTimeout(() => setInterval(refreshAliCard(0), 16000),  4000);
@@ -711,6 +740,7 @@ async function loadPreviews(){
       }
     });
   }
+  } // end one-time interval/listener setup
 }
 
 function buildPrevCard(item){
@@ -721,7 +751,7 @@ function buildPrevCard(item){
   const sourceLine=isAli
     ?`<div class="prev-card-source">${aliLogoHtml()}</div>`
     :`<div class="prev-card-source">${ebayLogoHtml()}</div>`;
-  return `<a class="prev-card${isAli?' ali-card':''}" data-id="${item.itemId||''}" data-title="${(item.title||'').substring(0,30).toLowerCase()}" href="${item.url}" target="_blank" rel="noopener">
+  return `<a class="prev-card${isAli?' ali-card':''}" data-id="${item.itemId||''}" data-title="${(item.title||'').substring(0,30).toLowerCase()}" data-q="${escapeHtml(item.searchQ||'')}" href="${item.url}" target="_blank" rel="noopener">
     ${item.image
       ?`<img class="prev-card-img" src="${item.image}" alt="" loading="lazy" onerror="this.outerHTML='<div class=prev-card-ph>🛍️</div>'">`
       :`<div class="prev-card-ph">🛍️</div>`}
@@ -789,6 +819,15 @@ function refreshAliCard(slot){
 }
 
 loadPreviews();
+
+// Record interest when a user clicks a result card (strong signal) or a preview card (mild).
+document.addEventListener('click', function(e){
+  if(!e.target.closest) return;
+  const chat=e.target.closest('a.chat-card[data-q]');
+  if(chat){ noteInterest(chat.getAttribute('data-q'), true); return; }
+  const prev=e.target.closest('a.prev-card[data-q]');
+  if(prev){ noteInterest(prev.getAttribute('data-q'), false); }
+});
 
 // ── Recent Searches ───────────────────────────────────────────────────────
 function saveRecentSearch(query) {
