@@ -333,7 +333,8 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
     const srcBadge=isAli
       ?`<span style="font-size:11px;font-weight:800;color:#ff4747;font-family:'DM Sans',sans-serif">AliExpress</span>`
       :ebayLogoHtml();
-    const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,'s-l600.'):item.image;
+    const _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
+    const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
     return `<a class="chat-card" data-q="${escapeHtml(label||'')}" data-item="${escapeHtml(JSON.stringify({title:item.title,image:item.image,price:item.price,url:item.url,itemId:item.itemId,source:item.source,country:c,searchQ:label}))}" href="${item.url}" target="_blank" rel="noopener">${imgSrc?`<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" onerror="this.parentNode.querySelector('.chat-card-ph')&&(this.style.display='none')">`:`<div class="chat-card-ph">🛍️</div>`}<div class="chat-card-body"><div style="margin-bottom:5px">${srcBadge}</div><div class="chat-card-title">${item.title||''}</div><div class="chat-card-price">${price}</div><div class="chat-card-loc">${item.location||''}</div></div></a>`;
   }).join('');
   const gId='chat-grid-'+sid,bId='show-more-'+sid;
@@ -357,7 +358,8 @@ function showMoreCards(sid){
     const price=item.price?`${sym}${Number(item.price).toLocaleString()}`:'See listing';
     const isAli=item.source==='AliExpress';
     const srcBadge=isAli?`<span style="font-size:11px;font-weight:800;color:#ff4747">AliExpress</span>`:ebayLogoHtml();
-    const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,'s-l600.'):item.image;
+    const _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
+    const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
     const card=document.createElement('a');
     card.className='chat-card'; card.href=item.url; card.target='_blank'; card.rel='noopener';
     card.setAttribute('data-q', state.query||'');
@@ -398,7 +400,7 @@ async function sendMsg(){
     const res=await fetch(`${WORKER}/?chat=1`,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({messages:conversation.slice(-12)})
+      body:JSON.stringify({messages:conversation.slice(-6)})
     });
     const data=await res.json();
     removeThinking();
@@ -475,7 +477,7 @@ async function sendImageMessage(dataUrl, text){
     const res=await fetch(`${WORKER}/?vision=1`,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({imageBase64:dataUrl, msg:text||'', messages:conversation.slice(-12)})
+      body:JSON.stringify({imageBase64:dataUrl, msg:text||'', messages:conversation.slice(-6)})
     });
     const data=await res.json();
     removeThinking();
