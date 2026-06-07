@@ -235,6 +235,7 @@ function aliLogoHtml() {
 
 let busy=false, previewItems=[], previewIdx=0;
 let priorityItems=[], priorityIdx=0; // pool of search/clicked items the pinned slots cycle among
+let heroPools=[[],[],[],[]], heroIdx=[0,0,0,0], heroTick=0; // MOBILE hero row: 4 category pools that constantly refresh
 let conversation=[];
 function escapeHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
@@ -700,11 +701,20 @@ async function loadPreviews(){
   const topSearch   = (searchArrs[0] || []);        // MOST RECENT search
   const otherSearch = searchArrs.slice(1).flat();   // earlier searches
 
-  // ── HERO ROW: the first 4 cards are ALWAYS premium, curated items (this is what
-  // every social-media ad / first impression shows). Picked from the cached pool. ──
-  const pickHero=(term)=> (basePool||[]).find(i=> i && i.image && Number(i.price)>=100 && (i.searchQ||'').toLowerCase().includes(term));
-  const heroItems=[ pickHero('yeezy'), pickHero('air jordan 1'), pickHero('louis vuitton'), pickHero('rolex daytona') ].filter(Boolean);
-  const heroKeys=new Set(heroItems.map(i=>String(i.itemId||i.url)));
+  // ── HERO ROW (MOBILE ONLY): first 4 cards are fixed, constantly-refreshing premium items:
+  // slot0 Rolex Daytona, slot1 Yeezy 350, slot2 Louis Vuitton bag, slot3 Jordan 1.
+  // Desktop is left exactly as normal (no hero row, no hero refresh). ──
+  const isMobile = (typeof window!=='undefined' && window.innerWidth && window.innerWidth < 600);
+  let heroItems=[], heroKeys=new Set();
+  if(isMobile){
+    const heroPoolFor=(term)=> (basePool||[]).filter(i=> i && i.image && Number(i.price)>=100 && (i.searchQ||'').toLowerCase().includes(term));
+    heroPools=[ heroPoolFor('rolex daytona'), heroPoolFor('yeezy'), heroPoolFor('louis vuitton'), heroPoolFor('air jordan 1') ];
+    heroIdx=[0,0,0,0];
+    heroPools.forEach((pool, slot)=>{ if(pool[0]) heroItems.push({ ...pool[0], _heroSlot: slot }); });
+    heroKeys = new Set(heroItems.map(i=>String(i.itemId||i.url)));
+  } else {
+    heroPools=[[],[],[],[]]; // desktop → no hero row, refresh no-ops
+  }
 
   // PRIORITY pool = the exact clicked items + recent-search items (deduped, minus hero).
   const prioritySeen=new Set(), prioritySeenT=new Set(), priorityPool=[];
@@ -714,15 +724,13 @@ async function loadPreviews(){
     if(prioritySeen.has(i.itemId)||prioritySeenT.has(t)) continue;
     prioritySeen.add(i.itemId); prioritySeenT.add(t); priorityPool.push(i);
   }
-  const PRIORITY_VISIBLE = Math.min(4, priorityPool.length); // how many pinned slots show at once
+  const PRIORITY_VISIBLE = Math.min(4, priorityPool.length);
   const visiblePriority = priorityPool.slice(0, PRIORITY_VISIBLE);
   // HYPE pool = the base wall minus hero AND priority (no dupes).
   const hype = (basePool||[]).filter(i=> i && i.itemId && !prioritySeen.has(i.itemId) && !heroKeys.has(String(i.itemId)));
-  // Order: HERO row first (slots 0–3), then the personalised cluster, then shuffled hype.
+  // Mobile: hero row first, then personalised cluster, then hype. Desktop: personalised + hype (NORMAL).
   const ebayItems = [...heroItems, ...visiblePriority, ...shufflePool(hype)];
-  // Only the VISIBLE priority cards are pinned/protected; the rest live in the rotation pool.
   const protectedKeys = new Set(visiblePriority.map(i=>String(i.itemId||i.url)));
-  // Hand the full priority pool to the priority-rotation system.
   priorityItems = priorityPool; priorityIdx = PRIORITY_VISIBLE;
 
   // Deduplicate eBay by itemId AND title (catch same item with different IDs)
@@ -760,7 +768,7 @@ async function loadPreviews(){
   const ebayNeeded = Math.max(0, INITIAL_CARDS - aliPicks.length);
   const firstScreen = ebayUnique.slice(0, ebayNeeded).map(it => ({ it, slot: null }));
   aliPicks.forEach(p => {
-    const minPos = Math.min(4, firstScreen.length); // never the first 4 (those are the hero row)
+    const minPos = Math.min(isMobile?4:3, firstScreen.length); // mobile: keep Labubu out of the hero row; desktop: normal
     const maxPos = firstScreen.length;
     const pos = Math.floor(Math.random() * (maxPos - minPos + 1)) + minPos;
     firstScreen.splice(pos, 0, { it: p.item, slot: p.slot });
@@ -773,7 +781,7 @@ async function loadPreviews(){
   firstScreen.forEach((o, idx) => {
     if (!cardEls[idx]) return;
     if (o.slot !== null) cardEls[idx].setAttribute('data-ali-slot', String(o.slot));
-    else if (o.it && heroKeys.has(String(o.it.itemId||o.it.url))) cardEls[idx].setAttribute('data-hero','1');
+    else if (o.it && o.it._heroSlot!==undefined){ cardEls[idx].setAttribute('data-hero','1'); cardEls[idx].setAttribute('data-hero-slot', String(o.it._heroSlot)); }
     else if (o.it && protectedKeys.has(String(o.it.itemId||o.it.url))) cardEls[idx].setAttribute('data-pinned','1');
   });
 
@@ -783,6 +791,7 @@ async function loadPreviews(){
   _homeIntervalsSet=true;
   setInterval(rotatePrev, 6500);                 // rotate the eBay (hype) cards
   setInterval(rotatePriority, 9000);             // refresh the pinned cards AMONG priority items
+  setInterval(rotateHero, 2500);                 // MOBILE: constantly refresh the 4 hero slots (no-op on desktop)
   // Refresh the single AliExpress card (slot 0 = Labubu) on its own interval.
   if (grid.querySelector('.prev-card.ali-card[data-ali-slot="0"]')) setTimeout(() => setInterval(refreshAliCard(0), 16000),  4000);
   setInterval(fetchAliPools, 180000);            // refresh the pools every 3 min
@@ -839,6 +848,24 @@ function buildPrevCard(item){
       :`<div class="prev-card-ph">🛍️</div>`}
     <div class="prev-card-body">${sourceLine}<div class="prev-card-title">${title}</div><div class="prev-card-price">${price}</div></div>
   </a>`;
+}
+
+function rotateHero(){
+  // MOBILE hero row: each slot constantly refreshes through different listings of ITS item.
+  const grid=document.getElementById('preview-grid'); if(!grid) return;
+  const slot=heroTick%4; heroTick++;
+  const pool=heroPools[slot]; if(!pool||pool.length<2) return;
+  const card=grid.querySelector('.prev-card[data-hero-slot="'+slot+'"]:not(.fade-out)');
+  if(!card) return;
+  heroIdx[slot]=(heroIdx[slot]+1)%pool.length;
+  const item=pool[heroIdx[slot]];
+  card.classList.add('fade-out');
+  setTimeout(()=>{
+    const tmp=document.createElement('div'); tmp.innerHTML=buildPrevCard(item);
+    const nc=tmp.firstElementChild;
+    nc.setAttribute('data-hero','1'); nc.setAttribute('data-hero-slot', String(slot));
+    card.replaceWith(nc);
+  },500);
 }
 
 function rotatePriority(){
