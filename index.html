@@ -788,12 +788,14 @@ function buildPrevCard(item){
   const price=item.price?`${sym}${Number(item.price).toLocaleString()}`:'';
   const title=(item.title||'').substring(0,38)+((item.title||'').length>38?'…':'');
   const isAli=item._isAli||item.source==='AliExpress';
+  // Grid tiles are small — load a light thumbnail (eBay s-l300) instead of the full image → faster.
+  const thumb = (item.image && !isAli) ? item.image.replace(/s-l\d+\./,'s-l300.') : item.image;
   const sourceLine=isAli
     ?`<div class="prev-card-source">${aliLogoHtml()}</div>`
     :`<div class="prev-card-source">${ebayLogoHtml()}</div>`;
   return `<a class="prev-card${isAli?' ali-card':''}" data-id="${item.itemId||''}" data-title="${(item.title||'').substring(0,30).toLowerCase()}" data-q="${escapeHtml(item.searchQ||'')}" href="${item.url}" target="_blank" rel="noopener">
-    ${item.image
-      ?`<img class="prev-card-img" src="${item.image}" alt="" loading="lazy" onerror="this.outerHTML='<div class=prev-card-ph>🛍️</div>'">`
+    ${thumb
+      ?`<img class="prev-card-img" src="${thumb}" alt="" loading="lazy" onerror="this.outerHTML='<div class=prev-card-ph>🛍️</div>'">`
       :`<div class="prev-card-ph">🛍️</div>`}
     <div class="prev-card-body">${sourceLine}<div class="prev-card-title">${title}</div><div class="prev-card-price">${price}</div></div>
   </a>`;
