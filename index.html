@@ -305,6 +305,15 @@ function parseQuery(text){
   return{q:cleaned,maxPrice,country:c};
 }
 
+// Decide if a query is a product search (fast, no AI) or a real question (use the AI).
+function isProductSearch(t){
+  const s=(t||'').trim().toLowerCase();
+  if(/\b(find|buy|get|looking for|search for|need|want|show me|locate|source|cop|grab)\b/.test(s)) return true; // explicit shopping
+  if(s.endsWith('?')) return false;                                                                            // a question
+  if(/^(what|why|how|who|when|is|are|am|can|could|would|should|does|do|did|tell me|explain|help|hi|hello|hey|thanks|thank|ok|okay)\b/.test(s)) return false; // chit-chat / question
+  return true;                                                                                                  // default on a shopping tool → product search
+}
+
 const PAGE_SIZE=40; let searchCount=0; const searchStates={};
 
 function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
@@ -396,6 +405,27 @@ async function sendMsg(){
   inp.value=''; inp.style.height='auto';
   showChat(); addMsg('user',escapeHtml(q)); addThinking();
   conversation.push({role:'user',content:q});
+
+  // ⚡ FAST PATH: a product search skips the AI entirely and hits the cached search directly.
+  if(isProductSearch(q)){
+    try{
+      const parsed=parseQuery(q);
+      const kw=parsed.q||q;
+      const res=await fetch(`${WORKER}/?q=${encodeURIComponent(kw)}&maxPrice=${encodeURIComponent(parsed.maxPrice||'')}`);
+      const data=await res.json();
+      removeThinking();
+      const c=data.country||country;
+      const items=Array.isArray(data.items)?data.items:[];
+      const cardsHtml=items.length?renderCards(items,kw,'',parsed.maxPrice||'',c,data.ebayCount||0,0,false):'';
+      conversation.push({role:'assistant',content:'(showed results for '+kw+')'});
+      const body=addMsg('assistant','');
+      typeReply(body, items.length?'':"Couldn't find that one — try different words?", cardsHtml);
+      setTimeout(()=>{const inner=document.getElementById('messages-inner');const u=inner?inner.querySelectorAll('.msg.user'):[];if(u.length)u[u.length-1].scrollIntoView({behavior:'smooth',block:'start'});},150);
+    }catch(e){removeThinking();addMsg('assistant','Sorry, the search hiccupped — try again?');}
+    busy=false; document.getElementById('send-btn').disabled=false; inp.focus();
+    return;
+  }
+
   try{
     const res=await fetch(`${WORKER}/?chat=1`,{
       method:'POST',
