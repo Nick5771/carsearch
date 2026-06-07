@@ -598,11 +598,13 @@ async function loadPreviews(){
       <div class="skel" style="height:11px;width:35%"></div>
     </div></div>`).join('');
 
-  // Fetch the AliExpress featured pools AND the eBay previews together
-  const shuffled=[...PREVIEWS].sort(()=>Math.random()-0.5);
+  // The eBay preview pool now comes from ONE edge-cached worker call (?previews=1)
+  // instead of 16 live searches → near-instant. Shuffle client-side for per-visit freshness.
+  const shufflePool = a => a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(z=>z[1]);
+  const shuffled=[...PREVIEWS].sort(()=>Math.random()-0.5); // still used by the padding + infinite-scroll fetches below
   const [, ebayItems] = await Promise.all([
     fetchAliPools(),
-    fetchPreviewBatch(shuffled.slice(0, 16)),
+    fetch(`${WORKER}/?previews=1`).then(r=>r.json()).then(d=>shufflePool(d.items||[])).catch(()=>[]),
   ]);
 
   // Deduplicate eBay by itemId AND title (catch same item with different IDs)
