@@ -332,7 +332,7 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
       ?`<span style="font-size:11px;font-weight:800;color:#ff4747;font-family:'DM Sans',sans-serif">AliExpress</span>`
       :ebayLogoHtml();
     const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,'s-l600.'):item.image;
-    return `<a class="chat-card" data-q="${escapeHtml(label||'')}" href="${item.url}" target="_blank" rel="noopener">${imgSrc?`<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" onerror="this.parentNode.querySelector('.chat-card-ph')&&(this.style.display='none')">`:`<div class="chat-card-ph">🛍️</div>`}<div class="chat-card-body"><div style="margin-bottom:5px">${srcBadge}</div><div class="chat-card-title">${item.title||''}</div><div class="chat-card-price">${price}</div><div class="chat-card-loc">${item.location||''}</div></div></a>`;
+    return `<a class="chat-card" data-q="${escapeHtml(label||'')}" data-item="${escapeHtml(JSON.stringify({title:item.title,image:item.image,price:item.price,url:item.url,itemId:item.itemId,source:item.source,country:c,searchQ:label}))}" href="${item.url}" target="_blank" rel="noopener">${imgSrc?`<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" onerror="this.parentNode.querySelector('.chat-card-ph')&&(this.style.display='none')">`:`<div class="chat-card-ph">🛍️</div>`}<div class="chat-card-body"><div style="margin-bottom:5px">${srcBadge}</div><div class="chat-card-title">${item.title||''}</div><div class="chat-card-price">${price}</div><div class="chat-card-loc">${item.location||''}</div></div></a>`;
   }).join('');
   const gId='chat-grid-'+sid,bId='show-more-'+sid;
   const rem0=items.length-searchStates[sid].shown;
@@ -358,6 +358,8 @@ function showMoreCards(sid){
     const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,'s-l600.'):item.image;
     const card=document.createElement('a');
     card.className='chat-card'; card.href=item.url; card.target='_blank'; card.rel='noopener';
+    card.setAttribute('data-q', state.query||'');
+    card.setAttribute('data-item', JSON.stringify({title:item.title,image:item.image,price:item.price,url:item.url,itemId:item.itemId,source:item.source,country:country,searchQ:state.query||''}));
     card.innerHTML=(imgSrc?`<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy">`:
       `<div class="chat-card-ph">🛍️</div>`)+
       `<div class="chat-card-body"><div style="margin-bottom:5px">${srcBadge}</div><div class="chat-card-title">${item.title||''}</div><div class="chat-card-price">${price}</div><div class="chat-card-loc">${item.location||''}</div></div>`;
@@ -612,6 +614,19 @@ function fetchInterestItems(q, n){
       .slice(0,n).map(i=>({...i, searchQ:q})))
     .catch(()=>[]);
 }
+// Store the EXACT items the user clicked, so they always reappear on the homepage.
+function saveClickedItem(item){
+  if(!item||!item.url) return;
+  let list=[]; try{ list=JSON.parse(localStorage.getItem('findai_clicked')||'[]'); }catch(_){}
+  list=list.filter(x=>x && x.url!==item.url); // dedupe by url, move to front
+  list.unshift(item);
+  list=list.slice(0,6);
+  try{ localStorage.setItem('findai_clicked', JSON.stringify(list)); }catch(_){}
+}
+function clickedItems(n){
+  let list=[]; try{ list=JSON.parse(localStorage.getItem('findai_clicked')||'[]'); }catch(_){}
+  return list.slice(0,n).filter(Boolean);
+}
 
 let _homeIntervalsSet=false;
 async function loadPreviews(){
@@ -632,22 +647,26 @@ async function loadPreviews(){
   const shufflePool = a => a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(z=>z[1]);
   const shuffled=[...PREVIEWS].sort(()=>Math.random()-0.5); // still used by the padding + infinite-scroll fetches below
 
-  // Personalise from tracked INTERESTS (searches + clicks). The strongest interest's
-  // items go to the FRONT (the "2–3 Lego Harry Potter" cluster); the rest are blended.
-  const interests = topInterests(3);
-  const interestFetch = interests.length
-    ? Promise.all(interests.map((q,idx)=> fetchInterestItems(q, idx===0?3:2)))
+  // Personalise by RECENCY: the most recent searches drive the cluster, and the EXACT
+  // items the user clicked are pinned in. So each new search updates the homepage, and
+  // whatever they clicked always shows.
+  let recents=[];
+  try{ recents=JSON.parse(localStorage.getItem('findai_recents')||'[]'); }catch(_){}
+  recents=recents.slice(0,3);
+  const pinned = clickedItems(3); // exact items the user clicked → always shown
+  const searchFetch = recents.length
+    ? Promise.all(recents.map((q,idx)=> fetchInterestItems(q, idx===0?3:2)))
     : Promise.resolve([]);
 
-  const [, basePool, interestArrs] = await Promise.all([
+  const [, basePool, searchArrs] = await Promise.all([
     fetchAliPools(),
     fetch(`${WORKER}/?previews=1`).then(r=>r.json()).then(d=>d.items||[]).catch(()=>[]),
-    interestFetch,
+    searchFetch,
   ]);
-  const topItems   = (interestArrs[0] || []);          // strongest interest → front cluster
-  const otherItems = interestArrs.slice(1).flat();     // other interests → blended in
-  // Front cluster first, then a fresh shuffle of everything else.
-  const ebayItems = [...topItems, ...shufflePool([...otherItems, ...basePool])];
+  const topSearch   = (searchArrs[0] || []);        // MOST RECENT search → front cluster
+  const otherSearch = searchArrs.slice(1).flat();   // earlier searches → blended in
+  // Most-recent-search cluster + the exact clicked items lead; then a fresh shuffle of the rest.
+  const ebayItems = [...topSearch, ...pinned, ...shufflePool([...otherSearch, ...basePool])];
 
   // Deduplicate eBay by itemId AND title (catch same item with different IDs)
   const seen = new Set();
@@ -820,11 +839,16 @@ function refreshAliCard(slot){
 
 loadPreviews();
 
-// Record interest when a user clicks a result card (strong signal) or a preview card (mild).
+// Record interest when a user clicks a result card (and pin the EXACT item) or a preview card.
 document.addEventListener('click', function(e){
   if(!e.target.closest) return;
-  const chat=e.target.closest('a.chat-card[data-q]');
-  if(chat){ noteInterest(chat.getAttribute('data-q'), true); return; }
+  const chat=e.target.closest('a.chat-card');
+  if(chat){
+    const q=chat.getAttribute('data-q'); if(q) noteInterest(q, true);
+    const raw=chat.getAttribute('data-item');
+    if(raw){ try{ saveClickedItem(JSON.parse(raw)); }catch(_){} }
+    return;
+  }
   const prev=e.target.closest('a.prev-card[data-q]');
   if(prev){ noteInterest(prev.getAttribute('data-q'), false); }
 });
