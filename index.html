@@ -12,11 +12,11 @@
   gtag('js', new Date());
   gtag('config', 'G-SRSCS0W200');
 </script>
-<title>FindAI: Search eBay &amp; AliExpress Instantly</title>
-<meta name="description" content="FindAI is your AI market searcher that instantly browses billions of listings on eBay and AliExpress, and Amazon coming soon.">
+<title>FindAI - Search eBay &amp; AliExpress Instantly</title>
+<meta name="description" content="FindAI is an AI-powered shopping search that finds real eBay and AliExpress listings instantly. Just describe what you want — sneakers, watches, collectibles, fashion, tech and more.">
 <meta name="keywords" content="AI search, eBay search, AliExpress search, find anything, AI shopping, buy cars, find watches, find sneakers">
-<meta property="og:title" content="FindAI: Search eBay &amp; AliExpress Instantly"/>
-<meta property="og:description" content="FindAI is your AI market searcher that instantly browses billions of listings on eBay and AliExpress, and Amazon coming soon."/>
+<meta property="og:title" content="FindAI - Search eBay &amp; AliExpress Instantly"/>
+<meta property="og:description" content="FindAI is an AI-powered shopping search that finds real eBay and AliExpress listings instantly. Just describe what you want — sneakers, watches, collectibles, fashion, tech and more."/>
 <meta property="og:url" content="https://findai.au"/>
 <meta property="og:type" content="website"/>
 <link rel="canonical" href="https://findai.au"/>
@@ -417,6 +417,7 @@ async function sendMsg(){
       removeThinking();
       const c=data.country||country;
       const items=Array.isArray(data.items)?data.items:[];
+      saveSearchedItems(items, kw);
       const cardsHtml=items.length?renderCards(items,kw,'',parsed.maxPrice||'',c,data.ebayCount||0,0,false):'';
       conversation.push({role:'assistant',content:'(showed results for '+kw+')'});
       const body=addMsg('assistant','');
@@ -443,6 +444,7 @@ async function sendMsg(){
     if(hasItems){
       const lbl=(data.search&&data.search.query)||q;
       const mp=(data.search&&data.search.maxPrice)||'';
+      saveSearchedItems(data.items, lbl);
       cardsHtml=renderCards(data.items,lbl,'',mp,c,(data.meta&&data.meta.ebayCount)||0,(data.meta&&data.meta.etsyCount)||0,true);
     }
     const body=addMsg('assistant','');
@@ -517,6 +519,7 @@ async function sendImageMessage(dataUrl, text){
     const hasItems=Array.isArray(data.items)&&data.items.length>0;
     conversation.push({role:'user',content:text||(data.query?`find ${data.query}`:'uploaded an image')});
     conversation.push({role:'assistant',content:reply||(data.query?`Here's what I found for ${data.query}.`:'')});
+    if(hasItems)saveSearchedItems(data.items, data.query||'');
     let cardsHtml=hasItems?renderCards(data.items,data.query||'image','','',c,(data.meta&&data.meta.ebayCount)||0,(data.meta&&data.meta.etsyCount)||0,true):'';
     const body=addMsg('assistant','');
     typeReply(body, reply||(hasItems?'':"I couldn't find a match for that image — try a clearer photo of the item."), cardsHtml);
@@ -662,6 +665,23 @@ function clickedItems(n){
   let list=[]; try{ list=JSON.parse(localStorage.getItem('findai_clicked')||'[]'); }catch(_){}
   return list.slice(0,n).filter(Boolean);
 }
+// Persist the actual ITEMS from every search so they STAY on the homepage and cycle
+// among each other (instead of vanishing once the search drops off the recent list).
+function saveSearchedItems(items, q){
+  if(!Array.isArray(items)||!items.length) return;
+  let list=[]; try{ list=JSON.parse(localStorage.getItem('findai_searched')||'[]'); }catch(_){}
+  const picks=items.filter(i=>i&&i.url&&i.image&&i.source==='eBay')
+    .slice(0,6).map(i=>({title:i.title,image:i.image,price:i.price,url:i.url,itemId:i.itemId,source:i.source,searchQ:q||''}));
+  if(!picks.length) return;
+  const urls=new Set(picks.map(p=>p.url));
+  list=list.filter(x=>x&&!urls.has(x.url));
+  list=[...picks, ...list].slice(0,24); // most-recent search first, keep last ~24 items
+  try{ localStorage.setItem('findai_searched', JSON.stringify(list)); }catch(_){}
+}
+function searchedItems(n){
+  let list=[]; try{ list=JSON.parse(localStorage.getItem('findai_searched')||'[]'); }catch(_){}
+  return list.slice(0,n).filter(Boolean);
+}
 
 let _homeIntervalsSet=false;
 async function loadPreviews(){
@@ -682,24 +702,18 @@ async function loadPreviews(){
   const shufflePool = a => a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(z=>z[1]);
   const shuffled=[...PREVIEWS].sort(()=>Math.random()-0.5); // still used by the padding + infinite-scroll fetches below
 
-  // Personalise by RECENCY: the most recent searches drive the cluster, and the EXACT
-  // items the user clicked are pinned in. So each new search updates the homepage, and
-  // whatever they clicked always shows.
-  let recents=[];
-  try{ recents=JSON.parse(localStorage.getItem('findai_recents')||'[]'); }catch(_){}
-  recents=recents.slice(0,3);
-  const pinned = clickedItems(3); // exact items the user clicked → always shown
-  const searchFetch = recents.length
-    ? Promise.all(recents.map((q,idx)=> fetchInterestItems(q, idx===0?8:3)))
-    : Promise.resolve([]);
+  // Personalise from PERSISTED history: the exact items the user clicked + the items from
+  // every search they've done. These STAY on the homepage and cycle among each other —
+  // nothing vanishes when a search drops off the recent list. (No live re-fetch = faster.)
+  const pinned   = clickedItems(4);   // exact items the user clicked
+  const searched = searchedItems(20); // items from past searches (most recent first)
 
-  const [, basePool, searchArrs] = await Promise.all([
+  const [, basePool] = await Promise.all([
     fetchAliPools(),
     fetch(`${WORKER}/?previews=1`).then(r=>r.json()).then(d=>d.items||[]).catch(()=>[]),
-    searchFetch,
   ]);
-  const topSearch   = (searchArrs[0] || []);        // MOST RECENT search
-  const otherSearch = searchArrs.slice(1).flat();   // earlier searches
+  const topSearch   = searched;       // persisted searched items (most recent first)
+  const otherSearch = [];             // (everything lives in topSearch now)
 
   // ── HERO ROW (MOBILE ONLY): first 4 cards are fixed, constantly-refreshing premium items:
   // slot0 Rolex Daytona, slot1 Yeezy 350, slot2 Louis Vuitton bag, slot3 Jordan 1.
