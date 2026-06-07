@@ -234,6 +234,7 @@ function aliLogoHtml() {
 }
 
 let busy=false, previewItems=[], previewIdx=0;
+let priorityItems=[], priorityIdx=0; // pool of search/clicked items the pinned slots cycle among
 let conversation=[];
 function escapeHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
@@ -655,7 +656,7 @@ async function loadPreviews(){
   recents=recents.slice(0,3);
   const pinned = clickedItems(3); // exact items the user clicked → always shown
   const searchFetch = recents.length
-    ? Promise.all(recents.map((q,idx)=> fetchInterestItems(q, idx===0?3:2)))
+    ? Promise.all(recents.map((q,idx)=> fetchInterestItems(q, idx===0?8:3)))
     : Promise.resolve([]);
 
   const [, basePool, searchArrs] = await Promise.all([
@@ -663,12 +664,27 @@ async function loadPreviews(){
     fetch(`${WORKER}/?previews=1`).then(r=>r.json()).then(d=>d.items||[]).catch(()=>[]),
     searchFetch,
   ]);
-  const topSearch   = (searchArrs[0] || []);        // MOST RECENT search → front cluster
-  const otherSearch = searchArrs.slice(1).flat();   // earlier searches → blended in
-  // Most-recent-search cluster + the exact clicked items lead; then a fresh shuffle of the rest.
-  const ebayItems = [...topSearch, ...pinned, ...shufflePool([...otherSearch, ...basePool])];
-  // These personalised items must NOT be rotated away — protect them.
-  const protectedKeys = new Set([...topSearch, ...pinned].filter(Boolean).map(i=>String(i.itemId||i.url)));
+  const topSearch   = (searchArrs[0] || []);        // MOST RECENT search
+  const otherSearch = searchArrs.slice(1).flat();   // earlier searches
+  // PRIORITY pool = the exact clicked items + recent-search items (deduped). The pinned
+  // slots refresh AMONG these only → looks alive, always relevant, never random hype.
+  const prioritySeen=new Set(), prioritySeenT=new Set(), priorityPool=[];
+  for(const i of [...pinned, ...topSearch, ...otherSearch]){
+    if(!i||!i.itemId||!i.image) continue;
+    const t=(i.title||'').substring(0,30).toLowerCase();
+    if(prioritySeen.has(i.itemId)||prioritySeenT.has(t)) continue;
+    prioritySeen.add(i.itemId); prioritySeenT.add(t); priorityPool.push(i);
+  }
+  const PRIORITY_VISIBLE = Math.min(4, priorityPool.length); // how many pinned slots show at once
+  const visiblePriority = priorityPool.slice(0, PRIORITY_VISIBLE);
+  // HYPE pool = the base wall minus anything already in the priority pool (no dupes).
+  const hype = (basePool||[]).filter(i=> i && i.itemId && !prioritySeen.has(i.itemId));
+  // Grid order: the visible priority cluster first, then a fresh shuffle of hype.
+  const ebayItems = [...visiblePriority, ...shufflePool(hype)];
+  // Only the VISIBLE priority cards are pinned/protected; the rest live in the rotation pool.
+  const protectedKeys = new Set(visiblePriority.map(i=>String(i.itemId||i.url)));
+  // Hand the full priority pool to the priority-rotation system.
+  priorityItems = priorityPool; priorityIdx = PRIORITY_VISIBLE;
 
   // Deduplicate eBay by itemId AND title (catch same item with different IDs)
   const seen = new Set();
@@ -692,9 +708,9 @@ async function loadPreviews(){
     ebayUnique = [...ebayUnique, ...extraUnique];
   }
 
-  // eBay pool drives the rotating slots (reset so repeated builds don't grow it)
+  // eBay pool drives the general (hype) rotation — exclude priority items, reset each build.
   previewItems.length = 0;
-  previewItems.push(...ebayUnique);
+  previewItems.push(...ebayUnique.filter(i=>!prioritySeen.has(i.itemId)));
 
   // Build grid: eBay ALWAYS fills the first 3 slots; ONE AliExpress featured item
   // (slot 0 = Labubu) gets inserted at a RANDOM position after slot 3 — looks organic.
@@ -725,7 +741,8 @@ async function loadPreviews(){
 
   if(!_homeIntervalsSet){
   _homeIntervalsSet=true;
-  setInterval(rotatePrev, 6500);                 // rotate the eBay cards (slower)
+  setInterval(rotatePrev, 6500);                 // rotate the eBay (hype) cards
+  setInterval(rotatePriority, 9000);             // refresh the pinned cards AMONG priority items
   // Refresh the single AliExpress card (slot 0 = Labubu) on its own interval.
   if (grid.querySelector('.prev-card.ali-card[data-ali-slot="0"]')) setTimeout(() => setInterval(refreshAliCard(0), 16000),  4000);
   setInterval(fetchAliPools, 180000);            // refresh the pools every 3 min
@@ -780,6 +797,31 @@ function buildPrevCard(item){
       :`<div class="prev-card-ph">🛍️</div>`}
     <div class="prev-card-body">${sourceLine}<div class="prev-card-title">${title}</div><div class="prev-card-price">${price}</div></div>
   </a>`;
+}
+
+function rotatePriority(){
+  if(priorityItems.length < 2) return;
+  const grid=document.getElementById('preview-grid'); if(!grid) return;
+  const pinnedCards=Array.from(grid.querySelectorAll('.prev-card[data-pinned]:not(.fade-out)'));
+  if(!pinnedCards.length) return;
+  const visibleIds=new Set(Array.from(grid.querySelectorAll('.prev-card[data-id]')).map(c=>c.dataset.id));
+  // Find a priority item that isn't currently on screen.
+  let item=null, tries=0;
+  while(tries<priorityItems.length){
+    const cand=priorityItems[priorityIdx%priorityItems.length];
+    priorityIdx++; tries++;
+    if(cand && !visibleIds.has(String(cand.itemId))){ item=cand; break; }
+  }
+  if(!item) return; // nothing fresh in the priority pool right now → leave slots as-is
+  const card=pinnedCards[Math.floor(Math.random()*pinnedCards.length)];
+  card.classList.add('fade-out');
+  setTimeout(()=>{
+    const tmp=document.createElement('div');
+    tmp.innerHTML=buildPrevCard(item);
+    const nc=tmp.firstElementChild;
+    nc.setAttribute('data-pinned','1'); // stays a priority slot
+    card.replaceWith(nc);
+  },500);
 }
 
 function rotatePrev(){
