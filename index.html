@@ -339,14 +339,15 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
   const top=items.slice(0,searchStates[sid].shown);
   const totalFound=ebayCount+etsyCount;
   const displayCount=totalFound>0?totalFound:items.length;
+  const displayCountFmt=Number(displayCount).toLocaleString();
   let summary='';
   if(label){
     const lc=label.charAt(0).toUpperCase()+label.slice(1);
     summary=`Here's what I found for <strong>${lc}</strong>`;
     if(maxPrice)summary+=` under ${sym}${Number(maxPrice).toLocaleString()}`;
-    summary+=` <span style="color:#666;font-size:12px">(${displayCount} listings · showing ${searchStates[sid].shown})</span>`;
+    summary+=` <span style="color:#666;font-size:12px">(${displayCountFmt} listings · showing ${searchStates[sid].shown})</span>`;
   }else{
-    summary=`Found <strong>${displayCount} listing${displayCount!==1?'s':''}</strong>`;
+    summary=`Found <strong>${displayCountFmt} listing${displayCount!==1?'s':''}</strong>`;
     if(maxPrice)summary+=` under ${sym}${Number(maxPrice).toLocaleString()}`;
     summary+=` <span style="color:#666;font-size:12px">· showing ${searchStates[sid].shown}</span>`;
   }
