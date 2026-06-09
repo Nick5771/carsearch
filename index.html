@@ -271,12 +271,14 @@ function togglePlusMenu(e){if(e)e.stopPropagation();const m=document.getElementB
 function pickImageFromMenu(){const m=document.getElementById('plus-menu');if(m)m.classList.remove('open');document.getElementById('img-input').click();}
 document.addEventListener('click',function(e){const m=document.getElementById('plus-menu');if(m&&m.classList.contains('open')&&!e.target.closest('.plus-wrap'))m.classList.remove('open');});
 function typeReply(bodyEl,replyText,cardsHtml){
+  const text=String(replyText||'');
   const p=document.createElement('p');
   p.style.cssText='font-size:15px;color:#f0f0f0;line-height:1.55;margin:0;padding:0 2px;white-space:pre-wrap';
-  bodyEl.appendChild(p);
-  const text=String(replyText||'');
+  // Only add the reply paragraph when there's actual text — an empty <p> would
+  // push the result heading down and break its alignment with the avatar circle.
+  if(text){ p.style.margin = cardsHtml ? '0 0 12px' : '0'; bodyEl.appendChild(p); }
   // Show the result cards IMMEDIATELY — don't wait for the reply to finish typing.
-  if(cardsHtml){ p.style.margin='0 0 12px'; const slot=document.createElement('div'); slot.innerHTML=cardsHtml; bodyEl.appendChild(slot); }
+  if(cardsHtml){ const slot=document.createElement('div'); slot.innerHTML=cardsHtml; bodyEl.appendChild(slot); }
   if(!text){ return; }
   let i=0; const step=3, speed=10;
   (function tick(){
@@ -345,11 +347,10 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
     const lc=label.charAt(0).toUpperCase()+label.slice(1);
     summary=`Here's what I found for <strong>${lc}</strong>`;
     if(maxPrice)summary+=` under ${sym}${Number(maxPrice).toLocaleString()}`;
-    summary+=` <span style="color:#666;font-size:12px">(${displayCountFmt} listings · showing ${searchStates[sid].shown})</span>`;
+    summary+=` <span style="color:#666;font-size:12px">(${displayCountFmt} listings)</span>`;
   }else{
     summary=`Found <strong>${displayCountFmt} listing${displayCount!==1?'s':''}</strong>`;
     if(maxPrice)summary+=` under ${sym}${Number(maxPrice).toLocaleString()}`;
-    summary+=` <span style="color:#666;font-size:12px">· showing ${searchStates[sid].shown}</span>`;
   }
   if(quiet)summary='';
   const cards=top.map(item=>{
