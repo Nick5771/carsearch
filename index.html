@@ -13,10 +13,10 @@
   gtag('config', 'G-SRSCS0W200');
 </script>
 <title>FindAI - Search eBay &amp; AliExpress Instantly</title>
-<meta name="description" content="FindAI is an AI-powered shopping search that finds real eBay and AliExpress listings instantly. Just describe what you want — sneakers, watches, collectibles, fashion, tech and more.">
+<meta name="description" content="FindAI is an AI-powered shopping search that finds real listings instantly. Describe what you want — or snap a photo — and FindAI searches eBay and AliExpress for you. The smartest way to find sneakers, watches, Lego, collectibles, tech and more.">
 <meta name="keywords" content="AI search, eBay search, AliExpress search, find anything, AI shopping, buy cars, find watches, find sneakers">
 <meta property="og:title" content="FindAI - Search eBay &amp; AliExpress Instantly"/>
-<meta property="og:description" content="FindAI is an AI-powered shopping search that finds real eBay and AliExpress listings instantly. Just describe what you want — sneakers, watches, collectibles, fashion, tech and more."/>
+<meta property="og:description" content="FindAI is an AI-powered shopping search that finds real listings instantly. Describe what you want — or snap a photo — and FindAI searches eBay and AliExpress for you. The smartest way to find sneakers, watches, Lego, collectibles, tech and more."/>
 <meta property="og:url" content="https://findai.au"/>
 <meta property="og:type" content="website"/>
 <link rel="canonical" href="https://findai.au"/>
@@ -124,7 +124,8 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 #brand-bar{display:none}
 @media(max-width:700px){
   .sidebar{display:none}
-  nav{position:fixed;top:0;left:0;right:0;height:52px;z-index:9999;background:#000;border-bottom:1px solid #1a1a1a}
+  nav{position:fixed;top:0;left:0;right:0;height:52px;z-index:9999;background:#000;border-bottom:1px solid #1a1a1a;justify-content:flex-end}
+  .nav-logo{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:28px}
   .app{height:calc(100dvh - 52px);margin-top:52px}
   .chat{height:calc(100dvh - 52px);overflow:hidden;display:flex;flex-direction:column}
   .messages{flex:1;overflow-y:auto;padding:12px 4px 300px;-webkit-overflow-scrolling:touch}
@@ -315,7 +316,19 @@ function isProductSearch(t){
   return true;                                                                                                  // default on a shopping tool → product search
 }
 
-const PAGE_SIZE=40; let searchCount=0; const searchStates={};
+const PAGE_SIZE=16; let searchCount=0; const searchStates={};
+// Build an EPN-TRACKED eBay search URL (so "Search for more" still earns commission).
+function ebaySearchUrl(query){
+  const MKRID={US:'711-53200-19255-0',AU:'705-53470-19255-0',UK:'710-53481-19255-0',DE:'707-53477-19255-0'};
+  const DOMAIN={US:'www.ebay.com',AU:'www.ebay.com.au',UK:'www.ebay.co.uk',DE:'www.ebay.de'};
+  const c=(country||'US');
+  const params=new URLSearchParams({
+    _nkw: query||'', mkevt:'1', mkcid:'1',
+    mkrid:(MKRID[c]||MKRID.US), campid:'5339155260', toolid:'10001',
+    customid:'findai_'+c.toLowerCase()
+  });
+  return `https://${(DOMAIN[c]||DOMAIN.US)}/sch/i.html?${params.toString()}`;
+}
 
 function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
   const sym=c==='UK'?'£':c==='DE'?'€':'$';
@@ -382,7 +395,7 @@ function showMoreCards(sid){
   if(btnWrap){
     const rem=state.items.length-state.shown;
     const b=btnWrap.querySelector('button');
-    if(rem<=0){if(b){b.textContent='Search for more';b.onclick=function(){window.open('https://www.ebay.com.au/sch/i.html?_nkw='+encodeURIComponent(state.query||''),'_blank');}}}
+    if(rem<=0){if(b){b.textContent='Search for more';b.onclick=function(){window.open(ebaySearchUrl(state.query||''),'_blank');}}}
     else{if(b)b.textContent='Show more';}
   }
 }
