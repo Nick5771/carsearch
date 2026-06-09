@@ -124,9 +124,9 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 #brand-bar{display:none}
 @media(max-width:700px){
   .sidebar{display:none}
-  nav{position:fixed;top:0;left:0;right:0;height:52px;z-index:9999;background:#000;border-bottom:1px solid #1a1a1a;justify-content:flex-end}
+  nav{position:fixed;top:0;left:0;right:0;height:52px;z-index:9999;background:#000;border-bottom:1px solid #1a1a1a}
   .nav-logo{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:28px}
-  #nav-new{display:none}
+  .nav-links{width:100%;justify-content:space-between}
   .app{height:calc(100dvh - 52px);margin-top:52px}
   .chat{height:calc(100dvh - 52px);overflow:hidden;display:flex;flex-direction:column}
   .messages{flex:1;overflow-y:auto;padding:12px 4px 300px;-webkit-overflow-scrolling:touch}
@@ -314,8 +314,8 @@ function parseQuery(text){
 function isProductSearch(t){
   const s=(t||'').trim().toLowerCase();
   if(/\b(find|buy|get|looking for|search for|need|want|show me|locate|source|cop|grab)\b/.test(s)) return true; // explicit shopping
-  if(s.endsWith('?')) return false;                                                                            // a question
-  if(/^(what|why|how|who|when|is|are|am|can|could|would|should|does|do|did|tell me|explain|help|hi|hello|hey|thanks|thank|ok|okay)\b/.test(s)) return false; // chit-chat / question
+  if(s.includes('?')) return false;                                                                           // a question
+  if(/^((what|why|how|who|whom|when|where|which)('?s)?|is|are|am|was|were|can|could|would|should|do|does|did|will|tell me|explain|help|define|calculate|hi|hello|hey|thanks|thank|ok|okay)\b/.test(s)) return false; // chit-chat / question
   return true;                                                                                                  // default on a shopping tool → product search
 }
 
