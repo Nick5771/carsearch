@@ -138,6 +138,12 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
   nav{position:fixed;top:0;left:0;right:0;height:52px;z-index:9999;background:#000;border-bottom:1px solid #1a1a1a}
   .nav-logo{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:28px}
   .nav-links{display:none}
+  /* logged-out: show only Log in, pinned right, as a white box */
+  #nav-auth-out{display:flex;position:absolute;right:12px;top:50%;transform:translateY(-50%)}
+  #nav-auth-out .nav-cta{display:none}
+  #nav-auth-out .nav-secondary{display:inline-flex;background:#fff;color:#000;border:none;font-weight:600}
+  /* logged-in: show avatar, pinned right */
+  #nav-auth-in{display:none;position:absolute;right:12px;top:50%;transform:translateY(-50%)}
   .app{height:calc(100dvh - 52px);margin-top:52px}
   .chat{height:calc(100dvh - 52px);overflow:hidden;display:flex;flex-direction:column}
   .messages{flex:1;overflow-y:auto;padding:12px 4px 300px;-webkit-overflow-scrolling:touch}
@@ -1086,7 +1092,15 @@ function updateAuthUI(user){
   if(user && user.email){
     out.style.display='none'; inn.style.display='flex';
     const av = document.getElementById('nav-avatar');
-    av.textContent = (user.name||user.email)[0].toUpperCase();
+    if(user.picture){
+      av.style.backgroundImage = 'url("'+user.picture+'")';
+      av.style.backgroundSize = 'cover';
+      av.style.backgroundPosition = 'center';
+      av.textContent = '';
+    } else {
+      av.style.backgroundImage = '';
+      av.textContent = (user.name||user.email)[0].toUpperCase();
+    }
     av.title = 'Log out ('+user.email+')';
   } else {
     out.style.display='flex'; inn.style.display='none';
