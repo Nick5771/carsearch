@@ -288,6 +288,37 @@ let busy=false, previewItems=[], previewIdx=0;
 let priorityItems=[], priorityIdx=0; // pool of search/clicked items the pinned slots cycle among
 let heroPools=[[],[],[],[]], heroIdx=[0,0,0,0], heroTick=0; // MOBILE hero row: 4 category pools that constantly refresh
 let conversation=[];
+// Remember the last product search so a follow-up like "brand new", "cheaper" or
+// "under $50" REFINES it (continues from it) instead of starting a fresh search.
+let lastSearchKw='', lastMaxPrice='';
+// Words that only MODIFY an existing search (condition, colour, comparative, filler) —
+// none of these names a new product on their own.
+const REFINE_TOKENS=new Set([
+  'new','brand','sealed','unsealed','used','unopened','opened','mint','boxed','unboxed',
+  'bnib','nib','genuine','authentic','original','complete','vintage','retro','rare',
+  'cheap','cheaper','cheapest','expensive','pricier','dearer','budget',
+  'big','bigger','biggest','small','smaller','smallest','large','larger','mini',
+  'newer','newest','old','older','oldest','latest','recent',
+  'red','orange','yellow','green','blue','navy','teal','turquoise','cyan','purple',
+  'violet','magenta','pink','rose','black','white','cream','beige','tan','khaki',
+  'brown','grey','gray','gold','silver','bronze','maroon',
+  'only','just','please','show','me','the','a','an','some','any','more','ones','one',
+  'version','edition','instead','now','make','it','that','these','those','them','with','without','no'
+]);
+// True when the message is a refinement of the last search (e.g. "brand new", "red ones",
+// "under $50") rather than a new product search — so we stitch it onto the previous query.
+function isRefinement(q){
+  if(!lastSearchKw) return false;                 // nothing to refine yet
+  let s=q.toLowerCase()
+    .replace(/(?:under|below|max|less than|for less than|up to|no more than|cheaper than|over|above)\s*\$?\s*[0-9,.]+\s*(k|m|thousand|dollars|dollar|usd|aud)?/gi,' ')
+    .replace(/\$\s*[0-9,.]+/g,' ')
+    .replace(/[^a-z0-9\s]/g,' ')
+    .replace(/\s+/g,' ').trim();
+  if(!s) return true;                              // message was ONLY a price phrase
+  const toks=s.split(' ').filter(Boolean);
+  if(toks.length>4) return false;                  // too long to be a simple refinement
+  return toks.every(t=> REFINE_TOKENS.has(t) || /^(19|20)\d{2}$/.test(t)); // all modifiers (a year is fine)
+}
 function escapeHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 function resetChat(){
@@ -477,15 +508,26 @@ async function sendMsg(){
   // ⚡ FAST PATH: a product search skips the AI entirely and hits the cached search directly.
   if(isProductSearch(q)){
     try{
-      const parsed=parseQuery(q);
-      const kw=parsed.q||q;
-      const res=await fetch(`${WORKER}/?q=${encodeURIComponent(kw)}&maxPrice=${encodeURIComponent(parsed.maxPrice||'')}`);
+      let kw, maxPrice;
+      if(isRefinement(q)){
+        // Continue from the previous search: "lego harry potter 2001" + "brand new"
+        // → "lego harry potter 2001 brand new". A new price overrides; otherwise keep the old one.
+        const ref=parseQuery(q);
+        kw=(lastSearchKw+' '+(ref.q||'')).replace(/\s+/g,' ').trim();
+        maxPrice=ref.maxPrice||lastMaxPrice||'';
+      }else{
+        const parsed=parseQuery(q);
+        kw=parsed.q||q;
+        maxPrice=parsed.maxPrice||'';
+      }
+      lastSearchKw=kw; lastMaxPrice=maxPrice;       // remember so the NEXT message can refine this
+      const res=await fetch(`${WORKER}/?q=${encodeURIComponent(kw)}&maxPrice=${encodeURIComponent(maxPrice||'')}`);
       const data=await res.json();
       removeThinking();
       const c=data.country||country;
       const items=Array.isArray(data.items)?data.items:[];
       saveSearchedItems(items, kw);
-      const cardsHtml=items.length?renderCards(items,kw,'',parsed.maxPrice||'',c,data.ebayCount||0,0,false):'';
+      const cardsHtml=items.length?renderCards(items,kw,'',maxPrice||'',c,data.ebayCount||0,0,false):'';
       conversation.push({role:'assistant',content:'(showed results for '+kw+')'});
       const body=addMsg('assistant','');
       typeReply(body, items.length?'':"Couldn't find that one — try different words?", cardsHtml);
@@ -511,6 +553,7 @@ async function sendMsg(){
     if(hasItems){
       const lbl=(data.search&&data.search.query)||q;
       const mp=(data.search&&data.search.maxPrice)||'';
+      lastSearchKw=lbl; lastMaxPrice=mp||'';        // let the next message refine this search too
       saveSearchedItems(data.items, lbl);
       cardsHtml=renderCards(data.items,lbl,'',mp,c,(data.meta&&data.meta.ebayCount)||0,(data.meta&&data.meta.etsyCount)||0,true);
     }
@@ -586,7 +629,7 @@ async function sendImageMessage(dataUrl, text){
     const hasItems=Array.isArray(data.items)&&data.items.length>0;
     conversation.push({role:'user',content:text||(data.query?`find ${data.query}`:'uploaded an image')});
     conversation.push({role:'assistant',content:reply||(data.query?`Here's what I found for ${data.query}.`:'')});
-    if(hasItems)saveSearchedItems(data.items, data.query||'');
+    if(hasItems){ lastSearchKw=data.query||''; lastMaxPrice=''; saveSearchedItems(data.items, data.query||''); }
     let cardsHtml=hasItems?renderCards(data.items,data.query||'image','','',c,(data.meta&&data.meta.ebayCount)||0,(data.meta&&data.meta.etsyCount)||0,true):'';
     const body=addMsg('assistant','');
     typeReply(body, reply||(hasItems?'':"I couldn't find a match for that image — try a clearer photo of the item."), cardsHtml);
