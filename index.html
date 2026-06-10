@@ -39,10 +39,15 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .nav-secondary:hover{background:#3a3a3a}
 .nav-cta:hover{opacity:0.85}
 .nav-avatar{width:32px;height:32px;border-radius:50%;background:#2a2a2a;color:#fff;border:1px solid #333;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.user-menu{display:none;position:absolute;top:42px;right:0;background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:8px;min-width:200px;z-index:10001;box-shadow:0 8px 24px rgba(0,0,0,0.5)}
+.user-menu.open{display:block}
+.user-menu-email{color:#888;font-size:12px;padding:6px 10px 10px;border-bottom:1px solid #2a2a2a;margin-bottom:6px;word-break:break-all;font-family:'DM Sans',sans-serif}
+.user-menu-btn{width:100%;text-align:left;padding:9px 10px;border-radius:8px;background:none;border:none;color:#fff;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background 0.15s}
+.user-menu-btn:hover{background:#2a2a2a}
 .auth-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:10000;display:none;align-items:center;justify-content:center}
-.auth-modal{background:#111;border:1px solid #2a2a2a;border-radius:16px;padding:32px;width:340px;max-width:90vw;text-align:center;font-family:'DM Sans',sans-serif}
-.auth-modal h3{color:#fff;font-size:20px;margin:0 0 6px}
-.auth-modal p{color:#888;font-size:13px;margin:0 0 22px}
+.auth-modal{background:#111;border:1px solid #2a2a2a;border-radius:18px;padding:44px 40px;width:420px;max-width:92vw;text-align:center;font-family:'DM Sans',sans-serif}
+.auth-modal h3{color:#fff;font-size:26px;margin:0 0 10px}
+.auth-modal p{color:#999;font-size:15px;margin:0 0 28px}
 .auth-close{position:absolute;top:18px;right:22px;color:#888;background:none;border:none;font-size:22px;cursor:pointer}
 .nav-link:hover{color:#fff}
 .app{display:flex;flex:1;height:calc(100vh - 52px);margin-top:52px}
@@ -187,14 +192,20 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
     <button class="nav-cta" onclick="openAuth('Create your free account')">Sign up for free</button>
   </div>
   <div class="nav-links" id="nav-auth-in" style="display:none">
-    <button class="nav-avatar" id="nav-avatar" onclick="logoutUser()" title="Log out">U</button>
+    <div style="position:relative">
+      <button class="nav-avatar" id="nav-avatar" onclick="toggleUserMenu(event)" title="Account">U</button>
+      <div id="user-menu" class="user-menu">
+        <div id="user-menu-email" class="user-menu-email"></div>
+        <button class="user-menu-btn" onclick="logoutUser()">Log out</button>
+      </div>
+    </div>
   </div>
 </nav>
 <div class="auth-modal-bg" id="auth-modal-bg">
   <div class="auth-modal" style="position:relative">
     <button class="auth-close" onclick="closeAuth()">&times;</button>
     <h3 id="auth-title">Sign in to FindAI</h3>
-    <p>Save nothing to remember — sign in with Google in one tap.</p>
+    <p>Sign in through Google</p>
     <div id="google-btn" style="display:flex;justify-content:center"></div>
     <div id="auth-fallback" style="color:#666;font-size:12px;margin-top:16px"></div>
   </div>
@@ -1101,11 +1112,28 @@ function updateAuthUI(user){
       av.style.backgroundImage = '';
       av.textContent = (user.name||user.email)[0].toUpperCase();
     }
-    av.title = 'Log out ('+user.email+')';
+    av.title = 'Account';
+    const me = document.getElementById('user-menu-email');
+    if(me) me.textContent = user.email;
   } else {
     out.style.display='flex'; inn.style.display='none';
+    const um = document.getElementById('user-menu'); if(um) um.classList.remove('open');
   }
 }
+
+function toggleUserMenu(e){
+  if(e) e.stopPropagation();
+  const um = document.getElementById('user-menu');
+  if(um) um.classList.toggle('open');
+}
+// close the menu when clicking anywhere else
+document.addEventListener('click', function(ev){
+  const um = document.getElementById('user-menu');
+  const av = document.getElementById('nav-avatar');
+  if(um && um.classList.contains('open') && !um.contains(ev.target) && ev.target!==av){
+    um.classList.remove('open');
+  }
+});
 
 function logoutUser(){
   localStorage.removeItem('findai_user');
