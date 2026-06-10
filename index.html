@@ -34,6 +34,15 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .nav-links{display:flex;gap:6px}
 .nav-link{padding:6px 14px;border-radius:20px;font-size:13px;color:#888;background:transparent;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;transition:color 0.15s}
 .nav-link:hover{color:#fff}
+.nav-cta{padding:7px 18px;border-radius:20px;font-size:13px;font-weight:600;color:#000;background:#fff;border:none;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity 0.15s}
+.nav-cta:hover{opacity:0.85}
+.nav-avatar{width:32px;height:32px;border-radius:50%;background:#2a2a2a;color:#fff;border:1px solid #333;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center}
+.auth-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:10000;display:none;align-items:center;justify-content:center}
+.auth-modal{background:#111;border:1px solid #2a2a2a;border-radius:16px;padding:32px;width:340px;max-width:90vw;text-align:center;font-family:'DM Sans',sans-serif}
+.auth-modal h3{color:#fff;font-size:20px;margin:0 0 6px}
+.auth-modal p{color:#888;font-size:13px;margin:0 0 22px}
+.auth-close{position:absolute;top:18px;right:22px;color:#888;background:none;border:none;font-size:22px;cursor:pointer}
+.nav-link:hover{color:#fff}
 .app{display:flex;flex:1;height:calc(100vh - 52px);margin-top:52px}
 .sidebar{width:240px;padding:12px 8px;display:flex;flex-direction:column;gap:2px;border-right:1px solid #1a1a1a;flex-shrink:0;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto}
 .sb-recent-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:8px;font-size:13px;color:#aaa;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:none;border:none;width:100%;text-align:left;transition:background 0.15s,color 0.15s}
@@ -165,11 +174,23 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 <body>
 <nav>
   <span class="nav-logo" onclick="resetChat()">FindAI</span>
-  <div class="nav-links">
-    <button id="nav-new" class="nav-link" onclick="resetChat()">New search</button>
-    <a class="nav-link" href="mailto:findai.chat@gmail.com" style="text-decoration:none;padding:6px 14px;border-radius:20px;font-size:13px;color:#888;font-family:'DM Sans',sans-serif;transition:color 0.15s" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#888'">Contact</a>
+  <div class="nav-links" id="nav-auth-out">
+    <button class="nav-link" onclick="openAuth('Welcome back')">Log in</button>
+    <button class="nav-cta" onclick="openAuth('Create your free account')">Sign up free</button>
+  </div>
+  <div class="nav-links" id="nav-auth-in" style="display:none">
+    <button class="nav-avatar" id="nav-avatar" onclick="logoutUser()" title="Log out">U</button>
   </div>
 </nav>
+<div class="auth-modal-bg" id="auth-modal-bg">
+  <div class="auth-modal" style="position:relative">
+    <button class="auth-close" onclick="closeAuth()">&times;</button>
+    <h3 id="auth-title">Sign in to FindAI</h3>
+    <p>Save nothing to remember — sign in with Google in one tap.</p>
+    <div id="google-btn" style="display:flex;justify-content:center"></div>
+    <div id="auth-fallback" style="color:#666;font-size:12px;margin-top:16px"></div>
+  </div>
+</div>
 <div class="app">
   <div class="sidebar">
     <button class="sb-new" onclick="resetChat()">
@@ -313,6 +334,8 @@ function parseQuery(text){
 // Decide if a query is a product search (fast, no AI) or a real question (use the AI).
 function isProductSearch(t){
   const s=(t||'').trim().toLowerCase();
+  if(/\d\s*[+\-*/^×÷]\s*\d/.test(s) && /^[\d\s+\-*/^×÷=().,]+$/.test(s)) return false;                          // arithmetic like "2+2", "5 * 3"
+  if(/\b(square root|sqrt|cube root|divided by|multiplied by|to the power|squared|cubed|percent of|factorial)\b/.test(s)) return false; // worded math
   if(/\b(find|buy|get|looking for|search for|need|want|show me|locate|source|cop|grab)\b/.test(s)) return true; // explicit shopping
   if(s.includes('?')) return false;                                                                           // a question
   if(/^((what|why|how|who|whom|when|where|which)('?s)?|is|are|am|was|were|can|could|would|should|do|does|did|will|tell me|explain|help|define|calculate|hi|hello|hey|thanks|thank|ok|okay)\b/.test(s)) return false; // chit-chat / question
@@ -1039,5 +1062,74 @@ renderRecents();
   <img src="/icon-192.png" alt="FindAI logo">
   <span>findai.au</span>
 </div>
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script>
+/* ===== FindAI auth (Google Sign-In) =====
+   STAGE 2 — fill these two in after you create them:
+   1) GOOGLE_CLIENT_ID  — from Google Cloud Console (Stage 2 steps)
+   2) WORKER_AUTH_URL   — your Worker endpoint, e.g. https://api.carsearchapi.workers.dev/auth/google
+*/
+const GOOGLE_CLIENT_ID = 'PASTE_YOUR_GOOGLE_CLIENT_ID_HERE';
+const WORKER_AUTH_URL  = 'https://api.carsearchapi.workers.dev/auth/google';
+
+function openAuth(title){
+  document.getElementById('auth-title').textContent = title || 'Sign in to FindAI';
+  document.getElementById('auth-modal-bg').style.display = 'flex';
+}
+function closeAuth(){ document.getElementById('auth-modal-bg').style.display = 'none'; }
+
+function updateAuthUI(user){
+  const out = document.getElementById('nav-auth-out');
+  const inn = document.getElementById('nav-auth-in');
+  if(user && user.email){
+    out.style.display='none'; inn.style.display='flex';
+    const av = document.getElementById('nav-avatar');
+    av.textContent = (user.name||user.email)[0].toUpperCase();
+    av.title = 'Log out ('+user.email+')';
+  } else {
+    out.style.display='flex'; inn.style.display='none';
+  }
+}
+
+function logoutUser(){
+  localStorage.removeItem('findai_user');
+  if(window.google&&google.accounts&&google.accounts.id) google.accounts.id.disableAutoSelect();
+  updateAuthUI(null);
+}
+
+// Called by Google after a successful sign-in — sends the verified token to your Worker.
+async function handleGoogleCredential(response){
+  try{
+    const r = await fetch(WORKER_AUTH_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ credential: response.credential })
+    });
+    const data = await r.json();
+    if(data && data.email){
+      localStorage.setItem('findai_user', JSON.stringify(data));
+      updateAuthUI(data);
+      closeAuth();
+    } else {
+      document.getElementById('auth-fallback').textContent = 'Sign-in failed — please try again.';
+    }
+  }catch(e){
+    document.getElementById('auth-fallback').textContent = 'Could not reach the sign-in server.';
+  }
+}
+
+function initGoogleAuth(){
+  // restore session if already logged in
+  try{ const u = JSON.parse(localStorage.getItem('findai_user')||'null'); if(u) updateAuthUI(u); }catch(_){}
+  if(GOOGLE_CLIENT_ID.indexOf('PASTE_')===0){
+    document.getElementById('auth-fallback').textContent = 'Google sign-in not configured yet (add your Client ID).';
+    return;
+  }
+  if(!(window.google&&google.accounts&&google.accounts.id)){ setTimeout(initGoogleAuth,400); return; }
+  google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleCredential });
+  google.accounts.id.renderButton(document.getElementById('google-btn'), { theme:'filled_black', size:'large', shape:'pill', text:'continue_with' });
+}
+window.addEventListener('load', initGoogleAuth);
+</script>
 </body>
 </html>
