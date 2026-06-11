@@ -402,6 +402,11 @@ function isProductSearch(t){
 }
 
 const PAGE_SIZE=16; let searchCount=0; const searchStates={};
+// How many results to load per batch. Mobile shows MORE up front (and per "Show more")
+// so there's more to scroll through before tapping the button. Desktop stays at PAGE_SIZE.
+function pageSize(){
+  return (typeof window!=='undefined' && window.innerWidth && window.innerWidth<700) ? 24 : PAGE_SIZE;
+}
 // Build an EPN-TRACKED eBay search URL (so "Search for more" still earns commission).
 function ebaySearchUrl(query){
   const MKRID={US:'711-53200-19255-0',AU:'705-53470-19255-0',UK:'710-53481-19255-0',DE:'707-53477-19255-0'};
@@ -419,7 +424,7 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
   const sym=c==='UK'?'£':c==='DE'?'€':'$';
   if(!items.length) return `<p style="color:#666;font-size:14px;margin-top:8px">No listings found right now. Try a different search.</p>`;
   searchCount++; const sid=searchCount;
-  searchStates[sid]={items,shown:Math.min(PAGE_SIZE,items.length),query:label};
+  searchStates[sid]={items,shown:Math.min(pageSize(),items.length),query:label};
   const top=items.slice(0,searchStates[sid].shown);
   const totalFound=ebayCount+etsyCount;
   const displayCount=totalFound>0?totalFound:items.length;
@@ -459,7 +464,7 @@ function showMoreCards(sid){
   const grid=document.getElementById('chat-grid-'+sid);
   const btnWrap=document.getElementById('show-more-'+sid);
   if(!grid)return;
-  const nextBatch=state.items.slice(state.shown,state.shown+PAGE_SIZE);
+  const nextBatch=state.items.slice(state.shown,state.shown+pageSize());
   if(!nextBatch.length)return;
   state.shown+=nextBatch.length;
   nextBatch.forEach(item=>{
