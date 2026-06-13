@@ -123,9 +123,14 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .input-area{padding:12px 24px calc(20px + env(safe-area-inset-bottom));background:#000;position:fixed;bottom:0;left:240px;right:0;z-index:1000;border-top:1px solid #1a1a1a}
 .input-wrap{max-width:820px;margin:0 auto;background:#1a1a1a;border:1.5px solid #333;border-radius:20px;display:flex;align-items:flex-end;gap:8px;padding:20px 16px 20px 24px;transition:border-color 0.2s,box-shadow 0.2s;box-shadow:0 4px 32px rgba(0,0,0,0.6)}
 .input-wrap:focus-within{border-color:#555;box-shadow:0 4px 40px rgba(255,255,255,0.08)}
-.input-wrap{position:relative}
-.input-wrap.drag-over{border-color:#1a6fff;border-style:dashed;box-shadow:0 4px 40px rgba(26,111,255,0.25)}
-.input-wrap.drag-over::after{content:'Drop image to search';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(26,111,255,0.10);border-radius:18px;color:#9cc2ff;font-size:14px;font-weight:600;pointer-events:none}
+/* Full-window drag-and-drop overlay */
+#drop-overlay{position:fixed;inset:0;z-index:100000;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.82);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);pointer-events:none}
+#drop-overlay.show{display:flex}
+#drop-overlay .drop-card{display:flex;flex-direction:column;align-items:center;gap:16px;padding:48px 72px;border:2px dashed #1a6fff;border-radius:24px;background:rgba(26,111,255,0.06)}
+#drop-overlay .drop-logo{width:72px;height:72px;border-radius:18px}
+#drop-overlay .drop-title{font-size:26px;font-weight:600;color:#fff;letter-spacing:-0.3px}
+#drop-overlay .drop-sub{font-size:14px;color:#888}
+@media(max-width:700px){#drop-overlay .drop-card{padding:36px 32px}#drop-overlay .drop-title{font-size:20px}}
 .chat-in{flex:1;background:transparent;border:none;outline:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:16px;resize:none;max-height:120px;min-height:28px;line-height:1.6;caret-color:#fff}
 .chat-in::placeholder{color:#888;font-size:16px}
 .send-btn{width:34px;height:34px;border-radius:8px;background:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background 0.15s}
@@ -1141,30 +1146,38 @@ function recentSearch(query) {
 
 renderRecents();
 
-// ── Drag & drop an image onto the search box ───────────────────────────────
+// ── Drag & drop an image anywhere on the page ─────────────────────────────
 (function setupDragDrop(){
-  const wrap=document.querySelector('.input-wrap');
-  if(!wrap)return;
-  let depth=0; // count enter/leave so hovering child elements doesn't flicker the highlight
+  // Full-window overlay shown while a file is dragged over the page.
+  const overlay=document.createElement('div');
+  overlay.id='drop-overlay';
+  overlay.innerHTML=
+    '<div class="drop-card">'+
+      '<img src="/icon-192.png" alt="FindAI" class="drop-logo">'+
+      '<div class="drop-title">Drop image to search</div>'+
+      '<div class="drop-sub">FindAI finds it on eBay &amp; AliExpress &middot; JPG, PNG, WEBP</div>'+
+    '</div>';
+  document.body.appendChild(overlay);
+
+  let depth=0; // enter/leave counter so moving over child elements doesn't flicker the overlay
   const dragHasFiles=e=>{
     const t=e.dataTransfer&&e.dataTransfer.types;
     return !!t&&(Array.prototype.indexOf.call(t,'Files')!==-1);
   };
-  const show=()=>wrap.classList.add('drag-over');
-  const hide=()=>{depth=0;wrap.classList.remove('drag-over');};
-  wrap.addEventListener('dragenter',e=>{ if(!dragHasFiles(e))return; e.preventDefault(); depth++; show(); });
-  wrap.addEventListener('dragover', e=>{ if(!dragHasFiles(e))return; e.preventDefault(); if(e.dataTransfer)e.dataTransfer.dropEffect='copy'; show(); });
-  wrap.addEventListener('dragleave',e=>{ if(!dragHasFiles(e))return; depth--; if(depth<=0)hide(); });
-  wrap.addEventListener('drop',     e=>{
+  const show=()=>overlay.classList.add('show');
+  const hide=()=>{depth=0;overlay.classList.remove('show');};
+
+  window.addEventListener('dragenter',e=>{ if(!dragHasFiles(e))return; e.preventDefault(); depth++; show(); });
+  window.addEventListener('dragover', e=>{ if(!dragHasFiles(e))return; e.preventDefault(); if(e.dataTransfer)e.dataTransfer.dropEffect='copy'; show(); });
+  window.addEventListener('dragleave',e=>{ if(!dragHasFiles(e))return; depth--; if(depth<=0)hide(); });
+  window.addEventListener('drop', e=>{
+    // Always stop the browser from navigating to a dropped file.
+    if(e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length) e.preventDefault();
+    hide();
     if(!dragHasFiles(e))return;
-    e.preventDefault(); hide();
     const file=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
     if(file)handleImageFile(file);
   });
-  // Dropping a file ANYWHERE else on the page would make the browser navigate to it —
-  // swallow that so a near-miss doesn't blow away the app.
-  window.addEventListener('dragover',e=>{ if(dragHasFiles(e))e.preventDefault(); });
-  window.addEventListener('drop',    e=>{ if(dragHasFiles(e))e.preventDefault(); });
 })();
 </script>
 <div style="text-align:center;padding:20px;font-size:12px;color:#333;border-top:1px solid #111;margin-top:20px">
