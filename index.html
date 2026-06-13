@@ -361,7 +361,11 @@ function scrollToLastUser(){
   const inner=document.getElementById('messages-inner');
   if(!inner)return;
   const u=inner.querySelectorAll('.msg.user');
-  if(u.length)u[u.length-1].scrollIntoView({behavior:'smooth',block:'start'});
+  if(!u.length)return;
+  // First search: nothing above to scroll past — keep it in place (block:'start' would
+  // yank the lone message to the top and leave a big empty gap below). Follow-up searches:
+  // anchor the new question at the top so the view follows DOWN to it.
+  u[u.length-1].scrollIntoView({behavior:'smooth',block: u.length<=1 ? 'nearest' : 'start'});
 }
 function togglePlusMenu(e){if(e)e.stopPropagation();const m=document.getElementById('plus-menu');if(m)m.classList.toggle('open');}
 function pickImageFromMenu(){const m=document.getElementById('plus-menu');if(m)m.classList.remove('open');document.getElementById('img-input').click();}
@@ -553,7 +557,7 @@ async function sendMsg(){
       conversation.push({role:'assistant',content:'(showed results for '+kw+')'});
       const body=addMsg('assistant','');
       typeReply(body, items.length?'':"Couldn't find that one — try different words?", cardsHtml);
-      setTimeout(()=>{const inner=document.getElementById('messages-inner');const u=inner?inner.querySelectorAll('.msg.user'):[];if(u.length)u[u.length-1].scrollIntoView({behavior:'smooth',block:'start'});},150);
+      setTimeout(scrollToLastUser,150);
     }catch(e){removeThinking();addMsg('assistant','Sorry, the search hiccupped — try again?');}
     busy=false; document.getElementById('send-btn').disabled=false; inp.focus();
     return;
@@ -581,11 +585,7 @@ async function sendMsg(){
     }
     const body=addMsg('assistant','');
     typeReply(body, reply||(hasItems?'':"Hmm, I didn't catch that — want to try rephrasing?"), cardsHtml);
-    setTimeout(()=>{
-      const inner=document.getElementById('messages-inner');
-      const userMsgs=inner?inner.querySelectorAll('.msg.user'):[];
-      if(userMsgs.length)userMsgs[userMsgs.length-1].scrollIntoView({behavior:'smooth',block:'start'});
-    },150);
+    setTimeout(scrollToLastUser,150);
   }catch(e){removeThinking();addMsg('assistant','Sorry, I had trouble just now. Please try again.');}
   busy=false; document.getElementById('send-btn').disabled=false; inp.focus();
 }
@@ -665,11 +665,7 @@ async function sendImageMessage(dataUrl, text){
     let cardsHtml=hasItems?renderCards(data.items,data.query||'image','','',c,(data.meta&&data.meta.ebayCount)||0,(data.meta&&data.meta.etsyCount)||0,true):'';
     const body=addMsg('assistant','');
     typeReply(body, reply||(hasItems?'':"I couldn't find a match for that image — try a clearer photo of the item."), cardsHtml);
-    setTimeout(()=>{
-      const inner=document.getElementById('messages-inner');
-      const userMsgs=inner?inner.querySelectorAll('.msg.user'):[];
-      if(userMsgs.length)userMsgs[userMsgs.length-1].scrollIntoView({behavior:'smooth',block:'start'});
-    },150);
+    setTimeout(scrollToLastUser,150);
   }catch(e){removeThinking();addMsg('assistant','Sorry, I had trouble with that image. Please try again.');}
   busy=false;
   if(sb)sb.disabled=false; if(pb)pb.disabled=false;
