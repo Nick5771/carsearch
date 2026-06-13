@@ -355,6 +355,14 @@ function addThinking(){
   inner.appendChild(d);
 }
 function removeThinking(){const t=document.getElementById('thinking');if(t)t.remove();}
+// Scroll so the latest user message sits at the top — called the INSTANT a search is
+// submitted (while the 3 dots load) so the view follows immediately, not after results.
+function scrollToLastUser(){
+  const inner=document.getElementById('messages-inner');
+  if(!inner)return;
+  const u=inner.querySelectorAll('.msg.user');
+  if(u.length)u[u.length-1].scrollIntoView({behavior:'smooth',block:'start'});
+}
 function togglePlusMenu(e){if(e)e.stopPropagation();const m=document.getElementById('plus-menu');if(m)m.classList.toggle('open');}
 function pickImageFromMenu(){const m=document.getElementById('plus-menu');if(m)m.classList.remove('open');document.getElementById('img-input').click();}
 document.addEventListener('click',function(e){const m=document.getElementById('plus-menu');if(m&&m.classList.contains('open')&&!e.target.closest('.plus-wrap'))m.classList.remove('open');});
@@ -516,6 +524,7 @@ async function sendMsg(){
   busy=true; document.getElementById('send-btn').disabled=true;
   inp.value=''; inp.style.height='auto';
   showChat(); addMsg('user',escapeHtml(q)); addThinking();
+  requestAnimationFrame(scrollToLastUser);          // follow the search down NOW, while the dots load
   conversation.push({role:'user',content:q});
 
   // ⚡ FAST PATH: a product search skips the AI entirely and hits the cached search directly.
@@ -638,6 +647,7 @@ async function sendImageMessage(dataUrl, text){
   const cap=text?`<div style="margin-top:8px">${escapeHtml(text)}</div>`:'';
   addMsg('user',`<img src="${dataUrl}" alt="uploaded" style="max-width:240px;max-height:240px;width:100%;border-radius:14px;display:block">${cap}`);
   addThinking();
+  requestAnimationFrame(scrollToLastUser);          // follow the search down NOW, while the dots load
   try{
     const res=await fetch(`${WORKER}/?vision=1`,{
       method:'POST',
