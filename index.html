@@ -1396,23 +1396,37 @@ window.addEventListener('load', initGoogleAuth);
   let poolPersonal = [];
   const normItem = i => ({ image:i.image, price:i.price, country:i.country||'AU', source:i.source||'eBay', url:i.url||'', itemId:i.itemId||'' });
 
-  // Re-read the visitor's clicked + searched history from localStorage. Cheap, sync,
-  // safe to call every time we enter the home screen so new searches show up.
-  function refreshPersonalPool(){
-    try{
-      const clicked  = (typeof clickedItems==='function')  ? clickedItems(6)  : [];
-      const searched = (typeof searchedItems==='function') ? searchedItems(20) : [];
-      const seen = new Set();
-      poolPersonal = [...clicked, ...searched]
-        .filter(i => i && i.image && !seen.has(i.image) && seen.add(i.image))
-        .map(normItem);
-    }catch(_){ poolPersonal = []; }
+  // Build the 4 "recent search" cards: one representative item per DISTINCT recent
+  // search (newest first). If fewer than 4 distinct searches exist, repeat what's
+  // there to always fill 4 slots. Returns [] when the visitor has no history.
+  function recentSearchCards(){
+    let list = [];
+    try{ list = JSON.parse(localStorage.getItem('findai_searched')||'[]'); }catch(_){ list = []; }
+    if(!Array.isArray(list) || !list.length) return [];
+    // Group items by their search term, preserving recency order (list is newest-first).
+    const order = [];                 // distinct search terms, newest first
+    const repByTerm = {};             // term -> first (best) item for that term
+    for(const it of list){
+      if(!it || !it.image) continue;
+      const term = (it.searchQ||'').toLowerCase().trim() || '__';
+      if(!(term in repByTerm)){ repByTerm[term] = it; order.push(term); }
+    }
+    if(!order.length) return [];
+    // Take up to 4 distinct searches, one representative each.
+    let reps = order.slice(0,4).map(t => repByTerm[t]);
+    // Repeat to always fill 4 slots when fewer than 4 distinct searches exist.
+    if(reps.length < 4 && reps.length > 0){
+      const base = reps.slice();
+      let i = 0;
+      while(reps.length < 4){ reps.push(base[i % base.length]); i++; }
+    }
+    return reps.map(normItem);
   }
 
   async function loadPool(){
-    // Personal pool (clicked + past searches) — always refresh from storage.
-    refreshPersonalPool();
-    // Generic hype pool from the previews endpoint.
+    // Personal pool = the 4 recent-search representative cards (always refresh).
+    poolPersonal = recentSearchCards();
+    // Generic hype pool from the previews endpoint (fallback / fill).
     try{
       const r = await fetch(`${WORKER}/?previews=1`);
       const d = await r.json();
@@ -1420,22 +1434,49 @@ window.addEventListener('load', initGoogleAuth);
     }catch(_){ poolGeneric = []; }
   }
 
-  // Items currently on screen, by image — so we never show the same one twice.
+  // Re-read just the personal (recent-search) pool — cheap, local, no network.
+  function refreshPersonalPool(){ poolPersonal = recentSearchCards(); }
+
+  // Items currently on screen, by image — so we never show the same one twice
+  // AT ONCE (a repeated recent-search card can still reappear after it fades).
   function onScreenImages(){
     return new Set(Array.from(ambient.querySelectorAll('.ambient-card img')).map(im=>im.getAttribute('src')||''));
   }
-  // Bias toward the POPULAR (generic) pool — that's the curated hyped set — but still
-  // surface the visitor's own clicked/searched items sometimes. Never pick an item
-  // that's already visible on screen.
+
+  // Count how many of each image are currently on screen.
+  function onScreenCounts(){
+    const m = {};
+    ambient.querySelectorAll('.ambient-card img').forEach(im=>{
+      const s = im.getAttribute('src')||''; m[s] = (m[s]||0) + 1;
+    });
+    return m;
+  }
+
+  // When the visitor HAS recent searches, those are the priority — show every one,
+  // and if they searched fewer than 4 distinct things, the same item is allowed to
+  // fill multiple slots (so one search can populate the whole wall). No history →
+  // use the popular pool (deduped so popular items never double up).
   function pickItem(){
-    const shown = onScreenImages();
-    const notShown = arr => arr.filter(it => it && it.image && !shown.has(it.image.replace(/s-l\d+\./,'s-l300.')));
-    const gen = notShown(poolGeneric);
-    const per = notShown(poolPersonal);
-    // 50% personal (recent searches + clicks) when available, else popular.
-    if(per.length && Math.random() < 0.5) return per[Math.floor(Math.random()*per.length)];
-    if(gen.length) return gen[Math.floor(Math.random()*gen.length)];
+    const norm = u => (u||'').replace(/s-l\d+\./,'s-l300.');
+    const counts = onScreenCounts();
+    // How many times each personal item is ALLOWED on screen = how many times it
+    // appears in the (possibly-repeated) personal pool.
+    const allow = {};
+    poolPersonal.forEach(it=>{ const k = norm(it.image); allow[k] = (allow[k]||0) + 1; });
+    const perAvail = poolPersonal.filter(it => it && it.image && (counts[norm(it.image)]||0) < allow[norm(it.image)]);
+    // dedupe perAvail so we don't pick the same slot-image twice in one call set,
+    // but it CAN still be picked again on a later tick up to its allow count.
+    const seen = new Set();
+    const per = perAvail.filter(it => { const k = norm(it.image); if(seen.has(k)) return false; seen.add(k); return true; });
+
+    const gen = poolGeneric.filter(it => it && it.image && !(counts[norm(it.image)]>0));
+
+    // Priority 1: surface recent-search items not yet at their allowed on-screen count.
     if(per.length) return per[Math.floor(Math.random()*per.length)];
+    // Priority 2: all recent searches present → occasionally a popular item, else hold.
+    if(gen.length && Math.random() < 0.4) return gen[Math.floor(Math.random()*gen.length)];
+    if(poolPersonal.length) return null; // recent searches fill the wall; don't over-pad
+    if(gen.length) return gen[Math.floor(Math.random()*gen.length)];
     return null;
   }
 
