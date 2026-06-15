@@ -175,6 +175,30 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-thumb{background:#222;border-radius:3px}
 #brand-bar{display:none}
+/* ===== EXPERIMENT: ambient background + centered welcome ===== */
+/* Ambient layer fills the chat pane, sits behind content */
+#ambient-bg{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.ambient-card{position:absolute;width:150px;border-radius:10px;overflow:hidden;opacity:0;transition:opacity 1.6s ease;box-shadow:0 8px 30px rgba(0,0,0,0.55);border:1px solid #222;background:#111;pointer-events:auto;cursor:pointer;text-decoration:none;color:inherit;display:block}
+.ambient-card.show{opacity:0.85}
+.ambient-card:hover{opacity:1;border-color:#444;transition:opacity 0.2s ease}
+.ambient-card img{width:100%;height:150px;object-fit:cover;display:block;background:#1a1a1a}
+.ambient-card .ac-meta{padding:6px 8px;display:flex;align-items:center;justify-content:space-between;gap:6px}
+.ambient-card .ac-price{font-family:'DM Sans',sans-serif;font-size:14px;font-weight:800;color:#fff;letter-spacing:-0.3px}
+.ambient-card .ebay-logo{font-size:12px}
+.ambient-card .ali-logo{font-size:9px}
+/* When in EXPERIMENT welcome mode, center the title + search vertically */
+.chat.exp-welcome{justify-content:center;align-items:center;position:relative}
+.chat.exp-welcome .welcome{position:relative;z-index:2;flex:none;padding:0;overflow:visible;background:transparent}
+.chat.exp-welcome #preview-grid{display:none}
+.chat.exp-welcome .welcome-top{margin-bottom:28px}
+.chat.exp-welcome .welcome h1{font-size:clamp(30px,5vw,46px)}
+/* float the input area centered, just under the title, instead of pinned bottom */
+.chat.exp-welcome .input-area{position:relative;left:0;right:0;bottom:auto;background:transparent;border-top:none;z-index:2;width:100%;padding-top:0}
+@media(max-width:700px){
+  #ambient-bg{display:none}
+  .ambient-card{width:96px}
+  .ambient-card img{height:96px}
+}
 @media(max-width:700px){
   .sidebar{display:none}
   nav{position:fixed;top:0;left:0;right:0;height:52px;z-index:9999;background:#000;border-bottom:1px solid #1a1a1a}
@@ -265,6 +289,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
     <button class="sb-item" onclick="categorySearch('Football','sports')">🏋️ &nbsp;Sports</button>
   </div>
   <div class="chat">
+    <div id="ambient-bg"></div>
     <div class="welcome" id="welcome">
       <div class="welcome-top">
         <h1 id="welcome-title">What are you looking for?</h1>
@@ -1206,9 +1231,7 @@ renderRecents();
 })();
 </script>
 <div style="text-align:center;padding:20px;font-size:12px;color:#333;border-top:1px solid #111;margin-top:20px">
-  <span style="color:#555">© 2026 FindAI &nbsp;·&nbsp; </span>
-  <a href="mailto:findai.chat@gmail.com" style="color:#555;text-decoration:none" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#555'">findai.chat@gmail.com</a>
-  <span style="color:#555"> &nbsp;·&nbsp; findai.au</span>
+  <span style="color:#555">© 2026 FindAI &nbsp;·&nbsp; findai.au</span>
 </div>
 <div id="brand-bar">
   <img src="/icon-192.png" alt="FindAI logo">
@@ -1343,6 +1366,200 @@ window.addEventListener('load', initGoogleAuth);
   if(typeof _origUpdate === 'function'){
     window.updateAuthUI = function(user){ _origUpdate(user); try{ setWelcomeTitle(); }catch(_){} };
   }
+})();
+</script>
+<script>
+/* ===== EXPERIMENT: centered welcome + ambient floating listings ===== */
+(function(){
+  const chat = document.querySelector('.chat');
+  const ambient = document.getElementById('ambient-bg');
+  if(!chat || !ambient) return;
+
+  // Desktop-only: the ambient/centered layout runs on screens wider than 700px.
+  // On mobile we leave the original grid home exactly as it was.
+  const isDesktop = () => window.innerWidth > 700;
+
+  // Turn the experiment layout ON while on the welcome screen (desktop only).
+  function enterExp(){ if(!isDesktop()) return; chat.classList.add('exp-welcome'); startAmbient(); }
+  function exitExp(){ chat.classList.remove('exp-welcome'); stopAmbient(); ambient.innerHTML=''; }
+
+  // Hook the app's existing showChat/resetChat so the ambient mode follows state.
+  const _showChat = window.showChat;
+  window.showChat = function(){ exitExp(); if(typeof _showChat==='function') _showChat(); };
+  const _resetChat = window.resetChat;
+  window.resetChat = function(){ if(typeof _resetChat==='function') _resetChat(); enterExp(); };
+
+  // Three sources: the visitor's clicked items + past-search items (personal),
+  // and the generic hype pool. Personal items float MORE OFTEN so the page feels
+  // like theirs; a brand-new visitor with no history just gets the generic pool.
+  let poolGeneric = [];
+  let poolPersonal = [];
+  const normItem = i => ({ image:i.image, price:i.price, country:i.country||'AU', source:i.source||'eBay', url:i.url||'', itemId:i.itemId||'' });
+
+  async function loadPool(){
+    // Personal: clicked items first, then items from past searches (dedup by image).
+    try{
+      const clicked  = (typeof clickedItems==='function')  ? clickedItems(6)  : [];
+      const searched = (typeof searchedItems==='function') ? searchedItems(20) : [];
+      const seen = new Set();
+      poolPersonal = [...clicked, ...searched]
+        .filter(i => i && i.image && !seen.has(i.image) && seen.add(i.image))
+        .map(normItem);
+    }catch(_){ poolPersonal = []; }
+    // Generic hype pool from the previews endpoint.
+    try{
+      const r = await fetch(`${WORKER}/?previews=1`);
+      const d = await r.json();
+      poolGeneric = (d.items||[]).filter(i=>i.image).map(normItem);
+    }catch(_){ poolGeneric = []; }
+  }
+
+  // Items currently on screen, by image — so we never show the same one twice.
+  function onScreenImages(){
+    return new Set(Array.from(ambient.querySelectorAll('.ambient-card img')).map(im=>im.getAttribute('src')||''));
+  }
+  // Bias toward the POPULAR (generic) pool — that's the curated hyped set — but still
+  // surface the visitor's own clicked/searched items sometimes. Never pick an item
+  // that's already visible on screen.
+  function pickItem(){
+    const shown = onScreenImages();
+    const notShown = arr => arr.filter(it => it && it.image && !shown.has(it.image.replace(/s-l\d+\./,'s-l300.')));
+    const gen = notShown(poolGeneric);
+    const per = notShown(poolPersonal);
+    // 35% personal when available, else popular; fall back to whichever has items.
+    if(per.length && Math.random() < 0.35) return per[Math.floor(Math.random()*per.length)];
+    if(gen.length) return gen[Math.floor(Math.random()*gen.length)];
+    if(per.length) return per[Math.floor(Math.random()*per.length)];
+    return null;
+  }
+
+  // Cards must avoid the actual on-screen rectangles of the title and the search
+  // bar (measured live), plus a margin — so nothing ever clips the text/box,
+  // regardless of screen width. Coordinates here are PERCENT of the ambient pane.
+  function hitsProtected(xPct, yPct){
+    const rect = ambient.getBoundingClientRect();
+    if(!rect.width || !rect.height) return false;
+    const cardW = (window.innerWidth < 700 ? 96 : 150);
+    const cardH = cardW + 34; // image + meta row
+    const cx = (xPct/100)*rect.width;
+    const cy = (yPct/100)*rect.height;
+    const cardBox = { l:cx, t:cy, r:cx+cardW, b:cy+cardH };
+    const margin = 40;
+    for(const sel of ['#welcome-title', '.input-wrap']){
+      const el = document.querySelector(sel);
+      if(!el) continue;
+      const er = el.getBoundingClientRect();
+      const box = { l:er.left-rect.left-margin, t:er.top-rect.top-margin, r:er.right-rect.left+margin, b:er.bottom-rect.top+margin };
+      const overlap = !(cardBox.r < box.l || cardBox.l > box.r || cardBox.b < box.t || cardBox.t > box.b);
+      if(overlap) return true;
+    }
+    return false;
+  }
+
+  let timer = null;
+  function srcLogoHtml(source){
+    if(source==='AliExpress') return `<span class="ali-logo" style="font-weight:800;color:#ff4747;font-family:'DM Sans',sans-serif">AliExpress</span>`;
+    return `<span class="ebay-logo" style="font-family:Arial,sans-serif;font-weight:900;letter-spacing:-0.3px"><span style="color:#E53238">e</span><span style="color:#0064D2">b</span><span style="color:#F5AF02">a</span><span style="color:#86B817">y</span></span>`;
+  }
+
+  // Rough overlap check against cards currently on screen (percent coords).
+  function tooClose(xPct, yPct){
+    const cards = ambient.querySelectorAll('.ambient-card');
+    for(const c of cards){
+      const cx = parseFloat(c.style.left), cy = parseFloat(c.style.top);
+      if(Math.abs(cx - xPct) < 14 && Math.abs(cy - yPct) < 20) return true;
+    }
+    return false;
+  }
+
+  function popCard(){
+    if(!poolGeneric.length && !poolPersonal.length) return;
+    // Cap how many are visible at once so it never crowds.
+    if(ambient.querySelectorAll('.ambient-card').length >= 4) return;
+    const item = pickItem();
+    if(!item) return;
+    // Find a spot that's outside the protected center AND not overlapping an existing
+    // card. Range is clamped so the WHOLE card stays inside the pane (no edge bleed).
+    const rect = ambient.getBoundingClientRect();
+    const cardW = (window.innerWidth < 700 ? 96 : 150);
+    const cardH = cardW + 34;
+    const maxXpct = rect.width  ? Math.max(0, (1 - cardW/rect.width)  * 100) : 80;
+    const maxYpct = rect.height ? Math.max(0, (1 - cardH/rect.height) * 100) : 80;
+    let xPct, yPct, tries=0, ok=false;
+    do {
+      xPct = Math.random()*maxXpct;
+      yPct = Math.random()*maxYpct;
+      tries++;
+      ok = !hitsProtected(xPct,yPct) && !tooClose(xPct,yPct);
+    } while(!ok && tries < 20);
+    if(!ok) return; // couldn't place cleanly this tick → skip, try next interval
+
+    const sym = item.country==='UK'?'£':item.country==='DE'?'€':'$';
+    const priceTxt = item.price ? `${sym}${Number(item.price).toLocaleString()}` : '';
+    const imgSrc = item.image.replace(/s-l\d+\./,'s-l300.');
+
+    // Insert the card NOW (at opacity:0) so it counts toward the cap + overlap checks,
+    // but only trigger the fade-in once its image has loaded — so the whole card,
+    // picture included, fades in smoothly and identically every time.
+    const el = document.createElement(item.url ? 'a' : 'div');
+    el.className = 'ambient-card';
+    if(item.url){ el.href = item.url; el.target = '_blank'; el.rel = 'noopener'; }
+    el.style.left = xPct + '%';
+    el.style.top  = yPct + '%';
+    el.innerHTML = `<img src="${imgSrc}" alt="">`+
+      `<div class="ac-meta">${srcLogoHtml(item.source)}${priceTxt?`<span class="ac-price">${priceTxt}</span>`:''}</div>`;
+    ambient.appendChild(el);
+
+    let revealed = false;
+    const reveal = ()=>{
+      if(revealed) return; revealed = true;
+      // Force a reflow so the opacity:0 state is committed before .show → the CSS
+      // transition is guaranteed to animate (no instant pop on fast/cached images).
+      void el.offsetWidth;
+      el.classList.add('show');
+      // visible 3s, then a long 1.6s fade out before removal → smooth
+      setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(), 1700); }, 3000);
+    };
+    const imgEl = el.querySelector('img');
+    if(imgEl.complete && imgEl.naturalWidth){ reveal(); }
+    else { imgEl.addEventListener('load', reveal, {once:true}); imgEl.addEventListener('error', reveal, {once:true}); }
+  }
+
+  function startAmbient(){
+    if(timer) return;
+    if(!poolGeneric.length && !poolPersonal.length){ loadPool().then(()=>{ if(chat.classList.contains('exp-welcome')){ for(let i=0;i<3;i++) setTimeout(popCard, i*400); } }); }
+    // a new card attempt every ~1.4s; the cap of 4 + overlap check keep it sparse
+    timer = setInterval(()=>{ if(chat.classList.contains('exp-welcome')) popCard(); }, 1400);
+  }
+  function stopAmbient(){ if(timer){ clearInterval(timer); timer=null; } }
+
+  // Start in experiment mode on load.
+  enterExp();
+
+  // ── Search placeholder ──
+  // Picks ONE random example per page load (changes only when the site is reloaded).
+  (function setPlaceholder(){
+    const input = document.getElementById('chat-in');
+    if(!input) return;
+    const examples = [
+      'Find me a Macbook Pro for less than $750',
+      'Travis Scott Jordan 1 low',
+      'Cheap Yeezy 350s under $200',
+      'A sealed Pokémon booster box',
+      'Rolex Submariner under $10,000',
+      'Labubu the monsters figure',
+      'Louis Vuitton Neverfull bag',
+      'Air Force 1s in white',
+      'PS5 console under $500',
+      'Vintage Omega Speedmaster',
+      'Supreme box logo hoodie',
+      'AirPods Max in space grey',
+      'A Cartier Love bracelet',
+      'Bape shark hoodie in black'
+    ];
+    const pick = examples[Math.floor(Math.random()*examples.length)];
+    input.setAttribute('placeholder', `Try "${pick}"`);
+  })();
 })();
 </script>
 </body>
