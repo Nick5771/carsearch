@@ -267,7 +267,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
   <div class="chat">
     <div class="welcome" id="welcome">
       <div class="welcome-top">
-        <h1>What are you looking for?</h1>
+        <h1 id="welcome-title">What are you looking for?</h1>
         <p class="welcome-sub">Search eBay and AliExpress instantly, just describe what you want</p>
       </div>
       <div class="preview-grid" id="preview-grid"></div>
@@ -1308,6 +1308,43 @@ function initGoogleAuth(){
   google.accounts.id.renderButton(document.getElementById('google-btn'), { theme:'filled_black', size:'large', shape:'pill', text:'continue_with' });
 }
 window.addEventListener('load', initGoogleAuth);
+</script>
+<script>
+/* ===== FindAI welcome title — random per page load, personalised when signed in ===== */
+(function(){
+  // Titles that read naturally WITH a name get a "{name}" slot; others stay fixed.
+  // One title is chosen at random per fresh page load and stays for the tab session.
+  const TITLES = [
+    { plain: "What are you looking for?",        named: "What are you looking for, {name}?" },
+    { plain: "What can I find you today?",       named: "What can I find you today, {name}?" },
+    { plain: "Describe it. We'll find it.",      named: "Describe it, {name}. We'll find it." },
+    { plain: "Snap a photo, find the real thing", named: "Snap a photo, {name} — find the real thing" }
+  ];
+
+  function firstName(){
+    try{
+      const u = JSON.parse(localStorage.getItem('findai_user') || 'null');
+      if(u && u.name){ return String(u.name).trim().split(/\s+/)[0]; } // first name only
+    }catch(_){}
+    return '';
+  }
+
+  function setWelcomeTitle(){
+    const el = document.getElementById('welcome-title');
+    if(!el) return;
+    const pick = TITLES[Math.floor(Math.random() * TITLES.length)];
+    const name = firstName();
+    el.textContent = (name ? pick.named.replace('{name}', name) : pick.plain);
+  }
+
+  // Run once on load (sticks for the tab). Also re-run right after a Google sign-in
+  // so the greeting personalises immediately without needing a refresh.
+  setWelcomeTitle();
+  const _origUpdate = window.updateAuthUI;
+  if(typeof _origUpdate === 'function'){
+    window.updateAuthUI = function(user){ _origUpdate(user); try{ setWelcomeTitle(); }catch(_){} };
+  }
+})();
 </script>
 </body>
 </html>
