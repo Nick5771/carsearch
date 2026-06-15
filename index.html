@@ -1396,8 +1396,9 @@ window.addEventListener('load', initGoogleAuth);
   let poolPersonal = [];
   const normItem = i => ({ image:i.image, price:i.price, country:i.country||'AU', source:i.source||'eBay', url:i.url||'', itemId:i.itemId||'' });
 
-  async function loadPool(){
-    // Personal: clicked items first, then items from past searches (dedup by image).
+  // Re-read the visitor's clicked + searched history from localStorage. Cheap, sync,
+  // safe to call every time we enter the home screen so new searches show up.
+  function refreshPersonalPool(){
     try{
       const clicked  = (typeof clickedItems==='function')  ? clickedItems(6)  : [];
       const searched = (typeof searchedItems==='function') ? searchedItems(20) : [];
@@ -1406,6 +1407,11 @@ window.addEventListener('load', initGoogleAuth);
         .filter(i => i && i.image && !seen.has(i.image) && seen.add(i.image))
         .map(normItem);
     }catch(_){ poolPersonal = []; }
+  }
+
+  async function loadPool(){
+    // Personal pool (clicked + past searches) — always refresh from storage.
+    refreshPersonalPool();
     // Generic hype pool from the previews endpoint.
     try{
       const r = await fetch(`${WORKER}/?previews=1`);
@@ -1426,8 +1432,8 @@ window.addEventListener('load', initGoogleAuth);
     const notShown = arr => arr.filter(it => it && it.image && !shown.has(it.image.replace(/s-l\d+\./,'s-l300.')));
     const gen = notShown(poolGeneric);
     const per = notShown(poolPersonal);
-    // 35% personal when available, else popular; fall back to whichever has items.
-    if(per.length && Math.random() < 0.35) return per[Math.floor(Math.random()*per.length)];
+    // 50% personal (recent searches + clicks) when available, else popular.
+    if(per.length && Math.random() < 0.5) return per[Math.floor(Math.random()*per.length)];
     if(gen.length) return gen[Math.floor(Math.random()*gen.length)];
     if(per.length) return per[Math.floor(Math.random()*per.length)];
     return null;
@@ -1527,7 +1533,14 @@ window.addEventListener('load', initGoogleAuth);
 
   function startAmbient(){
     if(timer) return;
-    if(!poolGeneric.length && !poolPersonal.length){ loadPool().then(()=>{ if(chat.classList.contains('exp-welcome')){ for(let i=0;i<3;i++) setTimeout(popCard, i*400); } }); }
+    // Always re-read personal history (cheap, local) so new searches/clicks appear.
+    refreshPersonalPool();
+    // Fetch the generic pool only if we don't have it yet (network call).
+    if(!poolGeneric.length){
+      loadPool().then(()=>{ if(chat.classList.contains('exp-welcome')){ for(let i=0;i<3;i++) setTimeout(popCard, i*400); } });
+    } else if(chat.classList.contains('exp-welcome')){
+      for(let i=0;i<3;i++) setTimeout(popCard, i*400);
+    }
     // a new card attempt every ~1.4s; the cap of 4 + overlap check keep it sparse
     timer = setInterval(()=>{ if(chat.classList.contains('exp-welcome')) popCard(); }, 1400);
   }
