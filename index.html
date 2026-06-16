@@ -1401,24 +1401,37 @@ window.addEventListener('load', initGoogleAuth);
   // so dedupe + recently-shown tracking treat size variants as the same item.
   const normKey = u => (u||'').replace(/s-l\d+\./,'s-l300.');
 
-  // Build the personal pool: ALL distinct searched items (deduped by image), newest
-  // search first. We keep the FULL pool (up to ~120 saved) so the ambient wall can
-  // rotate through many different listings — 4 fresh, then 4 more, and so on — instead
-  // of recycling a handful. The rotation logic (pickItem) cycles forward through this
-  // pool and only loops back once every item has been shown. Returns [] with no history.
+  // Build the personal pool: ALL distinct searched items (deduped by image), INTERLEAVED
+  // across every search the visitor has run — round-robin, one item from each search in
+  // turn (newest searches first within each round) — so the wall shows a MIX of all their
+  // searches (e.g. a Harry Potter set, then a SpongeBob set, then a Yeezy...), not just the
+  // most recent search dominating. The rotation logic (pickItem) then cycles forward through
+  // this mixed pool, only looping once every item has shown. Returns [] with no history.
   function recentSearchCards(){
     let list = [];
     try{ list = JSON.parse(localStorage.getItem('findai_searched')||'[]'); }catch(_){ list = []; }
     if(!Array.isArray(list) || !list.length) return [];
     const normUrl = u => (u||'').replace(/s-l\d+\./,'s-l300.');
-    const seen = new Set();           // dedupe by normalised image so no item repeats
-    const out = [];
-    for(const it of list){            // list is newest-search-first
+    // Group items by their search term, preserving each search's internal order and
+    // the recency order of the searches themselves (list is newest-first).
+    const groups = [];                 // [{term, items:[]}], newest search first
+    const byTerm = {};
+    const seen = new Set();            // global image dedupe
+    for(const it of list){
       if(!it || !it.image) continue;
       const key = normUrl(it.image);
-      if(seen.has(key)) continue;
+      if(seen.has(key)) continue;      // skip exact-image duplicates across searches
       seen.add(key);
-      out.push(it);
+      const term = (it.searchQ||'').toLowerCase().trim() || '__';
+      if(!(term in byTerm)){ byTerm[term] = { term, items: [] }; groups.push(byTerm[term]); }
+      byTerm[term].items.push(it);
+    }
+    if(!groups.length) return [];
+    // Round-robin interleave: take the 1st item of each search, then the 2nd of each, etc.
+    const out = [];
+    const maxLen = Math.max(...groups.map(g => g.items.length));
+    for(let i = 0; i < maxLen; i++){
+      for(const g of groups){ if(g.items[i]) out.push(g.items[i]); }
     }
     return out.map(normItem);
   }
@@ -1478,10 +1491,13 @@ window.addEventListener('load', initGoogleAuth);
     const i = recentlyShown.indexOf(k);
     if(i !== -1) recentlyShown.splice(i,1);
     recentlyShown.push(k);
-    // Memory size = pool minus a small headroom, so we exhaust most of the pool before
-    // any repeat, but never starve (always leave a few eligible to place).
-    const pool = (poolPersonal.length || poolGeneric.length);
-    const cap = Math.max(4, pool - 4);
+    // Remember as much of the pool as possible so we cycle through nearly EVERY distinct
+    // item before repeating any. Headroom = the cards currently visible (so there's always
+    // something fresh to place), so cap = poolSize - onScreenCount. For tiny pools this
+    // still guarantees max variety before a repeat.
+    const poolSize = (poolPersonal.length + poolGeneric.length) || 1;
+    const onScreen = ambient.querySelectorAll('.ambient-card').length || 0;
+    const cap = Math.max(1, poolSize - Math.max(1, onScreen + 1));
     while(recentlyShown.length > cap) recentlyShown.shift();
   }
 
