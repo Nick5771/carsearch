@@ -352,21 +352,16 @@ function aliLogoHtml() {
 function faVerifyShield(){
   return '<svg class="vshield" viewBox="0 0 24 24" fill="#185FA5" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 8.5-8 11-4.6-2.5-8-6-8-11V5l8-3z"/><path d="M8.8 12l2.1 2.1 4.3-4.3" stroke="#fff" stroke-width="2.1" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 }
-// Build the 3-button row that sits INSIDE each product card.
-// buyUrl = affiliate eBay link (Buy Now). hasOffer => show Negotiate. itemId => Verify.
+// Build the button row that sits INSIDE each product card.
+// buyUrl = affiliate eBay link (Buy Now). itemId => FindAI Verify.
 function cardButtonsHtml(buyUrl, hasOffer, itemId, isAli){
   if(isAli){
-    // AliExpress items: just a Buy Now (no eBay Verify / offers).
+    // AliExpress items: just a Buy Now (no eBay Verify).
     return '<div class="card-btns"><a class="card-btn" href="'+buyUrl+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">Buy Now</a></div>';
   }
   var buy='<a class="card-btn" href="'+buyUrl+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">Buy Now</a>';
-  // eBay has no reliable direct make-offer URL, so Negotiate lands on the listing page
-  // (which shows eBay's own "Make Offer" button) — still the affiliate-tracked link.
-  var neg = hasOffer
-    ? '<a class="card-btn" href="'+buyUrl+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">Negotiate</a>'
-    : '';
   var verify='<button class="card-btn" onclick="event.preventDefault();event.stopPropagation();runVerify(this,\''+(itemId||'').replace(/'/g,"")+'\')">'+faVerifyShield()+'FindAI Verify</button>';
-  return '<div class="card-btns">'+buy+neg+verify+'</div>';
+  return '<div class="card-btns">'+buy+verify+'</div>';
 }
 // Ensure the Verify modal element exists once.
 function ensureVerifyModal(){
