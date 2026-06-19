@@ -377,7 +377,7 @@ function ensureVerifyModal(){
   document.body.appendChild(bg);
 }
 function closeVerify(){ var bg=document.getElementById('fa-modal-bg'); if(bg) bg.classList.remove('open'); }
-function thisCur(n, cur){ return (cur||'')+' '+Math.round(Number(n)||0).toLocaleString(); }
+function thisCur(n, cur){ var s = cur==='GBP'?'£':cur==='EUR'?'€':'$'; return s+Math.round(Number(n)||0).toLocaleString(); }
 // Call the worker Trust Score engine and show the result in a slide-up modal.
 async function runVerify(btn, itemId){
   if(!itemId){ return; }
@@ -434,7 +434,7 @@ async function runVerify(btn, itemId){
         flagsArr.map(function(p){ return '<div style="display:flex;gap:7px;align-items:flex-start;margin:7px 0;color:#8a8a8a;font-size:12.5px"><span style="color:#5a5a5a">–</span><span>'+escapeHtml(p)+'</span></div>'; }).join('')
       : '';
     var trustCol='<div style="flex:1;min-width:200px;background:#141414;border:1px solid #262626;border-radius:14px;padding:16px">'+
-      '<div style="color:#fff;font-size:11px;letter-spacing:.05em;margin-bottom:10px">TRUST</div>'+
+      '<div style="color:#fff;font-size:13px;letter-spacing:.05em;margin-bottom:10px">TRUST</div>'+
       '<div style="text-align:center;margin-bottom:12px">'+
         '<div style="font-size:40px;font-weight:700;color:'+bandColor+';line-height:1.05">'+score+'<span style="font-size:17px;color:#666">/100</span></div>'+
         '<div style="color:'+bandColor+';font-size:13px;font-weight:600">'+escapeHtml(band)+'</div></div>'+
@@ -544,7 +544,7 @@ async function runVerify(btn, itemId){
         '<div style="color:#fff;font-size:13px;font-weight:500">this listing</div></div>';
     }
     var priceCol='<div style="flex:1;min-width:200px;background:#141414;border:1px solid #262626;border-radius:14px;padding:16px">'+
-      '<div style="color:#fff;font-size:11px;letter-spacing:.05em;margin-bottom:10px">PRICE</div>'+
+      '<div style="color:#fff;font-size:13px;letter-spacing:.05em;margin-bottom:10px">PRICE</div>'+
       priceHero+recCard+priceBody+stockBadge+'</div>';
 
     // Centered white "Buy Now" pill under both columns → the card's affiliate link (skipped if none).
@@ -553,8 +553,8 @@ async function runVerify(btn, itemId){
     // Faint, blurred listing image behind everything — mostly hidden by the two solid columns,
     // but adds texture in the surrounding grey. A dark gradient keeps all text readable.
     var bgLayer = imgUrl
-      ? '<div style="position:absolute;inset:0;background-image:url(\''+imgUrl.replace(/'/g,'%27')+'\');background-size:cover;background-position:center;opacity:0.13;filter:blur(3px);z-index:0;pointer-events:none"></div>'+
-        '<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(28,28,28,0.55),rgba(28,28,28,0.92));z-index:0;pointer-events:none"></div>'
+      ? '<div style="position:absolute;inset:0;background-image:url(\''+imgUrl.replace(/'/g,'%27')+'\');background-size:cover;background-position:center;opacity:0.38;filter:blur(2px);z-index:0;pointer-events:none"></div>'+
+        '<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(28,28,28,0.30),rgba(28,28,28,0.78));z-index:0;pointer-events:none"></div>'
       : '';
     modal.innerHTML=bgLayer+
       '<div style="position:relative;z-index:1">'+
