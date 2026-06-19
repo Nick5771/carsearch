@@ -360,17 +360,11 @@ function cardButtonsHtml(buyUrl, hasOffer, itemId, isAli){
     return '<div class="card-btns"><a class="card-btn" href="'+buyUrl+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">Buy Now</a></div>';
   }
   var buy='<a class="card-btn" href="'+buyUrl+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">Buy Now</a>';
-  var neg = '';
-  if(hasOffer){
-    // Build eBay's "Make Offer" URL from the numeric item id (itemId is "v1|NUMBER|0").
-    var numId = String(itemId||'').split('|')[1] || '';
-    var dom = 'www.ebay.com.au';
-    try{ var h=new URL(buyUrl).hostname; if(h) dom=h; }catch(e){}
-    var offerUrl = numId
-      ? 'https://offer.'+dom.replace(/^www\./,'')+'/ws/eBayISAPI.dll?MakeBestOffer&item='+numId
-      : buyUrl;
-    neg = '<a class="card-btn" href="'+offerUrl+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">Negotiate</a>';
-  }
+  // eBay has no reliable direct make-offer URL, so Negotiate lands on the listing page
+  // (which shows eBay's own "Make Offer" button) — still the affiliate-tracked link.
+  var neg = hasOffer
+    ? '<a class="card-btn" href="'+buyUrl+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">Negotiate</a>'
+    : '';
   var verify='<button class="card-btn" onclick="event.preventDefault();event.stopPropagation();runVerify(this,\''+(itemId||'').replace(/'/g,"")+'\')">'+faVerifyShield()+'FindAI Verify</button>';
   return '<div class="card-btns">'+buy+neg+verify+'</div>';
 }
@@ -407,10 +401,15 @@ async function runVerify(btn, itemId){
     var bandColor = score>=75 ? '#5DCAA5' : score>=50 ? '#EF9F27' : '#E24B4A';
     var pos=(d.positives||[]).map(function(p){ return '<div style="display:flex;gap:8px;align-items:flex-start;margin:6px 0;color:#cfe9df;font-size:13px"><span style="color:#5DCAA5">✓</span><span>'+escapeHtml(p)+'</span></div>'; }).join('');
     var flags=(d.riskFlags||[]).map(function(p){ return '<div style="display:flex;gap:8px;align-items:flex-start;margin:6px 0;color:#f3c9a0;font-size:13px"><span style="color:#EF9F27">⚠</span><span>'+escapeHtml(p)+'</span></div>'; }).join('');
-    var ag=d.authenticityGuarantee||'';
-    var agHtml = ag==='Eligible'
-      ? '<div style="background:#0f2e25;border:1px solid #14543f;color:#7fe0c0;border-radius:9px;padding:9px 12px;font-size:13px;margin:12px 0;display:flex;gap:8px;align-items:center">'+faVerifyShield()+' eBay Authenticity Guarantee — eBay verifies before delivery</div>'
-      : '<div style="background:#222;border:1px solid #333;color:#aaa;border-radius:9px;padding:9px 12px;font-size:12px;margin:12px 0">eBay Authenticity Guarantee: not available for this listing</div>';
+    var agStatus=d.authenticityStatus||'';
+    var agHtml='';
+    if(agStatus==='Eligible'){
+      agHtml='<div style="background:#0f2e25;border:1px solid #14543f;color:#7fe0c0;border-radius:9px;padding:9px 12px;font-size:13px;margin:12px 0;display:flex;gap:8px;align-items:center">'+faVerifyShield()+' eBay Authenticity Guarantee. eBay verifies before delivery</div>';
+    } else if(agStatus==='NotAvailable'){
+      // Only shown for categories eBay CAN verify (e.g. sneakers) where this listing isn't covered.
+      agHtml='<div style="background:#2a2410;border:1px solid #4a3f12;color:#e0c074;border-radius:9px;padding:9px 12px;font-size:12px;margin:12px 0">eBay Authenticity Guarantee: not available for this listing</div>';
+    }
+    // (For categories eBay never verifies, agStatus is NotApplicable → no line shown.)
     modal.innerHTML='<button class="fa-close" onclick="closeVerify()">&times;</button>'+
       '<div style="text-align:center;margin-bottom:6px"><div style="color:#888;font-size:12px;letter-spacing:.04em">FINDAI TRUST SCORE</div>'+
       '<div style="font-size:46px;font-weight:700;color:'+bandColor+';line-height:1.1;margin-top:2px">'+score+'<span style="font-size:20px;color:#666">/100</span></div>'+
