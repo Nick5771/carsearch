@@ -399,8 +399,8 @@ async function runVerify(btn, itemId){
     clearInterval(st);
     if(d.error){ modal.innerHTML='<button class="fa-close" onclick="closeVerify()">&times;</button><div style="color:#fff;padding:24px;text-align:center">Could not analyze this listing right now.<div style="color:#777;font-size:12px;margin-top:8px">'+escapeHtml(String(d.error)).slice(0,140)+'</div></div>'; return; }
     var score=d.trustScore, band=d.riskBand||'';
-    // Green when genuinely good (above 60); otherwise white so the number stays clearly legible.
-    var bandColor = score>60 ? '#5DCAA5' : '#ffffff';
+    // Green when 60 or above; white below so the number stays clearly legible.
+    var bandColor = score>=60 ? '#5DCAA5' : '#ffffff';
 
     // ---- TRUST COLUMN ----
     var agStatus=d.authenticityStatus||'';
@@ -477,6 +477,15 @@ async function runVerify(btn, itemId){
             '<div><div style="color:#fff;font-size:14px;font-weight:600">'+pi.comparables+'</div><div style="color:#fff;font-size:11px">listings</div></div>'+
             soldStat+'</div>'+
           '<div style="color:#777;font-size:10.5px;margin-top:9px;line-height:1.45">Compared across current similar listings, not the exact item.</div>';
+      } else if(pi.tier==='solo'){
+        // No reliable comparison set — show the listing's own price + signals (never an empty box, no fake range).
+        priceBody=
+          '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px">'+
+            '<span style="color:#fff;font-size:12px">This listing</span>'+
+            '<span style="color:#fff;font-size:16px;font-weight:600">'+escapeHtml(pi.thisPriceFmt)+'</span></div>'+
+          shipLine+
+          (soldStat ? '<div style="display:flex;gap:12px;border-top:1px solid #2a2a2a;padding-top:9px;flex-wrap:wrap">'+soldStat+'</div>' : '')+
+          '<div style="color:#777;font-size:10.5px;margin-top:9px;line-height:1.45">Live market comparison isn\u2019t available for this exact listing right now.</div>';
       } else {
         // High-confidence, same-product comparison.
         priceBody=
@@ -521,6 +530,10 @@ async function runVerify(btn, itemId){
       priceHero='<div style="text-align:center;margin-bottom:12px">'+
         '<div style="font-size:30px;font-weight:500;color:'+heroColorB+';line-height:1.05">'+escapeHtml(pi.thisPriceFmt)+'</div>'+
         '<div style="color:'+heroColorB+';font-size:13px;font-weight:500">'+posWordH+' of range</div></div>';
+    } else if(pi && pi.tier==='solo'){
+      priceHero='<div style="text-align:center;margin-bottom:12px">'+
+        '<div style="font-size:30px;font-weight:500;color:#ffffff;line-height:1.05">'+escapeHtml(pi.thisPriceFmt)+'</div>'+
+        '<div style="color:#fff;font-size:13px;font-weight:500">this listing</div></div>';
     }
     var priceCol='<div style="flex:1;min-width:200px;background:#141414;border:1px solid #262626;border-radius:14px;padding:16px">'+
       '<div style="color:#888;font-size:11px;letter-spacing:.05em;margin-bottom:10px">PRICE</div>'+
