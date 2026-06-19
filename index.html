@@ -404,14 +404,21 @@ async function runVerify(btn, itemId){
 
     // ---- TRUST COLUMN ----
     var agStatus=d.authenticityStatus||'';
-    var agHtml='';
+    var topRated=d.topRatedSeller===true;
+    var trustBoxHtml='', showTopRatedBox=false;
     if(agStatus==='Eligible'){
-      agHtml='<div style="background:#0f2e25;border:1px solid #14543f;color:#7fe0c0;border-radius:10px;height:72px;padding:10px 13px;margin-bottom:12px;box-sizing:border-box;display:flex;gap:9px;align-items:center;font-size:13px">'+faVerifyShieldLg()+'<span>eBay Authenticity Guarantee</span></div>';
+      // Strongest signal: eBay verifies the item before delivery.
+      trustBoxHtml='<div style="background:#0f2e25;border:1px solid #14543f;color:#7fe0c0;border-radius:10px;height:72px;padding:10px 13px;margin-bottom:12px;box-sizing:border-box;display:flex;gap:9px;align-items:center;font-size:13px">'+faVerifyShieldLg()+'<span>eBay Authenticity Guarantee</span></div>';
+    } else if(topRated){
+      // No Authenticity Guarantee here, but a Top Rated seller earns the green box instead.
+      showTopRatedBox=true;
+      trustBoxHtml='<div style="background:#0f2e25;border:1px solid #14543f;border-radius:10px;height:72px;padding:10px 13px;margin-bottom:12px;box-sizing:border-box;display:flex;gap:9px;align-items:center">'+faVerifyShieldLg()+'<div><div style="color:#7fe0c0;font-size:13px;font-weight:600">eBay Top Rated Seller</div><div style="color:#9fd8c6;font-size:11.5px;margin-top:2px">Among eBay&#39;s most reliable sellers</div></div></div>';
     } else if(agStatus==='NotAvailable'){
-      agHtml='<div style="color:#8a8a8a;border-radius:9px;padding:4px 0 8px;font-size:12px">Authenticity Guarantee: not available here</div>';
+      trustBoxHtml='<div style="color:#8a8a8a;border-radius:9px;padding:4px 0 8px;font-size:12px">Authenticity Guarantee: not available here</div>';
     }
     var pos=(d.positives||[])
       .filter(function(p){ return !/priced (below|above|in line)/i.test(p); }) // price lines live in the price column
+      .filter(function(p){ return !(showTopRatedBox && /top rated/i.test(p)); }) // already shown as the green box above
       .map(function(p){ return '<div style="display:flex;gap:7px;align-items:flex-start;margin:7px 0;color:#cfe9df;font-size:12.5px"><span style="color:#5DCAA5">✓</span><span>'+escapeHtml(p)+'</span></div>'; }).join('');
     var flagsArr=(d.riskFlags||[]).filter(function(p){ return !/priced (below|above|in line)/i.test(p); });
     var flags=flagsArr.length
@@ -423,7 +430,7 @@ async function runVerify(btn, itemId){
       '<div style="text-align:center;margin-bottom:12px">'+
         '<div style="font-size:40px;font-weight:700;color:'+bandColor+';line-height:1.05">'+score+'<span style="font-size:17px;color:#666">/100</span></div>'+
         '<div style="color:'+bandColor+';font-size:13px;font-weight:600">'+escapeHtml(band)+'</div></div>'+
-      agHtml+pos+flags+'</div>';
+      trustBoxHtml+pos+flags+'</div>';
 
     // ---- PRICE COLUMN ----
     var rec=d.recommendation;
