@@ -141,7 +141,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .card-btn .vshield{width:13px;height:13px;flex-shrink:0}
 .fa-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:20000;display:none;align-items:flex-end;justify-content:center}
 .fa-modal-bg.open{display:flex}
-.fa-modal{background:#1c1c1c;border-top-left-radius:18px;border-top-right-radius:18px;border:1px solid #2a2a2a;width:100%;max-width:680px;max-height:86vh;overflow-y:auto;padding:22px 20px calc(26px + env(safe-area-inset-bottom));font-family:'DM Sans',sans-serif;animation:faUp .28s ease}
+.fa-modal{background:#1c1c1c;position:relative;border-top-left-radius:18px;border-top-right-radius:18px;border:1px solid #2a2a2a;width:100%;max-width:680px;max-height:86vh;overflow-y:auto;padding:22px 20px calc(26px + env(safe-area-inset-bottom));font-family:'DM Sans',sans-serif;animation:faUp .28s ease}
 @keyframes faUp{from{transform:translateY(40px);opacity:.4}to{transform:translateY(0);opacity:1}}
 .fa-close{float:right;background:none;border:none;color:#888;font-size:24px;cursor:pointer;line-height:1}
 @media(max-width:700px){.card-btn{font-size:9px;padding:6px 1px;gap:2px}.card-btns{gap:3px}.card-btn .vshield{width:11px;height:11px}}
@@ -358,13 +358,13 @@ function faVerifyShieldLg(){
 }
 // Build the button row that sits INSIDE each product card.
 // buyUrl = affiliate eBay link (Buy Now). itemId => FindAI Verify.
-function cardButtonsHtml(buyUrl, hasOffer, itemId, isAli){
+function cardButtonsHtml(buyUrl, hasOffer, itemId, isAli, imgUrl){
   if(isAli){
     // AliExpress items: just a Buy Now (no eBay Verify).
     return '<div class="card-btns"><a class="card-btn" href="'+buyUrl+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">Buy Now</a></div>';
   }
   var buy='<a class="card-btn" href="'+buyUrl+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">Buy Now</a>';
-  var verify='<button class="card-btn" data-buy="'+escapeHtml(buyUrl||'')+'" onclick="event.preventDefault();event.stopPropagation();runVerify(this,\''+(itemId||'').replace(/'/g,"")+'\')">'+faVerifyShield()+'FindAI Verify</button>';
+  var verify='<button class="card-btn" data-buy="'+escapeHtml(buyUrl||'')+'" data-img="'+escapeHtml(imgUrl||'')+'" onclick="event.preventDefault();event.stopPropagation();runVerify(this,\''+(itemId||'').replace(/'/g,"")+'\')">'+faVerifyShield()+'FindAI Verify</button>';
   return '<div class="card-btns">'+buy+verify+'</div>';
 }
 // Ensure the Verify modal element exists once.
@@ -382,6 +382,7 @@ function thisCur(n, cur){ return (cur||'')+' '+Math.round(Number(n)||0).toLocale
 async function runVerify(btn, itemId){
   if(!itemId){ return; }
   var buyUrl=(btn && btn.getAttribute) ? (btn.getAttribute('data-buy')||'') : '';
+  var imgUrl=(btn && btn.getAttribute) ? (btn.getAttribute('data-img')||'') : '';
   ensureVerifyModal();
   var bg=document.getElementById('fa-modal-bg'), modal=document.getElementById('fa-modal');
   bg.classList.add('open');
@@ -433,7 +434,7 @@ async function runVerify(btn, itemId){
         flagsArr.map(function(p){ return '<div style="display:flex;gap:7px;align-items:flex-start;margin:7px 0;color:#8a8a8a;font-size:12.5px"><span style="color:#5a5a5a">–</span><span>'+escapeHtml(p)+'</span></div>'; }).join('')
       : '';
     var trustCol='<div style="flex:1;min-width:200px;background:#141414;border:1px solid #262626;border-radius:14px;padding:16px">'+
-      '<div style="color:#888;font-size:11px;letter-spacing:.05em;margin-bottom:10px">TRUST</div>'+
+      '<div style="color:#fff;font-size:11px;letter-spacing:.05em;margin-bottom:10px">TRUST</div>'+
       '<div style="text-align:center;margin-bottom:12px">'+
         '<div style="font-size:40px;font-weight:700;color:'+bandColor+';line-height:1.05">'+score+'<span style="font-size:17px;color:#666">/100</span></div>'+
         '<div style="color:'+bandColor+';font-size:13px;font-weight:600">'+escapeHtml(band)+'</div></div>'+
@@ -535,24 +536,33 @@ async function runVerify(btn, itemId){
       var posWordH = pi.positionLabel==='lower' ? 'lower end' : pi.positionLabel==='upper' ? 'upper end' : 'mid-range';
       var heroColorB = pi.positionLabel==='lower' ? '#5DCAA5' : '#ffffff';
       priceHero='<div style="text-align:center;margin-bottom:12px">'+
-        '<div style="font-size:30px;font-weight:500;color:'+heroColorB+';line-height:1.05">'+escapeHtml(pi.thisPriceFmt)+'</div>'+
+        '<div style="font-size:40px;font-weight:500;color:'+heroColorB+';line-height:1.05">'+escapeHtml(pi.thisPriceFmt)+'</div>'+
         '<div style="color:'+heroColorB+';font-size:13px;font-weight:500">'+posWordH+' of range</div></div>';
     } else if(pi && pi.tier==='solo'){
       priceHero='<div style="text-align:center;margin-bottom:12px">'+
-        '<div style="font-size:30px;font-weight:500;color:#ffffff;line-height:1.05">'+escapeHtml(pi.thisPriceFmt)+'</div>'+
+        '<div style="font-size:40px;font-weight:500;color:#ffffff;line-height:1.05">'+escapeHtml(pi.thisPriceFmt)+'</div>'+
         '<div style="color:#fff;font-size:13px;font-weight:500">this listing</div></div>';
     }
     var priceCol='<div style="flex:1;min-width:200px;background:#141414;border:1px solid #262626;border-radius:14px;padding:16px">'+
-      '<div style="color:#888;font-size:11px;letter-spacing:.05em;margin-bottom:10px">PRICE</div>'+
+      '<div style="color:#fff;font-size:11px;letter-spacing:.05em;margin-bottom:10px">PRICE</div>'+
       priceHero+recCard+priceBody+stockBadge+'</div>';
 
     // Centered white "Buy Now" pill under both columns → the card's affiliate link (skipped if none).
     var buyBtnHtml = buyUrl ? '<div style="text-align:center;margin-top:16px"><a href="'+buyUrl+'" target="_blank" rel="noopener" style="display:inline-block;background:#fff;color:#111;font-weight:600;font-size:15px;padding:13px 56px;border-radius:30px;text-decoration:none">Buy Now</a></div>' : '';
 
-    modal.innerHTML='<button class="fa-close" onclick="closeVerify()">&times;</button>'+
-      '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch">'+trustCol+priceCol+'</div>'+
-      buyBtnHtml+
-      '<div style="color:#666;font-size:11px;line-height:1.5;margin-top:14px">'+escapeHtml(d.disclaimer||'')+'</div>';
+    // Faint, blurred listing image behind everything — mostly hidden by the two solid columns,
+    // but adds texture in the surrounding grey. A dark gradient keeps all text readable.
+    var bgLayer = imgUrl
+      ? '<div style="position:absolute;inset:0;background-image:url(\''+imgUrl.replace(/'/g,'%27')+'\');background-size:cover;background-position:center;opacity:0.13;filter:blur(3px);z-index:0;pointer-events:none"></div>'+
+        '<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(28,28,28,0.55),rgba(28,28,28,0.92));z-index:0;pointer-events:none"></div>'
+      : '';
+    modal.innerHTML=bgLayer+
+      '<div style="position:relative;z-index:1">'+
+        '<button class="fa-close" onclick="closeVerify()">&times;</button>'+
+        '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch">'+trustCol+priceCol+'</div>'+
+        buyBtnHtml+
+        '<div style="color:#888;font-size:11px;line-height:1.5;margin-top:14px">'+escapeHtml(d.disclaimer||'')+'</div>'+
+      '</div>';
   }catch(e){
     clearInterval(st);
     modal.innerHTML='<button class="fa-close" onclick="closeVerify()">&times;</button><div style="color:#fff;padding:24px;text-align:center">Verify is unavailable right now — please try again.</div>';
@@ -737,7 +747,7 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
     const _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
     const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
     const _hasOffer=Array.isArray(item.buyingOptions)&&item.buyingOptions.indexOf('BEST_OFFER')!==-1;
-    const _btns=cardButtonsHtml(item.url, _hasOffer, item.itemId, isAli);
+    const _btns=cardButtonsHtml(item.url, _hasOffer, item.itemId, isAli, item.image);
     return `<div class="chat-card" data-q="${escapeHtml(label||'')}" data-item="${escapeHtml(JSON.stringify({title:item.title,image:item.image,price:item.price,url:item.url,itemId:item.itemId,source:item.source,country:c,searchQ:label}))}"><a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">${imgSrc?`<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" onerror="this.parentNode.querySelector('.chat-card-ph')&&(this.style.display='none')">`:`<div class="chat-card-ph">🛍️</div>`}<div class="chat-card-body"><div style="margin-bottom:5px">${srcBadge}</div><div class="chat-card-title">${item.title||''}</div><div class="chat-card-price">${price}</div><div class="chat-card-loc">${item.location||''}</div></div></a><div style="padding:0 12px 12px">${_btns}</div></div>`;
   }).join('');
   const gId='chat-grid-'+sid,bId='show-more-'+sid;
@@ -764,7 +774,7 @@ function showMoreCards(sid){
     const _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
     const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
     const _hasOffer=Array.isArray(item.buyingOptions)&&item.buyingOptions.indexOf('BEST_OFFER')!==-1;
-    const _btns=cardButtonsHtml(item.url, _hasOffer, item.itemId, isAli);
+    const _btns=cardButtonsHtml(item.url, _hasOffer, item.itemId, isAli, item.image);
     const card=document.createElement('div');
     card.className='chat-card';
     card.setAttribute('data-q', state.query||'');
