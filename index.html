@@ -394,22 +394,25 @@ async function runVerify(btn, itemId){
     clearInterval(st);
     if(d.error){ modal.innerHTML='<button class="fa-close" onclick="closeVerify()">&times;</button><div style="color:#fff;padding:24px;text-align:center">Could not analyze this listing right now.<div style="color:#777;font-size:12px;margin-top:8px">'+escapeHtml(String(d.error)).slice(0,140)+'</div></div>'; return; }
     var score=d.trustScore, band=d.riskBand||'';
-    var bandColor = score>=75 ? '#5DCAA5' : score>=50 ? '#EF9F27' : '#E24B4A';
+    // Green-follows-trust palette: green only when genuinely good; grey otherwise (no amber/red).
+    var bandColor = score>=75 ? '#5DCAA5' : '#9a9a9a';
 
     // ---- TRUST COLUMN ----
     var agStatus=d.authenticityStatus||'';
     var agHtml='';
     if(agStatus==='Eligible'){
-      agHtml='<div style="background:#0f2e25;border:1px solid #14543f;color:#7fe0c0;border-radius:9px;padding:8px 10px;font-size:12px;margin-bottom:12px;display:flex;gap:7px;align-items:center">'+faVerifyShield()+' eBay Authenticity Guarantee</div>';
+      agHtml='<div style="background:#0f2e25;border:1px solid #14543f;color:#7fe0c0;border-radius:10px;padding:10px 11px;margin-bottom:12px;min-height:58px;box-sizing:border-box;display:flex;gap:7px;align-items:center;font-size:13px">'+faVerifyShield()+' eBay Authenticity Guarantee</div>';
     } else if(agStatus==='NotAvailable'){
-      agHtml='<div style="background:#2a2410;border:1px solid #4a3f12;color:#e0c074;border-radius:9px;padding:8px 10px;font-size:12px;margin-bottom:12px">Authenticity Guarantee: not available here</div>';
+      agHtml='<div style="color:#8a8a8a;border-radius:9px;padding:4px 0 8px;font-size:12px">Authenticity Guarantee: not available here</div>';
     }
     var pos=(d.positives||[])
       .filter(function(p){ return !/priced (below|above|in line)/i.test(p); }) // price lines live in the price column
       .map(function(p){ return '<div style="display:flex;gap:7px;align-items:flex-start;margin:7px 0;color:#cfe9df;font-size:12.5px"><span style="color:#5DCAA5">✓</span><span>'+escapeHtml(p)+'</span></div>'; }).join('');
-    var flags=(d.riskFlags||[])
-      .filter(function(p){ return !/priced (below|above|in line)/i.test(p); })
-      .map(function(p){ return '<div style="display:flex;gap:7px;align-items:flex-start;margin:7px 0;color:#f3c9a0;font-size:12.5px"><span style="color:#EF9F27">⚠</span><span>'+escapeHtml(p)+'</span></div>'; }).join('');
+    var flagsArr=(d.riskFlags||[]).filter(function(p){ return !/priced (below|above|in line)/i.test(p); });
+    var flags=flagsArr.length
+      ? '<div style="height:1px;background:#242424;margin:11px 0 9px"></div>'+
+        flagsArr.map(function(p){ return '<div style="display:flex;gap:7px;align-items:flex-start;margin:7px 0;color:#8a8a8a;font-size:12.5px"><span style="color:#5a5a5a">–</span><span>'+escapeHtml(p)+'</span></div>'; }).join('')
+      : '';
     var trustCol='<div style="flex:1;min-width:200px;background:#141414;border:1px solid #262626;border-radius:14px;padding:16px">'+
       '<div style="color:#888;font-size:11px;letter-spacing:.05em;margin-bottom:10px">TRUST</div>'+
       '<div style="text-align:center;margin-bottom:12px">'+
@@ -421,30 +424,31 @@ async function runVerify(btn, itemId){
     var rec=d.recommendation;
     var recCard='';
     if(rec){
-      var recBg = rec.tone==='good' ? '#0f2e25' : '#2a2410';
-      var recBorder = rec.tone==='good' ? '#14543f' : '#4a3f12';
-      var recColor = rec.tone==='good' ? '#7fe0c0' : '#e0c074';
-      var recIcon = rec.tone==='good' ? '✓' : '⚠';
-      recCard='<div style="background:'+recBg+';border:1px solid '+recBorder+';border-radius:10px;padding:10px 11px;margin-bottom:12px">'+
-        '<div style="color:'+recColor+';font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px">'+recIcon+' '+escapeHtml(rec.label)+'</div>'+
-        '<div style="color:#cfcfcf;font-size:11.5px;margin-top:4px">'+escapeHtml(rec.text)+'</div></div>';
+      var good = rec.tone==='good';
+      var recBg = good ? '#0f2e25' : '#1a1a1a';
+      var recBorder = good ? '#14543f' : '#2e2e2e';
+      var recColor = good ? '#7fe0c0' : '#bdbdbd';
+      var recIcon = good ? '<i class="ti ti-check"></i>' : '<i class="ti ti-info-circle"></i>';
+      recCard='<div style="background:'+recBg+';border:1px solid '+recBorder+';border-radius:10px;padding:10px 11px;margin-bottom:12px;min-height:58px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center">'+
+        '<div style="color:'+recColor+';font-size:14px;font-weight:600;display:flex;align-items:center;gap:6px">'+recIcon+' '+escapeHtml(rec.label)+'</div>'+
+        '<div style="color:#9a9a9a;font-size:11.5px;margin-top:4px">'+escapeHtml(rec.text)+'</div></div>';
     }
     var pi=d.priceInsight;
     var priceBody='';
     if(pi){
-      var pvColor = pi.verdict==='below' ? '#5DCAA5' : pi.verdict==='above' ? '#EF9F27' : '#cfcfcf';
+      var pvColor = pi.verdict==='below' ? '#5DCAA5' : '#bdbdbd';
       var span = Math.max(1, pi.rangeHigh - pi.rangeLow);
       var posPct = Math.min(100, Math.max(0, Math.round(((pi.thisPrice - pi.rangeLow)/span)*100)));
       var shipLine = (pi.freeShipping===true)
         ? '<div style="color:#5DCAA5;font-size:11.5px;margin-bottom:10px">Free shipping</div>'
         : '<div style="margin-bottom:10px"></div>';
       var soldStat = (pi.soldQty)
-        ? '<div><div style="color:#ddd;font-size:14px;font-weight:700">'+pi.soldQty+'</div><div style="color:#888;font-size:11px">sold</div></div>'
+        ? '<div><div style="color:#fff;font-size:14px;font-weight:600">'+pi.soldQty+'</div><div style="color:#fff;font-size:11px">sold</div></div>'
         : '';
       var rangeBar=
         '<div style="position:relative;height:6px;background:#333;border-radius:3px;margin:6px 0 4px">'+
           '<div style="position:absolute;top:-3px;left:'+posPct+'%;width:12px;height:12px;border-radius:50%;background:'+pvColor+';transform:translateX(-50%);border:2px solid #141414"></div></div>'+
-        '<div style="display:flex;justify-content:space-between;color:#777;font-size:11px;margin-bottom:10px">'+
+        '<div style="display:flex;justify-content:space-between;color:#fff;font-size:11px;margin-bottom:10px">'+
           '<span>'+escapeHtml(thisCur(pi.rangeLow,pi.currency))+'</span><span>'+escapeHtml(thisCur(pi.rangeHigh,pi.currency))+'</span></div>';
 
       if(pi.tier==='broad'){
@@ -452,28 +456,28 @@ async function runVerify(btn, itemId){
         var posWord = pi.positionLabel==='lower' ? 'lower end' : pi.positionLabel==='upper' ? 'upper end' : 'middle';
         priceBody=
           '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">'+
-            '<span style="color:#888;font-size:12px">This listing</span>'+
-            '<span style="color:'+pvColor+';font-size:16px;font-weight:700">'+escapeHtml(pi.thisPriceFmt)+'</span></div>'+
-          '<div style="color:#aaa;font-size:11.5px;margin-bottom:8px">'+posWord+' of current '+escapeHtml(pi.comparables+'')+'-listing price range</div>'+
+            '<span style="color:#fff;font-size:12px">This listing</span>'+
+            '<span style="color:'+pvColor+';font-size:16px;font-weight:600">'+escapeHtml(pi.thisPriceFmt)+'</span></div>'+
+          '<div style="color:#fff;font-size:11.5px;margin-bottom:8px">'+posWord+' of current '+escapeHtml(pi.comparables+'')+'-listing price range</div>'+
           shipLine+ rangeBar+
           '<div style="display:flex;gap:12px;border-top:1px solid #2a2a2a;padding-top:9px;flex-wrap:wrap">'+
-            '<div><div style="color:'+pvColor+';font-size:14px;font-weight:700">'+pi.cheaperThanPct+'%</div><div style="color:#888;font-size:11px">cheaper than</div></div>'+
-            '<div><div style="color:#ddd;font-size:14px;font-weight:700">'+pi.comparables+'</div><div style="color:#888;font-size:11px">listings</div></div>'+
+            '<div><div style="color:'+pvColor+';font-size:14px;font-weight:600">'+pi.cheaperThanPct+'%</div><div style="color:#fff;font-size:11px">cheaper than</div></div>'+
+            '<div><div style="color:#fff;font-size:14px;font-weight:600">'+pi.comparables+'</div><div style="color:#fff;font-size:11px">listings</div></div>'+
             soldStat+'</div>'+
-          '<div style="color:#666;font-size:10.5px;margin-top:9px;line-height:1.45">Compared across current similar listings, not the exact item.</div>';
+          '<div style="color:#777;font-size:10.5px;margin-top:9px;line-height:1.45">Compared across current similar listings, not the exact item.</div>';
       } else {
         // High-confidence, same-product comparison.
         priceBody=
           '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px">'+
-            '<span style="color:#888;font-size:12px">This listing</span>'+
-            '<span style="color:'+pvColor+';font-size:16px;font-weight:700">'+escapeHtml(pi.thisPriceFmt)+'</span></div>'+
+            '<span style="color:#fff;font-size:12px">This listing</span>'+
+            '<span style="color:'+pvColor+';font-size:16px;font-weight:600">'+escapeHtml(pi.thisPriceFmt)+'</span></div>'+
           '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">'+
-            '<span style="color:#888;font-size:12px">Typical</span>'+
-            '<span style="color:#ddd;font-size:13px;font-weight:600">'+escapeHtml(pi.typicalFmt)+'</span></div>'+
+            '<span style="color:#fff;font-size:12px">Typical</span>'+
+            '<span style="color:#fff;font-size:13px;font-weight:600">'+escapeHtml(pi.typicalFmt)+'</span></div>'+
           shipLine+ rangeBar+
           '<div style="display:flex;gap:12px;border-top:1px solid #2a2a2a;padding-top:9px;flex-wrap:wrap">'+
-            '<div><div style="color:'+pvColor+';font-size:14px;font-weight:700">'+pi.cheaperThanPct+'%</div><div style="color:#888;font-size:11px">cheaper than</div></div>'+
-            '<div><div style="color:#ddd;font-size:14px;font-weight:700">'+pi.comparables+'</div><div style="color:#888;font-size:11px">listings</div></div>'+
+            '<div><div style="color:'+pvColor+';font-size:14px;font-weight:600">'+pi.cheaperThanPct+'%</div><div style="color:#fff;font-size:11px">cheaper than</div></div>'+
+            '<div><div style="color:#fff;font-size:14px;font-weight:600">'+pi.comparables+'</div><div style="color:#fff;font-size:11px">listings</div></div>'+
             soldStat+'</div>';
       }
     } else {
@@ -483,14 +487,32 @@ async function runVerify(btn, itemId){
       priceBody='<div style="color:#999;font-size:12.5px;line-height:1.55;padding:6px 0">'+why+
         '<div style="color:#666;font-size:11px;margin-top:8px">Trust score is unaffected — it reflects the seller and listing only.</div></div>';
     }
-    // low-stock badge (only when genuinely low)
+    // low-stock badge (only when genuinely low) — calm grey, not amber
     var stockBadge='';
     if(d.stockLeft && d.stockLeft<=3 && !d.stockMoreThan){
-      stockBadge='<div style="margin-top:10px;background:#2a2410;border:1px solid #4a3f12;border-radius:8px;padding:7px 10px;color:#e0c074;font-size:12px">Only '+d.stockLeft+' left</div>';
+      stockBadge='<div style="margin-top:11px;color:#8a8a8a;font-size:12px;display:flex;gap:7px"><span style="color:#5a5a5a">–</span>Only '+d.stockLeft+' left</div>';
+    }
+    // ── PRICE HERO number (mirrors the trust score) ──
+    // Tight match → big "% below typical". Broad match → "lower end of range" line. None → nothing.
+    var priceHero='';
+    if(pi && pi.tier==='high' && pi.typical>0){
+      var pctDiff = Math.round((1 - (pi.thisPrice/pi.typical))*100); // + = below typical
+      var heroColor = pctDiff>=0 ? '#5DCAA5' : '#bdbdbd';
+      var heroLabel = pctDiff>=8 ? 'below typical' : pctDiff<=-8 ? 'above typical' : 'around typical';
+      var heroNum = Math.abs(pctDiff);
+      priceHero='<div style="text-align:center;margin-bottom:12px">'+
+        '<div style="font-size:40px;font-weight:500;color:'+heroColor+';line-height:1.05">'+heroNum+'<span style="font-size:17px;color:#666">%</span></div>'+
+        '<div style="color:'+heroColor+';font-size:13px;font-weight:500">'+heroLabel+'</div></div>';
+    } else if(pi && pi.tier==='broad'){
+      var posWordH = pi.positionLabel==='lower' ? 'lower end' : pi.positionLabel==='upper' ? 'upper end' : 'mid-range';
+      var heroColorB = pi.positionLabel==='lower' ? '#5DCAA5' : '#bdbdbd';
+      priceHero='<div style="text-align:center;margin-bottom:12px">'+
+        '<div style="font-size:30px;font-weight:500;color:'+heroColorB+';line-height:1.05">'+escapeHtml(pi.thisPriceFmt)+'</div>'+
+        '<div style="color:'+heroColorB+';font-size:13px;font-weight:500">'+posWordH+' of range</div></div>';
     }
     var priceCol='<div style="flex:1;min-width:200px;background:#141414;border:1px solid #262626;border-radius:14px;padding:16px">'+
       '<div style="color:#888;font-size:11px;letter-spacing:.05em;margin-bottom:10px">PRICE</div>'+
-      recCard+priceBody+stockBadge+'</div>';
+      priceHero+recCard+priceBody+stockBadge+'</div>';
 
     modal.innerHTML='<button class="fa-close" onclick="closeVerify()">&times;</button>'+
       '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch">'+trustCol+priceCol+'</div>'+
