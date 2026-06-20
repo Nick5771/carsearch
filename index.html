@@ -145,7 +145,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .fa-modal-bg.open{display:flex}
 .fa-modal{background:#1c1c1c;position:relative;border-top-left-radius:18px;border-top-right-radius:18px;border:1px solid #2a2a2a;width:100%;max-width:680px;max-height:86vh;overflow-y:auto;padding:22px 20px calc(26px + env(safe-area-inset-bottom));font-family:'DM Sans',sans-serif;animation:faUp .28s ease}
 @keyframes faUp{from{transform:translateY(40px);opacity:.4}to{transform:translateY(0);opacity:1}}
-.fa-close{float:right;background:none;border:none;color:#ccc;font-size:24px;cursor:pointer;line-height:1;text-shadow:0 1px 4px rgba(0,0,0,0.9)}
+.fa-close{float:right;background:none;border:none;color:#aaa;font-size:24px;cursor:pointer;line-height:1;text-shadow:0 1px 3px rgba(0,0,0,0.6)}
 @media(max-width:700px){.card-btn{font-size:9px;padding:6px 1px;gap:2px}.card-btns{gap:3px}.card-btn .vshield{width:11px;height:11px}}
 
 .thinking{display:flex;gap:5px;padding:12px 16px;background:#111;border:1px solid #222;border-radius:12px;width:fit-content}
@@ -555,15 +555,15 @@ async function runVerify(btn, itemId){
     // Faint, blurred listing image behind everything — mostly hidden by the two solid columns,
     // but adds texture in the surrounding grey. A dark gradient keeps all text readable.
     var bgLayer = imgUrl
-      ? '<div style="position:absolute;inset:0;background-image:url(\''+imgUrl.replace(/'/g,'%27')+'\');background-size:cover;background-position:center;opacity:0.55;filter:blur(3px);z-index:0;pointer-events:none"></div>'+
-        '<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,20,20,0.32) 0%,rgba(20,20,20,0.45) 55%,rgba(20,20,20,0.84) 100%);z-index:0;pointer-events:none"></div>'
-      : '';
+      ? '<div style="position:absolute;inset:0;background-image:url(\''+imgUrl.replace(/'/g,'%27')+'\');background-size:cover;background-position:center;opacity:0.6;filter:blur(22px) saturate(1.2);z-index:0;pointer-events:none"></div>'+
+        '<div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(18,18,18,0.34) 0%,rgba(18,18,18,0.6) 60%,rgba(18,18,18,0.88) 100%);z-index:0;pointer-events:none"></div>'
+      : '';  // listing image as a soft, heavily-blurred colour wash — smooth, never splotchy
     modal.innerHTML=bgLayer+
       '<div style="position:relative;z-index:1">'+
         '<button class="fa-close" onclick="closeVerify()">&times;</button>'+
         '<div style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch">'+trustCol+priceCol+'</div>'+
         buyBtnHtml+
-        '<div style="color:#bbb;font-size:11px;line-height:1.5;margin-top:14px;text-shadow:0 1px 3px rgba(0,0,0,0.9)">'+escapeHtml(d.disclaimer||'')+'</div>'+
+        '<div style="color:#999;font-size:11px;line-height:1.5;margin-top:14px;text-shadow:0 1px 2px rgba(0,0,0,0.7)">'+escapeHtml(d.disclaimer||'')+'</div>'+
       '</div>';
   }catch(e){
     clearInterval(st);
