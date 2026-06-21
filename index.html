@@ -297,6 +297,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
     </button>
     <div class="sb-section" id="recent-section" style="display:none">Recent</div>
     <div id="recent-searches"></div>
+    <button class="sb-item" id="sb-best-deals" onclick="loadBestDeals()" style="color:#4d9fe6;font-weight:600;margin-top:8px">🔥 &nbsp;Best Deals</button>
     <div class="sb-section" style="margin-top:8px">Categories</div>
     <button class="sb-item" onclick="categorySearch('Sneakers Nike Jordan Adidas','sneakers')">👟 &nbsp;Sneakers</button>
     <button class="sb-item" onclick="categorySearch('Louis Vuitton','fashion')">🪡 &nbsp;Fashion</button>
@@ -305,6 +306,8 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
     <button class="sb-item" onclick="categorySearch('electronics','electronics')">💻 &nbsp;Electronics</button>
     <button class="sb-item" onclick="categorySearch('Pandora jewellery','jewellery')">💍 &nbsp;Jewellery</button>
     <button class="sb-item" onclick="categorySearch('Football','sports')">🏋️ &nbsp;Sports</button>
+    <a class="sb-item" href="https://www.amazon.com.au/?tag=findai09e-22" target="_blank" rel="noopener nofollow sponsored" onclick="amazonAffiliate();return false;" style="text-decoration:none">🛒 &nbsp;Amazon</a>
+    <div style="font-size:10px;color:#555;padding:2px 14px 8px;line-height:1.4">As an Amazon Associate, FindAI earns from qualifying purchases.</div>
   </div>
   <div class="chat">
     <div id="ambient-bg"></div>
@@ -966,6 +969,69 @@ function categorySearch(query,label){
   event.currentTarget.classList.add('active');
   document.getElementById('chat-in').value=query; sendMsg();
 }
+
+// ── BEST DEALS ────────────────────────────────────────────────────────────
+// Pulls the worker's pre-scored deal feed (genuine markdowns + below-market prices)
+// and renders it with a deal badge on each card.
+async function loadBestDeals(){
+  document.querySelectorAll('.sb-item').forEach(b=>b.classList.remove('active'));
+  var btn=document.getElementById('sb-best-deals'); if(btn) btn.classList.add('active');
+  if(busy) return;
+  busy=true; document.getElementById('send-btn').disabled=true;
+  showChat();
+  addMsg('user','🔥 Best Deals');
+  addThinking();
+  requestAnimationFrame(scrollToLastUser);
+  try{
+    var res=await fetch(WORKER+'/?bestdeals=1');
+    var data=await res.json();
+    removeThinking();
+    var items=Array.isArray(data.items)?data.items:[];
+    var c=data.country||country;
+    var body=addMsg('assistant','');
+    if(!items.length){ typeReply(body,"No standout deals right now \u2014 check back soon.",''); }
+    else{ typeReply(body, "Today's best deals \u2014 genuinely marked down or priced below the going rate for similar listings. Every price is live.", renderDeals(items,c)); }
+    setTimeout(scrollToLastUser,150);
+  }catch(e){ removeThinking(); addMsg('assistant',"Couldn't load deals just now \u2014 try again in a moment."); }
+  busy=false; document.getElementById('send-btn').disabled=false;
+}
+// Build the Best Deals grid: same card as a normal result, plus a blue deal badge and a
+// struck-through "was" price when it's a real seller markdown.
+function renderDeals(items,c){
+  var sym=c==='UK'?'£':c==='DE'?'€':'$';
+  var cards=items.map(function(item){
+    var price=item.price?sym+Number(item.price).toLocaleString():'See listing';
+    var was=(item.origPrice&&item.origPrice>item.price)
+      ? '<span style="color:#777;font-size:12px;text-decoration:line-through;margin-left:6px">'+sym+Number(item.origPrice).toLocaleString()+'</span>' : '';
+    var badgeTxt=item.dealReason==='markdown' ? (item.dealPct+'% off') : (item.dealPct+'% below typical');
+    var badge='<div style="position:absolute;top:8px;left:8px;z-index:2;background:#4d9fe6;color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.45)">'+badgeTxt+'</div>';
+    var _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
+    var imgSrc=item.image?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
+    var _btns=cardButtonsHtml(item.url,false,item.itemId,false,item.image);
+    var dataItem=escapeHtml(JSON.stringify({title:item.title,image:item.image,price:item.price,url:item.url,itemId:item.itemId,source:item.source,country:c,searchQ:'best deals'}));
+    return '<div class="chat-card" data-q="best deals" data-item="'+dataItem+'" style="position:relative">'+badge+
+      '<a href="'+item.url+'" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">'+
+      (imgSrc?'<img class="chat-card-img" src="'+imgSrc+'" alt="" loading="lazy" onerror="this.parentNode.querySelector(\'.chat-card-ph\')&&(this.style.display=\'none\')">':'<div class="chat-card-ph">🛍️</div>')+
+      '<div class="chat-card-body"><div style="margin-bottom:5px">'+ebayLogoHtml()+'</div>'+
+      '<div class="chat-card-title">'+(item.title||'')+'</div>'+
+      '<div class="chat-card-price">'+price+was+'</div></div></a>'+
+      '<div style="padding:0 12px 12px">'+_btns+'</div></div>';
+  }).join('');
+  return '<div class="chat-grid">'+cards+'</div>';
+}
+// ── AMAZON affiliate outbound link ────────────────────────────────────────
+// Opens Amazon AU with the FindAI Associates tag. Carries the current/last search term
+// when there is one, otherwise the storefront. (Outbound only — Amazon listings can't be
+// shown in-app until PA-API access, which needs the first qualifying sales.)
+function amazonAffiliate(){
+  var TAG='findai09e-22';
+  var el=document.getElementById('chat-in');
+  var kw=((el&&el.value.trim())||lastSearchKw||'').trim();
+  var dest = kw
+    ? 'https://www.amazon.com.au/s?k='+encodeURIComponent(kw)+'&tag='+TAG
+    : 'https://www.amazon.com.au/?tag='+TAG;
+  window.open(dest,'_blank','noopener');
+}
 function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();}}
 function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
 
@@ -1480,6 +1546,7 @@ renderRecents();
 </script>
 <div style="text-align:center;padding:20px;font-size:12px;color:#333;border-top:1px solid #111;margin-top:20px">
   <span style="color:#555">© 2026 FindAI &nbsp;·&nbsp; findai.ai &nbsp;·&nbsp; <a href="/about.html" style="color:#555;text-decoration:none">About</a></span>
+  <div style="color:#444;font-size:11px;margin-top:8px;line-height:1.5">As an Amazon Associate, FindAI earns from qualifying purchases. FindAI is a participant in the Amazon Services LLC Associates Program and the eBay Partner Network.</div>
 </div>
 <div id="brand-bar">
   <img src="/icon-192.png" alt="FindAI logo">
