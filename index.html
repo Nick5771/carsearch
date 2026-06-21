@@ -541,11 +541,11 @@ async function runVerify(btn, itemId){
         '<div style="font-size:40px;font-weight:500;color:'+heroColor+';line-height:1.05">'+heroNum+'<span style="font-size:17px;color:#666">%</span></div>'+
         '<div style="color:'+heroColor+';font-size:13px;font-weight:500">'+heroLabel+'</div></div>';
     } else if(pi && pi.tier==='broad'){
-      var posWordH = pi.positionLabel==='lower' ? 'lower end' : pi.positionLabel==='upper' ? 'upper end' : 'mid-range';
+      var posWordH = pi.positionLabel==='lower' ? 'lower end of the range' : pi.positionLabel==='upper' ? 'upper end of the range' : 'around the middle';
       var heroColorB = pi.positionLabel==='lower' ? '#4d9fe6' : '#ffffff';
       priceHero='<div style="text-align:center;margin-bottom:12px">'+
         '<div style="font-size:40px;font-weight:500;color:'+heroColorB+';line-height:1.05">'+escapeHtml(pi.thisPriceFmt)+'</div>'+
-        '<div style="color:'+heroColorB+';font-size:13px;font-weight:500">'+posWordH+' of range</div></div>';
+        '<div style="color:'+heroColorB+';font-size:13px;font-weight:500">'+posWordH+'</div></div>';
     } else if(pi && pi.tier==='solo'){
       priceHero='<div style="text-align:center;margin-bottom:12px">'+
         '<div style="font-size:40px;font-weight:500;color:#ffffff;line-height:1.05">'+escapeHtml(pi.thisPriceFmt)+'</div>'+
@@ -1582,13 +1582,44 @@ window.addEventListener('load', initGoogleAuth);
 <script>
 /* ===== FindAI welcome title — random per page load, personalised when signed in ===== */
 (function(){
-  // Titles that read naturally WITH a name get a "{name}" slot; others stay fixed.
-  // One title is chosen at random per fresh page load and stays for the tab session.
-  const TITLES = [
-    { plain: "What are you looking for?",        named: "What are you looking for, {name}?" },
-    { plain: "What can I find you today?",       named: "What can I find you today, {name}?" },
-    { plain: "Describe it. We'll find it.",      named: "Describe it, {name}. We'll find it." },
-    { plain: "The hunt ends here",               named: "The hunt ends here, {name}" }
+  // ONE combined pool, three styles mixed together. A single greeting is picked at
+  // RANDOM per fresh page load and sticks for the tab session — so sometimes you get a
+  // plain prompt, sometimes a "Good afternoon", sometimes a live clock. Each entry has a
+  // {name} ("named") version and a no-name ("plain") fallback, so signed-out visitors
+  // never see an empty name slot (and the greeting never prints the brand by mistake).
+  //   type 'plain' → fixed phrase
+  //   type 'tod'   → "Good {tod}" auto-matched to the real clock (never wrong time of day)
+  //   type 'time'  → live "H:MM" clock prepended to the tail
+  const GREETINGS = [
+    // ── plain ──
+    { type:'plain', named:"What are you looking for, {name}?",      plain:"What are you looking for?" },
+    { type:'plain', named:"What can I find you today, {name}?",     plain:"What can I find you today?" },
+    { type:'plain', named:"Describe it, {name}. We'll find it.",    plain:"Describe it. We'll find it." },
+    { type:'plain', named:"The hunt ends here, {name}",             plain:"The hunt ends here" },
+    { type:'plain', named:"What are you after, {name}?",            plain:"What are you after?" },
+    { type:'plain', named:"Name it, {name}, and I'll find it.",     plain:"Name it and I'll find it." },
+
+    // ── time of day (auto-matches the clock) ──
+    { type:'tod',   named:"Good {tod}, {name}. What are we finding?", plain:"Good {tod}! What are we finding?" },
+    { type:'tod',   named:"Good {tod}, {name}. What are you after?",  plain:"Good {tod}! What are you after?" },
+    { type:'tod',   named:"Good {tod}, {name}. Ready to search?",     plain:"Good {tod}! Ready to search?" },
+
+    // ── live time ("H:MM, " is prepended to each tail) ──
+    { type:'time',  named:"ready when you are, {name}.",            plain:"ready when you are." },
+    { type:'time',  named:"awaiting your command.",                plain:"awaiting your command." },
+    { type:'time',  named:"what are we finding today, {name}?",     plain:"what are we finding today?" },
+    { type:'time',  named:"let's track something down.",           plain:"let's track something down." },
+    { type:'time',  named:"ready to search, {name}.",              plain:"ready to search." },
+    { type:'time',  named:"what's on the hunt list?",              plain:"what's on the hunt list?" },
+    { type:'time',  named:"what can I find you, {name}?",           plain:"what can I find you?" },
+    { type:'time',  named:"ready to dig something up?",            plain:"ready to dig something up?" },
+    { type:'time',  named:"your search awaits, {name}.",           plain:"your search awaits." },
+    { type:'time',  named:"what are you after?",                   plain:"what are you after?" },
+    { type:'time',  named:"standing by.",                          plain:"standing by." },
+    { type:'time',  named:"what's caught your eye, {name}?",        plain:"what's caught your eye?" },
+    { type:'time',  named:"name it and I'll find it.",             plain:"name it and I'll find it." },
+    { type:'time',  named:"let's get searching, {name}.",          plain:"let's get searching." },
+    { type:'time',  named:"what's the mission?",                   plain:"what's the mission?" }
   ];
 
   function firstName(){
@@ -1599,20 +1630,52 @@ window.addEventListener('load', initGoogleAuth);
     return '';
   }
 
-  function setWelcomeTitle(){
-    const el = document.getElementById('welcome-title');
-    if(!el) return;
-    const pick = TITLES[Math.floor(Math.random() * TITLES.length)];
-    const name = firstName();
-    el.textContent = (name ? pick.named.replace('{name}', name) : pick.plain);
+  // 12-hour clock, no leading zero on the hour, two-digit minutes → "10:58", "1:15", "12:00".
+  function liveTime(){
+    const d = new Date();
+    let h = d.getHours();
+    const m = d.getMinutes();
+    h = h % 12; if(h === 0) h = 12;
+    return h + ':' + (m < 10 ? '0' : '') + m;
+  }
+  // Time-of-day word from the REAL clock so a random "Good morning" never shows at 9pm.
+  function todWord(){
+    const h = new Date().getHours();
+    if(h >= 5  && h < 12) return 'morning';
+    if(h >= 12 && h < 18) return 'afternoon';
+    return 'evening';
   }
 
-  // Run once on load (sticks for the tab). Also re-run right after a Google sign-in
-  // so the greeting personalises immediately without needing a refresh.
-  setWelcomeTitle();
+  // The greeting is chosen ONCE; render() can be called again (after sign-in, or each
+  // minute for a live clock) and re-resolves the SAME entry with the current name/time.
+  const pick = GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+
+  function render(){
+    const el = document.getElementById('welcome-title');
+    if(!el) return;
+    const name = firstName();
+    let text = name ? pick.named : pick.plain;
+    if(pick.type === 'time')      text = liveTime() + ', ' + text;
+    else if(pick.type === 'tod')  text = text.replace('{tod}', todWord());
+    el.textContent = text.replace('{name}', name);
+  }
+
+  // Run once on load (sticks for the tab). Re-run after a Google sign-in so it
+  // personalises immediately without a refresh.
+  render();
   const _origUpdate = window.updateAuthUI;
   if(typeof _origUpdate === 'function'){
-    window.updateAuthUI = function(user){ _origUpdate(user); try{ setWelcomeTitle(); }catch(_){} };
+    window.updateAuthUI = function(user){ _origUpdate(user); try{ render(); }catch(_){} };
+  }
+
+  // If a live-time greeting was chosen, tick the clock on the minute so "10:58" rolls to
+  // "10:59" while the visitor sits there. (Only the digits change — the chosen phrase and
+  // style stay put.) To turn ticking OFF and just set the time once, delete this block.
+  if(pick.type === 'time'){
+    setTimeout(function(){
+      render();
+      setInterval(render, 60000);
+    }, 60000 - (Date.now() % 60000));
   }
 })();
 </script>
