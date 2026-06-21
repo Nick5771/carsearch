@@ -471,6 +471,8 @@ async function runVerify(btn, itemId){
       var soldStat = (pi.soldQty)
         ? '<div><div style="color:#fff;font-size:14px;font-weight:600">'+pi.soldQty+'</div><div style="color:#fff;font-size:11px">sold</div></div>'
         : '';
+      // Blue tick row for the price column — mirrors the trust column's checklist rhythm.
+      var tickRow = function(t){ return '<div style="display:flex;gap:8px;align-items:flex-start;margin:8px 0;color:#cfe0f2;font-size:12.5px"><span style="color:#4d9fe6;flex:none">✓</span><span>'+t+'</span></div>'; };
       var rangeBar=
         '<div style="position:relative;height:6px;background:#333;border-radius:3px;margin:6px 0 4px">'+
           '<div style="position:absolute;top:-3px;left:'+posPct+'%;width:12px;height:12px;border-radius:50%;background:'+pvColor+';transform:translateX(-50%);border:2px solid #141414"></div></div>'+
@@ -486,10 +488,10 @@ async function runVerify(btn, itemId){
             '<span style="color:'+pvColor+';font-size:16px;font-weight:600">'+escapeHtml(pi.thisPriceFmt)+'</span></div>'+
           '<div style="color:#fff;font-size:11.5px;margin-bottom:8px">'+posWord+' of current '+escapeHtml(pi.comparables+'')+'-listing price range</div>'+
           shipLine+ rangeBar+
-          '<div style="display:flex;gap:12px;border-top:1px solid #2a2a2a;padding-top:9px;flex-wrap:wrap">'+
-            '<div><div style="color:#4d9fe6;font-size:14px;font-weight:600">'+pi.cheaperThanPct+'%</div><div style="color:#fff;font-size:11px">cheaper than</div></div>'+
-            '<div><div style="color:#fff;font-size:14px;font-weight:600">'+pi.comparables+'</div><div style="color:#fff;font-size:11px">listings</div></div>'+
-            soldStat+'</div>'+
+          '<div style="border-top:1px solid #2a2a2a;padding-top:9px;margin-top:2px">'+
+            tickRow('Cheaper than '+pi.cheaperThanPct+'% of '+pi.comparables+' similar listings')+
+            (pi.soldQty ? tickRow(pi.soldQty+' sold recently') : '')+
+          '</div>'+
           '<div style="color:#777;font-size:10.5px;margin-top:9px;line-height:1.45">Compared across current similar listings, not the exact item.</div>';
       } else if(pi.tier==='solo'){
         // No reliable comparison set — show the listing's own price + signals (never an empty box, no fake range).
@@ -498,7 +500,7 @@ async function runVerify(btn, itemId){
             '<span style="color:#fff;font-size:12px">This listing</span>'+
             '<span style="color:#fff;font-size:16px;font-weight:600">'+escapeHtml(pi.thisPriceFmt)+'</span></div>'+
           shipLine+
-          (soldStat ? '<div style="display:flex;gap:12px;border-top:1px solid #2a2a2a;padding-top:9px;flex-wrap:wrap">'+soldStat+'</div>' : '')+
+          (pi.soldQty ? '<div style="border-top:1px solid #2a2a2a;padding-top:9px;margin-top:2px">'+tickRow(pi.soldQty+' sold recently')+'</div>' : '')+
           '<div style="color:#777;font-size:10.5px;margin-top:9px;line-height:1.45">Live market comparison isn\u2019t available for this exact listing right now.</div>';
       } else {
         // High-confidence, same-product comparison.
@@ -510,10 +512,10 @@ async function runVerify(btn, itemId){
             '<span style="color:#fff;font-size:12px">Typical</span>'+
             '<span style="color:#fff;font-size:13px;font-weight:600">'+escapeHtml(pi.typicalFmt)+'</span></div>'+
           shipLine+ rangeBar+
-          '<div style="display:flex;gap:12px;border-top:1px solid #2a2a2a;padding-top:9px;flex-wrap:wrap">'+
-            '<div><div style="color:#4d9fe6;font-size:14px;font-weight:600">'+pi.cheaperThanPct+'%</div><div style="color:#fff;font-size:11px">cheaper than</div></div>'+
-            '<div><div style="color:#fff;font-size:14px;font-weight:600">'+pi.comparables+'</div><div style="color:#fff;font-size:11px">listings</div></div>'+
-            soldStat+'</div>';
+          '<div style="border-top:1px solid #2a2a2a;padding-top:9px;margin-top:2px">'+
+            tickRow('Cheaper than '+pi.cheaperThanPct+'% of '+pi.comparables+' similar listings')+
+            (pi.soldQty ? tickRow(pi.soldQty+' sold recently') : '')+
+          '</div>';
       }
     } else {
       var why = d.priceSilentReason==='spread'
@@ -525,7 +527,7 @@ async function runVerify(btn, itemId){
     // low-stock badge (only when genuinely low) — calm grey, not amber
     var stockBadge='';
     if(d.stockLeft && d.stockLeft<=3 && !d.stockMoreThan){
-      stockBadge='<div style="margin-top:11px;color:#4d9fe6;font-size:12px;display:flex;gap:7px"><span style="color:#4d9fe6">–</span>Only '+d.stockLeft+' left</div>';
+      stockBadge='<div style="margin-top:8px;color:#cfe0f2;font-size:12.5px;display:flex;gap:8px;align-items:flex-start"><span style="color:#4d9fe6;flex:none">✓</span><span>Only '+d.stockLeft+' left</span></div>';
     }
     // ── PRICE HERO number (mirrors the trust score) ──
     // Tight match → big "% below typical". Broad match → "lower end of range" line. None → nothing.
