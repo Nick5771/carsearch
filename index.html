@@ -1034,13 +1034,19 @@ function renderDeals(items,c){
     : '';
   return '<div class="chat-grid" id="'+gid+'">'+cards+'</div>'+more;
 }
-// Reveal the next batch of hidden Best Deals cards; hides the button once none remain.
+// Reveal the next batch of hidden Best Deals cards; shows a clear end-state once none remain.
 function revealMoreDeals(btn){
   var grid=document.getElementById(btn.getAttribute('data-grid'));
   if(!grid) return;
   var hidden=grid.querySelectorAll('.deal-extra'), shown=0;
   for(var i=0;i<hidden.length&&shown<16;i++){ hidden[i].classList.remove('deal-extra'); hidden[i].style.display=''; shown++; }
-  if(!grid.querySelector('.deal-extra')) btn.style.display='none';
+  if(!grid.querySelector('.deal-extra')){
+    btn.textContent="That\u2019s all today\u2019s deals";
+    btn.disabled=true;
+    btn.style.background='transparent';
+    btn.style.color='#666';
+    btn.style.cursor='default';
+  }
 }
 // ── AMAZON affiliate outbound link ────────────────────────────────────────
 // Opens Amazon AU with the FindAI Associates tag. Carries the current/last search term
