@@ -77,11 +77,21 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .user-menu-email{color:#888;font-size:12px;padding:6px 10px 10px;border-bottom:1px solid #2a2a2a;margin-bottom:6px;word-break:break-all;font-family:'DM Sans',sans-serif}
 .user-menu-btn{width:100%;text-align:left;padding:9px 10px;border-radius:8px;background:none;border:none;color:#fff;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:background 0.15s}
 .user-menu-btn:hover{background:#2a2a2a}
-.auth-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:10000;display:none;align-items:center;justify-content:center}
-.auth-modal{background:#111;border:1px solid #2a2a2a;border-radius:18px;padding:44px 40px;width:420px;max-width:92vw;text-align:center;font-family:'DM Sans',sans-serif}
-.auth-modal h3{color:#fff;font-size:26px;margin:0 0 10px}
-.auth-modal p{color:#999;font-size:15px;margin:0 0 28px}
-.auth-close{position:absolute;top:18px;right:22px;color:#888;background:none;border:none;font-size:22px;cursor:pointer}
+.auth-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:10000;display:none;align-items:center;justify-content:center}
+.auth-modal{background:#0d0d0d;border:1px solid #262626;border-radius:28px;padding:48px 40px 40px;width:400px;max-width:92vw;text-align:center;font-family:'DM Sans',sans-serif}
+.auth-modal h3{color:#fff;font-size:29px;font-weight:700;margin:0 0 14px;letter-spacing:-0.5px}
+.auth-modal p{color:#999;font-size:15px;margin:0 0 32px;line-height:1.5}
+.auth-close{position:absolute;top:18px;right:18px;color:#777;background:none;border:none;font-size:20px;cursor:pointer;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;transition:background 0.15s}
+.auth-close:hover{background:#1c1c1c}
+.auth-input{width:100%;box-sizing:border-box;padding:16px 20px;border-radius:999px;border:1px solid #2e2e2e;background:#000;color:#fff;font-size:15px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color 0.15s}
+.auth-input:focus{border-color:#555}
+.auth-btn-primary{width:100%;padding:16px 20px;border-radius:999px;border:none;background:#fff;color:#0a0a0a;font-size:15px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity 0.15s}
+.auth-btn-primary:hover{opacity:0.88}
+.auth-btn-primary:disabled{opacity:0.55;cursor:default}
+.auth-divider{display:flex;align-items:center;gap:14px;color:#666;font-size:12px;font-weight:600;letter-spacing:0.5px;margin:22px 0}
+.auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:#262626}
+.auth-notify{display:flex;align-items:center;justify-content:center;gap:9px;margin-top:22px;color:#999;font-size:13px;cursor:pointer;user-select:none}
+.auth-notify input{width:16px;height:16px;accent-color:#1a6fff;cursor:pointer}
 .nav-link:hover{color:#fff}
 .app{display:flex;flex:1;height:calc(100vh - 52px);margin-top:52px}
 .sidebar{width:240px;padding:12px 8px;display:flex;flex-direction:column;gap:2px;border-right:1px solid #1a1a1a;flex-shrink:0;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto}
@@ -290,20 +300,16 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 <div class="auth-modal-bg" id="auth-modal-bg">
   <div class="auth-modal" style="position:relative">
     <button class="auth-close" onclick="closeAuth()">&times;</button>
-    <h3 id="auth-title">Sign in to FindAI</h3>
-    <p>Sign in with your email or Google</p>
-    <div id="email-auth" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
-      <input type="email" id="email-input" placeholder="you@email.com" autocomplete="email"
-        style="width:100%;box-sizing:border-box;padding:13px 16px;border-radius:12px;border:1px solid #333;background:#0d0d0d;color:#fff;font-size:15px;font-family:'DM Sans',sans-serif;outline:none">
-      <button id="email-btn" onclick="requestEmailLink()"
-        style="width:100%;padding:13px 16px;border-radius:12px;border:none;background:#1a6fff;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Continue with email</button>
-    </div>
-    <div style="display:flex;align-items:center;gap:12px;color:#555;font-size:12px;margin:6px 0 16px">
-      <div style="flex:1;height:1px;background:#2a2a2a"></div>or<div style="flex:1;height:1px;background:#2a2a2a"></div>
-    </div>
+    <h3 id="auth-title">Log in or sign up</h3>
+    <p>Save searches, track items, and get notified about the best deals.</p>
     <div id="google-btn" style="display:flex;justify-content:center"></div>
-    <label style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:18px;color:#aaa;font-size:13px;cursor:pointer;user-select:none">
-      <input type="checkbox" id="notify-optin" style="width:15px;height:15px;accent-color:#1a6fff;cursor:pointer">
+    <div class="auth-divider">OR</div>
+    <div id="email-auth" style="display:flex;flex-direction:column;gap:12px">
+      <input type="email" id="email-input" class="auth-input" placeholder="Email address" autocomplete="email">
+      <button id="email-btn" class="auth-btn-primary" onclick="requestEmailLink()">Continue</button>
+    </div>
+    <label class="auth-notify">
+      <input type="checkbox" id="notify-optin">
       Notify me about the best deals
     </label>
     <div id="auth-fallback" style="color:#666;font-size:12px;margin-top:16px"></div>
@@ -1706,11 +1712,11 @@ async function requestEmailLink(){
         '<div style="color:#fff;font-size:15px;line-height:1.5">Check your inbox.<br><span style="color:#999;font-size:13px">We sent a sign-in link to ' + email.replace(/</g,'') + '</span></div>';
     } else {
       if(fb) fb.textContent = (data && data.error) || 'Could not send the link. Try again.';
-      if(btn){ btn.disabled = false; btn.textContent = 'Continue with email'; }
+      if(btn){ btn.disabled = false; btn.textContent = 'Continue'; }
     }
   }catch(e){
     if(fb) fb.textContent = 'Could not reach the sign-in server.';
-    if(btn){ btn.disabled = false; btn.textContent = 'Continue with email'; }
+    if(btn){ btn.disabled = false; btn.textContent = 'Continue'; }
   }
 }
 
@@ -1770,7 +1776,7 @@ function initGoogleAuth(){
   }
   if(!(window.google&&google.accounts&&google.accounts.id)){ setTimeout(initGoogleAuth,400); return; }
   google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleCredential });
-  google.accounts.id.renderButton(document.getElementById('google-btn'), { theme:'filled_black', size:'large', shape:'pill', text:'continue_with' });
+  google.accounts.id.renderButton(document.getElementById('google-btn'), { theme:'filled_black', size:'large', shape:'pill', text:'continue_with', width:'320' });
 }
 window.addEventListener('load', initGoogleAuth);
 </script>
