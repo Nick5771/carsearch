@@ -90,16 +90,18 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .auth-btn-primary:disabled{opacity:0.55;cursor:default}
 .auth-divider{display:flex;align-items:center;gap:14px;color:#666;font-size:12px;font-weight:600;letter-spacing:0.5px;margin:22px 0}
 .auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:#262626}
-.auth-notify{display:flex;align-items:flex-start;gap:13px;margin-top:22px;padding:18px 20px;border-radius:18px;background:rgba(26,111,255,0.07);border:1px solid rgba(26,111,255,0.28);cursor:pointer;user-select:none;text-align:left;transition:background 0.15s,border-color 0.15s}
-.auth-notify:hover{background:rgba(26,111,255,0.11);border-color:rgba(26,111,255,0.45)}
+.auth-notify{display:flex;align-items:center;gap:14px;margin-top:22px;padding:20px 22px;border-radius:20px;background:#111;border:1px solid #262626;cursor:pointer;user-select:none;text-align:left;transition:border-color 0.15s}
+.auth-notify:hover{border-color:#363636}
 .auth-notify input{position:absolute;opacity:0;width:0;height:0}
-.auth-notify-box{width:24px;height:24px;flex:none;margin-top:1px;border-radius:8px;border:1.5px solid #3a4a66;background:transparent;display:flex;align-items:center;justify-content:center;transition:background 0.15s,border-color 0.15s}
-.auth-notify-box svg{width:15px;height:15px;opacity:0;transition:opacity 0.12s}
-.auth-notify input:checked ~ .auth-notify-box{background:#1a6fff;border-color:#1a6fff}
-.auth-notify input:checked ~ .auth-notify-box svg{opacity:1}
-.auth-notify input:focus-visible ~ .auth-notify-box{box-shadow:0 0 0 3px rgba(26,111,255,0.4)}
-.auth-notify-title{display:block;color:#fff;font-size:15px;font-weight:700;margin-bottom:3px}
-.auth-notify-sub{display:block;color:#9db8e6;font-size:12.5px;line-height:1.45}
+.auth-notify-icon{font-size:22px;line-height:1;flex:none}
+.auth-notify-text{flex:1}
+.auth-notify-title{display:block;color:#fff;font-size:15px;font-weight:700;margin-bottom:2px}
+.auth-notify-sub{display:block;color:#8a8a8a;font-size:12.5px;line-height:1.4}
+.auth-notify-toggle{position:relative;width:44px;height:26px;flex:none;border-radius:999px;background:#2a2a2a;transition:background 0.18s}
+.auth-notify-knob{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#888;transition:transform 0.18s,background 0.18s}
+.auth-notify input:checked ~ .auth-notify-toggle{background:#1a6fff}
+.auth-notify input:checked ~ .auth-notify-toggle .auth-notify-knob{transform:translateX(18px);background:#fff}
+.auth-notify input:focus-visible ~ .auth-notify-toggle{box-shadow:0 0 0 3px rgba(26,111,255,0.4)}
 .nav-link:hover{color:#fff}
 .app{display:flex;flex:1;height:calc(100vh - 52px);margin-top:52px}
 .sidebar{width:240px;padding:12px 8px;display:flex;flex-direction:column;gap:2px;border-right:1px solid #1a1a1a;flex-shrink:0;position:sticky;top:56px;height:calc(100vh - 56px);overflow-y:auto}
@@ -318,13 +320,12 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
     </div>
     <label class="auth-notify">
       <input type="checkbox" id="notify-optin">
-      <span class="auth-notify-box">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5L20 6"/></svg>
-      </span>
+      <span class="auth-notify-icon">🔔</span>
       <span class="auth-notify-text">
         <span class="auth-notify-title">Notify me about the best deals</span>
         <span class="auth-notify-sub">Price drops, restocks, and rare finds, straight to your inbox. No spam.</span>
       </span>
+      <span class="auth-notify-toggle"><span class="auth-notify-knob"></span></span>
     </label>
     <div id="auth-fallback" style="color:#666;font-size:12px;margin-top:16px"></div>
   </div>
@@ -1432,7 +1433,7 @@ function buildPrevCard(item){
   const sourceLine=isAli
     ?`<div class="prev-card-source">${aliLogoHtml()}</div>`
     :`<div class="prev-card-source">${ebayLogoHtml()}</div>`;
-  return `<a class="prev-card${isAli?' ali-card':''}" data-id="${item.itemId||''}" data-title="${(item.title||'').substring(0,30).toLowerCase()}" data-q="${escapeHtml(item.searchQ||'')}" href="${item.url}" target="_blank" rel="noopener">
+  return `<a class="prev-card${isAli?' ali-card':''}" data-id="${item.itemId||''}" data-title="${(item.title||'').substring(0,30).toLowerCase()}" data-q="${escapeHtml(item.searchQ||'')}" data-item="${escapeHtml(JSON.stringify({title:item.title,image:item.image,price:item.price,url:item.url,itemId:item.itemId,source:item.source,searchQ:item.searchQ||''}))}" href="${item.url}" target="_blank" rel="noopener">
     ${thumb
       ?`<img class="prev-card-img" src="${thumb}" alt="" loading="lazy" onerror="this.outerHTML='<div class=prev-card-ph>🛍️</div>'">`
       :`<div class="prev-card-ph">🛍️</div>`}
@@ -1555,7 +1556,17 @@ document.addEventListener('click', function(e){
     return;
   }
   const prev=e.target.closest('a.prev-card[data-q]');
-  if(prev){ noteInterest(prev.getAttribute('data-q'), false); }
+  if(prev){
+    noteInterest(prev.getAttribute('data-q'), false);
+    const raw=prev.getAttribute('data-item');
+    if(raw){ try{ saveClickedItem(JSON.parse(raw)); }catch(_){} }
+    return;
+  }
+  const amb=e.target.closest('a.ambient-card[data-item]');
+  if(amb){
+    const raw=amb.getAttribute('data-item');
+    if(raw){ try{ saveClickedItem(JSON.parse(raw)); }catch(_){} }
+  }
 });
 
 // ── Recent Searches ───────────────────────────────────────────────────────
@@ -2135,6 +2146,7 @@ window.addEventListener('load', initGoogleAuth);
     const el = document.createElement(item.url ? 'a' : 'div');
     el.className = 'ambient-card';
     if(item.url){ el.href = item.url; el.target = '_blank'; el.rel = 'noopener'; }
+    if(item.itemId){ el.setAttribute('data-item', JSON.stringify({title:item.title,image:item.image,price:item.price,url:item.url,itemId:item.itemId,source:item.source,searchQ:item.searchQ||''})); }
     el.style.left = xPct + '%';
     el.style.top  = yPct + '%';
     el.innerHTML = `<img src="${imgSrc}" alt="">`+
