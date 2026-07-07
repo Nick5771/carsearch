@@ -291,7 +291,16 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
   <div class="auth-modal" style="position:relative">
     <button class="auth-close" onclick="closeAuth()">&times;</button>
     <h3 id="auth-title">Sign in to FindAI</h3>
-    <p>Sign in through Google</p>
+    <p>Sign in with your email or Google</p>
+    <div id="email-auth" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+      <input type="email" id="email-input" placeholder="you@email.com" autocomplete="email"
+        style="width:100%;box-sizing:border-box;padding:13px 16px;border-radius:12px;border:1px solid #333;background:#0d0d0d;color:#fff;font-size:15px;font-family:'DM Sans',sans-serif;outline:none">
+      <button id="email-btn" onclick="requestEmailLink()"
+        style="width:100%;padding:13px 16px;border-radius:12px;border:none;background:#1a6fff;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif">Continue with email</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;color:#555;font-size:12px;margin:6px 0 16px">
+      <div style="flex:1;height:1px;background:#2a2a2a"></div>or<div style="flex:1;height:1px;background:#2a2a2a"></div>
+    </div>
     <div id="google-btn" style="display:flex;justify-content:center"></div>
     <label style="display:flex;align-items:center;justify-content:center;gap:8px;margin-top:18px;color:#aaa;font-size:13px;cursor:pointer;user-select:none">
       <input type="checkbox" id="notify-optin" style="width:15px;height:15px;accent-color:#1a6fff;cursor:pointer">
@@ -1674,6 +1683,54 @@ document.addEventListener('click', function(ev){
     um.classList.remove('open');
   }
 });
+
+// ── Email magic-link sign-in ──────────────────────────────────────────────
+const WORKER_BASE = 'https://api.carsearchapi.workers.dev';
+async function requestEmailLink(){
+  var input = document.getElementById('email-input');
+  var btn = document.getElementById('email-btn');
+  var fb = document.getElementById('auth-fallback');
+  var email = (input && input.value || '').trim();
+  if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ if(fb) fb.textContent = 'Please enter a valid email address.'; return; }
+  var notifyEl = document.getElementById('notify-optin');
+  var notify = !!(notifyEl && notifyEl.checked);
+  if(btn){ btn.disabled = true; btn.textContent = 'Sending...'; }
+  try{
+    var r = await fetch(WORKER_BASE + '/auth/request-link', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ email: email, notify: notify })
+    });
+    var data = await r.json();
+    if(data && data.ok){
+      document.getElementById('email-auth').innerHTML =
+        '<div style="color:#fff;font-size:15px;line-height:1.5">Check your inbox.<br><span style="color:#999;font-size:13px">We sent a sign-in link to ' + email.replace(/</g,'') + '</span></div>';
+    } else {
+      if(fb) fb.textContent = (data && data.error) || 'Could not send the link. Try again.';
+      if(btn){ btn.disabled = false; btn.textContent = 'Continue with email'; }
+    }
+  }catch(e){
+    if(fb) fb.textContent = 'Could not reach the sign-in server.';
+    if(btn){ btn.disabled = false; btn.textContent = 'Continue with email'; }
+  }
+}
+
+// On page load: if the URL has ?login=<token>, verify it and sign the user in.
+async function checkMagicLink(){
+  try{
+    var params = new URLSearchParams(window.location.search);
+    var token = params.get('login');
+    if(!token) return;
+    var r = await fetch(WORKER_BASE + '/auth/verify-link?token=' + encodeURIComponent(token));
+    var data = await r.json();
+    if(data && data.email){
+      localStorage.setItem('findai_user', JSON.stringify(data));
+      updateAuthUI(data);
+    }
+  }catch(_){}
+  // Clean the token out of the URL either way.
+  try{ history.replaceState({}, document.title, window.location.pathname); }catch(_){}
+}
+window.addEventListener('load', checkMagicLink);
 
 function logoutUser(){
   localStorage.removeItem('findai_user');
