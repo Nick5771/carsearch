@@ -88,6 +88,10 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .auth-btn-primary{width:100%;padding:16px 20px;border-radius:999px;border:none;background:#fff;color:#0a0a0a;font-size:15px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity 0.15s}
 .auth-btn-primary:hover{opacity:0.88}
 .auth-btn-primary:disabled{opacity:0.55;cursor:default}
+.google-custom{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;box-sizing:border-box;padding:15px 20px;border-radius:999px;border:1px solid #2e2e2e;background:#0d0d0d;color:#fff;font-size:15px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;transition:border-color 0.15s,background 0.15s}
+.google-custom:hover{border-color:#444;background:#141414}
+.google-custom:disabled{opacity:0.55;cursor:default}
+.google-custom svg{flex:none}
 .auth-divider{display:flex;align-items:center;gap:14px;color:#666;font-size:12px;font-weight:600;letter-spacing:0.5px;margin:22px 0}
 .auth-divider::before,.auth-divider::after{content:'';flex:1;height:1px;background:#262626}
 .auth-notify{display:flex;align-items:center;gap:14px;margin-top:22px;padding:20px 22px;border-radius:20px;background:#111;border:1px solid #262626;cursor:pointer;user-select:none;text-align:left;transition:border-color 0.15s}
@@ -312,7 +316,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
     <button class="auth-close" onclick="closeAuth()">&times;</button>
     <h3 id="auth-title">Log in or sign up</h3>
     <p>Save searches, track items, and get notified about the best deals.</p>
-    <div id="google-btn" style="display:flex;justify-content:center"></div>
+    <button class="google-custom" id="google-custom-btn" onclick="startGoogleAuth()"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>Continue with Google</button>
     <div class="auth-divider">OR</div>
     <div id="email-auth" style="display:flex;flex-direction:column;gap:12px">
       <input type="email" id="email-input" class="auth-input" placeholder="Email address" autocomplete="email">
@@ -1715,33 +1719,99 @@ document.addEventListener('click', function(ev){
   }
 });
 
-// ── Email magic-link sign-in ──────────────────────────────────────────────
+// ── Email code sign-in (same-tab, no cross-tab issue) ─────────────────────
 const WORKER_BASE = 'https://api.carsearchapi.workers.dev';
+var authEmail = '';
 async function requestEmailLink(){
   var input = document.getElementById('email-input');
   var btn = document.getElementById('email-btn');
   var fb = document.getElementById('auth-fallback');
+  if(fb) fb.textContent = '';
   var email = (input && input.value || '').trim();
   if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ if(fb) fb.textContent = 'Please enter a valid email address.'; return; }
   var notifyEl = document.getElementById('notify-optin');
   var notify = !!(notifyEl && notifyEl.checked);
+  authEmail = email;
   if(btn){ btn.disabled = true; btn.textContent = 'Sending...'; }
   try{
-    var r = await fetch(WORKER_BASE + '/auth/request-link', {
+    var r = await fetch(WORKER_BASE + '/auth/request-code', {
       method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ email: email, notify: notify })
     });
     var data = await r.json();
     if(data && data.ok){
-      document.getElementById('email-auth').innerHTML =
-        '<div style="color:#fff;font-size:15px;line-height:1.5">Check your inbox.<br><span style="color:#999;font-size:13px">We sent a sign-in link to ' + email.replace(/</g,'') + '</span></div>';
+      showCodeStep(email);
     } else {
-      if(fb) fb.textContent = (data && data.error) || 'Could not send the link. Try again.';
+      if(fb) fb.textContent = (data && data.error) || 'Could not send the code. Try again.';
       if(btn){ btn.disabled = false; btn.textContent = 'Continue'; }
     }
   }catch(e){
     if(fb) fb.textContent = 'Could not reach the sign-in server.';
     if(btn){ btn.disabled = false; btn.textContent = 'Continue'; }
+  }
+}
+
+function showCodeStep(email){
+  var wrap = document.getElementById('email-auth');
+  if(!wrap) return;
+  var safe = email.replace(/</g,'').replace(/>/g,'');
+  wrap.innerHTML =
+    '<input inputmode="numeric" maxlength="6" id="code-input" class="auth-input" placeholder="Enter 6-digit code" autocomplete="one-time-code" style="text-align:center;letter-spacing:6px;font-size:18px">' +
+    '<button id="code-btn" class="auth-btn-primary" onclick="verifyEmailCode()">Verify and sign in</button>' +
+    '<div style="color:#999;font-size:13px;line-height:1.5;margin-top:2px">We sent a code to ' + safe + '. <a href="#" id="resend-link" style="color:#1a6fff;text-decoration:none">Resend</a></div>';
+  var ci = document.getElementById('code-input');
+  if(ci){
+    ci.focus();
+    ci.addEventListener('keydown', function(ev){ if(ev.key === 'Enter'){ ev.preventDefault(); verifyEmailCode(); } });
+  }
+  var rl = document.getElementById('resend-link');
+  if(rl) rl.addEventListener('click', function(ev){ ev.preventDefault(); resendEmailCode(); });
+}
+
+async function resendEmailCode(){
+  var fb = document.getElementById('auth-fallback');
+  if(fb) fb.textContent = '';
+  var rl = document.getElementById('resend-link');
+  if(rl) rl.textContent = 'Sending...';
+  var notifyEl = document.getElementById('notify-optin');
+  var notify = !!(notifyEl && notifyEl.checked);
+  try{
+    await fetch(WORKER_BASE + '/auth/request-code', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ email: authEmail, notify: notify })
+    });
+    if(rl) rl.textContent = 'Code resent';
+  }catch(e){
+    if(rl) rl.textContent = 'Resend';
+    if(fb) fb.textContent = 'Could not resend the code.';
+  }
+}
+
+async function verifyEmailCode(){
+  var ci = document.getElementById('code-input');
+  var btn = document.getElementById('code-btn');
+  var fb = document.getElementById('auth-fallback');
+  if(fb) fb.textContent = '';
+  var code = (ci && ci.value || '').trim();
+  if(!/^\d{6}$/.test(code)){ if(fb) fb.textContent = 'Enter the 6-digit code from your email.'; return; }
+  if(btn){ btn.disabled = true; btn.textContent = 'Verifying...'; }
+  try{
+    var r = await fetch(WORKER_BASE + '/auth/verify-code', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ email: authEmail, code: code })
+    });
+    var data = await r.json();
+    if(data && data.email){
+      localStorage.setItem('findai_user', JSON.stringify(data));
+      updateAuthUI(data);
+      closeAuth();
+    } else {
+      if(fb) fb.textContent = (data && data.error) || 'That code was not valid. Try again.';
+      if(btn){ btn.disabled = false; btn.textContent = 'Verify and sign in'; }
+    }
+  }catch(e){
+    if(fb) fb.textContent = 'Could not reach the sign-in server.';
+    if(btn){ btn.disabled = false; btn.textContent = 'Verify and sign in'; }
   }
 }
 
@@ -1770,14 +1840,19 @@ function logoutUser(){
 }
 
 // Called by Google after a successful sign-in — sends the verified token to your Worker.
-async function handleGoogleCredential(response){
+var googleTokenClient = null;
+async function handleGoogleToken(resp){
+  if(!resp || !resp.access_token){
+    document.getElementById('auth-fallback').textContent = 'Google sign-in was cancelled.';
+    return;
+  }
   try{
     var notifyEl = document.getElementById('notify-optin');
     var notify = !!(notifyEl && notifyEl.checked);
-    const r = await fetch(WORKER_AUTH_URL, {
+    const r = await fetch(WORKER_BASE + '/auth/google-token', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ credential: response.credential, notify: notify })
+      body: JSON.stringify({ access_token: resp.access_token, notify: notify })
     });
     const data = await r.json();
     if(data && data.email){
@@ -1785,11 +1860,20 @@ async function handleGoogleCredential(response){
       updateAuthUI(data);
       closeAuth();
     } else {
-      document.getElementById('auth-fallback').textContent = 'Sign-in failed — please try again.';
+      document.getElementById('auth-fallback').textContent = (data && data.error) || 'Sign-in failed, please try again.';
     }
   }catch(e){
     document.getElementById('auth-fallback').textContent = 'Could not reach the sign-in server.';
   }
+}
+
+function startGoogleAuth(){
+  var fb = document.getElementById('auth-fallback'); if(fb) fb.textContent = '';
+  if(!googleTokenClient){
+    if(fb) fb.textContent = 'Google sign-in is still loading, try again in a moment.';
+    return;
+  }
+  googleTokenClient.requestAccessToken();
 }
 
 function initGoogleAuth(){
@@ -1799,9 +1883,12 @@ function initGoogleAuth(){
     document.getElementById('auth-fallback').textContent = 'Google sign-in not configured yet (add your Client ID).';
     return;
   }
-  if(!(window.google&&google.accounts&&google.accounts.id)){ setTimeout(initGoogleAuth,400); return; }
-  google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: handleGoogleCredential });
-  google.accounts.id.renderButton(document.getElementById('google-btn'), { theme:'filled_black', size:'large', shape:'pill', text:'continue_with', width:'320' });
+  if(!(window.google&&google.accounts&&google.accounts.oauth2)){ setTimeout(initGoogleAuth,400); return; }
+  googleTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: 'openid email profile',
+    callback: handleGoogleToken
+  });
 }
 window.addEventListener('load', initGoogleAuth);
 </script>
