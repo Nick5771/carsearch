@@ -848,7 +848,8 @@ function stockxWordmark(){
 }
 
 function stockxCardHtml(item, c){
-  const sym=c==='UK'?'£':c==='DE'?'€':(c==='AU'?'A$':'$');
+  const CURSYM={USD:'$',EUR:'€',GBP:'£',AUD:'A$',CAD:'C$',CHF:'CHF ',JPY:'¥',HKD:'HK$',SGD:'S$'};
+  const sym=item.currency&&CURSYM[item.currency]?CURSYM[item.currency]:(c==='UK'?'£':c==='DE'?'€':(c==='AU'?'A$':'$'));
   const ask=item.lowestAsk?`${sym}${Number(item.lowestAsk).toLocaleString()}`:'See market';
   const bid=item.highestBid?`highest bid ${sym}${Number(item.highestBid).toLocaleString()}`:'';
   const alts=JSON.stringify(Array.isArray(item.imageAlts)?item.imageAlts:[]);
