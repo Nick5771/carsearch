@@ -990,26 +990,23 @@ async function sendMsg(){
         maxPrice=parsed.maxPrice||'';
       }
       lastSearchKw=kw; lastMaxPrice=maxPrice;       // remember so the NEXT message can refine this
-      // Fire the main search AND StockX in parallel. StockX is best-effort with a
-      // short timeout so it never delays results; if it returns in time we merge
-      // its cards into the FIRST render (no async insert, no scroll reflow).
+      // Fire the main search AND StockX in parallel. After main results arrive,
+      // StockX gets a SHORT grace window (0.9s): cached StockX merges into the
+      // first render; a cold fetch is skipped entirely (it still warms the
+      // server cache for next time). No late inserts ever - no reflow, no jank.
       const mainP=fetch(`${WORKER}/?q=${encodeURIComponent(kw)}&maxPrice=${encodeURIComponent(maxPrice||'')}`).then(r=>r.json());
       const sxP=STOCKX_QUERY_RE.test(kw)
-        ? Promise.race([
-            fetch(`${WORKER}/stockx/search?q=${encodeURIComponent(kw)}&country=${encodeURIComponent(country||'')}&limit=2`).then(r=>r.json()).then(d=>(d&&Array.isArray(d.items))?d.items:[]).catch(()=>[]),
-            new Promise(res=>setTimeout(()=>res([]),6000))
-          ])
+        ? fetch(`${WORKER}/stockx/search?q=${encodeURIComponent(kw)}&country=${encodeURIComponent(country||'')}&limit=2`).then(r=>r.json()).then(d=>(d&&Array.isArray(d.items))?d.items:[]).catch(()=>[])
         : Promise.resolve([]);
       const data=await mainP;
-      removeThinking();
       const c=data.country||country;
       let items=Array.isArray(data.items)?data.items:[];
       saveSearchedItems(items, kw);
-      // Merge StockX cards into the top of the list (slots 2 and 5) so they land
-      // in the first page, in place, before anything renders.
+      // Grace window: spinner stays visible while we wait up to 0.9s for StockX.
       let sxItems=[];
-      try{ sxItems=await sxP; }catch(_){}
-      if(items.length && sxItems.length){
+      try{ sxItems=await Promise.race([sxP, new Promise(res=>setTimeout(()=>res([]),900))]); }catch(_){}
+      removeThinking();
+      if(items.length && sxItems && sxItems.length){
         sxItems.forEach(s=>{ s._stockx=true; });
         const merged=items.slice();
         let at=2;
