@@ -821,6 +821,32 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
   return `${summaryHtml}<div class="chat-grid" id="${gId}">${cards}</div>${smBtn}`;
 }
 
+// ── StockX market-reference cards ─────────────────────────────────────────
+// Fetched AFTER the main results render, appended into the same grid. Fully
+// best-effort: any failure just means no StockX cards, main results untouched.
+function stockxCardHtml(item, c){
+  const sym=c==='UK'?'£':c==='DE'?'€':(c==='AU'?'A$':'$');
+  const ask=item.lowestAsk?`${sym}${Number(item.lowestAsk).toLocaleString()}`:'See market';
+  const bid=item.highestBid?`highest bid ${sym}${Number(item.highestBid).toLocaleString()}`:'';
+  const badge=`<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:800;color:#5DCAA5;font-family:'DM Sans',sans-serif">StockX</span>`;
+  const img=item.image?`<img class="chat-card-img" src="${item.image}" alt="" loading="lazy" onerror="this.parentNode.querySelector('.chat-card-ph')&&(this.style.display='none')">`:`<div class="chat-card-ph">👟</div>`;
+  return `<div class="chat-card"><a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">${img}<div class="chat-card-body"><div style="margin-bottom:5px">${badge}</div><div class="chat-card-title">${(item.title||'').replace(/</g,'')}</div><div class="chat-card-price">${ask}</div><div class="chat-card-loc">${bid}</div></div></a><div style="padding:0 12px 12px"><a href="${item.url}" target="_blank" rel="noopener" style="display:block;text-align:center;padding:8px;border-radius:999px;background:#fff;color:#0a0a0a;font-size:12px;font-weight:700;text-decoration:none;font-family:'DM Sans',sans-serif">View on StockX</a></div></div>`;
+}
+
+async function appendStockxCards(sid, query, c){
+  try{
+    const grid=document.getElementById('chat-grid-'+sid);
+    if(!grid) return;
+    const r=await fetch(`${WORKER}/stockx/search?q=${encodeURIComponent(query)}&country=${encodeURIComponent(c||'')}`);
+    const d=await r.json();
+    const items=(d&&Array.isArray(d.items))?d.items:[];
+    if(!items.length) return;
+    const still=document.getElementById('chat-grid-'+sid);
+    if(!still) return;
+    still.insertAdjacentHTML('beforeend', items.map(it=>stockxCardHtml(it, c)).join(''));
+  }catch(_){}
+}
+
 function showMoreCards(sid){
   const state=searchStates[sid];
   if(!state||state.shown>=state.items.length)return;
@@ -900,9 +926,11 @@ async function sendMsg(){
       const items=Array.isArray(data.items)?data.items:[];
       saveSearchedItems(items, kw);
       const cardsHtml=items.length?renderCards(items,kw,'',maxPrice||'',c,data.ebayCount||0,0,false):'';
+      const _sxSid=searchCount;
       conversation.push({role:'assistant',content:'(showed results for '+kw+')'});
       const body=addMsg('assistant','');
       typeReply(body, items.length?'':"Couldn't find that one — try different words?", cardsHtml);
+      if(items.length) setTimeout(()=>appendStockxCards(_sxSid, kw, c), 300);
       setTimeout(scrollToLastUser,150);
     }catch(e){removeThinking();addMsg('assistant','Sorry, the search hiccupped — try again?');}
     busy=false; document.getElementById('send-btn').disabled=false; inp.focus();
@@ -1582,6 +1610,17 @@ function saveRecentSearch(query) {
   recents = recents.slice(0, 8); // keep last 8
   localStorage.setItem('findai_recents', JSON.stringify(recents));
   renderRecents();
+  // If logged in, record the search server-side so the daily email can fall
+  // back to it when the user has not clicked any item yet.
+  try{
+    var u = JSON.parse(localStorage.getItem('findai_user') || 'null');
+    if(u && u.email){
+      fetch(WORKER + '/track-search', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ email: u.email, query: query })
+      }).catch(function(){});
+    }
+  }catch(_){}
 }
 
 function renderRecents() {
