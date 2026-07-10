@@ -803,6 +803,7 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
   }
   if(quiet)summary='';
   const cards=top.map(item=>{
+    if(item._stockx){ return stockxCardHtml(item, c); }
     const price=item.price?`${sym}${Number(item.price).toLocaleString()}`:'See listing';
     const isAli=item.source==='AliExpress';
     const srcBadge=isAli
@@ -922,6 +923,12 @@ function showMoreCards(sid){
   if(!nextBatch.length)return;
   state.shown+=nextBatch.length;
   nextBatch.forEach(item=>{
+    if(item._stockx){
+      const tmp=document.createElement('div');
+      tmp.innerHTML=stockxCardHtml(item, country);
+      if(tmp.firstChild) grid.appendChild(tmp.firstChild);
+      return;
+    }
     const price=item.price?`${sym}${Number(item.price).toLocaleString()}`:'See listing';
     const isAli=item.source==='AliExpress';
     const srcBadge=isAli?`<span style="font-size:11px;font-weight:800;color:#ff4747">AliExpress</span>`:ebayLogoHtml();
@@ -983,18 +990,36 @@ async function sendMsg(){
         maxPrice=parsed.maxPrice||'';
       }
       lastSearchKw=kw; lastMaxPrice=maxPrice;       // remember so the NEXT message can refine this
-      const res=await fetch(`${WORKER}/?q=${encodeURIComponent(kw)}&maxPrice=${encodeURIComponent(maxPrice||'')}`);
-      const data=await res.json();
+      // Fire the main search AND StockX in parallel. StockX is best-effort with a
+      // short timeout so it never delays results; if it returns in time we merge
+      // its cards into the FIRST render (no async insert, no scroll reflow).
+      const mainP=fetch(`${WORKER}/?q=${encodeURIComponent(kw)}&maxPrice=${encodeURIComponent(maxPrice||'')}`).then(r=>r.json());
+      const sxP=STOCKX_QUERY_RE.test(kw)
+        ? Promise.race([
+            fetch(`${WORKER}/stockx/search?q=${encodeURIComponent(kw)}&country=${encodeURIComponent(country||'')}&limit=2`).then(r=>r.json()).then(d=>(d&&Array.isArray(d.items))?d.items:[]).catch(()=>[]),
+            new Promise(res=>setTimeout(()=>res([]),6000))
+          ])
+        : Promise.resolve([]);
+      const data=await mainP;
       removeThinking();
       const c=data.country||country;
-      const items=Array.isArray(data.items)?data.items:[];
+      let items=Array.isArray(data.items)?data.items:[];
       saveSearchedItems(items, kw);
+      // Merge StockX cards into the top of the list (slots 2 and 5) so they land
+      // in the first page, in place, before anything renders.
+      let sxItems=[];
+      try{ sxItems=await sxP; }catch(_){}
+      if(items.length && sxItems.length){
+        sxItems.forEach(s=>{ s._stockx=true; });
+        const merged=items.slice();
+        let at=2;
+        for(const s of sxItems){ merged.splice(Math.min(at,merged.length),0,s); at+=4; }
+        items=merged;
+      }
       const cardsHtml=items.length?renderCards(items,kw,'',maxPrice||'',c,data.ebayCount||0,0,false):'';
-      const _sxSid=searchCount;
       conversation.push({role:'assistant',content:'(showed results for '+kw+')'});
       const body=addMsg('assistant','');
       typeReply(body, items.length?'':"Couldn't find that one — try different words?", cardsHtml);
-      if(items.length) setTimeout(()=>appendStockxCards(_sxSid, kw, c), 300);
       setTimeout(scrollToLastUser,150);
     }catch(e){removeThinking();addMsg('assistant','Sorry, the search hiccupped — try again?');}
     busy=false; document.getElementById('send-btn').disabled=false; inp.focus();
