@@ -833,17 +833,34 @@ function stockxCardHtml(item, c){
   return `<div class="chat-card"><a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">${img}<div class="chat-card-body"><div style="margin-bottom:5px">${badge}</div><div class="chat-card-title">${(item.title||'').replace(/</g,'')}</div><div class="chat-card-price">${ask}</div><div class="chat-card-loc">${bid}</div></div></a><div style="padding:0 12px 12px"><a href="${item.url}" target="_blank" rel="noopener" style="display:block;text-align:center;padding:8px;border-radius:999px;background:#fff;color:#0a0a0a;font-size:12px;font-weight:700;text-decoration:none;font-family:'DM Sans',sans-serif">View on StockX</a></div></div>`;
 }
 
+// Only sneaker/streetwear queries trigger StockX (that's where its authority
+// means something; LEGO etc stays eBay-only). Max 2 cards, slotted into the
+// TOP rows at slightly randomized positions, never position 1 (that stays an
+// earning eBay card).
+var STOCKX_QUERY_RE = /\b(yeezy|yeezys|jordan|jordans|nike|adidas|dunk|dunks|sneaker|sneakers|air\s*force|af1|air\s*max|airmax|new\s*balance|asics|converse|vans|foam\s*runner|slides?|sb\s*dunk|kicks|trainers?|reebok|puma|salomon|hoka|crocs)\b/i;
+
 async function appendStockxCards(sid, query, c){
   try{
+    if(!STOCKX_QUERY_RE.test(query||'')) return;
     const grid=document.getElementById('chat-grid-'+sid);
     if(!grid) return;
-    const r=await fetch(`${WORKER}/stockx/search?q=${encodeURIComponent(query)}&country=${encodeURIComponent(c||'')}`);
+    const r=await fetch(`${WORKER}/stockx/search?q=${encodeURIComponent(query)}&country=${encodeURIComponent(c||'')}&limit=2`);
     const d=await r.json();
     const items=(d&&Array.isArray(d.items))?d.items:[];
     if(!items.length) return;
     const still=document.getElementById('chat-grid-'+sid);
     if(!still) return;
-    still.insertAdjacentHTML('beforeend', items.map(it=>stockxCardHtml(it, c)).join(''));
+    // First card lands in slot 2 or 3, second a few slots later - visible up
+    // top without displacing the first eBay listing, and not a clump.
+    var pos=1+Math.floor(Math.random()*2);
+    for(var i=0;i<items.length;i++){
+      var tmp=document.createElement('div');
+      tmp.innerHTML=stockxCardHtml(items[i], c);
+      var el=tmp.firstChild;
+      if(!el) continue;
+      still.insertBefore(el, still.children[pos]||null);
+      pos+=3+Math.floor(Math.random()*2);
+    }
   }catch(_){}
 }
 
