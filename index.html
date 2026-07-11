@@ -853,10 +853,13 @@ function stockxCardHtml(item, c){
   const sym=item.currency&&CURSYM[item.currency]?CURSYM[item.currency]:(c==='UK'?'£':c==='DE'?'€':(c==='AU'?'A$':'$'));
   const ask=item.lowestAsk?`${sym}${Number(item.lowestAsk).toLocaleString()}`:'View current market';
   const bid=item.highestBid?`highest bid ${sym}${Number(item.highestBid).toLocaleString()}`:'';
-  const alts=JSON.stringify(Array.isArray(item.imageAlts)?item.imageAlts:[]);
+  // StockX gives no usable image (no API field, CDN 404s, page 403s). Show a
+  // clean branded tile that reads as intentional, not broken. If a real image
+  // ever is provided (item.image non-empty AND not a known-bad guess), use it.
+  const tile=`<div class="chat-card-ph" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:linear-gradient(135deg,#0f1a14,#0a0a0a)"><span style="font-weight:800;color:#08A05F;font-size:26px;font-family:'DM Sans',sans-serif;letter-spacing:-0.5px">StockX</span><span style="color:#5a6b62;font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase">Authenticated Market</span></div>`;
   const img=item.image
-    ?`<img class="chat-card-img" src="${item.image}" data-alts='${alts.replace(/'/g,'')}' alt="" loading="lazy" onerror="stockxImgErr(this)">`
-    :`<div class="chat-card-ph" style="color:#08A05F;font-weight:800;font-size:20px">StockX</div>`;
+    ?`<img class="chat-card-img" src="${item.image}" alt="" loading="lazy" onerror="this.outerHTML=${JSON.stringify(tile).replace(/"/g,'&quot;')}">`
+    :tile;
   return `<div class="chat-card stockx-card"><a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">${img}<div class="chat-card-body"><div style="margin-bottom:5px">${stockxWordmark()}</div><div class="chat-card-title">${(item.title||'').replace(/</g,'')}</div><div class="chat-card-price">${ask}</div><div class="chat-card-loc">${bid}</div></div></a><div style="padding:0 12px 12px"><a href="${item.url}" target="_blank" rel="noopener" style="display:block;text-align:center;padding:8px;border-radius:999px;background:#fff;color:#0a0a0a;font-size:12px;font-weight:700;text-decoration:none;font-family:'DM Sans',sans-serif">View on StockX</a></div></div>`;
 }
 
