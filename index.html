@@ -829,17 +829,47 @@ function stockxWordmark(){
   return `<span style="font-weight:800;color:#08A05F;font-size:12px;font-family:'DM Sans',sans-serif;letter-spacing:-0.3px">Stock<span style="display:inline-block;transform:skewX(-14deg)">X</span></span>`;
 }
 
+function stockxNextImage(img){
+  // Images are verified by the worker and preloaded before cards are rendered.
+  // Never remove a visible card after it appears; that caused the flash/disappear bug.
+  if(img.dataset.retried==='1') return;
+  img.dataset.retried='1';
+  const original=img.dataset.originalStockxImage||'';
+  if(original) img.src=original;
+}
+
+function preloadStockxImage(item){
+  return new Promise(resolve=>{
+    if(!item||!item.image||!(Number(item.lowestAsk)>0)) return resolve(null);
+    const proxy=WORKER+'/stockx/image?url='+encodeURIComponent(item.image);
+    const im=new Image();
+    let done=false;
+    const finish=v=>{ if(done)return; done=true; clearTimeout(timer); resolve(v); };
+    const timer=setTimeout(()=>finish(null),5000);
+    im.onload=()=>finish(item);
+    im.onerror=()=>finish(null);
+    im.src=proxy;
+  });
+}
+
+async function keepOnlyReadyStockx(items){
+  if(!Array.isArray(items)||!items.length) return [];
+  const checked=await Promise.all(items.map(preloadStockxImage));
+  return checked.filter(Boolean);
+}
+
 function stockxCardHtml(item, c){
   if(!item || !item.image || !(Number(item.lowestAsk)>0)) return '';
   const CURSYM={USD:'$',EUR:'€',GBP:'£',AUD:'A$',CAD:'C$',CHF:'CHF ',JPY:'¥',HKD:'HK$',SGD:'S$'};
   const sym=item.currency&&CURSYM[item.currency]?CURSYM[item.currency]:(c==='UK'?'£':c==='DE'?'€':(c==='AU'?'A$':'$'));
   const ask=`${sym}${Number(item.lowestAsk).toLocaleString()}`;
   const bid=Number(item.highestBid)>0?`highest bid ${sym}${Number(item.highestBid).toLocaleString()}`:'';
-  const safeTitle=String(item.title||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const rawImage=String(item.image||'');
-  const safeImage=String(WORKER+'/stockx/image?url='+encodeURIComponent(rawImage)).replace(/"/g,'&quot;');
-  const safeUrl=String(item.url||'https://stockx.com').replace(/"/g,'&quot;');
-  return `<div class="chat-card stockx-card"><a href="${safeUrl}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1"><img class="chat-card-img" src="${safeImage}" alt="${safeTitle}" loading="lazy" onerror="this.closest('.stockx-card').remove()"><div class="chat-card-body"><div style="margin-bottom:5px">${stockxWordmark()}</div><div class="chat-card-title">${safeTitle}</div><div class="chat-card-price">${ask}</div><div class="chat-card-loc">${bid}</div></div></a><div style="padding:0 12px 12px"><a href="${safeUrl}" target="_blank" rel="noopener" style="display:block;text-align:center;padding:8px;border-radius:999px;background:#fff;color:#0a0a0a;font-size:12px;font-weight:700;text-decoration:none;font-family:'DM Sans',sans-serif">View on StockX</a></div></div>`;
+  const safeTitle=String(item.title||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const original=String(item.image||'').replace(/"/g,'&quot;');
+  if(!original) return '';
+  const first=String(WORKER+'/stockx/image?url='+encodeURIComponent(item.image)).replace(/"/g,'&quot;');
+  const safeUrl=String(item.url||'https://stockx.com').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+  return `<div class="chat-card stockx-card"><a href="${safeUrl}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1"><img class="chat-card-img" src="${first}" data-original-stockx-image="${original}" alt="${safeTitle}" loading="eager" onerror="stockxNextImage(this)"><div class="chat-card-body"><div style="margin-bottom:5px">${stockxWordmark()}</div><div class="chat-card-title">${safeTitle}</div><div class="chat-card-price">${ask}</div><div class="chat-card-loc">${bid}</div></div></a><div style="padding:0 12px 12px"><a href="${safeUrl}" target="_blank" rel="noopener" style="display:block;text-align:center;padding:8px;border-radius:999px;background:#fff;color:#0a0a0a;font-size:12px;font-weight:700;text-decoration:none;font-family:'DM Sans',sans-serif">View on StockX</a></div></div>`;
 }
 
 // Only sneaker/streetwear queries trigger StockX (that's where its authority
@@ -858,6 +888,8 @@ async function appendStockxCards(sid, query, c){
       items=(d&&Array.isArray(d.items))?d.items:[];
     }catch(_){ return; }
     if(!items||!items.length) return;
+    items=await keepOnlyReadyStockx(items);
+    if(!items.length) return;
     const grid=document.getElementById('chat-grid-'+sid);
     if(!grid) return;
     // Keep the grid an even multiple of 4: for each StockX card we add near the
@@ -981,10 +1013,13 @@ async function sendMsg(){
       const c=data.country||country;
       let items=Array.isArray(data.items)?data.items:[];
       saveSearchedItems(items, kw);
-      // Grace window: up to 2s for StockX. Cards now return fast (catalog only,
+      // Grace window: up to 8s for an uncached StockX search. Cards now return fast (catalog only,
       // prices fetched in background), so this is comfortable. Cached = instant.
       let sxItems=[];
-      try{ sxItems=await Promise.race([sxP, new Promise(res=>setTimeout(()=>res([]),2000))]); }catch(_){}
+      try{ sxItems=await Promise.race([sxP, new Promise(res=>setTimeout(()=>res([]),8000))]); }catch(_){}
+      // Do not render a StockX card until its exact image has loaded successfully.
+      // This removes the visible flash/disappear behavior completely.
+      sxItems=await keepOnlyReadyStockx(sxItems);
       removeThinking();
       if(items.length && sxItems && sxItems.length){
         // Plenty of marketplace listings -> 1 StockX card; sparse results -> 2.
