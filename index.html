@@ -851,7 +851,7 @@ function stockxWordmark(){
 function stockxCardHtml(item, c){
   const CURSYM={USD:'$',EUR:'€',GBP:'£',AUD:'A$',CAD:'C$',CHF:'CHF ',JPY:'¥',HKD:'HK$',SGD:'S$'};
   const sym=item.currency&&CURSYM[item.currency]?CURSYM[item.currency]:(c==='UK'?'£':c==='DE'?'€':(c==='AU'?'A$':'$'));
-  const ask=item.lowestAsk?`${sym}${Number(item.lowestAsk).toLocaleString()}`:'See market';
+  const ask=item.lowestAsk?`${sym}${Number(item.lowestAsk).toLocaleString()}`:'View current market';
   const bid=item.highestBid?`highest bid ${sym}${Number(item.highestBid).toLocaleString()}`:'';
   const alts=JSON.stringify(Array.isArray(item.imageAlts)?item.imageAlts:[]);
   const img=item.image
@@ -999,10 +999,10 @@ async function sendMsg(){
       const c=data.country||country;
       let items=Array.isArray(data.items)?data.items:[];
       saveSearchedItems(items, kw);
-      // Grace window: up to 3.2s for StockX (cached = instant; a cold miss still
-      // warms the cache so the next identical search shows it). Never late-inserted.
+      // Grace window: up to 2s for StockX. Cards now return fast (catalog only,
+      // prices fetched in background), so this is comfortable. Cached = instant.
       let sxItems=[];
-      try{ sxItems=await Promise.race([sxP, new Promise(res=>setTimeout(()=>res([]),3200))]); }catch(_){}
+      try{ sxItems=await Promise.race([sxP, new Promise(res=>setTimeout(()=>res([]),2000))]); }catch(_){}
       removeThinking();
       if(items.length && sxItems && sxItems.length){
         // Plenty of marketplace listings -> 1 StockX card; sparse results -> 2.
