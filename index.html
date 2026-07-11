@@ -823,63 +823,23 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
 }
 
 // ── StockX market-reference cards ─────────────────────────────────────────
-// Fetched AFTER the main results render, appended into the same grid. Fully
-// best-effort: any failure just means no StockX cards, main results untouched.
-// Image fallback chain for StockX cards: step through candidate CDN URLs, and
-// if all fail, swap to a clean StockX-branded tile. A real function (not inline
-// HTML) so quoting can never break the card markup.
-function stockxImgErr(img){
-  try{
-    var alts=JSON.parse(img.getAttribute('data-alts')||'[]');
-    if(alts.length){
-      img.setAttribute('data-alts', JSON.stringify(alts.slice(1)));
-      img.src=alts[0];
-      return;
-    }
-  }catch(_){}
-  var d=document.createElement('div');
-  d.className='chat-card-ph';
-  d.style.cssText='color:#08A05F;font-weight:800;font-size:20px;font-family:DM Sans,sans-serif;letter-spacing:-0.5px';
-  d.textContent='StockX';
-  img.replaceWith(d);
-}
-
+// The worker now returns StockX cards only when BOTH a verified real product
+// image and a live lowest ask are available. No branded placeholder is used.
 function stockxWordmark(){
   return `<span style="font-weight:800;color:#08A05F;font-size:12px;font-family:'DM Sans',sans-serif;letter-spacing:-0.3px">Stock<span style="display:inline-block;transform:skewX(-14deg)">X</span></span>`;
 }
 
-function stockxImgErr(img){
-  try{
-    var alts=JSON.parse(img.getAttribute('data-alts')||'[]');
-    if(alts.length){
-      img.setAttribute('data-alts', JSON.stringify(alts.slice(1)));
-      img.src=alts[0];
-      return;
-    }
-  }catch(_){}
-  var tile=img.getAttribute('data-tile');
-  if(tile){ img.outerHTML=tile; return; }
-  var d=document.createElement('div');
-  d.className='chat-card-ph';
-  d.style.cssText='color:#08A05F;font-weight:800;font-size:20px';
-  d.textContent='StockX';
-  img.replaceWith(d);
-}
-
 function stockxCardHtml(item, c){
+  if(!item || !item.image || !(Number(item.lowestAsk)>0)) return '';
   const CURSYM={USD:'$',EUR:'€',GBP:'£',AUD:'A$',CAD:'C$',CHF:'CHF ',JPY:'¥',HKD:'HK$',SGD:'S$'};
   const sym=item.currency&&CURSYM[item.currency]?CURSYM[item.currency]:(c==='UK'?'£':c==='DE'?'€':(c==='AU'?'A$':'$'));
-  const ask=item.lowestAsk?`${sym}${Number(item.lowestAsk).toLocaleString()}`:'View current market';
-  const bid=item.highestBid?`highest bid ${sym}${Number(item.highestBid).toLocaleString()}`:'';
-  // StockX gives no usable image (no API field, CDN 404s, page 403s). Show a
-  // clean branded tile that reads as intentional, not broken. If a real image
-  // ever is provided (item.image non-empty AND not a known-bad guess), use it.
-  const tile=`<div class="chat-card-ph" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:linear-gradient(135deg,#0f1a14,#0a0a0a)"><span style="font-weight:800;color:#08A05F;font-size:26px;font-family:'DM Sans',sans-serif;letter-spacing:-0.5px">StockX</span><span style="color:#5a6b62;font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase">Authenticated Market</span></div>`;
-  const alts=JSON.stringify(Array.isArray(item.imageAlts)?item.imageAlts:[]);
-  const img=item.image
-    ?`<img class="chat-card-img" src="${item.image}" data-alts='${alts.replace(/'/g,'')}' data-tile="${tile.replace(/"/g,'&quot;')}" alt="" loading="lazy" onerror="stockxImgErr(this)">`
-    :tile;
-  return `<div class="chat-card stockx-card"><a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">${img}<div class="chat-card-body"><div style="margin-bottom:5px">${stockxWordmark()}</div><div class="chat-card-title">${(item.title||'').replace(/</g,'')}</div><div class="chat-card-price">${ask}</div><div class="chat-card-loc">${bid}</div></div></a><div style="padding:0 12px 12px"><a href="${item.url}" target="_blank" rel="noopener" style="display:block;text-align:center;padding:8px;border-radius:999px;background:#fff;color:#0a0a0a;font-size:12px;font-weight:700;text-decoration:none;font-family:'DM Sans',sans-serif">View on StockX</a></div></div>`;
+  const ask=`${sym}${Number(item.lowestAsk).toLocaleString()}`;
+  const bid=Number(item.highestBid)>0?`highest bid ${sym}${Number(item.highestBid).toLocaleString()}`:'';
+  const safeTitle=String(item.title||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const rawImage=String(item.image||'');
+  const safeImage=String(WORKER+'/stockx/image?url='+encodeURIComponent(rawImage)).replace(/"/g,'&quot;');
+  const safeUrl=String(item.url||'https://stockx.com').replace(/"/g,'&quot;');
+  return `<div class="chat-card stockx-card"><a href="${safeUrl}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1"><img class="chat-card-img" src="${safeImage}" alt="${safeTitle}" loading="lazy" onerror="this.closest('.stockx-card').remove()"><div class="chat-card-body"><div style="margin-bottom:5px">${stockxWordmark()}</div><div class="chat-card-title">${safeTitle}</div><div class="chat-card-price">${ask}</div><div class="chat-card-loc">${bid}</div></div></a><div style="padding:0 12px 12px"><a href="${safeUrl}" target="_blank" rel="noopener" style="display:block;text-align:center;padding:8px;border-radius:999px;background:#fff;color:#0a0a0a;font-size:12px;font-weight:700;text-decoration:none;font-family:'DM Sans',sans-serif">View on StockX</a></div></div>`;
 }
 
 // Only sneaker/streetwear queries trigger StockX (that's where its authority
