@@ -1038,15 +1038,26 @@ async function sendMsg(){
         use.forEach(s=>{
           s._stockx=true;
           const sw=normW(s.title);
+          if(!sw.length) return;
           let best=null,bestScore=0;
           for(const it of items){
             if(!it||!it.image||it._stockx) continue;
             const iw=normW(it.title);
-            const score=sw.filter(w=>iw.includes(w)).length;
+            const shared=sw.filter(w=>iw.includes(w)).length;
+            // Score = how much of the StockX title the listing covers. Prefer
+            // listings that match MOST of the product name (a full set), not a
+            // stray "tile ref" listing that only shares "lego star wars".
+            const score=shared/sw.length;
             if(score>bestScore){ bestScore=score; best=it; }
           }
-          // Need a solid match (>=2 shared words) before borrowing an image.
-          if(best && bestScore>=2){ s.image=best.image; s.imageAlts=[]; }
+          // Require a strong match (>=60% of the StockX title words) so we never
+          // borrow a photo of the wrong item. Otherwise keep the branded tile.
+          if(best && bestScore>=0.6){
+            var im=best.image;
+            // Upgrade eBay thumbnail to a larger, cleaner render when possible.
+            if(im){ im=im.replace(/\/s-l\d+\./,'/s-l500.'); }
+            s.image=im; s.imageAlts=[];
+          }
         });
         const merged=items.slice();
         let at=1;
