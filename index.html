@@ -782,6 +782,7 @@ function ebaySearchUrl(query){
   return `https://${(DOMAIN[c]||DOMAIN.US)}/sch/i.html?${params.toString()}`;
 }
 
+const CURSYM={USD:'$',EUR:'€',GBP:'£',AUD:'A$',CAD:'C$',CHF:'CHF ',JPY:'¥',HKD:'HK$',SGD:'S$',NZD:'NZ$',PLN:'zł ',SEK:'kr ',DKK:'kr ',NOK:'kr '};
 function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
   const sym=c==='UK'?'£':c==='DE'?'€':'$';
   if(!items.length) return `<p style="color:#666;font-size:14px;margin-top:8px">No listings found right now. Try a different search.</p>`;
@@ -804,7 +805,10 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
   if(quiet)summary='';
   const cards=top.map(item=>{
     if(item._stockx){ return stockxCardHtml(item, c); }
-    const price=item.price?`${sym}${Number(item.price).toLocaleString()}`:'See listing';
+    // Each listing shows ITS OWN currency symbol (a US listing shows $, a French
+    // one €, a UK one £) - important now that the global fallback mixes markets.
+    var isym=(item.currency&&CURSYM[item.currency])?CURSYM[item.currency]:sym;
+    const price=item.price?`${isym}${Number(item.price).toLocaleString()}`:'See listing';
     const isAli=item.source==='AliExpress';
     const srcBadge=isAli
       ?`<span style="font-size:11px;font-weight:800;color:#ff4747;font-family:'DM Sans',sans-serif">AliExpress</span>`
@@ -867,7 +871,6 @@ function stockxImgErr(img){
 }
 
 function stockxCardHtml(item, c){
-  const CURSYM={USD:'$',EUR:'€',GBP:'£',AUD:'A$',CAD:'C$',CHF:'CHF ',JPY:'¥',HKD:'HK$',SGD:'S$'};
   const sym=item.currency&&CURSYM[item.currency]?CURSYM[item.currency]:(c==='UK'?'£':c==='DE'?'€':(c==='AU'?'A$':'$'));
   const ask=item.lowestAsk?`${sym}${Number(item.lowestAsk).toLocaleString()}`:'View current market';
   const bid=item.highestBid?`highest bid ${sym}${Number(item.highestBid).toLocaleString()}`:'';
@@ -951,7 +954,8 @@ function showMoreCards(sid){
       if(tmp.firstChild) grid.appendChild(tmp.firstChild);
       return;
     }
-    const price=item.price?`${sym}${Number(item.price).toLocaleString()}`:'See listing';
+    const isym=(item.currency&&CURSYM[item.currency])?CURSYM[item.currency]:sym;
+    const price=item.price?`${isym}${Number(item.price).toLocaleString()}`:'See listing';
     const isAli=item.source==='AliExpress';
     const srcBadge=isAli?`<span style="font-size:11px;font-weight:800;color:#ff4747">AliExpress</span>`:ebayLogoHtml();
     const _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
@@ -961,7 +965,7 @@ function showMoreCards(sid){
     const card=document.createElement('div');
     card.className='chat-card';
     card.setAttribute('data-q', state.query||'');
-    card.setAttribute('data-item', JSON.stringify({title:item.title,image:item.image,price:item.price,url:item.url,itemId:item.itemId,source:item.source,country:country,searchQ:state.query||''}));
+    card.setAttribute('data-item', JSON.stringify({title:item.title,image:item.image,price:item.price,url:item.url,itemId:item.itemId,source:item.source,currency:item.currency,country:country,searchQ:state.query||''}));
     card.innerHTML=`<a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">`+(imgSrc?`<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy">`:
       `<div class="chat-card-ph">🛍️</div>`)+
       `<div class="chat-card-body"><div style="margin-bottom:5px">${srcBadge}</div><div class="chat-card-title">${item.title||''}</div><div class="chat-card-price">${price}</div><div class="chat-card-loc">${item.location||''}</div></div></a><div style="padding:0 12px 12px">${_btns}</div>`;
@@ -1220,9 +1224,10 @@ function renderDeals(items,c){
   var PAGE=16; // show 16 (4 rows), reveal the rest on demand
   var gid='deals-'+Date.now()+'-'+Math.floor(Math.random()*1000);
   var cards=items.map(function(item,idx){
-    var price=item.price?sym+Number(item.price).toLocaleString():'See listing';
+    var isym=(item.currency&&CURSYM[item.currency])?CURSYM[item.currency]:sym;
+    var price=item.price?isym+Number(item.price).toLocaleString():'See listing';
     var was=(item.origPrice&&item.origPrice>item.price)
-      ? '<span style="color:#777;font-size:12px;text-decoration:line-through;margin-left:6px">'+sym+Number(item.origPrice).toLocaleString()+'</span>' : '';
+      ? '<span style="color:#777;font-size:12px;text-decoration:line-through;margin-left:6px">'+isym+Number(item.origPrice).toLocaleString()+'</span>' : '';
     var badgeTxt=item.dealReason==='markdown' ? (item.dealPct+'% off') : (item.dealPct+'% below typical');
     var badge='<div style="position:absolute;top:8px;left:8px;z-index:2;background:#185FA5;color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.45)">'+badgeTxt+'</div>';
     var _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
