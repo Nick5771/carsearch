@@ -823,53 +823,63 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
 }
 
 // ── StockX market-reference cards ─────────────────────────────────────────
-// The worker now returns StockX cards only when BOTH a verified real product
-// image and a live lowest ask are available. No branded placeholder is used.
+// Fetched AFTER the main results render, appended into the same grid. Fully
+// best-effort: any failure just means no StockX cards, main results untouched.
+// Image fallback chain for StockX cards: step through candidate CDN URLs, and
+// if all fail, swap to a clean StockX-branded tile. A real function (not inline
+// HTML) so quoting can never break the card markup.
+function stockxImgErr(img){
+  try{
+    var alts=JSON.parse(img.getAttribute('data-alts')||'[]');
+    if(alts.length){
+      img.setAttribute('data-alts', JSON.stringify(alts.slice(1)));
+      img.src=alts[0];
+      return;
+    }
+  }catch(_){}
+  var d=document.createElement('div');
+  d.className='chat-card-ph';
+  d.style.cssText='color:#08A05F;font-weight:800;font-size:20px;font-family:DM Sans,sans-serif;letter-spacing:-0.5px';
+  d.textContent='StockX';
+  img.replaceWith(d);
+}
+
 function stockxWordmark(){
   return `<span style="font-weight:800;color:#08A05F;font-size:12px;font-family:'DM Sans',sans-serif;letter-spacing:-0.3px">Stock<span style="display:inline-block;transform:skewX(-14deg)">X</span></span>`;
 }
 
-function stockxNextImage(img){
-  // Images are verified by the worker and preloaded before cards are rendered.
-  // Never remove a visible card after it appears; that caused the flash/disappear bug.
-  if(img.dataset.retried==='1') return;
-  img.dataset.retried='1';
-  const original=img.dataset.originalStockxImage||'';
-  if(original) img.src=original;
-}
-
-function preloadStockxImage(item){
-  return new Promise(resolve=>{
-    if(!item||!item.image||!(Number(item.lowestAsk)>0)) return resolve(null);
-    const proxy=WORKER+'/stockx/image?url='+encodeURIComponent(item.image);
-    const im=new Image();
-    let done=false;
-    const finish=v=>{ if(done)return; done=true; clearTimeout(timer); resolve(v); };
-    const timer=setTimeout(()=>finish(null),5000);
-    im.onload=()=>finish(item);
-    im.onerror=()=>finish(null);
-    im.src=proxy;
-  });
-}
-
-async function keepOnlyReadyStockx(items){
-  if(!Array.isArray(items)||!items.length) return [];
-  const checked=await Promise.all(items.map(preloadStockxImage));
-  return checked.filter(Boolean);
+function stockxImgErr(img){
+  try{
+    var alts=JSON.parse(img.getAttribute('data-alts')||'[]');
+    if(alts.length){
+      img.setAttribute('data-alts', JSON.stringify(alts.slice(1)));
+      img.src=alts[0];
+      return;
+    }
+  }catch(_){}
+  var tile=img.getAttribute('data-tile');
+  if(tile){ img.outerHTML=tile; return; }
+  var d=document.createElement('div');
+  d.className='chat-card-ph';
+  d.style.cssText='color:#08A05F;font-weight:800;font-size:20px';
+  d.textContent='StockX';
+  img.replaceWith(d);
 }
 
 function stockxCardHtml(item, c){
-  if(!item || !item.image || !(Number(item.lowestAsk)>0)) return '';
   const CURSYM={USD:'$',EUR:'€',GBP:'£',AUD:'A$',CAD:'C$',CHF:'CHF ',JPY:'¥',HKD:'HK$',SGD:'S$'};
   const sym=item.currency&&CURSYM[item.currency]?CURSYM[item.currency]:(c==='UK'?'£':c==='DE'?'€':(c==='AU'?'A$':'$'));
-  const ask=`${sym}${Number(item.lowestAsk).toLocaleString()}`;
-  const bid=Number(item.highestBid)>0?`highest bid ${sym}${Number(item.highestBid).toLocaleString()}`:'';
-  const safeTitle=String(item.title||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  const original=String(item.image||'').replace(/"/g,'&quot;');
-  if(!original) return '';
-  const first=String(WORKER+'/stockx/image?url='+encodeURIComponent(item.image)).replace(/"/g,'&quot;');
-  const safeUrl=String(item.url||'https://stockx.com').replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-  return `<div class="chat-card stockx-card"><a href="${safeUrl}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1"><img class="chat-card-img" src="${first}" data-original-stockx-image="${original}" alt="${safeTitle}" loading="eager" onerror="stockxNextImage(this)"><div class="chat-card-body"><div style="margin-bottom:5px">${stockxWordmark()}</div><div class="chat-card-title">${safeTitle}</div><div class="chat-card-price">${ask}</div><div class="chat-card-loc">${bid}</div></div></a><div style="padding:0 12px 12px"><a href="${safeUrl}" target="_blank" rel="noopener" style="display:block;text-align:center;padding:8px;border-radius:999px;background:#fff;color:#0a0a0a;font-size:12px;font-weight:700;text-decoration:none;font-family:'DM Sans',sans-serif">View on StockX</a></div></div>`;
+  const ask=item.lowestAsk?`${sym}${Number(item.lowestAsk).toLocaleString()}`:'View current market';
+  const bid=item.highestBid?`highest bid ${sym}${Number(item.highestBid).toLocaleString()}`:'';
+  // StockX gives no usable image (no API field, CDN 404s, page 403s). Show a
+  // clean branded tile that reads as intentional, not broken. If a real image
+  // ever is provided (item.image non-empty AND not a known-bad guess), use it.
+  const tile=`<div class="chat-card-ph" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:linear-gradient(135deg,#0f1a14,#0a0a0a)"><span style="font-weight:800;color:#08A05F;font-size:26px;font-family:'DM Sans',sans-serif;letter-spacing:-0.5px">StockX</span><span style="color:#5a6b62;font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase">Authenticated Market</span></div>`;
+  const alts=JSON.stringify(Array.isArray(item.imageAlts)?item.imageAlts:[]);
+  const img=item.image
+    ?`<img class="chat-card-img" src="${item.image}" data-alts='${alts.replace(/'/g,'')}' data-tile="${tile.replace(/"/g,'&quot;')}" alt="" loading="lazy" onerror="stockxImgErr(this)">`
+    :tile;
+  return `<div class="chat-card stockx-card"><a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">${img}<div class="chat-card-body"><div style="margin-bottom:5px">${stockxWordmark()}</div><div class="chat-card-title">${(item.title||'').replace(/</g,'')}</div><div class="chat-card-price">${ask}</div><div class="chat-card-loc">${bid}</div></div></a><div style="padding:0 12px 12px"><a href="${item.url}" target="_blank" rel="noopener" style="display:block;text-align:center;padding:8px;border-radius:999px;background:#fff;color:#0a0a0a;font-size:12px;font-weight:700;text-decoration:none;font-family:'DM Sans',sans-serif">View on StockX</a></div></div>`;
 }
 
 // Only sneaker/streetwear queries trigger StockX (that's where its authority
@@ -888,8 +898,6 @@ async function appendStockxCards(sid, query, c){
       items=(d&&Array.isArray(d.items))?d.items:[];
     }catch(_){ return; }
     if(!items||!items.length) return;
-    items=await keepOnlyReadyStockx(items);
-    if(!items.length) return;
     const grid=document.getElementById('chat-grid-'+sid);
     if(!grid) return;
     // Keep the grid an even multiple of 4: for each StockX card we add near the
@@ -1013,20 +1021,33 @@ async function sendMsg(){
       const c=data.country||country;
       let items=Array.isArray(data.items)?data.items:[];
       saveSearchedItems(items, kw);
-      // Grace window: up to 8s for an uncached StockX search. Cards now return fast (catalog only,
+      // Grace window: up to 2s for StockX. Cards now return fast (catalog only,
       // prices fetched in background), so this is comfortable. Cached = instant.
       let sxItems=[];
-      try{ sxItems=await Promise.race([sxP, new Promise(res=>setTimeout(()=>res([]),8000))]); }catch(_){}
-      // Do not render a StockX card until its exact image has loaded successfully.
-      // This removes the visible flash/disappear behavior completely.
-      sxItems=await keepOnlyReadyStockx(sxItems);
+      try{ sxItems=await Promise.race([sxP, new Promise(res=>setTimeout(()=>res([]),2000))]); }catch(_){}
       removeThinking();
       if(items.length && sxItems && sxItems.length){
         // Plenty of marketplace listings -> 1 StockX card; sparse results -> 2.
         // StockX supplements the search, it never pads it.
         const take=items.length>=8?1:2;
         const use=sxItems.slice(0,take);
-        use.forEach(s=>{ s._stockx=true; });
+        // StockX gives no usable image. Borrow the photo from the best-matching
+        // eBay/Amazon/Ali listing in THESE results (same product, real photo,
+        // already loading, no bot wall). Match by shared title words.
+        const normW=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').split(' ').filter(w=>w.length>2);
+        use.forEach(s=>{
+          s._stockx=true;
+          const sw=normW(s.title);
+          let best=null,bestScore=0;
+          for(const it of items){
+            if(!it||!it.image||it._stockx) continue;
+            const iw=normW(it.title);
+            const score=sw.filter(w=>iw.includes(w)).length;
+            if(score>bestScore){ bestScore=score; best=it; }
+          }
+          // Need a solid match (>=2 shared words) before borrowing an image.
+          if(best && bestScore>=2){ s.image=best.image; s.imageAlts=[]; }
+        });
         const merged=items.slice();
         let at=1;
         for(const s of use){ merged.splice(Math.min(at,merged.length),0,s); at+=4; }
