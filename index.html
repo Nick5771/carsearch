@@ -1054,15 +1054,23 @@ async function sendMsg(){
           // is unmistakably the same product. Approximate match => branded tile.
           const sxW=words(s.title);
           const sxColor=words(s.colorway);
-          const styleTok=String(s.styleId||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+          // Model/SKU tokens: from styleId AND from the title itself (LEGO set
+          // numbers like 76405, sneaker codes like GY7164 live in the title even
+          // when StockX leaves styleId empty). Any of these appearing in the eBay
+          // title is a definitive same-product signal.
+          const codeSet=new Set();
+          const addCode=t=>{ const v=String(t||'').toLowerCase().replace(/[^a-z0-9]/g,''); if(v.length>=4) codeSet.add(v); };
+          String(s.styleId||'').split('/').forEach(addCode);
+          (String(s.title||'').match(/\b[a-z]{0,2}\d{4,6}[a-z]?\b/gi)||[]).forEach(addCode);
           let best=null,bestScore=0;
           for(const it of items){
             if(!it||!it.image||it._stockx) continue;
             if(usedImages.has(it.image)) continue;
             const itW=words(it.title);
             const itNorm=norm(it.title).replace(/\s+/g,'');
-            // Exact SKU/style code appearing in the eBay title = strongest signal.
-            const styleHit=styleTok && styleTok.length>=5 && itNorm.indexOf(styleTok)!==-1;
+            // Exact model/set code appearing in the listing title = definitive.
+            let styleHit=false;
+            for(const code of codeSet){ if(itNorm.indexOf(code)!==-1){ styleHit=true; break; } }
             // Title coverage: how much of the StockX product name the listing has.
             const shared=sxW.filter(w=>itW.includes(w)).length;
             const cover=sxW.length?shared/sxW.length:0;
