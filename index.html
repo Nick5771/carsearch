@@ -871,7 +871,7 @@ function stockxImgErr(img){
 }
 
 function stockxCardHtml(item, c){
-  const sym=item.currency&&CURSYM[item.currency]?CURSYM[item.currency]:(c==='UK'?'\u00a3':c==='DE'?'\u20ac':(c==='AU'?'A$':'$'));
+  const sym=item.currency&&CURSYM[item.currency]?CURSYM[item.currency]:(c==='UK'?'£':c==='DE'?'€':(c==='AU'?'A$':'$'));
   const ask=item.lowestAsk?`${sym}${Number(item.lowestAsk).toLocaleString()}`:'View current market';
   const askLabel=item.lowestAsk?'<span style="font-size:11px;color:#8a8a8a;display:block;line-height:1.2">Lowest Ask</span>':'';
   const bid=item.highestBid?`Highest bid ${sym}${Number(item.highestBid).toLocaleString()}`:'';
@@ -1093,7 +1093,7 @@ async function sendMsg(){
       const body=addMsg('assistant','');
       typeReply(body, items.length?'':"Couldn't find that one — try different words?", cardsHtml);
       setTimeout(scrollToLastUser,150);
-    }catch(e){removeThinking();addMsg('assistant','Sorry, the search hiccupped — try again?');}
+    }catch(e){removeThinking();console.error('FINDAI SEARCH ERROR:', e && (e.stack||e.message||e)); addMsg('assistant','Sorry, the search hiccupped — try again?');}
     busy=false; document.getElementById('send-btn').disabled=false; inp.focus();
     return;
   }
