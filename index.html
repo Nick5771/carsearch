@@ -853,15 +853,25 @@ function stockxWordmark(){
 }
 
 function stockxImgErr(img){
-  try{
-    var alts=JSON.parse(img.getAttribute('data-alts')||'[]');
-    if(alts.length){
-      img.setAttribute('data-alts', JSON.stringify(alts.slice(1)));
-      img.src=alts[0];
-      return;
+  // StockX studio image failed -> try the exact-match borrowed photo (labelled),
+  // and only if that fails too, show the branded tile.
+  var fb=img.getAttribute('data-fallback');
+  if(fb){
+    img.removeAttribute('data-fallback');
+    img.src=fb;
+    var p=img.parentNode;
+    if(p && !p.querySelector('.sx-repcap')){
+      var cap=document.createElement('div');
+      cap.className='sx-repcap';
+      cap.style.cssText='position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.62);color:#cfcfcf;font-size:9px;padding:3px 6px;text-align:center';
+      cap.textContent='Representative image';
+      p.appendChild(cap);
     }
-  }catch(_){}
+    return;
+  }
   var tile=img.getAttribute('data-tile');
+  var p2=img.parentNode;
+  if(p2){ var c=p2.querySelector('.sx-repcap'); if(c) c.remove(); }
   if(tile){ img.outerHTML=tile; return; }
   var d=document.createElement('div');
   d.className='chat-card-ph';
@@ -880,7 +890,10 @@ function stockxCardHtml(item, c){
   // borrowed marketplace photo (clearly labelled), else the branded tile.
   var inner;
   if(item.stockxImage){
-    inner=`<img class="chat-card-img" src="${item.stockxImage}" data-tile="${tile.replace(/"/g,'&quot;')}" alt="" loading="lazy" onerror="stockxImgErr(this)">`;
+    // Try StockX's own studio image (white bg). If it 404s, stockxImgErr falls
+    // through to the exact-match borrowed photo, then finally the branded tile.
+    const fb=(item.image&&item.borrowedImage)?item.image:'';
+    inner=`<img class="chat-card-img" src="${item.stockxImage}" data-fallback="${fb}" data-tile="${tile.replace(/"/g,'&quot;')}" alt="" loading="lazy" onerror="stockxImgErr(this)">`;
   } else if(item.image && item.borrowedImage){
     inner=`<img class="chat-card-img" src="${item.image}" data-tile="${tile.replace(/"/g,'&quot;')}" alt="" loading="lazy" onerror="stockxImgErr(this)"><div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.62);color:#cfcfcf;font-size:9px;padding:3px 6px;text-align:center">Representative image</div>`;
   } else {
