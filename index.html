@@ -1032,6 +1032,10 @@ async function sendMsg(){
       const sxLimit=isSneaker?2:1;
       const sxUrl=`${WORKER}/stockx/search?q=${encodeURIComponent(kw)}&country=${encodeURIComponent(country||'')}&limit=${sxLimit}`;
       const sxLive=fetch(sxUrl).then(r=>r.json()).then(d=>(d&&Array.isArray(d.items))?d.items:[]).catch(()=>[]);
+      const data=await mainP;
+      const c=data.country||country;
+      let items=Array.isArray(data.items)?data.items:[];
+      saveSearchedItems(items, kw);
       let sxItems=[];
       try{ sxItems=await Promise.race([sxLive, new Promise(res=>setTimeout(()=>res([]),4500))]); }catch(_){}
       removeThinking();
