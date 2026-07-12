@@ -1047,6 +1047,12 @@ async function sendMsg(){
         const norm=s=>String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,' ');
         const words=s=>norm(s).split(' ').filter(w=>w.length>2);
         const usedImages=new Set();  // dedupe: never the same photo on two cards
+        // Never borrow a photo from a listing that will be VISIBLE in the first
+        // row - two identical images side by side looks broken. Skip the first
+        // row's worth of cards (grid is 4 wide on desktop; be safe and skip 4,
+        // accounting for the StockX cards we're about to insert).
+        const frontRowCount=4;
+        const borrowPool=items.slice(frontRowCount);
         use.forEach(s=>{
           s._stockx=true;
           // EXACT-MATCH image borrowing only. StockX gives no usable studio image
@@ -1063,7 +1069,7 @@ async function sendMsg(){
           String(s.styleId||'').split('/').forEach(addCode);
           (String(s.title||'').match(/\b[a-z]{0,2}\d{4,6}[a-z]?\b/gi)||[]).forEach(addCode);
           let best=null,bestScore=0;
-          for(const it of items){
+          for(const it of borrowPool){
             if(!it||!it.image||it._stockx) continue;
             if(usedImages.has(it.image)) continue;
             const itW=words(it.title);
