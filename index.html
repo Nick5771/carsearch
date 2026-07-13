@@ -161,6 +161,8 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .msg.user .msg-body{background:#fff;color:#000;border-color:#e0e0e0}
 .chat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px;width:100%;align-items:stretch}
 .chat-card{background:#111;border:1px solid #222;border-radius:10px;overflow:hidden;text-decoration:none;display:flex;flex-direction:column;color:inherit;transition:border-color 0.15s,transform 0.15s;height:100%}
+.chat-grid{align-items:stretch}
+.stockx-card .chat-card-body{padding:10px 12px}
 .chat-card:hover{border-color:#444;transform:translateY(-2px)}
 .chat-card-img{width:100%;height:160px;object-fit:cover;display:block;background:#1a1a1a}
 .chat-card-ph{width:100%;height:160px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:32px}
@@ -873,7 +875,7 @@ function stockxImgErr(img){
 function stockxCardHtml(item, c){
   const sym=item.currency&&CURSYM[item.currency]?CURSYM[item.currency]:(c==='UK'?'£':c==='DE'?'€':(c==='AU'?'A$':'$'));
   const ask=item.lowestAsk?`${sym}${Number(item.lowestAsk).toLocaleString()}`:'View current market';
-  const askLabel=item.lowestAsk?'<span style="font-size:11px;color:#8a8a8a;display:block;line-height:1.2">Lowest Ask</span>':'';
+  const askLabel=item.lowestAsk?'<span style="font-size:10px;color:#8a8a8a;display:block;line-height:1;margin-bottom:1px">Lowest Ask</span>':'';
   const bid=item.highestBid?`Highest bid ${sym}${Number(item.highestBid).toLocaleString()}`:'';
   const tile=`<div class="chat-card-ph" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:linear-gradient(135deg,#0f1a14,#0a0a0a);width:100%;height:100%"><span style="font-weight:800;color:#08A05F;font-size:26px;font-family:'DM Sans',sans-serif;letter-spacing:-0.5px">StockX</span><span style="color:#5a6b62;font-size:11px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase">Authenticated Market</span></div>`;
   // Image priority: StockX's own studio image (white bg), else an EXACT-match
@@ -890,7 +892,7 @@ function stockxCardHtml(item, c){
     inner=tile;
   }
   const img=`<div style="position:relative;height:160px;overflow:hidden">${inner}</div>`;
-  return `<div class="chat-card stockx-card"><a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">${img}<div class="chat-card-body"><div style="margin-bottom:5px">${stockxWordmark()}</div><div class="chat-card-title">${(item.title||'').replace(/</g,'')}</div><div style="margin-top:auto"><div class="chat-card-price">${askLabel}${ask}</div><div class="chat-card-loc">${bid}</div></div></div></a><div style="padding:0 12px 12px"><a href="${item.url}" target="_blank" rel="noopener" style="display:block;text-align:center;padding:8px;border-radius:999px;background:#fff;color:#0a0a0a;font-size:12px;font-weight:700;text-decoration:none;font-family:'DM Sans',sans-serif">View on StockX</a></div></div>`;
+  return `<div class="chat-card stockx-card"><a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">${img}<div class="chat-card-body"><div style="margin-bottom:5px">${stockxWordmark()}</div><div class="chat-card-title">${(item.title||'').replace(/</g,'')}</div><div style="margin-top:auto"><div class="chat-card-price">${askLabel}${ask}</div><div class="chat-card-loc" style="font-size:10px;line-height:1.2;min-height:12px">${bid}</div></div></div></a><div style="padding:0 12px 10px"><a href="${item.url}" target="_blank" rel="noopener" style="display:block;text-align:center;padding:8px;border-radius:999px;background:#fff;color:#0a0a0a;font-size:12px;font-weight:700;text-decoration:none;font-family:'DM Sans',sans-serif">View on StockX</a></div></div>`;
 }
 
 // Only sneaker/streetwear queries trigger StockX (that's where its authority
@@ -1109,9 +1111,11 @@ async function sendMsg(){
             s.image=''; s.borrowedImage=false;  // -> branded tile
           }
         });
-        // Place StockX cards in the first row/column area (slots 1 and 3).
+        // Shoe searches: a StockX card leads (slot 0) - it's the authenticated
+        // market reference the shopper wants first. Others slot in nearby.
+        // Non-shoe searches keep StockX just after the first eBay listing.
         const merged=items.slice();
-        let at=1;
+        let at=isSneaker?0:1;
         for(const s of use){ merged.splice(Math.min(at,merged.length),0,s); at+=2; }
         items=merged;
       }
