@@ -775,9 +775,18 @@ function pageSize(){
   return (typeof window!=='undefined' && window.innerWidth && window.innerWidth<700) ? 24 : PAGE_SIZE;
 }
 // Build an EPN-TRACKED eBay search URL (so "Search for more" still earns commission).
+// Covers all 13 EPN markets. It used to know only US/AU/UK/DE, so a French or
+// Italian shopper got dumped on ebay.com with a US rotation ID - the link still
+// earned, but it sent them to the wrong country's site.
 function ebaySearchUrl(query){
-  const MKRID={US:'711-53200-19255-0',AU:'705-53470-19255-0',UK:'710-53481-19255-0',DE:'707-53477-19255-0'};
-  const DOMAIN={US:'www.ebay.com',AU:'www.ebay.com.au',UK:'www.ebay.co.uk',DE:'www.ebay.de'};
+  const MKRID={US:'711-53200-19255-0',AU:'705-53470-19255-0',UK:'710-53481-19255-0',DE:'707-53477-19255-0',
+               CA:'706-53473-19255-0',FR:'709-53476-19255-0',IT:'724-53478-19255-0',ES:'1185-53479-19255-0',
+               AT:'5221-53469-19255-0',BE:'1553-53471-19255-0',NL:'1346-53482-19255-0',IE:'5282-53468-19255-0',
+               CH:'5222-53480-19255-0'};
+  const DOMAIN={US:'www.ebay.com',AU:'www.ebay.com.au',UK:'www.ebay.co.uk',DE:'www.ebay.de',
+                CA:'www.ebay.ca',FR:'www.ebay.fr',IT:'www.ebay.it',ES:'www.ebay.es',
+                AT:'www.ebay.at',BE:'www.ebay.be',NL:'www.ebay.nl',IE:'www.ebay.ie',
+                CH:'www.ebay.ch'};
   const c=(country||'US');
   const params=new URLSearchParams({
     _nkw: query||'', mkevt:'1', mkcid:'1',
