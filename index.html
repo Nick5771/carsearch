@@ -297,16 +297,61 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
   .msg-body{max-width:100%!important;padding:8px 6px;border-radius:8px}
   .messages-inner{max-width:100%;width:100%}
 }
+/* ── Market Watch ──────────────────────────────────────────────────────── */
+.mw-overlay{position:fixed;inset:0;background:#000;z-index:2000;display:none;flex-direction:column;overflow-y:auto;padding-top:52px}
+.mw-overlay.mw-open{display:flex}
+.mw-topbar{display:flex;align-items:center;gap:16px;padding:16px 20px;border-bottom:1px solid #1a1a1a;position:sticky;top:0;background:#000;z-index:5}
+.mw-back{background:transparent;border:1px solid #333;color:#ccc;padding:8px 14px;border-radius:20px;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap}
+.mw-back:hover{background:#141414}
+.mw-searchwrap{flex:1;display:flex;gap:8px;max-width:640px}
+.mw-search-input{flex:1;background:#111;border:1px solid #2a2a2a;color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;font-family:'DM Sans',sans-serif}
+.mw-search-input:focus{outline:none;border-color:#1a6fff}
+.mw-search-btn{background:#1a6fff;border:none;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+.mw-search-btn:hover{background:#185FA5}
+.mw-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 24px;gap:8px}
+.mw-empty-icon{font-size:40px;margin-bottom:6px}
+.mw-empty-title{font-size:20px;font-weight:700;color:#fff}
+.mw-empty-sub{font-size:14px;color:#888;max-width:420px;line-height:1.5}
+.mw-header{display:flex;align-items:flex-start;justify-content:space-between;padding:24px 24px 0;max-width:1100px;margin:0 auto;width:100%}
+.mw-title{font-size:24px;font-weight:700;color:#fff}
+.mw-subtitle{font-size:13px;color:#888;margin-top:4px}
+.mw-track-btn{background:#111;border:1px solid #2a2a2a;color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+.mw-track-btn:hover{background:#1a1a1a}
+.mw-track-btn.mw-tracking{background:#1a6fff;border-color:#1a6fff}
+.mw-chart-card,.mw-listings-card{max-width:1100px;margin:20px auto 0;width:100%;padding:20px 24px;box-sizing:border-box;background:#0b0b0b;border:1px solid #1a1a1a;border-radius:14px}
+.mw-chart-label{font-size:15px;font-weight:700;color:#fff}
+.mw-stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px;margin:16px 0}
+.mw-stat{background:#111;border:1px solid #1a1a1a;border-radius:10px;padding:12px 14px}
+.mw-stat-label{font-size:11px;color:#888;margin-bottom:4px}
+.mw-stat-value{font-size:20px;font-weight:700;color:#4d9fe6}
+.mw-chart-canvas{width:100%;display:block}
+.mw-chart-note{font-size:12px;color:#666;margin-top:10px}
+.mw-listings-card{margin-bottom:40px}
+.mw-listings-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.mw-listing-card{position:relative;background:#111;border:1px solid #1a1a1a;border-radius:12px;padding:14px}
+.mw-listing-card.mw-best{border-color:#1a6fff}
+.mw-listing-src{font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.03em}
+.mw-listing-price{font-size:22px;font-weight:700;color:#fff;margin:6px 0 4px}
+.mw-listing-title{font-size:12px;color:#999;line-height:1.4;min-height:34px;overflow:hidden}
+.mw-listing-btn{display:block;text-align:center;margin-top:10px;background:#1a6fff;color:#fff;text-decoration:none;padding:8px;border-radius:8px;font-size:13px;font-weight:600}
+.mw-listing-btn:hover{background:#185FA5}
+.mw-best-badge{position:absolute;top:-9px;right:10px;background:#1a6fff;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px}
+@media(max-width:700px){
+  .mw-topbar{flex-wrap:wrap}
+  .mw-header{flex-direction:column;gap:14px}
+}
 </style>
 </head>
 <body>
 <nav>
   <h1 class="nav-logo" onclick="resetChat()">FindAI</h1>
   <div class="nav-links" id="nav-auth-out">
+    <button class="nav-link" onclick="openMarketWatch()">Market Watch</button>
     <button class="nav-secondary" onclick="openAuth('Welcome back')">Log in</button>
     <button class="nav-cta" onclick="openAuth('Create your free account')">Sign up for free</button>
   </div>
   <div class="nav-links" id="nav-auth-in" style="display:none">
+    <button class="nav-link" onclick="openMarketWatch()">Market Watch</button>
     <div style="position:relative">
       <button class="nav-avatar" id="nav-avatar" onclick="toggleUserMenu(event)" title="Account">U</button>
       <div id="user-menu" class="user-menu">
@@ -401,6 +446,221 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
     </div>
   </div>
 </div>
+
+<!-- ── Market Watch ─────────────────────────────────────────────────────────
+     Full-screen overlay (not a route change) so it can drop on top of the
+     chat UI from any state and closing it just returns to whatever was
+     already on screen underneath. -->
+<div class="mw-overlay" id="mw-overlay">
+  <div class="mw-topbar">
+    <button class="mw-back" onclick="closeMarketWatch()">&larr; Back</button>
+    <div class="mw-searchwrap">
+      <input type="text" id="mw-search-input" class="mw-search-input" placeholder="Search any item to track its price..." onkeydown="if(event.key==='Enter')submitTrackerQuery()">
+      <button class="mw-search-btn" onclick="submitTrackerQuery()">Track</button>
+    </div>
+  </div>
+
+  <div id="mw-empty" class="mw-empty">
+    <div class="mw-empty-icon">📈</div>
+    <div class="mw-empty-title">Market Watch</div>
+    <div class="mw-empty-sub">Search for any item above to see its live price across marketplaces, track its history over time, and get notified when it drops.</div>
+  </div>
+
+  <div id="mw-loading" class="mw-empty" style="display:none">
+    <div class="mw-empty-title">Checking marketplaces&hellip;</div>
+  </div>
+
+  <div id="mw-content" style="display:none">
+    <div class="mw-header">
+      <div>
+        <div class="mw-title" id="mw-item-title">&nbsp;</div>
+        <div class="mw-subtitle" id="mw-item-sub"></div>
+      </div>
+      <div class="mw-header-actions">
+        <button class="mw-track-btn" id="mw-track-btn" onclick="toggleTracking()">&#9733; Track this item</button>
+      </div>
+    </div>
+
+    <div class="mw-chart-card">
+      <div class="mw-chart-head">
+        <span class="mw-chart-label">Price History</span>
+      </div>
+      <div class="mw-stats-row" id="mw-stats-row"></div>
+      <canvas id="mw-chart-canvas" class="mw-chart-canvas" height="220"></canvas>
+      <div class="mw-chart-note" id="mw-chart-note"></div>
+    </div>
+
+    <div class="mw-listings-card">
+      <div class="mw-chart-label" style="margin-bottom:14px">Available Places to Buy</div>
+      <div class="mw-listings-grid" id="mw-listings-grid"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Market Watch (Price Tracker) ───────────────────────────────────────────
+var mwCurrentQuery = '';
+var mwTracking = false;
+var mwHistory = [];
+
+function openMarketWatch(){
+  document.getElementById('mw-overlay').classList.add('mw-open');
+  document.body.style.overflow='hidden';
+  setTimeout(function(){ document.getElementById('mw-search-input').focus(); }, 50);
+}
+function closeMarketWatch(){
+  document.getElementById('mw-overlay').classList.remove('mw-open');
+  document.body.style.overflow='';
+}
+
+async function submitTrackerQuery(){
+  var input = document.getElementById('mw-search-input');
+  var q = (input.value || '').trim();
+  if(!q) return;
+  mwCurrentQuery = q;
+  document.getElementById('mw-empty').style.display='none';
+  document.getElementById('mw-content').style.display='none';
+  document.getElementById('mw-loading').style.display='flex';
+  try{
+    var res = await fetch(WORKER + '/tracker/search', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ query: q })
+    });
+    var data = await res.json();
+    renderMarketWatch(q, data);
+  }catch(e){
+    document.getElementById('mw-loading').style.display='none';
+    document.getElementById('mw-empty').style.display='flex';
+    document.getElementById('mw-empty').querySelector('.mw-empty-title').textContent = "Couldn't load that item";
+  }
+}
+
+function renderMarketWatch(query, data){
+  document.getElementById('mw-loading').style.display='none';
+  document.getElementById('mw-content').style.display='block';
+  document.getElementById('mw-item-title').textContent = query.charAt(0).toUpperCase()+query.slice(1);
+  var listings = data.listings || [];
+  document.getElementById('mw-item-sub').textContent = listings.length
+    ? ('Tracked across ' + new Set(listings.map(function(l){return l.source||'Marketplace';})).size + ' marketplaces')
+    : 'No live listings found right now';
+
+  mwHistory = data.history || [];
+  var s = data.stats || {min:0,max:0,avg:0,count:0};
+  var sym = '$';
+  document.getElementById('mw-stats-row').innerHTML =
+    mwStat('Lowest Price', s.min, sym) +
+    mwStat('Average Price', s.avg, sym) +
+    mwStat('Highest Price', s.max, sym) +
+    '<div class="mw-stat"><div class="mw-stat-label">Listings Found</div><div class="mw-stat-value">'+(s.count||0)+'</div></div>';
+
+  drawPriceChart(mwHistory, s);
+  document.getElementById('mw-chart-note').textContent = mwHistory.length
+    ? ('Tracking since ' + mwHistory[0].snapshot_date)
+    : 'Start tracking this item to build up its price history from tomorrow onward.';
+
+  renderTrackerListings(listings);
+  mwTracking = false;
+  updateTrackBtn();
+}
+
+function mwStat(label, val, sym){
+  return '<div class="mw-stat"><div class="mw-stat-label">'+label+'</div><div class="mw-stat-value">'+(val?sym+Number(val).toFixed(0):'&mdash;')+'</div></div>';
+}
+
+function drawPriceChart(history, stats){
+  var canvas = document.getElementById('mw-chart-canvas');
+  var ctx = canvas.getContext('2d');
+  var w = canvas.clientWidth || canvas.parentElement.clientWidth;
+  canvas.width = w; canvas.height = 220;
+  ctx.clearRect(0,0,w,220);
+
+  if(!history.length){
+    // Cold-start state: no history yet, just show today's single reference point.
+    ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth=1;
+    for(var g=0; g<4; g++){ var gy=30+g*45; ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(w,gy); ctx.stroke(); }
+    ctx.fillStyle = '#666'; ctx.font = '13px DM Sans, sans-serif'; ctx.textAlign='center';
+    ctx.fillText('No price history yet — track this item to start building the chart', w/2, 115);
+    return;
+  }
+  var vals = history.map(function(h){return h.avg_price||0;});
+  var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  var pad = (max-min)*0.15 || max*0.1 || 1;
+  min -= pad; max += pad;
+  var padL=6, padR=6, padT=15, padB=25;
+  var plotW = w-padL-padR, plotH = 220-padT-padB;
+
+  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth=1;
+  for(var i=0;i<4;i++){ var y=padT+plotH*i/3; ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(w-padR,y); ctx.stroke(); }
+
+  function xAt(i){ return padL + (history.length>1 ? plotW*i/(history.length-1) : plotW/2); }
+  function yAt(v){ return padT + plotH - ((v-min)/(max-min))*plotH; }
+
+  // Filled area under the line, matching the app's blue accent.
+  ctx.beginPath();
+  ctx.moveTo(xAt(0), yAt(vals[0]));
+  vals.forEach(function(v,i){ ctx.lineTo(xAt(i), yAt(v)); });
+  ctx.lineTo(xAt(vals.length-1), padT+plotH);
+  ctx.lineTo(xAt(0), padT+plotH);
+  ctx.closePath();
+  var grad = ctx.createLinearGradient(0,padT,0,padT+plotH);
+  grad.addColorStop(0,'rgba(26,111,255,0.35)'); grad.addColorStop(1,'rgba(26,111,255,0.02)');
+  ctx.fillStyle = grad; ctx.fill();
+
+  ctx.beginPath();
+  ctx.strokeStyle = '#1a6fff'; ctx.lineWidth=2;
+  vals.forEach(function(v,i){ i===0?ctx.moveTo(xAt(i),yAt(v)):ctx.lineTo(xAt(i),yAt(v)); });
+  ctx.stroke();
+
+  ctx.fillStyle='#1a6fff';
+  vals.forEach(function(v,i){ ctx.beginPath(); ctx.arc(xAt(i),yAt(v),2.5,0,7); ctx.fill(); });
+
+  ctx.fillStyle='#666'; ctx.font='11px DM Sans, sans-serif'; ctx.textAlign='center';
+  [0, Math.floor(history.length/2), history.length-1].forEach(function(i){
+    ctx.fillText(history[i].snapshot_date.slice(5), xAt(i), 220-6);
+  });
+}
+
+function renderTrackerListings(listings){
+  var grid = document.getElementById('mw-listings-grid');
+  if(!listings.length){
+    grid.innerHTML = '<p style="color:#666;font-size:14px">No live listings found right now.</p>';
+    return;
+  }
+  var cheapest = Math.min.apply(null, listings.map(function(l){return l.price||Infinity;}));
+  grid.innerHTML = listings.map(function(l){
+    var isBest = l.price===cheapest;
+    var srcLabel = l.source || (l._stockx ? 'StockX' : 'Marketplace');
+    return '<div class="mw-listing-card'+(isBest?' mw-best':'')+'">' +
+      '<div class="mw-listing-src">'+escapeHtml(srcLabel)+'</div>' +
+      '<div class="mw-listing-price">'+(l.price?'$'+Number(l.price).toLocaleString():'See listing')+'</div>' +
+      '<div class="mw-listing-title">'+escapeHtml((l.title||'').slice(0,60))+'</div>' +
+      '<a class="mw-listing-btn" href="'+(l.url||'#')+'" target="_blank" rel="noopener">View listing</a>' +
+      (isBest?'<div class="mw-best-badge">&#128081; Best Price</div>':'') +
+      '</div>';
+  }).join('');
+}
+
+function updateTrackBtn(){
+  var btn = document.getElementById('mw-track-btn');
+  btn.textContent = mwTracking ? '\u2713 Tracking' : '\u2605 Track this item';
+  btn.classList.toggle('mw-tracking', mwTracking);
+}
+
+async function toggleTracking(){
+  var u = null; try{ u = JSON.parse(localStorage.getItem('findai_user')||'null'); }catch(_){}
+  var email = u && u.email ? u.email : null;
+  if(!email){ openAuth('Sign in to track items'); return; }
+  var endpoint = mwTracking ? '/tracker/remove' : '/tracker/add';
+  try{
+    await fetch(WORKER + endpoint, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ email: email, query: mwCurrentQuery })
+    });
+    mwTracking = !mwTracking;
+    updateTrackBtn();
+  }catch(e){}
+}
+</script>
 <script>
 const WORKER='https://api.carsearchapi.workers.dev';
 let country='AU';
