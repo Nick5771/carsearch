@@ -306,14 +306,17 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 /* Hero (empty) state - big centered search */
 .mw-hero{flex:1;display:flex;flex-direction:column;min-height:100vh}
 .mw-hero-back{position:absolute;top:20px;left:20px}
-.mw-hero-inner{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;gap:6px}
-.mw-hero-icon{font-size:44px;margin-bottom:8px}
-.mw-hero-title{font-size:34px;font-weight:700;color:#fff}
-.mw-hero-sub{font-size:15px;color:#888;max-width:480px;line-height:1.5;margin-bottom:28px}
-.mw-hero-searchwrap{width:100%;max-width:680px;display:flex;gap:10px}
-.mw-hero-search-input{flex:1;background:#111;border:1.5px solid #2a2a2a;color:#fff;padding:18px 22px;border-radius:28px;font-size:17px;font-family:'DM Sans',sans-serif}
-.mw-hero-search-input:focus{outline:none;border-color:#1a6fff}
-.mw-hero-search-btn{background:#1a6fff;border:none;color:#fff;padding:0 32px;border-radius:28px;font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+.mw-hero-inner{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;gap:8px}
+.mw-hero-title{font-size:42px;font-weight:700;color:#fff;letter-spacing:-0.5px}
+.mw-hero-sub{font-size:16px;color:#888;max-width:520px;line-height:1.5;margin-bottom:34px}
+/* Single centered pill: the input spans the full centered width and the Track
+   button sits INSIDE it on the right, so the bar itself is dead-centered on the
+   page (not offset by a button sitting beside it). */
+.mw-hero-searchwrap{width:100%;max-width:760px;margin:0 auto;position:relative}
+.mw-hero-search-input{width:100%;box-sizing:border-box;background:#111;border:1.5px solid #2a2a2a;color:#fff;padding:24px 150px 24px 30px;border-radius:38px;font-size:20px;font-family:'DM Sans',sans-serif}
+.mw-hero-search-input::placeholder{color:#666}
+.mw-hero-search-input:focus{outline:none;border-color:#1a6fff;box-shadow:0 0 0 4px rgba(26,111,255,.12)}
+.mw-hero-search-btn{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:#1a6fff;border:none;color:#fff;padding:0 34px;height:calc(100% - 16px);border-radius:30px;font-size:16px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
 .mw-hero-search-btn:hover{background:#185FA5}
 .mw-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 24px;gap:8px}
 .mw-empty-title{font-size:20px;font-weight:700;color:#fff}
@@ -387,8 +390,9 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
   .mw-product-photo{max-width:260px;margin:0 auto}
 }
 @media(max-width:700px){
-  .mw-hero-title{font-size:26px}
-  .mw-hero-searchwrap{flex-direction:column}
+  .mw-hero-title{font-size:30px}
+  .mw-hero-search-input{padding:18px 108px 18px 22px;font-size:17px}
+  .mw-hero-search-btn{padding:0 22px;font-size:14px}
   .mw-header{flex-direction:column;gap:14px}
 }
 </style>
@@ -397,12 +401,12 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 <nav>
   <h1 class="nav-logo" onclick="resetChat()">FindAI</h1>
   <div class="nav-links" id="nav-auth-out">
-    <button class="nav-link" onclick="openMarketWatch()">Market Watch</button>
+    <button class="nav-link" onclick="openMarketWatch()">Price Tracker</button>
     <button class="nav-secondary" onclick="openAuth('Welcome back')">Log in</button>
     <button class="nav-cta" onclick="openAuth('Create your free account')">Sign up for free</button>
   </div>
   <div class="nav-links" id="nav-auth-in" style="display:none">
-    <button class="nav-link" onclick="openMarketWatch()">Market Watch</button>
+    <button class="nav-link" onclick="openMarketWatch()">Price Tracker</button>
     <div style="position:relative">
       <button class="nav-avatar" id="nav-avatar" onclick="toggleUserMenu(event)" title="Account">U</button>
       <div id="user-menu" class="user-menu">
@@ -510,8 +514,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
   <div id="mw-hero" class="mw-hero">
     <button class="mw-back mw-hero-back" onclick="closeMarketWatch()">&larr; Back</button>
     <div class="mw-hero-inner">
-      <div class="mw-hero-icon">📈</div>
-      <div class="mw-hero-title">Market Watch</div>
+      <div class="mw-hero-title">Price Tracker</div>
       <div class="mw-hero-sub">Search any item to see its live price across marketplaces and track it over time.</div>
       <div class="mw-hero-searchwrap" style="position:relative">
         <input type="text" id="mw-search-input" class="mw-hero-search-input" placeholder="Search any item to track its price..." autocomplete="off" oninput="onTrackerInput(this.value)" onkeydown="onTrackerKeydown(event)">
@@ -726,9 +729,14 @@ function renderMarketWatch(query, data, pickedProduct){
     ? ('Live across ' + sourceCount + ' marketplace' + (sourceCount===1?'':'s'))
     : 'No live listings found right now';
 
-  // Product photo: prefer the exact image the user picked from the dropdown,
-  // fall back to the first listing photo we actually have, else a placeholder.
-  var photoUrl = (pickedProduct && pickedProduct.image) || (listings[0] && (listings[0].stockxImage || listings[0].image)) || '';
+  // Product photo: prefer the REAL studio image the server resolved from the
+  // StockX product page (og:image, white bg), then the picked suggestion's
+  // thumb, then the first listing photo, else a placeholder.
+  var photoUrl = data.heroImage
+    || (data.productDetails && data.productDetails.image)
+    || (pickedProduct && pickedProduct.image)
+    || (listings[0] && (listings[0].stockxImage || listings[0].image))
+    || '';
   var photoEl = document.getElementById('mw-product-photo');
   photoEl.innerHTML = photoUrl
     ? '<img src="'+photoUrl+'" alt="" onerror="this.parentElement.innerHTML=\'<div class=&quot;mw-suggest-ph&quot;>\uD83D\uDC5F</div>\'">'
