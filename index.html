@@ -124,6 +124,8 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .sb-new:hover{background:#111;color:#fff}
 .sb-section{font-size:12px;color:#555;padding:8px 14px 6px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em}
 .sb-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;cursor:pointer;font-size:15px;color:#888;background:none;border:none;font-family:'DM Sans',sans-serif;width:100%;text-align:left;transition:all 0.15s}
+.sb-tracker{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:10px;cursor:pointer;font-size:15px;font-weight:700;color:#fff;background:#1a6fff;border:none;font-family:'DM Sans',sans-serif;width:100%;text-align:left;margin-bottom:6px;transition:background 0.15s}
+.sb-tracker:hover{background:#185FA5}
 .sb-item:hover{background:#111;color:#fff}
 .sb-item.active{background:#111;color:#fff}
 .chat{flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0}
@@ -323,9 +325,9 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .mw-empty-title{font-size:20px;font-weight:700;color:#fff}
 /* Price-tracking loader: title + a sleek indeterminate blue line sweeping L→R */
 .mw-loading-title{font-size:24px;font-weight:700;color:#fff;letter-spacing:-0.3px;margin-bottom:22px}
-.mw-loading-bar{position:relative;width:min(340px,72vw);height:3px;border-radius:3px;background:#161616;overflow:hidden}
-.mw-loading-bar-fill{position:absolute;top:0;left:0;height:100%;width:40%;border-radius:3px;background:linear-gradient(90deg,rgba(26,111,255,0) 0%,#1a6fff 50%,rgba(26,111,255,0) 100%);animation:mwSweep 1.15s cubic-bezier(.4,0,.2,1) infinite}
-@keyframes mwSweep{0%{transform:translateX(-120%)}100%{transform:translateX(320%)}}
+.mw-loading-bar{position:relative;width:min(420px,80vw);height:4px;border-radius:4px;background:#161616;overflow:hidden}
+.mw-loading-bar-fill{position:absolute;top:0;left:0;height:100%;width:0;border-radius:4px;background:linear-gradient(90deg,#1a6fff,#4d9fe6);animation:mwFill 2.2s cubic-bezier(.25,.8,.35,1) forwards}
+@keyframes mwFill{0%{width:0}70%{width:88%}100%{width:100%}}
 
 /* Suggestion dropdown */
 .mw-suggest-list{position:absolute;top:calc(100% + 8px);left:0;right:0;background:#111;border:1px solid #2a2a2a;border-radius:16px;max-height:420px;overflow-y:auto;z-index:10;display:none;box-shadow:0 12px 32px rgba(0,0,0,.6);text-align:left}
@@ -409,12 +411,10 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 <nav>
   <h1 class="nav-logo" onclick="resetChat()">FindAI</h1>
   <div class="nav-links" id="nav-auth-out">
-    <button class="nav-link" onclick="openMarketWatch()">Price Tracker</button>
     <button class="nav-secondary" onclick="openAuth('Welcome back')">Log in</button>
     <button class="nav-cta" onclick="openAuth('Create your free account')">Sign up for free</button>
   </div>
   <div class="nav-links" id="nav-auth-in" style="display:none">
-    <button class="nav-link" onclick="openMarketWatch()">Price Tracker</button>
     <div style="position:relative">
       <button class="nav-avatar" id="nav-avatar" onclick="toggleUserMenu(event)" title="Account">U</button>
       <div id="user-menu" class="user-menu">
@@ -456,6 +456,8 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
     <div class="sb-section" id="recent-section" style="display:none">Recent</div>
     <div id="recent-searches"></div>
     <div class="sb-section" style="margin-top:8px">Categories</div>
+    <button class="sb-tracker" onclick="openMarketWatch()">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M3 3v18h18"/><path d="M7 14l4 -4l3 3l5 -6"/></svg>Price Tracker</button>
     <button class="sb-item" id="sb-best-deals" onclick="loadBestDeals()" style="color:#4d9fe6;font-weight:600">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235"/></svg>Best Deals</button>
     <a class="sb-item" href="https://www.amazon.com.au/?tag=findai09e-22" target="_blank" rel="noopener nofollow sponsored" onclick="amazonAffiliate();return false;" style="text-decoration:none">
@@ -533,16 +535,20 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
   </div>
 
   <!-- Loading -->
-  <div id="mw-loading" class="mw-empty" style="display:none">
-    <div class="mw-loading-title">Tracking price</div>
-    <div class="mw-loading-bar"><div class="mw-loading-bar-fill"></div></div>
+  <div id="mw-loading" style="display:none">
+    <div class="mw-detail-topbar">
+      <h1 class="nav-logo" onclick="backToHero()">FindAI</h1>
+    </div>
+    <div class="mw-empty">
+      <div class="mw-loading-title">Tracking price</div>
+      <div class="mw-loading-bar"><div class="mw-loading-bar-fill"></div></div>
+    </div>
   </div>
 
   <!-- STATE 2: item detail page -->
   <div id="mw-content" style="display:none">
     <div class="mw-detail-topbar">
-      <h1 class="nav-logo" onclick="backToHero()" style="font-size:22px">FindAI</h1>
-      <span class="mw-detail-crumb">Marketplace Price Check</span>
+      <h1 class="nav-logo" onclick="backToHero()">FindAI</h1>
     </div>
 
     <div class="mw-detail-grid">
@@ -715,7 +721,11 @@ async function submitTrackerQuery(){
   mwCurrentQuery = q;
   document.getElementById('mw-hero').style.display='none';
   document.getElementById('mw-content').style.display='none';
-  document.getElementById('mw-loading').style.display='flex';
+  document.getElementById('mw-loading').style.display='block';
+  // Restart the determinate fill animation each time the loader appears
+  // (toggling display alone won't re-run a CSS animation).
+  var _fill=document.querySelector('#mw-loading .mw-loading-bar-fill');
+  if(_fill){ _fill.style.animation='none'; void _fill.offsetWidth; _fill.style.animation=''; }
   try{
     var res = await fetch(WORKER + '/tracker/search', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -814,49 +824,52 @@ function setChartRange(days){
 }
 
 function renderChartAndStats(){
-  var s = mwLastStats || {live:0,min:0,max:0,avg:0,count:0};
-  var livePrice = (s.live!=null ? s.live : s.min) || 0;   // cheapest new listing, right now
+  var s = mwLastStats || {live:0,min:0,median:0,max:0,avg:0,count:0};
+  var livePrice = (s.live!=null ? s.live : s.min) || 0;      // cheapest new listing, right now
+  var medianNow = (s.median!=null ? s.median : s.avg) || 0;  // median market price, right now
   var sym='$';
 
-  // Stat cards read the CURRENT market snapshot, so "Live Price" always equals
-  // the cheapest buy card. Average/Highest describe today's listing spread.
+  // Live Price = cheapest available right now (matches the cheapest buy card).
+  // Market Price = the MEDIAN of comparable listings — the credible "what it's
+  // worth" figure, and what the chart line tracks. Item price only (no shipping).
   document.getElementById('mw-stats-row').innerHTML =
     mwStat('Live Price', livePrice, 'cheapest new listing', sym) +
-    mwStat('Average Price', s.avg, sourceCountLabel(), sym) +
+    mwStat('Market Price', medianNow, 'median \u00b7 '+sourceCountLabel(), sym) +
     mwStat('Highest Price', s.max, '', sym) +
     '<div class="mw-stat"><div class="mw-stat-label">Listings Found</div><div class="mw-stat-value">'+(s.count||0)+'</div></div>';
 
-  // Build the price line = the LIVE FLOOR over time. Short ranges (<=7D) use the
-  // intraday 15-min samples so it moves like a ticker; longer ranges use the
-  // daily rollup. Then append the current live floor as the latest point so the
-  // line is always up to the second.
+  // The line = the MEDIAN market price over time. Short ranges (<=7D) use the
+  // intraday samples; longer ranges use the daily rollup. Falls back to avg then
+  // min for any older rows saved before median existed. Then append the current
+  // median as the latest point so the line is always up to date.
+  var medOf = function(x){ return Number(x.median_price)||Number(x.avg_price)||Number(x.live_price)||Number(x.min_price)||0; };
   var series;
   if(mwChartRange<=7 && mwSamples.length){
     var cut = Date.now() - mwChartRange*864e5;
     series = mwSamples
       .filter(function(x){ return new Date(x.sampled_at).getTime() >= cut; })
-      .map(function(x){ return { t:new Date(x.sampled_at).getTime(), v:Number(x.live_price)||0 }; });
+      .map(function(x){ return { t:new Date(x.sampled_at).getTime(), v:medOf(x) }; });
   } else {
     var cutoff=new Date(); cutoff.setDate(cutoff.getDate()-mwChartRange);
     var cs=cutoff.toISOString().slice(0,10);
     series = mwFullHistory
       .filter(function(h){ return h.snapshot_date >= cs; })
-      .map(function(h){ return { t:new Date(h.snapshot_date+'T00:00:00Z').getTime(), v:Number(h.min_price)||0, label:h.snapshot_date.slice(5) }; });
+      .map(function(h){ return { t:new Date(h.snapshot_date+'T00:00:00Z').getTime(), v:medOf(h), label:h.snapshot_date.slice(5) }; });
   }
   series = series.filter(function(p){ return p.v>0; });
-  if(livePrice>0){
+  if(medianNow>0){
     var now=Date.now();
     var lastT = series.length ? series[series.length-1].t : 0;
-    if(series.length && (now-lastT) < 90000){ series[series.length-1].live=true; series[series.length-1].v=livePrice; }
-    else series.push({ t:now, v:livePrice, live:true });
+    if(series.length && (now-lastT) < 90000){ series[series.length-1].live=true; series[series.length-1].v=medianNow; }
+    else series.push({ t:now, v:medianNow, live:true });
   }
 
   drawPriceChart(series);
 
   var noteEl=document.getElementById('mw-chart-note');
   noteEl.textContent = (series.length>1)
-    ? 'Live floor \u2014 updates through the day as cheaper listings appear.'
-    : 'Showing today\u2019s live price. The line starts moving once this item is tracked.';
+    ? 'Median market price over time (item price only). History begins when FindAI first tracked this item.'
+    : 'Showing today\u2019s market price. The line builds as this item is tracked.';
 }
 function sourceCountLabel(){
   var el = document.getElementById('mw-item-sub');
