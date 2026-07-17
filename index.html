@@ -320,6 +320,11 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .mw-hero-search-btn:hover{background:#185FA5}
 .mw-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 24px;gap:8px}
 .mw-empty-title{font-size:20px;font-weight:700;color:#fff}
+/* Price-tracking loader: title + a sleek indeterminate blue line sweeping L→R */
+.mw-loading-title{font-size:24px;font-weight:700;color:#fff;letter-spacing:-0.3px;margin-bottom:22px}
+.mw-loading-bar{position:relative;width:min(340px,72vw);height:3px;border-radius:3px;background:#161616;overflow:hidden}
+.mw-loading-bar-fill{position:absolute;top:0;left:0;height:100%;width:40%;border-radius:3px;background:linear-gradient(90deg,rgba(26,111,255,0) 0%,#1a6fff 50%,rgba(26,111,255,0) 100%);animation:mwSweep 1.15s cubic-bezier(.4,0,.2,1) infinite}
+@keyframes mwSweep{0%{transform:translateX(-120%)}100%{transform:translateX(320%)}}
 
 /* Suggestion dropdown */
 .mw-suggest-list{position:absolute;top:calc(100% + 8px);left:0;right:0;background:#111;border:1px solid #2a2a2a;border-radius:16px;max-height:420px;overflow-y:auto;z-index:10;display:none;box-shadow:0 12px 32px rgba(0,0,0,.6);text-align:left}
@@ -526,7 +531,8 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 
   <!-- Loading -->
   <div id="mw-loading" class="mw-empty" style="display:none">
-    <div class="mw-empty-title">Checking marketplaces&hellip;</div>
+    <div class="mw-loading-title">Tracking price</div>
+    <div class="mw-loading-bar"><div class="mw-loading-bar-fill"></div></div>
   </div>
 
   <!-- STATE 2: item detail page -->
@@ -663,6 +669,15 @@ function mwImgErr(el){
   el.replaceWith(ph);
 }
 
+// StockX's image CDN can block hotlinked <img> loads from another origin, which
+// leaves photos blank even when the URL is right. Route StockX images through
+// our own /img proxy so the browser loads them from findai.ai instead. eBay and
+// other images (which hotlink fine) are left untouched to save worker bandwidth.
+function mwProxyImg(u){
+  if(!u) return u;
+  return u.indexOf('images.stockx.com')!==-1 ? (WORKER + '/img?u=' + encodeURIComponent(u)) : u;
+}
+
 function renderSuggestList(suggestions){
   var box = document.getElementById('mw-suggest-list');
   if(!suggestions.length){
@@ -674,7 +689,7 @@ function renderSuggestList(suggestions){
   box.innerHTML = suggestions.map(function(s, i){
     var sub = [s.styleId, s.colorway].filter(Boolean).join(' · ');
     return '<div class="mw-suggest-item" onclick="pickSuggestion(' + i + ')">' +
-      (s.image ? '<img src="'+s.image+'" alt="" loading="lazy" onerror="mwImgErr(this)">' : '<div class="mw-suggest-ph">\uD83D\uDC5F</div>') +
+      (s.image ? '<img src="'+mwProxyImg(s.image)+'" alt="" loading="lazy" onerror="mwImgErr(this)">' : '<div class="mw-suggest-ph">\uD83D\uDC5F</div>') +
       '<div class="mw-suggest-text"><div class="mw-suggest-title">'+escapeHtml(s.title)+'</div>' +
       (sub ? '<div class="mw-suggest-sub">'+escapeHtml(sub)+'</div>' : '') + '</div></div>';
   }).join('');
@@ -739,7 +754,7 @@ function renderMarketWatch(query, data, pickedProduct){
     || '';
   var photoEl = document.getElementById('mw-product-photo');
   photoEl.innerHTML = photoUrl
-    ? '<img src="'+photoUrl+'" alt="" onerror="this.parentElement.innerHTML=\'<div class=&quot;mw-suggest-ph&quot;>\uD83D\uDC5F</div>\'">'
+    ? '<img src="'+mwProxyImg(photoUrl)+'" alt="" onerror="this.parentElement.innerHTML=\'<div class=&quot;mw-suggest-ph&quot;>\uD83D\uDC5F</div>\'">'
     : '<div class="mw-suggest-ph">\uD83D\uDC5F</div>';
 
   mwFullHistory = data.history || [];
@@ -828,10 +843,20 @@ function renderChartAndStats(){
     mwStat('Highest Price', displayStats.max, '', sym) +
     '<div class="mw-stat"><div class="mw-stat-label">Listings Found</div><div class="mw-stat-value">'+(s.count||0)+'</div></div>';
 
-  drawPriceChart(windowed);
+  // Seed today's LIVE price as the latest point so the blue graph renders
+  // immediately (one glowing point on day one), then fills into a real line as
+  // the daily snapshots accumulate. We don't fabricate past data — only today's
+  // actual live number is added.
+  var today = new Date().toISOString().slice(0,10);
+  var chartData = windowed.slice();
+  var hasToday = chartData.length && chartData[chartData.length-1].snapshot_date === today;
+  if(!hasToday && s && s.avg>0){
+    chartData.push({ snapshot_date: today, min_price: s.min, avg_price: s.avg, max_price: s.max, __live:true });
+  }
+  drawPriceChart(chartData);
   document.getElementById('mw-chart-note').textContent = mwFullHistory.length
-    ? ('Tracking since ' + mwFullHistory[0].snapshot_date)
-    : 'Start tracking this item to build up its price history from tomorrow onward.';
+    ? ('Live now \u2014 tracking daily since ' + mwFullHistory[0].snapshot_date)
+    : 'Showing today\u2019s live price. The line fills in each day once you track this item.';
 }
 function sourceCountLabel(){
   var el = document.getElementById('mw-item-sub');
@@ -846,49 +871,69 @@ function drawPriceChart(history){
   ctx.clearRect(0,0,w,220);
 
   if(!history.length){
-    // Cold-start state: no history yet in this range.
     ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth=1;
     for(var g=0; g<4; g++){ var gy=30+g*45; ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(w,gy); ctx.stroke(); }
     ctx.fillStyle = '#666'; ctx.font = '13px DM Sans, sans-serif'; ctx.textAlign='center';
-    ctx.fillText('No price history yet for this range — track this item to start building the chart', w/2, 115);
+    ctx.fillText('Search an item to see its live price here', w/2, 115);
     return;
   }
+
   var vals = history.map(function(h){return h.avg_price||0;});
   var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
   var pad = (max-min)*0.15 || max*0.1 || 1;
   min -= pad; max += pad;
   var padL=6, padR=6, padT=15, padB=25;
   var plotW = w-padL-padR, plotH = 220-padT-padB;
+  var single = history.length===1;
 
   ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth=1;
   for(var i=0;i<4;i++){ var y=padT+plotH*i/3; ctx.beginPath(); ctx.moveTo(padL,y); ctx.lineTo(w-padR,y); ctx.stroke(); }
 
-  function xAt(i){ return padL + (history.length>1 ? plotW*i/(history.length-1) : plotW/2); }
+  // A single (today-only) point sits at the RIGHT edge, so the chart reads as
+  // "history builds left→right from here as days are tracked".
+  function xAt(i){ if(single) return w-padR-5; return padL + (history.length>1 ? plotW*i/(history.length-1) : plotW/2); }
   function yAt(v){ return padT + plotH - ((v-min)/(max-min))*plotH; }
 
-  ctx.beginPath();
-  ctx.moveTo(xAt(0), yAt(vals[0]));
-  vals.forEach(function(v,i){ ctx.lineTo(xAt(i), yAt(v)); });
-  ctx.lineTo(xAt(vals.length-1), padT+plotH);
-  ctx.lineTo(xAt(0), padT+plotH);
-  ctx.closePath();
-  var grad = ctx.createLinearGradient(0,padT,0,padT+plotH);
-  grad.addColorStop(0,'rgba(26,111,255,0.35)'); grad.addColorStop(1,'rgba(26,111,255,0.02)');
-  ctx.fillStyle = grad; ctx.fill();
+  if(single){
+    var yv = yAt(vals[0]);
+    ctx.strokeStyle='rgba(26,111,255,0.35)'; ctx.lineWidth=2; ctx.setLineDash([5,6]);
+    ctx.beginPath(); ctx.moveTo(padL, yv); ctx.lineTo(xAt(0), yv); ctx.stroke(); ctx.setLineDash([]);
+  } else {
+    // Area fill under the line
+    ctx.beginPath();
+    ctx.moveTo(xAt(0), yAt(vals[0]));
+    vals.forEach(function(v,i){ ctx.lineTo(xAt(i), yAt(v)); });
+    ctx.lineTo(xAt(vals.length-1), padT+plotH);
+    ctx.lineTo(xAt(0), padT+plotH);
+    ctx.closePath();
+    var grad = ctx.createLinearGradient(0,padT,0,padT+plotH);
+    grad.addColorStop(0,'rgba(26,111,255,0.35)'); grad.addColorStop(1,'rgba(26,111,255,0.02)');
+    ctx.fillStyle = grad; ctx.fill();
+    // Line
+    ctx.beginPath(); ctx.strokeStyle = '#1a6fff'; ctx.lineWidth=2;
+    vals.forEach(function(v,i){ i===0?ctx.moveTo(xAt(i),yAt(v)):ctx.lineTo(xAt(i),yAt(v)); });
+    ctx.stroke();
+    // Interior dots (skip the last, which gets the glowing live marker below)
+    ctx.fillStyle='#1a6fff';
+    vals.forEach(function(v,i){ if(i===vals.length-1) return; ctx.beginPath(); ctx.arc(xAt(i),yAt(v),2.5,0,7); ctx.fill(); });
+  }
 
-  ctx.beginPath();
-  ctx.strokeStyle = '#1a6fff'; ctx.lineWidth=2;
-  vals.forEach(function(v,i){ i===0?ctx.moveTo(xAt(i),yAt(v)):ctx.lineTo(xAt(i),yAt(v)); });
-  ctx.stroke();
+  // Latest / live point — glowing blue node with a white core
+  var li = vals.length-1, lx = xAt(li), ly = yAt(vals[li]);
+  ctx.save();
+  ctx.shadowColor='rgba(26,111,255,0.9)'; ctx.shadowBlur=12;
+  ctx.fillStyle='#1a6fff'; ctx.beginPath(); ctx.arc(lx,ly,4.5,0,7); ctx.fill();
+  ctx.restore();
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(lx,ly,1.8,0,7); ctx.fill();
 
-  ctx.fillStyle='#1a6fff';
-  vals.forEach(function(v,i){ ctx.beginPath(); ctx.arc(xAt(i),yAt(v),2.5,0,7); ctx.fill(); });
-
+  // X-axis labels
   ctx.fillStyle='#666'; ctx.font='11px DM Sans, sans-serif'; ctx.textAlign='center';
-  var labelIdx = history.length<=6 ? history.map(function(_,i){return i;}) : [0, Math.floor(history.length/2), history.length-1];
-  labelIdx.forEach(function(i){
-    ctx.fillText(history[i].snapshot_date.slice(5), xAt(i), 220-6);
-  });
+  if(single){
+    ctx.fillText('Today', lx, 220-6);
+  } else {
+    var labelIdx = history.length<=6 ? history.map(function(_,i){return i;}) : [0, Math.floor(history.length/2), history.length-1];
+    labelIdx.forEach(function(i){ var lab = history[i].__live ? 'Today' : history[i].snapshot_date.slice(5); ctx.fillText(lab, xAt(i), 220-6); });
+  }
 }
 
 function renderTrackerListings(listings){
