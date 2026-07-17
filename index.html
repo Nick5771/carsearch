@@ -166,6 +166,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .chat-card{background:#111;border:1px solid #222;border-radius:10px;overflow:hidden;text-decoration:none;display:flex;flex-direction:column;color:inherit;transition:border-color 0.15s,transform 0.15s;height:100%}
 .chat-grid{align-items:stretch}
 .stockx-card .chat-card-body{padding:10px 12px}
+.discogs-card .chat-card-body{padding:10px 12px}
 .chat-card:hover{border-color:#444;transform:translateY(-2px)}
 .chat-card-img{width:100%;height:160px;object-fit:cover;display:block;background:#1a1a1a}
 .chat-card-ph{width:100%;height:160px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:32px}
@@ -1397,6 +1398,7 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
   }
   if(quiet)summary='';
   const cards=top.map(item=>{
+    if(item._discogs){ return discogsCardHtml(item, c); }
     if(item._stockx){ return stockxCardHtml(item, c); }
     // Each listing shows ITS OWN currency symbol (a US listing shows $, a French
     // one €, a UK one £) - important now that the global fallback mixes markets.
@@ -1492,6 +1494,27 @@ function stockxCardHtml(item, c){
 // earning eBay card).
 var STOCKX_QUERY_RE = /\b(yeezy|yeezys|jordan|jordans|nike|adidas|dunk|dunks|sneaker|sneakers|air\s*force|af1|air\s*max|airmax|new\s*balance|asics|converse|vans|foam\s*runner|slides?|sb\s*dunk|kicks|trainers?|reebok|puma|salomon|hoka|crocs)\b/i;
 
+// Music-shopping intent → pull matching Discogs catalogue cards. Deliberately
+// gated on explicit music-format words so it never fires on sneaker or general
+// searches. (Even if it did, Discogs relevance-filters and returns [] for
+// non-music, so the worst case is a wasted call, never a wrong card.)
+var MUSIC_QUERY_RE = /\b(vinyl|records?|lp|lps|ep|eps|album|albums|cassettes?|cds?|soundtrack|box\s?set|discography|reissue|repress|pressing|deluxe\s*edition|12"|7")\b/i;
+
+function discogsWordmark(){
+  return `<span style="font-weight:800;color:#333;font-size:13px;font-family:'DM Sans',sans-serif;letter-spacing:-0.2px">Discogs</span>`;
+}
+function discogsCardHtml(item, c){
+  var sym=(item.currency&&CURSYM[item.currency])?CURSYM[item.currency]:(c==='UK'?'£':c==='DE'?'€':(c==='AU'?'A$':'$'));
+  var price=item.price?`<span style="font-size:10px;color:#8a8a8a;font-weight:600">From </span>${sym}${Number(item.price).toLocaleString()}`:'On Discogs';
+  var sub=[item.format,item.year].filter(Boolean).join(' · ');
+  var tile=`<div class="chat-card-ph" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:linear-gradient(135deg,#1e1e1e,#0a0a0a);width:100%;height:100%"><span style="font-weight:800;color:#fff;font-size:22px;font-family:'DM Sans',sans-serif;letter-spacing:-0.5px">Discogs</span><span style="color:#888;font-size:10px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase">Vinyl Marketplace</span></div>`;
+  var inner=item.image
+    ? `<img class="chat-card-img" src="${item.image}" data-tile="${tile.replace(/"/g,'&quot;')}" alt="" loading="lazy" onerror="stockxImgErr(this)">`
+    : tile;
+  var img=`<div style="position:relative;height:160px;overflow:hidden;background:#111">${inner}</div>`;
+  return `<div class="chat-card discogs-card"><a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">${img}<div class="chat-card-body"><div style="margin-bottom:5px">${discogsWordmark()}</div><div class="chat-card-title">${(item.title||'').replace(/</g,'')}</div><div style="margin-top:auto"><div class="chat-card-price">${price}</div><div class="chat-card-loc" style="font-size:10px;line-height:1.2;min-height:12px">${sub}</div></div></div></a><div style="padding:0 12px 10px"><a href="${item.url}" target="_blank" rel="noopener" style="display:block;text-align:center;padding:8px;border-radius:999px;background:#fff;color:#0a0a0a;font-size:12px;font-weight:700;text-decoration:none;font-family:'DM Sans',sans-serif">View on Discogs</a></div></div>`;
+}
+
 async function appendStockxCards(sid, query, c){
   try{
     if(!STOCKX_QUERY_RE.test(query||'')) return;
@@ -1549,6 +1572,12 @@ function showMoreCards(sid){
   if(!nextBatch.length)return;
   state.shown+=nextBatch.length;
   nextBatch.forEach(item=>{
+    if(item._discogs){
+      const tmp=document.createElement('div');
+      tmp.innerHTML=discogsCardHtml(item, country);
+      if(tmp.firstChild) grid.appendChild(tmp.firstChild);
+      return;
+    }
     if(item._stockx){
       const tmp=document.createElement('div');
       tmp.innerHTML=stockxCardHtml(item, country);
@@ -1628,12 +1657,19 @@ async function sendMsg(){
       const sxLimit=isSneaker?2:1;
       const sxUrl=`${WORKER}/stockx/search?q=${encodeURIComponent(kw)}&country=${encodeURIComponent(country||'')}&limit=${sxLimit}`;
       const sxLive=fetch(sxUrl).then(r=>r.json()).then(d=>(d&&Array.isArray(d.items))?d.items:[]).catch(()=>[]);
+      // Discogs runs in parallel too, but only for music-format queries.
+      const isMusic=MUSIC_QUERY_RE.test(kw);
+      const dgLive=isMusic
+        ? fetch(`${WORKER}/discogs/search?q=${encodeURIComponent(kw)}&country=${encodeURIComponent(country||'')}&limit=3`).then(r=>r.json()).then(d=>(d&&Array.isArray(d.items))?d.items:[]).catch(()=>[])
+        : Promise.resolve([]);
       const data=await mainP;
       const c=data.country||country;
       let items=Array.isArray(data.items)?data.items:[];
       saveSearchedItems(items, kw);
       let sxItems=[];
       try{ sxItems=await Promise.race([sxLive, new Promise(res=>setTimeout(()=>res([]),4500))]); }catch(_){}
+      let dgItems=[];
+      if(isMusic){ try{ dgItems=await Promise.race([dgLive, new Promise(res=>setTimeout(()=>res([]),4500))]); }catch(_){} }
       removeThinking();
       if(items.length && sxItems && sxItems.length){
         // Only take as many StockX cards as genuinely returned (already relevance-
@@ -1708,6 +1744,14 @@ async function sendMsg(){
         const merged=items.slice();
         let at=isSneaker?0:1;
         for(const s of use){ merged.splice(Math.min(at,merged.length),0,s); at+=2; }
+        items=merged;
+      }
+      // Discogs (music only) — slot catalogue matches near the top, same idea as
+      // StockX. Independent of the StockX block so a music query still gets them.
+      if(isMusic && dgItems && dgItems.length){
+        const merged=items.slice();
+        let at=items.length?1:0;
+        for(const d of dgItems.slice(0,3)){ d._discogs=true; merged.splice(Math.min(at,merged.length),0,d); at+=3; }
         items=merged;
       }
       const cardsHtml=items.length?renderCards(items,kw,'',maxPrice||'',c,data.ebayCount||0,0,false):'';
