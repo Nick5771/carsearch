@@ -298,35 +298,80 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
   .messages-inner{max-width:100%;width:100%}
 }
 /* ── Market Watch ──────────────────────────────────────────────────────── */
-.mw-overlay{position:fixed;inset:0;background:#000;z-index:2000;display:none;flex-direction:column;overflow-y:auto;padding-top:52px}
+.mw-overlay{position:fixed;inset:0;background:#000;z-index:2000;display:none;flex-direction:column;overflow-y:auto}
 .mw-overlay.mw-open{display:flex}
-.mw-topbar{display:flex;align-items:center;gap:16px;padding:16px 20px;border-bottom:1px solid #1a1a1a;position:sticky;top:0;background:#000;z-index:5}
 .mw-back{background:transparent;border:1px solid #333;color:#ccc;padding:8px 14px;border-radius:20px;font-size:13px;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap}
 .mw-back:hover{background:#141414}
-.mw-searchwrap{flex:1;display:flex;gap:8px;max-width:640px}
-.mw-search-input{flex:1;background:#111;border:1px solid #2a2a2a;color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;font-family:'DM Sans',sans-serif}
-.mw-search-input:focus{outline:none;border-color:#1a6fff}
-.mw-search-btn{background:#1a6fff;border:none;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
-.mw-search-btn:hover{background:#185FA5}
+
+/* Hero (empty) state - big centered search */
+.mw-hero{flex:1;display:flex;flex-direction:column;min-height:100vh}
+.mw-hero-back{position:absolute;top:20px;left:20px}
+.mw-hero-inner{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:24px;gap:6px}
+.mw-hero-icon{font-size:44px;margin-bottom:8px}
+.mw-hero-title{font-size:34px;font-weight:700;color:#fff}
+.mw-hero-sub{font-size:15px;color:#888;max-width:480px;line-height:1.5;margin-bottom:28px}
+.mw-hero-searchwrap{width:100%;max-width:680px;display:flex;gap:10px}
+.mw-hero-search-input{flex:1;background:#111;border:1.5px solid #2a2a2a;color:#fff;padding:18px 22px;border-radius:28px;font-size:17px;font-family:'DM Sans',sans-serif}
+.mw-hero-search-input:focus{outline:none;border-color:#1a6fff}
+.mw-hero-search-btn{background:#1a6fff;border:none;color:#fff;padding:0 32px;border-radius:28px;font-size:15px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+.mw-hero-search-btn:hover{background:#185FA5}
 .mw-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:60px 24px;gap:8px}
-.mw-empty-icon{font-size:40px;margin-bottom:6px}
 .mw-empty-title{font-size:20px;font-weight:700;color:#fff}
-.mw-empty-sub{font-size:14px;color:#888;max-width:420px;line-height:1.5}
-.mw-header{display:flex;align-items:flex-start;justify-content:space-between;padding:24px 24px 0;max-width:1100px;margin:0 auto;width:100%}
-.mw-title{font-size:24px;font-weight:700;color:#fff}
+
+/* Suggestion dropdown */
+.mw-suggest-list{position:absolute;top:calc(100% + 8px);left:0;right:0;background:#111;border:1px solid #2a2a2a;border-radius:16px;max-height:420px;overflow-y:auto;z-index:10;display:none;box-shadow:0 12px 32px rgba(0,0,0,.6);text-align:left}
+.mw-suggest-item{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer}
+.mw-suggest-item:hover{background:#1a1a1a}
+.mw-suggest-item img,.mw-suggest-ph{width:44px;height:44px;object-fit:contain;background:#fff;border-radius:8px;flex-shrink:0}
+.mw-suggest-ph{display:flex;align-items:center;justify-content:center;background:#1a1a1a;font-size:18px}
+.mw-suggest-title{font-size:14px;color:#fff;font-weight:600;line-height:1.3}
+.mw-suggest-sub{font-size:12px;color:#888;margin-top:2px}
+
+/* Detail (two-column) page */
+.mw-detail-topbar{display:flex;align-items:center;gap:16px;padding:16px 24px;border-bottom:1px solid #1a1a1a;position:sticky;top:0;background:#000;z-index:5}
+.mw-detail-crumb{font-size:13px;color:#888}
+.mw-detail-grid{max-width:1200px;margin:24px auto 40px;padding:0 24px;display:grid;grid-template-columns:300px 1fr;gap:22px;align-items:start}
+.mw-detail-left{display:flex;flex-direction:column;gap:16px}
+.mw-detail-right{display:flex;flex-direction:column;gap:20px;min-width:0}
+
+.mw-product-photo{width:100%;aspect-ratio:1/1;background:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.mw-product-photo img{width:100%;height:100%;object-fit:contain}
+.mw-product-photo .mw-suggest-ph{width:100%;height:100%;border-radius:14px;font-size:34px}
+
+.mw-verify-card{display:flex;align-items:center;gap:12px;background:#0b0b0b;border:1px solid #1a1a1a;border-radius:12px;padding:14px 16px}
+.mw-verify-icon{font-size:20px}
+.mw-verify-label{font-size:13px;font-weight:700;color:#fff}
+.mw-verify-status{font-size:12px;color:#888}
+
+.mw-details-card,.mw-summary-card,.mw-chart-card,.mw-listings-card{background:#0b0b0b;border:1px solid #1a1a1a;border-radius:14px;padding:18px 20px;box-sizing:border-box}
+.mw-card-label{font-size:14px;font-weight:700;color:#fff}
+.mw-detail-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1a1a1a;font-size:13px;gap:12px}
+.mw-detail-row:last-child{border-bottom:none}
+.mw-detail-row span:first-child{color:#888;white-space:nowrap}
+.mw-detail-row span:last-child{color:#fff;font-weight:600;text-align:right}
+.mw-summary-body{font-size:13px;color:#aaa;line-height:1.6;margin-top:10px}
+.mw-summary-body b{color:#fff}
+.mw-summary-rec{display:block;margin-top:12px;background:#0e2a44;color:#4d9fe6;font-weight:700;font-size:13px;padding:10px 12px;border-radius:8px}
+
+.mw-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.mw-title{font-size:22px;font-weight:700;color:#fff}
 .mw-subtitle{font-size:13px;color:#888;margin-top:4px}
-.mw-track-btn{background:#111;border:1px solid #2a2a2a;color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+.mw-track-btn{background:#111;border:1px solid #2a2a2a;color:#fff;padding:9px 18px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;white-space:nowrap}
 .mw-track-btn:hover{background:#1a1a1a}
 .mw-track-btn.mw-tracking{background:#1a6fff;border-color:#1a6fff}
-.mw-chart-card,.mw-listings-card{max-width:1100px;margin:20px auto 0;width:100%;padding:20px 24px;box-sizing:border-box;background:#0b0b0b;border:1px solid #1a1a1a;border-radius:14px}
+
+.mw-chart-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
 .mw-chart-label{font-size:15px;font-weight:700;color:#fff}
+.mw-range-tabs{display:flex;gap:4px;background:#111;border-radius:10px;padding:3px}
+.mw-range-tab{background:transparent;border:none;color:#888;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
+.mw-range-tab.mw-range-active{background:#1a6fff;color:#fff}
 .mw-stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px;margin:16px 0}
 .mw-stat{background:#111;border:1px solid #1a1a1a;border-radius:10px;padding:12px 14px}
 .mw-stat-label{font-size:11px;color:#888;margin-bottom:4px}
 .mw-stat-value{font-size:20px;font-weight:700;color:#4d9fe6}
-.mw-chart-canvas{width:100%;display:block}
+.mw-chart-canvas{width:100%;display:block;cursor:crosshair}
 .mw-chart-note{font-size:12px;color:#666;margin-top:10px}
-.mw-listings-card{margin-bottom:40px}
+
 .mw-listings-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
 .mw-listing-card{position:relative;background:#111;border:1px solid #1a1a1a;border-radius:12px;padding:14px}
 .mw-listing-card.mw-best{border-color:#1a6fff}
@@ -336,22 +381,15 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .mw-listing-btn{display:block;text-align:center;margin-top:10px;background:#1a6fff;color:#fff;text-decoration:none;padding:8px;border-radius:8px;font-size:13px;font-weight:600}
 .mw-listing-btn:hover{background:#185FA5}
 .mw-best-badge{position:absolute;top:-9px;right:10px;background:#1a6fff;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px}
-.mw-suggest-list{position:absolute;top:calc(100% + 6px);left:0;right:80px;background:#111;border:1px solid #2a2a2a;border-radius:12px;max-height:320px;overflow-y:auto;z-index:10;display:none;box-shadow:0 8px 24px rgba(0,0,0,.5)}
-.mw-suggest-item{display:flex;align-items:center;gap:10px;padding:9px 12px;cursor:pointer}
-.mw-suggest-item:hover{background:#1a1a1a}
-.mw-suggest-item img,.mw-suggest-ph{width:36px;height:36px;object-fit:contain;background:#fff;border-radius:6px;flex-shrink:0}
-.mw-suggest-ph{display:flex;align-items:center;justify-content:center;background:#1a1a1a;font-size:16px}
-.mw-suggest-title{font-size:13px;color:#fff;font-weight:600;line-height:1.3}
-.mw-suggest-sub{font-size:11px;color:#888;margin-top:1px}
-.mw-details-card{max-width:1100px;margin:20px auto 0;width:100%;padding:20px 24px;box-sizing:border-box;background:#0b0b0b;border:1px solid #1a1a1a;border-radius:14px}
-.mw-detail-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #1a1a1a;font-size:13px}
-.mw-detail-row:last-child{border-bottom:none}
-.mw-detail-row span:first-child{color:#888}
-.mw-detail-row span:last-child{color:#fff;font-weight:600}
+
+@media(max-width:820px){
+  .mw-detail-grid{grid-template-columns:1fr}
+  .mw-product-photo{max-width:260px;margin:0 auto}
+}
 @media(max-width:700px){
-  .mw-topbar{flex-wrap:wrap}
+  .mw-hero-title{font-size:26px}
+  .mw-hero-searchwrap{flex-direction:column}
   .mw-header{flex-direction:column;gap:14px}
-  .mw-suggest-list{right:16px}
 }
 </style>
 </head>
@@ -463,55 +501,92 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 <!-- ── Market Watch ─────────────────────────────────────────────────────────
      Full-screen overlay (not a route change) so it can drop on top of the
      chat UI from any state and closing it just returns to whatever was
-     already on screen underneath. -->
+     already on screen underneath. Two states: mw-hero (big centered search,
+     shown until an item is picked) and mw-detail (the two-column price-check
+     page, shown after). -->
 <div class="mw-overlay" id="mw-overlay">
-  <div class="mw-topbar">
-    <button class="mw-back" onclick="closeMarketWatch()">&larr; Back</button>
-    <div class="mw-searchwrap" style="position:relative">
-      <input type="text" id="mw-search-input" class="mw-search-input" placeholder="Search any item to track its price..." autocomplete="off" oninput="onTrackerInput(this.value)" onkeydown="onTrackerKeydown(event)">
-      <button class="mw-search-btn" onclick="submitTrackerQuery()">Track</button>
-      <div id="mw-suggest-list" class="mw-suggest-list"></div>
+
+  <!-- STATE 1: hero search -->
+  <div id="mw-hero" class="mw-hero">
+    <button class="mw-back mw-hero-back" onclick="closeMarketWatch()">&larr; Back</button>
+    <div class="mw-hero-inner">
+      <div class="mw-hero-icon">📈</div>
+      <div class="mw-hero-title">Market Watch</div>
+      <div class="mw-hero-sub">Search any item to see its live price across marketplaces and track it over time.</div>
+      <div class="mw-hero-searchwrap" style="position:relative">
+        <input type="text" id="mw-search-input" class="mw-hero-search-input" placeholder="Search any item to track its price..." autocomplete="off" oninput="onTrackerInput(this.value)" onkeydown="onTrackerKeydown(event)">
+        <button class="mw-hero-search-btn" onclick="submitTrackerQuery()">Track</button>
+        <div id="mw-suggest-list" class="mw-suggest-list"></div>
+      </div>
     </div>
   </div>
 
-  <div id="mw-empty" class="mw-empty">
-    <div class="mw-empty-icon">📈</div>
-    <div class="mw-empty-title">Market Watch</div>
-    <div class="mw-empty-sub">Search for any item above to see its live price across marketplaces, track its history over time, and get notified when it drops.</div>
-  </div>
-
+  <!-- Loading -->
   <div id="mw-loading" class="mw-empty" style="display:none">
     <div class="mw-empty-title">Checking marketplaces&hellip;</div>
   </div>
 
+  <!-- STATE 2: item detail page -->
   <div id="mw-content" style="display:none">
-    <div class="mw-header">
-      <div>
-        <div class="mw-title" id="mw-item-title">&nbsp;</div>
-        <div class="mw-subtitle" id="mw-item-sub"></div>
-      </div>
-      <div class="mw-header-actions">
-        <button class="mw-track-btn" id="mw-track-btn" onclick="toggleTracking()">&#9733; Track this item</button>
-      </div>
+    <div class="mw-detail-topbar">
+      <button class="mw-back" onclick="backToHero()">&larr; Back</button>
+      <span class="mw-detail-crumb">Marketplace Price Check</span>
     </div>
 
-    <div class="mw-chart-card">
-      <div class="mw-chart-head">
-        <span class="mw-chart-label">Price History</span>
+    <div class="mw-detail-grid">
+      <!-- Left column -->
+      <div class="mw-detail-left">
+        <div class="mw-product-photo" id="mw-product-photo"></div>
+
+        <div class="mw-verify-card">
+          <div class="mw-verify-icon">&#128737;</div>
+          <div>
+            <div class="mw-verify-label">FindAI Verify</div>
+            <div class="mw-verify-status">Coming Soon</div>
+          </div>
+        </div>
+
+        <div class="mw-details-card" id="mw-details-card" style="display:none">
+          <div class="mw-card-label">Product Details</div>
+          <div id="mw-details-body"></div>
+        </div>
+
+        <div class="mw-summary-card" id="mw-summary-card" style="display:none">
+          <div class="mw-card-label">&#10024; AI Summary</div>
+          <div id="mw-summary-body" class="mw-summary-body"></div>
+        </div>
       </div>
-      <div class="mw-stats-row" id="mw-stats-row"></div>
-      <canvas id="mw-chart-canvas" class="mw-chart-canvas" height="220"></canvas>
-      <div class="mw-chart-note" id="mw-chart-note"></div>
-    </div>
 
-    <div class="mw-details-card" id="mw-details-card" style="display:none">
-      <div class="mw-chart-label" style="margin-bottom:10px">Product Details</div>
-      <div id="mw-details-body"></div>
-    </div>
+      <!-- Right column -->
+      <div class="mw-detail-right">
+        <div class="mw-header">
+          <div>
+            <div class="mw-title" id="mw-item-title">&nbsp;</div>
+            <div class="mw-subtitle" id="mw-item-sub"></div>
+          </div>
+          <button class="mw-track-btn" id="mw-track-btn" onclick="toggleTracking()">&#9733; Track this item</button>
+        </div>
 
-    <div class="mw-listings-card">
-      <div class="mw-chart-label" style="margin-bottom:14px">Available Places to Buy</div>
-      <div class="mw-listings-grid" id="mw-listings-grid"></div>
+        <div class="mw-chart-card">
+          <div class="mw-chart-head">
+            <span class="mw-chart-label">Price History</span>
+            <div class="mw-range-tabs" id="mw-range-tabs">
+              <button class="mw-range-tab" data-range="7" onclick="setChartRange(7)">7D</button>
+              <button class="mw-range-tab mw-range-active" data-range="30" onclick="setChartRange(30)">30D</button>
+              <button class="mw-range-tab" data-range="90" onclick="setChartRange(90)">90D</button>
+              <button class="mw-range-tab" data-range="365" onclick="setChartRange(365)">1Y</button>
+            </div>
+          </div>
+          <div class="mw-stats-row" id="mw-stats-row"></div>
+          <canvas id="mw-chart-canvas" class="mw-chart-canvas" height="220"></canvas>
+          <div class="mw-chart-note" id="mw-chart-note"></div>
+        </div>
+
+        <div class="mw-listings-card">
+          <div class="mw-card-label" style="margin-bottom:14px">Available Places to Buy</div>
+          <div class="mw-listings-grid" id="mw-listings-grid"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -520,13 +595,19 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 // ── Market Watch (Price Tracker) ───────────────────────────────────────────
 var mwCurrentQuery = '';
 var mwTracking = false;
-var mwHistory = [];
+var mwFullHistory = [];   // full history as returned by the backend (up to 365 days)
+var mwChartRange = 30;
+var mwLastStats = null;
 var mwSelectedProduct = null; // set when the user picks a StockX suggestion; null = generic text search
 var mwSuggestTimer = null;
 var mwSuggestSeq = 0;
+var mwLastSuggestions = [];
 
 function openMarketWatch(){
   document.getElementById('mw-overlay').classList.add('mw-open');
+  document.getElementById('mw-hero').style.display='flex';
+  document.getElementById('mw-content').style.display='none';
+  document.getElementById('mw-loading').style.display='none';
   document.body.style.overflow='hidden';
   setTimeout(function(){ document.getElementById('mw-search-input').focus(); }, 50);
 }
@@ -534,6 +615,14 @@ function closeMarketWatch(){
   document.getElementById('mw-overlay').classList.remove('mw-open');
   document.body.style.overflow='';
   hideSuggestList();
+}
+// Back arrow from the detail page returns to the hero search, not out of
+// Market Watch entirely - matches "clicked item -> different page" while
+// still letting people search again without re-opening the whole feature.
+function backToHero(){
+  document.getElementById('mw-content').style.display='none';
+  document.getElementById('mw-hero').style.display='flex';
+  setTimeout(function(){ var i=document.getElementById('mw-search-input'); i.focus(); i.select(); }, 50);
 }
 
 // Debounced live typeahead - fires ~250ms after the user stops typing so we're
@@ -556,11 +645,22 @@ async function fetchSuggestions(q){
     var res = await fetch(WORKER + '/tracker/suggest?q=' + encodeURIComponent(q));
     var data = await res.json();
     if(seq !== mwSuggestSeq) return; // a newer keystroke already fired another request
-    renderSuggestList(data.suggestions || [], q);
+    renderSuggestList(data.suggestions || []);
   }catch(e){ hideSuggestList(); }
 }
 
-function renderSuggestList(suggestions, q){
+// Inline onerror fallback for suggestion thumbnails - StockX studio images
+// 404 fairly often (same issue the main search cards already handle via
+// stockxImgErr), so a broken <img> swaps to the placeholder tile instead of
+// showing a broken-image icon.
+function mwImgErr(el){
+  var ph = document.createElement('div');
+  ph.className = 'mw-suggest-ph';
+  ph.textContent = '\uD83D\uDC5F'; // shoe emoji, generic product placeholder
+  el.replaceWith(ph);
+}
+
+function renderSuggestList(suggestions){
   var box = document.getElementById('mw-suggest-list');
   if(!suggestions.length){
     // No catalog match (common for non-sneaker items) - let Enter/Track fall
@@ -571,7 +671,7 @@ function renderSuggestList(suggestions, q){
   box.innerHTML = suggestions.map(function(s, i){
     var sub = [s.styleId, s.colorway].filter(Boolean).join(' · ');
     return '<div class="mw-suggest-item" onclick="pickSuggestion(' + i + ')">' +
-      (s.image ? '<img src="'+s.image+'" alt="" loading="lazy">' : '<div class="mw-suggest-ph">🛍️</div>') +
+      (s.image ? '<img src="'+s.image+'" alt="" loading="lazy" onerror="mwImgErr(this)">' : '<div class="mw-suggest-ph">\uD83D\uDC5F</div>') +
       '<div class="mw-suggest-text"><div class="mw-suggest-title">'+escapeHtml(s.title)+'</div>' +
       (sub ? '<div class="mw-suggest-sub">'+escapeHtml(sub)+'</div>' : '') + '</div></div>';
   }).join('');
@@ -582,7 +682,6 @@ function hideSuggestList(){
   var box = document.getElementById('mw-suggest-list');
   if(box){ box.style.display='none'; box.innerHTML=''; }
 }
-var mwLastSuggestions = [];
 function pickSuggestion(i){
   var s = mwLastSuggestions[i];
   if(!s) return;
@@ -592,7 +691,7 @@ function pickSuggestion(i){
   submitTrackerQuery();
 }
 document.addEventListener('click', function(e){
-  if(!e.target.closest('.mw-searchwrap')) hideSuggestList();
+  if(!e.target.closest('.mw-hero-searchwrap')) hideSuggestList();
 });
 
 async function submitTrackerQuery(){
@@ -600,7 +699,7 @@ async function submitTrackerQuery(){
   var q = (input.value || '').trim();
   if(!q) return;
   mwCurrentQuery = q;
-  document.getElementById('mw-empty').style.display='none';
+  document.getElementById('mw-hero').style.display='none';
   document.getElementById('mw-content').style.display='none';
   document.getElementById('mw-loading').style.display='flex';
   try{
@@ -609,46 +708,48 @@ async function submitTrackerQuery(){
       body: JSON.stringify({ query: q, product: mwSelectedProduct })
     });
     var data = await res.json();
-    renderMarketWatch(q, data);
+    renderMarketWatch(q, data, mwSelectedProduct);
   }catch(e){
     document.getElementById('mw-loading').style.display='none';
-    document.getElementById('mw-empty').style.display='flex';
-    document.getElementById('mw-empty').querySelector('.mw-empty-title').textContent = "Couldn't load that item";
+    document.getElementById('mw-hero').style.display='flex';
   }
 }
 
-function renderMarketWatch(query, data){
+function renderMarketWatch(query, data, pickedProduct){
   document.getElementById('mw-loading').style.display='none';
   document.getElementById('mw-content').style.display='block';
+  window.scrollTo(0,0);
   document.getElementById('mw-item-title').textContent = query.charAt(0).toUpperCase()+query.slice(1);
   var listings = data.listings || [];
+  var sourceCount = new Set(listings.map(function(l){return l.source||(l._stockx?'StockX':'Marketplace');})).size;
   document.getElementById('mw-item-sub').textContent = listings.length
-    ? ('Tracked across ' + new Set(listings.map(function(l){return l.source||'Marketplace';})).size + ' marketplaces')
+    ? ('Live across ' + sourceCount + ' marketplace' + (sourceCount===1?'':'s'))
     : 'No live listings found right now';
 
-  mwHistory = data.history || [];
-  var s = data.stats || {min:0,max:0,avg:0,count:0};
-  var sym = '$';
-  document.getElementById('mw-stats-row').innerHTML =
-    mwStat('Lowest Price', s.min, sym) +
-    mwStat('Average Price', s.avg, sym) +
-    mwStat('Highest Price', s.max, sym) +
-    '<div class="mw-stat"><div class="mw-stat-label">Listings Found</div><div class="mw-stat-value">'+(s.count||0)+'</div></div>';
+  // Product photo: prefer the exact image the user picked from the dropdown,
+  // fall back to the first listing photo we actually have, else a placeholder.
+  var photoUrl = (pickedProduct && pickedProduct.image) || (listings[0] && (listings[0].stockxImage || listings[0].image)) || '';
+  var photoEl = document.getElementById('mw-product-photo');
+  photoEl.innerHTML = photoUrl
+    ? '<img src="'+photoUrl+'" alt="" onerror="this.parentElement.innerHTML=\'<div class=&quot;mw-suggest-ph&quot;>\uD83D\uDC5F</div>\'">'
+    : '<div class="mw-suggest-ph">\uD83D\uDC5F</div>';
 
-  drawPriceChart(mwHistory, s);
-  document.getElementById('mw-chart-note').textContent = mwHistory.length
-    ? ('Tracking since ' + mwHistory[0].snapshot_date)
-    : 'Start tracking this item to build up its price history from tomorrow onward.';
+  mwFullHistory = data.history || [];
+  mwLastStats = data.stats || {min:0,max:0,avg:0,count:0};
+  mwChartRange = 30;
+  document.querySelectorAll('.mw-range-tab').forEach(function(t){ t.classList.toggle('mw-range-active', t.dataset.range==='30'); });
+  renderChartAndStats();
 
   var detailsCard = document.getElementById('mw-details-card');
   if(data.productDetails){
     var d = data.productDetails;
     var rows = [];
+    rows.push(['Product', query.charAt(0).toUpperCase()+query.slice(1)]);
+    if(d.brand) rows.push(['Brand', d.brand]);
     if(d.styleId) rows.push(['Style Code', d.styleId]);
     if(d.colorway) rows.push(['Colorway', d.colorway]);
-    document.getElementById('mw-details-body').innerHTML = rows.length
-      ? rows.map(function(r){return '<div class="mw-detail-row"><span>'+r[0]+'</span><span>'+escapeHtml(r[1])+'</span></div>';}).join('')
-      : '<div style="color:#666;font-size:13px">No further catalog details available for this item.</div>';
+    document.getElementById('mw-details-body').innerHTML =
+      rows.map(function(r){return '<div class="mw-detail-row"><span>'+r[0]+'</span><span>'+escapeHtml(r[1])+'</span></div>';}).join('');
     detailsCard.style.display='block';
   } else {
     // No StockX catalog match behind this search - most non-sneaker/streetwear
@@ -656,16 +757,80 @@ function renderMarketWatch(query, data){
     detailsCard.style.display='none';
   }
 
+  renderAiSummary(listings, mwLastStats);
   renderTrackerListings(listings);
   mwTracking = false;
   updateTrackBtn();
 }
 
-function mwStat(label, val, sym){
-  return '<div class="mw-stat"><div class="mw-stat-label">'+label+'</div><div class="mw-stat-value">'+(val?sym+Number(val).toFixed(0):'&mdash;')+'</div></div>';
+// Genuinely computed from the live listings just fetched - cheapest real
+// source + how far below/above the average it sits. No invented numbers.
+function renderAiSummary(listings, stats){
+  var card = document.getElementById('mw-summary-card');
+  var priced = listings.filter(function(l){ return l.price>0; });
+  if(!priced.length || !stats.avg){ card.style.display='none'; return; }
+  var cheapest = priced.reduce(function(a,b){ return b.price<a.price?b:a; });
+  var srcLabel = cheapest.source || (cheapest._stockx?'StockX':'that listing');
+  var diff = stats.avg - cheapest.price;
+  var pct = stats.avg ? Math.round((diff/stats.avg)*100) : 0;
+  var body = diff > 0
+    ? ('The cheapest option right now is on <b>'+escapeHtml(srcLabel)+'</b> at $'+cheapest.price.toLocaleString()+', which is '+pct+'% below the current average of $'+Math.round(stats.avg).toLocaleString()+' across '+priced.length+' listings.')
+    : ('Prices are fairly consistent across marketplaces right now, averaging $'+Math.round(stats.avg).toLocaleString()+'.');
+  var rec = diff > 0
+    ? ('<span class="mw-summary-rec">Buy on '+escapeHtml(srcLabel)+' \u2014 save $'+Math.round(diff).toLocaleString()+' ('+pct+'%)</span>')
+    : '';
+  document.getElementById('mw-summary-body').innerHTML = body + rec;
+  card.style.display='block';
 }
 
-function drawPriceChart(history, stats){
+function mwStat(label, val, sub, sym){
+  return '<div class="mw-stat"><div class="mw-stat-label">'+label+'</div><div class="mw-stat-value">'+(val?sym+Number(val).toLocaleString(undefined,{maximumFractionDigits:0}):'&mdash;')+'</div>'+(sub?'<div style="font-size:11px;color:#666;margin-top:2px">'+sub+'</div>':'')+'</div>';
+}
+
+function setChartRange(days){
+  mwChartRange = days;
+  document.querySelectorAll('.mw-range-tab').forEach(function(t){ t.classList.toggle('mw-range-active', Number(t.dataset.range)===days); });
+  renderChartAndStats();
+}
+
+function renderChartAndStats(){
+  var cutoff = new Date(); cutoff.setDate(cutoff.getDate()-mwChartRange);
+  var cutoffStr = cutoff.toISOString().slice(0,10);
+  var windowed = mwFullHistory.filter(function(h){ return h.snapshot_date >= cutoffStr; });
+  var s = mwLastStats || {min:0,max:0,avg:0,count:0};
+  // If we have real windowed history, derive the stat cards from it so the
+  // numbers actually match the chart being shown; otherwise fall back to
+  // today's live stats (cold-start / no history yet).
+  var displayStats = s;
+  if(windowed.length){
+    var mins = windowed.map(function(h){return h.min_price;}).filter(Boolean);
+    var maxs = windowed.map(function(h){return h.max_price;}).filter(Boolean);
+    var avgs = windowed.map(function(h){return h.avg_price;}).filter(Boolean);
+    displayStats = {
+      min: mins.length?Math.min.apply(null,mins):s.min,
+      max: maxs.length?Math.max.apply(null,maxs):s.max,
+      avg: avgs.length?(avgs.reduce(function(a,b){return a+b;},0)/avgs.length):s.avg,
+      count: s.count
+    };
+  }
+  var sym='$';
+  document.getElementById('mw-stats-row').innerHTML =
+    mwStat('Lowest Price', displayStats.min, '', sym) +
+    mwStat('Average Price', displayStats.avg, (sourceCountLabel()), sym) +
+    mwStat('Highest Price', displayStats.max, '', sym) +
+    '<div class="mw-stat"><div class="mw-stat-label">Listings Found</div><div class="mw-stat-value">'+(s.count||0)+'</div></div>';
+
+  drawPriceChart(windowed);
+  document.getElementById('mw-chart-note').textContent = mwFullHistory.length
+    ? ('Tracking since ' + mwFullHistory[0].snapshot_date)
+    : 'Start tracking this item to build up its price history from tomorrow onward.';
+}
+function sourceCountLabel(){
+  var el = document.getElementById('mw-item-sub');
+  return el ? el.textContent : '';
+}
+
+function drawPriceChart(history){
   var canvas = document.getElementById('mw-chart-canvas');
   var ctx = canvas.getContext('2d');
   var w = canvas.clientWidth || canvas.parentElement.clientWidth;
@@ -673,11 +838,11 @@ function drawPriceChart(history, stats){
   ctx.clearRect(0,0,w,220);
 
   if(!history.length){
-    // Cold-start state: no history yet, just show today's single reference point.
+    // Cold-start state: no history yet in this range.
     ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth=1;
     for(var g=0; g<4; g++){ var gy=30+g*45; ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(w,gy); ctx.stroke(); }
     ctx.fillStyle = '#666'; ctx.font = '13px DM Sans, sans-serif'; ctx.textAlign='center';
-    ctx.fillText('No price history yet — track this item to start building the chart', w/2, 115);
+    ctx.fillText('No price history yet for this range — track this item to start building the chart', w/2, 115);
     return;
   }
   var vals = history.map(function(h){return h.avg_price||0;});
@@ -693,7 +858,6 @@ function drawPriceChart(history, stats){
   function xAt(i){ return padL + (history.length>1 ? plotW*i/(history.length-1) : plotW/2); }
   function yAt(v){ return padT + plotH - ((v-min)/(max-min))*plotH; }
 
-  // Filled area under the line, matching the app's blue accent.
   ctx.beginPath();
   ctx.moveTo(xAt(0), yAt(vals[0]));
   vals.forEach(function(v,i){ ctx.lineTo(xAt(i), yAt(v)); });
@@ -713,7 +877,8 @@ function drawPriceChart(history, stats){
   vals.forEach(function(v,i){ ctx.beginPath(); ctx.arc(xAt(i),yAt(v),2.5,0,7); ctx.fill(); });
 
   ctx.fillStyle='#666'; ctx.font='11px DM Sans, sans-serif'; ctx.textAlign='center';
-  [0, Math.floor(history.length/2), history.length-1].forEach(function(i){
+  var labelIdx = history.length<=6 ? history.map(function(_,i){return i;}) : [0, Math.floor(history.length/2), history.length-1];
+  labelIdx.forEach(function(i){
     ctx.fillText(history[i].snapshot_date.slice(5), xAt(i), 220-6);
   });
 }
@@ -724,16 +889,19 @@ function renderTrackerListings(listings){
     grid.innerHTML = '<p style="color:#666;font-size:14px">No live listings found right now.</p>';
     return;
   }
-  var cheapest = Math.min.apply(null, listings.map(function(l){return l.price||Infinity;}));
+  var priced = listings.filter(function(l){return l.price>0;});
+  var cheapest = priced.length ? Math.min.apply(null, priced.map(function(l){return l.price;})) : null;
+  var highest = priced.length ? Math.max.apply(null, priced.map(function(l){return l.price;})) : null;
   grid.innerHTML = listings.map(function(l){
-    var isBest = l.price===cheapest;
+    var isBest = cheapest!==null && l.price===cheapest;
+    var isHighest = highest!==null && l.price===highest && highest!==cheapest;
     var srcLabel = l.source || (l._stockx ? 'StockX' : 'Marketplace');
     return '<div class="mw-listing-card'+(isBest?' mw-best':'')+'">' +
       '<div class="mw-listing-src">'+escapeHtml(srcLabel)+'</div>' +
       '<div class="mw-listing-price">'+(l.price?'$'+Number(l.price).toLocaleString():'See listing')+'</div>' +
       '<div class="mw-listing-title">'+escapeHtml((l.title||'').slice(0,60))+'</div>' +
       '<a class="mw-listing-btn" href="'+(l.url||'#')+'" target="_blank" rel="noopener">View listing</a>' +
-      (isBest?'<div class="mw-best-badge">&#128081; Best Price</div>':'') +
+      (isBest?'<div class="mw-best-badge">&#128081; Best Price</div>':(isHighest?'<div class="mw-best-badge" style="background:#333">Highest Price</div>':'')) +
       '</div>';
   }).join('');
 }
