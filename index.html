@@ -986,7 +986,7 @@ function renderTrackerListings(listings){
 function mwSourceBadge(l){
   var s=String(l.source||'').toLowerCase();
   if(l._stockx || s==='stockx') return '<span style="font-weight:800;color:#08A05F;font-size:13px;font-family:\'DM Sans\',sans-serif;letter-spacing:-0.3px">StockX</span>';
-  if(l._discogs || s==='discogs') return '<span style="font-weight:800;color:#fff;font-size:13px;font-family:\'DM Sans\',sans-serif;letter-spacing:-0.2px">Discogs</span>';
+  if(l._discogs || s==='discogs') return discogsWordmark();
   if(l._etsy || s==='etsy') return etsyWordmark();
   if(s.indexOf('ali')!==-1) return '<span style="font-size:12px;font-weight:800;color:#ff4747;font-family:\'DM Sans\',sans-serif">AliExpress</span>';
   return ebayLogoHtml();
@@ -1534,7 +1534,7 @@ var STOCKX_QUERY_RE = /\b(yeezy|yeezys|jordan|jordans|nike|adidas|dunk|dunks|sne
 var MUSIC_QUERY_RE = /\b(vinyl|records?|lp|lps|ep|eps|album|albums|cassettes?|cds?|soundtrack|box\s?set|discography|reissue|repress|pressing|deluxe\s*edition|12"|7")\b/i;
 
 function discogsWordmark(){
-  return `<span style="font-weight:800;color:#fff;font-size:15px;font-family:'DM Sans',sans-serif;letter-spacing:-0.3px">Discogs</span>`;
+  return `<span style="display:inline-flex;align-items:center;background:#fff;border-radius:6px;padding:3px 8px;font-family:'DM Sans',sans-serif;font-weight:800;font-size:14px;color:#111;letter-spacing:-0.5px;line-height:1">Disc<svg width="13" height="13" viewBox="0 0 24 24" style="margin:0 0.5px" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#111"/><circle cx="12" cy="12" r="7.5" fill="none" stroke="#fff" stroke-width="1.2"/><circle cx="12" cy="12" r="4" fill="none" stroke="#fff" stroke-width="1.2"/><circle cx="12" cy="12" r="1.6" fill="#fff"/></svg>gs</span>`;
 }
 function discogsCardHtml(item, c){
   var sym=(item.currency&&CURSYM[item.currency])?CURSYM[item.currency]:(c==='UK'?'£':c==='DE'?'€':(c==='AU'?'A$':'$'));
