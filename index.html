@@ -668,9 +668,32 @@ async function fetchSuggestions(q){
 
 // Inline onerror fallback for suggestion thumbnails - StockX studio images
 // 404 fairly often (same issue the main search cards already handle via
-// stockxImgErr), so a broken <img> swaps to the placeholder tile instead of
-// showing a broken-image icon.
+// stockxImgErr). Tries the second candidate URL (data-fallback) before
+// giving up and swapping to the placeholder tile.
+// Same idea as mwImgErr but for the detail-page hero photo, which can have
+// several candidates queued up (StockX + multiple real listing photos) -
+// walks the list on each failure instead of only trying one fallback.
+function mwHeroImgErr(el){
+  var idx = Number(el.getAttribute('data-idx') || 0) + 1;
+  var list = window.mwPhotoCandidates || [];
+  if(idx < list.length){
+    el.setAttribute('data-idx', idx);
+    el.src = mwProxyImg(list[idx]);
+    return;
+  }
+  var ph = document.createElement('div');
+  ph.className = 'mw-suggest-ph';
+  ph.textContent = '\uD83D\uDC5F';
+  el.replaceWith(ph);
+}
+
 function mwImgErr(el){
+  var fb = el.getAttribute('data-fallback');
+  if(fb){
+    el.removeAttribute('data-fallback');
+    el.src = mwProxyImg(fb);
+    return;
+  }
   var ph = document.createElement('div');
   ph.className = 'mw-suggest-ph';
   ph.textContent = '\uD83D\uDC5F'; // shoe emoji, generic product placeholder
@@ -697,7 +720,7 @@ function renderSuggestList(suggestions){
   box.innerHTML = suggestions.map(function(s, i){
     var sub = [s.styleId, s.colorway].filter(Boolean).join(' · ');
     return '<div class="mw-suggest-item" onclick="pickSuggestion(' + i + ')">' +
-      (s.image ? '<img src="'+mwProxyImg(s.image)+'" alt="" loading="lazy" onerror="mwImgErr(this)">' : '<div class="mw-suggest-ph">\uD83D\uDC5F</div>') +
+      (s.image ? '<img src="'+mwProxyImg(s.image)+'" data-fallback="'+escapeHtml(s.image2||'')+'" alt="" loading="lazy" onerror="mwImgErr(this)">' : (s.image2 ? '<img src="'+mwProxyImg(s.image2)+'" alt="" loading="lazy" onerror="mwImgErr(this)">' : '<div class="mw-suggest-ph">\uD83D\uDC5F</div>')) +
       '<div class="mw-suggest-text"><div class="mw-suggest-title">'+escapeHtml(s.title)+'</div>' +
       (sub ? '<div class="mw-suggest-sub">'+escapeHtml(sub)+'</div>' : '') + '</div></div>';
   }).join('');
@@ -771,18 +794,21 @@ function renderMarketWatch(query, data, pickedProduct){
     ? ('Live across ' + sourceCount + ' marketplace' + (sourceCount===1?'':'s'))
     : 'No live listings found right now';
 
-  // Product photo: prefer the REAL studio image the server resolved from the
-  // StockX product page (og:image, white bg), then the picked suggestion's
-  // thumb, then the first listing photo, else a placeholder.
-  var photoUrl = data.heroImage
-    || (data.productDetails && data.productDetails.image)
-    || (pickedProduct && pickedProduct.image)
-    || (listings[0] && (listings[0].stockxImage || listings[0].image))
-    || '';
+  // Product photo: an ORDERED list of candidates, not one URL - StockX studio
+  // shots first (clean white bg), then real eBay/AliExpress photos of the
+  // exact matched item as fallback, so a single 404 doesn't leave the photo
+  // blank (the bug in the July 19 screenshot). mwPhotoCascade tries each in
+  // turn via onerror before giving up on a placeholder.
+  var candidates = (data.heroImageCandidates && data.heroImageCandidates.length)
+    ? data.heroImageCandidates.slice()
+    : [data.heroImage, (data.productDetails && data.productDetails.image), (pickedProduct && pickedProduct.image), (pickedProduct && pickedProduct.image2), (listings[0] && (listings[0].stockxImage || listings[0].image))].filter(Boolean);
+  window.mwPhotoCandidates = candidates;
   var photoEl = document.getElementById('mw-product-photo');
-  photoEl.innerHTML = photoUrl
-    ? '<img src="'+mwProxyImg(photoUrl)+'" alt="" onerror="this.parentElement.innerHTML=\'<div class=&quot;mw-suggest-ph&quot;>\uD83D\uDC5F</div>\'">'
-    : '<div class="mw-suggest-ph">\uD83D\uDC5F</div>';
+  if(candidates.length){
+    photoEl.innerHTML = '<img src="'+mwProxyImg(candidates[0])+'" data-idx="0" alt="" onerror="mwHeroImgErr(this)">';
+  } else {
+    photoEl.innerHTML = '<div class="mw-suggest-ph">\uD83D\uDC5F</div>';
+  }
 
   mwFullHistory = data.history || [];
   mwSamples = data.samples || [];
