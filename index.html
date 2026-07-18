@@ -341,7 +341,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 /* Detail (two-column) page */
 .mw-detail-topbar{display:flex;align-items:center;gap:16px;padding:16px 24px;border-bottom:1px solid #1a1a1a;position:sticky;top:0;background:#000;z-index:5}
 .mw-detail-crumb{font-size:13px;color:#888}
-.mw-detail-grid{max-width:1200px;margin:24px auto 40px;padding:0 24px;display:grid;grid-template-columns:300px 1fr;gap:22px;align-items:start}
+.mw-detail-grid{max-width:1200px;margin:24px auto 40px;padding:0 24px;display:grid;grid-template-columns:360px 1fr;gap:22px;align-items:start}
 .mw-detail-left{display:flex;flex-direction:column;gap:16px}
 .mw-detail-right{display:flex;flex-direction:column;gap:20px;min-width:0}
 
@@ -380,6 +380,10 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .mw-stat{background:#111;border:1px solid #1a1a1a;border-radius:10px;padding:12px 14px}
 .mw-stat-label{font-size:11px;color:#888;margin-bottom:4px}
 .mw-stat-value{font-size:20px;font-weight:700;color:#4d9fe6}
+.mw-stat-value-big{font-size:34px;font-weight:800;color:#4d9fe6;line-height:1.05;display:flex;align-items:center;gap:8px}
+.mw-arrow{font-size:20px;font-weight:800;line-height:1}
+.mw-arrow-up{color:#22c55e}
+.mw-arrow-down{color:#ef4444}
 .mw-chart-canvas{width:100%;display:block;cursor:crosshair}
 .mw-chart-note{font-size:12px;color:#666;margin-top:10px}
 
@@ -743,7 +747,9 @@ function renderMarketWatch(query, data, pickedProduct){
   document.getElementById('mw-loading').style.display='none';
   document.getElementById('mw-content').style.display='block';
   window.scrollTo(0,0);
-  document.getElementById('mw-item-title').textContent = query.charAt(0).toUpperCase()+query.slice(1);
+  var cwRaw = (data.productDetails && data.productDetails.colorway) || '';
+  var displayTitle = mwStripColorway(query.charAt(0).toUpperCase()+query.slice(1), cwRaw);
+  document.getElementById('mw-item-title').textContent = displayTitle;
   var listings = data.listings || [];
   var sourceCount = new Set(listings.map(function(l){return l.source||(l._stockx?'StockX':'Marketplace');})).size;
   document.getElementById('mw-item-sub').textContent = listings.length
@@ -774,10 +780,10 @@ function renderMarketWatch(query, data, pickedProduct){
   if(data.productDetails){
     var d = data.productDetails;
     var rows = [];
-    rows.push(['Product', query.charAt(0).toUpperCase()+query.slice(1)]);
+    rows.push(['Product', displayTitle]);
     if(d.brand) rows.push(['Brand', d.brand]);
     if(d.styleId) rows.push(['Style Code', d.styleId]);
-    if(d.colorway) rows.push(['Colorway', d.colorway]);
+    if(d.colorway) rows.push(['Colorway', mwCleanColorway(d.colorway)]);
     document.getElementById('mw-details-body').innerHTML =
       rows.map(function(r){return '<div class="mw-detail-row"><span>'+r[0]+'</span><span>'+escapeHtml(r[1])+'</span></div>';}).join('');
     detailsCard.style.display='block';
@@ -793,28 +799,39 @@ function renderMarketWatch(query, data, pickedProduct){
   updateTrackBtn();
 }
 
-// Genuinely computed from the live listings just fetched - cheapest real
-// source + how far below/above the average it sits. No invented numbers.
+// Dedupe a colourway like "Onyx/Onyx/Onyx" -> "Onyx"; keep distinct ones.
+function mwCleanColorway(cw){
+  if(!cw) return '';
+  var seen={}, uniq=[];
+  String(cw).split('/').map(function(x){return x.trim();}).filter(Boolean).forEach(function(p){
+    var k=p.toLowerCase(); if(!seen[k]){seen[k]=1;uniq.push(p);}
+  });
+  return uniq.join('/');
+}
+// Strip a trailing colourway word from the display title (it's shown in the
+// Colourway field instead). The full name still appears in search suggestions.
+function mwStripColorway(title, cw){
+  if(!title || !cw) return title;
+  var primary=String(cw).split('/')[0].trim();
+  if(!primary) return title;
+  var re=new RegExp('\\s+'+primary.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'\\s*$','i');
+  var out=title.replace(re,'').trim();
+  return out||title;
+}
+
+// AI Summary removed by request — the product image takes that space instead.
 function renderAiSummary(listings, stats){
   var card = document.getElementById('mw-summary-card');
-  var priced = listings.filter(function(l){ return l.price>0; });
-  if(!priced.length || !stats.avg){ card.style.display='none'; return; }
-  var cheapest = priced.reduce(function(a,b){ return b.price<a.price?b:a; });
-  var srcLabel = cheapest.source || (cheapest._stockx?'StockX':'that listing');
-  var diff = stats.avg - cheapest.price;
-  var pct = stats.avg ? Math.round((diff/stats.avg)*100) : 0;
-  var body = diff > 0
-    ? ('The cheapest option right now is on <b>'+escapeHtml(srcLabel)+'</b> at $'+cheapest.price.toLocaleString()+', which is '+pct+'% below the current average of $'+Math.round(stats.avg).toLocaleString()+' across '+priced.length+' listings.')
-    : ('Prices are fairly consistent across marketplaces right now, averaging $'+Math.round(stats.avg).toLocaleString()+'.');
-  var rec = diff > 0
-    ? ('<span class="mw-summary-rec">Buy on '+escapeHtml(srcLabel)+' \u2014 save $'+Math.round(diff).toLocaleString()+' ('+pct+'%)</span>')
-    : '';
-  document.getElementById('mw-summary-body').innerHTML = body + rec;
-  card.style.display='block';
+  if(card) card.style.display='none';
 }
 
 function mwStat(label, val, sub, sym){
   return '<div class="mw-stat"><div class="mw-stat-label">'+label+'</div><div class="mw-stat-value">'+(val?sym+Number(val).toLocaleString(undefined,{maximumFractionDigits:0}):'&mdash;')+'</div>'+(sub?'<div style="font-size:11px;color:#666;margin-top:2px">'+sub+'</div>':'')+'</div>';
+}
+
+function mwStatBig(label, val, sym, arrow){
+  var num = val ? sym+Number(val).toLocaleString(undefined,{maximumFractionDigits:0}) : '&mdash;';
+  return '<div class="mw-stat"><div class="mw-stat-label">'+label+'</div><div class="mw-stat-value-big">'+num+(arrow||'')+'</div></div>';
 }
 
 function setChartRange(days){
@@ -829,12 +846,25 @@ function renderChartAndStats(){
   var medianNow = (s.median!=null ? s.median : s.avg) || 0;  // median market price, right now
   var sym='$';
 
-  // Live Price = cheapest available right now (matches the cheapest buy card).
-  // Market Price = the MEDIAN of comparable listings — the credible "what it's
-  // worth" figure, and what the chart line tracks. Item price only (no shipping).
+  // Price direction for the Live Price arrow: compare the current live floor to
+  // the previous recorded one. Needs 2+ data points, so no arrow shows until an
+  // item has been sampled more than once.
+  var liveSeries = (mwSamples||[]).map(function(x){return Number(x.live_price)||0;}).filter(Boolean);
+  if(liveSeries.length<2){
+    var histLive=(mwFullHistory||[]).map(function(h){return Number(h.min_price)||0;}).filter(Boolean);
+    liveSeries = histLive.concat(liveSeries);
+  }
+  var prevLive = liveSeries.length>=2 ? liveSeries[liveSeries.length-2] : null;
+  var dir = 0;
+  if(prevLive!=null && livePrice>0){ if(livePrice>prevLive) dir=1; else if(livePrice<prevLive) dir=-1; }
+  var arrow = dir>0 ? '<span class="mw-arrow mw-arrow-up">\u25B2</span>'
+            : (dir<0 ? '<span class="mw-arrow mw-arrow-down">\u25BC</span>' : '');
+
+  // Live Price (cheapest now) with a green up / red down arrow; Market Price is
+  // the median. Both shown large with the descriptive sublabels removed.
   document.getElementById('mw-stats-row').innerHTML =
-    mwStat('Live Price', livePrice, 'cheapest new listing', sym) +
-    mwStat('Market Price', medianNow, 'median \u00b7 '+sourceCountLabel(), sym) +
+    mwStatBig('Live Price', livePrice, sym, arrow) +
+    mwStatBig('Market Price', medianNow, sym, '') +
     mwStat('Highest Price', s.max, '', sym) +
     '<div class="mw-stat"><div class="mw-stat-label">Listings Found</div><div class="mw-stat-value">'+(s.count||0)+'</div></div>';
 
@@ -902,6 +932,12 @@ function drawPriceChart(series){
   min -= pad; max += pad;
   var single = series.length===1;
 
+  // Trend colour: green if the line ends higher than it started, red if lower,
+  // blue if flat or a single point (no direction yet).
+  var trend = single ? 0 : (vals[vals.length-1] - vals[0]);
+  var col = trend>0 ? '#22c55e' : (trend<0 ? '#ef4444' : '#1a6fff');
+  var rgb = trend>0 ? '34,197,94' : (trend<0 ? '239,68,68' : '26,111,255');
+
   function xAt(i){ if(single) return w-padR-5; return padL + plotW*i/(series.length-1); }
   function yAt(v){ return padT + plotH - ((v-min)/(max-min))*plotH; }
 
@@ -920,19 +956,19 @@ function drawPriceChart(series){
     ctx.lineTo(xAt(0), padT+plotH);
     ctx.closePath();
     var grad = ctx.createLinearGradient(0,padT,0,padT+plotH);
-    grad.addColorStop(0,'rgba(26,111,255,0.32)'); grad.addColorStop(1,'rgba(26,111,255,0.02)');
+    grad.addColorStop(0,'rgba('+rgb+',0.32)'); grad.addColorStop(1,'rgba('+rgb+',0.02)');
     ctx.fillStyle = grad; ctx.fill();
     // Price line
-    ctx.beginPath(); ctx.strokeStyle = '#1a6fff'; ctx.lineWidth=2; ctx.lineJoin='round';
+    ctx.beginPath(); ctx.strokeStyle = col; ctx.lineWidth=2; ctx.lineJoin='round';
     vals.forEach(function(v,i){ i===0?ctx.moveTo(xAt(i),yAt(v)):ctx.lineTo(xAt(i),yAt(v)); });
     ctx.stroke();
   }
 
-  // Live node — glowing blue dot with a white core, at the latest point
+  // Live node — glowing dot (trend-coloured) with a white core, at the latest point
   var li = vals.length-1, lx = xAt(li), ly = yAt(vals[li]);
   ctx.save();
-  ctx.shadowColor='rgba(26,111,255,0.9)'; ctx.shadowBlur=12;
-  ctx.fillStyle='#1a6fff'; ctx.beginPath(); ctx.arc(lx,ly,4.5,0,7); ctx.fill();
+  ctx.shadowColor='rgba('+rgb+',0.9)'; ctx.shadowBlur=12;
+  ctx.fillStyle=col; ctx.beginPath(); ctx.arc(lx,ly,4.5,0,7); ctx.fill();
   ctx.restore();
   ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(lx,ly,1.8,0,7); ctx.fill();
 
