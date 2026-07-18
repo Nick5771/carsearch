@@ -327,6 +327,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .mw-loading-title{font-size:24px;font-weight:700;color:#fff;letter-spacing:-0.3px;margin-bottom:22px}
 .mw-loading-bar{position:relative;width:min(420px,80vw);height:4px;border-radius:4px;background:#161616;overflow:hidden}
 .mw-loading-bar-fill{position:absolute;top:0;left:0;height:100%;width:0;border-radius:4px;background:linear-gradient(90deg,#1a6fff,#4d9fe6);animation:mwFill 2.2s cubic-bezier(.25,.8,.35,1) forwards}
+.mw-loading-pct{margin-top:14px;font-size:14px;font-weight:600;color:#4d9fe6;font-family:'DM Sans',sans-serif}
 @keyframes mwFill{0%{width:0}70%{width:88%}100%{width:100%}}
 
 /* Suggestion dropdown */
@@ -546,6 +547,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
     <div class="mw-empty">
       <div class="mw-loading-title">Tracking price</div>
       <div class="mw-loading-bar"><div class="mw-loading-bar-fill"></div></div>
+      <div class="mw-loading-pct" id="mw-loading-pct">0%</div>
     </div>
   </div>
 
@@ -730,6 +732,16 @@ async function submitTrackerQuery(){
   // (toggling display alone won't re-run a CSS animation).
   var _fill=document.querySelector('#mw-loading .mw-loading-bar-fill');
   if(_fill){ _fill.style.animation='none'; void _fill.offsetWidth; _fill.style.animation=''; }
+  // Cosmetic percentage that counts up alongside the bar (the marketplace APIs
+  // don't report real progress, so this is a UX flourish, not true telemetry).
+  if(window.mwLoadTimer){ clearInterval(window.mwLoadTimer); }
+  var _pct=document.getElementById('mw-loading-pct'), _p=0;
+  if(_pct){ _pct.textContent='0%'; }
+  window.mwLoadTimer=setInterval(function(){
+    _p += Math.max(1, Math.round((95-_p)*0.06));   // ease toward 95, then hold
+    if(_p>95) _p=95;
+    if(_pct) _pct.textContent=_p+'%';
+  }, 90);
   try{
     var res = await fetch(WORKER + '/tracker/search', {
       method:'POST', headers:{'Content-Type':'application/json'},
@@ -738,12 +750,15 @@ async function submitTrackerQuery(){
     var data = await res.json();
     renderMarketWatch(q, data, mwSelectedProduct);
   }catch(e){
+    if(window.mwLoadTimer){ clearInterval(window.mwLoadTimer); window.mwLoadTimer=null; }
     document.getElementById('mw-loading').style.display='none';
     document.getElementById('mw-hero').style.display='flex';
   }
 }
 
 function renderMarketWatch(query, data, pickedProduct){
+  if(window.mwLoadTimer){ clearInterval(window.mwLoadTimer); window.mwLoadTimer=null; }
+  var _pct=document.getElementById('mw-loading-pct'); if(_pct) _pct.textContent='100%';
   document.getElementById('mw-loading').style.display='none';
   document.getElementById('mw-content').style.display='block';
   window.scrollTo(0,0);
@@ -865,8 +880,8 @@ function renderChartAndStats(){
   document.getElementById('mw-stats-row').innerHTML =
     mwStatBig('Live Price', livePrice, sym, arrow) +
     mwStatBig('Market Price', medianNow, sym, '') +
-    mwStat('Highest Price', s.max, '', sym) +
-    '<div class="mw-stat"><div class="mw-stat-label">Listings Found</div><div class="mw-stat-value">'+(s.count||0)+'</div></div>';
+    mwStatBig('Highest Price', s.max, sym, '') +
+    '<div class="mw-stat"><div class="mw-stat-label">Listings Found</div><div class="mw-stat-value-big">'+(s.count||0)+'</div></div>';
 
   // The line = the MEDIAN market price over time. Short ranges (<=7D) use the
   // intraday samples; longer ranges use the daily rollup. Falls back to avg then
