@@ -341,6 +341,14 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 
 /* Detail (two-column) page */
 .mw-detail-topbar{display:flex;align-items:center;gap:16px;padding:16px 24px;border-bottom:1px solid #1a1a1a;position:sticky;top:0;background:#000;z-index:5}
+.mw-tb-search{flex:1;max-width:520px;margin:0 auto;position:relative}
+.mw-tb-input{width:100%;box-sizing:border-box;background:#111;border:1px solid #2a2a2a;color:#fff;padding:11px 44px 11px 18px;border-radius:999px;font-size:15px;font-family:'DM Sans',sans-serif;outline:none}
+.mw-tb-input:focus{border-color:#1a6fff}
+.mw-tb-btn{position:absolute;right:6px;top:50%;transform:translateY(-50%);background:none;border:none;color:#888;font-size:16px;cursor:pointer;padding:6px 8px}
+.mw-tb-auth{display:flex;gap:8px;flex:none;align-items:center}
+.mw-tb-auth .nav-secondary,.mw-tb-auth .nav-cta{white-space:nowrap}
+.mw-tb-avatar{width:36px;height:36px;border-radius:50%;background:#1a6fff;color:#fff;border:none;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif}
+@media(max-width:640px){.mw-tb-search{max-width:none}.mw-tb-auth .nav-cta{display:none}.mw-detail-topbar{gap:10px;padding:12px 14px}}
 .mw-detail-crumb{font-size:13px;color:#888}
 .mw-detail-grid{max-width:1200px;margin:24px auto 40px;padding:0 24px;display:grid;grid-template-columns:360px 1fr;gap:22px;align-items:start}
 .mw-detail-left{display:flex;flex-direction:column;gap:16px}
@@ -559,6 +567,11 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
   <div id="mw-content" style="display:none">
     <div class="mw-detail-topbar">
       <h1 class="nav-logo" onclick="backToHero()">FindAI</h1>
+      <div class="mw-tb-search">
+        <input type="text" id="mw-tb-input" class="mw-tb-input" placeholder="Search any item..." autocomplete="off" onkeydown="if(event.key==='Enter')topbarSearch()">
+        <button class="mw-tb-btn" onclick="topbarSearch()" aria-label="Search">&#128269;</button>
+      </div>
+      <div class="mw-tb-auth" id="mw-tb-auth"></div>
     </div>
 
     <div class="mw-detail-grid">
@@ -648,6 +661,31 @@ function backToHero(){
   document.getElementById('mw-content').style.display='none';
   document.getElementById('mw-hero').style.display='flex';
   setTimeout(function(){ var i=document.getElementById('mw-search-input'); i.focus(); i.select(); }, 50);
+}
+
+// Search from the detail-page topbar: reuses the tracker search — it returns to
+// the full search view and pre-fills it with live suggestions for the query.
+function topbarSearch(){
+  var v = (document.getElementById('mw-tb-input').value || '').trim();
+  backToHero();
+  if(v){
+    var i = document.getElementById('mw-search-input');
+    if(i){ i.value = v; onTrackerInput(v); }
+  }
+}
+
+// Renders the detail topbar's login area from current auth state (reuses the
+// same openAuth / logoutUser as the homepage nav).
+function renderTopbarAuth(){
+  var el = document.getElementById('mw-tb-auth'); if(!el) return;
+  var u=null; try{ u=JSON.parse(localStorage.getItem('findai_user')||'null'); }catch(_){}
+  if(u && u.email){
+    var initial = (u.email[0]||'U').toUpperCase();
+    el.innerHTML = '<button class="mw-tb-avatar" title="Log out" onclick="logoutUser()">'+initial+'</button>';
+  } else {
+    el.innerHTML = '<button class="nav-secondary" onclick="openAuth(\'Welcome back\')">Log in</button>'
+      + '<button class="nav-cta" onclick="openAuth(\'Create your free account\')">Sign up</button>';
+  }
 }
 
 // Debounced live typeahead - fires ~250ms after the user stops typing so we're
@@ -792,6 +830,7 @@ function renderMarketWatch(query, data, pickedProduct){
   var _pct=document.getElementById('mw-loading-pct'); if(_pct) _pct.textContent='100%';
   document.getElementById('mw-loading').style.display='none';
   document.getElementById('mw-content').style.display='block';
+  if(typeof renderTopbarAuth==='function') renderTopbarAuth();
   window.scrollTo(0,0);
   var cwRaw = (data.productDetails && data.productDetails.colorway) || '';
   var displayTitle = mwStripColorway(query.charAt(0).toUpperCase()+query.slice(1), cwRaw);
