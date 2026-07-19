@@ -386,6 +386,14 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .mw-range-tab{background:transparent;border:none;color:#888;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif}
 .mw-range-tab.mw-range-active{background:#1a6fff;color:#fff}
 .mw-stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px;margin:16px 0}
+.mw-chart-topline{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:6px 0 2px}
+.mw-tl-price{font-size:38px;font-weight:800;color:#fff;line-height:1}
+.mw-tl-cur{font-size:15px;color:#888;font-weight:600}
+.mw-tl-chg{display:inline-flex;align-items:center;gap:6px;font-size:15px;font-weight:700;padding:4px 10px;border-radius:8px}
+.mw-tl-up{color:#22c55e;background:rgba(34,197,94,.12)}
+.mw-tl-down{color:#ef4444;background:rgba(239,68,68,.12)}
+.mw-tl-flat{color:#888;background:#161616}
+.mw-tl-today{font-size:14px;color:#888}
 .mw-stat{background:#111;border:1px solid #1a1a1a;border-radius:10px;padding:12px 14px}
 .mw-stat-label{font-size:11px;color:#888;margin-bottom:4px}
 .mw-stat-value{font-size:20px;font-weight:700;color:#4d9fe6}
@@ -610,6 +618,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
               <button class="mw-range-tab" data-range="365" onclick="setChartRange(365)">1Y</button>
             </div>
           </div>
+          <div class="mw-chart-topline" id="mw-chart-topline"></div>
           <div class="mw-stats-row" id="mw-stats-row"></div>
           <div class="mw-chart-wrap" id="mw-chart-wrap">
             <canvas id="mw-chart-canvas" class="mw-chart-canvas" height="220"></canvas>
@@ -758,8 +767,9 @@ function mwProxyImg(u){
 function renderSuggestList(suggestions){
   var box = document.getElementById('mw-suggest-list');
   if(!suggestions.length){
-    // No catalog match (common for non-sneaker items) - let Enter/Track fall
-    // back to a plain text search instead of leaving a dead-end dropdown.
+    // No catalog match — clear the stored list so Enter/Track is blocked (the
+    // item doesn't exist in our data), and hide the dropdown.
+    mwLastSuggestions = [];
     hideSuggestList();
     return;
   }
@@ -777,6 +787,15 @@ function hideSuggestList(){
   var box = document.getElementById('mw-suggest-list');
   if(box){ box.style.display='none'; box.innerHTML=''; }
 }
+// Brief inline message (e.g. "no matching item") shown in the suggestion box.
+function mwSearchHint(msg){
+  var box = document.getElementById('mw-suggest-list');
+  if(!box) return;
+  box.innerHTML = '<div style="padding:16px 18px;color:#888;font-size:15px;text-align:left">'+escapeHtml(msg)+'</div>';
+  box.style.display='block';
+  clearTimeout(window._mwHintT);
+  window._mwHintT = setTimeout(function(){ hideSuggestList(); }, 1900);
+}
 function pickSuggestion(i){
   var s = mwLastSuggestions[i];
   if(!s) return;
@@ -793,6 +812,19 @@ async function submitTrackerQuery(){
   var input = document.getElementById('mw-search-input');
   var q = (input.value || '').trim();
   if(!q) return;
+  // Only allow a search when the catalog actually found a matching item. If the
+  // suggestion box is empty, the product doesn't exist in our data — so we don't
+  // search (avoids dead-end/empty tracker pages). Show a brief hint instead.
+  if(!mwSelectedProduct && (!mwLastSuggestions || !mwLastSuggestions.length)){
+    mwSearchHint('No matching item found — try a different name.');
+    return;
+  }
+  // If the user hit Enter/Track without clicking a specific suggestion, use the
+  // top match (the item at the top of the box).
+  if(!mwSelectedProduct){
+    mwSelectedProduct = mwLastSuggestions[0];
+    if(mwSelectedProduct && mwSelectedProduct.title){ input.value = mwSelectedProduct.title; q = mwSelectedProduct.title; }
+  }
   mwCurrentQuery = q;
   document.getElementById('mw-hero').style.display='none';
   document.getElementById('mw-content').style.display='none';
@@ -872,6 +904,7 @@ function renderMarketWatch(query, data, pickedProduct){
     if(d.brand) rows.push(['Brand', d.brand]);
     if(d.styleId) rows.push(['Style Code', d.styleId]);
     if(d.colorway) rows.push(['Colorway', mwCleanColorway(d.colorway)]);
+    rows.push(['Condition', 'Brand New']);
     document.getElementById('mw-details-body').innerHTML =
       rows.map(function(r){return '<div class="mw-detail-row"><span>'+r[0]+'</span><span>'+escapeHtml(r[1])+'</span></div>';}).join('');
     detailsCard.style.display='block';
@@ -928,66 +961,82 @@ function setChartRange(days){
   renderChartAndStats();
 }
 
+function mwPrevClose(){
+  // Price ~24h ago, for the "today" change. Prefer intraday samples; fall back
+  // to the previous daily snapshot. Null if there isn't a day of history yet.
+  var dayAgo = Date.now() - 24*3600e3;
+  var samples = (mwSamples||[]).filter(function(x){ return Number(x.live_price)>0; });
+  var before = samples.filter(function(x){ return new Date(x.sampled_at).getTime() <= dayAgo; });
+  if(before.length) return Number(before[before.length-1].live_price);
+  var hist = (mwFullHistory||[]).filter(function(h){ return Number(h.min_price)>0; });
+  if(hist.length>=2) return Number(hist[hist.length-2].min_price);
+  return null;
+}
+
 function renderChartAndStats(){
   var s = mwLastStats || {live:0,min:0,median:0,max:0,avg:0,count:0};
   var livePrice = (s.live!=null ? s.live : s.min) || 0;      // cheapest new listing, right now
   var medianNow = (s.median!=null ? s.median : s.avg) || 0;  // median market price, right now
   var sym='$';
 
-  // Price direction for the Live Price arrow: compare the current live floor to
-  // the previous recorded one. Needs 2+ data points, so no arrow shows until an
-  // item has been sampled more than once.
-  var liveSeries = (mwSamples||[]).map(function(x){return Number(x.live_price)||0;}).filter(Boolean);
-  if(liveSeries.length<2){
-    var histLive=(mwFullHistory||[]).map(function(h){return Number(h.min_price)||0;}).filter(Boolean);
-    liveSeries = histLive.concat(liveSeries);
+  // ── Oracle-style header: live price + green/red arrow + % change today ──────
+  var prevClose = mwPrevClose();
+  var chgAbs = (prevClose!=null && livePrice>0) ? (livePrice - prevClose) : null;
+  var chgPct = (prevClose && chgAbs!=null) ? (chgAbs/prevClose*100) : null;
+  var dir = (chgAbs==null || Math.abs(chgAbs)<0.005) ? 0 : (chgAbs>0 ? 1 : -1);
+  var arrowChar = dir>0 ? '\u25B2' : (dir<0 ? '\u25BC' : '');
+  var tlCls = dir>0 ? 'mw-tl-up' : (dir<0 ? 'mw-tl-down' : 'mw-tl-flat');
+  var tl = document.getElementById('mw-chart-topline');
+  if(tl){
+    var priceHtml = '<span class="mw-tl-price">'+(livePrice?sym+Number(livePrice).toLocaleString():'—')+'</span><span class="mw-tl-cur">USD · live</span>';
+    var chgHtml = (chgPct!=null)
+      ? '<span class="mw-tl-chg '+tlCls+'">'+(arrowChar?arrowChar+' ':'')+Math.abs(chgPct).toFixed(2)+'%</span>'
+        + '<span class="mw-tl-today">'+(chgAbs>=0?'+':'-')+sym+Math.abs(chgAbs).toLocaleString(undefined,{maximumFractionDigits:2})+' today</span>'
+      : '<span class="mw-tl-today">Change shown once tracked for a day</span>';
+    tl.innerHTML = priceHtml + chgHtml;
   }
-  var prevLive = liveSeries.length>=2 ? liveSeries[liveSeries.length-2] : null;
-  var dir = 0;
-  if(prevLive!=null && livePrice>0){ if(livePrice>prevLive) dir=1; else if(livePrice<prevLive) dir=-1; }
+
+  // Live Price stat arrow uses the same direction.
   var arrow = dir>0 ? '<span class="mw-arrow mw-arrow-up">\u25B2</span>'
             : (dir<0 ? '<span class="mw-arrow mw-arrow-down">\u25BC</span>' : '');
 
-  // Live Price (cheapest now) with a green up / red down arrow; Market Price is
-  // the median. Both shown large with the descriptive sublabels removed.
   document.getElementById('mw-stats-row').innerHTML =
     mwStatBig('Live Price', livePrice, sym, arrow) +
     mwStatBig('Market Price', medianNow, sym, '') +
     mwStatBig('Highest Price', s.max, sym, '') +
     '<div class="mw-stat"><div class="mw-stat-label">Listings Found</div><div class="mw-stat-value-big">'+(s.count||0)+'</div></div>';
 
-  // The line = the MEDIAN market price over time. Short ranges (<=7D) use the
-  // intraday samples; longer ranges use the daily rollup. Falls back to avg then
-  // min for any older rows saved before median existed. Then append the current
-  // median as the latest point so the line is always up to date.
-  var medOf = function(x){ return Number(x.median_price)||Number(x.avg_price)||Number(x.live_price)||Number(x.min_price)||0; };
+  // The line = the LIVE price over time (like a stock's last-sale price). Short
+  // ranges use intraday samples; longer ranges use the daily rollup. Then append
+  // the current live price so the line is always up to date.
+  var liveOf = function(x){ return Number(x.live_price)||Number(x.min_price)||Number(x.median_price)||Number(x.avg_price)||0; };
   var series;
   if(mwChartRange<=7 && mwSamples.length){
     var cut = Date.now() - mwChartRange*864e5;
     series = mwSamples
       .filter(function(x){ return new Date(x.sampled_at).getTime() >= cut; })
-      .map(function(x){ return { t:new Date(x.sampled_at).getTime(), v:medOf(x) }; });
+      .map(function(x){ return { t:new Date(x.sampled_at).getTime(), v:liveOf(x) }; });
   } else {
     var cutoff=new Date(); cutoff.setDate(cutoff.getDate()-mwChartRange);
     var cs=cutoff.toISOString().slice(0,10);
     series = mwFullHistory
       .filter(function(h){ return h.snapshot_date >= cs; })
-      .map(function(h){ return { t:new Date(h.snapshot_date+'T00:00:00Z').getTime(), v:medOf(h), label:h.snapshot_date.slice(5) }; });
+      .map(function(h){ return { t:new Date(h.snapshot_date+'T00:00:00Z').getTime(), v:liveOf(h), label:h.snapshot_date.slice(5) }; });
   }
   series = series.filter(function(p){ return p.v>0; });
-  if(medianNow>0){
+  if(livePrice>0){
     var now=Date.now();
     var lastT = series.length ? series[series.length-1].t : 0;
-    if(series.length && (now-lastT) < 90000){ series[series.length-1].live=true; series[series.length-1].v=medianNow; }
-    else series.push({ t:now, v:medianNow, live:true });
+    if(series.length && (now-lastT) < 90000){ series[series.length-1].live=true; series[series.length-1].v=livePrice; }
+    else series.push({ t:now, v:livePrice, live:true });
   }
 
   drawPriceChart(series);
 
   var noteEl=document.getElementById('mw-chart-note');
   noteEl.textContent = (series.length>1)
-    ? 'Median market price over time (item price only). History begins when FindAI first tracked this item.'
-    : 'Showing today\u2019s market price. The line builds as this item is tracked.';
+    ? 'Live price over time (item price only). History begins when FindAI first tracked this item.'
+    : 'Showing today\u2019s live price. The line builds as this item is tracked.';
 }
 function sourceCountLabel(){
   var el = document.getElementById('mw-item-sub');
@@ -1001,16 +1050,14 @@ function drawPriceChart(series){
   canvas.width = w; canvas.height = 220;
   ctx.clearRect(0,0,w,220);
 
-  var padL=6, padR=6, padT=15, padB=25;
+  var padL=52, padR=10, padT=15, padB=25;
   var plotW = w-padL-padR, plotH = 220-padT-padB;
 
-  // Gridlines
-  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth=1;
-  for(var g=0; g<4; g++){ var gy=padT+plotH*g/3; ctx.beginPath(); ctx.moveTo(padL,gy); ctx.lineTo(w-padR,gy); ctx.stroke(); }
-
   if(!series || !series.length){
+    ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=1;
+    for(var g0=0; g0<4; g0++){ var gy0=padT+plotH*g0/3; ctx.beginPath(); ctx.moveTo(padL,gy0); ctx.lineTo(w-padR,gy0); ctx.stroke(); }
     ctx.fillStyle = '#666'; ctx.font = '13px DM Sans, sans-serif'; ctx.textAlign='center';
-    ctx.fillText('Open an item to see its live price here', w/2, 115);
+    ctx.fillText('Open an item to see its live price here', (padL+w-padR)/2, 115);
     return;
   }
 
@@ -1019,6 +1066,16 @@ function drawPriceChart(series){
   var pad = (max-min)*0.18 || max*0.1 || 1;
   min -= pad; max += pad;
   var single = series.length===1;
+
+  // Gridlines + Y-axis price labels (numbers down the side, like a trading chart)
+  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth=1;
+  ctx.fillStyle='#777'; ctx.font='11px DM Sans, sans-serif'; ctx.textAlign='right';
+  for(var g=0; g<4; g++){
+    var gy=padT+plotH*g/3;
+    ctx.beginPath(); ctx.moveTo(padL,gy); ctx.lineTo(w-padR,gy); ctx.stroke();
+    var gv = max - (max-min)*(g/3);
+    ctx.fillText('$'+Math.round(gv).toLocaleString(), padL-8, gy+4);
+  }
 
   // Trend colour: green if the line ends higher than it started, red if lower,
   // blue if flat or a single point (no direction yet).
