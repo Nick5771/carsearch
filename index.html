@@ -407,7 +407,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .mw-stat-chg.up{color:#22c55e;background:rgba(34,197,94,.12)}
 .mw-stat-chg.down{color:#ef4444;background:rgba(239,68,68,.12)}
 .mw-stat-chg.flat{color:#888;background:#161616}
-.mw-stat-today{font-size:13px;color:#888;margin-top:6px}
+.mw-stat-today{font-size:13px;color:#888}
 .mw-chart-canvas{width:100%;display:block;cursor:crosshair}
 .mw-chart-wrap{position:relative}
 .mw-chart-cross{position:absolute;top:15px;bottom:25px;width:1px;background:rgba(255,255,255,.25);pointer-events:none;display:none}
@@ -695,8 +695,12 @@ function renderTopbarAuth(){
   var el = document.getElementById('mw-tb-auth'); if(!el) return;
   var u=null; try{ u=JSON.parse(localStorage.getItem('findai_user')||'null'); }catch(_){}
   if(u && u.email){
-    var initial = (u.email[0]||'U').toUpperCase();
-    el.innerHTML = '<button class="mw-tb-avatar" title="Log out" onclick="logoutUser()">'+initial+'</button>';
+    if(u.picture){
+      el.innerHTML = '<button class="mw-tb-avatar" title="Log out" onclick="logoutUser()" style="background-image:url(\''+u.picture+'\');background-size:cover;background-position:center;background-repeat:no-repeat"></button>';
+    } else {
+      var initial = ((u.name||u.email)[0]||'U').toUpperCase();
+      el.innerHTML = '<button class="mw-tb-avatar" title="Log out" onclick="logoutUser()">'+initial+'</button>';
+    }
   } else {
     el.innerHTML = '<button class="nav-secondary" onclick="openAuth(\'Welcome back\')">Log in</button>'
       + '<button class="nav-cta" onclick="openAuth(\'Create your free account\')">Sign up</button>';
@@ -857,6 +861,7 @@ async function submitTrackerQuery(){
       body: JSON.stringify({ query: q, product: mwSelectedProduct })
     });
     var data = await res.json();
+    if(data && data.fx){ mwFx = { cur:data.fx.currency||'USD', sym:data.fx.symbol||'$', rate:Number(data.fx.rate)||1 }; }
     renderMarketWatch(q, data, mwSelectedProduct);
   }catch(e){
     if(window.mwLoadTimer){ clearInterval(window.mwLoadTimer); window.mwLoadTimer=null; }
@@ -975,12 +980,22 @@ function renderAiSummary(listings, stats){
   if(card) card.style.display='none';
 }
 
+// Display currency. Prices are stored/computed in USD everywhere; we convert
+// ONLY here, at render, to whatever the visitor's region uses (set from the
+// worker's fx payload). Never store or do math on the converted value.
+var mwFx = { cur:'USD', sym:'$', rate:1 };
+function mwMoney(usd, maxFrac){
+  if(usd==null||usd===''||isNaN(Number(usd))) return '';
+  var v = Number(usd) * (mwFx.rate||1);
+  return mwFx.sym + v.toLocaleString(undefined,{maximumFractionDigits:(maxFrac==null?0:maxFrac)});
+}
+
 function mwStat(label, val, sub, sym){
-  return '<div class="mw-stat"><div class="mw-stat-label">'+label+'</div><div class="mw-stat-value">'+(val?sym+Number(val).toLocaleString(undefined,{maximumFractionDigits:0}):'&mdash;')+'</div>'+(sub?'<div style="font-size:11px;color:#666;margin-top:2px">'+sub+'</div>':'')+'</div>';
+  return '<div class="mw-stat"><div class="mw-stat-label">'+label+'</div><div class="mw-stat-value">'+(val?mwMoney(val):'&mdash;')+'</div>'+(sub?'<div style="font-size:11px;color:#666;margin-top:2px">'+sub+'</div>':'')+'</div>';
 }
 
 function mwStatBig(label, val, sym, arrow){
-  var num = val ? sym+Number(val).toLocaleString(undefined,{maximumFractionDigits:0}) : '&mdash;';
+  var num = val ? mwMoney(val) : '&mdash;';
   return '<div class="mw-stat"><div class="mw-stat-label">'+label+'</div><div class="mw-stat-value-big">'+num+(arrow||'')+'</div></div>';
 }
 
@@ -1015,19 +1030,19 @@ function renderChartAndStats(){
   var dir = (chgAbs==null || Math.abs(chgAbs)<0.005) ? 0 : (chgAbs>0 ? 1 : -1);
   var arrowChar = dir>0 ? '\u25B2' : (dir<0 ? '\u25BC' : '');
 
-  // Live Price card carries the green/red % change badge (shown once there is a
-  // prior day of history to compare against).
-  var liveNum = livePrice ? sym+Number(livePrice).toLocaleString(undefined,{maximumFractionDigits:0}) : '&mdash;';
+  // Live Price card carries the green/red % change badge. Always shown for
+  // consistency across every product: with no prior-day history yet it reads
+  // 0.00% / +$0 (neutral grey) rather than disappearing.
+  var liveNum = livePrice ? mwMoney(livePrice) : '&mdash;';
+  var hasChg = (chgPct != null);
+  var pctTxt = (hasChg ? Math.abs(chgPct) : 0).toFixed(2);
+  var absTxt = (hasChg && chgAbs != null) ? chgAbs : 0;
   var badgeCls = dir>0 ? 'up' : (dir<0 ? 'down' : 'flat');
-  var pill = (chgPct!=null)
-    ? '<span class="mw-stat-chg '+badgeCls+'">'+(arrowChar?arrowChar+' ':'')+Math.abs(chgPct).toFixed(2)+'%</span>'
-    : '';
-  var todayLine = (chgPct!=null)
-    ? '<div class="mw-stat-today">'+(chgAbs>=0?'+':'-')+sym+Math.abs(chgAbs).toLocaleString(undefined,{maximumFractionDigits:2})+' today</div>'
-    : '';
+  var pill = '<span class="mw-stat-chg '+badgeCls+'">'+(arrowChar?arrowChar+' ':'')+pctTxt+'%</span>';
+  var todaySpan = '<span class="mw-stat-today">'+(absTxt>=0?'+':'-')+mwMoney(Math.abs(absTxt))+' today</span>';
   var liveCard = '<div class="mw-stat"><div class="mw-stat-label">Live Price</div>'
-    + '<div class="mw-liverow"><span class="mw-live-num">'+liveNum+'</span>'+pill+'</div>'
-    + todayLine + '</div>';
+    + '<div class="mw-liverow"><span class="mw-live-num">'+liveNum+'</span>'+pill+todaySpan+'</div>'
+    + '</div>';
 
   document.getElementById('mw-stats-row').innerHTML =
     liveCard +
@@ -1101,7 +1116,7 @@ function drawPriceChart(series){
     var gy=padT+plotH*g/3;
     ctx.beginPath(); ctx.moveTo(padL,gy); ctx.lineTo(w-padR,gy); ctx.stroke();
     var gv = max - (max-min)*(g/3);
-    ctx.fillText('$'+Math.round(gv).toLocaleString(), padL-8, gy+4);
+    ctx.fillText(mwMoney(gv), padL-8, gy+4);
   }
 
   // Trend colour: green if the line ends higher than it started, red if lower,
@@ -1161,7 +1176,7 @@ function drawPriceChart(series){
 
   // Persistent live-price label near the latest node (drawn left of it so it
   // stays on-canvas since the live node sits at the right edge).
-  var lblTxt = '$'+Number(vals[li]).toLocaleString(undefined,{maximumFractionDigits:0});
+  var lblTxt = mwMoney(vals[li]);
   ctx.font = 'bold 13px DM Sans, sans-serif'; ctx.textAlign='right'; ctx.fillStyle = col;
   var lblY = (ly-12 < padT+10) ? ly+22 : ly-12;
   ctx.fillText(lblTxt, Math.min(lx, w-padR) - 8, lblY);
@@ -1187,7 +1202,7 @@ function drawPriceChart(series){
       var dt = new Date(best.t);
       var when = best.live ? 'Now' : (best.label ? best.label : (('0'+dt.getHours()).slice(-2)+':'+('0'+dt.getMinutes()).slice(-2)));
       tip.style.display='block';
-      tip.innerHTML = '<b>$'+Number(best.v).toLocaleString(undefined,{maximumFractionDigits:0})+'</b> \u00b7 '+when;
+      tip.innerHTML = '<b>'+mwMoney(best.v)+'</b> \u00b7 '+when;
       tip.style.left = cssX + 'px';
       tip.style.top = cssY + 'px';
     });
@@ -1217,7 +1232,7 @@ function renderTrackerListings(listings){
     return '<div class="mw-listing-card'+(isBest?' mw-best':'')+'">' +
       thumb +
       '<div class="mw-listing-src" style="text-transform:none">'+mwSourceBadge(l)+'</div>' +
-      '<div class="mw-listing-price">'+(l.price?'$'+Number(l.price).toLocaleString():'See listing')+'</div>' +
+      '<div class="mw-listing-price">'+(l.price?mwMoney(l.price):'See listing')+'</div>' +
       '<div class="mw-listing-title">'+escapeHtml((l.title||'').slice(0,60))+'</div>' +
       '<a class="mw-listing-btn" href="'+(l.url||'#')+'" target="_blank" rel="noopener">View listing</a>' +
       (isBest?'<div class="mw-best-badge">&#128081; Best Price</div>':(isHighest?'<div class="mw-best-badge" style="background:#333">Highest Price</div>':'')) +
