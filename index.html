@@ -677,6 +677,15 @@ function backToHero(){
   document.getElementById('mw-hero').style.display='flex';
   setTimeout(function(){ var i=document.getElementById('mw-search-input'); i.focus(); i.select(); }, 50);
 }
+// Browser Back while viewing a product detail returns to the tracker search
+// (the "main page with listings") rather than jumping out to the previous site.
+window.addEventListener('popstate', function(){
+  var content = document.getElementById('mw-content');
+  var overlay = document.getElementById('mw-overlay');
+  var inDetail = content && content.style.display !== 'none'
+    && overlay && overlay.classList.contains('mw-open');
+  if(inDetail){ backToHero(); }
+});
 
 // Search from the detail-page topbar: reuses the tracker search — it returns to
 // the full search view and pre-fills it with live suggestions for the query.
@@ -875,6 +884,9 @@ function renderMarketWatch(query, data, pickedProduct){
   var _pct=document.getElementById('mw-loading-pct'); if(_pct) _pct.textContent='100%';
   document.getElementById('mw-loading').style.display='none';
   document.getElementById('mw-content').style.display='block';
+  // Give the browser Back button something to pop *inside* FindAI, so it returns
+  // to the tracker search instead of leaving to the previous site (e.g. Google).
+  try{ if(!(history.state && history.state.mwDetail)) history.pushState({mwDetail:1}, ''); }catch(_){}
   if(typeof renderTopbarAuth==='function') renderTopbarAuth();
   window.scrollTo(0,0);
   var _pd0 = data.productDetails || {};
