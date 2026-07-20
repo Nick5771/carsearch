@@ -744,7 +744,7 @@ function mwHeroImgErr(el){
   }
   var ph = document.createElement('div');
   ph.className = 'mw-suggest-ph';
-  ph.textContent = '\uD83D\uDC5F';
+  ph.textContent = '\uD83D\uDCE6';
   el.replaceWith(ph);
 }
 
@@ -757,7 +757,7 @@ function mwImgErr(el){
   }
   var ph = document.createElement('div');
   ph.className = 'mw-suggest-ph';
-  ph.textContent = '\uD83D\uDC5F'; // shoe emoji, generic product placeholder
+  ph.textContent = '\uD83D\uDCE6'; // shoe emoji, generic product placeholder
   el.replaceWith(ph);
 }
 
@@ -767,7 +767,9 @@ function mwImgErr(el){
 // other images (which hotlink fine) are left untouched to save worker bandwidth.
 function mwProxyImg(u){
   if(!u) return u;
-  return u.indexOf('images.stockx.com')!==-1 ? (WORKER + '/img?u=' + encodeURIComponent(u)) : u;
+  if(u.indexOf('data:')===0) return u;
+  if(u.indexOf('/img?u=')!==-1) return u;            // already proxied
+  return /^https?:\/\//i.test(u) ? (WORKER + '/img?u=' + encodeURIComponent(u)) : u;
 }
 
 function renderSuggestList(suggestions){
@@ -782,7 +784,7 @@ function renderSuggestList(suggestions){
   box.innerHTML = suggestions.map(function(s, i){
     var sub = [s.styleId, s.colorway].filter(Boolean).join(' · ');
     return '<div class="mw-suggest-item" onclick="pickSuggestion(' + i + ')">' +
-      (s.image ? '<img src="'+mwProxyImg(s.image)+'" data-fallback="'+escapeHtml(s.image2||'')+'" alt="" loading="lazy" onerror="mwImgErr(this)">' : (s.image2 ? '<img src="'+mwProxyImg(s.image2)+'" alt="" loading="lazy" onerror="mwImgErr(this)">' : '<div class="mw-suggest-ph">\uD83D\uDC5F</div>')) +
+      (s.image ? '<img src="'+mwProxyImg(s.image)+'" data-fallback="'+escapeHtml(s.image2||'')+'" alt="" loading="lazy" onerror="mwImgErr(this)">' : (s.image2 ? '<img src="'+mwProxyImg(s.image2)+'" alt="" loading="lazy" onerror="mwImgErr(this)">' : '<div class="mw-suggest-ph">\uD83D\uDCE6</div>')) +
       '<div class="mw-suggest-text"><div class="mw-suggest-title">'+escapeHtml(s.title)+'</div>' +
       (sub ? '<div class="mw-suggest-sub">'+escapeHtml(sub)+'</div>' : '') + '</div></div>';
   }).join('');
@@ -894,7 +896,7 @@ function renderMarketWatch(query, data, pickedProduct){
   if(candidates.length){
     photoEl.innerHTML = '<img src="'+mwProxyImg(candidates[0])+'" data-idx="0" alt="" onerror="mwHeroImgErr(this)">';
   } else {
-    photoEl.innerHTML = '<div class="mw-suggest-ph">\uD83D\uDC5F</div>';
+    photoEl.innerHTML = '<div class="mw-suggest-ph">\uD83D\uDCE6</div>';
   }
 
   mwFullHistory = data.history || [];
