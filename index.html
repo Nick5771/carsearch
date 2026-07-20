@@ -401,9 +401,12 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .mw-arrow{font-size:20px;font-weight:800;line-height:1}
 .mw-arrow-up{color:#22c55e}
 .mw-arrow-down{color:#ef4444}
-.mw-stat-chg{display:inline-flex;align-items:center;gap:5px;margin-top:8px;font-size:14px;font-weight:700;padding:3px 9px;border-radius:8px}
+.mw-stat-chgrow{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.mw-stat-chg{display:inline-flex;align-items:center;gap:5px;font-size:14px;font-weight:700;padding:3px 9px;border-radius:8px}
 .mw-stat-chg.up{color:#22c55e;background:rgba(34,197,94,.12)}
 .mw-stat-chg.down{color:#ef4444;background:rgba(239,68,68,.12)}
+.mw-stat-chg.flat{color:#888;background:#161616}
+.mw-stat-today{font-size:13px;color:#888}
 .mw-chart-canvas{width:100%;display:block;cursor:crosshair}
 .mw-chart-wrap{position:relative}
 .mw-chart-cross{position:absolute;top:15px;bottom:25px;width:1px;background:rgba(255,255,255,.25);pointer-events:none;display:none}
@@ -991,8 +994,12 @@ function renderChartAndStats(){
   // Live Price card carries the green/red % change badge (shown once there is a
   // prior day of history to compare against).
   var liveNum = livePrice ? sym+Number(livePrice).toLocaleString(undefined,{maximumFractionDigits:0}) : '&mdash;';
+  var badgeCls = dir>0 ? 'up' : (dir<0 ? 'down' : 'flat');
   var chgBadge = (chgPct!=null)
-    ? '<span class="mw-stat-chg '+(dir<0?'down':'up')+'">'+(arrowChar?arrowChar+' ':'')+Math.abs(chgPct).toFixed(2)+'%</span>'
+    ? '<div class="mw-stat-chgrow">'
+        + '<span class="mw-stat-chg '+badgeCls+'">'+(arrowChar?arrowChar+' ':'')+Math.abs(chgPct).toFixed(2)+'%</span>'
+        + '<span class="mw-stat-today">'+(chgAbs>=0?'+':'-')+sym+Math.abs(chgAbs).toLocaleString(undefined,{maximumFractionDigits:2})+' today</span>'
+      + '</div>'
     : '';
   var liveCard = '<div class="mw-stat"><div class="mw-stat-label">Live Price</div>'
     + '<div class="mw-stat-value-big">'+liveNum+'</div>'+chgBadge+'</div>';
