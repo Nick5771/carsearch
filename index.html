@@ -401,12 +401,13 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .mw-arrow{font-size:20px;font-weight:800;line-height:1}
 .mw-arrow-up{color:#22c55e}
 .mw-arrow-down{color:#ef4444}
-.mw-stat-chgrow{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.mw-liverow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.mw-live-num{font-size:34px;font-weight:800;color:#4d9fe6;line-height:1.05}
 .mw-stat-chg{display:inline-flex;align-items:center;gap:5px;font-size:14px;font-weight:700;padding:3px 9px;border-radius:8px}
 .mw-stat-chg.up{color:#22c55e;background:rgba(34,197,94,.12)}
 .mw-stat-chg.down{color:#ef4444;background:rgba(239,68,68,.12)}
 .mw-stat-chg.flat{color:#888;background:#161616}
-.mw-stat-today{font-size:13px;color:#888}
+.mw-stat-today{font-size:13px;color:#888;margin-top:6px}
 .mw-chart-canvas{width:100%;display:block;cursor:crosshair}
 .mw-chart-wrap{position:relative}
 .mw-chart-cross{position:absolute;top:15px;bottom:25px;width:1px;background:rgba(255,255,255,.25);pointer-events:none;display:none}
@@ -869,8 +870,10 @@ function renderMarketWatch(query, data, pickedProduct){
   document.getElementById('mw-content').style.display='block';
   if(typeof renderTopbarAuth==='function') renderTopbarAuth();
   window.scrollTo(0,0);
-  var cwRaw = (data.productDetails && data.productDetails.colorway) || '';
+  var _pd0 = data.productDetails || {};
+  var cwRaw = _pd0.colorway || '';
   var displayTitle = mwStripColorway(query.charAt(0).toUpperCase()+query.slice(1), cwRaw);
+  displayTitle = mwStripStyleCode(displayTitle, _pd0.styleId);
   document.getElementById('mw-item-title').textContent = displayTitle;
   var listings = data.listings || [];
   var sourceCount = new Set(listings.map(function(l){return l.source||(l._stockx?'StockX':'Marketplace');})).size;
@@ -945,6 +948,25 @@ function mwStripColorway(title, cw){
   return out||title;
 }
 
+// Keep the displayed name clean (e.g. "LEGO Harry Potter The Final Challenge",
+// "Yeezy 350 Bred") by removing the style/set code from it — the code still
+// shows on its own in the "Style Code" detail row. Strips "<code>", "#<code>",
+// or "Set <code>" wherever it appears, plus a trailing bare "Set 1234".
+function mwStripStyleCode(title, code){
+  if(!title) return title;
+  var t=String(title);
+  if(code){
+    var c=String(code).trim();
+    if(c){
+      var esc=c.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+      t=t.replace(new RegExp('\\s*(?:set|style|sku|no\\.?|#)?\\s*#?'+esc+'\\b','i'),'');
+    }
+  }
+  t=t.replace(/\s*\bset\s+\d{3,6}\b\s*$/i,'');
+  var out=t.replace(/\s{2,}/g,' ').trim();
+  return out||title;
+}
+
 // AI Summary removed by request — the product image takes that space instead.
 function renderAiSummary(listings, stats){
   var card = document.getElementById('mw-summary-card');
@@ -995,14 +1017,15 @@ function renderChartAndStats(){
   // prior day of history to compare against).
   var liveNum = livePrice ? sym+Number(livePrice).toLocaleString(undefined,{maximumFractionDigits:0}) : '&mdash;';
   var badgeCls = dir>0 ? 'up' : (dir<0 ? 'down' : 'flat');
-  var chgBadge = (chgPct!=null)
-    ? '<div class="mw-stat-chgrow">'
-        + '<span class="mw-stat-chg '+badgeCls+'">'+(arrowChar?arrowChar+' ':'')+Math.abs(chgPct).toFixed(2)+'%</span>'
-        + '<span class="mw-stat-today">'+(chgAbs>=0?'+':'-')+sym+Math.abs(chgAbs).toLocaleString(undefined,{maximumFractionDigits:2})+' today</span>'
-      + '</div>'
+  var pill = (chgPct!=null)
+    ? '<span class="mw-stat-chg '+badgeCls+'">'+(arrowChar?arrowChar+' ':'')+Math.abs(chgPct).toFixed(2)+'%</span>'
+    : '';
+  var todayLine = (chgPct!=null)
+    ? '<div class="mw-stat-today">'+(chgAbs>=0?'+':'-')+sym+Math.abs(chgAbs).toLocaleString(undefined,{maximumFractionDigits:2})+' today</div>'
     : '';
   var liveCard = '<div class="mw-stat"><div class="mw-stat-label">Live Price</div>'
-    + '<div class="mw-stat-value-big">'+liveNum+'</div>'+chgBadge+'</div>';
+    + '<div class="mw-liverow"><span class="mw-live-num">'+liveNum+'</span>'+pill+'</div>'
+    + todayLine + '</div>';
 
   document.getElementById('mw-stats-row').innerHTML =
     liveCard +
