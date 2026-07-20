@@ -401,6 +401,9 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .mw-arrow{font-size:20px;font-weight:800;line-height:1}
 .mw-arrow-up{color:#22c55e}
 .mw-arrow-down{color:#ef4444}
+.mw-stat-chg{display:inline-flex;align-items:center;gap:5px;margin-top:8px;font-size:14px;font-weight:700;padding:3px 9px;border-radius:8px}
+.mw-stat-chg.up{color:#22c55e;background:rgba(34,197,94,.12)}
+.mw-stat-chg.down{color:#ef4444;background:rgba(239,68,68,.12)}
 .mw-chart-canvas{width:100%;display:block;cursor:crosshair}
 .mw-chart-wrap{position:relative}
 .mw-chart-cross{position:absolute;top:15px;bottom:25px;width:1px;background:rgba(255,255,255,.25);pointer-events:none;display:none}
@@ -618,7 +621,6 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
               <button class="mw-range-tab" data-range="365" onclick="setChartRange(365)">1Y</button>
             </div>
           </div>
-          <div class="mw-chart-topline" id="mw-chart-topline"></div>
           <div class="mw-stats-row" id="mw-stats-row"></div>
           <div class="mw-chart-wrap" id="mw-chart-wrap">
             <canvas id="mw-chart-canvas" class="mw-chart-canvas" height="220"></canvas>
@@ -985,23 +987,18 @@ function renderChartAndStats(){
   var chgPct = (prevClose && chgAbs!=null) ? (chgAbs/prevClose*100) : null;
   var dir = (chgAbs==null || Math.abs(chgAbs)<0.005) ? 0 : (chgAbs>0 ? 1 : -1);
   var arrowChar = dir>0 ? '\u25B2' : (dir<0 ? '\u25BC' : '');
-  var tlCls = dir>0 ? 'mw-tl-up' : (dir<0 ? 'mw-tl-down' : 'mw-tl-flat');
-  var tl = document.getElementById('mw-chart-topline');
-  if(tl){
-    var priceHtml = '<span class="mw-tl-price">'+(livePrice?sym+Number(livePrice).toLocaleString():'—')+'</span><span class="mw-tl-cur">USD · live</span>';
-    var chgHtml = (chgPct!=null)
-      ? '<span class="mw-tl-chg '+tlCls+'">'+(arrowChar?arrowChar+' ':'')+Math.abs(chgPct).toFixed(2)+'%</span>'
-        + '<span class="mw-tl-today">'+(chgAbs>=0?'+':'-')+sym+Math.abs(chgAbs).toLocaleString(undefined,{maximumFractionDigits:2})+' today</span>'
-      : '';
-    tl.innerHTML = priceHtml + chgHtml;
-  }
 
-  // Live Price stat arrow uses the same direction.
-  var arrow = dir>0 ? '<span class="mw-arrow mw-arrow-up">\u25B2</span>'
-            : (dir<0 ? '<span class="mw-arrow mw-arrow-down">\u25BC</span>' : '');
+  // Live Price card carries the green/red % change badge (shown once there is a
+  // prior day of history to compare against).
+  var liveNum = livePrice ? sym+Number(livePrice).toLocaleString(undefined,{maximumFractionDigits:0}) : '&mdash;';
+  var chgBadge = (chgPct!=null)
+    ? '<span class="mw-stat-chg '+(dir<0?'down':'up')+'">'+(arrowChar?arrowChar+' ':'')+Math.abs(chgPct).toFixed(2)+'%</span>'
+    : '';
+  var liveCard = '<div class="mw-stat"><div class="mw-stat-label">Live Price</div>'
+    + '<div class="mw-stat-value-big">'+liveNum+'</div>'+chgBadge+'</div>';
 
   document.getElementById('mw-stats-row').innerHTML =
-    mwStatBig('Live Price', livePrice, sym, arrow) +
+    liveCard +
     mwStatBig('Market Price', medianNow, sym, '') +
     mwStatBig('Highest Price', s.max, sym, '') +
     '<div class="mw-stat"><div class="mw-stat-label">Listings Found</div><div class="mw-stat-value-big">'+(s.count||0)+'</div></div>';
@@ -1034,9 +1031,7 @@ function renderChartAndStats(){
   drawPriceChart(series);
 
   var noteEl=document.getElementById('mw-chart-note');
-  noteEl.textContent = (series.length>1)
-    ? 'Live price over time (item price only). History begins when FindAI first tracked this item.'
-    : 'Showing today\u2019s live price. The line builds as this item is tracked.';
+  noteEl.textContent = '';
 }
 function sourceCountLabel(){
   var el = document.getElementById('mw-item-sub');
