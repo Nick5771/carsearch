@@ -401,9 +401,9 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .mw-arrow{font-size:20px;font-weight:800;line-height:1}
 .mw-arrow-up{color:#22c55e}
 .mw-arrow-down{color:#ef4444}
-.mw-liverow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.mw-live-num{font-size:34px;font-weight:800;color:#4d9fe6;line-height:1.05}
-.mw-stat-chg{display:inline-flex;align-items:center;gap:5px;font-size:14px;font-weight:700;padding:3px 9px;border-radius:8px}
+.mw-liverow{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;white-space:nowrap;min-width:0}
+.mw-live-num{font-size:clamp(27px,2.25vw,34px);font-weight:800;color:#4d9fe6;line-height:1.05;min-width:0;letter-spacing:-.02em}
+.mw-stat-chg{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:700;padding:3px 7px;border-radius:8px;flex:0 0 auto;white-space:nowrap}
 .mw-stat-chg.up{color:#81c995;background:rgba(129,201,149,.14)}
 .mw-stat-chg.down{color:#f28b82;background:rgba(242,139,130,.14)}
 .mw-stat-chg.flat{color:#888;background:#161616}
@@ -416,15 +416,14 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .mw-chart-note{font-size:12px;color:#666;margin-top:6px}
 
 .mw-listings-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
-.mw-listing-card{position:relative;background:#111;border:1px solid #1a1a1a;border-radius:12px;padding:10px;min-width:0}
+.mw-listing-card{position:relative;display:block;background:#111;border:1px solid #1a1a1a;border-radius:12px;padding:10px;min-width:0;text-decoration:none;color:inherit;transition:border-color .15s ease,transform .15s ease}
+.mw-listing-card:hover{border-color:#333;transform:translateY(-1px)}
 .mw-listing-card.mw-best{border-color:#1a6fff}
 .mw-listing-thumb{width:100%;height:96px;border-radius:9px;overflow:hidden;background:#fff;margin-bottom:12px;display:flex;align-items:center;justify-content:center}
 .mw-listing-thumb img{width:100%;height:100%;object-fit:contain}
 .mw-listing-src{font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.03em}
 .mw-listing-price{font-size:21px;font-weight:800;color:#4d9fe6;margin:5px 0 3px}
-.mw-listing-title{font-size:11px;color:#999;line-height:1.3;height:28px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.mw-listing-btn{display:block;text-align:center;margin-top:7px;background:#1a6fff;color:#fff;text-decoration:none;padding:8px;border-radius:8px;font-size:13px;font-weight:600}
-.mw-listing-btn:hover{background:#185FA5}
+.mw-listing-shipping{font-size:12px;color:#999;line-height:1.3;margin-top:3px;min-height:16px}
 .mw-best-badge{position:absolute;top:-9px;right:10px;background:#1a6fff;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px}
 
 @media(max-width:1180px){.mw-listings-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
@@ -1336,14 +1335,20 @@ function renderTrackerListings(listings){
     var thumb = imgU
       ? '<div class="mw-listing-thumb"><img src="'+mwProxyImg(imgU)+'" alt="" loading="lazy" onerror="this.parentElement.style.display=\'none\'"></div>'
       : '';
-    return '<div class="mw-listing-card'+(isBest?' mw-best':'')+'">' +
+    var shipText = '';
+    if(l.shipping){
+      if(l.shipping.free === true || Number(l.shipping.cost) === 0) shipText = 'Free shipping';
+      else if(Number(l.shipping.cost) > 0) shipText = '+'+mwMoney(Number(l.shipping.cost))+' shipping';
+    } else if(l.freeShipping === true){
+      shipText = 'Free shipping';
+    }
+    return '<a class="mw-listing-card'+(isBest?' mw-best':'')+'" href="'+escapeHtml(l.url||'#')+'" target="_blank" rel="noopener" aria-label="View '+escapeHtml(srcLabel)+' listing">' +
       thumb +
       '<div class="mw-listing-src" style="text-transform:none">'+mwSourceBadge(l)+'</div>' +
       '<div class="mw-listing-price">'+(l.price?mwMoney(l.price):'See listing')+'</div>' +
-      '<div class="mw-listing-title">'+escapeHtml((l.title||'').slice(0,60))+'</div>' +
-      '<a class="mw-listing-btn" href="'+(l.url||'#')+'" target="_blank" rel="noopener">View listing</a>' +
+      (shipText?'<div class="mw-listing-shipping">'+escapeHtml(shipText)+'</div>':'<div class="mw-listing-shipping"></div>') +
       (isBest?'<div class="mw-best-badge">&#128081; Best Price</div>':(isHighest?'<div class="mw-best-badge" style="background:#333">Highest Price</div>':'')) +
-      '</div>';
+      '</a>';
   }).join('');
 }
 
