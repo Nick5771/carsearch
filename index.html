@@ -655,6 +655,9 @@ var mwSelectedProduct = null; // set when the user picks a StockX suggestion; nu
 var mwSuggestTimer = null;
 var mwSuggestSeq = 0;
 var mwLastSuggestions = [];
+var mwCurrentProductId = null;
+var mwLivePollTimer = null;
+var mwLastConfirmedSampleAt = '';
 
 function openMarketWatch(){
   document.getElementById('mw-overlay').classList.add('mw-open');
@@ -665,6 +668,7 @@ function openMarketWatch(){
   setTimeout(function(){ document.getElementById('mw-search-input').focus(); }, 50);
 }
 function closeMarketWatch(){
+  stopMarketWatchPolling();
   document.getElementById('mw-overlay').classList.remove('mw-open');
   document.body.style.overflow='';
   hideSuggestList();
@@ -782,7 +786,7 @@ function mwProxyImg(u){
   if(!u) return u;
   if(u.indexOf('data:')===0) return u;
   if(u.indexOf('/img?u=')!==-1) return u;            // already proxied
-  return /^https?:\/\//i.test(u) ? (WORKER + '/img?u=' + encodeURIComponent(u) + '&v=2') : u;
+  return /^https?:\/\//i.test(u) ? (WORKER + '/img?u=' + encodeURIComponent(u)) : u;
 }
 
 function renderSuggestList(suggestions){
@@ -916,6 +920,7 @@ function renderMarketWatch(query, data, pickedProduct){
     photoEl.innerHTML = '<div class="mw-suggest-ph">\uD83D\uDCE6</div>';
   }
 
+  mwCurrentProductId = data.productId || null;
   mwFullHistory = data.history || [];
   mwSamples = data.samples || [];
   mwLastStats = data.stats || {live:0,min:0,max:0,avg:0,count:0};
@@ -929,7 +934,14 @@ function renderMarketWatch(query, data, pickedProduct){
     var rows = [];
     rows.push(['Product', displayTitle]);
     if(d.brand) rows.push(['Brand', d.brand]);
-    if(d.styleId) rows.push(['Style Code', d.styleId]);
+    var isLego = /lego/i.test(d.brand||'');
+    if(d.styleId) rows.push([isLego ? 'Set Number' : 'Style Code', d.styleId]);
+    if(isLego && d.theme) rows.push(['Theme', d.theme]);
+    if(isLego && d.rrp) rows.push(['RRP', d.rrp]);
+    if(isLego && d.pieces) rows.push(['Pieces', Number(d.pieces).toLocaleString()]);
+    if(isLego && d.minifigures) rows.push(['Minifigures', String(d.minifigures)]);
+    if(isLego && d.released) rows.push(['Release Year', String(d.released)]);
+    if(isLego) rows.push(['Retired', d.retired || 'No']);
     if(d.colorway) rows.push(['Colorway', mwCleanColorway(d.colorway)]);
     rows.push(['Condition', 'Brand New']);
     document.getElementById('mw-details-body').innerHTML =
@@ -945,6 +957,7 @@ function renderMarketWatch(query, data, pickedProduct){
   renderTrackerListings(listings);
   mwTracking = false;
   updateTrackBtn();
+  startMarketWatchPolling();
 }
 
 // Dedupe a colourway like "Onyx/Onyx/Onyx" -> "Onyx"; keep distinct ones.
@@ -1029,6 +1042,22 @@ function mwPrevClose(){
   return null;
 }
 
+function mwRangeLow(days){
+  var cut = Date.now() - days*864e5;
+  var vals = [];
+  (mwFullHistory||[]).forEach(function(x){
+    var t = new Date((x.snapshot_date||'')+'T00:00:00Z').getTime();
+    var v = Number(x.median_price)||0;
+    if(t>=cut && v>0) vals.push(v);
+  });
+  (mwSamples||[]).forEach(function(x){
+    var t = new Date(x.sampled_at||0).getTime();
+    var v = Number(x.median_price)||0;
+    if(t>=cut && v>0) vals.push(v);
+  });
+  return vals.length ? Math.min.apply(null, vals) : 0;
+}
+
 function renderChartAndStats(){
   var s = mwLastStats || {live:0,min:0,median:0,max:0,avg:0,count:0};
   var livePrice = (s.live!=null ? s.live : s.min) || 0;      // cheapest new listing, right now
@@ -1059,13 +1088,13 @@ function renderChartAndStats(){
   document.getElementById('mw-stats-row').innerHTML =
     liveCard +
     mwStatBig('Market Price', medianNow, sym, '') +
-    mwStatBig('Highest Price', s.max, sym, '') +
+    mwStatBig('90 Day Low', mwRangeLow(90), sym, '') +
     '<div class="mw-stat"><div class="mw-stat-label">Listings Found</div><div class="mw-stat-value-big">'+(s.count||0)+'</div></div>';
 
   // The line = the LIVE price over time (like a stock's last-sale price). Short
   // ranges use intraday samples; longer ranges use the daily rollup. Then append
   // the current live price so the line is always up to date.
-  var liveOf = function(x){ return Number(x.live_price)||Number(x.min_price)||Number(x.median_price)||Number(x.avg_price)||0; };
+  var liveOf = function(x){ return Number(x.median_price)||Number(x.avg_price)||Number(x.live_price)||Number(x.min_price)||0; };
   var series;
   if(mwChartRange<=7 && mwSamples.length){
     var cut = Date.now() - mwChartRange*864e5;
@@ -1080,11 +1109,11 @@ function renderChartAndStats(){
       .map(function(h){ return { t:new Date(h.snapshot_date+'T00:00:00Z').getTime(), v:liveOf(h), label:h.snapshot_date.slice(5) }; });
   }
   series = series.filter(function(p){ return p.v>0; });
-  if(livePrice>0){
+  if(medianNow>0){
     var now=Date.now();
     var lastT = series.length ? series[series.length-1].t : 0;
-    if(series.length && (now-lastT) < 90000){ series[series.length-1].live=true; series[series.length-1].v=livePrice; }
-    else series.push({ t:now, v:livePrice, live:true });
+    if(series.length && (now-lastT) < 90000){ series[series.length-1].live=true; series[series.length-1].v=medianNow; }
+    else series.push({ t:now, v:medianNow, live:true });
   }
 
   drawPriceChart(series);
@@ -1092,6 +1121,44 @@ function renderChartAndStats(){
   var noteEl=document.getElementById('mw-chart-note');
   noteEl.textContent = '';
 }
+function stopMarketWatchPolling(){
+  if(mwLivePollTimer){ clearInterval(mwLivePollTimer); mwLivePollTimer=null; }
+}
+function startMarketWatchPolling(){
+  stopMarketWatchPolling();
+  if(!mwCurrentQuery) return;
+  mwLivePollTimer=setInterval(function(){
+    if(document.hidden) return;
+    refreshMarketWatchFromStore();
+  },30000);
+}
+async function refreshMarketWatchFromStore(){
+  if(!mwCurrentQuery) return;
+  try{
+    var u=WORKER+'/tracker/latest?q='+encodeURIComponent(mwCurrentQuery);
+    if(mwCurrentProductId) u+='&productId='+encodeURIComponent(mwCurrentProductId);
+    var r=await fetch(u,{cache:'no-store'});
+    if(!r.ok) return;
+    var d=await r.json();
+    if(d.history && d.history.length) mwFullHistory=d.history;
+    if(d.sample && d.sample.sampled_at && d.sample.sampled_at!==mwLastConfirmedSampleAt){
+      mwLastConfirmedSampleAt=d.sample.sampled_at;
+      mwSamples=(mwSamples||[]).filter(function(x){return x.sampled_at!==d.sample.sampled_at;});
+      mwSamples.push(d.sample);
+      mwLastStats=Object.assign({},mwLastStats||{}, {
+        live: Number(d.sample.live_price)||Number((mwLastStats||{}).live)||0,
+        median: Number(d.sample.median_price)||Number((mwLastStats||{}).median)||0,
+        avg: Number(d.sample.avg_price)||Number((mwLastStats||{}).avg)||0,
+        count: Number(d.sample.listing_count)||Number((mwLastStats||{}).count)||0
+      });
+      renderChartAndStats();
+    }
+  }catch(_){ }
+}
+document.addEventListener('visibilitychange',function(){
+  if(!document.hidden && mwLivePollTimer) refreshMarketWatchFromStore();
+});
+
 function sourceCountLabel(){
   var el = document.getElementById('mw-item-sub');
   return el ? el.textContent : '';
