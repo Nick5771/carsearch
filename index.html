@@ -364,6 +364,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .mw-verify-status{font-size:12px;color:#888}
 
 .mw-details-card,.mw-summary-card,.mw-chart-card,.mw-listings-card{background:#0b0b0b;border:1px solid #1a1a1a;border-radius:14px;padding:14px 16px;box-sizing:border-box;overflow:visible}
+.mw-listings-card{margin-top:18px}
 .mw-card-label{font-size:14px;font-weight:700;color:#fff}
 .mw-detail-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #1a1a1a;font-size:12.5px;gap:12px}
 .mw-detail-row:last-child{border-bottom:none}
@@ -1336,11 +1337,18 @@ function renderTrackerListings(listings){
       ? '<div class="mw-listing-thumb"><img src="'+mwProxyImg(imgU)+'" alt="" loading="lazy" onerror="this.parentElement.style.display=\'none\'"></div>'
       : '';
     var shipText = '';
-    if(l.shipping){
-      if(l.shipping.free === true || Number(l.shipping.cost) === 0) shipText = 'Free shipping';
-      else if(Number(l.shipping.cost) > 0) shipText = '+'+mwMoney(Number(l.shipping.cost))+' shipping';
-    } else if(l.freeShipping === true){
+    var rawShip = null;
+    if(l.shipping && l.shipping.cost != null) rawShip = Number(l.shipping.cost);
+    else if(l.shippingCost != null) rawShip = Number(l.shippingCost);
+    else if(l.shippingPrice != null) rawShip = Number(l.shippingPrice);
+    else if(l.deliveryCost != null) rawShip = Number(l.deliveryCost);
+    else if(l.postage != null) rawShip = Number(l.postage);
+    if((l.shipping && l.shipping.free === true) || l.freeShipping === true || rawShip === 0){
       shipText = 'Free shipping';
+    } else if(Number.isFinite(rawShip) && rawShip > 0){
+      shipText = '+'+mwMoney(rawShip)+' shipping';
+    } else {
+      shipText = 'Shipping calculated at checkout';
     }
     return '<a class="mw-listing-card'+(isBest?' mw-best':'')+'" href="'+escapeHtml(l.url||'#')+'" target="_blank" rel="noopener" aria-label="View '+escapeHtml(srcLabel)+' listing">' +
       thumb +
