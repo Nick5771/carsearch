@@ -768,27 +768,39 @@ function mwHeroImgErr(el){
   el.replaceWith(ph);
 }
 
+// Autocomplete thumbnails use direct catalogue URLs for LEGO sources.
+// The previous build routed every URL through /img even though that proxy was
+// only needed for StockX. Brickset/Rebrickable images can load directly in the
+// browser, and proxying them was the reason valid first-search images fell back
+// to the parcel icon. Product-page image handling remains unchanged.
+function mwSuggestImg(u){
+  if(!u) return u;
+  if(u.indexOf('data:')===0) return u;
+  if(u.indexOf('/img?u=')!==-1) return u;
+  return /images\.stockx\.com/i.test(u)
+    ? (WORKER + '/img?u=' + encodeURIComponent(u))
+    : u;
+}
+
 function mwImgErr(el){
   var fb = el.getAttribute('data-fallback');
   if(fb){
     el.removeAttribute('data-fallback');
-    el.src = mwProxyImg(fb);
+    el.src = mwSuggestImg(fb);
     return;
   }
   var ph = document.createElement('div');
   ph.className = 'mw-suggest-ph';
-  ph.textContent = '\uD83D\uDCE6'; // shoe emoji, generic product placeholder
+  ph.textContent = '\uD83D\uDCE6';
   el.replaceWith(ph);
 }
 
-// StockX's image CDN can block hotlinked <img> loads from another origin, which
-// leaves photos blank even when the URL is right. Route StockX images through
-// our own /img proxy so the browser loads them from findai.ai instead. eBay and
-// other images (which hotlink fine) are left untouched to save worker bandwidth.
+// Product-page hero images still use the Worker proxy because that candidate
+// list can include StockX and other marketplaces with hotlink restrictions.
 function mwProxyImg(u){
   if(!u) return u;
   if(u.indexOf('data:')===0) return u;
-  if(u.indexOf('/img?u=')!==-1) return u;            // already proxied
+  if(u.indexOf('/img?u=')!==-1) return u;
   return /^https?:\/\//i.test(u) ? (WORKER + '/img?u=' + encodeURIComponent(u)) : u;
 }
 
@@ -804,7 +816,7 @@ function renderSuggestList(suggestions){
   box.innerHTML = suggestions.map(function(s, i){
     var sub = [s.styleId, s.colorway].filter(Boolean).join(' · ');
     return '<div class="mw-suggest-item" onclick="pickSuggestion(' + i + ')">' +
-      (s.image ? '<img src="'+mwProxyImg(s.image)+'" data-fallback="'+escapeHtml(s.image2||'')+'" alt="" loading="lazy" onerror="mwImgErr(this)">' : (s.image2 ? '<img src="'+mwProxyImg(s.image2)+'" alt="" loading="lazy" onerror="mwImgErr(this)">' : '<div class="mw-suggest-ph">\uD83D\uDCE6</div>')) +
+      (s.image ? '<img src="'+mwSuggestImg(s.image)+'" data-fallback="'+escapeHtml(s.image2||'')+'" alt="" loading="eager" decoding="async" referrerpolicy="no-referrer" onerror="mwImgErr(this)">' : (s.image2 ? '<img src="'+mwSuggestImg(s.image2)+'" alt="" loading="eager" decoding="async" referrerpolicy="no-referrer" onerror="mwImgErr(this)">' : '<div class="mw-suggest-ph">\uD83D\uDCE6</div>')) +
       '<div class="mw-suggest-text"><div class="mw-suggest-title">'+escapeHtml(s.title)+'</div>' +
       (sub ? '<div class="mw-suggest-sub">'+escapeHtml(sub)+'</div>' : '') + '</div></div>';
   }).join('');
@@ -957,7 +969,13 @@ function renderMarketWatch(query, data, pickedProduct){
   }
 
   renderAiSummary(listings, mwLastStats);
-  renderTrackerListings(listings);
+  // For LEGO, pass the verified Brickset catalogue image into the listing
+  // renderer so StockX cards always have the correct set image even when
+  // StockX's own LEGO image is missing or blocked.
+  var legoCatalogImage = isLego
+    ? ((data.productDetails && data.productDetails.image) || data.heroImage || candidates[0] || '')
+    : '';
+  renderTrackerListings(listings, legoCatalogImage);
   mwTracking = false;
   updateTrackBtn();
   startMarketWatchPolling();
@@ -1319,7 +1337,7 @@ function drawPriceChart(series){
   }
 }
 
-function renderTrackerListings(listings){
+function renderTrackerListings(listings, legoCatalogImage){
   var grid = document.getElementById('mw-listings-grid');
   if(!listings.length){
     grid.innerHTML = '<p style="color:#666;font-size:14px">No live listings found right now.</p>';
@@ -1334,7 +1352,14 @@ function renderTrackerListings(listings){
     var isBest = cheapest!==null && l.price===cheapest;
     var isHighest = highest!==null && l.price===highest && highest!==cheapest;
     var srcLabel = l.source || (l._stockx ? 'StockX' : 'Marketplace');
-    var imgU = l.image || l.stockxImage || '';
+    var isStockXListing = !!(l._stockx || l.stockx || String(l.source||'').toLowerCase()==='stockx');
+    // LEGO-only StockX fallback: StockX's image CDN is unreliable for LEGO.
+    // The product-detail image is the verified Brickset catalogue image for the
+    // exact set, so force that image on every LEGO StockX listing card. This
+    // does not alter eBay/Amazon images or any non-LEGO StockX product.
+    var imgU = (isStockXListing && legoCatalogImage)
+      ? legoCatalogImage
+      : (l.image || l.stockxImage || '');
     var thumb = imgU
       ? '<div class="mw-listing-thumb"><img src="'+mwProxyImg(imgU)+'" alt="" loading="lazy" onerror="this.parentElement.style.display=\'none\'"></div>'
       : '';
