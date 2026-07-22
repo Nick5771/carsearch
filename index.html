@@ -942,7 +942,9 @@ function renderMarketWatch(query, data, pickedProduct){
     if(isLego && d.pieces) rows.push(['Pieces', Number(d.pieces).toLocaleString()]);
     if(isLego && d.minifigures) rows.push(['Minifigures', String(d.minifigures)]);
     if(isLego && d.released) rows.push(['Release Year', String(d.released)]);
-    if(isLego) rows.push(['Retired', d.retired || 'No']);
+    // Never label an unknown retirement state as active. The Worker now
+    // returns Yes/No only when it has evidence; otherwise show Unknown.
+    if(isLego) rows.push(['Retired', d.retired || 'Unknown']);
     if(d.colorway) rows.push(['Colorway', mwCleanColorway(d.colorway)]);
     rows.push(['Condition', 'Brand New']);
     document.getElementById('mw-details-body').innerHTML =
