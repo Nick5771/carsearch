@@ -782,7 +782,14 @@ function mwProxyImg(u){
   if(!u) return u;
   if(u.indexOf('data:')===0) return u;
   if(u.indexOf('/img?u=')!==-1) return u;            // already proxied
-  return /^https?:\/\//i.test(u) ? (WORKER + '/img?u=' + encodeURIComponent(u)) : u;
+
+  // Only StockX needs the Worker image proxy. Brickset, eBay, Rebrickable and
+  // other catalogue/CDN images load directly in the browser. Proxying every URL
+  // caused valid Brickset images to fail and fall back to the parcel icon.
+  if(/^https?:\/\/(?:images\.)?stockx\.com\//i.test(u)){
+    return WORKER + '/img?u=' + encodeURIComponent(u);
+  }
+  return u;
 }
 
 function renderSuggestList(suggestions){
