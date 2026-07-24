@@ -1215,17 +1215,20 @@ function renderChartAndStats(){
     else series.push({ t:now, v:livePrice, live:true });
   }
 
-  // Real completed sales inside the visible window. These are plotted as
-  // discrete markers, never joined into a line: a set that sold in February and
-  // again in June did not drift smoothly between the two, and drawing that
-  // would invent a trend nobody observed.
+  // Real completed sales inside the visible window. Raw sale-to-sale prices are
+  // inherently spiky — one set sells at £240, the next at £635 — so plotting
+  // them directly produces noise, not a trend. Every price-history product
+  // (CamelCamelCamel, StockX, PriceCharting) solves this with a rolling median:
+  // the "what's it worth this week" line. We smooth here, honestly, using only
+  // real sales; nothing is invented.
   var saleCut = Date.now() - mwChartRange*864e5;
-  var sales = (mwBackfill && mwBackfill.sales ? mwBackfill.sales : [])
+  var rawSales = (mwBackfill && mwBackfill.sales ? mwBackfill.sales : [])
     .map(function(s){ return { t:new Date(s.t).getTime(), v:Number(s.v)||0, qty:Number(s.qty)||1 }; })
     .filter(function(s){ return s.v>0 && s.t>=saleCut; })
     .sort(function(a,b){ return a.t-b.t; });
+  var sales = mwRollingMedian(rawSales, mwChartRange);
 
-  drawPriceChart(series, { sales: sales, band: (sales.length && mwBackfill) ? mwBackfill : null });
+  drawPriceChart(series, { sales: sales, band: null });
 
   // Caption removed by request. Provenance still surfaces on hover: sale nodes
   // read "sold <date>", the live node reads "listed now".
@@ -1242,6 +1245,36 @@ function sourceCountLabel(){
 // data point — the curve cannot bulge above a peak or below a trough it's
 // connecting, so it reads like a real finance chart instead of a cartoon wave.
 // Every point is still hit exactly; nothing is smoothed away or invented.
+// Rolling median over a time window. Slides a window across the real sales and
+// emits the median price at each step, so single outlier sales can't spike the
+// line while genuine trend changes still come through. Window scales with the
+// visible range: tight for 7D so recent moves show, wider for 1Y so the line
+// reads as a clean trend. Output points are real median-of-sales values on real
+// dates — this is smoothing of observed data, not fabrication.
+function mwRollingMedian(pts, rangeDays){
+  if(!pts || pts.length < 4) return pts || [];   // too few to smooth meaningfully
+  var win = rangeDays <= 7 ? 1.5 : rangeDays <= 30 ? 4 : rangeDays <= 90 ? 9 : 16; // days, half-width
+  var winMs = win * 864e5;
+  // Step across the window at a resolution that yields a smooth but light line.
+  var span = pts[pts.length-1].t - pts[0].t;
+  var steps = Math.max(12, Math.min(60, Math.round(span / (winMs))));
+  var out = [];
+  for(var i=0;i<=steps;i++){
+    var centre = pts[0].t + span * (i/steps);
+    var bucket = pts.filter(function(p){ return Math.abs(p.t - centre) <= winMs; }).map(function(p){ return p.v; });
+    if(!bucket.length) continue;
+    bucket.sort(function(a,b){ return a-b; });
+    var mid = bucket.length % 2 ? bucket[(bucket.length-1)/2]
+      : (bucket[bucket.length/2-1] + bucket[bucket.length/2])/2;
+    // De-duplicate identical consecutive timestamps.
+    if(out.length && Math.abs(out[out.length-1].t - centre) < 864e5*0.5){ out[out.length-1] = { t:centre, v:mid, qty:1 }; }
+    else out.push({ t:centre, v:mid, qty:1 });
+  }
+  // Always anchor the final point to the most recent real sale's date so the
+  // line reaches "now" rather than stopping at the last window centre.
+  return out;
+}
+
 function strokeSmooth(ctx, pts){
   var n = pts.length;
   if(n < 2) return;
@@ -1594,10 +1627,16 @@ function aliLogoHtml() {
 // file, and it renders crisply at any pixel density. Used to identify where a
 // link goes, the same way the eBay mark above is.
 function legoLogoHtml(){
-  return '<span style="display:inline-flex;align-items:center;gap:6px">' +
-    '<svg width="34" height="16" viewBox="0 0 34 16" aria-label="LEGO" role="img">' +
-      '<rect width="34" height="16" rx="3" fill="#E3000B"/>' +
-      '<text x="17" y="12.2" text-anchor="middle" font-family="DM Sans, Arial Black, sans-serif" font-weight="800" font-size="10.5" fill="#FFDD00" letter-spacing="0.4">LEGO</text>' +
+  // Faithful recreation of the LEGO wordmark: puffy white italic letters with a
+  // yellow halo and black outline on the red rounded tile. Inline SVG, not a
+  // hotlink of LEGO's trademarked file — always renders, crisp at any density.
+  // The paint-order double stroke (yellow beneath, thin black on top) is what
+  // gives the letters the real rounded look instead of flat text.
+  return '<span style="display:inline-flex;align-items:center;gap:5px;vertical-align:middle">' +
+    '<svg width="40" height="24" viewBox="0 0 40 24" role="img" aria-label="LEGO">' +
+      '<rect x="0.5" y="0.5" width="39" height="23" rx="4.5" fill="#D01012" stroke="#0c0c0c" stroke-width="1"/>' +
+      '<text x="20" y="17.6" text-anchor="middle" font-family="Arial Black, DM Sans, sans-serif" font-weight="900" font-size="15" font-style="italic" letter-spacing="-0.6" fill="#fff" stroke="#FFD500" stroke-width="3" paint-order="stroke" stroke-linejoin="round">LEGO</text>' +
+      '<text x="20" y="17.6" text-anchor="middle" font-family="Arial Black, DM Sans, sans-serif" font-weight="900" font-size="15" font-style="italic" letter-spacing="-0.6" fill="#fff" stroke="#111" stroke-width="0.7" paint-order="stroke">LEGO</text>' +
     '</svg>' +
     '<span style="font-size:12px;font-weight:600;color:#ddd;font-family:\'DM Sans\',sans-serif">.com</span>' +
   '</span>';
