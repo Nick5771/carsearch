@@ -1135,14 +1135,57 @@ function renderChartAndStats(){
   var pill = '<span class="mw-stat-chg '+badgeCls+'">'+(arrowChar?arrowChar+' ':'')+pctTxt+'%</span>';
   var todayPrefix = dir>0 ? '+' : (dir<0 ? '-' : '');
   var todaySpan = '<span class="mw-stat-today '+badgeCls+'">'+todayPrefix+mwMoney(Math.abs(absTxt))+' today</span>';
+
+  // Prefer "how does this price compare to what the set actually sells for"
+  // over "how did it move since yesterday". The day-change needs two consecutive
+  // daily snapshots and is 0.00% on most products; the market comparison answers
+  // the question a buyer actually has. Only shown once there are enough real
+  // sales to mean something — below that a percentage is noise, so we fall back
+  // to the day-change badge.
+  var mv = (mwBackfill && mwBackfill.marketValueReliable && Number(mwBackfill.marketValue) > 0)
+    ? Number(mwBackfill.marketValue) : null;
+  if(mv && livePrice > 0){
+    var deltaPct = (1 - (livePrice / mv)) * 100;
+    var under = deltaPct > 0;
+    // Within 3% either way is "about right" — claiming a 1% saving is noise.
+    var mvCls = Math.abs(deltaPct) < 3 ? 'flat' : (under ? 'up' : 'down');
+    var mvTxt = Math.abs(deltaPct) < 3 ? 'at market'
+      : (Math.round(Math.abs(deltaPct)) + '% ' + (under ? 'under' : 'over'));
+    pill = '<span class="mw-stat-chg '+mvCls+'">'+mvTxt+'</span>';
+    todaySpan = '<span class="mw-stat-today '+mvCls+'">vs market</span>';
+  }
   var liveCard = '<div class="mw-stat"><div class="mw-stat-label">Live Price</div>'
     + '<div class="mw-live-layout"><span class="mw-live-num">'+liveNum+'</span><div class="mw-live-change-col">'+pill+todaySpan+'</div></div>'
     + '</div>';
 
+  // Market Value replaces the old "Market Price" (median of ASKING prices, which
+  // included every optimistic listing) and Last Sold replaces "Highest Price"
+  // (literally the dearest listing on the page — an anchor to a number nobody
+  // has ever paid). Both now come from completed sales. Where we have no sales
+  // data the old asking-price figures remain as a fallback.
+  var mvCard, lastCard;
+  if(mv){
+    mvCard = '<div class="mw-stat"><div class="mw-stat-label">Market Value</div>'
+      + '<div class="mw-stat-value-big">'+mwMoney(mv)+'</div>'
+      + '<div style="font-size:11px;color:#666;margin-top:2px">'+mwBackfill.marketValueSales+' sales \u00b7 6 months</div></div>';
+  } else {
+    mvCard = mwStatBig('Market Value', medianNow, sym, '');
+  }
+
+  if(mwBackfill && mwBackfill.lastSalePrice && mwBackfill.lastSaleDate){
+    var lsd = new Date(mwBackfill.lastSaleDate);
+    var daysAgo = Math.max(0, Math.round((Date.now() - lsd.getTime())/864e5));
+    var MONS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var whenTxt = daysAgo === 0 ? 'today' : (daysAgo === 1 ? 'yesterday' : daysAgo + ' days ago');
+    lastCard = '<div class="mw-stat"><div class="mw-stat-label">Last Sold</div>'
+      + '<div class="mw-stat-value-big">'+mwMoney(mwBackfill.lastSalePrice)+'</div>'
+      + '<div style="font-size:11px;color:#666;margin-top:2px">'+lsd.getDate()+' '+MONS[lsd.getMonth()]+' \u00b7 '+whenTxt+'</div></div>';
+  } else {
+    lastCard = mwStatBig('Highest Price', s.max, sym, '');
+  }
+
   document.getElementById('mw-stats-row').innerHTML =
-    liveCard +
-    mwStatBig('Market Price', medianNow, sym, '') +
-    mwStatBig('Highest Price', s.max, sym, '') +
+    liveCard + mvCard + lastCard +
     '<div class="mw-stat"><div class="mw-stat-label">Listings Found</div><div class="mw-stat-value-big">'+(s.count||0)+'</div></div>';
 
   // The line = the LIVE price over time (like a stock's last-sale price). Short
