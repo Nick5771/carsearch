@@ -956,22 +956,23 @@ function renderMarketWatch(query, data, pickedProduct){
   mwFullHistory = data.history || [];
   mwSamples = data.samples || [];
   mwBackfill = data.backfill || null;
-  // Sparse-selling items (most retired sets) may have no sale inside the default
-  // window, which would show an empty chart on a product we DO have real data
-  // for. Open on the narrowest range that actually contains sales.
-  if(mwBackfill && mwBackfill.sales && mwBackfill.sales.length){
-    var oldestDays = (Date.now() - new Date(mwBackfill.sales[0].t).getTime())/864e5;
-    var want = oldestDays > 90 ? 365 : (oldestDays > 30 ? 90 : (oldestDays > 7 ? 30 : 7));
-    if(want > mwChartRange){
-      mwChartRange = want;
-      document.querySelectorAll('.mw-range-tab').forEach(function(t){
-        t.classList.toggle('mw-range-active', Number(t.dataset.range)===want);
-      });
-    }
-  }
   mwLastStats = data.stats || {live:0,min:0,max:0,avg:0,count:0};
+
+  // Default to 7D, then widen if the real completed sales all sit outside that
+  // window. Sparse-selling items (most retired sets) may not have traded in the
+  // last week, and showing an empty chart for a product we DO have real data on
+  // is the worst of both worlds. This must run AFTER the 7D reset below or it
+  // gets clobbered.
   mwChartRange = 7;
-  document.querySelectorAll('.mw-range-tab').forEach(function(t){ t.classList.toggle('mw-range-active', t.dataset.range==='7'); });
+  if(mwBackfill && mwBackfill.sales && mwBackfill.sales.length){
+    var newestSale = mwBackfill.sales[mwBackfill.sales.length-1].t;
+    var newestDays = (Date.now() - new Date(newestSale).getTime())/864e5;
+    if(newestDays > 90)      mwChartRange = 365;
+    else if(newestDays > 30) mwChartRange = 90;
+    else if(newestDays > 7)  mwChartRange = 30;
+  }
+  var _r = String(mwChartRange);
+  document.querySelectorAll('.mw-range-tab').forEach(function(t){ t.classList.toggle('mw-range-active', t.dataset.range===_r); });
   renderChartAndStats();
 
   var detailsCard = document.getElementById('mw-details-card');
