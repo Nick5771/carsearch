@@ -1237,19 +1237,31 @@ function sourceCountLabel(){
   return el ? el.textContent : '';
 }
 
-// Draw a smooth curve THROUGH a set of points using Catmull-Rom splines
-// converted to cubic beziers. This only softens the corners between real data
-// points for looks — every point p[i] is still hit exactly, so no value is
-// altered, hidden, or invented. Tension 0 = classic Catmull-Rom.
+// Draw a smooth curve THROUGH a set of points using MONOTONE cubic
+// interpolation (Fritsch–Carlson). Unlike Catmull-Rom, this never overshoots a
+// data point — the curve cannot bulge above a peak or below a trough it's
+// connecting, so it reads like a real finance chart instead of a cartoon wave.
+// Every point is still hit exactly; nothing is smoothed away or invented.
 function strokeSmooth(ctx, pts){
-  if(pts.length < 2) return;
-  if(pts.length === 2){ ctx.moveTo(pts[0].x,pts[0].y); ctx.lineTo(pts[1].x,pts[1].y); return; }
+  var n = pts.length;
+  if(n < 2) return;
+  if(n === 2){ ctx.moveTo(pts[0].x,pts[0].y); ctx.lineTo(pts[1].x,pts[1].y); return; }
+  // Secant slopes between consecutive points.
+  var dx = [], dy = [], m = [];
+  for(var i=0;i<n-1;i++){ dx[i]=pts[i+1].x-pts[i].x; dy[i]=pts[i+1].y-pts[i].y; m[i]=dy[i]/(dx[i]||1); }
+  // Tangents at each point, clamped so the curve stays monotone between points.
+  var t = [ m[0] ];
+  for(var k=1;k<n-1;k++){
+    if(m[k-1]*m[k] <= 0){ t[k] = 0; }                 // local extremum -> flat, no overshoot
+    else { t[k] = (m[k-1]+m[k])/2; }
+  }
+  t[n-1] = m[n-2];
+  // Emit cubic beziers using the clamped tangents.
   ctx.moveTo(pts[0].x, pts[0].y);
-  for(var i=0;i<pts.length-1;i++){
-    var p0 = pts[i===0?0:i-1], p1 = pts[i], p2 = pts[i+1], p3 = pts[i+2>pts.length-1?pts.length-1:i+2];
-    var c1x = p1.x + (p2.x - p0.x)/6, c1y = p1.y + (p2.y - p0.y)/6;
-    var c2x = p2.x - (p3.x - p1.x)/6, c2y = p2.y - (p3.y - p1.y)/6;
-    ctx.bezierCurveTo(c1x,c1y,c2x,c2y,p2.x,p2.y);
+  for(var j=0;j<n-1;j++){
+    var x1 = pts[j].x + dx[j]/3, y1 = pts[j].y + t[j]*dx[j]/3;
+    var x2 = pts[j+1].x - dx[j]/3, y2 = pts[j+1].y - t[j+1]*dx[j]/3;
+    ctx.bezierCurveTo(x1,y1,x2,y2,pts[j+1].x,pts[j+1].y);
   }
 }
 
