@@ -1074,6 +1074,16 @@ function mwMoney(usd, maxFrac){
   return mwFx.sym + v.toLocaleString(undefined,{maximumFractionDigits:(maxFrac==null?0:maxFrac)});
 }
 
+// Most prices reach us in USD and get converted for display. StockX is the
+// exception: their regional prices are set independently rather than converted,
+// so the backend re-fetches the ask in the visitor's own currency and flags it
+// priceIsLocal. Converting that a second time is what turned StockX's £163 into
+// £192 on our card.
+function mwPriceFor(l){
+  if(l && l.priceIsLocal) return mwFx.sym + Number(l.price).toLocaleString(undefined,{maximumFractionDigits:0});
+  return mwMoney(l && l.price);
+}
+
 function mwStat(label, val, sub, sym){
   return '<div class="mw-stat"><div class="mw-stat-label">'+label+'</div><div class="mw-stat-value">'+(val?mwMoney(val):'&mdash;')+'</div>'+(sub?'<div style="font-size:11px;color:#666;margin-top:2px">'+sub+'</div>':'')+'</div>';
 }
@@ -1452,7 +1462,10 @@ function renderTrackerListings(listings){
     if(l.source === 'bricklink'){
       shippingText = (l.lots ? l.lots + ' listings' : 'Multiple sellers') + ' \u00b7 excl. shipping';
     } else if(l.source === 'lego'){
-      shippingText = 'RRP \u00b7 official shop';
+      // LEGO ships free over a per-region threshold (£50 in the UK). Below it,
+      // delivery is charged, so don't promise anything we can't stand behind.
+      var legoLocal = Number(l.price) * (mwFx.rate||1);
+      shippingText = legoLocal >= 50 ? 'Free shipping' : 'Shipping varies';
     } else {
       shippingText = shippingCost === 0
         ? 'Free shipping'
@@ -1462,7 +1475,7 @@ function renderTrackerListings(listings){
     return '<a class="mw-listing-card'+(isBest?' mw-best':'')+'" href="'+escapeHtml(l.url||'#')+'" target="_blank" rel="noopener">' +
       thumb +
       '<div class="mw-listing-src" style="text-transform:none">'+mwSourceBadge(l)+'</div>' +
-      '<div class="mw-listing-bottom"><div class="mw-listing-price">'+(l.price?((l.source==='bricklink'?'from ':'')+mwMoney(l.price)):'See listing')+'</div>' +
+      '<div class="mw-listing-bottom"><div class="mw-listing-price">'+(l.price?((l.source==='bricklink'?'from ':'')+mwPriceFor(l)):'See listing')+'</div>' +
       '<div class="mw-listing-shipping'+shippingCls+'">'+shippingText+'</div></div>' +
       (isBest?'<div class="mw-best-badge">&#128081; Best Price</div>':'') +
       '</a>';
@@ -1475,8 +1488,8 @@ function mwSourceBadge(l){
   if(l._discogs || s==='discogs') return discogsWordmark();
   if(l._etsy || s==='etsy') return etsyWordmark();
   if(s.indexOf('ali')!==-1) return '<span style="font-size:12px;font-weight:800;color:#ff4747;font-family:\'DM Sans\',sans-serif">AliExpress</span>';
-  if(s==='lego') return '<span style="font-weight:800;color:#E3000B;font-size:13px;font-family:\'DM Sans\',sans-serif;letter-spacing:-0.3px">LEGO.com</span>';
-  if(s==='bricklink') return '<span style="font-weight:800;color:#4a7ebb;font-size:13px;font-family:\'DM Sans\',sans-serif;letter-spacing:-0.3px">BrickLink</span>';
+  if(s==='lego') return legoLogoHtml();
+  if(s==='bricklink') return bricklinkLogoHtml();
   return ebayLogoHtml();
 }
 
@@ -1515,6 +1528,32 @@ function ebayLogoHtml() {
 }
 function aliLogoHtml() {
   return `<span class="ali-logo">AliExpress</span>`;
+}
+
+// Retailer marks drawn as inline SVG. Deliberately not hotlinked from the
+// retailers' own servers: no extra request, nothing to break if they move the
+// file, and it renders crisply at any pixel density. Used to identify where a
+// link goes, the same way the eBay mark above is.
+function legoLogoHtml(){
+  return '<span style="display:inline-flex;align-items:center;gap:6px">' +
+    '<svg width="34" height="16" viewBox="0 0 34 16" aria-label="LEGO" role="img">' +
+      '<rect width="34" height="16" rx="3" fill="#E3000B"/>' +
+      '<text x="17" y="12.2" text-anchor="middle" font-family="DM Sans, Arial Black, sans-serif" font-weight="800" font-size="10.5" fill="#FFDD00" letter-spacing="0.4">LEGO</text>' +
+    '</svg>' +
+    '<span style="font-size:12px;font-weight:600;color:#ddd;font-family:\'DM Sans\',sans-serif">.com</span>' +
+  '</span>';
+}
+
+function bricklinkLogoHtml(){
+  return '<span style="display:inline-flex;align-items:center;gap:5px">' +
+    '<svg width="15" height="16" viewBox="0 0 15 16" aria-label="BrickLink" role="img">' +
+      '<path d="M7.5 0.6 L14 4.2 L14 11.4 L7.5 15.4 L1 11.4 L1 4.2 Z" fill="#F7D117" stroke="#1b1b1b" stroke-width="1.4" stroke-linejoin="round"/>' +
+      '<circle cx="5.7" cy="7.6" r="0.85" fill="#1b1b1b"/>' +
+      '<circle cx="9.3" cy="7.6" r="0.85" fill="#1b1b1b"/>' +
+      '<path d="M5.5 10.1 Q7.5 11.6 9.5 10.1" stroke="#1b1b1b" stroke-width="0.9" fill="none" stroke-linecap="round"/>' +
+    '</svg>' +
+    '<span style="font-size:12.5px;font-weight:700;color:#e8e8e8;font-family:\'DM Sans\',sans-serif;letter-spacing:-0.2px">bricklink</span>' +
+  '</span>';
 }
 
 // ── FindAI Verify shield icon (blue filled shield + white tick) ──
