@@ -652,6 +652,7 @@ var mwCurrentQuery = '';
 var mwTracking = false;
 var mwFullHistory = [];   // full history as returned by the backend (up to 365 days)
 var mwSamples = [];       // intraday 15-min live-floor samples (last ~14 days)
+var mwBackfill = null;    // BrickLink completed-sales context (sparse, dated)
 var mwChartRange = 30;
 var mwLastStats = null;
 var mwSelectedProduct = null; // set when the user picks a StockX suggestion; null = generic text search
@@ -954,6 +955,20 @@ function renderMarketWatch(query, data, pickedProduct){
 
   mwFullHistory = data.history || [];
   mwSamples = data.samples || [];
+  mwBackfill = data.backfill || null;
+  // Sparse-selling items (most retired sets) may have no sale inside the default
+  // window, which would show an empty chart on a product we DO have real data
+  // for. Open on the narrowest range that actually contains sales.
+  if(mwBackfill && mwBackfill.sales && mwBackfill.sales.length){
+    var oldestDays = (Date.now() - new Date(mwBackfill.sales[0].t).getTime())/864e5;
+    var want = oldestDays > 90 ? 365 : (oldestDays > 30 ? 90 : (oldestDays > 7 ? 30 : 7));
+    if(want > mwChartRange){
+      mwChartRange = want;
+      document.querySelectorAll('.mw-range-tab').forEach(function(t){
+        t.classList.toggle('mw-range-active', Number(t.dataset.range)===want);
+      });
+    }
+  }
   mwLastStats = data.stats || {live:0,min:0,max:0,avg:0,count:0};
   mwChartRange = 7;
   document.querySelectorAll('.mw-range-tab').forEach(function(t){ t.classList.toggle('mw-range-active', t.dataset.range==='7'); });
@@ -1135,17 +1150,40 @@ function renderChartAndStats(){
     else series.push({ t:now, v:livePrice, live:true });
   }
 
-  drawPriceChart(series);
+  // Real completed sales inside the visible window. These are plotted as
+  // discrete markers, never joined into a line: a set that sold in February and
+  // again in June did not drift smoothly between the two, and drawing that
+  // would invent a trend nobody observed.
+  var saleCut = Date.now() - mwChartRange*864e5;
+  var sales = (mwBackfill && mwBackfill.sales ? mwBackfill.sales : [])
+    .map(function(s){ return { t:new Date(s.t).getTime(), v:Number(s.v)||0, qty:Number(s.qty)||1 }; })
+    .filter(function(s){ return s.v>0 && s.t>=saleCut; })
+    .sort(function(a,b){ return a.t-b.t; });
+
+  drawPriceChart(series, { sales: sales, band: (sales.length && mwBackfill) ? mwBackfill : null });
 
   var noteEl=document.getElementById('mw-chart-note');
-  noteEl.textContent = '';
+  if(sales.length){
+    noteEl.textContent = sales.length + (sales.length===1?' completed sale':' completed sales')
+      + ' on BrickLink in this period \u00b7 range ' + mwMoney(mwBackfill.min) + '\u2013' + mwMoney(mwBackfill.max)
+      + ' \u00b7 average ' + mwMoney(mwBackfill.avg) + '. Blue line is the cheapest listing available now.';
+  } else if(mwBackfill && mwBackfill.avg){
+    noteEl.textContent = 'No completed sales in this period. Last 6 months on BrickLink: '
+      + mwBackfill.salesCount + ' sold, ' + mwMoney(mwBackfill.min) + '\u2013' + mwMoney(mwBackfill.max)
+      + ', average ' + mwMoney(mwBackfill.avg) + '.';
+  } else {
+    noteEl.textContent = '';
+  }
 }
 function sourceCountLabel(){
   var el = document.getElementById('mw-item-sub');
   return el ? el.textContent : '';
 }
 
-function drawPriceChart(series){
+function drawPriceChart(series, opts){
+  opts = opts || {};
+  var sales = opts.sales || [];
+  var band  = opts.band || null;
   var canvas = document.getElementById('mw-chart-canvas');
   var ctx = canvas.getContext('2d');
   var w = canvas.clientWidth || canvas.parentElement.clientWidth;
@@ -1155,7 +1193,7 @@ function drawPriceChart(series){
   var padL=52, padR=10, padT=15, padB=25;
   var plotW = w-padL-padR, plotH = 220-padT-padB;
 
-  if(!series || !series.length){
+  if((!series || !series.length) && !sales.length){
     ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=1;
     for(var g0=0; g0<4; g0++){ var gy0=padT+plotH*g0/3; ctx.beginPath(); ctx.moveTo(padL,gy0); ctx.lineTo(w-padR,gy0); ctx.stroke(); }
     ctx.fillStyle = '#666'; ctx.font = '13px DM Sans, sans-serif'; ctx.textAlign='center';
@@ -1163,13 +1201,30 @@ function drawPriceChart(series){
     return;
   }
 
+  series = series || [];
   var vals = series.map(function(p){return p.v;});
-  var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+  // The Y scale has to hold BOTH the live listing price and the completed
+  // sales, or one of them lands off-canvas. Sold prices routinely sit well
+  // above the cheapest live listing, so this range is often much wider than
+  // the line alone would need.
+  var allVals = vals.concat(sales.map(function(s){return s.v;}));
+  if(band){ if(band.min) allVals.push(band.min); if(band.max) allVals.push(band.max); }
+  var min = Math.min.apply(null, allVals), max = Math.max.apply(null, allVals);
   var pad = (max-min)*0.18 || max*0.1 || 1;
   min -= pad; max += pad;
   var single = series.length===1;
 
-  // Gridlines + Y-axis price labels (numbers down the side, like a trading chart)
+  // Time domain: when we have dated sales the X axis becomes real time, so a
+  // sale in February sits where February actually is rather than being evenly
+  // spaced alongside everything else.
+  var timeScale = sales.length > 0;
+  var tMin = Date.now() - mwChartRange*864e5, tMax = Date.now();
+  if(timeScale){
+    var ts = sales.map(function(s){return s.t;}).concat(series.map(function(p){return p.t;}));
+    tMin = Math.min.apply(null, ts); tMax = Math.max.apply(null, ts);
+    if(tMax - tMin < 864e5){ tMin -= 864e5; tMax += 864e5; }
+  }
+
   ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth=1;
   ctx.fillStyle='#777'; ctx.font='11px DM Sans, sans-serif'; ctx.textAlign='right';
   for(var g=0; g<4; g++){
@@ -1179,73 +1234,120 @@ function drawPriceChart(series){
     ctx.fillText(mwMoney(gv), padL-8, gy+4);
   }
 
-  // Trend colour: green if the line ends higher than it started, red if lower,
-  // blue if flat or a single point (no direction yet).
-  var trend = single ? 0 : (vals[vals.length-1] - vals[0]);
+  var trend = single ? 0 : (vals.length>1 ? (vals[vals.length-1] - vals[0]) : 0);
   var col = trend>0 ? '#22c55e' : (trend<0 ? '#ef4444' : '#1a6fff');
   var rgb = trend>0 ? '34,197,94' : (trend<0 ? '239,68,68' : '26,111,255');
 
-  function xAt(i){ if(single) return w-padR-5; return padL + plotW*i/(series.length-1); }
   function yAt(v){ return padT + plotH - ((v-min)/(max-min))*plotH; }
-
-  if(single){
-    // One sample so far — a level baseline + the live node, so it reads as
-    // "here's the price now, the line builds from here."
-    var yv = yAt(vals[0]);
-    ctx.strokeStyle='rgba(26,111,255,0.35)'; ctx.lineWidth=2; ctx.setLineDash([5,6]);
-    ctx.beginPath(); ctx.moveTo(padL, yv); ctx.lineTo(xAt(0), yv); ctx.stroke(); ctx.setLineDash([]);
-  } else {
-    // Area fill under the line
-    ctx.beginPath();
-    ctx.moveTo(xAt(0), yAt(vals[0]));
-    vals.forEach(function(v,i){ ctx.lineTo(xAt(i), yAt(v)); });
-    ctx.lineTo(xAt(vals.length-1), padT+plotH);
-    ctx.lineTo(xAt(0), padT+plotH);
-    ctx.closePath();
-    var grad = ctx.createLinearGradient(0,padT,0,padT+plotH);
-    grad.addColorStop(0,'rgba('+rgb+',0.32)'); grad.addColorStop(1,'rgba('+rgb+',0.02)');
-    ctx.fillStyle = grad; ctx.fill();
-    // Price line
-    ctx.beginPath(); ctx.strokeStyle = col; ctx.lineWidth=2; ctx.lineJoin='round';
-    vals.forEach(function(v,i){ i===0?ctx.moveTo(xAt(i),yAt(v)):ctx.lineTo(xAt(i),yAt(v)); });
-    ctx.stroke();
+  function xAtTime(t){ return padL + plotW * ((t - tMin) / ((tMax - tMin) || 1)); }
+  function xAt(i){
+    if(timeScale && series[i]) return xAtTime(series[i].t);
+    if(single) return w-padR-5;
+    return padL + plotW*i/((series.length-1) || 1);
   }
 
-  // Live node — glowing dot (trend-coloured) with a white core, at the latest point
-  var li = vals.length-1, lx = xAt(li), ly = yAt(vals[li]);
-  ctx.save();
-  ctx.shadowColor='rgba('+rgb+',0.9)'; ctx.shadowBlur=12;
-  ctx.fillStyle=col; ctx.beginPath(); ctx.arc(lx,ly,4.5,0,7); ctx.fill();
-  ctx.restore();
-  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(lx,ly,1.8,0,7); ctx.fill();
+  // Market band: min / average / max of completed sales, drawn behind
+  // everything as context. This is the honest way to render a sparse market —
+  // "sales landed in this range" instead of a fabricated curve.
+  if(band && band.min && band.max){
+    var yTop = yAt(band.max), yBot = yAt(band.min);
+    ctx.fillStyle = 'rgba(148,163,184,0.10)';
+    ctx.fillRect(padL, yTop, plotW, Math.max(1, yBot-yTop));
+    ctx.strokeStyle = 'rgba(148,163,184,0.28)'; ctx.lineWidth = 1; ctx.setLineDash([3,4]);
+    [band.max, band.min].forEach(function(v){
+      var yy = yAt(v); ctx.beginPath(); ctx.moveTo(padL,yy); ctx.lineTo(w-padR,yy); ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    if(band.avg){
+      var ya = yAt(band.avg);
+      ctx.strokeStyle = 'rgba(148,163,184,0.55)'; ctx.lineWidth = 1.5; ctx.setLineDash([7,5]);
+      ctx.beginPath(); ctx.moveTo(padL,ya); ctx.lineTo(w-padR,ya); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle='rgba(203,213,225,0.85)'; ctx.font='10px DM Sans, sans-serif'; ctx.textAlign='left';
+      ctx.fillText('avg sold ' + mwMoney(band.avg), padL+6, ya-5);
+    }
+  }
 
-  // X-axis labels
+  if(series.length){
+    if(single && !timeScale){
+      var yv = yAt(vals[0]);
+      ctx.strokeStyle='rgba(26,111,255,0.35)'; ctx.lineWidth=2; ctx.setLineDash([5,6]);
+      ctx.beginPath(); ctx.moveTo(padL, yv); ctx.lineTo(xAt(0), yv); ctx.stroke(); ctx.setLineDash([]);
+    } else if(series.length > 1){
+      ctx.beginPath();
+      ctx.moveTo(xAt(0), yAt(vals[0]));
+      vals.forEach(function(v,i){ ctx.lineTo(xAt(i), yAt(v)); });
+      ctx.lineTo(xAt(vals.length-1), padT+plotH);
+      ctx.lineTo(xAt(0), padT+plotH);
+      ctx.closePath();
+      var grad = ctx.createLinearGradient(0,padT,0,padT+plotH);
+      grad.addColorStop(0,'rgba('+rgb+',0.32)'); grad.addColorStop(1,'rgba('+rgb+',0.02)');
+      ctx.fillStyle = grad; ctx.fill();
+      ctx.beginPath(); ctx.strokeStyle = col; ctx.lineWidth=2; ctx.lineJoin='round';
+      vals.forEach(function(v,i){ i===0?ctx.moveTo(xAt(i),yAt(v)):ctx.lineTo(xAt(i),yAt(v)); });
+      ctx.stroke();
+    }
+  }
+
+  // Completed sales: discrete markers, deliberately unconnected. A set that
+  // sold in February and again in June did not drift smoothly between the two,
+  // and joining them would draw a trend nobody observed. Marker size scales
+  // with quantity sold.
+  sales.forEach(function(s){
+    var sx = xAtTime(s.t), sy = yAt(s.v);
+    var r = Math.min(7, 3.5 + Math.sqrt(Math.max(1, s.qty) - 1) * 1.8);
+    ctx.save();
+    ctx.shadowColor='rgba(250,204,21,0.55)'; ctx.shadowBlur=8;
+    ctx.fillStyle='rgba(250,204,21,0.95)';
+    ctx.beginPath(); ctx.arc(sx, sy, r, 0, 7); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(sx, sy, Math.max(1.2, r*0.32), 0, 7); ctx.fill();
+  });
+
+  if(series.length){
+    var li = vals.length-1, lx = xAt(li), ly = yAt(vals[li]);
+    ctx.save();
+    ctx.shadowColor='rgba('+rgb+',0.9)'; ctx.shadowBlur=12;
+    ctx.fillStyle=col; ctx.beginPath(); ctx.arc(lx,ly,4.5,0,7); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(lx,ly,1.8,0,7); ctx.fill();
+
+    var lblTxt = mwMoney(vals[li]);
+    ctx.font = 'bold 13px DM Sans, sans-serif'; ctx.textAlign='right'; ctx.fillStyle = col;
+    var lblY = (ly-12 < padT+10) ? ly+22 : ly-12;
+    ctx.fillText(lblTxt, Math.min(lx, w-padR) - 8, lblY);
+  }
+
   ctx.fillStyle='#666'; ctx.font='11px DM Sans, sans-serif'; ctx.textAlign='center';
+  var MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   function labelFor(p){
     if(p.live) return 'Now';
-    if(p.label) return p.label;                       // daily rows: MM-DD
-    var d=new Date(p.t);                              // intraday: HH:MM
+    if(p.label) return p.label;
+    var d=new Date(p.t);
     return ('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
   }
-  if(single){
-    ctx.fillText('Now', lx, 220-6);
-  } else {
+  function dayLabel(t){ var d=new Date(t); return MON[d.getMonth()]+' '+d.getDate(); }
+  if(timeScale){
+    [tMin, (tMin+tMax)/2, tMax].forEach(function(t,i){
+      var tx = xAtTime(t);
+      tx = Math.max(padL+16, Math.min(w-padR-16, tx));
+      ctx.fillText(i===2 ? 'Now' : dayLabel(t), tx, 220-6);
+    });
+  } else if(single){
+    ctx.fillText('Now', xAt(0), 220-6);
+  } else if(series.length>1){
     var idxs = [0, Math.floor((series.length-1)/2), series.length-1];
     idxs.forEach(function(i){ ctx.fillText(labelFor(series[i]), xAt(i), 220-6); });
   }
 
-  // Persistent live-price label near the latest node (drawn left of it so it
-  // stays on-canvas since the live node sits at the right edge).
-  var lblTxt = mwMoney(vals[li]);
-  ctx.font = 'bold 13px DM Sans, sans-serif'; ctx.textAlign='right'; ctx.fillStyle = col;
-  var lblY = (ly-12 < padT+10) ? ly+22 : ly-12;
-  ctx.fillText(lblTxt, Math.min(lx, w-padR) - 8, lblY);
+  // Hover geometry covers both the live line and the sale markers, so the
+  // tooltip can distinguish "listed now" from "actually sold on this date".
+  var geoPts = series.map(function(p,i){
+    return { x: xAt(i), y: yAt(p.v), v: p.v, t: p.t, label: p.label, live: p.live, kind:'live' };
+  }).concat(sales.map(function(s){
+    return { x: xAtTime(s.t), y: yAt(s.v), v: s.v, t: s.t, qty: s.qty, kind:'sold' };
+  }));
+  window.mwChartGeo = { pts: geoPts };
 
-  // Store point geometry for hover tooltips (price + time at the hovered point).
-  window.mwChartGeo = { pts: series.map(function(p,i){ return { x: xAt(i), y: yAt(p.v), v: p.v, t: p.t, label: p.label, live: p.live }; }) };
-
-  // Bind the hover handler once — a vertical crosshair + a tooltip that reads
-  // the nearest recorded point. No canvas redraw on move (uses HTML overlays).
   if(!canvas._hoverBound){
     canvas._hoverBound = true;
     var cross = document.getElementById('mw-chart-cross');
@@ -1253,14 +1355,26 @@ function drawPriceChart(series){
     canvas.addEventListener('mousemove', function(ev){
       var geo = window.mwChartGeo; if(!geo || !geo.pts.length){ return; }
       var rect = canvas.getBoundingClientRect();
-      var scale = rect.width ? (canvas.width / rect.width) : 1;   // CSS px -> canvas px
+      var scale = rect.width ? (canvas.width / rect.width) : 1;
       var mx = (ev.clientX - rect.left) * scale;
+      var my = (ev.clientY - rect.top) * scale;
+      // Nearest in 2D, so overlapping sale markers and the live line stay
+      // individually hoverable.
       var best = geo.pts[0], bd = 1e9;
-      geo.pts.forEach(function(p){ var d = Math.abs(p.x - mx); if(d < bd){ bd = d; best = p; } });
+      geo.pts.forEach(function(p){
+        var d = Math.abs(p.x-mx) + Math.abs(p.y-my)*0.35;
+        if(d < bd){ bd = d; best = p; }
+      });
       var cssX = best.x / scale, cssY = best.y / scale;
       cross.style.display='block'; cross.style.left = cssX + 'px';
       var dt = new Date(best.t);
-      var when = best.live ? 'Now' : (best.label ? best.label : (('0'+dt.getHours()).slice(-2)+':'+('0'+dt.getMinutes()).slice(-2)));
+      var MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      var when;
+      if(best.kind==='sold'){
+        when = 'sold ' + MN[dt.getMonth()]+' '+dt.getDate() + (best.qty>1 ? ' \u00b7 '+best.qty+' units' : '');
+      } else {
+        when = best.live ? 'listed now' : (best.label ? best.label : (('0'+dt.getHours()).slice(-2)+':'+('0'+dt.getMinutes()).slice(-2)));
+      }
       tip.style.display='block';
       tip.innerHTML = '<b>'+mwMoney(best.v)+'</b> \u00b7 '+when;
       tip.style.left = cssX + 'px';
