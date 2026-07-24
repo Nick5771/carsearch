@@ -965,11 +965,20 @@ function renderMarketWatch(query, data, pickedProduct){
   // gets clobbered.
   mwChartRange = 7;
   if(mwBackfill && mwBackfill.sales && mwBackfill.sales.length){
-    var newestSale = mwBackfill.sales[mwBackfill.sales.length-1].t;
-    var newestDays = (Date.now() - new Date(newestSale).getTime())/864e5;
-    if(newestDays > 90)      mwChartRange = 365;
-    else if(newestDays > 30) mwChartRange = 90;
-    else if(newestDays > 7)  mwChartRange = 30;
+    // Open on the narrowest range that holds ALL known sales, not just the most
+    // recent one. Landing on a window containing a single point means there is
+    // no line to draw, which is what made 90D look broken on sparse sets.
+    var oldest = new Date(mwBackfill.sales[0].t).getTime();
+    var span = (Date.now() - oldest)/864e5;
+    if(span > 90)      mwChartRange = 365;
+    else if(span > 30) mwChartRange = 90;
+    else if(span > 7)  mwChartRange = 30;
+    // If the widest view still leaves fewer than two points, there is genuinely
+    // no line to draw at any range — go widest and let it show what it shows.
+    var inRange = mwBackfill.sales.filter(function(x){
+      return (Date.now() - new Date(x.t).getTime())/864e5 <= mwChartRange;
+    }).length;
+    if(inRange < 2) mwChartRange = 365;
   }
   var _r = String(mwChartRange);
   document.querySelectorAll('.mw-range-tab').forEach(function(t){ t.classList.toggle('mw-range-active', t.dataset.range===_r); });
@@ -1200,10 +1209,13 @@ function drawPriceChart(series, opts){
   // sales, or one of them lands off-canvas. Sold prices routinely sit well
   // above the cheapest live listing, so this range is often much wider than
   // the line alone would need.
-  var allVals = vals.concat(sales.map(function(s){return s.v;}));
-  if(band){ if(band.min) allVals.push(band.min); if(band.max) allVals.push(band.max); }
+  // Scale to the sold line, plus the live level so its reference rule stays on
+  // canvas. Tight padding (8%) so the line fills the plot the way a finance
+  // chart does, instead of sitting as a flat streak through the middle.
+  var allVals = sales.length ? sales.map(function(s){return s.v;}) : vals.slice();
+  if(sales.length && vals.length) allVals.push(vals[vals.length-1]);
   var min = Math.min.apply(null, allVals), max = Math.max.apply(null, allVals);
-  var pad = (max-min)*0.18 || max*0.1 || 1;
+  var pad = (max-min)*0.08 || max*0.06 || 1;
   min -= pad; max += pad;
   var single = series.length===1;
 
@@ -1218,16 +1230,21 @@ function drawPriceChart(series, opts){
     if(tMax - tMin < 864e5){ tMin -= 864e5; tMax += 864e5; }
   }
 
-  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth=1;
-  ctx.fillStyle='#777'; ctx.font='11px DM Sans, sans-serif'; ctx.textAlign='right';
-  for(var g=0; g<4; g++){
-    var gy=padT+plotH*g/3;
+  ctx.strokeStyle = 'rgba(255,255,255,0.055)'; ctx.lineWidth=1;
+  ctx.fillStyle='#8a8a8a'; ctx.font='11px DM Sans, sans-serif'; ctx.textAlign='right';
+  for(var g=0; g<5; g++){
+    var gy=padT+plotH*g/4;
     ctx.beginPath(); ctx.moveTo(padL,gy); ctx.lineTo(w-padR,gy); ctx.stroke();
-    var gv = max - (max-min)*(g/3);
+    var gv = max - (max-min)*(g/4);
     ctx.fillText(mwMoney(gv), padL-8, gy+4);
   }
 
-  var trend = single ? 0 : (vals.length>1 ? (vals[vals.length-1] - vals[0]) : 0);
+  // Trend colour follows the SOLD series when we have one — green if the most
+  // recent sale is above the first in view, red if below — matching how every
+  // finance chart signals direction.
+  var trend;
+  if(sales.length > 1) trend = sales[sales.length-1].v - sales[0].v;
+  else trend = single ? 0 : (vals.length>1 ? (vals[vals.length-1] - vals[0]) : 0);
   var col = trend>0 ? '#22c55e' : (trend<0 ? '#ef4444' : '#1a6fff');
   var rgb = trend>0 ? '34,197,94' : (trend<0 ? '239,68,68' : '26,111,255');
 
@@ -1239,25 +1256,17 @@ function drawPriceChart(series, opts){
     return padL + plotW*i/((series.length-1) || 1);
   }
 
-  // Market band: min / average / max of completed sales, drawn behind
-  // everything as context. This is the honest way to render a sparse market —
-  // "sales landed in this range" instead of a fabricated curve.
-  if(band && band.min && band.max){
-    var yTop = yAt(band.max), yBot = yAt(band.min);
-    ctx.fillStyle = 'rgba(148,163,184,0.10)';
-    ctx.fillRect(padL, yTop, plotW, Math.max(1, yBot-yTop));
-    ctx.strokeStyle = 'rgba(148,163,184,0.28)'; ctx.lineWidth = 1; ctx.setLineDash([3,4]);
-    [band.max, band.min].forEach(function(v){
-      var yy = yAt(v); ctx.beginPath(); ctx.moveTo(padL,yy); ctx.lineTo(w-padR,yy); ctx.stroke();
-    });
-    ctx.setLineDash([]);
-    if(band.avg){
-      var ya = yAt(band.avg);
-      ctx.strokeStyle = 'rgba(148,163,184,0.55)'; ctx.lineWidth = 1.5; ctx.setLineDash([7,5]);
-      ctx.beginPath(); ctx.moveTo(padL,ya); ctx.lineTo(w-padR,ya); ctx.stroke(); ctx.setLineDash([]);
-      ctx.fillStyle='rgba(203,213,225,0.85)'; ctx.font='10px DM Sans, sans-serif'; ctx.textAlign='left';
-      ctx.fillText('avg sold ' + mwMoney(band.avg), padL+6, ya-5);
-    }
+  // Reference level: the cheapest listing available right now, drawn as a
+  // dashed horizontal rule the way Google Finance draws "previous close".
+  // It is a level, not a point in the price series — joining it to the sold
+  // line would render a crash between two different measurements.
+  var liveLevel = (series.length && series[series.length-1].v) ? series[series.length-1].v : null;
+  if(liveLevel && sales.length){
+    var yl = yAt(liveLevel);
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(padL, yl); ctx.lineTo(w-padR, yl); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='rgba(255,255,255,0.45)'; ctx.font='10px DM Sans, sans-serif'; ctx.textAlign='right';
+    ctx.fillText('listed now ' + mwMoney(liveLevel), w-padR-2, yl-6);
   }
 
   if(series.length){
@@ -1289,7 +1298,7 @@ function drawPriceChart(series, opts){
   // prices and cheapest-current-listing are different measurements, so a line
   // between them would render a price collapse that never occurred.
   if(sales.length){
-    var SOLD='#1a6fff', SOLDRGB='26,111,255';
+    var SOLD=col, SOLDRGB=rgb;
     if(sales.length > 1){
       // Area fill under the sold line
       ctx.beginPath();
