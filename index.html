@@ -1427,12 +1427,17 @@ function renderTrackerListings(listings){
     grid.innerHTML = '<p style="color:#666;font-size:14px">No live listings found right now.</p>';
     return;
   }
-  // Keep the tracker compact: exactly four cards, cheapest item price first.
-  var sorted = listings.slice().sort(function(a,b){ return (Number(a.price)||Infinity)-(Number(b.price)||Infinity); }).slice(0,4);
-  var priced = sorted.filter(function(l){return Number(l.price)>0;});
+  // Exactly four cards, in the order the API sent them. The backend already
+  // arranges these by source (eBay, LEGO.com, BrickLink, StockX) taking the
+  // cheapest within each — re-sorting by price here would throw that away and
+  // collapse the grid back to four eBay listings.
+  var sorted = listings.slice(0,4);
+  var priced = sorted.filter(function(l){return Number(l.price)>0 && !l.isAggregate && !l.isRrp;});
   var cheapest = priced.length ? Number(priced[0].price) : null;
   grid.innerHTML = sorted.map(function(l){
-    var isBest = cheapest!==null && Number(l.price)===cheapest;
+    // Never crown an aggregate or an RRP — "Best Price" has to mean a listing
+    // the user can actually click and buy at that price.
+    var isBest = cheapest!==null && Number(l.price)===cheapest && !l.isAggregate && !l.isRrp;
     var imgU = l.image || l.stockxImage || '';
     var thumb = imgU
       ? '<div class="mw-listing-thumb"><img src="'+mwProxyImg(imgU)+'" alt="" loading="lazy" onerror="this.parentElement.style.display=\'none\'"></div>'
@@ -1440,14 +1445,24 @@ function renderTrackerListings(listings){
     var shippingCost = (l.shippingCost != null && Number.isFinite(Number(l.shippingCost)))
       ? Number(l.shippingCost)
       : (l.shipping && l.shipping.cost != null && Number.isFinite(Number(l.shipping.cost)) ? Number(l.shipping.cost) : null);
-    var shippingText = shippingCost === 0
-      ? 'Free shipping'
-      : (shippingCost != null ? '+'+mwMoney(shippingCost) : 'Shipping cost varies');
+    // BrickLink is the cheapest of N lots, and LEGO.com is a recommended retail
+    // price rather than something we observed on sale — label both instead of
+    // letting them read as ordinary listings with a shipping quote.
+    var shippingText;
+    if(l.source === 'bricklink'){
+      shippingText = (l.lots ? l.lots + ' listings' : 'Multiple sellers') + ' \u00b7 excl. shipping';
+    } else if(l.source === 'lego'){
+      shippingText = 'RRP \u00b7 official shop';
+    } else {
+      shippingText = shippingCost === 0
+        ? 'Free shipping'
+        : (shippingCost != null ? '+'+mwMoney(shippingCost) : 'Shipping cost varies');
+    }
     var shippingCls = shippingCost === 0 ? ' free' : (shippingCost == null ? ' varies' : '');
     return '<a class="mw-listing-card'+(isBest?' mw-best':'')+'" href="'+escapeHtml(l.url||'#')+'" target="_blank" rel="noopener">' +
       thumb +
       '<div class="mw-listing-src" style="text-transform:none">'+mwSourceBadge(l)+'</div>' +
-      '<div class="mw-listing-bottom"><div class="mw-listing-price">'+(l.price?mwMoney(l.price):'See listing')+'</div>' +
+      '<div class="mw-listing-bottom"><div class="mw-listing-price">'+(l.price?((l.source==='bricklink'?'from ':'')+mwMoney(l.price)):'See listing')+'</div>' +
       '<div class="mw-listing-shipping'+shippingCls+'">'+shippingText+'</div></div>' +
       (isBest?'<div class="mw-best-badge">&#128081; Best Price</div>':'') +
       '</a>';
@@ -1460,6 +1475,8 @@ function mwSourceBadge(l){
   if(l._discogs || s==='discogs') return discogsWordmark();
   if(l._etsy || s==='etsy') return etsyWordmark();
   if(s.indexOf('ali')!==-1) return '<span style="font-size:12px;font-weight:800;color:#ff4747;font-family:\'DM Sans\',sans-serif">AliExpress</span>';
+  if(s==='lego') return '<span style="font-weight:800;color:#E3000B;font-size:13px;font-family:\'DM Sans\',sans-serif;letter-spacing:-0.3px">LEGO.com</span>';
+  if(s==='bricklink') return '<span style="font-weight:800;color:#4a7ebb;font-size:13px;font-family:\'DM Sans\',sans-serif;letter-spacing:-0.3px">BrickLink</span>';
   return ebayLogoHtml();
 }
 
