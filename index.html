@@ -1163,18 +1163,10 @@ function renderChartAndStats(){
 
   drawPriceChart(series, { sales: sales, band: (sales.length && mwBackfill) ? mwBackfill : null });
 
+  // Caption removed by request. Provenance still surfaces on hover: sale nodes
+  // read "sold <date>", the live node reads "listed now".
   var noteEl=document.getElementById('mw-chart-note');
-  if(sales.length){
-    noteEl.textContent = sales.length + (sales.length===1?' completed sale':' completed sales')
-      + ' on BrickLink in this period \u00b7 range ' + mwMoney(mwBackfill.min) + '\u2013' + mwMoney(mwBackfill.max)
-      + ' \u00b7 average ' + mwMoney(mwBackfill.avg) + '. Blue line is the cheapest listing available now.';
-  } else if(mwBackfill && mwBackfill.avg){
-    noteEl.textContent = 'No completed sales in this period. Last 6 months on BrickLink: '
-      + mwBackfill.salesCount + ' sold, ' + mwMoney(mwBackfill.min) + '\u2013' + mwMoney(mwBackfill.max)
-      + ', average ' + mwMoney(mwBackfill.avg) + '.';
-  } else {
-    noteEl.textContent = '';
-  }
+  noteEl.textContent = '';
 }
 function sourceCountLabel(){
   var el = document.getElementById('mw-item-sub');
@@ -1289,20 +1281,48 @@ function drawPriceChart(series, opts){
     }
   }
 
-  // Completed sales: discrete markers, deliberately unconnected. A set that
-  // sold in February and again in June did not drift smoothly between the two,
-  // and joining them would draw a trend nobody observed. Marker size scales
-  // with quantity sold.
-  sales.forEach(function(s){
-    var sx = xAtTime(s.t), sy = yAt(s.v);
-    var r = Math.min(7, 3.5 + Math.sqrt(Math.max(1, s.qty) - 1) * 1.8);
-    ctx.save();
-    ctx.shadowColor='rgba(250,204,21,0.55)'; ctx.shadowBlur=8;
-    ctx.fillStyle='rgba(250,204,21,0.95)';
-    ctx.beginPath(); ctx.arc(sx, sy, r, 0, 7); ctx.fill();
-    ctx.restore();
-    ctx.fillStyle='#000'; ctx.beginPath(); ctx.arc(sx, sy, Math.max(1.2, r*0.32), 0, 7); ctx.fill();
-  });
+  // Completed sales: the main price line. Each node is a real transaction on a
+  // real date; the connecting line is the standard price-history idiom (same as
+  // StockX / PriceCharting) for joining observed sales.
+  //
+  // NOTE: this series is deliberately NOT joined to the live-listing node. Sold
+  // prices and cheapest-current-listing are different measurements, so a line
+  // between them would render a price collapse that never occurred.
+  if(sales.length){
+    var SOLD='#1a6fff', SOLDRGB='26,111,255';
+    if(sales.length > 1){
+      // Area fill under the sold line
+      ctx.beginPath();
+      ctx.moveTo(xAtTime(sales[0].t), yAt(sales[0].v));
+      sales.forEach(function(s){ ctx.lineTo(xAtTime(s.t), yAt(s.v)); });
+      ctx.lineTo(xAtTime(sales[sales.length-1].t), padT+plotH);
+      ctx.lineTo(xAtTime(sales[0].t), padT+plotH);
+      ctx.closePath();
+      var sgrad = ctx.createLinearGradient(0,padT,0,padT+plotH);
+      sgrad.addColorStop(0,'rgba('+SOLDRGB+',0.30)');
+      sgrad.addColorStop(1,'rgba('+SOLDRGB+',0.02)');
+      ctx.fillStyle = sgrad; ctx.fill();
+      // The line itself
+      ctx.beginPath(); ctx.strokeStyle=SOLD; ctx.lineWidth=2.2;
+      ctx.lineJoin='round'; ctx.lineCap='round';
+      sales.forEach(function(s,i){
+        var sx=xAtTime(s.t), sy=yAt(s.v);
+        i===0 ? ctx.moveTo(sx,sy) : ctx.lineTo(sx,sy);
+      });
+      ctx.stroke();
+    }
+    // Nodes on each real sale, sized by quantity sold.
+    sales.forEach(function(s){
+      var sx = xAtTime(s.t), sy = yAt(s.v);
+      var r = Math.min(6, 3.2 + Math.sqrt(Math.max(1, s.qty) - 1) * 1.5);
+      ctx.save();
+      ctx.shadowColor='rgba('+SOLDRGB+',0.85)'; ctx.shadowBlur=9;
+      ctx.fillStyle=SOLD;
+      ctx.beginPath(); ctx.arc(sx, sy, r, 0, 7); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(sx, sy, Math.max(1.1, r*0.36), 0, 7); ctx.fill();
+    });
+  }
 
   if(series.length){
     var li = vals.length-1, lx = xAt(li), ly = yAt(vals[li]);
