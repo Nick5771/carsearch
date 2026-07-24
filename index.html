@@ -652,6 +652,7 @@ var mwCurrentQuery = '';
 var mwTracking = false;
 var mwFullHistory = [];   // full history as returned by the backend (up to 365 days)
 var mwSamples = [];       // intraday 15-min live-floor samples (last ~14 days)
+var mwBackfill = null;    // BrickLink sold-price context when our own history is thin
 var mwChartRange = 30;
 var mwLastStats = null;
 var mwSelectedProduct = null; // set when the user picks a StockX suggestion; null = generic text search
@@ -954,6 +955,7 @@ function renderMarketWatch(query, data, pickedProduct){
 
   mwFullHistory = data.history || [];
   mwSamples = data.samples || [];
+  mwBackfill = data.backfill || null;
   mwLastStats = data.stats || {live:0,min:0,max:0,avg:0,count:0};
   mwChartRange = 7;
   document.querySelectorAll('.mw-range-tab').forEach(function(t){ t.classList.toggle('mw-range-active', t.dataset.range==='7'); });
@@ -1094,12 +1096,21 @@ function renderChartAndStats(){
   // 0.00% / +$0 (neutral grey) rather than disappearing.
   var liveNum = livePrice ? mwMoney(livePrice) : '&mdash;';
   var hasChg = (chgPct != null);
-  var pctTxt = (hasChg ? Math.abs(chgPct) : 0).toFixed(2);
-  var absTxt = (hasChg && chgAbs != null) ? chgAbs : 0;
-  var badgeCls = dir<0 ? 'down' : (dir>0 ? 'up' : 'flat');
-  var pill = '<span class="mw-stat-chg '+badgeCls+'">'+(arrowChar?arrowChar+' ':'')+pctTxt+'%</span>';
-  var todayPrefix = dir>0 ? '+' : (dir<0 ? '-' : '');
-  var todaySpan = '<span class="mw-stat-today '+badgeCls+'">'+todayPrefix+mwMoney(Math.abs(absTxt))+' today</span>';
+  // When there is no prior reading we do not know the change — saying "0.00%"
+  // and "$0 today" asserts the price held steady, which is a claim we have no
+  // basis for. Show the status instead.
+  var pill, todaySpan;
+  if(hasChg){
+    var pctTxt = Math.abs(chgPct).toFixed(2);
+    var absTxt = (chgAbs != null) ? chgAbs : 0;
+    var badgeCls = dir<0 ? 'down' : (dir>0 ? 'up' : 'flat');
+    pill = '<span class="mw-stat-chg '+badgeCls+'">'+(arrowChar?arrowChar+' ':'')+pctTxt+'%</span>';
+    var todayPrefix = dir>0 ? '+' : (dir<0 ? '-' : '');
+    todaySpan = '<span class="mw-stat-today '+badgeCls+'">'+todayPrefix+mwMoney(Math.abs(absTxt))+' today</span>';
+  } else {
+    pill = '<span class="mw-stat-chg flat">New</span>';
+    todaySpan = '<span class="mw-stat-today flat">tracking from today</span>';
+  }
   var liveCard = '<div class="mw-stat"><div class="mw-stat-label">Live Price</div>'
     + '<div class="mw-live-layout"><span class="mw-live-num">'+liveNum+'</span><div class="mw-live-change-col">'+pill+todaySpan+'</div></div>'
     + '</div>';
@@ -1138,7 +1149,18 @@ function renderChartAndStats(){
   drawPriceChart(series);
 
   var noteEl=document.getElementById('mw-chart-note');
-  noteEl.textContent = '';
+  // Say where the line came from. A chart drawn from BrickLink's completed
+  // sales is a different claim than one drawn from our own observations, and
+  // a single point is not a trend — label all three honestly.
+  if(mwBackfill && mwBackfill.charted > 0){
+    noteEl.textContent = 'Price history from ' + mwBackfill.salesCount + ' completed BrickLink sales (last 6 months, new condition). Live prices from current listings.';
+  } else if(mwBackfill && mwBackfill.avg){
+    noteEl.textContent = 'BrickLink sold average ' + mwMoney(mwBackfill.avg) + ' across ' + mwBackfill.salesCount + ' sales in the last 6 months (range ' + mwMoney(mwBackfill.min) + '\u2013' + mwMoney(mwBackfill.max) + '). Daily tracking starts today.';
+  } else if(series.length <= 1){
+    noteEl.textContent = 'First reading. We start charting this item from today.';
+  } else {
+    noteEl.textContent = '';
+  }
 }
 function sourceCountLabel(){
   var el = document.getElementById('mw-item-sub');
