@@ -1189,7 +1189,17 @@ function drawPriceChart(series, opts){
   var canvas = document.getElementById('mw-chart-canvas');
   var ctx = canvas.getContext('2d');
   var w = canvas.clientWidth || canvas.parentElement.clientWidth;
-  canvas.width = w; canvas.height = 220;
+  // Retina: back the canvas with a devicePixelRatio-scaled bitmap, then scale
+  // the context so all drawing below still uses CSS pixels. Without this the
+  // browser upscales a 1x bitmap onto a 2x display and every line looks soft.
+  // Render at 2x minimum even on 1x displays — canvas strokes and small text
+  // stay crisp when supersampled, and it costs nothing at this canvas size.
+  var dpr = Math.max(2, window.devicePixelRatio || 1);
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(220 * dpr);
+  canvas.style.width = w + 'px';
+  canvas.style.height = '220px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0,0,w,220);
 
   var padL=52, padR=10, padT=15, padB=25;
@@ -1239,14 +1249,10 @@ function drawPriceChart(series, opts){
     ctx.fillText(mwMoney(gv), padL-8, gy+4);
   }
 
-  // Trend colour follows the SOLD series when we have one — green if the most
-  // recent sale is above the first in view, red if below — matching how every
-  // finance chart signals direction.
-  var trend;
-  if(sales.length > 1) trend = sales[sales.length-1].v - sales[0].v;
-  else trend = single ? 0 : (vals.length>1 ? (vals[vals.length-1] - vals[0]) : 0);
-  var col = trend>0 ? '#22c55e' : (trend<0 ? '#ef4444' : '#1a6fff');
-  var rgb = trend>0 ? '34,197,94' : (trend<0 ? '239,68,68' : '26,111,255');
+  // Single brand blue, matching .mw-stat-value. Up/down is communicated by the
+  // green/red badge in the Live Price card rather than by recolouring the line.
+  var col = '#4d9fe6';
+  var rgb = '77,159,230';
 
   function yAt(v){ return padT + plotH - ((v-min)/(max-min))*plotH; }
   function xAtTime(t){ return padL + plotW * ((t - tMin) / ((tMax - tMin) || 1)); }
@@ -1312,7 +1318,7 @@ function drawPriceChart(series, opts){
       sgrad.addColorStop(1,'rgba('+SOLDRGB+',0.02)');
       ctx.fillStyle = sgrad; ctx.fill();
       // The line itself
-      ctx.beginPath(); ctx.strokeStyle=SOLD; ctx.lineWidth=2.2;
+      ctx.beginPath(); ctx.strokeStyle=SOLD; ctx.lineWidth=2;
       ctx.lineJoin='round'; ctx.lineCap='round';
       sales.forEach(function(s,i){
         var sx=xAtTime(s.t), sy=yAt(s.v);
@@ -1325,7 +1331,7 @@ function drawPriceChart(series, opts){
       var sx = xAtTime(s.t), sy = yAt(s.v);
       var r = Math.min(6, 3.2 + Math.sqrt(Math.max(1, s.qty) - 1) * 1.5);
       ctx.save();
-      ctx.shadowColor='rgba('+SOLDRGB+',0.85)'; ctx.shadowBlur=9;
+      ctx.shadowColor='rgba('+SOLDRGB+',0.55)'; ctx.shadowBlur=6;
       ctx.fillStyle=SOLD;
       ctx.beginPath(); ctx.arc(sx, sy, r, 0, 7); ctx.fill();
       ctx.restore();
@@ -1385,9 +1391,10 @@ function drawPriceChart(series, opts){
     canvas.addEventListener('mousemove', function(ev){
       var geo = window.mwChartGeo; if(!geo || !geo.pts.length){ return; }
       var rect = canvas.getBoundingClientRect();
-      var scale = rect.width ? (canvas.width / rect.width) : 1;
-      var mx = (ev.clientX - rect.left) * scale;
-      var my = (ev.clientY - rect.top) * scale;
+      // Geometry is stored in CSS pixels because the context is pre-scaled for
+      // devicePixelRatio, so pointer coords need no conversion.
+      var mx = ev.clientX - rect.left;
+      var my = ev.clientY - rect.top;
       // Nearest in 2D, so overlapping sale markers and the live line stay
       // individually hoverable.
       var best = geo.pts[0], bd = 1e9;
@@ -1395,7 +1402,7 @@ function drawPriceChart(series, opts){
         var d = Math.abs(p.x-mx) + Math.abs(p.y-my)*0.35;
         if(d < bd){ bd = d; best = p; }
       });
-      var cssX = best.x / scale, cssY = best.y / scale;
+      var cssX = best.x, cssY = best.y;
       cross.style.display='block'; cross.style.left = cssX + 'px';
       var dt = new Date(best.t);
       var MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
