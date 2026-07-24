@@ -401,13 +401,14 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .mw-arrow{font-size:20px;font-weight:800;line-height:1}
 .mw-arrow-up{color:#22c55e}
 .mw-arrow-down{color:#ef4444}
-.mw-liverow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px;min-width:0}
-.mw-live-num{font-size:clamp(24px,2.25vw,34px);font-weight:800;color:#4d9fe6;line-height:1.05;white-space:nowrap;min-width:0;letter-spacing:-1px}
+.mw-live-layout{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:6px;min-width:0}
+.mw-live-num{font-size:clamp(24px,2.25vw,34px);font-weight:800;color:#4d9fe6;line-height:1.05;white-space:nowrap;min-width:0;letter-spacing:-1px;overflow:hidden;text-overflow:clip}
+.mw-live-change-col{display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-width:max-content}
 .mw-stat-chg{display:inline-flex;align-items:center;gap:4px;font-size:clamp(11px,1vw,14px);font-weight:700;padding:3px 7px;border-radius:8px;white-space:nowrap;flex:none}
 .mw-stat-chg.up{color:#34a853;background:rgba(52,168,83,.14)}
 .mw-stat-chg.down{color:#ea4335;background:rgba(234,67,53,.14)}
-.mw-stat-chg.flat{color:#34a853;background:rgba(52,168,83,.14)}
-.mw-stat-today{display:block;font-size:13px;margin-top:7px;white-space:nowrap;font-weight:600}.mw-stat-today.up,.mw-stat-today.flat{color:#34a853}.mw-stat-today.down{color:#ea4335}
+.mw-stat-chg.flat{color:#fff;background:rgba(255,255,255,.08)}
+.mw-stat-today{display:block;font-size:13px;white-space:nowrap;font-weight:600;line-height:1}.mw-stat-today.up{color:#34a853}.mw-stat-today.down{color:#ea4335}.mw-stat-today.flat{color:#fff}
 .mw-chart-canvas{width:100%;display:block;cursor:crosshair}
 .mw-chart-wrap{position:relative}
 .mw-chart-cross{position:absolute;top:15px;bottom:25px;width:1px;background:rgba(255,255,255,.25);pointer-events:none;display:none}
@@ -421,12 +422,12 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .mw-listing-thumb{width:100%;height:86px;border-radius:9px;overflow:hidden;background:#fff;margin-bottom:7px;display:flex;align-items:center;justify-content:center}
 .mw-listing-thumb img{width:100%;height:100%;object-fit:contain}
 .mw-listing-src{font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.03em}
-.mw-listing-bottom{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0;margin-top:4px}.mw-listing-price{font-size:clamp(18px,1.8vw,22px);font-weight:700;color:#4d9fe6;margin:0;white-space:nowrap;letter-spacing:-.5px;min-width:0}
+.mw-listing-bottom{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;margin-top:4px}.mw-listing-price{font-size:clamp(18px,1.8vw,22px);font-weight:700;color:#4d9fe6;margin:0;white-space:nowrap;letter-spacing:-.5px;min-width:0}
 .mw-listing-title{font-size:12px;color:#999;line-height:1.4;min-height:34px;overflow:hidden}
 .mw-listing-btn{display:block;text-align:center;margin-top:10px;background:#1a6fff;color:#fff;text-decoration:none;padding:8px;border-radius:8px;font-size:13px;font-weight:600}
 .mw-listing-btn:hover{background:#185FA5}
 .mw-best-badge{position:absolute;top:-9px;right:10px;background:#1a6fff;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px}
-.mw-listing-shipping{font-size:12px;color:#999;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:right;flex:0 1 auto}
+.mw-listing-shipping{font-size:10.5px;color:#999;white-space:nowrap;line-height:1.2;text-align:left;max-width:100%}.mw-listing-shipping.free{color:#34a853}.mw-listing-shipping.varies{font-size:10px;letter-spacing:-.1px}
 @media(max-width:1050px){.mw-detail-grid{grid-template-columns:290px 1fr;gap:14px;padding:0 14px}.mw-product-photo{max-height:290px}.mw-listings-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.mw-listing-card{padding:8px}.mw-listing-thumb{height:76px}.mw-stat{padding:9px 10px}.mw-stat-chg{padding:3px 5px}}
 
 @media(max-width:820px){
@@ -698,6 +699,34 @@ function topbarSearch(){
     var i = document.getElementById('mw-search-input');
     if(i){ i.value = v; onTrackerInput(v); }
   }
+}
+
+// ── Session helpers ─────────────────────────────────────────────────────────
+// The API no longer accepts an email in the request body — it derives the user
+// from a signed session token issued at login. Anything user-scoped must send
+// that token in the Authorization header.
+function findaiSession(){
+  try{ var u = JSON.parse(localStorage.getItem('findai_user')||'null'); return (u && u.session) ? u.session : ''; }
+  catch(_){ return ''; }
+}
+
+function findaiAuthHeaders(extra){
+  var h = Object.assign({'Content-Type':'application/json'}, extra||{});
+  var s = findaiSession();
+  if(s) h['Authorization'] = 'Bearer ' + s;
+  return h;
+}
+
+// A 401 means the token expired or was issued before this change shipped.
+// Clear it so the UI drops back to a signed-out state instead of silently
+// failing every call.
+function findaiHandleAuthFailure(resp){
+  if(resp && resp.status === 401){
+    try{ localStorage.removeItem('findai_user'); }catch(_){}
+    try{ if(typeof updateAuthUI === 'function') updateAuthUI(null); }catch(_){}
+    return true;
+  }
+  return false;
 }
 
 // Renders the detail topbar's login area from current auth state (reuses the
@@ -1069,10 +1098,10 @@ function renderChartAndStats(){
   var absTxt = (hasChg && chgAbs != null) ? chgAbs : 0;
   var badgeCls = dir<0 ? 'down' : (dir>0 ? 'up' : 'flat');
   var pill = '<span class="mw-stat-chg '+badgeCls+'">'+(arrowChar?arrowChar+' ':'')+pctTxt+'%</span>';
-  var todaySpan = '<span class="mw-stat-today '+badgeCls+'">'+(absTxt>=0?'+':'-')+mwMoney(Math.abs(absTxt))+' today</span>';
+  var todayPrefix = dir>0 ? '+' : (dir<0 ? '-' : '');
+  var todaySpan = '<span class="mw-stat-today '+badgeCls+'">'+todayPrefix+mwMoney(Math.abs(absTxt))+' today</span>';
   var liveCard = '<div class="mw-stat"><div class="mw-stat-label">Live Price</div>'
-    + '<div class="mw-liverow"><span class="mw-live-num">'+liveNum+'</span>'+pill+'</div>'
-    + todaySpan
+    + '<div class="mw-live-layout"><span class="mw-live-num">'+liveNum+'</span><div class="mw-live-change-col">'+pill+todaySpan+'</div></div>'
     + '</div>';
 
   document.getElementById('mw-stats-row').innerHTML =
@@ -1262,12 +1291,13 @@ function renderTrackerListings(listings){
       : (l.shipping && l.shipping.cost != null && Number.isFinite(Number(l.shipping.cost)) ? Number(l.shipping.cost) : null);
     var shippingText = shippingCost === 0
       ? 'Free shipping'
-      : (shippingCost != null ? '+'+mwMoney(shippingCost)+' shipping' : 'Shipping shown at checkout');
+      : (shippingCost != null ? '+'+mwMoney(shippingCost) : 'Shipping cost varies');
+    var shippingCls = shippingCost === 0 ? ' free' : (shippingCost == null ? ' varies' : '');
     return '<a class="mw-listing-card'+(isBest?' mw-best':'')+'" href="'+escapeHtml(l.url||'#')+'" target="_blank" rel="noopener">' +
       thumb +
       '<div class="mw-listing-src" style="text-transform:none">'+mwSourceBadge(l)+'</div>' +
       '<div class="mw-listing-bottom"><div class="mw-listing-price">'+(l.price?mwMoney(l.price):'See listing')+'</div>' +
-      '<div class="mw-listing-shipping">'+shippingText.replace(' shipping','')+'</div></div>' +
+      '<div class="mw-listing-shipping'+shippingCls+'">'+shippingText+'</div></div>' +
       (isBest?'<div class="mw-best-badge">&#128081; Best Price</div>':'') +
       '</a>';
   }).join('');
@@ -1291,13 +1321,15 @@ function updateTrackBtn(){
 async function toggleTracking(){
   var u = null; try{ u = JSON.parse(localStorage.getItem('findai_user')||'null'); }catch(_){}
   var email = u && u.email ? u.email : null;
-  if(!email){ openAuth('Sign in to track items'); return; }
+  if(!email || !findaiSession()){ openAuth('Sign in to track items'); return; }
   var endpoint = mwTracking ? '/tracker/remove' : '/tracker/add';
   try{
-    await fetch(WORKER + endpoint, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ email: email, query: mwCurrentQuery })
+    var r = await fetch(WORKER + endpoint, {
+      method:'POST', headers: findaiAuthHeaders(),
+      body: JSON.stringify({ query: mwCurrentQuery })
     });
+    if(findaiHandleAuthFailure(r)){ openAuth('Please sign in again'); return; }
+    if(!r.ok) return;
     mwTracking = !mwTracking;
     updateTrackBtn();
   }catch(e){}
@@ -2446,11 +2478,11 @@ function saveClickedItem(item){
   // interested?" email). Fire-and-forget; never blocks the UI.
   try{
     var u = JSON.parse(localStorage.getItem('findai_user')||'null');
-    if(u && u.email){
+    if(u && u.email && findaiSession()){
       fetch('https://api.carsearchapi.workers.dev/track-view', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ email: u.email, item: item })
-      }).catch(function(){});
+        method:'POST', headers: findaiAuthHeaders(),
+        body: JSON.stringify({ item: item })
+      }).then(findaiHandleAuthFailure).catch(function(){});
     }
   }catch(_){}
 }
@@ -2800,11 +2832,11 @@ function saveRecentSearch(query) {
   // back to it when the user has not clicked any item yet.
   try{
     var u = JSON.parse(localStorage.getItem('findai_user') || 'null');
-    if(u && u.email){
+    if(u && u.email && findaiSession()){
       fetch(WORKER + '/track-search', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ email: u.email, query: query })
-      }).catch(function(){});
+        method:'POST', headers: findaiAuthHeaders(),
+        body: JSON.stringify({ query: query })
+      }).then(findaiHandleAuthFailure).catch(function(){});
     }
   }catch(_){}
 }
@@ -2905,6 +2937,16 @@ function openAuth(title){
   document.getElementById('auth-modal-bg').style.display = 'flex';
 }
 function closeAuth(){ document.getElementById('auth-modal-bg').style.display = 'none'; }
+
+// One-time migration: anyone signed in before session tokens existed has a
+// stored profile with no token, which every user-scoped call will now reject.
+// Clear it once so they get a clean sign-in prompt rather than silent failures.
+(function migrateLegacyLogin(){
+  try{
+    var u = JSON.parse(localStorage.getItem('findai_user')||'null');
+    if(u && u.email && !u.session) localStorage.removeItem('findai_user');
+  }catch(_){}
+})();
 
 function updateAuthUI(user){
   const out = document.getElementById('nav-auth-out');
