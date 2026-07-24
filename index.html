@@ -1152,7 +1152,9 @@ function renderChartAndStats(){
     var mvTxt = Math.abs(deltaPct) < 3 ? 'at market'
       : (Math.round(Math.abs(deltaPct)) + '% ' + (under ? 'under' : 'over'));
     pill = '<span class="mw-stat-chg '+mvCls+'">'+mvTxt+'</span>';
-    todaySpan = '<span class="mw-stat-today '+mvCls+'">vs market</span>';
+    // No second line — the box is narrow and "15% under" already reads clearly
+    // on its own. An empty span keeps the layout identical to the day-change case.
+    todaySpan = '<span class="mw-stat-today '+mvCls+'"></span>';
   }
   var liveCard = '<div class="mw-stat"><div class="mw-stat-label">Live Price</div>'
     + '<div class="mw-live-layout"><span class="mw-live-num">'+liveNum+'</span><div class="mw-live-change-col">'+pill+todaySpan+'</div></div>'
@@ -1233,6 +1235,22 @@ function renderChartAndStats(){
 function sourceCountLabel(){
   var el = document.getElementById('mw-item-sub');
   return el ? el.textContent : '';
+}
+
+// Draw a smooth curve THROUGH a set of points using Catmull-Rom splines
+// converted to cubic beziers. This only softens the corners between real data
+// points for looks — every point p[i] is still hit exactly, so no value is
+// altered, hidden, or invented. Tension 0 = classic Catmull-Rom.
+function strokeSmooth(ctx, pts){
+  if(pts.length < 2) return;
+  if(pts.length === 2){ ctx.moveTo(pts[0].x,pts[0].y); ctx.lineTo(pts[1].x,pts[1].y); return; }
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for(var i=0;i<pts.length-1;i++){
+    var p0 = pts[i===0?0:i-1], p1 = pts[i], p2 = pts[i+1], p3 = pts[i+2>pts.length-1?pts.length-1:i+2];
+    var c1x = p1.x + (p2.x - p0.x)/6, c1y = p1.y + (p2.y - p0.y)/6;
+    var c2x = p2.x - (p3.x - p1.x)/6, c2y = p2.y - (p3.y - p1.y)/6;
+    ctx.bezierCurveTo(c1x,c1y,c2x,c2y,p2.x,p2.y);
+  }
 }
 
 function drawPriceChart(series, opts){
@@ -1324,8 +1342,7 @@ function drawPriceChart(series, opts){
     var yl = yAt(liveLevel);
     ctx.strokeStyle = 'rgba(255,255,255,0.18)'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
     ctx.beginPath(); ctx.moveTo(padL, yl); ctx.lineTo(w-padR, yl); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle='rgba(255,255,255,0.45)'; ctx.font='10px DM Sans, sans-serif'; ctx.textAlign='right';
-    ctx.fillText('listed now ' + mwMoney(liveLevel), w-padR-2, yl-6);
+    // (No "listed now" text here — the end-of-line £ label already states it.)
   }
 
   if(series.length){
@@ -1359,37 +1376,24 @@ function drawPriceChart(series, opts){
   if(sales.length){
     var SOLD=col, SOLDRGB=rgb;
     if(sales.length > 1){
-      // Area fill under the sold line
+      var pts = sales.map(function(s){ return { x:xAtTime(s.t), y:yAt(s.v) }; });
+      // Area fill under the smooth curve.
       ctx.beginPath();
-      ctx.moveTo(xAtTime(sales[0].t), yAt(sales[0].v));
-      sales.forEach(function(s){ ctx.lineTo(xAtTime(s.t), yAt(s.v)); });
-      ctx.lineTo(xAtTime(sales[sales.length-1].t), padT+plotH);
-      ctx.lineTo(xAtTime(sales[0].t), padT+plotH);
+      strokeSmooth(ctx, pts);
+      ctx.lineTo(pts[pts.length-1].x, padT+plotH);
+      ctx.lineTo(pts[0].x, padT+plotH);
       ctx.closePath();
       var sgrad = ctx.createLinearGradient(0,padT,0,padT+plotH);
-      sgrad.addColorStop(0,'rgba('+SOLDRGB+',0.30)');
-      sgrad.addColorStop(1,'rgba('+SOLDRGB+',0.02)');
+      sgrad.addColorStop(0,'rgba('+SOLDRGB+',0.28)');
+      sgrad.addColorStop(1,'rgba('+SOLDRGB+',0.01)');
       ctx.fillStyle = sgrad; ctx.fill();
-      // The line itself
-      ctx.beginPath(); ctx.strokeStyle=SOLD; ctx.lineWidth=2;
+      // The smooth line itself — thicker, no per-point dots, to match the clean
+      // finance-chart look. Individual sales are still readable on hover.
+      ctx.beginPath(); ctx.strokeStyle=SOLD; ctx.lineWidth=2.5;
       ctx.lineJoin='round'; ctx.lineCap='round';
-      sales.forEach(function(s,i){
-        var sx=xAtTime(s.t), sy=yAt(s.v);
-        i===0 ? ctx.moveTo(sx,sy) : ctx.lineTo(sx,sy);
-      });
+      strokeSmooth(ctx, pts);
       ctx.stroke();
     }
-    // Nodes on each real sale, sized by quantity sold.
-    sales.forEach(function(s){
-      var sx = xAtTime(s.t), sy = yAt(s.v);
-      var r = Math.min(6, 3.2 + Math.sqrt(Math.max(1, s.qty) - 1) * 1.5);
-      ctx.save();
-      ctx.shadowColor='rgba('+SOLDRGB+',0.55)'; ctx.shadowBlur=6;
-      ctx.fillStyle=SOLD;
-      ctx.beginPath(); ctx.arc(sx, sy, r, 0, 7); ctx.fill();
-      ctx.restore();
-      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(sx, sy, Math.max(1.1, r*0.36), 0, 7); ctx.fill();
-    });
   }
 
   if(series.length){
