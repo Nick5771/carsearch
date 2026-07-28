@@ -660,12 +660,16 @@ var mwSuggestTimer = null;
 var mwSuggestSeq = 0;
 var mwLastSuggestions = [];
 
+function ensureMarketWatchOpen(){
+  var overlay = document.getElementById('mw-overlay');
+  if(overlay) overlay.classList.add('mw-open');
+  document.body.style.overflow='hidden';
+}
 function openMarketWatch(){
-  document.getElementById('mw-overlay').classList.add('mw-open');
+  ensureMarketWatchOpen();
   document.getElementById('mw-hero').style.display='flex';
   document.getElementById('mw-content').style.display='none';
   document.getElementById('mw-loading').style.display='none';
-  document.body.style.overflow='hidden';
   setTimeout(function(){ document.getElementById('mw-search-input').focus(); }, 50);
 }
 function closeMarketWatch(){
@@ -868,66 +872,84 @@ document.addEventListener('click', function(e){
   if(!e.target.closest('.mw-hero-searchwrap')) hideSuggestList();
 });
 
-async function submitTrackerQuery(directQuery){
+async function submitTrackerQuery(directQuery, directProduct, options){
+  options = options || {};
+  var fromRouter = !!options.fromRouter;
   var input = document.getElementById('mw-search-input');
-  // The router (chat → resolved product) passes the query directly. In that case
-  // we already KNOW the product exists in the catalogue, so skip the input-field
-  // and suggestion-box requirements below and go straight to loading it.
+  // The chat router can pass both the exact canonical query and the exact product
+  // identity returned by /resolve-product. That avoids a second fuzzy lookup and
+  // guarantees that "LEGO Ms Puff Boating School" stays tied to set 4982.
   var q;
   if(typeof directQuery === 'string' && directQuery.trim()){
     q = directQuery.trim();
     if(input) input.value = q;
-    // No mwSelectedProduct needed — the worker resolved it; let /tracker/search
-    // re-resolve from the query. Clear any stale selection so an old product
-    // can't leak into this search.
-    mwSelectedProduct = null;
+    mwSelectedProduct = (directProduct && directProduct.pid) ? directProduct : null;
+    // Critical: the old router started the tracker request behind a CLOSED
+    // overlay. Results could render successfully but the shopper only saw an
+    // empty chat screen. Open it here so every direct handoff is safe.
+    ensureMarketWatchOpen();
   } else {
     q = (input.value || '').trim();
-    if(!q) return;
-    // Only allow a search when the catalog actually found a matching item. If the
-    // suggestion box is empty, the product doesn't exist in our data — so we don't
-    // search (avoids dead-end/empty tracker pages). Show a brief hint instead.
+    if(!q) return false;
+    // Only allow a search when the catalogue actually found a matching item.
     if(!mwSelectedProduct && (!mwLastSuggestions || !mwLastSuggestions.length)){
       mwSearchHint('No matching item found — try a different name.');
-      return;
+      return false;
     }
-    // If the user hit Enter/Track without clicking a specific suggestion, use the
-    // top match (the item at the top of the box).
+    // Enter/Track without clicking uses the top visible catalogue suggestion.
     if(!mwSelectedProduct){
       mwSelectedProduct = mwLastSuggestions[0];
       if(mwSelectedProduct && mwSelectedProduct.title){ input.value = mwSelectedProduct.title; q = mwSelectedProduct.title; }
     }
+    ensureMarketWatchOpen();
   }
   mwCurrentQuery = q;
   document.getElementById('mw-hero').style.display='none';
   document.getElementById('mw-content').style.display='none';
   document.getElementById('mw-loading').style.display='block';
-  // Restart the determinate fill animation each time the loader appears
-  // (toggling display alone won't re-run a CSS animation).
   var _fill=document.querySelector('#mw-loading .mw-loading-bar-fill');
   if(_fill){ _fill.style.animation='none'; void _fill.offsetWidth; _fill.style.animation=''; }
-  // Cosmetic percentage that counts up alongside the bar (the marketplace APIs
-  // don't report real progress, so this is a UX flourish, not true telemetry).
   if(window.mwLoadTimer){ clearInterval(window.mwLoadTimer); }
   var _pct=document.getElementById('mw-loading-pct'), _p=0;
   if(_pct){ _pct.textContent='0%'; }
   window.mwLoadTimer=setInterval(function(){
-    _p += Math.max(1, Math.round((95-_p)*0.06));   // ease toward 95, then hold
+    _p += Math.max(1, Math.round((95-_p)*0.06));
     if(_p>95) _p=95;
     if(_pct) _pct.textContent=_p+'%';
   }, 90);
   try{
-    var res = await fetch(WORKER + '/tracker/search', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ query: q, product: mwSelectedProduct })
-    });
-    var data = await res.json();
-    if(data && data.fx){ mwFx = { cur:data.fx.currency||'USD', sym:data.fx.symbol||'$', rate:Number(data.fx.rate)||1 }; }
+    var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    var timeout = setTimeout(function(){ try{ if(controller) controller.abort(); }catch(_){} }, 30000);
+    var res;
+    try{
+      res = await fetch(WORKER + '/tracker/search', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ query: q, product: mwSelectedProduct }),
+        signal: controller ? controller.signal : undefined
+      });
+    } finally { clearTimeout(timeout); }
+    var data = null;
+    try{ data = await res.json(); }catch(_){ data = null; }
+    if(!res.ok || !data || data.error){
+      throw new Error((data && data.error) || ('Tracker request failed ('+res.status+')'));
+    }
+    if(data.fx){ mwFx = { cur:data.fx.currency||'USD', sym:data.fx.symbol||'$', rate:Number(data.fx.rate)||1 }; }
     renderMarketWatch(q, data, mwSelectedProduct);
+    return true;
   }catch(e){
+    console.error('[FindAI] tracker handoff failed:', e);
     if(window.mwLoadTimer){ clearInterval(window.mwLoadTimer); window.mwLoadTimer=null; }
     document.getElementById('mw-loading').style.display='none';
-    document.getElementById('mw-hero').style.display='flex';
+    document.getElementById('mw-content').style.display='none';
+    if(fromRouter){
+      // Let the normal marketplace search continue instead of trapping the user
+      // on a blank or dead tracker screen.
+      closeMarketWatch();
+    } else {
+      document.getElementById('mw-hero').style.display='flex';
+      mwSearchHint('Could not load this item — please try again.');
+    }
+    return false;
   }
 }
 
@@ -2333,18 +2355,41 @@ async function sendMsg(){
     // cards. Deterministic catalogue lookup; non-products ("iphone 17", "best oled
     // tv") resolve to nothing and fall straight through to the generic search.
     try{
-      const rr = await fetch(WORKER + '/resolve-product', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ query: q })
-      });
+      var _resolveController = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      var _resolveTimeout = setTimeout(function(){ try{ if(_resolveController) _resolveController.abort(); }catch(_){} }, 6000);
+      var rr;
+      try{
+        rr = await fetch(WORKER + '/resolve-product', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ query: q }),
+          signal: _resolveController ? _resolveController.signal : undefined
+        });
+      } finally { clearTimeout(_resolveTimeout); }
+      if(!rr.ok) throw new Error('Resolver request failed ('+rr.status+')');
       const rj = await rr.json();
       if(rj && rj.resolved && rj.trackerQuery){
-        // Remove the "thinking" bubble, then hand off to the tracker experience.
-        try{ removeThinking(); }catch(_){}
-        busy=false; document.getElementById('send-btn').disabled=false;
-        mwSelectedProduct = null;
-        submitTrackerQuery(rj.trackerQuery);   // opens the deep product view
-        return;
+        // Pass the canonical identity into /tracker/search. The previous version
+        // threw it away and asked the worker to guess the product a second time.
+        var routedProduct = (rj.product && rj.product.pid) ? rj.product : null;
+        if(!routedProduct && rj.setId){
+          routedProduct = {
+            pid: 'lego-' + String(rj.setId),
+            styleId: String(rj.setId),
+            brand: 'LEGO',
+            title: 'LEGO ' + String(rj.name || '').trim(),
+            theme: String(rj.theme || ''),
+            released: rj.year || null
+          };
+        }
+        var routedOk = await submitTrackerQuery(rj.trackerQuery, routedProduct, {fromRouter:true});
+        if(routedOk){
+          try{ removeThinking(); }catch(_){}
+          busy=false; document.getElementById('send-btn').disabled=false;
+          return;
+        }
+        // Tracker/API failure: keep the thinking bubble and continue into the
+        // existing generic marketplace search below. The shopper always gets
+        // listings rather than a blank page.
       }
     }catch(_){ /* resolver failed → fall through to generic search, no harm */ }
     try{
