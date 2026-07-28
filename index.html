@@ -868,22 +868,35 @@ document.addEventListener('click', function(e){
   if(!e.target.closest('.mw-hero-searchwrap')) hideSuggestList();
 });
 
-async function submitTrackerQuery(){
+async function submitTrackerQuery(directQuery){
   var input = document.getElementById('mw-search-input');
-  var q = (input.value || '').trim();
-  if(!q) return;
-  // Only allow a search when the catalog actually found a matching item. If the
-  // suggestion box is empty, the product doesn't exist in our data — so we don't
-  // search (avoids dead-end/empty tracker pages). Show a brief hint instead.
-  if(!mwSelectedProduct && (!mwLastSuggestions || !mwLastSuggestions.length)){
-    mwSearchHint('No matching item found — try a different name.');
-    return;
-  }
-  // If the user hit Enter/Track without clicking a specific suggestion, use the
-  // top match (the item at the top of the box).
-  if(!mwSelectedProduct){
-    mwSelectedProduct = mwLastSuggestions[0];
-    if(mwSelectedProduct && mwSelectedProduct.title){ input.value = mwSelectedProduct.title; q = mwSelectedProduct.title; }
+  // The router (chat → resolved product) passes the query directly. In that case
+  // we already KNOW the product exists in the catalogue, so skip the input-field
+  // and suggestion-box requirements below and go straight to loading it.
+  var q;
+  if(typeof directQuery === 'string' && directQuery.trim()){
+    q = directQuery.trim();
+    if(input) input.value = q;
+    // No mwSelectedProduct needed — the worker resolved it; let /tracker/search
+    // re-resolve from the query. Clear any stale selection so an old product
+    // can't leak into this search.
+    mwSelectedProduct = null;
+  } else {
+    q = (input.value || '').trim();
+    if(!q) return;
+    // Only allow a search when the catalog actually found a matching item. If the
+    // suggestion box is empty, the product doesn't exist in our data — so we don't
+    // search (avoids dead-end/empty tracker pages). Show a brief hint instead.
+    if(!mwSelectedProduct && (!mwLastSuggestions || !mwLastSuggestions.length)){
+      mwSearchHint('No matching item found — try a different name.');
+      return;
+    }
+    // If the user hit Enter/Track without clicking a specific suggestion, use the
+    // top match (the item at the top of the box).
+    if(!mwSelectedProduct){
+      mwSelectedProduct = mwLastSuggestions[0];
+      if(mwSelectedProduct && mwSelectedProduct.title){ input.value = mwSelectedProduct.title; q = mwSelectedProduct.title; }
+    }
   }
   mwCurrentQuery = q;
   document.getElementById('mw-hero').style.display='none';
@@ -2313,6 +2326,27 @@ async function sendMsg(){
 
   // ⚡ FAST PATH: a product search skips the AI entirely and hits the cached search directly.
   if(isProductSearch(q)){
+    // ROUTER (the "tracker IS FindAI" step): before dumping generic cards, ask the
+    // worker whether this query resolves to a specific product we have a deep
+    // tracker experience for. "lego ms puff boating school" → set 4982 → open the
+    // tracker view (chart, market value, scored buy grid) rather than listing
+    // cards. Deterministic catalogue lookup; non-products ("iphone 17", "best oled
+    // tv") resolve to nothing and fall straight through to the generic search.
+    try{
+      const rr = await fetch(WORKER + '/resolve-product', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ query: q })
+      });
+      const rj = await rr.json();
+      if(rj && rj.resolved && rj.trackerQuery){
+        // Remove the "thinking" bubble, then hand off to the tracker experience.
+        try{ removeThinking(); }catch(_){}
+        busy=false; document.getElementById('send-btn').disabled=false;
+        mwSelectedProduct = null;
+        submitTrackerQuery(rj.trackerQuery);   // opens the deep product view
+        return;
+      }
+    }catch(_){ /* resolver failed → fall through to generic search, no harm */ }
     try{
       let kw, maxPrice;
       if(isRefinement(q)){
