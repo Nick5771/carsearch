@@ -659,6 +659,9 @@ var mwSelectedProduct = null; // set when the user picks a StockX suggestion; nu
 var mwSuggestTimer = null;
 var mwSuggestSeq = 0;
 var mwLastSuggestions = [];
+var mwSuggestController = null;
+var mwSuggestPromise = null;
+var mwSuggestCache = new Map();
 
 function ensureMarketWatchOpen(){
   var overlay = document.getElementById('mw-overlay');
@@ -752,28 +755,76 @@ function renderTopbarAuth(){
   }
 }
 
-// Debounced live typeahead - fires ~250ms after the user stops typing so we're
-// not hitting the suggest endpoint on every keystroke.
+// Fast live typeahead. Requests begin almost immediately, prior keystrokes are
+// cancelled, and recent prefixes are served from a tiny in-memory cache.
 function onTrackerInput(val){
   mwSelectedProduct = null;
   clearTimeout(mwSuggestTimer);
   var q = (val||'').trim();
-  if(q.length < 2){ hideSuggestList(); return; }
-  mwSuggestTimer = setTimeout(function(){ fetchSuggestions(q); }, 250);
+  if(q.length < 2){
+    if(mwSuggestController){ try{ mwSuggestController.abort(); }catch(_){} }
+    hideSuggestList();
+    return;
+  }
+  var key = q.toLowerCase().replace(/\s+/g,' ');
+  var cached = mwSuggestCache.get(key);
+  if(cached && Date.now()-cached.at < 300000){
+    renderSuggestList(cached.items);
+    return;
+  }
+  showSuggestLoading();
+  mwSuggestTimer = setTimeout(function(){ fetchSuggestions(q); }, 80);
 }
 function onTrackerKeydown(e){
   if(e.key==='Enter'){ hideSuggestList(); submitTrackerQuery(); }
-  if(e.key==='Escape'){ hideSuggestList(); }
+  if(e.key==='Escape'){
+    if(mwSuggestController){ try{ mwSuggestController.abort(); }catch(_){} }
+    hideSuggestList();
+  }
 }
-
-async function fetchSuggestions(q){
-  var seq = ++mwSuggestSeq;
-  try{
-    var res = await fetch(WORKER + '/tracker/suggest?q=' + encodeURIComponent(q));
-    var data = await res.json();
-    if(seq !== mwSuggestSeq) return; // a newer keystroke already fired another request
-    renderSuggestList(data.suggestions || []);
-  }catch(e){ hideSuggestList(); }
+function showSuggestLoading(){
+  var box=document.getElementById('mw-suggest-list');
+  if(!box) return;
+  box.innerHTML='<div style="padding:14px 18px;color:#777;font-size:14px;text-align:left">Searching catalogue…</div>';
+  box.style.display='block';
+}
+async function fetchSuggestions(q, force){
+  var key=(q||'').trim().toLowerCase().replace(/\s+/g,' ');
+  if(!key) return [];
+  var cached=mwSuggestCache.get(key);
+  if(!force && cached && Date.now()-cached.at < 300000){
+    renderSuggestList(cached.items);
+    return cached.items;
+  }
+  var seq=++mwSuggestSeq;
+  if(mwSuggestController){ try{ mwSuggestController.abort(); }catch(_){} }
+  mwSuggestController=(typeof AbortController!=='undefined')?new AbortController():null;
+  var controller=mwSuggestController;
+  var timeout=setTimeout(function(){ try{ if(controller) controller.abort(); }catch(_){} },5000);
+  mwSuggestPromise=(async function(){
+    try{
+      var res=await fetch(WORKER+'/tracker/suggest?q='+encodeURIComponent(q),{
+        signal:controller?controller.signal:undefined,
+        cache:'default'
+      });
+      if(!res.ok) throw new Error('Suggestion request failed ('+res.status+')');
+      var data=await res.json();
+      if(seq!==mwSuggestSeq) return [];
+      var items=(data&&Array.isArray(data.suggestions))?data.suggestions:[];
+      mwSuggestCache.set(key,{at:Date.now(),items:items});
+      renderSuggestList(items);
+      return items;
+    }catch(e){
+      if(e&&e.name==='AbortError') return [];
+      console.error('[FindAI] suggestions failed:',e);
+      if(seq===mwSuggestSeq) hideSuggestList();
+      return [];
+    }finally{
+      clearTimeout(timeout);
+      if(controller===mwSuggestController) mwSuggestController=null;
+    }
+  })();
+  return mwSuggestPromise;
 }
 
 // Inline onerror fallback for suggestion thumbnails - StockX studio images
@@ -891,9 +942,15 @@ async function submitTrackerQuery(directQuery, directProduct, options){
   } else {
     q = (input.value || '').trim();
     if(!q) return false;
-    // Only allow a search when the catalogue actually found a matching item.
+    // Track/Enter may beat the typeahead by a few milliseconds. Wait for the
+    // current lookup (or start one immediately) instead of incorrectly saying the
+    // product does not exist.
     if(!mwSelectedProduct && (!mwLastSuggestions || !mwLastSuggestions.length)){
-      mwSearchHint('No matching item found — try a different name.');
+      var found = await fetchSuggestions(q, true);
+      if(found && found.length) mwLastSuggestions = found;
+    }
+    if(!mwSelectedProduct && (!mwLastSuggestions || !mwLastSuggestions.length)){
+      mwSearchHint('No matching item found — try a more specific name.');
       return false;
     }
     // Enter/Track without clicking uses the top visible catalogue suggestion.
@@ -912,19 +969,24 @@ async function submitTrackerQuery(directQuery, directProduct, options){
   if(window.mwLoadTimer){ clearInterval(window.mwLoadTimer); }
   var _pct=document.getElementById('mw-loading-pct'), _p=0;
   if(_pct){ _pct.textContent='0%'; }
+  var _loadStarted=Date.now();
   window.mwLoadTimer=setInterval(function(){
-    _p += Math.max(1, Math.round((95-_p)*0.06));
-    if(_p>95) _p=95;
-    if(_pct) _pct.textContent=_p+'%';
-  }, 90);
+    _p += Math.max(1, Math.round((92-_p)*0.09));
+    if(_p>92) _p=92;
+    if(_pct){
+      _pct.textContent = (Date.now()-_loadStarted>7000 && _p>=90)
+        ? 'Checking final marketplace…'
+        : (_p+'%');
+    }
+  }, 80);
   try{
     var controller = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-    var timeout = setTimeout(function(){ try{ if(controller) controller.abort(); }catch(_){} }, 30000);
+    var timeout = setTimeout(function(){ try{ if(controller) controller.abort(); }catch(_){} }, 18000);
     var res;
     try{
       res = await fetch(WORKER + '/tracker/search', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ query: q, product: mwSelectedProduct }),
+        body: JSON.stringify({ query: q, product: mwSelectedProduct, fast: true }),
         signal: controller ? controller.signal : undefined
       });
     } finally { clearTimeout(timeout); }
