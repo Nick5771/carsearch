@@ -397,12 +397,12 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .mw-stat{background:#111;border:1px solid #1a1a1a;border-radius:10px;padding:10px 12px;min-width:0;overflow:hidden}
 .mw-stat-label{font-size:11px;color:#888;margin-bottom:4px}
 .mw-stat-value{font-size:20px;font-weight:700;color:#4d9fe6}
-.mw-stat-value-big{font-size:clamp(24px,2.25vw,34px);font-weight:800;color:#4d9fe6;line-height:1.05;display:flex;align-items:center;gap:6px;white-space:nowrap;min-width:0;letter-spacing:-1px}
+.mw-stat-value-big{font-size:clamp(21px,1.9vw,30px);font-weight:800;color:#4d9fe6;line-height:1.05;display:flex;align-items:center;gap:6px;white-space:nowrap;min-width:0;letter-spacing:-1px}
 .mw-arrow{font-size:20px;font-weight:800;line-height:1}
 .mw-arrow-up{color:#22c55e}
 .mw-arrow-down{color:#ef4444}
 .mw-live-layout{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:6px;min-width:0}
-.mw-live-num{font-size:clamp(24px,2.25vw,34px);font-weight:800;color:#4d9fe6;line-height:1.05;white-space:nowrap;min-width:0;letter-spacing:-1px;overflow:hidden;text-overflow:clip}
+.mw-live-num{font-size:clamp(21px,1.9vw,30px);font-weight:800;color:#4d9fe6;line-height:1.05;white-space:nowrap;min-width:0;letter-spacing:-.6px;overflow:visible;text-overflow:clip}
 .mw-live-change-col{display:flex;flex-direction:column;align-items:flex-start;gap:7px;min-width:max-content}
 .mw-stat-chg{display:inline-flex;align-items:center;gap:4px;font-size:clamp(11px,1vw,14px);font-weight:700;padding:3px 7px;border-radius:8px;white-space:nowrap;flex:none}
 .mw-stat-chg.up{color:#34a853;background:rgba(52,168,83,.14)}
@@ -562,7 +562,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
       <div class="mw-hero-title">Price Tracker</div>
       <div class="mw-hero-sub">Search any item to see its live price across marketplaces and track it over time.</div>
       <div class="mw-hero-searchwrap" style="position:relative">
-        <input type="text" id="mw-search-input" class="mw-hero-search-input" placeholder="Search any item to track its price..." autocomplete="off" oninput="onTrackerInput(this.value)" onkeydown="onTrackerKeydown(event)">
+        <input type="text" id="mw-search-input" class="mw-hero-search-input" placeholder="Search any item to track its price..." autocomplete="off" oninput="onTrackerInput(this.value)" onfocus="onTrackerFocus(this.value)" onkeydown="onTrackerKeydown(event)">
         <button class="mw-hero-search-btn" onclick="submitTrackerQuery()">Track</button>
         <div id="mw-suggest-list" class="mw-suggest-list"></div>
       </div>
@@ -662,6 +662,7 @@ var mwLastSuggestions = [];
 var mwSuggestController = null;
 var mwSuggestPromise = null;
 var mwSuggestCache = new Map();
+var mwLastSuggestKey = '';
 
 function ensureMarketWatchOpen(){
   var overlay = document.getElementById('mw-overlay');
@@ -686,7 +687,7 @@ function closeMarketWatch(){
 function backToHero(){
   document.getElementById('mw-content').style.display='none';
   document.getElementById('mw-hero').style.display='flex';
-  setTimeout(function(){ var i=document.getElementById('mw-search-input'); i.focus(); i.select(); }, 50);
+  setTimeout(function(){ var i=document.getElementById('mw-search-input'); i.focus(); i.select(); onTrackerFocus(i.value); }, 50);
 }
 // Browser Back while viewing a product detail returns to the tracker search
 // (the "main page with listings") rather than jumping out to the previous site.
@@ -757,6 +758,24 @@ function renderTopbarAuth(){
 
 // Fast live typeahead. Requests begin almost immediately, prior keystrokes are
 // cancelled, and recent prefixes are served from a tiny in-memory cache.
+function mwSuggestKey(val){
+  return String(val||'').trim().toLowerCase().replace(/\s+/g,' ');
+}
+function onTrackerFocus(val){
+  var q=String(val||'').trim();
+  if(q.length<2) return;
+  var key=mwSuggestKey(q);
+  var cached=mwSuggestCache.get(key);
+  if(cached && Date.now()-cached.at<300000){
+    renderSuggestList(cached.items,key);
+    return;
+  }
+  if(mwLastSuggestions && mwLastSuggestions.length && mwLastSuggestKey===key){
+    renderSuggestList(mwLastSuggestions,key);
+    return;
+  }
+  fetchSuggestions(q);
+}
 function onTrackerInput(val){
   mwSelectedProduct = null;
   clearTimeout(mwSuggestTimer);
@@ -766,10 +785,10 @@ function onTrackerInput(val){
     hideSuggestList();
     return;
   }
-  var key = q.toLowerCase().replace(/\s+/g,' ');
+  var key = mwSuggestKey(q);
   var cached = mwSuggestCache.get(key);
   if(cached && Date.now()-cached.at < 300000){
-    renderSuggestList(cached.items);
+    renderSuggestList(cached.items,key);
     return;
   }
   showSuggestLoading();
@@ -789,11 +808,11 @@ function showSuggestLoading(){
   box.style.display='block';
 }
 async function fetchSuggestions(q, force){
-  var key=(q||'').trim().toLowerCase().replace(/\s+/g,' ');
+  var key=mwSuggestKey(q);
   if(!key) return [];
   var cached=mwSuggestCache.get(key);
   if(!force && cached && Date.now()-cached.at < 300000){
-    renderSuggestList(cached.items);
+    renderSuggestList(cached.items,key);
     return cached.items;
   }
   var seq=++mwSuggestSeq;
@@ -812,7 +831,7 @@ async function fetchSuggestions(q, force){
       if(seq!==mwSuggestSeq) return [];
       var items=(data&&Array.isArray(data.suggestions))?data.suggestions:[];
       mwSuggestCache.set(key,{at:Date.now(),items:items});
-      renderSuggestList(items);
+      renderSuggestList(items,key);
       return items;
     }catch(e){
       if(e&&e.name==='AbortError') return [];
@@ -879,12 +898,13 @@ function mwProxyImg(u){
   return u;
 }
 
-function renderSuggestList(suggestions){
+function renderSuggestList(suggestions,key){
   var box = document.getElementById('mw-suggest-list');
   if(!suggestions.length){
     // No catalog match — clear the stored list so Enter/Track is blocked (the
     // item doesn't exist in our data), and hide the dropdown.
     mwLastSuggestions = [];
+    mwLastSuggestKey = key || mwSuggestKey((document.getElementById('mw-search-input')||{}).value);
     hideSuggestList();
     return;
   }
@@ -897,10 +917,11 @@ function renderSuggestList(suggestions){
   }).join('');
   box.style.display='block';
   mwLastSuggestions = suggestions;
+  mwLastSuggestKey = key || mwSuggestKey((document.getElementById('mw-search-input')||{}).value);
 }
 function hideSuggestList(){
   var box = document.getElementById('mw-suggest-list');
-  if(box){ box.style.display='none'; box.innerHTML=''; }
+  if(box){ box.style.display='none'; }
 }
 // Brief inline message (e.g. "no matching item") shown in the suggestion box.
 function mwSearchHint(msg){
