@@ -317,34 +317,38 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 /* Ambient live-price rail: larger, readable product cards move steadily
    left-to-right in one protected band above the tracker controls. The rail never
    enters the lower half of the screen, so search suggestions and chat remain clear. */
-.mw-ambient-cards{position:absolute;top:88px;left:0;right:0;height:232px;z-index:2;pointer-events:none;overflow:hidden;transition:opacity .3s ease;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%)}
-.mw-ambient-card{position:absolute;left:0;top:30px;width:clamp(320px,22.5vw,360px);height:136px;box-sizing:border-box;display:grid;grid-template-columns:92px minmax(0,1fr) 72px 32px;align-items:center;gap:12px;padding:14px 14px 14px 15px;background:linear-gradient(135deg,rgba(20,20,20,.98),rgba(9,9,9,.96));border:1px solid rgba(255,255,255,.13);border-radius:22px;color:#fff;box-shadow:0 18px 46px rgba(0,0,0,.56),inset 0 1px 0 rgba(255,255,255,.025);cursor:pointer;pointer-events:auto;text-align:left;font-family:'DM Sans',sans-serif;will-change:transform;animation:mwAmbientRailMove var(--rail-duration) linear var(--rail-delay) infinite;transition:border-color .18s,box-shadow .18s,filter .18s;touch-action:manipulation}
-.mw-ambient-card::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(100deg,rgba(234,67,53,.045),transparent 36%,transparent 72%,rgba(52,168,83,.035))}
-.mw-ambient-card:hover,.mw-ambient-card:focus-visible{border-color:rgba(77,159,230,.62);box-shadow:0 20px 52px rgba(0,0,0,.65),0 0 34px rgba(26,111,255,.12);filter:brightness(1.08);animation-play-state:paused;outline:none;z-index:4}
-.mw-ambient-img{width:92px;height:92px;border-radius:15px;background:#f3f3f3;object-fit:contain;display:block;position:relative;z-index:1}
-.mw-ambient-ph{width:92px;height:92px;border-radius:15px;background:#171717;display:flex;align-items:center;justify-content:center;font-size:34px;position:relative;z-index:1}
+.mw-ambient-cards{position:absolute;top:92px;left:0;right:0;height:196px;z-index:5;pointer-events:auto;overflow:hidden;transition:opacity .3s ease;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 2.5%,#000 97.5%,transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 2.5%,#000 97.5%,transparent 100%)}
+.mw-ambient-track{display:flex;width:max-content;min-width:max-content;padding:22px 0 28px;box-sizing:border-box;will-change:transform;animation:mwAmbientRailMove var(--rail-duration,76s) linear infinite;pointer-events:auto}
+.mw-ambient-track:hover,.mw-ambient-track:focus-within{animation-play-state:paused}
+.mw-ambient-group{display:flex;align-items:center;gap:14px;padding-right:14px;flex:none}
+.mw-ambient-card{position:relative;flex:0 0 clamp(285px,19.2vw,310px);width:clamp(285px,19.2vw,310px);height:140px;box-sizing:border-box;display:grid;grid-template-columns:104px minmax(0,1fr) 52px;align-items:center;gap:10px;padding:12px;background:linear-gradient(135deg,rgba(20,20,20,.985),rgba(9,9,9,.97));border:1px solid rgba(255,255,255,.13);border-radius:22px;color:#fff;box-shadow:0 18px 46px rgba(0,0,0,.56),inset 0 1px 0 rgba(255,255,255,.025);cursor:pointer;pointer-events:auto;text-align:left;font-family:'DM Sans',sans-serif;transition:border-color .18s,box-shadow .18s,filter .18s,transform .18s;touch-action:manipulation;appearance:none;-webkit-appearance:none;margin:0}
+.mw-ambient-card::before{content:'';position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(100deg,rgba(234,67,53,.04),transparent 38%,transparent 72%,rgba(52,168,83,.03))}
+.mw-ambient-card:hover,.mw-ambient-card:focus-visible{border-color:rgba(77,159,230,.68);box-shadow:0 20px 52px rgba(0,0,0,.66),0 0 34px rgba(26,111,255,.13);filter:brightness(1.09);transform:translateY(-2px);outline:none;z-index:8}
+.mw-ambient-img{width:104px;height:104px;border-radius:16px;background:#f3f3f3;object-fit:contain;display:block;position:relative;z-index:1}
+.mw-ambient-ph{width:104px;height:104px;border-radius:16px;background:#171717;display:flex;align-items:center;justify-content:center;font-size:38px;position:relative;z-index:1}
 .mw-ambient-copy{min-width:0;align-self:stretch;display:flex;flex-direction:column;justify-content:center;position:relative;z-index:1}
-.mw-ambient-title{font-size:14px;line-height:1.35;font-weight:600;color:#e5e5e5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:38px}
-.mw-ambient-meta{display:flex;align-items:center;gap:9px;margin-top:10px;min-width:0}
-.mw-ambient-price{font-size:21px;font-weight:800;color:#fff;white-space:nowrap;letter-spacing:-.45px;overflow:visible}
-.mw-ambient-change{font-size:11px;font-weight:800;padding:4px 7px;border-radius:9px;white-space:nowrap}
-/* Conventional market semantics requested for the hero cards: minus is red,
-   plus is green. */
+.mw-ambient-title{font-size:13.5px;line-height:1.3;font-weight:650;color:#ededed;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:36px;padding-right:2px}
+.mw-ambient-meta{display:flex;flex-direction:column;align-items:flex-start;gap:5px;margin-top:8px;min-width:0}
+.mw-ambient-price{font-size:19px;font-weight:800;color:#fff;white-space:nowrap;letter-spacing:-.45px;overflow:visible;max-width:100%}
+.mw-ambient-change{font-size:10.5px;font-weight:800;padding:3px 7px;border-radius:9px;white-space:nowrap}
+/* The badge and line use the same first-to-last price movement. A falling
+   price is red and a rising price is green, so the graph can never disagree
+   with the percentage shown beside it. */
 .mw-ambient-change.down{color:#ff5549;background:rgba(234,67,53,.15)}
 .mw-ambient-change.up{color:#37d46b;background:rgba(52,168,83,.15)}
 .mw-ambient-change.flat{color:#62adf0;background:rgba(77,159,230,.14)}
-.mw-ambient-spark{width:72px;height:48px;overflow:visible;position:relative;z-index:1}
-.mw-ambient-spark path{fill:none;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.mw-ambient-spark{width:52px;height:52px;overflow:visible;position:relative;z-index:1;align-self:center}
+.mw-ambient-spark path{fill:none;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
 .mw-ambient-card.down .mw-ambient-spark path{stroke:#ff5549}
 .mw-ambient-card.up .mw-ambient-spark path{stroke:#37d46b}
 .mw-ambient-card.flat .mw-ambient-spark path{stroke:#62adf0}
-.mw-ambient-open{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#202020;border:1px solid rgba(255,255,255,.08);font-size:19px;color:#e9e9e9;position:relative;z-index:1;transition:background .18s,transform .18s}
+.mw-ambient-open{position:absolute;right:10px;top:9px;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#202020;border:1px solid rgba(255,255,255,.08);font-size:17px;color:#e9e9e9;z-index:2;transition:background .18s,transform .18s}
 .mw-ambient-card:hover .mw-ambient-open{background:#2b2b2b;transform:translateX(2px)}
-@keyframes mwAmbientRailMove{from{transform:translate3d(-430px,0,0)}to{transform:translate3d(calc(100vw + 430px),0,0)}}
-@media(max-width:1260px){.mw-ambient-card{width:310px;height:124px;grid-template-columns:82px minmax(0,1fr) 62px 30px;gap:10px;padding:12px;border-radius:19px}.mw-ambient-img,.mw-ambient-ph{width:82px;height:82px}.mw-ambient-spark{width:62px;height:42px}.mw-ambient-price{font-size:19px}.mw-ambient-title{font-size:13px}.mw-ambient-cards{height:210px}.mw-hero-inner{padding-top:330px}}
-@media(max-width:980px){.mw-ambient-card{width:286px;height:112px;grid-template-columns:72px minmax(0,1fr) 54px 28px;gap:9px;padding:11px}.mw-ambient-img,.mw-ambient-ph{width:72px;height:72px}.mw-ambient-title{font-size:12px;min-height:33px}.mw-ambient-price{font-size:17px}.mw-ambient-change{font-size:10px;padding:3px 6px}.mw-ambient-spark{width:54px;height:36px}.mw-ambient-open{width:28px;height:28px}.mw-ambient-cards{top:78px;height:184px}.mw-hero-inner{padding-top:292px}}
+@keyframes mwAmbientRailMove{from{transform:translate3d(calc(-50% - 7px),0,0)}to{transform:translate3d(0,0,0)}}
+@media(max-width:1260px){.mw-ambient-card{flex-basis:280px;width:280px;height:132px;grid-template-columns:96px minmax(0,1fr) 48px;gap:9px;padding:11px;border-radius:20px}.mw-ambient-img,.mw-ambient-ph{width:96px;height:96px}.mw-ambient-spark{width:48px;height:46px}.mw-ambient-price{font-size:18px}.mw-ambient-title{font-size:13px}.mw-ambient-cards{height:184px}.mw-hero-inner{padding-top:330px}}
+@media(max-width:980px){.mw-ambient-card{flex-basis:252px;width:252px;height:120px;grid-template-columns:84px minmax(0,1fr) 42px;gap:8px;padding:10px}.mw-ambient-img,.mw-ambient-ph{width:84px;height:84px}.mw-ambient-title{font-size:12px;min-height:32px}.mw-ambient-price{font-size:16px}.mw-ambient-change{font-size:9.5px;padding:3px 6px}.mw-ambient-spark{width:42px;height:40px}.mw-ambient-open{width:25px;height:25px;font-size:15px}.mw-ambient-cards{top:80px;height:164px}.mw-hero-inner{padding-top:286px}}
 @media(max-width:720px){.mw-ambient-cards{display:none}.mw-hero-inner{justify-content:center;padding:24px}}
-@media(prefers-reduced-motion:reduce){.mw-ambient-cards{display:flex;justify-content:center;align-items:flex-start;gap:14px;padding:26px 18px;box-sizing:border-box;-webkit-mask-image:none;mask-image:none}.mw-ambient-card{position:relative;left:auto;top:auto;animation:none;flex:0 1 320px}.mw-ambient-card:nth-child(n+5){display:none}}
+@media(prefers-reduced-motion:reduce){.mw-ambient-cards{display:flex;justify-content:center;align-items:flex-start;padding:18px;box-sizing:border-box;-webkit-mask-image:none;mask-image:none}.mw-ambient-track{animation:none;max-width:100%;overflow:hidden}.mw-ambient-group{justify-content:center}.mw-ambient-group:nth-child(2){display:none}.mw-ambient-card:nth-child(n+5){display:none}}
 .mw-hero-title{font-size:42px;font-weight:700;color:#fff;letter-spacing:-0.5px}
 .mw-hero-sub{font-size:16px;color:#888;max-width:520px;line-height:1.5;margin-bottom:34px}
 /* Single centered pill: the input spans the full centered width and the Track
@@ -707,18 +711,34 @@ var mwAmbientLoadedAt = 0;
 var mwAmbientLoading = null;
 var mwAmbientRotateTimer = null;
 var mwAmbientRefreshTimer = null;
+var mwAmbientDisplayItems = [];  // cards in one seamless marquee group
 
 function mwAmbientKey(item){
   if(!item) return '';
   var p=item.product||{};
   return String(item.id||p.pid||p.styleId||item.title||'').toLowerCase();
 }
-function mwAmbientClass(pct){
-  pct=Number(pct)||0;
+function mwAmbientSeries(item){
+  var vals=(item&&Array.isArray(item.history)?item.history:[]).map(Number).filter(function(v){return isFinite(v)&&v>0;});
+  var live=Number(item&&item.price);
+  // Older cached cards did not always include the live price as the final graph
+  // point. Append it so the line direction and percentage share one dataset.
+  if(isFinite(live)&&live>0&&(!vals.length||Math.abs(vals[vals.length-1]-live)>0.005)) vals.push(live);
+  if(!vals.length&&isFinite(live)&&live>0) vals=[live,live];
+  if(vals.length===1) vals.push(vals[0]);
+  return vals.slice(-12);
+}
+function mwAmbientEffectivePct(item){
+  var vals=mwAmbientSeries(item);
+  if(vals.length<2||!vals[0]) return Number(item&&item.changePct)||0;
+  return ((vals[vals.length-1]-vals[0])/vals[0])*100;
+}
+function mwAmbientClass(item){
+  var pct=mwAmbientEffectivePct(item);
   return pct < -0.5 ? 'down' : (pct > 0.5 ? 'up' : 'flat');
 }
-function mwAmbientPct(pct){
-  pct=Number(pct)||0;
+function mwAmbientPct(item){
+  var pct=mwAmbientEffectivePct(item);
   if(Math.abs(pct)<0.5) return '0%';
   return (pct>0?'+':'')+Math.round(pct)+'%';
 }
@@ -728,8 +748,8 @@ function mwAmbientSpark(points){
   if(vals.length===1) vals=[vals[0],vals[0],vals[0],vals[0]];
   var min=Math.min.apply(null,vals), max=Math.max.apply(null,vals), span=(max-min)||1;
   return vals.map(function(v,i){
-    var x=(i/(vals.length-1))*54+1;
-    var y=27-((v-min)/span)*24;
+    var x=(i/(vals.length-1))*50+1;
+    var y=29-((v-min)/span)*26;
     return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1);
   }).join(' ');
 }
@@ -749,34 +769,31 @@ function mwAmbientImgErr(el){
   el.replaceWith(ph);
 }
 function mwAmbientCardCount(){
-  if(window.innerWidth<980) return 3;
-  if(window.innerWidth<1260) return 4;
-  return 5;
+  if(window.innerWidth<980) return 4;
+  if(window.innerWidth<1260) return 5;
+  return 6;
 }
-function mwAmbientVisibleSlice(){
+function mwAmbientBuildDisplayItems(){
   var pool=mwAmbientPool||[];
   if(!pool.length) return [];
-  var count=Math.min(mwAmbientCardCount(),pool.length), out=[];
-  for(var i=0;i<count;i++) out.push(pool[(mwAmbientOffset+i)%pool.length]);
+  // One group is wider than the screen so cards remain adjacent while the
+  // duplicated group makes the right-moving animation seamless.
+  var target=Math.min(12,Math.max(mwAmbientCardCount()+2,7));
+  var out=[];
+  for(var i=0;i<target;i++) out.push(pool[(mwAmbientOffset+i)%pool.length]);
   return out;
 }
 function mwAmbientCardInner(item){
-  var cls=mwAmbientClass(item.changePct), pct=mwAmbientPct(item.changePct);
+  var cls=mwAmbientClass(item), pct=mwAmbientPct(item), series=mwAmbientSeries(item);
   var img=item.image?'<img class="mw-ambient-img" src="'+mwProxyImg(item.image)+'" alt="" loading="lazy" onerror="mwAmbientImgErr(this)">':'<div class="mw-ambient-ph">📦</div>';
   return img
     +'<span class="mw-ambient-copy"><span class="mw-ambient-title">'+escapeHtml(item.title)+'</span><span class="mw-ambient-meta"><span class="mw-ambient-price">'+escapeHtml(mwAmbientMoney(item))+'</span><span class="mw-ambient-change '+cls+'">'+pct+'</span></span></span>'
-    +'<svg class="mw-ambient-spark" viewBox="0 0 56 30" aria-hidden="true"><path d="'+mwAmbientSpark(item.history)+'"></path></svg>'
+    +'<svg class="mw-ambient-spark" viewBox="0 0 52 32" aria-hidden="true"><path d="'+mwAmbientSpark(series)+'"></path></svg>'
     +'<span class="mw-ambient-open" aria-hidden="true">→</span>';
 }
-function mwAmbientApplyCard(el,item,slot){
-  if(!el||!item) return;
-  var cls=mwAmbientClass(item.changePct);
-  el.className='mw-ambient-card '+cls;
-  el.innerHTML=mwAmbientCardInner(item);
-  el.setAttribute('aria-label','Open price tracker for '+item.title);
-  el.setAttribute('title','Track '+item.title);
-  el.dataset.slot=String(slot);
-  mwAmbientItems[slot]=item;
+function mwAmbientCardHtml(item,index,duplicate){
+  var cls=mwAmbientClass(item);
+  return '<button type="button" class="mw-ambient-card '+cls+'" data-ambient-index="'+index+'"'+(duplicate?' tabindex="-1" aria-hidden="true"':'')+' aria-label="Open price tracker for '+escapeHtml(item.title)+'" title="Track '+escapeHtml(item.title)+'">'+mwAmbientCardInner(item)+'</button>';
 }
 function renderAmbientCards(items, keepExisting){
   var box=document.getElementById('mw-ambient-cards');
@@ -791,31 +808,31 @@ function renderAmbientCards(items, keepExisting){
     mwAmbientPool=clean.slice(0,24);
     if(!keepExisting) mwAmbientOffset=0;
   }
-  var existingCount=box.querySelectorAll('.mw-ambient-card').length;
-  var desiredCount=Math.min(mwAmbientCardCount(),mwAmbientPool.length);
-  if(keepExisting&&existingCount===desiredCount&&existingCount>0) return;
-  mwAmbientItems=mwAmbientVisibleSlice();
-  if(!mwAmbientItems.length){box.innerHTML='';return;}
-  var duration=58, count=mwAmbientItems.length;
-  mwAmbientNextIndex=(mwAmbientOffset+count)%mwAmbientPool.length;
-  box.innerHTML=mwAmbientItems.map(function(item,i){
-    var delay=-(i*(duration/count));
-    var cls=mwAmbientClass(item.changePct);
-    return '<button type="button" class="mw-ambient-card '+cls+'" data-slot="'+i+'" style="--rail-duration:'+duration+'s;--rail-delay:'+delay.toFixed(2)+'s" onclick="openAmbientProduct('+i+',event)" aria-label="Open price tracker for '+escapeHtml(item.title)+'" title="Track '+escapeHtml(item.title)+'">'+mwAmbientCardInner(item)+'</button>';
-  }).join('');
+  mwAmbientDisplayItems=mwAmbientBuildDisplayItems();
+  mwAmbientItems=mwAmbientDisplayItems;
+  if(!mwAmbientDisplayItems.length){box.innerHTML='';return;}
+  var group=mwAmbientDisplayItems.map(function(item,i){return mwAmbientCardHtml(item,i,false);}).join('');
+  var duplicate=mwAmbientDisplayItems.map(function(item,i){return mwAmbientCardHtml(item,i,true);}).join('');
+  var duration=Math.max(64,mwAmbientDisplayItems.length*9);
+  box.innerHTML='<div class="mw-ambient-track" style="--rail-duration:'+duration+'s"><div class="mw-ambient-group">'+group+'</div><div class="mw-ambient-group" aria-hidden="true">'+duplicate+'</div></div>';
   box.querySelectorAll('.mw-ambient-card').forEach(function(el){
-    el.addEventListener('animationiteration',function(){
-      if(!mwAmbientPool.length) return;
-      var slot=Number(el.dataset.slot)||0;
-      var item=mwAmbientPool[mwAmbientNextIndex%mwAmbientPool.length];
-      mwAmbientNextIndex=(mwAmbientNextIndex+1)%mwAmbientPool.length;
-      mwAmbientApplyCard(el,item,slot);
+    el.addEventListener('click',function(e){
+      var idx=Number(el.dataset.ambientIndex);
+      openAmbientProduct(idx,e);
     });
   });
 }
 function startAmbientRotation(){
   if(mwAmbientRotateTimer){clearInterval(mwAmbientRotateTimer);mwAmbientRotateTimer=null;}
   if(mwAmbientRefreshTimer) clearInterval(mwAmbientRefreshTimer);
+  // Shift the group periodically so products outside the first visible set are
+  // introduced even before the server pool refreshes.
+  mwAmbientRotateTimer=setInterval(function(){
+    if(mwAmbientPool.length>mwAmbientDisplayItems.length){
+      mwAmbientOffset=(mwAmbientOffset+2)%mwAmbientPool.length;
+      renderAmbientCards(null,true);
+    }
+  },90000);
   mwAmbientRefreshTimer=setInterval(function(){loadAmbientCards(true);},300000);
 }
 function stopAmbientRotation(){
@@ -854,11 +871,12 @@ async function loadAmbientCards(force){
 }
 function openAmbientProduct(i,e){
   if(e){e.preventDefault();e.stopPropagation();}
-  var item=mwAmbientItems[i]; if(!item) return false;
+  var item=mwAmbientDisplayItems[i]||mwAmbientItems[i]; if(!item) return false;
   var input=document.getElementById('mw-search-input'); if(input) input.value=item.title;
   hideSuggestList();
-  // Pass the canonical product object straight through so clicking a card opens
-  // that exact tracking page rather than asking the suggestion engine to guess.
+  ensureMarketWatchOpen();
+  // Pass the canonical product object straight through so clicking the whole
+  // card opens that exact tracking page rather than a broad text search.
   submitTrackerQuery(item.title,item.product||null,{fromAmbient:true});
   return false;
 }
