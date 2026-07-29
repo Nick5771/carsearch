@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- FindAI v20: hidden marketplace backend foundation; no marketplace UI is exposed. -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -313,31 +314,36 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 /* Ambient live-price cards: a light, DB-backed preview of what the tracker does.
    They sit behind the hero controls, move very slowly, and never trigger live
    marketplace calls. */
-.mw-ambient-cards{position:absolute;inset:72px 18px 18px;z-index:1;pointer-events:none;overflow:hidden}
-.mw-ambient-card{position:absolute;left:var(--x);top:var(--y);width:238px;height:86px;display:grid;grid-template-columns:60px minmax(0,1fr) 56px;align-items:center;gap:10px;padding:10px 11px;background:linear-gradient(135deg,rgba(20,20,20,.94),rgba(12,12,12,.88));border:1px solid rgba(255,255,255,.11);border-radius:13px;color:#fff;box-shadow:0 10px 32px rgba(0,0,0,.45),0 0 34px rgba(26,111,255,.04);cursor:pointer;pointer-events:auto;text-align:left;font-family:'DM Sans',sans-serif;opacity:0;will-change:transform,opacity;animation:mwAmbientFloat var(--dur) ease-in-out var(--delay) infinite,mwAmbientFade var(--fade) ease-in-out var(--delay) infinite;transition:border-color .18s,box-shadow .18s,filter .18s}
+.mw-ambient-cards{position:absolute;inset:72px 18px 18px;z-index:4;pointer-events:none;overflow:hidden;transition:opacity .42s ease}
+.mw-ambient-cards.mw-ambient-swapping{opacity:0}
+.mw-ambient-card{position:absolute;left:var(--x);width:256px;height:82px;display:grid;grid-template-columns:54px minmax(0,1fr) 48px;align-items:center;gap:8px;padding:9px 10px;background:linear-gradient(135deg,rgba(20,20,20,.95),rgba(12,12,12,.9));border:1px solid rgba(255,255,255,.11);border-radius:13px;color:#fff;box-shadow:0 10px 32px rgba(0,0,0,.45),0 0 34px rgba(26,111,255,.04);cursor:pointer;pointer-events:auto;text-align:left;font-family:'DM Sans',sans-serif;opacity:0;will-change:transform,opacity;animation:mwAmbientFloat var(--dur) ease-in-out var(--delay) infinite,mwAmbientFade var(--fade) ease-in-out var(--delay) infinite;transition:border-color .18s,box-shadow .18s,filter .18s;touch-action:manipulation}
+.mw-ambient-card[data-row="top"]{top:var(--edge)}
+.mw-ambient-card[data-row="bottom"]{bottom:var(--edge)}
 .mw-ambient-card::after{content:'';position:absolute;left:-90px;right:-90px;top:50%;height:1px;background:linear-gradient(90deg,transparent,rgba(26,111,255,.16),transparent);transform:translateY(-50%);z-index:-1}
-.mw-ambient-card:hover{border-color:rgba(77,159,230,.62);box-shadow:0 12px 36px rgba(0,0,0,.58),0 0 34px rgba(26,111,255,.12);filter:brightness(1.08);animation-play-state:paused}
-.mw-ambient-img{width:60px;height:60px;border-radius:9px;background:#fff;object-fit:contain;display:block}
-.mw-ambient-ph{width:60px;height:60px;border-radius:9px;background:#171717;display:flex;align-items:center;justify-content:center;font-size:24px}
-.mw-ambient-copy{min-width:0;align-self:stretch;display:flex;flex-direction:column;justify-content:center}
-.mw-ambient-title{font-size:11.5px;line-height:1.28;color:#bdbdbd;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:29px}
-.mw-ambient-meta{display:flex;align-items:center;gap:7px;margin-top:4px;min-width:0}
-.mw-ambient-price{font-size:18px;font-weight:800;color:#fff;white-space:nowrap;letter-spacing:-.45px}
-.mw-ambient-change{font-size:10px;font-weight:800;padding:3px 6px;border-radius:7px;white-space:nowrap}
-.mw-ambient-change.down{color:#34a853;background:rgba(52,168,83,.14)}
-.mw-ambient-change.up{color:#ea4335;background:rgba(234,67,53,.14)}
+.mw-ambient-card:hover,.mw-ambient-card:focus-visible{border-color:rgba(77,159,230,.62);box-shadow:0 12px 36px rgba(0,0,0,.58),0 0 34px rgba(26,111,255,.12);filter:brightness(1.08);animation-play-state:paused;outline:none}
+.mw-ambient-img{width:54px;height:54px;border-radius:9px;background:#fff;object-fit:contain;display:block}
+.mw-ambient-ph{width:54px;height:54px;border-radius:9px;background:#171717;display:flex;align-items:center;justify-content:center;font-size:22px}
+.mw-ambient-copy{min-width:0;align-self:stretch;display:flex;flex-direction:column;justify-content:center;overflow:visible}
+.mw-ambient-title{font-size:11px;line-height:1.25;color:#bdbdbd;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:27px}
+.mw-ambient-meta{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:5px;margin-top:4px;min-width:0;overflow:visible}
+.mw-ambient-price{font-size:16px;font-weight:800;color:#fff;white-space:nowrap;letter-spacing:-.35px;overflow:visible}
+.mw-ambient-change{font-size:9.5px;font-weight:800;padding:3px 5px;border-radius:7px;white-space:nowrap}
+/* Conventional market semantics requested for the hero cards: minus is red,
+   plus is green. The tracker detail page keeps its own buyer-oriented labels. */
+.mw-ambient-change.down{color:#ea4335;background:rgba(234,67,53,.14)}
+.mw-ambient-change.up{color:#34a853;background:rgba(52,168,83,.14)}
 .mw-ambient-change.flat{color:#4d9fe6;background:rgba(77,159,230,.13)}
-.mw-ambient-spark{width:56px;height:30px;overflow:visible}
+.mw-ambient-spark{width:48px;height:30px;overflow:visible}
 .mw-ambient-spark path{fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
-.mw-ambient-card.down .mw-ambient-spark path{stroke:#34a853}
-.mw-ambient-card.up .mw-ambient-spark path{stroke:#ea4335}
+.mw-ambient-card.down .mw-ambient-spark path{stroke:#ea4335}
+.mw-ambient-card.up .mw-ambient-spark path{stroke:#34a853}
 .mw-ambient-card.flat .mw-ambient-spark path{stroke:#4d9fe6}
 @keyframes mwAmbientFloat{0%,100%{transform:translate3d(0,0,0)}50%{transform:translate3d(var(--dx),var(--dy),0)}}
-@keyframes mwAmbientFade{0%,7%,100%{opacity:0}17%,76%{opacity:.78}90%{opacity:.18}}
-@media(max-width:1180px){.mw-ambient-card{width:212px;grid-template-columns:52px minmax(0,1fr) 48px;height:78px;padding:8px 9px}.mw-ambient-img,.mw-ambient-ph{width:52px;height:52px}.mw-ambient-spark{width:48px}.mw-ambient-card:nth-child(n+8){display:none}}
-@media(max-width:920px){.mw-ambient-card:nth-child(n+6){display:none}.mw-ambient-card{opacity:.52}.mw-ambient-cards{inset:70px 8px 12px}}
+@keyframes mwAmbientFade{0%,7%,100%{opacity:0}17%,76%{opacity:.8}90%{opacity:.2}}
+@media(max-width:1180px){.mw-ambient-card{width:220px;grid-template-columns:50px minmax(0,1fr) 42px;height:74px;padding:8px;gap:7px}.mw-ambient-img,.mw-ambient-ph{width:50px;height:50px}.mw-ambient-spark{width:42px}.mw-ambient-price{font-size:14.5px}.mw-ambient-change{font-size:9px;padding:2px 4px}.mw-ambient-card:nth-child(n+7){display:none}}
+@media(max-width:920px){.mw-ambient-card:nth-child(n+5){display:none}.mw-ambient-card{opacity:.56;width:210px}.mw-ambient-cards{inset:70px 8px 12px}}
 @media(max-width:720px){.mw-ambient-cards{display:none}}
-@media(prefers-reduced-motion:reduce){.mw-ambient-card{animation:none;opacity:.62}.mw-ambient-card:hover{animation:none}}
+@media(prefers-reduced-motion:reduce){.mw-ambient-card{animation:none;opacity:.65}.mw-ambient-card:hover{animation:none}}
 .mw-hero-title{font-size:42px;font-weight:700;color:#fff;letter-spacing:-0.5px}
 .mw-hero-sub{font-size:16px;color:#888;max-width:520px;line-height:1.5;margin-bottom:34px}
 /* Single centered pill: the input spans the full centered width and the Track
@@ -692,9 +698,13 @@ var mwSuggestController = null;
 var mwSuggestPromise = null;
 var mwSuggestCache = new Map();
 var mwLastSuggestKey = '';
-var mwAmbientItems = [];
+var mwAmbientItems = [];       // currently visible cards
+var mwAmbientPool = [];        // larger pool rotated through over time
+var mwAmbientOffset = 0;
 var mwAmbientLoadedAt = 0;
 var mwAmbientLoading = null;
+var mwAmbientRotateTimer = null;
+var mwAmbientRefreshTimer = null;
 
 function mwAmbientKey(item){
   if(!item) return '';
@@ -725,43 +735,80 @@ function mwAmbientMoney(item){
   var v=Number(item&&item.price);
   if(!isFinite(v)||v<=0) return '';
   var sym=String(item.symbol||'$');
-  return sym+v.toLocaleString(undefined,{maximumFractionDigits:v<100?0:0});
+  // Keep every price readable inside the compact card. Five-figure values use
+  // a compact suffix rather than being clipped down to one visible digit.
+  if(v>=10000){
+    var compact=new Intl.NumberFormat(undefined,{notation:'compact',maximumFractionDigits:1}).format(v);
+    return sym+compact;
+  }
+  return sym+v.toLocaleString(undefined,{maximumFractionDigits:0});
 }
 function mwAmbientImgErr(el){
   var ph=document.createElement('div');
   ph.className='mw-ambient-ph'; ph.textContent='📦';
   el.replaceWith(ph);
 }
-function renderAmbientCards(items){
+function mwAmbientVisibleSlice(){
+  var pool=mwAmbientPool||[];
+  if(!pool.length) return [];
+  var count=Math.min(8,pool.length), out=[];
+  for(var i=0;i<count;i++) out.push(pool[(mwAmbientOffset+i)%pool.length]);
+  return out;
+}
+function renderAmbientCards(items, keepOffset){
   var box=document.getElementById('mw-ambient-cards');
   if(!box) return;
-  var seen={}, clean=[];
-  (items||[]).forEach(function(item){
-    if(!item||!item.title||!Number(item.price)) return;
-    var k=mwAmbientKey(item); if(!k||seen[k]) return;
-    seen[k]=1; clean.push(item);
-  });
-  mwAmbientItems=clean.slice(0,10);
+  if(Array.isArray(items)){
+    var seen={}, clean=[];
+    items.forEach(function(item){
+      if(!item||!item.title||!Number(item.price)) return;
+      var k=mwAmbientKey(item); if(!k||seen[k]) return;
+      seen[k]=1; clean.push(item);
+    });
+    mwAmbientPool=clean.slice(0,24);
+    if(!keepOffset) mwAmbientOffset=0;
+  }
+  mwAmbientItems=mwAmbientVisibleSlice();
   if(!mwAmbientItems.length){ box.innerHTML=''; return; }
+  // Four cards above and four below the central controls. Their small drift is
+  // deliberately horizontal-dominant, so they can never cross the search bar.
   var slots=[
-    {x:'5%',y:'17%',dx:'16px',dy:'-9px',dur:'19s',fade:'23s',delay:'-2s'},
-    {x:'36%',y:'6%',dx:'-13px',dy:'11px',dur:'22s',fade:'27s',delay:'-11s'},
-    {x:'72%',y:'15%',dx:'14px',dy:'8px',dur:'21s',fade:'25s',delay:'-6s'},
-    {x:'7%',y:'48%',dx:'11px',dy:'-12px',dur:'24s',fade:'29s',delay:'-15s'},
-    {x:'74%',y:'45%',dx:'-15px',dy:'10px',dur:'20s',fade:'24s',delay:'-9s'},
-    {x:'1%',y:'72%',dx:'17px',dy:'7px',dur:'23s',fade:'28s',delay:'-18s'},
-    {x:'38%',y:'80%',dx:'-12px',dy:'-9px',dur:'25s',fade:'30s',delay:'-13s'},
-    {x:'72%',y:'75%',dx:'14px',dy:'-8px',dur:'22s',fade:'26s',delay:'-4s'},
-    {x:'20%',y:'31%',dx:'-9px',dy:'8px',dur:'26s',fade:'31s',delay:'-20s'},
-    {x:'56%',y:'28%',dx:'10px',dy:'-7px',dur:'24s',fade:'29s',delay:'-16s'}
+    {row:'top',x:'3%',edge:'8%',dx:'8px',dy:'-4px',dur:'20s',fade:'25s',delay:'-2s'},
+    {row:'bottom',x:'3%',edge:'5%',dx:'7px',dy:'4px',dur:'24s',fade:'29s',delay:'-15s'},
+    {row:'top',x:'28%',edge:'9%',dx:'-7px',dy:'4px',dur:'23s',fade:'28s',delay:'-11s'},
+    {row:'bottom',x:'28%',edge:'6%',dx:'-8px',dy:'-4px',dur:'25s',fade:'30s',delay:'-13s'},
+    {row:'top',x:'53%',edge:'8%',dx:'8px',dy:'4px',dur:'22s',fade:'27s',delay:'-6s'},
+    {row:'bottom',x:'53%',edge:'5%',dx:'7px',dy:'-4px',dur:'23s',fade:'28s',delay:'-18s'},
+    {row:'top',x:'77%',edge:'9%',dx:'-7px',dy:'-4px',dur:'21s',fade:'26s',delay:'-9s'},
+    {row:'bottom',x:'77%',edge:'6%',dx:'-8px',dy:'4px',dur:'24s',fade:'29s',delay:'-4s'}
   ];
   box.innerHTML=mwAmbientItems.map(function(item,i){
     var s=slots[i%slots.length], cls=mwAmbientClass(item.changePct), pct=mwAmbientPct(item.changePct);
     var img=item.image?'<img class="mw-ambient-img" src="'+mwProxyImg(item.image)+'" alt="" loading="lazy" onerror="mwAmbientImgErr(this)">':'<div class="mw-ambient-ph">📦</div>';
-    return '<button class="mw-ambient-card '+cls+'" style="--x:'+s.x+';--y:'+s.y+';--dx:'+s.dx+';--dy:'+s.dy+';--dur:'+s.dur+';--fade:'+s.fade+';--delay:'+s.delay+'" onclick="openAmbientProduct('+i+')" title="Track '+escapeHtml(item.title)+'">'
+    return '<button type="button" class="mw-ambient-card '+cls+'" data-row="'+s.row+'" style="--x:'+s.x+';--edge:'+s.edge+';--dx:'+s.dx+';--dy:'+s.dy+';--dur:'+s.dur+';--fade:'+s.fade+';--delay:'+s.delay+'" onclick="openAmbientProduct('+i+',event)" aria-label="Open price tracker for '+escapeHtml(item.title)+'" title="Track '+escapeHtml(item.title)+'">'
       +img+'<span class="mw-ambient-copy"><span class="mw-ambient-title">'+escapeHtml(item.title)+'</span><span class="mw-ambient-meta"><span class="mw-ambient-price">'+escapeHtml(mwAmbientMoney(item))+'</span><span class="mw-ambient-change '+cls+'">'+pct+'</span></span></span>'
       +'<svg class="mw-ambient-spark" viewBox="0 0 56 30" aria-hidden="true"><path d="'+mwAmbientSpark(item.history)+'"></path></svg></button>';
   }).join('');
+}
+function startAmbientRotation(){
+  if(mwAmbientRotateTimer) clearInterval(mwAmbientRotateTimer);
+  mwAmbientRotateTimer=setInterval(function(){
+    var box=document.getElementById('mw-ambient-cards');
+    var hero=document.getElementById('mw-hero');
+    if(!box||!hero||hero.style.display==='none'||mwAmbientPool.length<=8) return;
+    box.classList.add('mw-ambient-swapping');
+    setTimeout(function(){
+      mwAmbientOffset=(mwAmbientOffset+2)%mwAmbientPool.length;
+      renderAmbientCards(null,true);
+      requestAnimationFrame(function(){box.classList.remove('mw-ambient-swapping');});
+    },430);
+  },16000);
+  if(mwAmbientRefreshTimer) clearInterval(mwAmbientRefreshTimer);
+  mwAmbientRefreshTimer=setInterval(function(){ loadAmbientCards(true); },300000);
+}
+function stopAmbientRotation(){
+  if(mwAmbientRotateTimer){clearInterval(mwAmbientRotateTimer);mwAmbientRotateTimer=null;}
+  if(mwAmbientRefreshTimer){clearInterval(mwAmbientRefreshTimer);mwAmbientRefreshTimer=null;}
 }
 function mwReadAmbientLocal(){
   try{
@@ -770,16 +817,17 @@ function mwReadAmbientLocal(){
   }catch(_){return [];}
 }
 function mwWriteAmbientLocal(items){
-  try{localStorage.setItem('findai_tracker_ambient',JSON.stringify((items||[]).slice(0,12)));}catch(_){}
+  try{localStorage.setItem('findai_tracker_ambient',JSON.stringify((items||[]).slice(0,24)));}catch(_){}
 }
 async function loadAmbientCards(force){
   var now=Date.now(), local=mwReadAmbientLocal();
-  if(local.length) renderAmbientCards(local);
+  if(local.length && !mwAmbientPool.length) renderAmbientCards(local);
+  startAmbientRotation();
   if(!force && mwAmbientLoadedAt && now-mwAmbientLoadedAt<300000) return;
   if(mwAmbientLoading) return mwAmbientLoading;
   mwAmbientLoading=(async function(){
     try{
-      var res=await fetch(WORKER+'/tracker/ambient?limit=10',{cache:'default'});
+      var res=await fetch(WORKER+'/tracker/ambient?limit=24',{cache:'default'});
       if(!res.ok) throw new Error('ambient '+res.status);
       var data=await res.json();
       var remote=(data&&Array.isArray(data.items))?data.items:[];
@@ -792,11 +840,15 @@ async function loadAmbientCards(force){
   })();
   return mwAmbientLoading;
 }
-function openAmbientProduct(i){
-  var item=mwAmbientItems[i]; if(!item) return;
+function openAmbientProduct(i,e){
+  if(e){e.preventDefault();e.stopPropagation();}
+  var item=mwAmbientItems[i]; if(!item) return false;
   var input=document.getElementById('mw-search-input'); if(input) input.value=item.title;
   hideSuggestList();
-  submitTrackerQuery(item.title,item.product||null);
+  // Pass the canonical product object straight through so clicking a card opens
+  // that exact tracking page rather than asking the suggestion engine to guess.
+  submitTrackerQuery(item.title,item.product||null,{fromAmbient:true});
+  return false;
 }
 function rememberAmbientTrackerItem(query,data,pickedProduct,displayTitle,candidates){
   try{
@@ -838,6 +890,7 @@ function closeMarketWatch(){
   document.getElementById('mw-overlay').classList.remove('mw-open');
   document.body.style.overflow='';
   hideSuggestList();
+  stopAmbientRotation();
 }
 // Back arrow from the detail page returns to the hero search, not out of
 // Market Watch entirely - matches "clicked item -> different page" while
