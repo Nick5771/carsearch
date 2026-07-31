@@ -3,333 +3,1048 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#050607">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="FindAI">
 <link rel="manifest" href="/app.webmanifest">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>FindAI</title>
 <style>
   :root{
-    --bg:#fff; --ink:#0a0a0a; --sub:#8a8f98; --line:#ededf0;
-    --card:#111317; --accent:#1a73ff; --good:#12b76a; --chip:#f2f3f5; --chip-ink:#333;
-    --nav-h:58px; --safe-top:env(safe-area-inset-top,0px); --safe-bot:env(safe-area-inset-bottom,0px);
+    --bg:#050607;
+    --surface:#0b0d10;
+    --surface-2:#111419;
+    --surface-3:#171a20;
+    --ink:#f7f8fa;
+    --muted:#979da7;
+    --muted-2:#686f79;
+    --line:rgba(255,255,255,.09);
+    --line-strong:rgba(255,255,255,.16);
+    --good:#76e36c;
+    --bad:#ff6d68;
+    --blue:#4d8cff;
+    --nav-h:78px;
+    --safe-top:env(safe-area-inset-top,0px);
+    --safe-bottom:env(safe-area-inset-bottom,0px);
+    --app-max:520px;
   }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
-  html,body{margin:0;padding:0;height:100%;}
-  body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink);overscroll-behavior-y:none;-webkit-font-smoothing:antialiased;}
-  .app{max-width:520px;margin:0 auto;min-height:100%;position:relative;}
-  .screen{display:none;padding-bottom:calc(var(--nav-h) + var(--safe-bot) + 8px);}
-  .screen.active{display:block;}
-  .topbar{padding:calc(var(--safe-top) + 10px) 16px 6px;display:flex;align-items:center;justify-content:space-between;}
-  .brand{display:flex;align-items:center;gap:9px;font-weight:800;font-size:20px;letter-spacing:-.02em;}
-  .brand .ai{color:var(--accent);} .brand svg{width:28px;height:28px;}
-  .bell{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--chip);border:0;}
-  .searchwrap{padding:2px 16px 8px;}
-  .searchbar{display:flex;align-items:center;gap:10px;background:var(--chip);border-radius:16px;padding:13px 14px;}
-  .searchbar input{border:0;background:transparent;flex:1;font-size:16px;outline:none;color:var(--ink);min-width:0;}
-  .searchbar .ico{width:22px;height:22px;color:var(--sub);}
-  .searchbar .ic-btn{color:var(--sub);display:grid;place-items:center;background:none;border:0;}
-  .chips{display:flex;gap:8px;overflow-x:auto;padding:2px 16px 12px;scrollbar-width:none;}
-  .chips::-webkit-scrollbar{display:none;}
-  .chip{white-space:nowrap;padding:9px 16px;border-radius:999px;background:var(--chip);color:var(--chip-ink);font-size:14px;font-weight:600;border:0;}
-  .chip.active{background:var(--ink);color:#fff;}
-  .feed{padding:0 16px;display:flex;flex-direction:column;gap:16px;}
-  .pcard{background:var(--card);color:#fff;border-radius:22px;overflow:hidden;}
-  .pcard .media{position:relative;background:#0c0e12;aspect-ratio:1/1;display:grid;place-items:center;}
-  .pcard .media img{width:100%;height:100%;object-fit:contain;padding:14px;}
-  .pcard .trust{position:absolute;top:12px;left:12px;display:flex;align-items:center;gap:6px;background:rgba(10,12,16,.72);backdrop-filter:blur(6px);padding:6px 10px;border-radius:12px;font-size:11px;line-height:1;}
-  .pcard .trust b{font-size:14px;display:block;margin-bottom:2px;} .pcard .trust .shield{color:var(--good);width:14px;height:14px;}
-  .pcard .fav{position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;background:rgba(10,12,16,.55);display:grid;place-items:center;color:#fff;border:0;}
-  .pcard .body{padding:16px;}
-  .pcard h3{margin:0 0 3px;font-size:18px;font-weight:700;letter-spacing:-.01em;}
-  .pcard .sub{color:#aeb4bd;font-size:13px;margin-bottom:12px;}
-  .pcard .best-label{color:#aeb4bd;font-size:12px;margin-bottom:2px;}
-  .pcard .best{font-size:25px;font-weight:800;letter-spacing:-.02em;margin-bottom:12px;}
-  .cta{width:100%;border:0;background:var(--accent);color:#fff;font-weight:700;font-size:16px;padding:14px;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:8px;}
-  .skel{background:linear-gradient(90deg,#f0f1f3 25%,#e6e8eb 37%,#f0f1f3 63%);background-size:400% 100%;animation:sh 1.2s ease infinite;border-radius:22px;height:320px;}
-  @keyframes sh{0%{background-position:100% 0}100%{background-position:-100% 0}}
-  .empty{padding:50px 24px;text-align:center;color:var(--sub);}
-  .empty b{display:block;color:var(--ink);font-size:17px;margin-bottom:6px;}
-  .result{display:none;padding:0 16px calc(var(--nav-h) + var(--safe-bot) + 16px);}
-  .result.show{display:block;}
-  .result-top{display:flex;align-items:center;gap:12px;padding:calc(var(--safe-top) + 10px) 0 8px;}
-  .back{width:38px;height:38px;border-radius:50%;background:var(--chip);border:0;display:grid;place-items:center;flex:0 0 auto;}
-  .result-top h2{font-size:17px;font-weight:700;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .hero-media{background:#f6f7f9;border-radius:20px;aspect-ratio:1/1;display:grid;place-items:center;margin-bottom:14px;overflow:hidden;}
-  .hero-media img{width:100%;height:100%;object-fit:contain;padding:18px;}
-  .price-block{text-align:center;margin-bottom:16px;}
-  .price-block .lab{color:var(--sub);font-size:13px;margin-bottom:2px;}
-  .price-block .big{font-size:40px;font-weight:800;letter-spacing:-.03em;line-height:1;}
-  .price-block .src{color:var(--sub);font-size:13px;margin-top:6px;}
-  .buy-primary{width:100%;border:0;background:var(--accent);color:#fff;font-weight:700;font-size:17px;padding:16px;border-radius:15px;display:flex;align-items:center;justify-content:center;gap:9px;text-decoration:none;margin-bottom:10px;}
-  .track-secondary{width:100%;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font-weight:700;font-size:15px;padding:14px;border-radius:15px;display:flex;align-items:center;justify-content:center;gap:9px;}
-  .listings-h{font-size:13px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.05em;margin:22px 0 6px;}
-  .lrow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);text-decoration:none;color:inherit;}
-  .lrow img{width:52px;height:52px;object-fit:contain;border-radius:11px;background:#f6f7f9;flex:0 0 auto;}
-  .lrow .li{flex:1;min-width:0;}
-  .lrow .li h4{margin:0 0 2px;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .lrow .li .m{color:var(--sub);font-size:12px;} .lrow .rp{font-size:16px;font-weight:800;flex:0 0 auto;}
-  #scan .scan-head{text-align:center;padding:calc(var(--safe-top) + 16px) 24px 2px;}
-  #scan .scan-head h2{margin:0 0 4px;font-size:22px;font-weight:800;}
-  #scan .scan-head p{margin:0;color:var(--sub);font-size:14px;line-height:1.4;}
-  .viewport{margin:14px 16px;border-radius:26px;overflow:hidden;background:#0b0d10;position:relative;aspect-ratio:3/4;display:grid;place-items:center;}
-  .viewport video,.viewport img.preview{width:100%;height:100%;object-fit:cover;}
-  .viewport .ph{color:#4a5058;font-size:14px;text-align:center;padding:24px;}
-  .brackets{position:absolute;inset:14%;pointer-events:none;transition:inset .25s ease,opacity .25s ease;}
-  .brackets span{position:absolute;width:38px;height:38px;border:3px solid rgba(255,255,255,.92);transition:border-color .2s ease;}
-  .brackets .tl{top:0;left:0;border-right:0;border-bottom:0;border-radius:10px 0 0 0;}
-  .brackets .tr{top:0;right:0;border-left:0;border-bottom:0;border-radius:0 10px 0 0;}
-  .brackets .bl{bottom:0;left:0;border-right:0;border-top:0;border-radius:0 0 0 10px;}
-  .brackets .br{bottom:0;right:0;border-left:0;border-top:0;border-radius:0 0 10px 0;}
-  .viewport.locking .brackets{inset:20%;}
-  .viewport.locking .brackets span{border-color:var(--accent);}
-  .scan-status{text-align:center;color:var(--sub);font-size:14px;padding:6px 24px 2px;min-height:20px;font-weight:600;}
-  .scan-actions{display:flex;gap:10px;padding:8px 16px 0;}
-  .scan-actions button{flex:1;border:1.5px solid var(--line);background:var(--bg);color:var(--ink);font-weight:700;font-size:14px;padding:13px;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:8px;}
-  #tracker .tk-head{text-align:center;padding:calc(var(--safe-top) + 16px) 24px 6px;}
-  #tracker .tk-head h2{margin:0 0 4px;font-size:22px;font-weight:800;}
-  #tracker .tk-head p{margin:0;color:var(--sub);font-size:14px;}
-  .tk-search{padding:12px 16px;} .tk-list{padding:4px 16px;}
-  .tk-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line);}
-  .tk-row img{width:54px;height:54px;object-fit:contain;border-radius:12px;background:#f6f7f9;flex:0 0 auto;}
-  .tk-row .info{flex:1;min-width:0;} .tk-row .info h4{margin:0 0 2px;font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .tk-row .info .meta{color:var(--sub);font-size:13px;}
-  .nav{position:fixed;left:0;right:0;bottom:0;max-width:520px;margin:0 auto;height:calc(var(--nav-h) + var(--safe-bot));padding-bottom:var(--safe-bot);background:rgba(255,255,255,.94);backdrop-filter:blur(18px);border-top:1px solid var(--line);display:flex;z-index:30;}
-  .nav button{flex:1;border:0;background:transparent;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--sub);font-size:10px;font-weight:600;}
-  .nav button.active{color:var(--accent);} .nav button svg{width:22px;height:22px;}
-  .toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + 16px);transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 18px;border-radius:14px;font-size:14px;font-weight:600;z-index:40;opacity:0;transition:opacity .2s;max-width:88%;text-align:center;pointer-events:none;}
-  .toast.show{opacity:1;}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;width:100%;height:100%;background:#000;color:var(--ink)}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+    overscroll-behavior:none;
+  }
+  button,input{font:inherit}
+  button{cursor:pointer}
+  .app{
+    width:100%;max-width:var(--app-max);height:100dvh;min-height:100vh;margin:0 auto;
+    position:relative;overflow:hidden;background:var(--bg);
+  }
+  .screen{display:none;height:100%;padding-bottom:calc(var(--nav-h) + var(--safe-bottom));overflow:hidden}
+  .screen.active{display:flex;flex-direction:column}
+  .icon-btn{
+    width:42px;height:42px;border:0;border-radius:50%;display:grid;place-items:center;
+    color:var(--ink);background:transparent
+  }
+  .icon-btn:active{background:rgba(255,255,255,.07)}
+  .icon-btn svg{width:24px;height:24px}
+
+  /* Search header */
+  .search-header{
+    flex:0 0 auto;padding:calc(var(--safe-top) + 8px) 16px 11px;
+    background:linear-gradient(180deg,#050607 82%,rgba(5,6,7,.96));z-index:8
+  }
+  .brand-row{height:46px;display:flex;align-items:center;justify-content:space-between}
+  .brand{font-size:30px;line-height:1;font-weight:760;letter-spacing:-1.3px}
+  .header-actions{display:flex;align-items:center;gap:2px}
+  .search-form{
+    height:52px;margin-top:8px;padding:0 14px;display:flex;align-items:center;gap:11px;
+    border:1px solid var(--line);border-radius:18px;background:linear-gradient(180deg,#12151a,#0e1014);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.035)
+  }
+  .search-form>svg{width:23px;height:23px;flex:0 0 auto;color:#b8bdc5}
+  .search-form input{
+    min-width:0;flex:1;border:0;outline:0;background:transparent;color:var(--ink);font-size:17px
+  }
+  .search-form input::placeholder{color:#80858e}
+  .filter-btn{border:0;background:transparent;color:#c4c8cf;padding:8px;display:grid;place-items:center}
+  .filter-btn svg{width:22px;height:22px}
+
+  /* Reels feed */
+  .feed-wrap{position:relative;flex:1;min-height:0;overflow:hidden}
+  .reel-feed{
+    height:100%;overflow-y:auto;overscroll-behavior-y:contain;scroll-snap-type:y mandatory;
+    display:flex;flex-direction:column;gap:12px;padding:0 11px 58px;scrollbar-width:none
+  }
+  .reel-feed::-webkit-scrollbar{display:none}
+  .reel-feed.teaching{scroll-snap-type:none}
+  .reel-card{
+    flex:0 0 calc(100% - 50px);min-height:440px;scroll-snap-align:start;scroll-snap-stop:always;
+    position:relative;overflow:hidden;border:1px solid var(--line);border-radius:27px;background:#090b0e;
+    box-shadow:0 18px 50px rgba(0,0,0,.3);display:flex;flex-direction:column
+  }
+  .hero-stage{position:relative;flex:1;min-height:0;overflow:hidden;background:#0a0c0f}
+  .hero-backdrop{
+    position:absolute;inset:-36px;background-position:center;background-size:cover;filter:blur(34px) saturate(.75);
+    opacity:.38;transform:scale(1.12)
+  }
+  .hero-stage:after{
+    content:"";position:absolute;inset:0;background:
+      linear-gradient(180deg,rgba(0,0,0,.08) 0%,rgba(0,0,0,0) 42%,rgba(7,9,11,.12) 68%,#090b0e 100%),
+      radial-gradient(circle at 50% 38%,rgba(255,255,255,.045),transparent 55%);
+    pointer-events:none
+  }
+  .hero-image{
+    position:absolute;inset:0;width:100%;height:100%;padding:18px 14px 7px;object-fit:contain;
+    filter:drop-shadow(0 20px 22px rgba(0,0,0,.28));z-index:1
+  }
+  .image-fallback{
+    position:absolute;inset:0;display:none;place-items:center;color:var(--muted);font-size:14px;z-index:2
+  }
+  .card-actions{position:absolute;top:12px;right:12px;z-index:4;display:flex;gap:6px}
+  .glass-btn{
+    width:41px;height:41px;border:1px solid rgba(255,255,255,.12);border-radius:50%;display:grid;place-items:center;
+    color:white;background:rgba(7,9,11,.52);backdrop-filter:blur(15px)
+  }
+  .glass-btn.active{color:var(--good)}
+  .glass-btn svg{width:21px;height:21px}
+  .source-chip{
+    position:absolute;left:14px;bottom:10px;z-index:4;display:inline-flex;align-items:center;gap:7px;
+    max-width:calc(100% - 28px);padding:7px 10px;border:1px solid rgba(255,255,255,.1);border-radius:10px;
+    background:rgba(5,7,9,.68);backdrop-filter:blur(14px);font-size:12px;font-weight:700;color:#e9ebef
+  }
+  .source-dot{width:8px;height:8px;border-radius:50%;background:#d7dae0;box-shadow:0 0 0 3px rgba(255,255,255,.06)}
+  .source-chip[data-source="stockx"] .source-dot{background:#35c759}
+  .source-chip[data-source="ebay"] .source-dot{background:#f7ca45}
+  .source-chip[data-source="amazon"] .source-dot{background:#ffad33}
+  .source-chip[data-source="aliexpress"] .source-dot{background:#ff5e57}
+  .source-chip[data-source="bricklink"] .source-dot,.source-chip[data-source="brickset"] .source-dot{background:#e33d3d}
+
+  .product-panel{
+    position:relative;z-index:3;flex:0 0 auto;padding:3px 16px 14px;background:#090b0e
+  }
+  .title{
+    margin:0;color:#fafafa;font-size:clamp(20px,5.7vw,27px);font-weight:690;letter-spacing:-.55px;line-height:1.08;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden
+  }
+  .price-line{display:flex;align-items:flex-end;gap:10px;margin-top:12px;min-width:0}
+  .price{font-size:clamp(34px,9vw,46px);font-weight:720;letter-spacing:-1.5px;line-height:.95;white-space:nowrap}
+  .deal-pill{
+    margin-bottom:3px;padding:7px 11px;border-radius:999px;background:rgba(118,227,108,.1);color:var(--good);
+    font-size:13px;font-weight:730;white-space:nowrap
+  }
+  .deal-pill.neutral{background:rgba(255,255,255,.075);color:#b8bdc5}
+  .deal-pill.bad{background:rgba(255,109,104,.1);color:var(--bad)}
+  .buy-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
+  .comparison{min-width:0;color:var(--good);font-size:14px;font-weight:630;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .comparison.neutral{color:var(--muted)}
+  .view-deal{
+    flex:0 0 auto;border:0;border-radius:16px;padding:13px 17px;background:#f4f5f7;color:#0b0d10;font-weight:720;
+    display:flex;align-items:center;gap:8px;box-shadow:0 2px 0 rgba(255,255,255,.55) inset
+  }
+  .view-deal:active{transform:scale(.98)}
+  .view-deal svg{width:17px;height:17px}
+  .metrics{
+    margin-top:13px;padding:12px 0 11px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+    display:grid;grid-template-columns:repeat(3,1fr)
+  }
+  .metric{min-width:0;padding:0 10px;text-align:center;border-right:1px solid var(--line)}
+  .metric:first-child{padding-left:0}.metric:last-child{border-right:0;padding-right:0}
+  .metric-label{color:var(--muted);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .metric-value{margin-top:5px;color:#f4f5f7;font-size:20px;font-weight:650;letter-spacing:-.35px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .metric-value.good{color:var(--good)}
+  .metric-sub{margin-top:2px;color:var(--muted-2);font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .listing-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:11px;color:#d0d3d8;font-size:12px}
+  .listing-foot span{display:flex;align-items:center;gap:6px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .listing-foot svg{width:16px;height:16px;flex:0 0 auto;color:#aeb3bb}
+  .reel-dots{
+    position:absolute;right:17px;top:50%;transform:translateY(-50%);z-index:7;display:flex;flex-direction:column;gap:7px;
+    pointer-events:none
+  }
+  .reel-dot{width:6px;height:6px;border:1px solid rgba(255,255,255,.48);border-radius:50%;background:rgba(0,0,0,.25);transition:.2s}
+  .reel-dot.active{background:#fff;border-color:#fff;transform:scale(1.25)}
+  .feed-status{
+    height:100%;display:grid;place-items:center;padding:30px;text-align:center;color:var(--muted)
+  }
+  .feed-status b{display:block;color:var(--ink);font-size:19px;margin-bottom:7px}
+  .retry-btn{margin-top:16px;border:1px solid var(--line-strong);background:#12151a;color:#fff;border-radius:14px;padding:11px 16px;font-weight:650}
+  .reel-skeleton{
+    flex:0 0 calc(100% - 50px);border-radius:27px;border:1px solid var(--line);overflow:hidden;background:#0b0d10;position:relative
+  }
+  .reel-skeleton:after{
+    content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 32%,rgba(255,255,255,.055) 46%,transparent 60%);
+    transform:translateX(-100%);animation:shimmer 1.45s infinite
+  }
+  @keyframes shimmer{to{transform:translateX(100%)}}
+
+  /* Scan */
+  .sub-header{flex:0 0 auto;padding:calc(var(--safe-top) + 15px) 18px 12px;display:flex;align-items:flex-start;justify-content:space-between}
+  .sub-header h1{margin:0;font-size:28px;letter-spacing:-.8px}
+  .sub-header p{margin:4px 0 0;color:var(--muted);font-size:14px;line-height:1.35;max-width:310px}
+  .scan-content{flex:1;min-height:0;display:flex;flex-direction:column;padding:0 14px 10px;overflow:auto;scrollbar-width:none}
+  .scan-content::-webkit-scrollbar{display:none}
+  .viewport{
+    position:relative;flex:1;min-height:310px;max-height:590px;border-radius:27px;overflow:hidden;background:#0b0d10;
+    border:1px solid var(--line);display:grid;place-items:center
+  }
+  .viewport video,.viewport img.preview{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .camera-placeholder{text-align:center;color:var(--muted);padding:30px}
+  .camera-placeholder svg{width:42px;height:42px;margin-bottom:10px;color:#c4c8cf}
+  .frame{position:absolute;inset:14%;pointer-events:none;z-index:3}
+  .frame span{position:absolute;width:44px;height:44px;border:3px solid rgba(255,255,255,.9)}
+  .frame .tl{left:0;top:0;border-right:0;border-bottom:0;border-radius:12px 0 0 0}
+  .frame .tr{right:0;top:0;border-left:0;border-bottom:0;border-radius:0 12px 0 0}
+  .frame .bl{left:0;bottom:0;border-right:0;border-top:0;border-radius:0 0 0 12px}
+  .frame .br{right:0;bottom:0;border-left:0;border-top:0;border-radius:0 0 12px 0}
+  .scan-line{
+    display:none;position:absolute;left:14%;right:14%;height:2px;z-index:4;
+    background:linear-gradient(90deg,transparent,rgba(255,255,255,.98),transparent);box-shadow:0 0 14px rgba(255,255,255,.45);
+    animation:scan 2.35s ease-in-out infinite
+  }
+  .viewport.scanning .scan-line{display:block}
+  @keyframes scan{0%,100%{top:16%}50%{top:83%}}
+  .scan-badge{
+    position:absolute;left:50%;bottom:17px;transform:translateX(-50%);z-index:5;max-width:86%;padding:8px 13px;
+    border:1px solid rgba(255,255,255,.12);border-radius:999px;background:rgba(5,7,9,.66);backdrop-filter:blur(16px);
+    color:#f1f2f4;font-size:12px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+  }
+  .scan-controls{flex:0 0 auto;padding:15px 2px 2px;display:flex;align-items:center;justify-content:center;gap:42px}
+  .scan-aux{
+    width:50px;height:50px;border:1px solid var(--line);border-radius:50%;background:#12151a;color:#e1e3e7;display:grid;place-items:center
+  }
+  .scan-aux svg{width:21px;height:21px}
+  .shutter{width:76px;height:76px;border:4px solid #f6f7f8;border-radius:50%;background:transparent;padding:5px}
+  .shutter:after{content:"";display:block;width:100%;height:100%;border-radius:50%;background:#fff}
+  .shutter:active:after{transform:scale(.93)}
+  .scan-secondary{display:flex;justify-content:center;padding-top:8px}
+  .barcode-btn{border:0;background:transparent;color:#c6cad1;padding:10px 14px;display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}
+  .barcode-btn svg{width:18px;height:18px}
+
+  /* Scan result confirmation */
+  .sheet-backdrop{
+    position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.58);backdrop-filter:blur(8px);display:none;align-items:flex-end;justify-content:center
+  }
+  .sheet-backdrop.show{display:flex}
+  .match-sheet{
+    width:min(100%,var(--app-max));padding:10px 16px calc(18px + var(--safe-bottom));border-radius:28px 28px 0 0;
+    border-top:1px solid var(--line-strong);background:#101216;box-shadow:0 -24px 80px rgba(0,0,0,.5)
+  }
+  .sheet-grabber{width:42px;height:5px;border-radius:999px;background:#444a53;margin:0 auto 17px}
+  .match-top{display:flex;align-items:center;gap:13px}
+  .match-image{width:74px;height:74px;object-fit:cover;border-radius:17px;border:1px solid var(--line);background:#090b0e}
+  .match-copy{min-width:0;flex:1}
+  .match-eyebrow{color:var(--good);font-size:12px;font-weight:750;text-transform:uppercase;letter-spacing:.06em}
+  .match-copy h2{margin:5px 0 2px;font-size:20px;line-height:1.15;letter-spacing:-.4px}
+  .match-copy p{margin:0;color:var(--muted);font-size:13px}
+  .match-query{
+    width:100%;margin-top:16px;border:1px solid var(--line);border-radius:15px;background:#181b20;color:#fff;
+    padding:13px 14px;outline:0;font-size:15px
+  }
+  .sheet-actions{display:grid;grid-template-columns:1fr 1.55fr;gap:9px;margin-top:12px}
+  .sheet-actions button{height:50px;border-radius:15px;font-weight:720}
+  .secondary-btn{border:1px solid var(--line);background:#171a1f;color:#e6e8eb}
+  .primary-btn{border:0;background:#f3f4f6;color:#090b0d}
+
+  /* Tracker */
+  .tracker-content{flex:1;min-height:0;overflow-y:auto;padding:0 15px 25px;scrollbar-width:none}
+  .tracker-content::-webkit-scrollbar{display:none}
+  .tracker-toolbar{display:flex;align-items:center;justify-content:space-between;margin:6px 1px 13px}
+  .tracker-toolbar h2{margin:0;font-size:16px}
+  .refresh-btn{border:0;background:transparent;color:#b8bdc5;font-size:13px;padding:8px}
+  .tracker-list{display:flex;flex-direction:column;gap:10px}
+  .track-card{
+    display:grid;grid-template-columns:78px minmax(0,1fr) auto;align-items:center;gap:12px;padding:11px;
+    border:1px solid var(--line);border-radius:20px;background:#0d1014
+  }
+  .track-card img{width:78px;height:78px;object-fit:contain;border-radius:14px;background:#16191e}
+  .track-info{min-width:0}
+  .track-source{color:var(--muted);font-size:11px;text-transform:capitalize}
+  .track-title{margin:4px 0 7px;color:#f4f5f6;font-size:15px;font-weight:650;line-height:1.18;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .track-price{font-size:19px;font-weight:720}
+  .track-delta{margin-top:2px;color:var(--good);font-size:11px}
+  .track-actions{display:flex;flex-direction:column;gap:6px}
+  .track-actions button{width:38px;height:38px;border:1px solid var(--line);border-radius:12px;background:#15181d;color:#d9dce1;display:grid;place-items:center}
+  .track-actions svg{width:18px;height:18px}
+  .tracker-empty{padding:58px 24px;text-align:center;color:var(--muted)}
+  .tracker-empty .empty-icon{width:62px;height:62px;border-radius:20px;margin:0 auto 16px;display:grid;place-items:center;background:#111419;border:1px solid var(--line)}
+  .tracker-empty svg{width:29px;height:29px;color:#d1d4d9}
+  .tracker-empty b{display:block;color:#f3f4f6;font-size:18px;margin-bottom:6px}
+
+  /* Bottom navigation */
+  .nav{
+    position:absolute;left:0;right:0;bottom:0;height:calc(var(--nav-h) + var(--safe-bottom));padding-bottom:var(--safe-bottom);
+    display:flex;border-top:1px solid var(--line);background:rgba(7,8,10,.9);backdrop-filter:blur(22px);z-index:40
+  }
+  .nav button{
+    flex:1;border:0;background:transparent;color:#767d87;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:4px;font-size:11px;font-weight:650;padding-top:7px
+  }
+  .nav button svg{width:26px;height:26px}
+  .nav button.active{color:#f8f9fa}
+  .nav button.active:after{content:"";width:4px;height:4px;border-radius:50%;background:#fff;margin-top:1px}
+
+  /* Toast */
+  .toast{
+    position:absolute;left:50%;bottom:calc(var(--nav-h) + var(--safe-bottom) + 14px);transform:translate(-50%,14px);
+    max-width:88%;z-index:80;padding:11px 15px;border:1px solid var(--line-strong);border-radius:14px;
+    background:rgba(20,23,28,.94);backdrop-filter:blur(15px);color:#fff;font-size:13px;font-weight:630;text-align:center;
+    opacity:0;pointer-events:none;transition:.22s
+  }
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+
+  @media (max-height:720px){
+    .brand{font-size:27px}.search-header{padding-bottom:8px}.search-form{height:48px;margin-top:5px}
+    .reel-card{min-height:390px}.product-panel{padding-bottom:11px}.metrics{margin-top:10px;padding:9px 0}
+    .metric-value{font-size:18px}.listing-foot{padding-top:8px}.title{font-size:20px}.price{font-size:34px}
+  }
+  @media (min-width:521px){
+    body{background:#000}.app{box-shadow:0 0 0 1px rgba(255,255,255,.06),0 0 80px rgba(0,0,0,.8)}
+  }
+  @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
 <div class="app">
+  <!-- Search / product reels -->
   <section id="search" class="screen active">
-    <div id="searchHome">
-      <div class="topbar">
-        <div class="brand">
-          <svg viewBox="0 0 48 48"><defs><linearGradient id="ap" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b82f6"/><stop offset="1" stop-color="#1748c9"/></linearGradient></defs><circle cx="24" cy="24" r="23" fill="url(#ap)"/><g fill="#fff" opacity=".95"><path d="M24 9 L30 20 L24 20 Z"/><path d="M39 24 L28 30 L28 24 Z"/><path d="M24 39 L18 28 L24 28 Z"/><path d="M9 24 L20 18 L20 24 Z"/><path d="M34.6 13.4 L30 24 L26.5 20.5 Z"/><path d="M34.6 34.6 L24 30 L27.5 26.5 Z"/><path d="M13.4 34.6 L18 24 L21.5 27.5 Z"/><path d="M13.4 13.4 L24 18 L20.5 21.5 Z"/></g><circle cx="24" cy="24" r="5" fill="#fff"/></svg>
-          <span>Find<span class="ai">AI</span></span>
+    <header class="search-header">
+      <div class="brand-row">
+        <div class="brand">FindAI</div>
+        <div class="header-actions">
+          <button class="icon-btn" aria-label="Saved items" onclick="go('tracker')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg>
+          </button>
+          <button class="icon-btn" aria-label="More options" onclick="toast('More settings coming soon')">
+            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+          </button>
         </div>
-        <button class="bell" aria-label="Notifications"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></button>
       </div>
-      <div class="searchwrap">
-        <form class="searchbar" onsubmit="return doSearch(event)">
-          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
-          <input id="q" type="search" placeholder="Ask FindAI anything…" enterkeyhint="search" autocomplete="off">
-          <button type="button" class="ic-btn" aria-label="Scan" onclick="go('scan')"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
-        </form>
-      </div>
-      <div class="chips" id="chips">
-        <button class="chip active" data-f="foryou">For You</button>
-        <button class="chip" data-f="trending">Trending</button>
-        <button class="chip" data-f="deals">Deals</button>
-        <button class="chip" data-f="drops">Price Drops</button>
-      </div>
-      <div class="feed" id="feed"><div class="skel"></div><div class="skel"></div></div>
-    </div>
-    <div id="searchResult" class="result"></div>
-  </section>
-  <section id="scan" class="screen">
-    <div class="scan-head"><h2>Scan item</h2><p>Point at a LEGO set, sneaker, or product — it detects automatically.</p></div>
-    <div class="viewport" id="viewport">
-      <div class="ph" id="camPlaceholder">Starting camera…</div>
-      <video id="cam" playsinline autoplay muted style="display:none"></video>
-      <img id="preview" class="preview" style="display:none" alt="">
-      <div class="brackets"><span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span></div>
-    </div>
-    <div class="scan-status" id="scanStatus">Hold steady on an item…</div>
-    <div class="scan-actions">
-      <button onclick="triggerUpload()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Upload photo</button>
-      <button onclick="scanBarcode()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg>Barcode</button>
-    </div>
-    <input id="fileInput" type="file" accept="image/*" capture="environment" style="display:none" onchange="onFilePicked(event)">
-  </section>
-  <section id="tracker" class="screen">
-    <div class="tk-head"><h2>Price Tracker</h2><p>Track items and get alerts when prices drop.</p></div>
-    <div class="tk-search">
-      <form class="searchbar" onsubmit="return trackNew(event)">
-        <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
-        <input id="tq" type="search" placeholder="Search an item to track…" enterkeyhint="search">
+      <form class="search-form" onsubmit="return doSearch(event)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7.5"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Search for anything…" enterkeyhint="search" autocomplete="off">
+        <button type="button" class="filter-btn" aria-label="Scan an item" onclick="go('scan')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/><circle cx="12" cy="12" r="3.5"/></svg>
+        </button>
       </form>
+    </header>
+    <div class="feed-wrap">
+      <div class="reel-feed" id="feed" aria-live="polite">
+        <div class="reel-skeleton"></div>
+      </div>
+      <div class="reel-dots" id="reelDots" aria-hidden="true"></div>
     </div>
-    <div class="tk-list" id="tkList"><div class="empty"><b>Nothing tracked yet</b>Search an item above to track its price and get drop alerts.</div></div>
   </section>
-  <nav class="nav">
-    <button class="active" data-tab="search" onclick="go('search')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>Search</button>
-    <button data-tab="scan" onclick="go('scan')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3.5"/></svg>Scan</button>
-    <button data-tab="tracker" onclick="go('tracker')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17l6-6 4 4 8-8"/><path d="M17 7h4v4"/></svg>Tracker</button>
+
+  <!-- Scan -->
+  <section id="scan" class="screen">
+    <header class="sub-header">
+      <div>
+        <h1>Scan an item</h1>
+        <p>Photograph the product, label or barcode. FindAI will identify it and find matching listings.</p>
+      </div>
+      <button class="icon-btn" aria-label="Close scan" onclick="go('search')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+      </button>
+    </header>
+    <div class="scan-content">
+      <div class="viewport" id="viewport">
+        <div class="camera-placeholder" id="camPlaceholder">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 8a2 2 0 0 1 2-2h2l1.4-2h5.2L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
+          <div>Tap the shutter to start the camera</div>
+        </div>
+        <video id="cam" playsinline autoplay muted style="display:none"></video>
+        <img id="preview" class="preview" style="display:none" alt="Captured item">
+        <div class="frame"><span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span></div>
+        <div class="scan-line"></div>
+        <div class="scan-badge" id="scanStatus">Centre the item in the frame</div>
+      </div>
+      <div class="scan-controls">
+        <button class="scan-aux" onclick="triggerUpload()" aria-label="Choose photo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="M21 15l-5-5L5 20"/></svg>
+        </button>
+        <button class="shutter" id="shutter" onclick="captureScan()" aria-label="Take photo"></button>
+        <button class="scan-aux" onclick="toggleTorch()" aria-label="Toggle flash">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M13 2L4 13h7l-1 9 10-12h-7z"/></svg>
+        </button>
+      </div>
+      <div class="scan-secondary">
+        <button class="barcode-btn" onclick="scanBarcode()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg>
+          Scan barcode instead
+        </button>
+      </div>
+      <input id="fileInput" type="file" accept="image/*" style="display:none" onchange="onFilePicked(event)">
+    </div>
+  </section>
+
+  <!-- Tracker -->
+  <section id="tracker" class="screen">
+    <header class="sub-header">
+      <div>
+        <h1>Tracker</h1>
+        <p>Save listings and return to them when you are ready to buy.</p>
+      </div>
+      <button class="icon-btn" aria-label="Search" onclick="go('search')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7.5"/><path d="M20 20l-3.5-3.5"/></svg>
+      </button>
+    </header>
+    <div class="tracker-content">
+      <form class="search-form" style="margin:0 0 16px" onsubmit="return trackerSearch(event)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7.5"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="trackerQuery" type="search" placeholder="Find another item…" enterkeyhint="search">
+      </form>
+      <div class="tracker-toolbar">
+        <h2>Tracked items</h2>
+        <button class="refresh-btn" onclick="refreshAllTracked()">Refresh prices</button>
+      </div>
+      <div class="tracker-list" id="trackerList"></div>
+    </div>
+  </section>
+
+  <!-- Bottom navigation -->
+  <nav class="nav" aria-label="Main navigation">
+    <button class="active" data-tab="search" onclick="go('search')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7.5"/><path d="M20 20l-3.5-3.5"/></svg>
+      Search
+    </button>
+    <button data-tab="scan" onclick="go('scan')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/><circle cx="12" cy="12" r="3.5"/></svg>
+      Scan
+    </button>
+    <button data-tab="tracker" onclick="go('tracker')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 17l5-5 3.5 3.5L20 8"/><path d="M16 8h4v4"/></svg>
+      Tracker
+    </button>
   </nav>
+
+  <div class="sheet-backdrop" id="matchBackdrop" role="dialog" aria-modal="true" aria-labelledby="matchTitle">
+    <div class="match-sheet">
+      <div class="sheet-grabber"></div>
+      <div class="match-top">
+        <img class="match-image" id="matchImage" alt="Scanned item">
+        <div class="match-copy">
+          <div class="match-eyebrow">Item identified</div>
+          <h2 id="matchTitle">We think this is…</h2>
+          <p id="matchConfidence">Review the name before searching.</p>
+        </div>
+      </div>
+      <input class="match-query" id="matchQuery" aria-label="Identified product name">
+      <div class="sheet-actions">
+        <button class="secondary-btn" onclick="retryScan()">Scan again</button>
+        <button class="primary-btn" onclick="acceptScanMatch()">Find matches</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 </div>
+
 <script>
-const WORKER='https://api.carsearchapi.workers.dev';
+const WORKER = 'https://api.carsearchapi.workers.dev';
+
+let stream = null;
+let cameraTrack = null;
+let currentFeedItems = [];
+let currentFeedData = null;
+let activeReelIndex = 0;
+let reelObserver = null;
+let toastTimer = null;
+let lastScanImage = '';
+
+const $ = (sel, root=document) => root.querySelector(sel);
+const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+function escapeHTML(value){
+  return String(value ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+}
+function escapeAttr(value){ return escapeHTML(value); }
+function safeUrl(value){
+  const raw = String(value || '').trim();
+  if(!raw) return '';
+  try{
+    const u = new URL(raw, location.href);
+    return ['http:','https:'].includes(u.protocol) ? u.href : '';
+  }catch(_){ return ''; }
+}
+function getImage(item){ return safeUrl(item && (item.image || item.imageUrl || item.thumbnail || item.picture)); }
+function getListingUrl(item){ return safeUrl(item && (item.url || item.itemWebUrl || item.webUrl || item.link)); }
+function getSource(item){ return String(item && (item.source || item.marketplace || item.platform) || 'listing').toLowerCase(); }
+function sourceLabel(source){
+  const map = {ebay:'eBay',amazon:'Amazon',aliexpress:'AliExpress',stockx:'StockX',bricklink:'BrickLink',brickset:'Brickset',goat:'GOAT'};
+  return map[source] || source.charAt(0).toUpperCase()+source.slice(1);
+}
+function currencyOf(item, data){ return String((item && item.currency) || (data && data.currency) || 'AUD').toUpperCase(); }
+function money(value, currency='AUD'){
+  const n = Number(value);
+  if(!Number.isFinite(n)) return '—';
+  try{
+    return new Intl.NumberFormat(undefined,{style:'currency',currency,maximumFractionDigits:n%1?2:0}).format(n);
+  }catch(_){ return 'A$'+n.toLocaleString(undefined,{maximumFractionDigits:2}); }
+}
+function median(nums){
+  const a = nums.filter(Number.isFinite).sort((x,y)=>x-y);
+  if(!a.length) return null;
+  const m = Math.floor(a.length/2);
+  return a.length%2 ? a[m] : (a[m-1]+a[m])/2;
+}
+function clamp(n,min,max){ return Math.max(min,Math.min(max,n)); }
+function getTrust(item){
+  const n = Number(item && (item.trustScore ?? item.verifyScore ?? item._legoScore));
+  return Number.isFinite(n) ? clamp(Math.round(n),0,100) : null;
+}
+function getShippingText(item){
+  if(!item) return 'Shipping shown by seller';
+  const raw = item.shippingText || item.shipping || item.delivery || item.shippingDisplay;
+  if(raw && typeof raw === 'string') return raw;
+  const cost = Number(item.shippingCost);
+  if(Number.isFinite(cost)) return cost === 0 ? 'Free shipping' : 'Shipping extra';
+  if(item.freeShipping === true) return 'Free shipping';
+  return 'Shipping shown by seller';
+}
+function haptic(){ try{ if(navigator.vibrate) navigator.vibrate(8); }catch(_){} }
+
+function toast(message){
+  const el = $('#toast');
+  el.textContent = message;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>el.classList.remove('show'),2400);
+}
+
+function lastSearch(){ try{return localStorage.getItem('fa_last') || ''}catch(_){return ''} }
+function setLastSearch(q){ try{localStorage.setItem('fa_last',q)}catch(_){} }
+
 function go(tab){
-  document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===tab));
-  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.tab===tab));
-  if(tab!=='scan')stopScan();else startScan();
-  window.scrollTo(0,0);
-}
-let toastT;
-function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2400);}
-function money(v){if(v==null||v==='')return '';const n=Number(v);return isFinite(n)?'A$'+n.toLocaleString(undefined,{maximumFractionDigits:2}):String(v);}
-function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
-function lastSearch(){try{return localStorage.getItem('fa_last')||'';}catch(_){return '';}}
-function setLastSearch(q){try{localStorage.setItem('fa_last',q);}catch(_){}}
-async function loadFeed(){
-  const feed=document.getElementById('feed');
-  const q=lastSearch()||'lego harry potter';
-  try{
-    const r=await fetch(WORKER+'/tracker/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q})});
-    const d=await r.json();
-    const items=(d&&d.listings)?d.listings.filter(x=>x&&x.price>0).slice(0,10):[];
-    if(!items.length){feed.innerHTML='<div class="empty"><b>Nothing to show yet</b>Try a search to see prices.</div>';return;}
-    feed.innerHTML=items.map(it=>{
-      const trust=it.trustScore||it._legoScore||null;
-      return '<article class="pcard" onclick="quickView(\''+esc(it.title).replace(/'/g,"&#39;")+'\')">'+
-        '<div class="media">'+
-        (trust?'<div class="trust"><svg class="shield" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l8 3v6c0 5-3.4 8.5-8 11-4.6-2.5-8-6-8-11V5z"/></svg><span><b>'+trust+'</b>Trust Score</span></div>':'')+
-        '<button class="fav" onclick="event.stopPropagation();toast(\'Saved\')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></button>'+
-        (it.image?'<img src="'+esc(it.image)+'" alt="" loading="lazy">':'<div class="ph" style="color:#3a3f47">No image</div>')+
-        '</div><div class="body">'+
-        '<h3>'+esc((it.title||'').slice(0,56))+'</h3>'+
-        '<div class="sub">'+esc(it.source||'ebay')+'</div>'+
-        '<div class="best-label">Best price</div>'+
-        '<div class="best">'+money(it.price)+'</div>'+
-        '<button class="cta" onclick="event.stopPropagation();quickView(\''+esc(it.title).replace(/'/g,"&#39;")+'\')">See price <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg></button>'+
-        '</div></article>';
-    }).join('');
-  }catch(e){feed.innerHTML='<div class="empty"><b>Couldn\'t load</b>Check your connection.</div>';}
-}
-function doSearch(e){e.preventDefault();const q=document.getElementById('q').value.trim();if(!q)return false;setLastSearch(q);quickView(q);return false;}
-const backBtn='<button class="back" onclick="closeResult()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>';
-async function quickView(q){
-  setLastSearch(q);
-  document.getElementById('searchHome').style.display='none';
-  const R=document.getElementById('searchResult');
-  R.classList.add('show');
-  R.innerHTML='<div class="result-top">'+backBtn+'<h2>Finding best price…</h2></div><div class="skel" style="height:260px;margin-bottom:14px"></div>';
-  go('search');
-  try{
-    let query=q;
-    try{const rr=await fetch(WORKER+'/resolve-product',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q})});const rj=await rr.json();if(rj&&rj.resolved&&rj.trackerQuery)query=rj.trackerQuery;}catch(_){}
-    const r=await fetch(WORKER+'/tracker/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query})});
-    const d=await r.json();
-    renderQuickView(d,q);
-  }catch(e){R.innerHTML='<div class="result-top">'+backBtn+'<h2>Something went wrong</h2></div><div class="empty">Try again in a moment.</div>';}
-}
-function closeResult(){document.getElementById('searchResult').classList.remove('show');document.getElementById('searchHome').style.display='';}
-function renderQuickView(d,displayQ){
-  const R=document.getElementById('searchResult');
-  const p=d&&d.productDetails;
-  let listings=(d&&d.listings)?d.listings.filter(x=>x&&x.price>0):[];
-  listings.sort((a,b)=>Number(a.price)-Number(b.price));
-  const ebayFirst=listings.filter(x=>/ebay/i.test(x.source||'')).concat(listings.filter(x=>!/ebay/i.test(x.source||'')));
-  const top=ebayFirst[0]||listings[0];
-  const name=(p&&p.name)||displayQ;
-  const heroImg=(p&&p.image)||(top&&top.image)||'';
-  if(!top){R.innerHTML='<div class="result-top">'+backBtn+'<h2>'+esc(name)+'</h2></div><div class="empty"><b>No live listings right now</b>We couldn\'t find it on sale this moment.</div>';return;}
-  let html='<div class="result-top">'+backBtn+'<h2>'+esc((name||'').slice(0,40))+'</h2></div>'+
-    '<div class="hero-media">'+(heroImg?'<img src="'+esc(heroImg)+'" alt="">':'')+'</div>'+
-    '<div class="price-block"><div class="lab">Best price now</div><div class="big">'+money(top.price)+'</div><div class="src">on '+esc(top.source||'eBay')+'</div></div>'+
-    '<a class="buy-primary" href="'+esc(top.url||'#')+'" target="_blank" rel="noopener">Buy now <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M7 17L17 7M7 7h10v10"/></svg></a>'+
-    '<button class="track-secondary" onclick="trackFromResult(\''+esc(displayQ).replace(/'/g,"&#39;")+'\')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Track price</button>';
-  const rest=ebayFirst.slice(1,7);
-  if(rest.length){
-    html+='<div class="listings-h">Other places to buy</div>';
-    html+=rest.map(it=>'<a class="lrow" href="'+esc(it.url||'#')+'" target="_blank" rel="noopener"><img src="'+esc(it.image||'')+'" alt=""><div class="li"><h4>'+esc((it.title||'').slice(0,40))+'</h4><div class="m">'+esc(it.source||'ebay')+'</div></div><div class="rp">'+money(it.price)+'</div></a>').join('');
+  $$('.screen').forEach(screen=>screen.classList.toggle('active',screen.id===tab));
+  $$('.nav button').forEach(button=>button.classList.toggle('active',button.dataset.tab===tab));
+  if(tab === 'scan'){
+    setTimeout(()=>{ if(!stream) startCam(); },80);
+  }else{
+    stopCam();
   }
-  R.innerHTML=html;
+  if(tab === 'tracker') renderTracker();
 }
-function trackFromResult(q){saveTracked(q);toast('Tracking on — we\'ll alert you on a drop');}
-let stream=null,scanTimer=null,lastFrame=null,steadyCount=0,busyVision=false;
-async function startScan(){
-  const ph=document.getElementById('camPlaceholder'),cam=document.getElementById('cam'),prev=document.getElementById('preview');
-  prev.style.display='none';
-  document.getElementById('scanStatus').textContent='Hold steady on an item…';
-  if(stream)return;
+
+function renderLoading(){
+  $('#feed').innerHTML = '<div class="reel-skeleton" aria-label="Loading products"></div>';
+  $('#reelDots').innerHTML = '';
+}
+
+async function fetchProductResults(query){
+  let resolvedQuery = query;
   try{
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
-    cam.srcObject=stream;cam.style.display='block';ph.style.display='none';
-    steadyCount=0;lastFrame=null;busyVision=false;
-    scanTimer=setInterval(monitorSteady,500);
-  }catch(e){document.getElementById('scanStatus').textContent='Camera unavailable — use Upload instead.';document.getElementById('camPlaceholder').textContent='Camera unavailable';}
-}
-function stopScan(){
-  if(scanTimer){clearInterval(scanTimer);scanTimer=null;}
-  document.getElementById('viewport').classList.remove('locking');
-  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
-  const cam=document.getElementById('cam');if(cam)cam.style.display='none';
-}
-function grabTiny(){
-  const cam=document.getElementById('cam');
-  if(!cam||!cam.videoWidth)return null;
-  const c=document.createElement('canvas');c.width=32;c.height=24;
-  c.getContext('2d').drawImage(cam,0,0,32,24);
-  return c.getContext('2d').getImageData(0,0,32,24).data;
-}
-function frameDiff(a,b){if(!a||!b)return 1e9;let s=0;for(let i=0;i<a.length;i+=4){s+=Math.abs(a[i]-b[i]);}return s/(a.length/4);}
-async function monitorSteady(){
-  if(busyVision||!stream)return;
-  const f=grabTiny();if(!f)return;
-  const diff=frameDiff(f,lastFrame);lastFrame=f;
-  const vp=document.getElementById('viewport');
-  if(diff<8){
-    steadyCount++;
-    if(steadyCount>=2){vp.classList.add('locking');document.getElementById('scanStatus').textContent='Detecting…';}
-    if(steadyCount>=3){autoCapture();}
-  }else{steadyCount=0;vp.classList.remove('locking');document.getElementById('scanStatus').textContent='Hold steady on an item…';}
-}
-async function autoCapture(){
-  if(busyVision)return;busyVision=true;
-  const cam=document.getElementById('cam');
-  const c=document.createElement('canvas');c.width=cam.videoWidth||720;c.height=cam.videoHeight||960;
-  c.getContext('2d').drawImage(cam,0,0,c.width,c.height);
-  const dataUrl=c.toDataURL('image/jpeg',0.85);
-  await analyseImage(dataUrl);
-  busyVision=false;steadyCount=0;
-}
-function triggerUpload(){document.getElementById('fileInput').click();}
-function onFilePicked(e){const f=e.target.files&&e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>analyseImage(rd.result);rd.readAsDataURL(f);}
-async function analyseImage(dataUrl){
-  document.getElementById('scanStatus').textContent='Identifying item…';
-  try{
-    const r=await fetch(WORKER+'/vision',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({imageBase64:dataUrl})});
-    const d=await r.json();
-    if(d&&d.query){
-      document.getElementById('scanStatus').textContent='Found: '+d.query;
-      setLastSearch(d.query);stopScan();go('search');quickView(d.query);
-    }else{
-      document.getElementById('scanStatus').textContent=(d&&d.reply)?d.reply:'Couldn\'t identify that — try again or use barcode.';
-      document.getElementById('viewport').classList.remove('locking');
+    const rr = await fetch(WORKER+'/resolve-product',{
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query})
+    });
+    if(rr.ok){
+      const rj = await rr.json();
+      if(rj && rj.resolved && rj.trackerQuery) resolvedQuery = rj.trackerQuery;
     }
-  }catch(e){document.getElementById('scanStatus').textContent='Scan failed — check connection.';}
+  }catch(_){ /* fallback to original query */ }
+
+  const response = await fetch(WORKER+'/tracker/search',{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:resolvedQuery})
+  });
+  if(!response.ok) throw new Error('Search failed');
+  const data = await response.json();
+  return {data,resolvedQuery};
+}
+
+async function searchListings(query,{showToast=false}={}){
+  const q = String(query || '').trim();
+  if(!q) return;
+  setLastSearch(q);
+  $('#q').value = q;
+  go('search');
+  renderLoading();
+  if(showToast) toast('Finding the best matches…');
+  try{
+    const {data,resolvedQuery} = await fetchProductResults(q);
+    currentFeedData = data;
+    renderFeed(data,resolvedQuery || q);
+  }catch(error){
+    $('#feed').innerHTML = '<div class="feed-status"><div><b>Couldn\'t load those listings</b>Check your connection and try again.<br><button class="retry-btn" onclick="searchListings(lastSearch())">Try again</button></div></div>';
+    $('#reelDots').innerHTML = '';
+  }
+}
+
+function doSearch(event){
+  event.preventDefault();
+  searchListings($('#q').value,{showToast:true});
+  $('#q').blur();
+  return false;
+}
+
+function trackerSearch(event){
+  event.preventDefault();
+  const q = $('#trackerQuery').value.trim();
+  if(q) searchListings(q,{showToast:true});
+  return false;
+}
+
+function deriveFeedStats(items,data){
+  const prices = items.map(x=>Number(x.price)).filter(n=>Number.isFinite(n) && n>0);
+  const low = prices.length ? Math.min(...prices) : null;
+  const typicalFromData = Number(data && (data.marketPrice || data.averagePrice || (data.stats && (data.stats.average || data.stats.avg))));
+  const typical = Number.isFinite(typicalFromData) && typicalFromData>0 ? typicalFromData : median(prices);
+  return {low,typical};
+}
+
+function dealMeta(price,typical){
+  if(!Number.isFinite(price) || !Number.isFinite(typical) || typical<=0){
+    return {label:'Live listing',comparison:'Compare seller details',className:'neutral',delta:null};
+  }
+  const delta = typical-price;
+  const pct = delta/typical;
+  if(delta>0 && pct>=.15) return {label:'Great Deal',comparison:money(delta)+' below typical',className:'',delta};
+  if(delta>0 && pct>=.05) return {label:'Good Deal',comparison:money(delta)+' below typical',className:'',delta};
+  if(delta>0) return {label:'Below Typical',comparison:money(delta)+' below typical',className:'',delta};
+  if(Math.abs(pct)<.035) return {label:'Typical Price',comparison:'Close to current listings',className:'neutral',delta};
+  return {label:'Above Typical',comparison:money(Math.abs(delta))+' above typical',className:'bad',delta};
+}
+
+function trackedKey(item){
+  return (getListingUrl(item) || String(item.title || '')+'|'+String(item.price || '')).toLowerCase();
+}
+function getTracked(){
+  try{
+    const raw = JSON.parse(localStorage.getItem('fa_tracked_v2') || '[]');
+    return Array.isArray(raw) ? raw : [];
+  }catch(_){ return []; }
+}
+function setTracked(items){ try{localStorage.setItem('fa_tracked_v2',JSON.stringify(items.slice(0,50)))}catch(_){} }
+function isTracked(item){ const key=trackedKey(item); return getTracked().some(x=>x.key===key); }
+
+function renderFeed(data,query){
+  const raw = data && Array.isArray(data.listings) ? data.listings : [];
+  const items = raw.filter(item=>item && Number(item.price)>0).slice(0,20);
+  currentFeedItems = items;
+  activeReelIndex = 0;
+  if(!items.length){
+    $('#feed').innerHTML = '<div class="feed-status"><div><b>No live matches yet</b>Try a more specific product name, model number or barcode.</div></div>';
+    $('#reelDots').innerHTML = '';
+    return;
+  }
+  const stats = deriveFeedStats(items,data);
+  const feed = $('#feed');
+  feed.innerHTML = items.map((item,index)=>renderReelCard(item,index,stats,data)).join('');
+  renderDots(items.length);
+  attachReelObserver();
+  feed.scrollTop = 0;
+  teachSwipeOnce(items.length);
+}
+
+function renderReelCard(item,index,stats,data){
+  const title = String(item.title || (data && data.productDetails && data.productDetails.name) || 'Product listing');
+  const image = getImage(item) || getImage(data && data.productDetails);
+  const url = getListingUrl(item);
+  const source = getSource(item);
+  const price = Number(item.price);
+  const currency = currencyOf(item,data);
+  const trust = getTrust(item);
+  const typical = Number(item.marketPrice || item.averagePrice) || stats.typical;
+  const deal = dealMeta(price,typical);
+  const shipping = getShippingText(item);
+  const best = Number.isFinite(stats.low) && Math.abs(price-stats.low)<.01;
+  const tracked = isTracked(item);
+  const trustText = trust==null ? '—' : String(trust);
+  const trustSub = trust==null ? 'Not scored' : trust>=85 ? 'Strong' : trust>=70 ? 'Good' : trust>=55 ? 'Mixed' : 'Caution';
+  const signalText = trust==null ? 'Live marketplace listing' : trust>=80 ? 'Strong listing signals' : trust>=60 ? 'Trust checks complete' : 'Review listing details';
+  const bg = image ? `style="background-image:url('${escapeAttr(image)}')"` : '';
+
+  return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}">
+    <div class="hero-stage">
+      <div class="hero-backdrop" ${bg}></div>
+      ${image ? `<img class="hero-image" src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="${index<2?'eager':'lazy'}" onerror="imageFailed(this)">` : ''}
+      <div class="image-fallback" style="${image?'':'display:grid'}">Image unavailable</div>
+      <div class="card-actions">
+        <button class="glass-btn ${tracked?'active':''}" data-track-key="${escapeAttr(trackedKey(item))}" onclick="toggleTrack(${index},event)" aria-label="${tracked?'Remove from tracker':'Add to tracker'}">
+          <svg viewBox="0 0 24 24" fill="${tracked?'currentColor':'none'}" stroke="currentColor" stroke-width="1.9"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg>
+        </button>
+        <button class="glass-btn" onclick="shareItem(${index},event)" aria-label="Share listing">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.2 10.8l7.6-4.5M8.2 13.2l7.6 4.5"/></svg>
+        </button>
+      </div>
+      <div class="source-chip" data-source="${escapeAttr(source)}"><span class="source-dot"></span>${escapeHTML(sourceLabel(source))}${item.topRatedSeller?' · Top-rated seller':''}</div>
+    </div>
+    <div class="product-panel">
+      <h2 class="title">${escapeHTML(title)}</h2>
+      <div class="price-line">
+        <div class="price">${escapeHTML(money(price,currency))}</div>
+        <div class="deal-pill ${deal.className}">${escapeHTML(deal.label)}</div>
+      </div>
+      <div class="buy-row">
+        <div class="comparison ${deal.className==='neutral'?'neutral':''}">${deal.delta>0?'↓ ':deal.delta<0?'↑ ':''}${escapeHTML(deal.comparison)}</div>
+        <button class="view-deal" onclick="openDeal(${index},event)" ${url?'':'disabled'}>View Deal
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 5h5v5M10 14L19 5M19 14v5H5V5h5"/></svg>
+        </button>
+      </div>
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-label">Trust Score</div>
+          <div class="metric-value ${trust!=null&&trust>=70?'good':''}">${escapeHTML(trustText)}</div>
+          <div class="metric-sub">${escapeHTML(trustSub)}</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Lowest Price</div>
+          <div class="metric-value">${escapeHTML(money(stats.low,currency))}</div>
+          <div class="metric-sub">Current results</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">Typical Price</div>
+          <div class="metric-value">${escapeHTML(money(typical,currency))}</div>
+          <div class="metric-sub">Current results</div>
+        </div>
+      </div>
+      <div class="listing-foot">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h11v10H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>${escapeHTML(shipping)}</span>
+        <span>${best?'Best price · ':''}${escapeHTML(signalText)}<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/></svg></span>
+      </div>
+    </div>
+  </article>`;
+}
+
+function imageFailed(img){
+  img.style.display='none';
+  const fallback = img.parentElement && img.parentElement.querySelector('.image-fallback');
+  if(fallback) fallback.style.display='grid';
+}
+
+function renderDots(count){
+  const shown = Math.min(count,10);
+  $('#reelDots').innerHTML = Array.from({length:shown},(_,i)=>`<span class="reel-dot ${i===0?'active':''}"></span>`).join('');
+}
+function updateDots(index){
+  const dots = $$('.reel-dot','#reelDots');
+  if(!dots.length) return;
+  const dotIndex = dots.length===currentFeedItems.length ? index : Math.min(dots.length-1,Math.round(index/(currentFeedItems.length-1)*(dots.length-1)));
+  dots.forEach((dot,i)=>dot.classList.toggle('active',i===dotIndex));
+}
+function attachReelObserver(){
+  if(reelObserver) reelObserver.disconnect();
+  const feed = $('#feed');
+  reelObserver = new IntersectionObserver(entries=>{
+    const visible = entries.filter(e=>e.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];
+    if(!visible) return;
+    const index = Number(visible.target.dataset.index || 0);
+    if(index !== activeReelIndex){ activeReelIndex=index; updateDots(index); haptic(); }
+  },{root:feed,threshold:[.55,.7,.85]});
+  $$('.reel-card',feed).forEach(card=>reelObserver.observe(card));
+}
+function teachSwipeOnce(count){
+  if(count<2 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  try{
+    if(localStorage.getItem('fa_reel_taught')) return;
+    localStorage.setItem('fa_reel_taught','1');
+  }catch(_){}
+  const feed = $('#feed');
+  setTimeout(()=>{
+    feed.classList.add('teaching');
+    feed.scrollTo({top:28,behavior:'smooth'});
+    setTimeout(()=>{
+      feed.scrollTo({top:0,behavior:'smooth'});
+      setTimeout(()=>feed.classList.remove('teaching'),420);
+    },620);
+  },700);
+}
+
+function openDeal(index,event){
+  if(event) event.stopPropagation();
+  const item = currentFeedItems[index];
+  const url = getListingUrl(item);
+  if(!url){ toast('This listing does not include a direct link'); return; }
+  window.open(url,'_blank','noopener,noreferrer');
+}
+async function shareItem(index,event){
+  if(event) event.stopPropagation();
+  const item = currentFeedItems[index];
+  const shareData = {title:item.title || 'FindAI listing',text:`${item.title || 'Product'} — ${money(item.price,currencyOf(item,currentFeedData))}`,url:getListingUrl(item) || location.href};
+  try{
+    if(navigator.share) await navigator.share(shareData);
+    else { await navigator.clipboard.writeText(shareData.url); toast('Listing link copied'); }
+  }catch(_){ /* user cancelled */ }
+}
+function toggleTrack(index,event){
+  if(event) event.stopPropagation();
+  const item = currentFeedItems[index];
+  if(!item) return;
+  const key = trackedKey(item);
+  let tracked = getTracked();
+  const existing = tracked.findIndex(x=>x.key===key);
+  if(existing>=0){
+    tracked.splice(existing,1);
+    toast('Removed from Tracker');
+  }else{
+    tracked.unshift({
+      key,
+      query:item.title || lastSearch(),
+      title:item.title || 'Product listing',
+      image:getImage(item),
+      price:Number(item.price) || null,
+      initialPrice:Number(item.price) || null,
+      currency:currencyOf(item,currentFeedData),
+      source:getSource(item),
+      url:getListingUrl(item),
+      trust:getTrust(item),
+      savedAt:Date.now(),
+      updatedAt:Date.now()
+    });
+    toast('Added to Tracker');
+    haptic();
+  }
+  setTracked(tracked);
+  const nowTracked = existing<0;
+  $$(`[data-track-key="${CSS.escape(key)}"]`).forEach(button=>{
+    button.classList.toggle('active',nowTracked);
+    const svg=button.querySelector('svg'); if(svg) svg.setAttribute('fill',nowTracked?'currentColor':'none');
+    button.setAttribute('aria-label',nowTracked?'Remove from tracker':'Add to tracker');
+  });
+}
+
+/* Scan */
+function setScanStatus(message){ $('#scanStatus').textContent = message || ''; }
+async function startCam(){
+  if(stream) return;
+  const cam = $('#cam');
+  const placeholder = $('#camPlaceholder');
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    setScanStatus('Camera unavailable — choose a photo instead');
+    return;
+  }
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false
+    });
+    cam.srcObject = stream;
+    cam.style.display='block';
+    $('#preview').style.display='none';
+    placeholder.style.display='none';
+    cameraTrack = stream.getVideoTracks()[0];
+    $('#viewport').classList.add('scanning');
+    setScanStatus('Centre the item in the frame');
+  }catch(error){
+    setScanStatus('Camera permission blocked — choose a photo instead');
+  }
+}
+function stopCam(){
+  $('#viewport').classList.remove('scanning');
+  if(stream){ stream.getTracks().forEach(t=>t.stop()); }
+  stream=null;cameraTrack=null;
+  const cam=$('#cam'); if(cam){cam.srcObject=null;cam.style.display='none'}
+}
+async function toggleTorch(){
+  if(!cameraTrack){ await startCam(); return; }
+  const capabilities = cameraTrack.getCapabilities ? cameraTrack.getCapabilities() : {};
+  if(!capabilities.torch){ toast('Flash is not available on this device'); return; }
+  const next = !cameraTrack.__torch;
+  try{
+    await cameraTrack.applyConstraints({advanced:[{torch:next}]});
+    cameraTrack.__torch=next;
+    toast(next?'Flash on':'Flash off');
+  }catch(_){ toast('Could not change the flash'); }
+}
+function triggerUpload(){ $('#fileInput').click(); }
+function onFilePicked(event){
+  const file = event.target.files && event.target.files[0];
+  event.target.value='';
+  if(!file) return;
+  prepareUploadedImage(file).then(dataUrl=>{
+    showPreview(dataUrl);
+    analyseImage(dataUrl);
+  }).catch(()=>setScanStatus('Could not read that image'));
+}
+function prepareUploadedImage(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onerror=reject;
+    reader.onload=()=>{
+      const img = new Image();
+      img.onerror=reject;
+      img.onload=()=>resolve(resizeImage(img,1600,.84));
+      img.src=reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+function resizeImage(source,maxSide=1600,quality=.84){
+  const sw=source.videoWidth || source.naturalWidth || source.width;
+  const sh=source.videoHeight || source.naturalHeight || source.height;
+  const scale=Math.min(1,maxSide/Math.max(sw,sh));
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.max(1,Math.round(sw*scale));
+  canvas.height=Math.max(1,Math.round(sh*scale));
+  const ctx=canvas.getContext('2d');
+  ctx.drawImage(source,0,0,canvas.width,canvas.height);
+  return canvas.toDataURL('image/jpeg',quality);
+}
+async function captureScan(){
+  const cam=$('#cam');
+  if(!stream){ await startCam(); return; }
+  if(!cam.videoWidth){ setScanStatus('Camera is still starting…'); return; }
+  const dataUrl=resizeImage(cam,1600,.84);
+  showPreview(dataUrl);
+  analyseImage(dataUrl);
+}
+function showPreview(dataUrl){
+  lastScanImage=dataUrl;
+  const preview=$('#preview');
+  preview.src=dataUrl;preview.style.display='block';
+  $('#cam').style.display='none';
+  $('#camPlaceholder').style.display='none';
+  $('#viewport').classList.remove('scanning');
+}
+function normaliseConfidence(data){
+  const raw=Number(data && (data.confidence ?? data.matchConfidence ?? data.score));
+  if(!Number.isFinite(raw)) return null;
+  return raw<=1 ? Math.round(raw*100) : clamp(Math.round(raw),0,100);
+}
+async function analyseImage(dataUrl){
+  setScanStatus('Identifying the item…');
+  try{
+    const response=await fetch(WORKER+'/vision',{
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({imageBase64:dataUrl})
+    });
+    if(!response.ok) throw new Error('Vision request failed');
+    const data=await response.json();
+    const query=String(data && (data.query || data.product || data.productName || data.title) || '').trim();
+    if(query){
+      const confidence=normaliseConfidence(data);
+      showScanMatch(query,dataUrl,confidence);
+      setScanStatus('Item identified');
+    }else{
+      setScanStatus(data && data.reply ? data.reply : 'Could not identify it — try the front label or barcode');
+    }
+  }catch(error){
+    setScanStatus('Scan failed — check your connection and try again');
+  }
+}
+function showScanMatch(query,image,confidence){
+  $('#matchImage').src=image;
+  $('#matchQuery').value=query;
+  $('#matchConfidence').textContent=confidence==null ? 'Review the name before searching.' : `${confidence}% match — review the name before searching.`;
+  $('#matchBackdrop').classList.add('show');
+}
+function retryScan(){
+  $('#matchBackdrop').classList.remove('show');
+  $('#preview').style.display='none';
+  lastScanImage='';
+  setScanStatus('Centre the item in the frame');
+  startCam();
+}
+function acceptScanMatch(){
+  const query=$('#matchQuery').value.trim();
+  if(!query){ toast('Enter the product name first'); return; }
+  $('#matchBackdrop').classList.remove('show');
+  setLastSearch(query);
+  searchListings(query,{showToast:true});
 }
 function scanBarcode(){
-  if('BarcodeDetector' in window){document.getElementById('scanStatus').textContent='Point at a barcode…';startBarcodeLoop();}
-  else document.getElementById('scanStatus').textContent='Barcode needs a newer browser — use photo.';
+  if(!('BarcodeDetector' in window)){
+    setScanStatus('Barcode scanning needs a newer browser — photograph the barcode instead');
+    return;
+  }
+  setScanStatus('Point the camera at the barcode…');
+  startBarcodeLoop();
 }
 async function startBarcodeLoop(){
-  if(!stream)await startScan();
-  const det=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128']});
-  const cam=document.getElementById('cam');
-  const tick=async()=>{if(!stream)return;try{const codes=await det.detect(cam);if(codes&&codes.length){const code=codes[0].rawValue;stopScan();go('search');quickView(code);return;}}catch(_){}requestAnimationFrame(tick);};
+  if(!stream) await startCam();
+  if(!stream) return;
+  let detector;
+  try{ detector=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','qr_code']}); }
+  catch(_){ detector=new BarcodeDetector(); }
+  const cam=$('#cam');
+  const tick=async()=>{
+    if(!stream || !$('#scan').classList.contains('active')) return;
+    try{
+      const codes=await detector.detect(cam);
+      if(codes && codes.length){
+        const code=codes[0].rawValue;
+        stopCam();
+        setScanStatus(`Barcode ${code} found`);
+        searchListings(code,{showToast:true});
+        return;
+      }
+    }catch(_){}
+    requestAnimationFrame(tick);
+  };
   requestAnimationFrame(tick);
 }
-function trackNew(e){e.preventDefault();const q=document.getElementById('tq').value.trim();if(!q)return false;saveTracked(q);loadTracked();document.getElementById('tq').value='';toast('Tracking "'+q+'"');return false;}
-function saveTracked(q){try{const a=JSON.parse(localStorage.getItem('fa_tracked')||'[]');if(!a.includes(q)){a.unshift(q);localStorage.setItem('fa_tracked',JSON.stringify(a.slice(0,30)));}}catch(_){}}
-function loadTracked(){
-  const list=document.getElementById('tkList');
-  let items=[];try{items=JSON.parse(localStorage.getItem('fa_tracked')||'[]');}catch(_){}
-  if(!items.length){list.innerHTML='<div class="empty"><b>Nothing tracked yet</b>Search an item above to track its price.</div>';return;}
-  list.innerHTML=items.map(q=>'<div class="tk-row" onclick="go(\'search\');quickView(\''+esc(q).replace(/'/g,"&#39;")+'\')"><img src="" alt="" onerror="this.style.visibility=\'hidden\'"><div class="info"><h4>'+esc(q)+'</h4><div class="meta">Tap to see live price</div></div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8a8f98" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg></div>').join('');
+
+/* Tracker */
+function renderTracker(){
+  const items=getTracked();
+  const list=$('#trackerList');
+  if(!items.length){
+    list.innerHTML=`<div class="tracker-empty">
+      <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 17l5-5 3.5 3.5L20 8"/><path d="M16 8h4v4"/></svg></div>
+      <b>Nothing tracked yet</b>Tap the heart on any listing to save it here.
+    </div>`;
+    return;
+  }
+  list.innerHTML=items.map((item,index)=>{
+    const delta=Number(item.initialPrice)-Number(item.price);
+    const deltaText=Number.isFinite(delta)&&Math.abs(delta)>.009 ? `${delta>0?'↓':'↑'} ${money(Math.abs(delta),item.currency)} since saved` : 'Latest saved price';
+    return `<article class="track-card">
+      <img src="${escapeAttr(item.image || '')}" alt="${escapeAttr(item.title)}" onerror="this.style.visibility='hidden'">
+      <div class="track-info" onclick="searchTracked(${index})">
+        <div class="track-source">${escapeHTML(sourceLabel(item.source || 'listing'))}</div>
+        <div class="track-title">${escapeHTML(item.title)}</div>
+        <div class="track-price">${escapeHTML(money(item.price,item.currency || 'AUD'))}</div>
+        <div class="track-delta">${escapeHTML(deltaText)}</div>
+      </div>
+      <div class="track-actions">
+        <button onclick="refreshTracked(${index})" aria-label="Refresh price"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 6v5h-5M4 18v-5h5"/><path d="M18.5 9A7 7 0 0 0 6 6.5L4 11M5.5 15A7 7 0 0 0 18 17.5l2-4.5"/></svg></button>
+        <button onclick="removeTracked(${index})" aria-label="Remove item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 7h14M9 7V4h6v3M8 7l1 13h6l1-13"/></svg></button>
+      </div>
+    </article>`;
+  }).join('');
 }
-loadFeed();loadTracked();
-document.querySelectorAll('#chips .chip').forEach(c=>c.addEventListener('click',()=>{
-  document.querySelectorAll('#chips .chip').forEach(x=>x.classList.remove('active'));
-  c.classList.add('active');loadFeed();
-}));
+function searchTracked(index){
+  const item=getTracked()[index];
+  if(item) searchListings(item.query || item.title,{showToast:true});
+}
+function removeTracked(index){
+  const items=getTracked();items.splice(index,1);setTracked(items);renderTracker();toast('Removed from Tracker');
+}
+async function refreshTracked(index,{quiet=false}={}){
+  const items=getTracked();
+  const item=items[index];
+  if(!item) return;
+  if(!quiet) toast('Refreshing price…');
+  try{
+    const {data}=await fetchProductResults(item.query || item.title);
+    const listings=(data && data.listings || []).filter(x=>Number(x.price)>0).sort((a,b)=>Number(a.price)-Number(b.price));
+    if(listings.length){
+      const best=listings[0];
+      item.price=Number(best.price);
+      item.currency=currencyOf(best,data);
+      item.url=getListingUrl(best) || item.url;
+      item.image=getImage(best) || item.image;
+      item.source=getSource(best);
+      item.updatedAt=Date.now();
+      items[index]=item;setTracked(items);
+      if(!quiet) toast('Price updated');
+    }else if(!quiet){ toast('No live price found'); }
+  }catch(_){ if(!quiet) toast('Could not refresh this item'); }
+  renderTracker();
+}
+async function refreshAllTracked(){
+  const count=getTracked().length;
+  if(!count){ toast('Track an item first'); return; }
+  toast('Refreshing tracked prices…');
+  for(let i=0;i<count;i++) await refreshTracked(i,{quiet:true});
+  toast('Tracked prices refreshed');
+}
+
+/* Boot */
+(function boot(){
+  renderTracker();
+  const seed=lastSearch() || 'lego harry potter';
+  searchListings(seed);
+})();
 </script>
 </body>
 </html>
