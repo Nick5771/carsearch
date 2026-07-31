@@ -615,7 +615,7 @@
 
 
 /* =========================================================
-   FindAI v7 — full listing images + larger blue automatic scanner
+   FindAI v9 — market snapshot + full listing images + blue automatic scanner
    ========================================================= */
 /* Search: keep the image dominant, fade the information into it, and reveal
    only a very small hint of the next listing. */
@@ -661,6 +661,37 @@
 #search .price{font-size:28px;letter-spacing:-.75px}
 #search .view-deal{height:43px;min-width:108px;padding:0 13px;border-radius:13px;font-size:12.5px}
 #search .reel-peek-chevron{top:4px;height:23px;background:rgba(8,9,11,.48)}
+
+/* Compact live-market snapshot shown above the first listing. */
+.market-snapshot{
+  flex:0 0 auto;margin:4px 10px 2px;padding:12px 12px 10px;border:1px solid rgba(77,145,255,.36);
+  border-radius:18px;background:linear-gradient(155deg,rgba(18,22,29,.98),rgba(9,11,15,.98));
+  box-shadow:0 0 0 1px rgba(61,126,233,.07) inset,0 9px 25px rgba(0,0,0,.22),0 0 18px rgba(48,112,225,.08)
+}
+.market-snapshot-head{display:grid;grid-template-columns:58px minmax(0,1fr) 25px;gap:11px;align-items:center}
+.market-thumb{width:58px;height:58px;border-radius:13px;overflow:hidden;background:linear-gradient(145deg,#20242b,#0d0f13);display:grid;place-items:center;position:relative}
+.market-thumb img{width:100%;height:100%;object-fit:contain;padding:3px;filter:drop-shadow(0 7px 8px rgba(0,0,0,.28))}
+.market-thumb:after{content:'◌';display:none;color:#777f8a;font-size:23px}
+.market-thumb.missing:after{display:block}
+.market-copy{min-width:0}
+.market-product-name{font-size:14.5px;line-height:1.13;font-weight:690;letter-spacing:-.24px;color:#f6f7f8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.market-match{margin-top:5px;display:flex;align-items:center;gap:6px;color:#aeb5bf;font-size:11px;font-weight:580}
+.market-match-dot{width:15px;height:15px;border-radius:50%;display:grid;place-items:center;background:#367fe8;color:white;font-size:10px;box-shadow:0 0 10px rgba(54,127,232,.32)}
+.market-jump{width:25px;height:34px;border:0;background:transparent;color:#c9cdd3;display:grid;place-items:center;padding:0}
+.market-jump svg{width:21px;height:21px}
+.market-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:10px;padding-top:9px;border-top:1px solid rgba(255,255,255,.065)}
+.market-stat{min-width:0;text-align:center;padding:0 7px;border-right:1px solid rgba(255,255,255,.06)}
+.market-stat:first-child{padding-left:0}.market-stat:last-child{padding-right:0;border-right:0}
+.market-stat-label{color:#838b96;font-size:8.5px;font-weight:650;letter-spacing:.35px;text-transform:uppercase;white-space:nowrap}
+.market-stat-value{margin-top:4px;font-size:19px;line-height:1;font-weight:720;letter-spacing:-.55px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.market-stat-value.low{color:#72d995}.market-stat-value.average{color:#f1f3f5}.market-stat-value.high{color:#aeb4bd}
+.market-stat-sub{height:12px;margin-top:4px;color:#8f96a0;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.market-snapshot-foot{margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.045);display:flex;align-items:center;justify-content:center;gap:7px;color:#9299a3;font-size:9.5px}
+.market-info{width:21px;height:21px;margin-left:auto;border:0;border-radius:50%;background:transparent;color:#9fa6b0;display:grid;place-items:center;padding:0}
+.market-info svg{width:15px;height:15px}
+@media (max-height:720px){
+  .market-snapshot{padding:10px;margin-top:2px}.market-snapshot-head{grid-template-columns:50px minmax(0,1fr) 22px;gap:9px}.market-thumb{width:50px;height:50px}.market-product-name{font-size:13.5px}.market-stats{margin-top:8px;padding-top:8px}.market-stat-value{font-size:17px}.market-snapshot-foot{margin-top:6px;padding-top:6px}
+}
 
 /* Scanner header: one clean line, no explanatory copy. */
 #scan{background:#050607}
@@ -1063,6 +1094,24 @@ function median(nums){
   const m = Math.floor(a.length/2);
   return a.length%2 ? a[m] : (a[m-1]+a[m])/2;
 }
+function average(nums){
+  const values=nums.filter(Number.isFinite);
+  return values.length ? values.reduce((sum,value)=>sum+value,0)/values.length : null;
+}
+function percentile(nums,p){
+  const values=nums.filter(Number.isFinite).sort((a,b)=>a-b);
+  if(!values.length) return null;
+  const index=(values.length-1)*clamp(Number(p)||0,0,1);
+  const lower=Math.floor(index),upper=Math.ceil(index);
+  if(lower===upper) return values[lower];
+  return values[lower]+(values[upper]-values[lower])*(index-lower);
+}
+function listingTotalPrice(item){
+  const price=Number(item && item.price);
+  if(!Number.isFinite(price) || price<=0) return null;
+  const shipping=Number(item && (item.shippingCost ?? item.deliveryCost));
+  return price+(Number.isFinite(shipping) && shipping>0 ? shipping : 0);
+}
 function clamp(n,min,max){ return Math.max(min,Math.min(max,n)); }
 function getTrust(item){
   const n = Number(item && (item.trustScore ?? item.verifyScore ?? item._legoScore));
@@ -1161,17 +1210,35 @@ function listingRelevanceScore(item,query){
   return score;
 }
 function rankListings(items,query,source='search'){
-  const ranked=[...items].sort((a,b)=>listingRelevanceScore(b,query)-listingRelevanceScore(a,query));
+  const relevance=item=>listingRelevanceScore(item,query);
+  const ranked=[...items].sort((a,b)=>relevance(b)-relevance(a));
   if(source!=='scan') return ranked;
+
   const requiredNumbers=importantQueryTokens(query).filter(token=>/\d/.test(token));
-  if(!requiredNumbers.length) return ranked;
-  const exactNumberMatches=ranked.filter(item=>{
-    const titleSet=new Set(queryTokens(item.title,{includeGeneric:true}));
-    return requiredNumbers.every(token=>titleSet.has(token));
+  const tierValue=item=>{
+    const tier=String(item && (item._matchTier || item.matchTier || '')).toLowerCase();
+    if(tier==='exact') return 0;
+    if(tier==='possible') return 1;
+    if(tier==='related') return 2;
+    if(requiredNumbers.length){
+      const titleSet=new Set(queryTokens(item && item.title,{includeGeneric:true}));
+      return requiredNumbers.every(token=>titleSet.has(token)) ? 0 : 1;
+    }
+    return 1;
+  };
+  return ranked.sort((a,b)=>{
+    const tierDiff=tierValue(a)-tierValue(b);
+    if(tierDiff) return tierDiff;
+    // Once the exact variant is established, resellers need the cheapest genuine
+    // comparable first. Possible and related versions remain below exact matches.
+    if(tierValue(a)===0){
+      const priceA=listingTotalPrice(a),priceB=listingTotalPrice(b);
+      if(Number.isFinite(priceA) && Number.isFinite(priceB) && priceA!==priceB) return priceA-priceB;
+    }
+    const relevanceDiff=relevance(b)-relevance(a);
+    if(relevanceDiff) return relevanceDiff;
+    return (listingTotalPrice(a)||Infinity)-(listingTotalPrice(b)||Infinity);
   });
-  return exactNumberMatches.length
-    ? exactNumberMatches.concat(ranked.filter(item=>!exactNumberMatches.includes(item)))
-    : ranked;
 }
 function buildFallbackQueries(query){
   const clean=String(query || '').trim();
@@ -1320,6 +1387,73 @@ function prepareNewFeedItems(raw,query,source){
   return fresh;
 }
 
+function getMarketSnapshotComparables(items){
+  const valid=(Array.isArray(items)?items:[]).filter(item=>Number(listingTotalPrice(item))>0);
+  const exact=valid.filter(item=>String(item && (item._matchTier || item.matchTier || item.matchClass || '')).toLowerCase()==='exact' || item.exactMatch===true || item.isExactMatch===true);
+  const source=exact.length>=2 ? exact : valid;
+  if(!source.length) return [];
+  const rawPrices=source.map(listingTotalPrice).filter(Number.isFinite).sort((a,b)=>a-b);
+  const centre=median(rawPrices);
+  if(!Number.isFinite(centre) || rawPrices.length<4) return source;
+  const lowGuard=Math.max(0,centre*.42);
+  const highGuard=centre*2.25;
+  const filtered=source.filter(item=>{
+    const price=listingTotalPrice(item);
+    return Number.isFinite(price) && price>=lowGuard && price<=highGuard;
+  });
+  return filtered.length>=3 ? filtered : source;
+}
+function marketProductName(data,query,items){
+  const details=data && data.productDetails || {};
+  return String(data && (data.exactProductName || data.productName || data.product || data.title) || details.name || details.title || query || items && items[0] && items[0].title || 'Matched product').trim();
+}
+function renderMarketSnapshot(items,data,query){
+  const comps=getMarketSnapshotComparables(items);
+  if(comps.length<2) return '';
+  const prices=comps.map(listingTotalPrice).filter(Number.isFinite).sort((a,b)=>a-b);
+  if(prices.length<2) return '';
+  const lowest=prices[0];
+  const avg=average(prices);
+  const high=prices.length>=6 ? percentile(prices,.9) : prices[prices.length-1];
+  const cheapest=comps.slice().sort((a,b)=>listingTotalPrice(a)-listingTotalPrice(b))[0];
+  const currency=currencyOf(cheapest,data);
+  const image=getImage(data && data.productDetails) || getImage(cheapest) || getImage(items[0]);
+  const name=marketProductName(data,query,items);
+  const explicitExact=comps.some(item=>String(item && item._matchTier).toLowerCase()==='exact') || Number(data && data.meta && data.meta.exactMatchCount)>0;
+  const matchLabel=explicitExact || feedState.source==='scan' ? 'Exact match' : 'Live market match';
+  const countLabel=`${comps.length} ${explicitExact || feedState.source==='scan'?'exact':'matched'} listing${comps.length===1?'':'s'}`;
+  const shipping=getShippingText(cheapest);
+  const shippingSub=/free/i.test(shipping)?'Free shipping':'Lowest total';
+  return `<section class="market-snapshot" id="marketSnapshot" aria-label="Current market snapshot">
+    <div class="market-snapshot-head">
+      <div class="market-thumb${image?'':' missing'}">${image?`<img src="${escapeAttr(image)}" alt="" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('missing');this.remove()">`:''}</div>
+      <div class="market-copy">
+        <div class="market-product-name">${escapeHTML(name)}</div>
+        <div class="market-match"><span class="market-match-dot">✓</span><span>${escapeHTML(matchLabel)}</span></div>
+      </div>
+      <button class="market-jump" onclick="scrollToFirstListing()" aria-label="View the cheapest listing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg></button>
+    </div>
+    <div class="market-stats">
+      <div class="market-stat"><div class="market-stat-label">Lowest now</div><div class="market-stat-value low">${escapeHTML(money(lowest,currency))}</div><div class="market-stat-sub">${escapeHTML(shippingSub)}</div></div>
+      <div class="market-stat"><div class="market-stat-label">Average ask</div><div class="market-stat-value average">${escapeHTML(money(avg,currency))}</div><div class="market-stat-sub">Current listings</div></div>
+      <div class="market-stat"><div class="market-stat-label">Market high</div><div class="market-stat-value high">${escapeHTML(money(high,currency))}</div><div class="market-stat-sub">Outliers removed</div></div>
+    </div>
+    <div class="market-snapshot-foot"><span>${escapeHTML(countLabel)}</span><span>·</span><span>Updated now</span><button class="market-info" onclick="toast('Based on current matching asking prices, not confirmed sold prices')" aria-label="About these prices"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7h.01"/></svg></button></div>
+  </section>`;
+}
+function refreshMarketSnapshot(){
+  const existing=$('#marketSnapshot');
+  if(!existing || !currentFeedItems.length) return;
+  const html=renderMarketSnapshot(currentFeedItems,currentFeedData,feedState.resolvedQuery || feedState.query);
+  if(!html){ existing.remove(); return; }
+  existing.outerHTML=html;
+}
+function scrollToFirstListing(){
+  const feed=$('#feed');
+  const first=feed && feed.querySelector('.reel-card');
+  if(first) feed.scrollTo({top:first.offsetTop,behavior:'smooth'});
+}
+
 function renderFeed(data,query){
   const raw=data && Array.isArray(data.listings) ? data.listings : [];
   const items=prepareNewFeedItems(raw,query,feedState.source);
@@ -1330,7 +1464,7 @@ function renderFeed(data,query){
     feed.innerHTML='<div class="feed-status"><div><b>No close live matches yet</b>Try the exact model name, product line or barcode.</div></div>';
     return;
   }
-  feed.innerHTML=items.map((item,index)=>renderReelCard(item,index,data)).join('');
+  feed.innerHTML=renderMarketSnapshot(items,data,query)+items.map((item,index)=>renderReelCard(item,index,data)).join('');
   attachReelObserver();
   feed.scrollTop=0;
   teachSwipeOnce(items.length);
@@ -1394,6 +1528,7 @@ function appendFeedItems(items,data){
   currentFeedItems.push(...items);
   const feed=$('#feed');
   feed.insertAdjacentHTML('beforeend',items.map((item,index)=>renderReelCard(item,start+index,data)).join(''));
+  refreshMarketSnapshot();
   attachReelObserver();
 }
 async function loadMoreListings(){
@@ -1726,16 +1861,34 @@ function sampleCameraFrame(cam){
   const rgba=autoScanContext.getImageData(0,0,72,72).data;
   const pixels=new Uint8Array(72*72);
   let sum=0,sumSq=0,edge=0,edgeCount=0;
+  let centreSum=0,centreSq=0,centreCount=0,centreEdge=0,centreEdgeCount=0;
+  let outerSum=0,outerSq=0,outerCount=0,outerEdge=0,outerEdgeCount=0;
   for(let i=0,p=0;i<rgba.length;i+=4,p++){
     const gray=(rgba[i]*77+rgba[i+1]*150+rgba[i+2]*29)>>8;
     pixels[p]=gray;sum+=gray;sumSq+=gray*gray;
     const x=p%72,y=(p/72)|0;
-    if(x>0){edge+=Math.abs(gray-pixels[p-1]);edgeCount++;}
-    if(y>0){edge+=Math.abs(gray-pixels[p-72]);edgeCount++;}
+    const inCentre=x>=17&&x<55&&y>=17&&y<55;
+    if(inCentre){centreSum+=gray;centreSq+=gray*gray;centreCount++;}
+    else{outerSum+=gray;outerSq+=gray*gray;outerCount++;}
+    if(x>0){
+      const amount=Math.abs(gray-pixels[p-1]);edge+=amount;edgeCount++;
+      if(inCentre){centreEdge+=amount;centreEdgeCount++;}else{outerEdge+=amount;outerEdgeCount++;}
+    }
+    if(y>0){
+      const amount=Math.abs(gray-pixels[p-72]);edge+=amount;edgeCount++;
+      if(inCentre){centreEdge+=amount;centreEdgeCount++;}else{outerEdge+=amount;outerEdgeCount++;}
+    }
   }
   const mean=sum/pixels.length;
   const contrast=Math.sqrt(Math.max(0,sumSq/pixels.length-mean*mean));
   const detail=edge/Math.max(1,edgeCount);
+  const centreMean=centreSum/Math.max(1,centreCount);
+  const outerMean=outerSum/Math.max(1,outerCount);
+  const centreContrast=Math.sqrt(Math.max(0,centreSq/Math.max(1,centreCount)-centreMean*centreMean));
+  const outerContrast=Math.sqrt(Math.max(0,outerSq/Math.max(1,outerCount)-outerMean*outerMean));
+  const centreDetail=centreEdge/Math.max(1,centreEdgeCount);
+  const outerDetail=outerEdge/Math.max(1,outerEdgeCount);
+  const objectSeparation=Math.abs(centreMean-outerMean)+Math.abs(centreContrast-outerContrast)*.58+Math.max(0,centreDetail-outerDetail)*.72;
   let motion=999;
   if(autoScanLastSample && autoScanLastSample.length===pixels.length){
     let delta=0;
@@ -1743,7 +1896,7 @@ function sampleCameraFrame(cam){
     motion=delta/pixels.length;
   }
   autoScanLastSample=pixels;
-  return {mean,contrast,detail,motion};
+  return {mean,contrast,detail,motion,centreContrast,outerContrast,centreDetail,outerDetail,objectSeparation};
 }
 function evaluateAutoScanFrame(now){
   if(!stream || autoScanBusy || !$('#scan').classList.contains('active') || $('#viewport').classList.contains('processing')) return;
@@ -1756,8 +1909,13 @@ function evaluateAutoScanFrame(now){
   // These thresholds are intentionally forgiving. The full-quality still is analysed
   // by the hybrid scanner; this local pass only decides when the view is usable.
   const lit=sample.mean>18 && sample.mean<245;
-  const hasItem=sample.contrast>10.5 && sample.detail>4.6;
-  const clearItem=sample.contrast>15 && sample.detail>6.1;
+  const visuallyUsable=sample.contrast>10.5 && sample.detail>4.6;
+  // A real item normally changes the centre of the frame relative to the surrounding
+  // background. This gentle guard rejects obvious floors and walls without restoring
+  // the frustrating strict lock-on behaviour from earlier versions.
+  const distinctObject=sample.objectSeparation>5.8 || sample.centreDetail>sample.outerDetail*1.12+.35 || sample.centreContrast>sample.outerContrast+4.5;
+  const hasItem=visuallyUsable && distinctObject;
+  const clearItem=sample.contrast>15 && sample.detail>6.1 && (sample.objectSeparation>7.2 || sample.centreDetail>sample.outerDetail*1.16+.45);
   const steady=sample.motion<15;
   const verySteady=sample.motion<9.5;
   const alreadyLocked=autoScanStableFrames>=28;
