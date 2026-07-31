@@ -528,7 +528,7 @@
   height:calc(var(--nav-h) + var(--safe-bottom));padding-bottom:var(--safe-bottom);
   background:rgba(8,9,11,.88);backdrop-filter:blur(20px)
 }
-.nav button{gap:1px;padding:1px 0 0;font-size:8.5px;line-height:1;font-weight:500}
+.nav button{gap:1px;padding:1px 0 0;font-size:10.5px;line-height:1;font-weight:560}
 .nav button svg{width:20px;height:20px}
 
 /* A wider, less restrictive scanner guide with no animated scan line. */
@@ -571,6 +571,43 @@
 .frame{inset:3.5% 3%}
 .frame span{width:58px;height:58px;border-width:2px}
 .scan-badge{bottom:14px}
+
+/* Live processing layer: keeps the captured image visible but makes the scanner
+   feel active while FindAI reads, matches, verifies and prices the item. */
+.scan-processing{
+  position:absolute;inset:0;z-index:8;display:none;align-items:center;justify-content:center;
+  padding:24px;background:linear-gradient(180deg,rgba(4,5,7,.22),rgba(4,5,7,.72));
+  backdrop-filter:blur(2px)
+}
+.viewport.processing .scan-processing{display:flex}
+.viewport.processing .preview{filter:blur(2px) brightness(.55) saturate(.82);transform:scale(1.035);transition:.3s ease}
+.scan-progress-card{
+  width:min(100%,310px);padding:18px 17px 15px;border:1px solid rgba(255,255,255,.13);
+  border-radius:22px;background:rgba(10,12,16,.82);backdrop-filter:blur(22px);
+  box-shadow:0 18px 55px rgba(0,0,0,.35)
+}
+.scan-stage-row{display:flex;align-items:center;gap:12px}
+.scan-stage-icon{
+  width:44px;height:44px;flex:0 0 44px;border-radius:14px;display:grid;place-items:center;
+  background:rgba(255,255,255,.08);color:#f5f6f7;position:relative;overflow:hidden
+}
+.scan-stage-icon:after{
+  content:"";position:absolute;inset:-55%;border:1px solid rgba(255,255,255,.14);border-radius:50%;
+  animation:scanPulse 1.4s ease-out infinite
+}
+.scan-stage-icon svg{width:23px;height:23px;position:relative;z-index:1;animation:stagePop .26s ease}
+.scan-stage-copy{min-width:0}
+.scan-stage-copy b{display:block;font-size:14px;font-weight:700;letter-spacing:-.15px;color:#f6f7f8}
+.scan-stage-copy span{display:block;margin-top:3px;font-size:10.5px;line-height:1.25;color:#aeb4bd}
+.scan-progress-track{height:4px;margin-top:15px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden}
+.scan-progress-track i{display:block;width:8%;height:100%;border-radius:inherit;background:#f4f5f6;transition:width .42s ease}
+.scan-step-dots{display:flex;justify-content:center;gap:6px;margin-top:11px}
+.scan-step-dots i{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.18);transition:.25s ease}
+.scan-step-dots i.active{width:16px;border-radius:999px;background:#f4f5f6}
+.scan-content.processing .scan-controls,.scan-content.processing .scan-secondary{pointer-events:none;opacity:.45}
+@keyframes scanPulse{0%{transform:scale(.35);opacity:.75}100%{transform:scale(1);opacity:0}}
+@keyframes stagePop{0%{transform:scale(.78);opacity:.35}100%{transform:scale(1);opacity:1}}
+
 @media (max-height:740px){
   .price{font-size:27px}.listing-meta{font-size:10px}.product-panel{padding-bottom:12px}
 }
@@ -628,6 +665,21 @@
         </div>
         <video id="cam" playsinline autoplay muted style="display:none"></video>
         <img id="preview" class="preview" style="display:none" alt="Captured item">
+        <div class="scan-processing" id="scanProcessing" aria-live="polite">
+          <div class="scan-progress-card">
+            <div class="scan-stage-row">
+              <div class="scan-stage-icon" id="scanStageIcon" aria-hidden="true"></div>
+              <div class="scan-stage-copy">
+                <b id="scanStageTitle">Reading the item</b>
+                <span id="scanStageDetail">Looking for labels, barcodes and exact model details</span>
+              </div>
+            </div>
+            <div class="scan-progress-track"><i id="scanProgressBar"></i></div>
+            <div class="scan-step-dots" id="scanStepDots" aria-hidden="true">
+              <i class="active"></i><i></i><i></i><i></i><i></i>
+            </div>
+          </div>
+        </div>
         <div class="frame"><span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span></div>
         <div class="scan-line"></div>
         <div class="scan-badge" id="scanStatus">Centre the item in the frame</div>
@@ -686,15 +738,15 @@
   <nav class="nav" aria-label="Main navigation">
     <button class="active" data-tab="search" onclick="go('search')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7.5"/><path d="M20 20l-3.5-3.5"/></svg>
-      1. Search
+      Search
     </button>
     <button data-tab="scan" onclick="go('scan')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/><circle cx="12" cy="12" r="3.5"/></svg>
-      2. Scan
+      Scan
     </button>
     <button data-tab="tracker" onclick="go('tracker')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 17l5-5 3.5 3.5L20 8"/><path d="M16 8h4v4"/></svg>
-      3. Tracker
+      Tracker
     </button>
   </nav>
 
@@ -749,6 +801,9 @@ let feedState = {
 };
 let feedRequestController = null;
 let scanRequestController = null;
+let scanProgressTimer = null;
+let scanProgressStage = 0;
+let scanProgressValue = 0;
 
 const $ = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -1379,8 +1434,101 @@ function updateHeaderTrackButton(){
 }
 
 /* Scan */
+const SCAN_STAGES=[
+  {
+    title:'Reading the item',
+    detail:'Looking for labels, barcodes and exact model details',
+    progress:12,
+    icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v14H4z"/><path d="M7 9h10M7 13h7M7 17h5"/></svg>'
+  },
+  {
+    title:'Matching product photos',
+    detail:'Checking visually similar live marketplace listings',
+    progress:34,
+    icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="M21 15l-5-5L5 20"/></svg>'
+  },
+  {
+    title:'Checking the exact variant',
+    detail:'Comparing model, edition, colourway, finish, size and condition',
+    progress:58,
+    icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v5c0 4.8-2.9 8.1-7 10-4.1-1.9-7-5.2-7-10V6z"/><path d="M8.5 12l2.2 2.2 4.8-5"/></svg>'
+  },
+  {
+    title:'Comparing live prices',
+    detail:'Ranking exact matches before related versions',
+    progress:78,
+    icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 17l5-5 3.5 3.5L20 8"/><path d="M16 8h4v4"/></svg>'
+  },
+  {
+    title:'Preparing your results',
+    detail:'Opening the best matching listings',
+    progress:91,
+    icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.5 2.5L16.5 9"/></svg>'
+  }
+];
 function setScanStatus(message){ $('#scanStatus').textContent = message || ''; }
+function renderScanStage(index,progressOverride){
+  const stage=SCAN_STAGES[clamp(index,0,SCAN_STAGES.length-1)];
+  scanProgressStage=clamp(index,0,SCAN_STAGES.length-1);
+  scanProgressValue=Math.max(scanProgressValue,Number(progressOverride ?? stage.progress) || 0);
+  const icon=$('#scanStageIcon'),title=$('#scanStageTitle'),detail=$('#scanStageDetail'),bar=$('#scanProgressBar');
+  if(icon) icon.innerHTML=stage.icon;
+  if(title) title.textContent=stage.title;
+  if(detail) detail.textContent=stage.detail;
+  if(bar) bar.style.width=clamp(scanProgressValue,4,100)+'%';
+  $$('#scanStepDots i').forEach((dot,dotIndex)=>dot.classList.toggle('active',dotIndex===scanProgressStage));
+}
+function startScanProgress(){
+  clearInterval(scanProgressTimer);
+  scanProgressStage=0;
+  scanProgressValue=8;
+  $('#viewport').classList.add('processing');
+  $('.scan-content').classList.add('processing');
+  renderScanStage(0,8);
+  const stageDelays=[700,1050,1250,1450];
+  let nextStage=1;
+  let elapsed=0;
+  scanProgressTimer=setInterval(()=>{
+    elapsed+=250;
+    if(nextStage<SCAN_STAGES.length && elapsed>=stageDelays.slice(0,nextStage).reduce((a,b)=>a+b,0)){
+      renderScanStage(nextStage);
+      nextStage++;
+    }else{
+      scanProgressValue=Math.min(88,scanProgressValue+1.5);
+      const bar=$('#scanProgressBar');
+      if(bar) bar.style.width=scanProgressValue+'%';
+    }
+  },250);
+}
+function stopScanProgress({hide=true}={}){
+  clearInterval(scanProgressTimer);
+  scanProgressTimer=null;
+  if(hide){
+    $('#viewport').classList.remove('processing');
+    $('.scan-content').classList.remove('processing');
+  }
+}
+function completeScanProgress(message='Exact product matched'){
+  clearInterval(scanProgressTimer);
+  scanProgressTimer=null;
+  scanProgressValue=100;
+  renderScanStage(4,100);
+  const title=$('#scanStageTitle'),detail=$('#scanStageDetail');
+  if(title) title.textContent=message;
+  if(detail) detail.textContent='Opening the most relevant live listings';
+  return new Promise(resolve=>setTimeout(resolve,180));
+}
+function failScanProgress(message){
+  clearInterval(scanProgressTimer);
+  scanProgressTimer=null;
+  const title=$('#scanStageTitle'),detail=$('#scanStageDetail'),bar=$('#scanProgressBar');
+  if(title) title.textContent='Could not finish the scan';
+  if(detail) detail.textContent=message || 'Try a clearer front label or barcode';
+  if(bar) bar.style.width=Math.max(18,scanProgressValue)+'%';
+  setTimeout(()=>stopScanProgress({hide:true}),1450);
+}
 async function startCam(){
+  stopScanProgress({hide:true});
   if(stream) return;
   const cam = $('#cam');
   const placeholder = $('#camPlaceholder');
@@ -1549,13 +1697,17 @@ function buildExactScanQuery(data){
   const brand=canonicaliseBrand(data && (data.brand || data.manufacturer || data.make));
   const exactName=String(data && (data.exactProductName || data.productLine || data.modelName || data.name || '') || '').trim();
   const model=String(data && (data.model || data.modelNumber || data.sku || data.styleCode || data.setNumber || '') || '').trim();
-  const variant=String(data && (data.variant || data.colour || data.color || data.size || data.volume || '') || '').trim();
+  const edition=String(data && (data.edition || data.specialEdition || data.collaboration || '') || '').trim();
+  const generation=String(data && (data.generation || data.version || '') || '').trim();
+  const variant=String(data && (data.variant || data.colourway || data.colour || data.color || '') || '').trim();
+  const concentration=String(data && data.concentration || '').trim();
+  const size=String(data && (data.size || data.volume || data.capacity || '') || '').trim();
   const category=String(data && (data.category || data.productType || '') || '').trim();
   const visible=flattenVisibleText(data && (data.visibleText || data.ocrText || data.labelText || data.text))
     .map(value=>value.trim())
     .filter(value=>value.length>1);
   const fallback=String(data && (data.query || data.product || data.productName || data.title) || '').trim();
-  const ordered=[brand,exactName,model,variant,...visible,fallback,category].filter(Boolean);
+  const ordered=[brand,exactName,model,edition,generation,variant,concentration,size,...visible,fallback,category].filter(Boolean);
   const output=[];
   const seenTokens=new Set();
   for(const part of ordered){
@@ -1626,7 +1778,8 @@ function showHybridScanResults(data,query){
 async function analyseImage(dataUrl){
   if(scanRequestController) scanRequestController.abort();
   scanRequestController=new AbortController();
-  setScanStatus('Reading the label and identifying the item…');
+  startScanProgress();
+  setScanStatus('Scanning the exact product…');
   const barcodePromise=detectBarcodeFromImage(dataUrl);
   const visionPromise=fetch(WORKER+'/vision-search',{
     method:'POST',
@@ -1636,7 +1789,7 @@ async function analyseImage(dataUrl){
       mode:'exact-shopping-product',
       requireStructuredProduct:true,
       preserveVisibleText:true,
-      instructions:'Identify the exact sellable product. Preserve every visible product-line, model, variant, size and barcode term. Do not reduce the result to a broad brand or category.'
+      instructions:'Identify the exact sellable product and exact variant. Preserve every visible product-line, model, edition, generation, colourway, material, finish, pattern, size, capacity, concentration and barcode term. Distinguish visually similar versions rather than reducing the result to a broad product family.'
     }),
     signal:scanRequestController.signal
   }).then(async response=>{
@@ -1653,6 +1806,7 @@ async function analyseImage(dataUrl){
     if(winner.type==='barcode'){
       scanRequestController.abort();
       setScanStatus(`Barcode ${winner.code} found — loading listings…`);
+      await completeScanProgress('Barcode matched');
       searchListings(winner.code,{showToast:true,source:'scan',preserveExact:true});
       return;
     }
@@ -1661,15 +1815,20 @@ async function analyseImage(dataUrl){
     if(query){
       const confidence=normaliseConfidence(data);
       setScanStatus(`${confidence==null?'Item found':`${confidence}% match`} — loading listings…`);
+      await completeScanProgress(confidence==null?'Product matched':`${confidence}% product match`);
       if(!showHybridScanResults(data,query)){
         searchListings(query,{showToast:true,source:'scan',preserveExact:true});
       }
     }else{
-      setScanStatus(data && data.reply ? data.reply : 'Could not identify it — photograph the front label or barcode');
+      const message=data && data.reply ? data.reply : 'Could not identify it — photograph the front label or barcode';
+      setScanStatus(message);
+      failScanProgress(message);
     }
   }catch(error){
     if(error && error.name==='AbortError') return;
-    setScanStatus('Scan failed — check your connection and try again');
+    const message='Scan failed — check your connection and try again';
+    setScanStatus(message);
+    failScanProgress(message);
   }
 }
 
@@ -1679,6 +1838,7 @@ function showScanMatch(query,image,confidence){
   searchListings(query,{showToast:true});
 }
 function retryScan(){
+  stopScanProgress({hide:true});
   $('#matchBackdrop').classList.remove('show');
   $('#preview').style.display='none';
   lastScanImage='';
