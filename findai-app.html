@@ -1589,12 +1589,46 @@ async function detectBarcodeFromImage(dataUrl){
     return codes && codes[0] && codes[0].rawValue ? String(codes[0].rawValue) : '';
   }catch(_){ return ''; }
 }
+function showHybridScanResults(data,query){
+  const listings=Array.isArray(data && data.listings)
+    ? data.listings
+    : (Array.isArray(data && data.items) ? data.items : []);
+  if(!listings.length) return false;
+  const exact=String(query || data && (data.exactQuery || data.query) || '').trim();
+  if(!exact) return false;
+  if(feedRequestController) feedRequestController.abort();
+  feedRequestController=new AbortController();
+  setLastSearch(exact);
+  $('#q').value=exact;
+  go('search');
+  renderLoading();
+  feedState={
+    query:exact,
+    resolvedQuery:exact,
+    source:'scan',
+    preserveExact:true,
+    page:1,
+    cursor:null,
+    loading:false,
+    hasMore:true,
+    noNewPages:0,
+    fallbackIndex:0,
+    fallbackQueries:buildFallbackQueries(exact),
+    seen:new Set()
+  };
+  const payload={...data,listings};
+  currentFeedData=payload;
+  renderFeed(payload,exact);
+  toast('Matched against live marketplace listings');
+  return true;
+}
+
 async function analyseImage(dataUrl){
   if(scanRequestController) scanRequestController.abort();
   scanRequestController=new AbortController();
   setScanStatus('Reading the label and identifying the item…');
   const barcodePromise=detectBarcodeFromImage(dataUrl);
-  const visionPromise=fetch(WORKER+'/vision',{
+  const visionPromise=fetch(WORKER+'/vision-search',{
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify({
@@ -1623,11 +1657,13 @@ async function analyseImage(dataUrl){
       return;
     }
     const data=winner.data;
-    const query=buildExactScanQuery(data);
+    const query=String(data && (data.exactQuery || data.query) || buildExactScanQuery(data)).trim();
     if(query){
       const confidence=normaliseConfidence(data);
       setScanStatus(`${confidence==null?'Item found':`${confidence}% match`} — loading listings…`);
-      searchListings(query,{showToast:true,source:'scan',preserveExact:true});
+      if(!showHybridScanResults(data,query)){
+        searchListings(query,{showToast:true,source:'scan',preserveExact:true});
+      }
     }else{
       setScanStatus(data && data.reply ? data.reply : 'Could not identify it — photograph the front label or barcode');
     }
