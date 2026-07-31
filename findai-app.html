@@ -545,6 +545,36 @@
   .nav button svg{width:19px;height:19px}
 }
 
+
+/* =========================================================
+   FindAI v5 — factual listing cards, endless loading and exact scan
+   ========================================================= */
+.deal-pill,.comparison,.metrics,.listing-foot{display:none!important}
+.listing-meta{
+  margin-top:7px;color:#a7adb6;font-size:10.5px;line-height:1.25;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.price-action-row{align-items:center;margin-top:13px}
+.listing-price-copy{display:flex;align-items:center;min-width:0}
+.price{font-size:29px;font-weight:620;letter-spacing:-.8px}
+.product-panel{padding-bottom:15px}
+.reel-loading-card{
+  flex:0 0 calc(100% - 44px);min-height:420px;scroll-snap-align:start;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  color:#9ba1aa;font-size:11px;background:#080a0d
+}
+.feed-more-spinner{
+  width:28px;height:28px;border:2px solid rgba(255,255,255,.12);
+  border-top-color:#fff;border-radius:50%;animation:feedSpin .7s linear infinite
+}
+@keyframes feedSpin{to{transform:rotate(360deg)}}
+.frame{inset:3.5% 3%}
+.frame span{width:58px;height:58px;border-width:2px}
+.scan-badge{bottom:14px}
+@media (max-height:740px){
+  .price{font-size:27px}.listing-meta{font-size:10px}.product-panel{padding-bottom:12px}
+}
+
 </style>
 </head>
 <body>
@@ -702,6 +732,24 @@ let reelObserver = null;
 let toastTimer = null;
 let lastScanImage = '';
 
+const FEED_BATCH_SIZE = 20;
+let feedState = {
+  query:'',
+  resolvedQuery:'',
+  source:'search',
+  preserveExact:false,
+  page:0,
+  cursor:null,
+  loading:false,
+  hasMore:true,
+  noNewPages:0,
+  fallbackIndex:0,
+  fallbackQueries:[],
+  seen:new Set()
+};
+let feedRequestController = null;
+let scanRequestController = null;
+
 const $ = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
 
@@ -717,27 +765,55 @@ function safeUrl(value){
     return ['http:','https:'].includes(u.protocol) ? u.href : '';
   }catch(_){ return ''; }
 }
-function rawImageValue(item){
-  if(!item) return '';
-  const direct=[
-    item.imageUrl,item.imageURL,item.image_url,item.primaryImageUrl,item.primaryImage,
-    item.image,item.galleryURL,item.galleryUrl,item.thumbnailUrl,item.thumbnail,item.picture,
-    item.photo,item.photoUrl,item.mainImage,item.mainImageUrl
-  ];
-  if(Array.isArray(item.images)) direct.push(...item.images);
-  for(const candidate of direct){
-    if(!candidate) continue;
-    if(typeof candidate === 'string'){
-      const url=safeUrl(candidate);
-      if(url) return url;
-    }else if(typeof candidate === 'object'){
-      const nested=candidate.url || candidate.imageUrl || candidate.imageURL || candidate.src || candidate.href;
-      const url=safeUrl(nested);
-      if(url) return url;
+
+function collectImageCandidates(item){
+  if(!item) return [];
+  const candidates=[];
+  const push=(value,meta={})=>{
+    if(!value) return;
+    if(typeof value === 'string'){
+      const url=safeUrl(value);
+      if(url) candidates.push({url,...meta});
+      return;
     }
-  }
-  return '';
+    if(typeof value === 'object'){
+      const url=safeUrl(value.url || value.imageUrl || value.imageURL || value.src || value.href);
+      if(url) candidates.push({
+        url,
+        width:Number(value.width || value.w || meta.width) || 0,
+        height:Number(value.height || value.h || meta.height) || 0
+      });
+    }
+  };
+  [
+    item.primaryImage,item.primaryImageUrl,item.primaryImageURL,item.imageUrl,item.imageURL,item.image_url,
+    item.mainImage,item.mainImageUrl,item.galleryURL,item.galleryUrl,item.image,item.photo,item.photoUrl,
+    item.thumbnailUrl,item.thumbnail,item.picture
+  ].forEach(value=>push(value));
+  [item.images,item.imageUrls,item.galleryImages,item.additionalImages,item.photos].forEach(group=>{
+    if(Array.isArray(group)) group.forEach(value=>push(value));
+  });
+  return candidates;
 }
+function imageCandidateScore(candidate){
+  const url=String(candidate.url || '');
+  let score=(Number(candidate.width)||0)*(Number(candidate.height)||0);
+  const sizeMatches=[...url.matchAll(/(?:s-l|width=|w=|odnWidth=)(\d+)/ig)].map(match=>Number(match[1])||0);
+  if(sizeMatches.length){
+    const size=Math.max(...sizeMatches);
+    score+=size*size;
+  }
+  if(/s-l(?:1000|1200|1400|1600)/i.test(url)) score+=3000000;
+  if(/thumbnail|thumb|s-l(?:64|96|140|225|300)/i.test(url)) score-=1500000;
+  return score;
+}
+function rawImageValue(item){
+  const candidates=collectImageCandidates(item);
+  if(!candidates.length) return '';
+  candidates.sort((a,b)=>imageCandidateScore(b)-imageCandidateScore(a));
+  return candidates[0].url;
+}
+
 function enhanceImageUrl(value){
   const raw=safeUrl(value);
   if(!raw) return '';
@@ -823,77 +899,350 @@ function renderLoading(){
   $('#reelDots').innerHTML = '';
 }
 
-async function fetchProductResults(query){
-  let resolvedQuery = query;
-  try{
-    const rr = await fetch(WORKER+'/resolve-product',{
-      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query})
-    });
-    if(rr.ok){
-      const rj = await rr.json();
-      if(rj && rj.resolved && rj.trackerQuery) resolvedQuery = rj.trackerQuery;
-    }
-  }catch(_){ /* fallback to original query */ }
 
-  const response = await fetch(WORKER+'/tracker/search',{
-    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:resolvedQuery})
+const QUERY_STOP_WORDS = new Set([
+  'a','an','and','the','for','with','from','of','to','in','on','at','by','buy','sale','listing','product',
+  'item','new','used','brand','genuine','authentic','official','perfume','fragrance','set','edition'
+]);
+function normaliseQueryText(value){
+  return String(value || '').toLowerCase().replace(/['’]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+}
+function queryTokens(value,{includeGeneric=false}={}){
+  return normaliseQueryText(value).split(/\s+/).filter(token=>
+    token && token.length>1 && (includeGeneric || !QUERY_STOP_WORDS.has(token))
+  );
+}
+function importantQueryTokens(value){
+  const tokens=queryTokens(value);
+  const numbers=tokens.filter(token=>/\d/.test(token));
+  const words=tokens.filter(token=>!/\d/.test(token) && token.length>=4);
+  return [...new Set([...numbers,...words])];
+}
+function tokenRetention(original,candidate){
+  const required=importantQueryTokens(original);
+  if(!required.length) return 1;
+  const candidateSet=new Set(queryTokens(candidate,{includeGeneric:true}));
+  return required.filter(token=>candidateSet.has(token)).length/required.length;
+}
+function shouldAcceptResolvedQuery(original,resolved){
+  if(!resolved) return false;
+  const originalNumbers=queryTokens(original,{includeGeneric:true}).filter(token=>/\d/.test(token));
+  const resolvedSet=new Set(queryTokens(resolved,{includeGeneric:true}));
+  if(originalNumbers.some(token=>!resolvedSet.has(token))) return false;
+  return tokenRetention(original,resolved)>=0.72;
+}
+function listingKey(item){
+  const direct=String(item && (item.itemId || item.id || item.listingId || item.sku || '')).trim();
+  if(direct) return `${getSource(item)}:${direct}`.toLowerCase();
+  const url=getListingUrl(item);
+  if(url) return url.replace(/[?#].*$/,'').toLowerCase();
+  return `${getSource(item)}|${normaliseQueryText(item && item.title)}|${Number(item && item.price)||''}`;
+}
+function listingRelevanceScore(item,query){
+  const title=normaliseQueryText(item && item.title);
+  const titleSet=new Set(title.split(/\s+/));
+  const required=importantQueryTokens(query);
+  let score=0;
+  if(title.includes(normaliseQueryText(query))) score+=100;
+  required.forEach(token=>{
+    if(titleSet.has(token)) score+=/\d/.test(token)?34:18;
+    else score-=/\d/.test(token)?70:12;
   });
-  if(!response.ok) throw new Error('Search failed');
-  const data = await response.json();
-  return {data,resolvedQuery};
+  queryTokens(query,{includeGeneric:true}).forEach(token=>{
+    if(titleSet.has(token)) score+=3;
+  });
+  return score;
+}
+function rankListings(items,query,source='search'){
+  const ranked=[...items].sort((a,b)=>listingRelevanceScore(b,query)-listingRelevanceScore(a,query));
+  if(source!=='scan') return ranked;
+  const requiredNumbers=importantQueryTokens(query).filter(token=>/\d/.test(token));
+  if(!requiredNumbers.length) return ranked;
+  const exactNumberMatches=ranked.filter(item=>{
+    const titleSet=new Set(queryTokens(item.title,{includeGeneric:true}));
+    return requiredNumbers.every(token=>titleSet.has(token));
+  });
+  return exactNumberMatches.length
+    ? exactNumberMatches.concat(ranked.filter(item=>!exactNumberMatches.includes(item)))
+    : ranked;
+}
+function buildFallbackQueries(query){
+  const clean=String(query || '').trim();
+  const tokens=clean.split(/\s+/).filter(Boolean);
+  const variants=[`${clean} new`,`${clean} used`,`${clean} bundle`];
+  if(tokens.length>4) variants.push(tokens.slice(0,-1).join(' '));
+  if(tokens.length>3) variants.push(tokens.slice(0,-2).join(' '));
+  return [...new Set(variants.map(value=>value.trim()).filter(value=>
+    value && normaliseQueryText(value)!==normaliseQueryText(clean)
+  ))];
+}
+function relatedQueriesFromCurrentFeed(){
+  const output=[];
+  for(const item of currentFeedItems.slice(-12)){
+    const tokens=queryTokens(item && item.title).slice(0,5);
+    if(tokens.length>=2) output.push(tokens.join(' '));
+  }
+  return [...new Set(output)].filter(query=>
+    normaliseQueryText(query)!==normaliseQueryText(feedState.query)
+  );
+}
+function extractPagination(data,rawCount,limit){
+  const nextCursor=data && (
+    data.nextCursor || data.next_cursor || data.continuationToken || data.continuation ||
+    (data.pagination && (data.pagination.nextCursor || data.pagination.next || data.pagination.cursor))
+  );
+  const explicit=data && (
+    data.hasMore ?? data.has_more ?? (data.pagination && data.pagination.hasMore)
+  );
+  return {
+    nextCursor:nextCursor || null,
+    hasMore:explicit===false ? false : Boolean(nextCursor || rawCount>=limit || explicit===true)
+  };
 }
 
-async function searchListings(query,{showToast=false}={}){
-  const q = String(query || '').trim();
+async function fetchProductResults(query,{
+  page=1,cursor=null,limit=FEED_BATCH_SIZE,preserveExact=false,signal=null
+}={}){
+  let resolvedQuery=String(query || '').trim();
+  if(page===1 && !preserveExact){
+    try{
+      const resolveResponse=await fetch(WORKER+'/resolve-product',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({query:resolvedQuery}),
+        signal
+      });
+      if(resolveResponse.ok){
+        const resolvedData=await resolveResponse.json();
+        const candidate=String(resolvedData && resolvedData.resolved && resolvedData.trackerQuery || '').trim();
+        if(candidate && shouldAcceptResolvedQuery(resolvedQuery,candidate)) resolvedQuery=candidate;
+      }
+    }catch(error){
+      if(error && error.name==='AbortError') throw error;
+    }
+  }
+
+  const payload={
+    query:resolvedQuery,
+    page,
+    limit,
+    offset:Math.max(0,(page-1)*limit)
+  };
+  if(cursor) payload.cursor=cursor;
+  const response=await fetch(WORKER+'/tracker/search',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload),
+    signal
+  });
+  if(!response.ok) throw new Error('Search failed');
+  const data=await response.json();
+  const raw=Array.isArray(data && data.listings) ? data.listings : [];
+  const pagination=extractPagination(data,raw.length,limit);
+  return {data,resolvedQuery,...pagination};
+}
+
+async function searchListings(query,{showToast=false,source='search',preserveExact=false}={}){
+  const q=String(query || '').trim();
   if(!q) return;
+  if(feedRequestController) feedRequestController.abort();
+  feedRequestController=new AbortController();
   setLastSearch(q);
-  $('#q').value = q;
+  $('#q').value=q;
   go('search');
   renderLoading();
-  if(showToast) toast('Finding the best matches…');
+  if(showToast) toast(source==='scan'?'Matching the exact product…':'Finding live listings…');
+  feedState={
+    query:q,
+    resolvedQuery:q,
+    source,
+    preserveExact,
+    page:1,
+    cursor:null,
+    loading:true,
+    hasMore:true,
+    noNewPages:0,
+    fallbackIndex:0,
+    fallbackQueries:buildFallbackQueries(q),
+    seen:new Set()
+  };
   try{
-    const {data,resolvedQuery} = await fetchProductResults(q);
-    currentFeedData = data;
-    renderFeed(data,resolvedQuery || q);
+    const result=await fetchProductResults(q,{
+      page:1,
+      limit:FEED_BATCH_SIZE,
+      preserveExact,
+      signal:feedRequestController.signal
+    });
+    feedState.resolvedQuery=result.resolvedQuery || q;
+    feedState.cursor=result.nextCursor;
+    feedState.hasMore=result.hasMore;
+    currentFeedData=result.data;
+    renderFeed(result.data,feedState.resolvedQuery);
   }catch(error){
-    $('#feed').innerHTML = '<div class="feed-status"><div><b>Couldn\'t load those listings</b>Check your connection and try again.<br><button class="retry-btn" onclick="searchListings(lastSearch())">Try again</button></div></div>';
-    $('#reelDots').innerHTML = '';
+    if(error && error.name==='AbortError') return;
+    $('#feed').innerHTML='<div class="feed-status"><div><b>Couldn\'t load those listings</b>Check your connection and try again.<br><button class="retry-btn" onclick="searchListings(lastSearch())">Try again</button></div></div>';
+  }finally{
+    feedState.loading=false;
   }
 }
 
 function doSearch(event){
   event.preventDefault();
-  searchListings($('#q').value,{showToast:true});
+  searchListings($('#q').value,{showToast:true,source:'search'});
   $('#q').blur();
   return false;
 }
 
 function trackerSearch(event){
   event.preventDefault();
-  const q = $('#trackerQuery').value.trim();
-  if(q) searchListings(q,{showToast:true});
+  const q=$('#trackerQuery').value.trim();
+  if(q) lookupTrackerProduct(q);
   return false;
 }
 
-function deriveFeedStats(items,data){
-  const prices = items.map(x=>Number(x.price)).filter(n=>Number.isFinite(n) && n>0);
-  const low = prices.length ? Math.min(...prices) : null;
-  const typicalFromData = Number(data && (data.marketPrice || data.averagePrice || (data.stats && (data.stats.average || data.stats.avg))));
-  const typical = Number.isFinite(typicalFromData) && typicalFromData>0 ? typicalFromData : median(prices);
-  return {low,typical};
+function prepareNewFeedItems(raw,query,source){
+  const valid=(Array.isArray(raw)?raw:[]).filter(item=>item && Number(item.price)>0);
+  const ranked=rankListings(valid,query,source);
+  const fresh=[];
+  for(const item of ranked){
+    const key=listingKey(item);
+    if(feedState.seen.has(key)) continue;
+    feedState.seen.add(key);
+    fresh.push(item);
+  }
+  return fresh;
 }
 
-function dealMeta(price,typical){
-  if(!Number.isFinite(price) || !Number.isFinite(typical) || typical<=0){
-    return {label:'Live listing',comparison:'Compare seller details',className:'neutral',delta:null};
+function renderFeed(data,query){
+  const raw=data && Array.isArray(data.listings) ? data.listings : [];
+  const items=prepareNewFeedItems(raw,query,feedState.source);
+  currentFeedItems=items;
+  activeReelIndex=0;
+  const feed=$('#feed');
+  if(!items.length){
+    feed.innerHTML='<div class="feed-status"><div><b>No close live matches yet</b>Try the exact model name, product line or barcode.</div></div>';
+    return;
   }
-  const delta = typical-price;
-  const pct = delta/typical;
-  if(delta>0 && pct>=.15) return {label:'Great Deal',comparison:money(delta)+' below typical',className:'',delta};
-  if(delta>0 && pct>=.05) return {label:'Good Deal',comparison:money(delta)+' below typical',className:'',delta};
-  if(delta>0) return {label:'Below Typical',comparison:money(delta)+' below typical',className:'',delta};
-  if(Math.abs(pct)<.035) return {label:'Typical Price',comparison:'Close to current listings',className:'neutral',delta};
-  return {label:'Above Typical',comparison:money(Math.abs(delta))+' above typical',className:'bad',delta};
+  feed.innerHTML=items.map((item,index)=>renderReelCard(item,index,data)).join('');
+  attachReelObserver();
+  feed.scrollTop=0;
+  teachSwipeOnce(items.length);
+  updateHeaderTrackButton();
+  if(items.length<8) setTimeout(loadMoreListings,80);
+}
+
+function conditionText(item){
+  const condition=String(item && (item.condition || item.conditionDisplayName || item.itemCondition || '')).trim();
+  if(condition) return condition;
+  if(item && item.isNew===true) return 'New';
+  if(item && item.isUsed===true) return 'Used';
+  return '';
+}
+
+function renderReelCard(item,index,data){
+  const title=String(item.title || (data && data.productDetails && data.productDetails.name) || 'Product listing');
+  const image=getImage(item) || getImage(data && data.productDetails);
+  const fallbackImage=getImageFallback(item) || getImageFallback(data && data.productDetails);
+  const url=getListingUrl(item);
+  const source=getSource(item);
+  const price=Number(item.price);
+  const currency=currencyOf(item,data);
+  const shipping=getShippingText(item);
+  const condition=conditionText(item);
+  const seller=String(item.sellerName || item.seller || item.storeName || '').trim();
+  const sellerLabel=item.topRatedSeller ? 'Top-rated seller' : (seller || 'Live listing');
+  const bg=image ? `style="background-image:url('${escapeAttr(image)}')"` : '';
+
+  return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}">
+    <div class="hero-stage">
+      <div class="hero-backdrop" ${bg}></div>
+      ${image ? `<img class="hero-image" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onerror="imageFailed(this)">` : ''}
+      <div class="image-fallback" style="${image?'':'display:grid'}">Image unavailable</div>
+    </div>
+    ${index>0 ? `<div class="reel-peek-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 15l6-6 6 6"/></svg></div>` : ''}
+    <div class="product-panel">
+      <div class="source-chip" data-source="${escapeAttr(source)}"><span class="source-brand">${escapeHTML(sourceLabel(source))}</span><span class="source-separator">·</span><span>${escapeHTML(sellerLabel)}</span></div>
+      <h2 class="title">${escapeHTML(title)}</h2>
+      <div class="listing-meta">${condition?`${escapeHTML(condition)} · `:''}${escapeHTML(shipping)}</div>
+      <div class="price-action-row">
+        <div class="listing-price-copy"><div class="price">${escapeHTML(money(price,currency))}</div></div>
+        <button class="view-deal" onclick="openDeal(${index},event)" ${url?'':'disabled'}>View Deal<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 5h5v5M10 14L19 5M19 14v5H5V5h5"/></svg></button>
+      </div>
+    </div>
+  </article>`;
+}
+
+function showFeedLoader(){
+  const feed=$('#feed');
+  if(!feed || $('#feedMoreLoader')) return;
+  feed.insertAdjacentHTML('beforeend','<div class="reel-loading-card" id="feedMoreLoader"><div class="feed-more-spinner"></div><span>Finding more listings…</span></div>');
+}
+function hideFeedLoader(){
+  const loader=$('#feedMoreLoader');
+  if(loader) loader.remove();
+}
+function appendFeedItems(items,data){
+  if(!items.length) return;
+  const start=currentFeedItems.length;
+  currentFeedItems.push(...items);
+  const feed=$('#feed');
+  feed.insertAdjacentHTML('beforeend',items.map((item,index)=>renderReelCard(item,start+index,data)).join(''));
+  attachReelObserver();
+}
+async function loadMoreListings(){
+  if(feedState.loading || !feedState.query || !$('#search').classList.contains('active')) return;
+  feedState.loading=true;
+  showFeedLoader();
+  try{
+    let query=feedState.resolvedQuery || feedState.query;
+    let preserveExact=feedState.preserveExact;
+    let page=feedState.page+1;
+    let cursor=feedState.cursor;
+    if(!feedState.hasMore || feedState.noNewPages>=2){
+      const dynamic=[...feedState.fallbackQueries,...relatedQueriesFromCurrentFeed()];
+      const fallback=dynamic[feedState.fallbackIndex++];
+      if(fallback){
+        query=fallback;
+        page=1;
+        cursor=null;
+        preserveExact=feedState.source==='scan' && feedState.fallbackIndex===1;
+        feedState.hasMore=true;
+        feedState.noNewPages=0;
+      }else{
+        feedState.fallbackQueries=relatedQueriesFromCurrentFeed();
+        feedState.fallbackIndex=0;
+        query=feedState.fallbackQueries[0] || feedState.query;
+        page=1;
+        cursor=null;
+      }
+    }
+    const result=await fetchProductResults(query,{
+      page,
+      cursor,
+      limit:FEED_BATCH_SIZE,
+      preserveExact,
+      signal:feedRequestController && feedRequestController.signal
+    });
+    const fresh=prepareNewFeedItems(result.data && result.data.listings,feedState.query,feedState.source);
+    if(fresh.length){
+      feedState.page=page;
+      feedState.cursor=result.nextCursor;
+      feedState.hasMore=result.hasMore;
+      feedState.noNewPages=0;
+      appendFeedItems(fresh,result.data);
+    }else{
+      feedState.page=page;
+      feedState.cursor=result.nextCursor;
+      feedState.hasMore=result.hasMore;
+      feedState.noNewPages+=1;
+      setTimeout(loadMoreListings,60);
+    }
+  }catch(error){
+    if(!(error && error.name==='AbortError')) feedState.noNewPages+=1;
+  }finally{
+    hideFeedLoader();
+    feedState.loading=false;
+  }
 }
 
 function trackedKey(item){
@@ -908,66 +1257,6 @@ function getTracked(){
 function setTracked(items){ try{localStorage.setItem('fa_tracked_v2',JSON.stringify(items.slice(0,50)))}catch(_){} }
 function isTracked(item){ const key=trackedKey(item); return getTracked().some(x=>x.key===key); }
 
-function renderFeed(data,query){
-  const raw = data && Array.isArray(data.listings) ? data.listings : [];
-  const items = raw.filter(item=>item && Number(item.price)>0).slice(0,20);
-  currentFeedItems = items;
-  activeReelIndex = 0;
-  if(!items.length){
-    $('#feed').innerHTML = '<div class="feed-status"><div><b>No live matches yet</b>Try a more specific product name, model number or barcode.</div></div>';
-    $('#reelDots').innerHTML = '';
-    return;
-  }
-  const stats = deriveFeedStats(items,data);
-  const feed = $('#feed');
-  feed.innerHTML = items.map((item,index)=>renderReelCard(item,index,stats,data)).join('');
-  renderDots(items.length);
-  attachReelObserver();
-  feed.scrollTop = 0;
-  teachSwipeOnce(items.length);
-  updateHeaderTrackButton();
-}
-
-function renderReelCard(item,index,stats,data){
-  const title = String(item.title || (data && data.productDetails && data.productDetails.name) || 'Product listing');
-  const image = getImage(item) || getImage(data && data.productDetails);
-  const fallbackImage = getImageFallback(item) || getImageFallback(data && data.productDetails);
-  const url = getListingUrl(item);
-  const source = getSource(item);
-  const price = Number(item.price);
-  const currency = currencyOf(item,data);
-  const typical = Number(item.marketPrice || item.averagePrice) || stats.typical;
-  const deal = dealMeta(price,typical);
-  const shipping = getShippingText(item);
-  const seller = String(item.sellerName || item.seller || item.storeName || '').trim();
-  const sellerLabel = item.topRatedSeller ? '🏅 Top-rated seller' : (seller || 'Live marketplace listing');
-  const bg = image ? `style="background-image:url('${escapeAttr(image)}')"` : '';
-
-  return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}">
-    <div class="hero-stage">
-      <div class="hero-backdrop" ${bg}></div>
-      ${image ? `<img class="hero-image" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" alt="${escapeAttr(title)}" loading="${index<2?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} onerror="imageFailed(this)">` : ''}
-      <div class="image-fallback" style="${image?'':'display:grid'}">Image unavailable</div>
-    </div>
-    ${index>0 ? `<div class="reel-peek-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 15l6-6 6 6"/></svg></div>` : ''}
-    <div class="product-panel">
-      <div class="source-chip" data-source="${escapeAttr(source)}"><span class="source-brand">${escapeHTML(sourceLabel(source))}</span><span class="source-separator">·</span><span>${escapeHTML(sellerLabel)}</span></div>
-      <h2 class="title">${escapeHTML(title)}</h2>
-      <div class="price-action-row">
-        <div class="listing-price-copy">
-          <div class="price-line"><div class="price">${escapeHTML(money(price,currency))}</div><div class="deal-pill ${deal.className}">${escapeHTML(deal.label)}</div></div>
-          <div class="comparison ${deal.className==='neutral'?'neutral':''}">${deal.delta>0?'↓ ':deal.delta<0?'↑ ':''}${escapeHTML(deal.comparison)}</div>
-        </div>
-        <button class="view-deal" onclick="openDeal(${index},event)" ${url?'':'disabled'}>View Deal<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 5h5v5M10 14L19 5M19 14v5H5V5h5"/></svg></button>
-      </div>
-      <div class="listing-foot">
-        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h11v10H3zM14 10h4l3 3v4h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg>${escapeHTML(shipping)}</span>
-        <span>${escapeHTML(sourceLabel(source))} listing<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12l2.5 2.5L16 9"/></svg></span>
-      </div>
-    </div>
-  </article>`;
-}
-
 function imageFailed(img){
   const fallback=safeUrl(img.dataset.fallback || '');
   if(fallback && !img.dataset.fallbackTried && img.src !== fallback){
@@ -980,27 +1269,26 @@ function imageFailed(img){
   if(fallbackNode) fallbackNode.style.display='grid';
 }
 
-function renderDots(count){
-  const shown = Math.min(count,10);
-  $('#reelDots').innerHTML = Array.from({length:shown},(_,i)=>`<span class="reel-dot ${i===0?'active':''}"></span>`).join('');
-}
-function updateDots(index){
-  const dots = $$('.reel-dot','#reelDots');
-  if(!dots.length) return;
-  const dotIndex = dots.length===currentFeedItems.length ? index : Math.min(dots.length-1,Math.round(index/(currentFeedItems.length-1)*(dots.length-1)));
-  dots.forEach((dot,i)=>dot.classList.toggle('active',i===dotIndex));
-}
+
+function renderDots(){ /* intentionally removed */ }
+function updateDots(){ /* intentionally removed */ }
 function attachReelObserver(){
   if(reelObserver) reelObserver.disconnect();
-  const feed = $('#feed');
-  reelObserver = new IntersectionObserver(entries=>{
-    const visible = entries.filter(e=>e.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];
+  const feed=$('#feed');
+  reelObserver=new IntersectionObserver(entries=>{
+    const visible=entries.filter(entry=>entry.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];
     if(!visible) return;
-    const index = Number(visible.target.dataset.index || 0);
-    if(index !== activeReelIndex){ activeReelIndex=index; updateDots(index); updateHeaderTrackButton(); haptic(); }
-  },{root:feed,threshold:[.55,.7,.85]});
+    const index=Number(visible.target.dataset.index || 0);
+    if(index!==activeReelIndex){
+      activeReelIndex=index;
+      updateHeaderTrackButton();
+      haptic();
+    }
+    if(index>=currentFeedItems.length-5) loadMoreListings();
+  },{root:feed,threshold:[.52,.7,.86]});
   $$('.reel-card',feed).forEach(card=>reelObserver.observe(card));
 }
+
 function teachSwipeOnce(count){
   if(count<2 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   try{
@@ -1139,45 +1427,80 @@ function onFilePicked(event){
   if(!file) return;
   prepareUploadedImage(file).then(dataUrl=>{
     showPreview(dataUrl);
+    stopCam();
     analyseImage(dataUrl);
   }).catch(()=>setScanStatus('Could not read that image'));
 }
+
+function sourceDimensions(source){
+  return {
+    width:source.videoWidth || source.naturalWidth || source.width || 0,
+    height:source.videoHeight || source.naturalHeight || source.height || 0
+  };
+}
+function cropSourceToScannerGuide(source,maxSide=1200,quality=.82){
+  const {width:sw,height:sh}=sourceDimensions(source);
+  if(!sw || !sh) throw new Error('Image not ready');
+  const viewport=$('#viewport');
+  const frame=$('.frame',viewport);
+  let sx=0,sy=0,cropW=sw,cropH=sh;
+  if(viewport && frame && viewport.clientWidth && viewport.clientHeight){
+    const vw=viewport.clientWidth;
+    const vh=viewport.clientHeight;
+    const scale=Math.max(vw/sw,vh/sh);
+    const renderedW=sw*scale;
+    const renderedH=sh*scale;
+    const hiddenX=Math.max(0,(renderedW-vw)/2);
+    const hiddenY=Math.max(0,(renderedH-vh)/2);
+    const viewportRect=viewport.getBoundingClientRect();
+    const frameRect=frame.getBoundingClientRect();
+    sx=clamp((frameRect.left-viewportRect.left+hiddenX)/scale,0,sw-1);
+    sy=clamp((frameRect.top-viewportRect.top+hiddenY)/scale,0,sh-1);
+    cropW=clamp(frameRect.width/scale,1,sw-sx);
+    cropH=clamp(frameRect.height/scale,1,sh-sy);
+  }
+  const outputScale=Math.min(1,maxSide/Math.max(cropW,cropH));
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.max(1,Math.round(cropW*outputScale));
+  canvas.height=Math.max(1,Math.round(cropH*outputScale));
+  const context=canvas.getContext('2d',{alpha:false});
+  context.imageSmoothingEnabled=true;
+  context.imageSmoothingQuality='high';
+  context.drawImage(source,sx,sy,cropW,cropH,0,0,canvas.width,canvas.height);
+  return canvas.toDataURL('image/jpeg',quality);
+}
 function prepareUploadedImage(file){
   return new Promise((resolve,reject)=>{
-    const reader = new FileReader();
+    const reader=new FileReader();
     reader.onerror=reject;
     reader.onload=()=>{
-      const img = new Image();
-      img.onerror=reject;
-      img.onload=()=>resolve(resizeImage(img,1600,.84));
-      img.src=reader.result;
+      const image=new Image();
+      image.onerror=reject;
+      image.onload=()=>{
+        try{ resolve(cropSourceToScannerGuide(image,1200,.82)); }
+        catch(error){ reject(error); }
+      };
+      image.src=reader.result;
     };
     reader.readAsDataURL(file);
   });
-}
-function resizeImage(source,maxSide=1600,quality=.84){
-  const sw=source.videoWidth || source.naturalWidth || source.width;
-  const sh=source.videoHeight || source.naturalHeight || source.height;
-  const scale=Math.min(1,maxSide/Math.max(sw,sh));
-  const canvas=document.createElement('canvas');
-  canvas.width=Math.max(1,Math.round(sw*scale));
-  canvas.height=Math.max(1,Math.round(sh*scale));
-  const ctx=canvas.getContext('2d');
-  ctx.drawImage(source,0,0,canvas.width,canvas.height);
-  return canvas.toDataURL('image/jpeg',quality);
 }
 async function captureScan(){
   const cam=$('#cam');
   if(!stream){ await startCam(); return; }
   if(!cam.videoWidth){ setScanStatus('Camera is still starting…'); return; }
-  const dataUrl=resizeImage(cam,1600,.84);
+  let dataUrl;
+  try{ dataUrl=cropSourceToScannerGuide(cam,1200,.82); }
+  catch(_){ setScanStatus('Could not capture the item — try again'); return; }
   showPreview(dataUrl);
+  stopCam();
   analyseImage(dataUrl);
 }
 function showPreview(dataUrl){
   lastScanImage=dataUrl;
   const preview=$('#preview');
-  preview.src=dataUrl;preview.style.display='block';
+  preview.src=dataUrl;
+  preview.style.display='block';
   $('#cam').style.display='none';
   $('#camPlaceholder').style.display='none';
   $('#viewport').classList.remove('scanning');
@@ -1187,26 +1510,133 @@ function normaliseConfidence(data){
   if(!Number.isFinite(raw)) return null;
   return raw<=1 ? Math.round(raw*100) : clamp(Math.round(raw),0,100);
 }
-async function analyseImage(dataUrl){
-  setScanStatus('Identifying the item…');
-  try{
-    const response=await fetch(WORKER+'/vision',{
-      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({imageBase64:dataUrl})
+const KNOWN_BRANDS=[
+  'Ralph Lauren','Polo Ralph Lauren','Apple','Samsung','Sony','Nintendo','Microsoft','LEGO','Nike','Adidas',
+  'New Balance','Gucci','Louis Vuitton','Chanel','Dior','Rolex','Omega','Canon','Nikon','Dyson','Bose'
+];
+function editDistance(a,b){
+  const row=Array.from({length:b.length+1},(_,index)=>index);
+  for(let i=1;i<=a.length;i++){
+    let previous=row[0];
+    row[0]=i;
+    for(let j=1;j<=b.length;j++){
+      const old=row[j];
+      row[j]=Math.min(row[j]+1,row[j-1]+1,previous+(a[i-1]===b[j-1]?0:1));
+      previous=old;
+    }
+  }
+  return row[b.length];
+}
+function canonicaliseBrand(value){
+  const input=String(value || '').trim();
+  if(!input) return '';
+  const normalised=normaliseQueryText(input);
+  let best=input;
+  let bestRatio=1;
+  for(const brand of KNOWN_BRANDS){
+    const target=normaliseQueryText(brand);
+    const ratio=editDistance(normalised,target)/Math.max(normalised.length,target.length,1);
+    if(ratio<bestRatio){bestRatio=ratio;best=brand;}
+  }
+  return bestRatio<=.24 ? best : input;
+}
+function flattenVisibleText(value){
+  if(Array.isArray(value)) return value.map(String);
+  if(typeof value==='string') return value.split(/[\n,|]+/);
+  return [];
+}
+function buildExactScanQuery(data){
+  const brand=canonicaliseBrand(data && (data.brand || data.manufacturer || data.make));
+  const exactName=String(data && (data.exactProductName || data.productLine || data.modelName || data.name || '') || '').trim();
+  const model=String(data && (data.model || data.modelNumber || data.sku || data.styleCode || data.setNumber || '') || '').trim();
+  const variant=String(data && (data.variant || data.colour || data.color || data.size || data.volume || '') || '').trim();
+  const category=String(data && (data.category || data.productType || '') || '').trim();
+  const visible=flattenVisibleText(data && (data.visibleText || data.ocrText || data.labelText || data.text))
+    .map(value=>value.trim())
+    .filter(value=>value.length>1);
+  const fallback=String(data && (data.query || data.product || data.productName || data.title) || '').trim();
+  const ordered=[brand,exactName,model,variant,...visible,fallback,category].filter(Boolean);
+  const output=[];
+  const seenTokens=new Set();
+  for(const part of ordered){
+    const tokens=String(part).split(/\s+/).filter(Boolean);
+    const newTokens=tokens.filter(token=>{
+      const key=normaliseQueryText(token);
+      if(!key || seenTokens.has(key)) return false;
+      seenTokens.add(key);
+      return true;
     });
+    if(newTokens.length) output.push(newTokens.join(' '));
+  }
+  return output.join(' ').replace(/\s+/g,' ').trim().split(/\s+/).slice(0,18).join(' ');
+}
+async function detectBarcodeFromImage(dataUrl){
+  if(!('BarcodeDetector' in window)) return '';
+  let detector;
+  try{ detector=new BarcodeDetector({formats:['ean_13','ean_8','upc_a','upc_e','code_128','qr_code']}); }
+  catch(_){ try{detector=new BarcodeDetector();}catch(__){return '';} }
+  const image=new Image();
+  image.src=dataUrl;
+  try{ await image.decode(); }
+  catch(_){
+    await new Promise((resolve,reject)=>{
+      image.onload=resolve;
+      image.onerror=reject;
+    });
+  }
+  try{
+    const codes=await detector.detect(image);
+    return codes && codes[0] && codes[0].rawValue ? String(codes[0].rawValue) : '';
+  }catch(_){ return ''; }
+}
+async function analyseImage(dataUrl){
+  if(scanRequestController) scanRequestController.abort();
+  scanRequestController=new AbortController();
+  setScanStatus('Reading the label and identifying the item…');
+  const barcodePromise=detectBarcodeFromImage(dataUrl);
+  const visionPromise=fetch(WORKER+'/vision',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      imageBase64:dataUrl,
+      mode:'exact-shopping-product',
+      requireStructuredProduct:true,
+      preserveVisibleText:true,
+      instructions:'Identify the exact sellable product. Preserve every visible product-line, model, variant, size and barcode term. Do not reduce the result to a broad brand or category.'
+    }),
+    signal:scanRequestController.signal
+  }).then(async response=>{
     if(!response.ok) throw new Error('Vision request failed');
-    const data=await response.json();
-    const query=String(data && (data.query || data.product || data.productName || data.title) || '').trim();
+    return response.json();
+  });
+
+  try{
+    const barcodeWinner=barcodePromise.then(code=>
+      code ? {type:'barcode',code} : new Promise(()=>{})
+    );
+    const visionWinner=visionPromise.then(data=>({type:'vision',data}));
+    const winner=await Promise.race([barcodeWinner,visionWinner]);
+    if(winner.type==='barcode'){
+      scanRequestController.abort();
+      setScanStatus(`Barcode ${winner.code} found — loading listings…`);
+      searchListings(winner.code,{showToast:true,source:'scan',preserveExact:true});
+      return;
+    }
+    const data=winner.data;
+    const query=buildExactScanQuery(data);
     if(query){
-      setScanStatus('Item found — loading listings…');
-      stopCam();
-      searchListings(query,{showToast:true});
+      const confidence=normaliseConfidence(data);
+      setScanStatus(`${confidence==null?'Item found':`${confidence}% match`} — loading listings…`);
+      searchListings(query,{showToast:true,source:'scan',preserveExact:true});
     }else{
-      setScanStatus(data && data.reply ? data.reply : 'Could not identify it — try the front label or barcode');
+      setScanStatus(data && data.reply ? data.reply : 'Could not identify it — photograph the front label or barcode');
     }
   }catch(error){
+    if(error && error.name==='AbortError') return;
     setScanStatus('Scan failed — check your connection and try again');
   }
 }
+
 function showScanMatch(query,image,confidence){
   if(!query) return;
   stopCam();
@@ -1249,7 +1679,7 @@ async function startBarcodeLoop(){
         const code=codes[0].rawValue;
         stopCam();
         setScanStatus(`Barcode ${code} found`);
-        searchListings(code,{showToast:true});
+        searchListings(code,{showToast:true,source:'scan',preserveExact:true});
         return;
       }
     }catch(_){}
