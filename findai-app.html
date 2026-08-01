@@ -766,7 +766,7 @@
 }
 
 </style>
-  <meta name="findai-build" content="v13-personalised-feed">
+  <meta name="findai-build" content="v15-personalised-fresh-sessions">
 </head>
 <body>
 <div class="app">
@@ -983,8 +983,30 @@ const sessionDwellRecorded = new Set();
 const INTEREST_PROFILE_KEY = 'fa_interest_profile_v1';
 const INTEREST_HISTORY_KEY = 'fa_search_history_v1';
 const MAX_INTERESTS = 30;
-const PERSONALISED_INTEREST_LIMIT = 5;
+
+/* Cost guardrails for the For You feed.
+   Three mixed interest lanes are enough to keep the feed varied without
+   multiplying marketplace/API work every time the app opens. */
+const PERSONALISED_INTEREST_LIMIT = 3;
 const PERSONALISED_LANE_LIMIT = 8;
+const PERSONALISED_LOAD_MORE_LANES = 2;
+const PERSONALISED_CACHE_KEY = 'fa_personalised_feed_cache_v3';
+const PERSONALISED_CACHE_TTL = 10 * 60 * 1000;
+const PERSONALISED_REQUEST_BUDGET_KEY = 'fa_personalised_request_count_v1';
+const PERSONALISED_SESSION_REQUEST_BUDGET = 30;
+const PERSONALISED_SEEN_KEY = 'fa_personalised_seen_v1';
+const PERSONALISED_SEEN_TTL = 14 * 24 * 60 * 60 * 1000;
+const PERSONALISED_SEEN_LIMIT = 300;
+const PERSONALISED_LANE_STATE_KEY = 'fa_personalised_lane_state_v1';
+const PERSONALISED_LANE_STATE_TTL = 12 * 60 * 60 * 1000;
+const PERSONALISED_LAST_REFRESH_KEY = 'fa_personalised_last_refresh_v1';
+const PERSONALISED_BACKGROUND_REFRESH_TTL = 10 * 60 * 1000;
+const PERSONALISED_FOREGROUND_HIDDEN_MS = 1200;
+let personalisedSessionSeed = createPersonalisedSeed();
+let personalisedHiddenAt = 0;
+let personalisedSeenCache = null;
+let personalisedImpressionsThisView = new Set();
+let personalisedBackgroundRefreshTimer = null;
 
 const $ = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -1125,6 +1147,78 @@ function getShippingText(item){
   return 'Shipping shown by seller';
 }
 function haptic(){ try{ if(navigator.vibrate) navigator.vibrate(8); }catch(_){} }
+
+function createPersonalisedSeed(){
+  try{
+    const values=new Uint32Array(2);
+    crypto.getRandomValues(values);
+    return (values[0]^values[1]^Date.now())>>>0;
+  }catch(_){ return ((Math.random()*0xffffffff)^Date.now())>>>0; }
+}
+function rotatePersonalisedSessionSeed(){
+  personalisedSessionSeed=createPersonalisedSeed();
+  personalisedImpressionsThisView=new Set();
+  return personalisedSessionSeed;
+}
+function seededUnit(seed,key=''){
+  let hash=(Number(seed)||0)>>>0;
+  const text=String(key||'');
+  for(let index=0;index<text.length;index++){
+    hash^=text.charCodeAt(index);
+    hash=Math.imul(hash,16777619)>>>0;
+    hash^=hash>>>13;
+  }
+  hash^=hash<<13;hash^=hash>>>17;hash^=hash<<5;
+  return (hash>>>0)/4294967296;
+}
+function getPersonalisedSeenMap(){
+  if(personalisedSeenCache) return personalisedSeenCache;
+  const now=Date.now();
+  try{
+    const raw=JSON.parse(localStorage.getItem(PERSONALISED_SEEN_KEY)||'{}');
+    const clean={};
+    Object.entries(raw&&typeof raw==='object'?raw:{}).forEach(([key,value])=>{
+      const lastAt=Number(value&&value.lastAt)||0;
+      if(lastAt&&now-lastAt<=PERSONALISED_SEEN_TTL) clean[key]={count:Math.max(1,Number(value.count)||1),lastAt};
+    });
+    personalisedSeenCache=clean;
+  }catch(_){ personalisedSeenCache={}; }
+  return personalisedSeenCache;
+}
+function savePersonalisedSeenMap(){
+  const map=getPersonalisedSeenMap();
+  try{
+    const trimmed=Object.entries(map).sort((a,b)=>(Number(b[1].lastAt)||0)-(Number(a[1].lastAt)||0)).slice(0,PERSONALISED_SEEN_LIMIT);
+    personalisedSeenCache=Object.fromEntries(trimmed);
+    localStorage.setItem(PERSONALISED_SEEN_KEY,JSON.stringify(personalisedSeenCache));
+  }catch(_){ }
+}
+function personalisedSeenInfo(item){
+  const key=listingKey(item);
+  return getPersonalisedSeenMap()[key]||{count:0,lastAt:0};
+}
+function notePersonalisedImpression(item){
+  if(!item||feedState.source!=='personalised') return;
+  const key=listingKey(item);
+  if(!key||personalisedImpressionsThisView.has(key)) return;
+  personalisedImpressionsThisView.add(key);
+  const map=getPersonalisedSeenMap();
+  const previous=map[key]||{count:0,lastAt:0};
+  map[key]={count:Math.min(20,(Number(previous.count)||0)+1),lastAt:Date.now()};
+  savePersonalisedSeenMap();
+}
+function personalisedSeenPenalty(item){
+  const info=personalisedSeenInfo(item);
+  if(!info.count) return 0;
+  const age=Date.now()-Number(info.lastAt||0);
+  const recency=age<6*60*60*1000?16:age<24*60*60*1000?10:age<7*24*60*60*1000?5:1;
+  return Math.min(34,Math.max(0,Number(info.count)||0)*7+recency);
+}
+function personalisedItemScore(item,query,scope=''){
+  const relevance=listingRelevanceScore(item,query);
+  const jitter=(seededUnit(personalisedSessionSeed,`${scope}|${listingKey(item)}`)-.5)*7;
+  return relevance-personalisedSeenPenalty(item)+jitter;
+}
 
 function toast(message){
   const el = $('#toast');
@@ -1294,34 +1388,32 @@ function scoredInterests(limit=PERSONALISED_INTEREST_LIMIT){
     return {...item,score};
   }).filter(item=>item.score>.12).sort((a,b)=>b.score-a.score);
   if(profile.length){
-    const core=profile.slice(0,Math.min(3,limit));
-    const remainder=profile.slice(core.length);
-    if(remainder.length && core.length<limit){
-      let rotation=0;
-      try{ rotation=Number(localStorage.getItem('fa_interest_rotation_v1')||0)||0; }catch(_){}
-      const slots=limit-core.length;
-      for(let index=0;index<slots&&index<remainder.length;index++) core.push(remainder[(rotation+index)%remainder.length]);
-      try{ localStorage.setItem('fa_interest_rotation_v1',String((rotation+slots)%remainder.length)); }catch(_){}
-    }
+    /* Keep the strongest interests, but let the seeded interleaver vary which
+       one appears first. This preserves relevance without freezing the feed. */
+    const core=profile.slice(0,Math.min(limit,profile.length));
     const cold=[
       {id:'cold_tech',query:'gaming laptops',discoveryQuery:'gaming laptops',category:'computing',cluster:'computing:gaming laptops',score:.75},
       {id:'cold_lego',query:'lego sets',discoveryQuery:'lego sets',category:'lego',cluster:'lego:lego sets',score:.7},
       {id:'cold_fragrance',query:'designer fragrance',discoveryQuery:'designer fragrance',category:'fragrance',cluster:'fragrance:designer fragrance',score:.68},
       {id:'cold_audio',query:'wireless headphones',discoveryQuery:'wireless headphones',category:'audio',cluster:'audio:wireless headphones',score:.65}
     ];
-    for(const starter of cold){
-      if(core.length>=Math.min(4,limit)) break;
+    const coldOffset=Math.floor(seededUnit(personalisedSessionSeed,'cold-start-order')*cold.length);
+    const rotatedCold=[...cold.slice(coldOffset),...cold.slice(0,coldOffset)];
+    for(const starter of rotatedCold){
+      if(core.length>=limit) break;
       if(core.some(item=>item.category===starter.category)) continue;
       core.push(starter);
     }
     return core;
   }
-  return [
+  const cold=[
     {id:'cold_tech',query:'gaming laptops',discoveryQuery:'gaming laptops',category:'computing',cluster:'computing:gaming laptops',score:1.1},
     {id:'cold_lego',query:'lego sets',discoveryQuery:'lego sets',category:'lego',cluster:'lego:lego sets',score:1},
     {id:'cold_fragrance',query:'designer fragrance',discoveryQuery:'designer fragrance',category:'fragrance',cluster:'fragrance:designer fragrance',score:.95},
     {id:'cold_audio',query:'wireless headphones',discoveryQuery:'wireless headphones',category:'audio',cluster:'audio:wireless headphones',score:.9}
-  ].slice(0,limit);
+  ];
+  const offset=Math.floor(seededUnit(personalisedSessionSeed,'empty-cold-start')*cold.length);
+  return [...cold.slice(offset),...cold.slice(0,offset)].slice(0,limit);
 }
 function interestQueryVariants(interest){
   const category=interest.category||interestCategory(interest.query);
@@ -1340,14 +1432,16 @@ function recommendationFamilyKey(item){
 }
 function newPersonalisedLane(interest){
   const variants=interestQueryVariants(interest);
+  const cluster=interest.cluster||interestClusterKey(interest.query);
+  const variantIndex=variants.length?Math.floor(seededUnit(personalisedSessionSeed,`variant:${cluster}`)*variants.length):0;
   return {
     id:interest.id||interest.cluster,
     originalQuery:interest.query,
-    query:variants[0]||interest.query,
+    query:variants[variantIndex]||interest.query,
     variants,
-    variantIndex:0,
+    variantIndex,
     category:interest.category||interestCategory(interest.query),
-    cluster:interest.cluster||interestClusterKey(interest.query),
+    cluster,
     score:Number(interest.score)||1,
     page:0,
     cursor:null,
@@ -1355,11 +1449,114 @@ function newPersonalisedLane(interest){
     noNewPages:0
   };
 }
+
+function personalisedProfileSignature(lanes){
+  return (Array.isArray(lanes)?lanes:[]).map(lane=>
+    `${lane.cluster}:${Math.round((Number(lane.score)||0)*10)}`
+  ).sort().join('|');
+}
+function getPersistentPersonalisedLaneState(){
+  try{
+    const raw=JSON.parse(localStorage.getItem(PERSONALISED_LANE_STATE_KEY)||'{}');
+    return raw&&typeof raw==='object'?raw:{};
+  }catch(_){ return {}; }
+}
+function restorePersistentPersonalisedLaneState(lanes){
+  const saved=getPersistentPersonalisedLaneState();
+  const now=Date.now();
+  for(const lane of Array.isArray(lanes)?lanes:[]){
+    const state=saved[lane.cluster];
+    if(!state||now-(Number(state.updatedAt)||0)>PERSONALISED_LANE_STATE_TTL) continue;
+    const index=clamp(Number(state.variantIndex)||0,0,Math.max(0,lane.variants.length-1));
+    lane.variantIndex=index;
+    lane.query=lane.variants[index]||lane.query;
+    lane.page=Math.max(0,Number(state.page)||0);
+    lane.cursor=state.cursor||null;
+    lane.hasMore=state.hasMore!==false;
+    lane.noNewPages=Math.max(0,Number(state.noNewPages)||0);
+  }
+}
+function persistPersonalisedLaneState(lanes){
+  try{
+    const now=Date.now();
+    const saved=getPersistentPersonalisedLaneState();
+    Object.keys(saved).forEach(key=>{
+      if(now-(Number(saved[key]&&saved[key].updatedAt)||0)>PERSONALISED_LANE_STATE_TTL) delete saved[key];
+    });
+    for(const lane of Array.isArray(lanes)?lanes:[]){
+      saved[lane.cluster]={
+        variantIndex:lane.variantIndex,page:lane.page,cursor:lane.cursor||null,
+        hasMore:lane.hasMore!==false,noNewPages:lane.noNewPages||0,updatedAt:now
+      };
+    }
+    const trimmed=Object.entries(saved).sort((a,b)=>(Number(b[1].updatedAt)||0)-(Number(a[1].updatedAt)||0)).slice(0,40);
+    localStorage.setItem(PERSONALISED_LANE_STATE_KEY,JSON.stringify(Object.fromEntries(trimmed)));
+  }catch(_){ }
+}
+function getPersonalisedLastRefresh(){
+  try{ return Math.max(0,Number(localStorage.getItem(PERSONALISED_LAST_REFRESH_KEY)||0)||0); }
+  catch(_){ return 0; }
+}
+function markPersonalisedRefreshNow(){
+  try{ localStorage.setItem(PERSONALISED_LAST_REFRESH_KEY,String(Date.now())); }catch(_){ }
+}
+function claimPersonalisedBackgroundRefresh(){
+  if(Date.now()-getPersonalisedLastRefresh()<PERSONALISED_BACKGROUND_REFRESH_TTL) return false;
+  markPersonalisedRefreshNow();
+  return true;
+}
+function getPersonalisedRequestCount(){
+  try{ return Math.max(0,Number(sessionStorage.getItem(PERSONALISED_REQUEST_BUDGET_KEY)||0)||0); }
+  catch(_){ return 0; }
+}
+function consumePersonalisedRequestBudget(){
+  const used=getPersonalisedRequestCount();
+  if(used>=PERSONALISED_SESSION_REQUEST_BUDGET) return false;
+  try{ sessionStorage.setItem(PERSONALISED_REQUEST_BUDGET_KEY,String(used+1)); }catch(_){}
+  return true;
+}
+function readPersonalisedCache(signature){
+  try{
+    const cached=JSON.parse(sessionStorage.getItem(PERSONALISED_CACHE_KEY)||'null');
+    if(!cached||cached.signature!==signature||Date.now()-Number(cached.savedAt)>PERSONALISED_CACHE_TTL) return null;
+    if(!Array.isArray(cached.items)||!cached.items.length) return null;
+    return cached;
+  }catch(_){ return null; }
+}
+function restorePersonalisedLaneState(lanes,cachedLanes){
+  if(!Array.isArray(cachedLanes)) return;
+  for(const lane of lanes){
+    const saved=cachedLanes.find(item=>item&&item.cluster===lane.cluster);
+    if(!saved) continue;
+    lane.variantIndex=clamp(Number(saved.variantIndex)||0,0,Math.max(0,lane.variants.length-1));
+    lane.query=lane.variants[lane.variantIndex]||String(saved.query||lane.query);
+    lane.page=Math.max(0,Number(saved.page)||0);
+    lane.cursor=saved.cursor||null;
+    lane.hasMore=saved.hasMore!==false;
+    lane.noNewPages=Math.max(0,Number(saved.noNewPages)||0);
+  }
+}
+function writePersonalisedCache(){
+  if(!feedState||feedState.source!=='personalised'||!currentFeedItems.length) return;
+  try{
+    const lanes=(Array.isArray(feedState.interests)?feedState.interests:[]).map(lane=>({
+      cluster:lane.cluster,query:lane.query,variantIndex:lane.variantIndex,page:lane.page,
+      cursor:lane.cursor||null,hasMore:lane.hasMore!==false,noNewPages:lane.noNewPages||0
+    }));
+    sessionStorage.setItem(PERSONALISED_CACHE_KEY,JSON.stringify({
+      savedAt:Date.now(),signature:feedState.cacheSignature||'',
+      items:currentFeedItems.slice(0,60),lanes
+    }));
+    persistPersonalisedLaneState(feedState.interests);
+  }catch(_){ /* Cache failure should never block the feed. */ }
+}
 function preparePersonalisedLaneItems(raw,lane){
   const valid=(Array.isArray(raw)?raw:[]).filter(item=>item&&Number(item.price)>0);
-  const ranked=rankListings(valid,lane.query,'search');
+  const ranked=[...valid].sort((a,b)=>personalisedItemScore(b,lane.query,lane.cluster)-personalisedItemScore(a,lane.query,lane.cluster));
+  const preferred=ranked.filter(item=>personalisedSeenInfo(item).count<2);
+  const repeatFallback=ranked.filter(item=>personalisedSeenInfo(item).count>=2);
   const fresh=[];
-  for(const original of ranked){
+  for(const original of [...preferred,...repeatFallback]){
     const key=listingKey(original);
     if(feedState.seen.has(key)) continue;
     const family=recommendationFamilyKey(original);
@@ -1382,7 +1579,7 @@ function interleavePersonalised(laneResults,maxItems=48){
   const schedule=[];
   lanes.forEach(lane=>{ for(let i=0;i<lane.priority;i++) schedule.push(lane); });
   const output=[];
-  let cursor=0,guard=0;
+  let cursor=Math.floor(seededUnit(personalisedSessionSeed,'interleave-start')*schedule.length)%schedule.length,guard=0;
   while(output.length<maxItems && lanes.some(lane=>lane.queue.length) && guard<1000){
     guard++;
     let chosen=null;
@@ -1405,6 +1602,27 @@ function interleavePersonalised(laneResults,maxItems=48){
   }
   return output;
 }
+function freshenPersonalisedItems(items,maxItems=60){
+  const groups=new Map();
+  for(const item of Array.isArray(items)?items:[]){
+    const cluster=item._interestCluster||item._interestCategory||'other';
+    if(!groups.has(cluster)) groups.set(cluster,[]);
+    groups.get(cluster).push(item);
+  }
+  const laneOrder=(Array.isArray(feedState&&feedState.interests)?feedState.interests:[]).map(lane=>lane.cluster);
+  const results=[...groups.entries()].map(([cluster,group])=>{
+    const lane=(Array.isArray(feedState&&feedState.interests)?feedState.interests:[]).find(item=>item.cluster===cluster)||{
+      cluster,category:group[0]&&group[0]._interestCategory||'other',originalQuery:group[0]&&group[0]._interestQuery||''
+    };
+    const query=lane.originalQuery||lane.query||group[0]&&group[0]._interestQuery||'';
+    group.sort((a,b)=>personalisedItemScore(b,query,cluster)-personalisedItemScore(a,query,cluster));
+    return {lane,items:group};
+  }).sort((a,b)=>{
+    const left=laneOrder.indexOf(a.lane.cluster),right=laneOrder.indexOf(b.lane.cluster);
+    return (left<0?999:left)-(right<0?999:right);
+  });
+  return interleavePersonalised(results,maxItems);
+}
 async function fetchPersonalisedLane(lane){
   let page=lane.page+1;
   let cursor=lane.cursor;
@@ -1418,15 +1636,25 @@ async function fetchPersonalisedLane(lane){
       lane.noNewPages=0;
     }else return {lane,items:[]};
   }
-  const result=await fetchProductResults(lane.query,{page,cursor,limit:PERSONALISED_LANE_LIMIT,preserveExact:false,signal:feedRequestController&&feedRequestController.signal});
+  if(!consumePersonalisedRequestBudget()){
+    lane.hasMore=false;
+    return {lane,items:[],budgetReached:true};
+  }
+  /* Personalised lane queries are already normalised locally, so skip the
+     extra /resolve-product request. This keeps each lane to one Worker call. */
+  const result=await fetchProductResults(lane.query,{
+    page,cursor,limit:PERSONALISED_LANE_LIMIT,preserveExact:false,skipResolve:true,
+    signal:feedRequestController&&feedRequestController.signal
+  });
   lane.page=page;
   lane.cursor=result.nextCursor;
   lane.hasMore=result.hasMore;
   const items=preparePersonalisedLaneItems(result.data&&result.data.listings,lane);
   lane.noNewPages=items.length?0:lane.noNewPages+1;
+  persistPersonalisedLaneState([lane]);
   return {lane,items,data:result.data};
 }
-function renderPersonalisedFeed(items){
+function renderPersonalisedFeed(items,{writeCache=true}={}){
   currentFeedItems=items;
   currentFeedData={personalised:true};
   activeReelIndex=0;
@@ -1441,68 +1669,127 @@ function renderPersonalisedFeed(items){
   attachReelObserver();
   teachSwipeOnce(items.length);
   updateHeaderTrackButton();
-  if(items.length<12) setTimeout(loadMorePersonalisedListings,100);
+  if(writeCache) writePersonalisedCache();
+  /* Never auto-fetch merely because a marketplace returned a short page.
+     More listings are fetched only when the user actually scrolls near the end. */
 }
-async function loadPersonalisedFeed({showToast=false}={}){
+async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
   if(feedRequestController) feedRequestController.abort();
   feedRequestController=new AbortController();
   go('search');
   $('#q').value='';
-  renderLoading();
-  if(showToast) toast('Building your For You feed…');
   const lanes=scoredInterests().map(newPersonalisedLane);
+  restorePersistentPersonalisedLaneState(lanes);
+  const cacheSignature=personalisedProfileSignature(lanes);
   feedState={
     query:'for-you',resolvedQuery:'for-you',source:'personalised',preserveExact:false,strictHybrid:false,scanRequiredTokens:[],
     page:1,cursor:null,loading:true,hasMore:true,noNewPages:0,fallbackIndex:0,fallbackQueries:[],seen:new Set(),
-    familyCounts:new Map(),interests:lanes,personalisedRetryCount:0
+    familyCounts:new Map(),interests:lanes,laneCursor:0,cacheSignature
   };
+
+  const cached=forceNetwork?null:readPersonalisedCache(cacheSignature);
+  if(cached){
+    restorePersonalisedLaneState(lanes,cached.lanes);
+    for(const item of cached.items){
+      feedState.seen.add(listingKey(item));
+      const family=recommendationFamilyKey(item);
+      feedState.familyCounts.set(family,(feedState.familyCounts.get(family)||0)+1);
+    }
+    renderPersonalisedFeed(freshenPersonalisedItems(cached.items),{writeCache:false});
+    feedState.loading=false;
+    schedulePersonalisedBackgroundRefresh(cached.savedAt);
+    return;
+  }
+
+  renderLoading();
+  if(showToast) toast('Building your For You feed…');
   try{
+    markPersonalisedRefreshNow();
     const settled=await Promise.allSettled(lanes.map(fetchPersonalisedLane));
     if(feedState.source!=='personalised') return;
     const laneResults=settled.filter(result=>result.status==='fulfilled').map(result=>result.value);
     renderPersonalisedFeed(interleavePersonalised(laneResults));
   }catch(error){
     if(error&&error.name==='AbortError') return;
-    $('#feed').innerHTML='<div class="feed-status"><div><b>Couldn\'t build your feed</b>Check your connection and try again.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true})">Try again</button></div></div>';
+    $('#feed').innerHTML='<div class="feed-status"><div><b>Couldn\'t build your feed</b>Check your connection and try again.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
   }finally{
     if(feedState.source==='personalised') feedState.loading=false;
   }
 }
+function schedulePersonalisedBackgroundRefresh(cacheSavedAt=0){
+  clearTimeout(personalisedBackgroundRefreshTimer);
+  const age=Date.now()-Number(cacheSavedAt||0);
+  const delay=age>=PERSONALISED_BACKGROUND_REFRESH_TTL?500:Math.max(1200,PERSONALISED_BACKGROUND_REFRESH_TTL-age);
+  personalisedBackgroundRefreshTimer=setTimeout(()=>backgroundRefreshPersonalisedFeed(),delay);
+}
+async function backgroundRefreshPersonalisedFeed(){
+  if(feedState.source!=='personalised'||feedState.loading||document.hidden||!$('#search').classList.contains('active')) return;
+  if(!claimPersonalisedBackgroundRefresh()) return;
+  const lanes=Array.isArray(feedState.interests)?feedState.interests:[];
+  if(!lanes.length||getPersonalisedRequestCount()>=PERSONALISED_SESSION_REQUEST_BUDGET) return;
+  const index=Math.floor(seededUnit(personalisedSessionSeed,'background-lane')*lanes.length)%lanes.length;
+  const lane=lanes[index];
+  feedState.loading=true;
+  try{
+    const result=await fetchPersonalisedLane(lane);
+    if(feedState.source!=='personalised'||!result.items.length) return;
+    const merged=freshenPersonalisedItems([...result.items,...currentFeedItems],60);
+    if($('#feed').scrollTop<80) renderPersonalisedFeed(merged);
+    else{
+      appendFeedItems(result.items,currentFeedData);
+      writePersonalisedCache();
+    }
+  }catch(error){
+    if(!(error&&error.name==='AbortError')){
+      /* The timestamp prevents retry storms; the next normal refresh can try again. */
+    }
+  }finally{
+    if(feedState.source==='personalised') feedState.loading=false;
+  }
+}
+function refreshPersonalisedPresentationOnForeground(){
+  if(feedState.source!=='personalised'||!currentFeedItems.length) return;
+  rotatePersonalisedSessionSeed();
+  renderPersonalisedFeed(freshenPersonalisedItems(currentFeedItems),{writeCache:false});
+  schedulePersonalisedBackgroundRefresh(getPersonalisedLastRefresh());
+}
 async function loadMorePersonalisedListings(){
   if(feedState.source!=='personalised'||feedState.loading||!$('#search').classList.contains('active')) return;
   const lanes=Array.isArray(feedState.interests)?feedState.interests:[];
-  if(!lanes.length) return;
+  if(!lanes.length||getPersonalisedRequestCount()>=PERSONALISED_SESSION_REQUEST_BUDGET) return;
+
+  const chosen=[];
+  const start=Math.max(0,Number(feedState.laneCursor)||0)%lanes.length;
+  for(let offset=0;offset<lanes.length&&chosen.length<PERSONALISED_LOAD_MORE_LANES;offset++){
+    const lane=lanes[(start+offset)%lanes.length];
+    const canLoad=lane.hasMore||lane.variantIndex<lane.variants.length-1;
+    if(canLoad) chosen.push(lane);
+  }
+  if(!chosen.length) return;
+  feedState.laneCursor=(start+Math.max(1,chosen.length))%lanes.length;
   feedState.loading=true;
   showFeedLoader();
-  let added=0;
   try{
-    const settled=await Promise.allSettled(lanes.map(fetchPersonalisedLane));
+    const settled=await Promise.allSettled(chosen.map(fetchPersonalisedLane));
     if(feedState.source!=='personalised') return;
-    const fresh=interleavePersonalised(settled.filter(result=>result.status==='fulfilled').map(result=>result.value),36);
-    added=fresh.length;
+    const fresh=interleavePersonalised(settled.filter(result=>result.status==='fulfilled').map(result=>result.value),20);
     if(fresh.length){
-      feedState.personalisedRetryCount=0;
       appendFeedItems(fresh,currentFeedData);
+      writePersonalisedCache();
     }
   }catch(error){
     if(!(error&&error.name==='AbortError')) feedState.noNewPages+=1;
   }finally{
     hideFeedLoader();
-    if(feedState.source==='personalised'){
-      feedState.loading=false;
-      const canTryAgain=lanes.some(lane=>lane.hasMore||lane.variantIndex<lane.variants.length-1);
-      if(!added&&canTryAgain&&(Number(feedState.personalisedRetryCount)||0)<3){
-        feedState.personalisedRetryCount=(Number(feedState.personalisedRetryCount)||0)+1;
-        setTimeout(loadMorePersonalisedListings,180);
-      }
-    }
+    if(feedState.source==='personalised') feedState.loading=false;
   }
 }
 function openForYou(){
   go('search');
   if(feedState.source==='personalised'&&currentFeedItems.length){
     $('#q').value='';
-    $('#feed').scrollTo({top:0,behavior:'smooth'});
+    rotatePersonalisedSessionSeed();
+    renderPersonalisedFeed(freshenPersonalisedItems(currentFeedItems),{writeCache:false});
     return;
   }
   loadPersonalisedFeed();
@@ -1525,8 +1812,19 @@ function beginReelTracking(index){
   activeReelStartedAt=Date.now();
   const item=currentFeedItems[activeReelIndex];
   activeReelTrackingKey=item?listingKey(item):'';
+  if(item) notePersonalisedImpression(item);
 }
-document.addEventListener('visibilitychange',()=>{ if(document.hidden) finaliseReelTracking(); else beginReelTracking(activeReelIndex); });
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden){
+    personalisedHiddenAt=Date.now();
+    finaliseReelTracking();
+    return;
+  }
+  const hiddenFor=personalisedHiddenAt?Date.now()-personalisedHiddenAt:0;
+  personalisedHiddenAt=0;
+  if(hiddenFor>=PERSONALISED_FOREGROUND_HIDDEN_MS) refreshPersonalisedPresentationOnForeground();
+  else beginReelTracking(activeReelIndex);
+});
 
 function go(tab){
   $$('.screen').forEach(screen=>screen.classList.toggle('active',screen.id===tab));
@@ -1719,10 +2017,10 @@ function extractPagination(data,rawCount,limit){
 }
 
 async function fetchProductResults(query,{
-  page=1,cursor=null,limit=FEED_BATCH_SIZE,preserveExact=false,signal=null
+  page=1,cursor=null,limit=FEED_BATCH_SIZE,preserveExact=false,skipResolve=false,signal=null
 }={}){
   let resolvedQuery=String(query || '').trim();
-  if(page===1 && !preserveExact){
+  if(page===1 && !preserveExact && !skipResolve){
     try{
       const resolveResponse=await fetch(WORKER+'/resolve-product',{
         method:'POST',
