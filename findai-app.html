@@ -60,7 +60,7 @@
     background:linear-gradient(180deg,#050607 82%,rgba(5,6,7,.96));z-index:8
   }
   .brand-row{height:46px;display:flex;align-items:center;justify-content:space-between}
-  .brand{font-size:30px;line-height:1;font-weight:760;letter-spacing:-1.3px}
+  .brand{font-size:30px;line-height:1;font-weight:760;letter-spacing:-1.3px;cursor:pointer;user-select:none}
   .header-actions{display:flex;align-items:center;gap:2px}
   .search-form{
     height:52px;margin-top:8px;padding:0 14px;display:flex;align-items:center;gap:11px;
@@ -766,6 +766,7 @@
 }
 
 </style>
+  <meta name="findai-build" content="v13-personalised-feed">
 </head>
 <body>
 <div class="app">
@@ -773,7 +774,7 @@
   <section id="search" class="screen active">
     <header class="search-header">
       <div class="brand-row">
-        <div class="brand">FindAI</div>
+        <div class="brand" role="button" tabindex="0" aria-label="Open For You feed" onclick="openForYou()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openForYou();}">FindAI</div>
         <div class="header-actions">
           <button class="icon-btn" id="headerTrackBtn" aria-label="Track current listing" onclick="toggleCurrentTrack(event)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg>
@@ -899,7 +900,7 @@
 
   <!-- Bottom navigation -->
   <nav class="nav" aria-label="Main navigation">
-    <button class="active" data-tab="search" onclick="go('search')">
+    <button class="active" data-tab="search" onclick="openForYou()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7.5"/><path d="M20 20l-3.5-3.5"/></svg>
       Search
     </button>
@@ -975,6 +976,15 @@ let autoScanBusy = false;
 let autoScanStartedAt = 0;
 let autoScanCanvas = null;
 let autoScanContext = null;
+let activeReelStartedAt = Date.now();
+let activeReelTrackingKey = '';
+const sessionDwellRecorded = new Set();
+
+const INTEREST_PROFILE_KEY = 'fa_interest_profile_v1';
+const INTEREST_HISTORY_KEY = 'fa_search_history_v1';
+const MAX_INTERESTS = 30;
+const PERSONALISED_INTEREST_LIMIT = 5;
+const PERSONALISED_LANE_LIMIT = 8;
 
 const $ = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -1126,6 +1136,397 @@ function toast(message){
 
 function lastSearch(){ try{return localStorage.getItem('fa_last') || ''}catch(_){return ''} }
 function setLastSearch(q){ try{localStorage.setItem('fa_last',q)}catch(_){} }
+
+
+const INTEREST_EVENT_WEIGHTS = {
+  search:5,
+  scan:8,
+  click:3.5,
+  track:8,
+  tracker:4,
+  dwell:1,
+  quickSkip:-0.18,
+  legacy:2.5
+};
+const INTEREST_CATEGORY_PATTERNS = [
+  ['fragrance',/\b(?:perfumes?|fragrances?|colognes?|colonges?|edp|edt|parfum|eau de parfum|eau de toilette|aftershave)\b/i],
+  ['lego',/\b(?:lego|bricklink|brickset|minifigure|minifig)\b/i],
+  ['computing',/\b(?:computers?|desktops?|laptops?|notebooks?|gaming pcs?|graphics cards?|gpus?|cpus?|processors?|monitors?|keyboards?|mice|mouse|macbooks?|imacs?|rtx|radeon)\b/i],
+  ['sneakers',/\b(?:sneaker|trainer|yeezy|jordan|dunk|air force|nike|adidas|new balance|asics|stockx|goat)\b/i],
+  ['collectibles',/\b(?:collectible|pokemon|trading card|funko|figure|figurine|harry potter|star wars|marvel|dc comics)\b/i],
+  ['fashion',/\b(?:shirt|jacket|jeans|dress|handbag|bag|wallet|watch|sunglasses|gucci|prada|ralph lauren|burberry|louis vuitton)\b/i],
+  ['gaming',/\b(?:playstation|ps5|xbox|nintendo|switch|video game|gaming console|controller)\b/i],
+  ['audio',/\b(?:headphones|earbuds|speaker|airpods|soundbar|microphone|turntable)\b/i],
+  ['home',/\b(?:sofa|chair|table|lamp|mattress|vacuum|kitchen|appliance|furniture)\b/i],
+  ['sports',/\b(?:tennis|racquet|racket|golf|football|soccer|basketball|fitness|gym)\b/i]
+];
+const DISCOVERY_BRANDS = [
+  'ralph lauren','giorgio armani','tom ford','calvin klein','hugo boss','paco rabanne','jean paul gaultier',
+  'gucci','dior','chanel','versace','ysl','yves saint laurent','nike','adidas','new balance','asics','apple',
+  'samsung','lenovo','asus','acer','dell','hp','msi','sony','lego','pokemon'
+];
+const CATEGORY_EXPLORATION_QUERIES = {
+  fragrance:['designer fragrance','mens fragrance','womens fragrance'],
+  lego:['lego sets','lego collectibles','retired lego sets'],
+  computing:['gaming laptops','desktop computers','computer hardware'],
+  sneakers:['sneakers','limited sneakers','running shoes'],
+  collectibles:['collectibles','trading cards','collectible figures'],
+  fashion:['designer fashion','fashion accessories','watches'],
+  gaming:['gaming consoles','video games','gaming accessories'],
+  audio:['wireless headphones','speakers','audio equipment'],
+  home:['home appliances','home furniture','home accessories'],
+  sports:['sports equipment','tennis gear','fitness equipment'],
+  other:['popular products','best value products','new listings']
+};
+
+function getInterestProfile(){
+  try{
+    const value=JSON.parse(localStorage.getItem(INTEREST_PROFILE_KEY)||'[]');
+    return Array.isArray(value)?value:[];
+  }catch(_){ return []; }
+}
+function saveInterestProfile(profile){
+  try{ localStorage.setItem(INTEREST_PROFILE_KEY,JSON.stringify(profile.slice(0,MAX_INTERESTS))); }catch(_){}
+}
+function interestCategory(query){
+  const value=String(query||'');
+  const match=INTEREST_CATEGORY_PATTERNS.find(([,pattern])=>pattern.test(value));
+  if(match) return match[0];
+  const tokens=normaliseQueryText(value).split(/\s+/).filter(Boolean);
+  if(tokens.some(token=>editDistance(token,'cologne')<=2||editDistance(token,'perfume')<=2||editDistance(token,'fragrance')<=2)) return 'fragrance';
+  if(tokens.some(token=>editDistance(token,'computer')<=2||editDistance(token,'laptop')<=2||editDistance(token,'desktop')<=2)) return 'computing';
+  return 'other';
+}
+function findDiscoveryBrand(query){
+  const text=normaliseQueryText(query);
+  return DISCOVERY_BRANDS.find(brand=>text.includes(normaliseQueryText(brand)))||'';
+}
+function deriveDiscoveryQuery(query){
+  const raw=String(query||'').trim();
+  const text=normaliseQueryText(raw);
+  const category=interestCategory(raw);
+  const brand=findDiscoveryBrand(raw);
+  if(category==='fragrance') return [brand,'fragrance'].filter(Boolean).join(' ') || 'designer fragrance';
+  if(category==='lego'){
+    const franchises=['harry potter','star wars','marvel','dc','technic','city','icons','ideas','architecture','ninjago','minecraft','friends'];
+    const franchise=franchises.find(value=>text.includes(normaliseQueryText(value)));
+    return ['lego',franchise].filter(Boolean).join(' ');
+  }
+  if(category==='computing'){
+    const kind=/\blaptop|notebook|macbook\b/.test(text)?'laptop':/\b(?:desktop|computer|gaming pc|imac)\b/.test(text)?'computer':/\b(?:gpu|graphics card|rtx|radeon)\b/.test(text)?'graphics card':'computer hardware';
+    const gaming=/\bgaming|rtx|radeon\b/.test(text)?'gaming':'';
+    return [brand,gaming,kind].filter(Boolean).join(' ');
+  }
+  if(category==='sneakers'){
+    const modelTokens=importantQueryTokens(raw).filter(token=>!['sneaker','trainer','shoes','shoe'].includes(token)).slice(0,4);
+    return [brand,...modelTokens].filter(Boolean).join(' ') || 'sneakers';
+  }
+  if(category==='collectibles'){
+    if(/\bharry potter\b/.test(text)) return 'harry potter collectibles';
+    if(/\bpokemon\b/.test(text)) return 'pokemon collectibles';
+    return importantQueryTokens(raw).slice(0,4).join(' ') || 'collectibles';
+  }
+  if(category==='gaming') return /\bps5|playstation\b/.test(text)?'playstation 5':/\bxbox\b/.test(text)?'xbox':/\bnintendo|switch\b/.test(text)?'nintendo switch':'gaming';
+  if(category==='audio') return [brand,/\bearbud|airpods\b/.test(text)?'wireless earbuds':/\bheadphone\b/.test(text)?'headphones':'audio'].filter(Boolean).join(' ');
+  const tokens=importantQueryTokens(raw).slice(0,5);
+  return tokens.join(' ') || raw;
+}
+function interestTokenSimilarity(a,b){
+  const left=new Set(importantQueryTokens(a));
+  const right=new Set(importantQueryTokens(b));
+  if(!left.size||!right.size) return 0;
+  let overlap=0;
+  left.forEach(token=>{ if(right.has(token)) overlap++; });
+  return overlap/Math.max(left.size,right.size);
+}
+function interestClusterKey(query,category=interestCategory(query)){
+  const discovery=deriveDiscoveryQuery(query);
+  return `${category}:${normaliseQueryText(discovery)||normaliseQueryText(query)}`;
+}
+function recordInterest(query,event='search',customBoost=null){
+  const clean=String(query||'').trim();
+  if(!clean) return;
+  const now=Date.now();
+  const category=interestCategory(clean);
+  const discoveryQuery=deriveDiscoveryQuery(clean);
+  const cluster=interestClusterKey(clean,category);
+  const boost=Number.isFinite(customBoost)?customBoost:(INTEREST_EVENT_WEIGHTS[event]??1);
+  const profile=getInterestProfile();
+  let item=profile.find(entry=>entry.cluster===cluster || interestTokenSimilarity(entry.query,clean)>=.78);
+  if(!item){
+    item={id:`i_${now}_${Math.random().toString(36).slice(2,7)}`,query:clean,discoveryQuery,category,cluster,weight:0,lastAt:now,events:{}};
+    profile.push(item);
+  }
+  item.query=clean;
+  item.discoveryQuery=discoveryQuery||item.discoveryQuery||clean;
+  item.category=category;
+  item.cluster=cluster;
+  item.weight=clamp((Number(item.weight)||0)+boost,.15,80);
+  item.lastAt=now;
+  item.events=item.events||{};
+  item.events[event]=(Number(item.events[event])||0)+1;
+  profile.sort((a,b)=>(Number(b.weight)||0)-(Number(a.weight)||0) || (Number(b.lastAt)||0)-(Number(a.lastAt)||0));
+  saveInterestProfile(profile);
+  if(event==='search'||event==='scan'||event==='tracker'){
+    try{
+      const history=JSON.parse(localStorage.getItem(INTEREST_HISTORY_KEY)||'[]');
+      const entries=Array.isArray(history)?history:[];
+      entries.unshift({query:clean,source:event,at:now});
+      localStorage.setItem(INTEREST_HISTORY_KEY,JSON.stringify(entries.filter((entry,index,array)=>
+        index===array.findIndex(other=>normaliseQueryText(other.query)===normaliseQueryText(entry.query))
+      ).slice(0,60)));
+    }catch(_){}
+  }
+}
+function bootstrapInterestProfile(){
+  if(getInterestProfile().length) return;
+  const previous=lastSearch();
+  if(previous) recordInterest(previous,'legacy');
+  getTracked().slice(0,6).forEach(item=>recordInterest(item.query||item.title,'track',5));
+}
+function scoredInterests(limit=PERSONALISED_INTEREST_LIMIT){
+  bootstrapInterestProfile();
+  const now=Date.now();
+  const profile=getInterestProfile().map(item=>{
+    const ageDays=Math.max(0,(now-(Number(item.lastAt)||now))/86400000);
+    const decay=Math.pow(.5,ageDays/45);
+    const score=(Number(item.weight)||1)*decay+Math.max(0,2-ageDays*.08);
+    return {...item,score};
+  }).filter(item=>item.score>.12).sort((a,b)=>b.score-a.score);
+  if(profile.length){
+    const core=profile.slice(0,Math.min(3,limit));
+    const remainder=profile.slice(core.length);
+    if(remainder.length && core.length<limit){
+      let rotation=0;
+      try{ rotation=Number(localStorage.getItem('fa_interest_rotation_v1')||0)||0; }catch(_){}
+      const slots=limit-core.length;
+      for(let index=0;index<slots&&index<remainder.length;index++) core.push(remainder[(rotation+index)%remainder.length]);
+      try{ localStorage.setItem('fa_interest_rotation_v1',String((rotation+slots)%remainder.length)); }catch(_){}
+    }
+    const cold=[
+      {id:'cold_tech',query:'gaming laptops',discoveryQuery:'gaming laptops',category:'computing',cluster:'computing:gaming laptops',score:.75},
+      {id:'cold_lego',query:'lego sets',discoveryQuery:'lego sets',category:'lego',cluster:'lego:lego sets',score:.7},
+      {id:'cold_fragrance',query:'designer fragrance',discoveryQuery:'designer fragrance',category:'fragrance',cluster:'fragrance:designer fragrance',score:.68},
+      {id:'cold_audio',query:'wireless headphones',discoveryQuery:'wireless headphones',category:'audio',cluster:'audio:wireless headphones',score:.65}
+    ];
+    for(const starter of cold){
+      if(core.length>=Math.min(4,limit)) break;
+      if(core.some(item=>item.category===starter.category)) continue;
+      core.push(starter);
+    }
+    return core;
+  }
+  return [
+    {id:'cold_tech',query:'gaming laptops',discoveryQuery:'gaming laptops',category:'computing',cluster:'computing:gaming laptops',score:1.1},
+    {id:'cold_lego',query:'lego sets',discoveryQuery:'lego sets',category:'lego',cluster:'lego:lego sets',score:1},
+    {id:'cold_fragrance',query:'designer fragrance',discoveryQuery:'designer fragrance',category:'fragrance',cluster:'fragrance:designer fragrance',score:.95},
+    {id:'cold_audio',query:'wireless headphones',discoveryQuery:'wireless headphones',category:'audio',cluster:'audio:wireless headphones',score:.9}
+  ].slice(0,limit);
+}
+function interestQueryVariants(interest){
+  const category=interest.category||interestCategory(interest.query);
+  const categoryVariants=CATEGORY_EXPLORATION_QUERIES[category]||CATEGORY_EXPLORATION_QUERIES.other;
+  return [...new Set([interest.discoveryQuery,interest.query,...categoryVariants].map(value=>String(value||'').trim()).filter(Boolean))];
+}
+function recommendationFamilyKey(item){
+  const title=String(item&&item.title||'');
+  const tokens=queryTokens(title).filter(token=>![
+    'free','shipping','delivery','sealed','genuine','authentic','official','brand','new','used','bundle','fast','stock'
+  ].includes(token));
+  const numeric=tokens.filter(token=>/\d/.test(token)).slice(0,2);
+  const words=tokens.filter(token=>!/^\d/.test(token)).slice(0,6);
+  const family=[...words,...numeric].join(' ');
+  return family||listingKey(item);
+}
+function newPersonalisedLane(interest){
+  const variants=interestQueryVariants(interest);
+  return {
+    id:interest.id||interest.cluster,
+    originalQuery:interest.query,
+    query:variants[0]||interest.query,
+    variants,
+    variantIndex:0,
+    category:interest.category||interestCategory(interest.query),
+    cluster:interest.cluster||interestClusterKey(interest.query),
+    score:Number(interest.score)||1,
+    page:0,
+    cursor:null,
+    hasMore:true,
+    noNewPages:0
+  };
+}
+function preparePersonalisedLaneItems(raw,lane){
+  const valid=(Array.isArray(raw)?raw:[]).filter(item=>item&&Number(item.price)>0);
+  const ranked=rankListings(valid,lane.query,'search');
+  const fresh=[];
+  for(const original of ranked){
+    const key=listingKey(original);
+    if(feedState.seen.has(key)) continue;
+    const family=recommendationFamilyKey(original);
+    const familyCount=Number(feedState.familyCounts.get(family)||0);
+    if(familyCount>=2) continue;
+    feedState.seen.add(key);
+    feedState.familyCounts.set(family,familyCount+1);
+    fresh.push({...original,_interestQuery:lane.originalQuery,_interestCluster:lane.cluster,_interestCategory:lane.category,_recommendationFamily:family});
+  }
+  return fresh;
+}
+function interleavePersonalised(laneResults,maxItems=48){
+  const lanes=laneResults.filter(entry=>entry.items&&entry.items.length).map((entry,index)=>({
+    ...entry,
+    queue:[...entry.items],
+    used:0,
+    priority:index<2?2:1
+  }));
+  if(!lanes.length) return [];
+  const schedule=[];
+  lanes.forEach(lane=>{ for(let i=0;i<lane.priority;i++) schedule.push(lane); });
+  const output=[];
+  let cursor=0,guard=0;
+  while(output.length<maxItems && lanes.some(lane=>lane.queue.length) && guard<1000){
+    guard++;
+    let chosen=null;
+    for(let attempt=0;attempt<schedule.length;attempt++){
+      const lane=schedule[(cursor+attempt)%schedule.length];
+      if(!lane.queue.length) continue;
+      const last=output[output.length-1];
+      const secondLast=output[output.length-2];
+      const sameTwice=last&&secondLast&&last._interestCategory===lane.lane.category&&secondLast._interestCategory===lane.lane.category;
+      const alternative=lanes.some(other=>other.queue.length&&other.lane.category!==lane.lane.category);
+      if(sameTwice&&alternative) continue;
+      chosen=lane;
+      cursor=(cursor+attempt+1)%schedule.length;
+      break;
+    }
+    if(!chosen) chosen=lanes.find(lane=>lane.queue.length);
+    if(!chosen) break;
+    output.push(chosen.queue.shift());
+    chosen.used++;
+  }
+  return output;
+}
+async function fetchPersonalisedLane(lane){
+  let page=lane.page+1;
+  let cursor=lane.cursor;
+  if(!lane.hasMore||lane.noNewPages>=2){
+    if(lane.variantIndex<lane.variants.length-1){
+      lane.variantIndex++;
+      lane.query=lane.variants[lane.variantIndex];
+      page=1;
+      cursor=null;
+      lane.hasMore=true;
+      lane.noNewPages=0;
+    }else return {lane,items:[]};
+  }
+  const result=await fetchProductResults(lane.query,{page,cursor,limit:PERSONALISED_LANE_LIMIT,preserveExact:false,signal:feedRequestController&&feedRequestController.signal});
+  lane.page=page;
+  lane.cursor=result.nextCursor;
+  lane.hasMore=result.hasMore;
+  const items=preparePersonalisedLaneItems(result.data&&result.data.listings,lane);
+  lane.noNewPages=items.length?0:lane.noNewPages+1;
+  return {lane,items,data:result.data};
+}
+function renderPersonalisedFeed(items){
+  currentFeedItems=items;
+  currentFeedData={personalised:true};
+  activeReelIndex=0;
+  const feed=$('#feed');
+  if(!items.length){
+    feed.innerHTML='<div class="feed-status"><div><b>Your For You feed is warming up</b>Search or scan a few products and FindAI will learn what you like.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true})">Try again</button></div></div>';
+    return;
+  }
+  feed.innerHTML=items.map((item,index)=>renderReelCard(item,index,currentFeedData)).join('');
+  feed.scrollTop=0;
+  beginReelTracking(0);
+  attachReelObserver();
+  teachSwipeOnce(items.length);
+  updateHeaderTrackButton();
+  if(items.length<12) setTimeout(loadMorePersonalisedListings,100);
+}
+async function loadPersonalisedFeed({showToast=false}={}){
+  if(feedRequestController) feedRequestController.abort();
+  feedRequestController=new AbortController();
+  go('search');
+  $('#q').value='';
+  renderLoading();
+  if(showToast) toast('Building your For You feed…');
+  const lanes=scoredInterests().map(newPersonalisedLane);
+  feedState={
+    query:'for-you',resolvedQuery:'for-you',source:'personalised',preserveExact:false,strictHybrid:false,scanRequiredTokens:[],
+    page:1,cursor:null,loading:true,hasMore:true,noNewPages:0,fallbackIndex:0,fallbackQueries:[],seen:new Set(),
+    familyCounts:new Map(),interests:lanes,personalisedRetryCount:0
+  };
+  try{
+    const settled=await Promise.allSettled(lanes.map(fetchPersonalisedLane));
+    if(feedState.source!=='personalised') return;
+    const laneResults=settled.filter(result=>result.status==='fulfilled').map(result=>result.value);
+    renderPersonalisedFeed(interleavePersonalised(laneResults));
+  }catch(error){
+    if(error&&error.name==='AbortError') return;
+    $('#feed').innerHTML='<div class="feed-status"><div><b>Couldn\'t build your feed</b>Check your connection and try again.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true})">Try again</button></div></div>';
+  }finally{
+    if(feedState.source==='personalised') feedState.loading=false;
+  }
+}
+async function loadMorePersonalisedListings(){
+  if(feedState.source!=='personalised'||feedState.loading||!$('#search').classList.contains('active')) return;
+  const lanes=Array.isArray(feedState.interests)?feedState.interests:[];
+  if(!lanes.length) return;
+  feedState.loading=true;
+  showFeedLoader();
+  let added=0;
+  try{
+    const settled=await Promise.allSettled(lanes.map(fetchPersonalisedLane));
+    if(feedState.source!=='personalised') return;
+    const fresh=interleavePersonalised(settled.filter(result=>result.status==='fulfilled').map(result=>result.value),36);
+    added=fresh.length;
+    if(fresh.length){
+      feedState.personalisedRetryCount=0;
+      appendFeedItems(fresh,currentFeedData);
+    }
+  }catch(error){
+    if(!(error&&error.name==='AbortError')) feedState.noNewPages+=1;
+  }finally{
+    hideFeedLoader();
+    if(feedState.source==='personalised'){
+      feedState.loading=false;
+      const canTryAgain=lanes.some(lane=>lane.hasMore||lane.variantIndex<lane.variants.length-1);
+      if(!added&&canTryAgain&&(Number(feedState.personalisedRetryCount)||0)<3){
+        feedState.personalisedRetryCount=(Number(feedState.personalisedRetryCount)||0)+1;
+        setTimeout(loadMorePersonalisedListings,180);
+      }
+    }
+  }
+}
+function openForYou(){
+  go('search');
+  if(feedState.source==='personalised'&&currentFeedItems.length){
+    $('#q').value='';
+    $('#feed').scrollTo({top:0,behavior:'smooth'});
+    return;
+  }
+  loadPersonalisedFeed();
+}
+function finaliseReelTracking(){
+  if(!activeReelTrackingKey||!currentFeedItems.length) return;
+  const item=currentFeedItems[activeReelIndex];
+  if(!item) return;
+  const elapsed=Date.now()-activeReelStartedAt;
+  const onceKey=`${activeReelTrackingKey}:${Math.floor(activeReelStartedAt/1000)}`;
+  if(sessionDwellRecorded.has(onceKey)) return;
+  sessionDwellRecorded.add(onceKey);
+  const query=item._interestQuery||feedState.query||item.title;
+  if(elapsed>=4500) recordInterest(query,'dwell',1.25);
+  else if(elapsed>=2200) recordInterest(query,'dwell',.55);
+  else if(elapsed<650) recordInterest(query,'quickSkip',-.12);
+}
+function beginReelTracking(index){
+  activeReelIndex=Number(index)||0;
+  activeReelStartedAt=Date.now();
+  const item=currentFeedItems[activeReelIndex];
+  activeReelTrackingKey=item?listingKey(item):'';
+}
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) finaliseReelTracking(); else beginReelTracking(activeReelIndex); });
 
 function go(tab){
   $$('.screen').forEach(screen=>screen.classList.toggle('active',screen.id===tab));
@@ -1365,6 +1766,8 @@ async function searchListings(query,{showToast=false,source='search',preserveExa
   if(feedRequestController) feedRequestController.abort();
   feedRequestController=new AbortController();
   setLastSearch(q);
+  if(source==='scan') recordInterest(q,'scan');
+  else if(source==='search') recordInterest(q,'search');
   $('#q').value=q;
   go('search');
   renderLoading();
@@ -1415,7 +1818,7 @@ function doSearch(event){
 function trackerSearch(event){
   event.preventDefault();
   const q=$('#trackerQuery').value.trim();
-  if(q) lookupTrackerProduct(q);
+  if(q){ recordInterest(q,'tracker'); lookupTrackerProduct(q); }
   return false;
 }
 
@@ -1469,6 +1872,7 @@ function renderFirstListingMarketStrip(items,data){
   </div>`;
 }
 function refreshFirstListingMarketStrip(){
+  if(feedState.source==='personalised') return;
   const first=$('#feed .reel-card');
   if(!first) return;
   const old=first.querySelector('#firstMarketStrip');
@@ -1488,6 +1892,7 @@ function renderFeed(data,query){
     return;
   }
   feed.innerHTML=items.map((item,index)=>renderReelCard(item,index,data)).join('');
+  beginReelTracking(0);
   attachReelObserver();
   feed.scrollTop=0;
   teachSwipeOnce(items.length);
@@ -1532,7 +1937,7 @@ function renderReelCard(item,index,data){
         <div class="listing-price-copy"><div class="price">${escapeHTML(money(price,currency))}</div></div>
         <button class="view-deal" onclick="openDeal(${index},event)" ${url?'':'disabled'}>View Deal<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 5h5v5M10 14L19 5M19 14v5H5V5h5"/></svg></button>
       </div>
-      ${index===0 ? renderFirstListingMarketStrip(currentFeedItems,data) : ''}
+      ${index===0 && feedState.source!=='personalised' ? renderFirstListingMarketStrip(currentFeedItems,data) : ''}
     </div>
   </article>`;
 }
@@ -1552,10 +1957,11 @@ function appendFeedItems(items,data){
   currentFeedItems.push(...items);
   const feed=$('#feed');
   feed.insertAdjacentHTML('beforeend',items.map((item,index)=>renderReelCard(item,start+index,data)).join(''));
-  refreshFirstListingMarketStrip();
+  if(feedState.source!=='personalised') refreshFirstListingMarketStrip();
   attachReelObserver();
 }
 async function loadMoreListings(){
+  if(feedState.source==='personalised') return loadMorePersonalisedListings();
   if(feedState.loading || !feedState.query || !$('#search').classList.contains('active')) return;
   feedState.loading=true;
   showFeedLoader();
@@ -1650,7 +2056,8 @@ function attachReelObserver(){
     if(!visible) return;
     const index=Number(visible.target.dataset.index || 0);
     if(index!==activeReelIndex){
-      activeReelIndex=index;
+      finaliseReelTracking();
+      beginReelTracking(index);
       updateHeaderTrackButton();
       haptic();
     }
@@ -1679,6 +2086,7 @@ function teachSwipeOnce(count){
 function openDeal(index,event){
   if(event) event.stopPropagation();
   const item = currentFeedItems[index];
+  if(item) recordInterest(item._interestQuery||feedState.query||item.title,'click');
   const url = getListingUrl(item);
   if(!url){ toast('This listing does not include a direct link'); return; }
   window.open(url,'_blank','noopener,noreferrer');
@@ -1703,6 +2111,7 @@ function toggleTrack(index,event){
     tracked.splice(existing,1);
     toast('Removed from Tracker');
   }else{
+    recordInterest(item._interestQuery||feedState.query||item.title,'track');
     tracked.unshift({
       key,
       query:item.title || lastSearch(),
@@ -2264,6 +2673,7 @@ function showHybridScanResults(data,query){
   if(feedRequestController) feedRequestController.abort();
   feedRequestController=new AbortController();
   setLastSearch(exact);
+  recordInterest(exact,'scan');
   $('#q').value=exact;
   go('search');
   renderLoading();
@@ -2584,6 +2994,7 @@ function trackActiveTracker(){
   const key=trackedKey(item);
   const existing=tracked.findIndex(x=>x.key===key);
   if(existing>=0){ toast('Already in your watchlist'); return; }
+  recordInterest(item.query||item.title,'track');
   tracked.unshift({...item,key,history:[Number(item.price)],savedAt:Date.now(),updatedAt:Date.now(),demo:false,lookup:false});
   setTracked(tracked);
   activeTrackerItem=tracked[0];
@@ -2655,8 +3066,8 @@ async function refreshTrackedBatch(items){
 /* Boot */
 (function boot(){
   renderTracker();
-  const seed=lastSearch() || 'lego harry potter';
-  searchListings(seed);
+  bootstrapInterestProfile();
+  loadPersonalisedFeed();
 })();
 </script>
 </body>
