@@ -8,7 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="FindAI">
 <link rel="manifest" href="/app.webmanifest">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
 <title>FindAI</title>
 <style>
   :root{
@@ -615,7 +617,7 @@
 
 
 /* =========================================================
-   FindAI v10 — strict scan matches + compact first-listing market strip
+   FindAI v11 — exact multi-listing scans + new app icon
    ========================================================= */
 /* Search: keep the image dominant, fade the information into it, and reveal
    only a very small hint of the next listing. */
@@ -1220,6 +1222,17 @@ function scanVolumeMl(value){
   if(oz) return Number(oz[1])*29.5735;
   return null;
 }
+function scanRequiredIdentityTokens(data){
+  const brand=String(data && (data.brand || data.manufacturer || data.make) || '');
+  const brandTokens=new Set(importantQueryTokens(brand));
+  const exactName=String(data && (data.exactProductName || data.productLine || data.modelName || data.name) || '');
+  const model=String(data && (data.model || data.modelNumber || data.sku || data.styleCode || data.setNumber) || '');
+  const edition=String(data && (data.edition || data.specialEdition || data.collaboration || data.generation || data.version) || '');
+  const generic=new Set(['parfum','toilette','cologne','perfume','fragrance','spray','bottle','unisex','mens','womens']);
+  return [...new Set(importantQueryTokens([exactName,model,edition].filter(Boolean).join(' ')).filter(token=>
+    !brandTokens.has(token) && !generic.has(token) && !/(?:ml|oz)$/.test(token)
+  ))].slice(0,7);
+}
 function strongScanListing(item,query){
   const tier=scanMatchTier(item);
   if(tier==='exact') return true;
@@ -1237,11 +1250,23 @@ function strongScanListing(item,query){
   const listingVolume=scanVolumeMl(title);
   if(Number.isFinite(targetVolume) && Number.isFinite(listingVolume) && Math.abs(targetVolume-listingVolume)>12) return false;
 
-  if(tier==='possible') return scanTitleCoverage(item,query)>=0.5;
-  // Paginated text-search results do not carry hybrid tiers. Keep only titles that
-  // retain most of the exact scanned identity instead of broadening to a product family.
+  // Preserve the distinctive product identity from the scan (for example
+  // "Ralph's Club New York" rather than any Ralph's Club bottle), while allowing
+  // ordinary marketplace title variations and abbreviations.
+  const strictTokens=Array.isArray(feedState && feedState.scanRequiredTokens)
+    ? feedState.scanRequiredTokens
+    : [];
+  if(strictTokens.length){
+    const matched=strictTokens.filter(token=>titleSet.has(token)).length;
+    const minimum=strictTokens.length<=5 ? strictTokens.length : Math.ceil(strictTokens.length*.82);
+    if(matched<minimum) return false;
+  }
+
+  if(tier==='possible') return scanTitleCoverage(item,query)>=0.46;
+  // Text-search results do not carry visual-match tiers. They are allowed only
+  // when the exact identity tokens, model/size and concentration checks above pass.
   if(feedState && feedState.strictHybrid) return false;
-  return scanTitleCoverage(item,query)>=0.78;
+  return scanTitleCoverage(item,query)>=(strictTokens.length?0.5:0.7);
 }
 function rankListings(items,query,source='search'){
   const relevance=item=>listingRelevanceScore(item,query);
@@ -1350,6 +1375,7 @@ async function searchListings(query,{showToast=false,source='search',preserveExa
     source,
     preserveExact,
     strictHybrid:false,
+    scanRequiredTokens:[],
     page:1,
     cursor:null,
     loading:true,
@@ -2190,6 +2216,44 @@ async function detectBarcodeFromImage(dataUrl){
     return codes && codes[0] && codes[0].rawValue ? String(codes[0].rawValue) : '';
   }catch(_){ return ''; }
 }
+function rerenderScannedFeed(data){
+  currentFeedItems=rankListings(currentFeedItems,feedState.query,'scan');
+  const feed=$('#feed');
+  feed.innerHTML=currentFeedItems.map((item,index)=>renderReelCard(item,index,data)).join('');
+  activeReelIndex=0;
+  attachReelObserver();
+  updateHeaderTrackButton();
+  feed.scrollTop=0;
+}
+async function hydrateExactScanFeed(query){
+  try{
+    const result=await fetchProductResults(query,{
+      page:1,
+      limit:FEED_BATCH_SIZE,
+      preserveExact:true,
+      signal:feedRequestController && feedRequestController.signal
+    });
+    if(!feedState || feedState.source!=='scan' || normaliseQueryText(feedState.query)!==normaliseQueryText(query)) return;
+    const fresh=prepareNewFeedItems(result.data && result.data.listings,feedState.query,'scan');
+    feedState.page=1;
+    feedState.cursor=result.nextCursor;
+    feedState.hasMore=result.hasMore;
+    feedState.noNewPages=fresh.length?0:1;
+    if(fresh.length){
+      currentFeedItems.push(...fresh);
+      currentFeedData={...(currentFeedData||{}),...(result.data||{}),listings:currentFeedItems};
+      rerenderScannedFeed(currentFeedData);
+      refreshFirstListingMarketStrip();
+    }
+  }catch(error){
+    if(!(error && error.name==='AbortError')) feedState.noNewPages+=1;
+  }finally{
+    if(feedState) feedState.loading=false;
+    if(feedState && feedState.source==='scan' && currentFeedItems.length<8 && feedState.hasMore){
+      setTimeout(loadMoreListings,100);
+    }
+  }
+}
 function showHybridScanResults(data,query){
   const listings=Array.isArray(data && data.listings)
     ? data.listings
@@ -2208,20 +2272,25 @@ function showHybridScanResults(data,query){
     resolvedQuery:exact,
     source:'scan',
     preserveExact:true,
-    strictHybrid:true,
+    strictHybrid:false,
+    scanRequiredTokens:scanRequiredIdentityTokens(data),
     page:1,
     cursor:null,
-    loading:false,
-    hasMore:false,
+    loading:true,
+    hasMore:true,
     noNewPages:0,
     fallbackIndex:0,
-    fallbackQueries:buildFallbackQueries(exact),
+    fallbackQueries:[],
     seen:new Set()
   };
   const payload={...data,listings};
   currentFeedData=payload;
   renderFeed(payload,exact);
   toast('Matched against live marketplace listings');
+  // The visual search supplies the strongest candidates first. Then run one exact
+  // text catalogue search in the background so the feed contains multiple accurate
+  // listings instead of stopping at a single visual match.
+  hydrateExactScanFeed(exact);
   return true;
 }
 
