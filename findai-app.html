@@ -831,6 +831,11 @@
 .auth-avatar-picker{width:72px;height:72px;margin:19px auto 14px;border:1px solid rgba(255,255,255,.13);border-radius:50%;background:#14171c;color:#fff;display:grid;place-items:center;overflow:hidden;position:relative}
 .auth-avatar-picker svg{width:27px;height:27px;color:#adb4bd}.auth-avatar-picker img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}.auth-avatar-picker.has-image img{display:block}.auth-avatar-picker.has-image svg{display:none}
 .auth-form{display:flex;flex-direction:column;gap:9px}.auth-form input{height:47px;padding:0 13px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:#111419;color:#fff;outline:0;font-size:13px}.auth-form input:focus{border-color:rgba(118,160,255,.7);box-shadow:0 0 0 3px rgba(77,140,255,.1)}
+.google-signin-btn{display:flex;align-items:center;justify-content:center;gap:11px;width:100%;box-sizing:border-box;height:48px;margin-top:4px;border:1px solid rgba(255,255,255,.14);border-radius:14px;background:#0d0f13;color:#fff;font-size:13px;font-weight:730;cursor:pointer;transition:border-color .15s,background .15s}
+.google-signin-btn:hover{border-color:rgba(255,255,255,.28);background:#141821}.google-signin-btn:active{transform:scale(.98)}.google-signin-btn svg{flex:none}
+.google-auth-error{min-height:14px;margin:7px 2px 0;color:#ff8f8f;font-size:11px;text-align:center;line-height:1.35}
+.auth-divider{display:flex;align-items:center;gap:10px;margin:13px 0 3px;color:#6a717b;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+.auth-divider:before,.auth-divider:after{content:'';flex:1;height:1px;background:rgba(255,255,255,.08)}
 .auth-primary{height:48px;margin-top:3px;border:0;border-radius:14px;background:#f5f6f7;color:#090b0d;font-size:13px;font-weight:760}
 .auth-note{margin:11px 2px 0;color:#747b85;font-size:9.5px;line-height:1.4;text-align:center}
 
@@ -1151,6 +1156,9 @@
       <button class="auth-avatar-picker" type="button" id="authAvatarPicker" onclick="document.getElementById('accountAvatarInput').click()" aria-label="Choose profile photo">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg><img id="authAvatarPreview" alt="Profile preview">
       </button>
+      <button type="button" class="google-signin-btn" onclick="startGoogleAuth()"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>Continue with Google</button>
+      <div id="googleAuthError" class="google-auth-error" role="alert"></div>
+      <div class="auth-divider"><span>or continue on this device</span></div>
       <form class="auth-form" onsubmit="return completeLocalLogin(event)">
         <input id="accountNameInput" autocomplete="name" placeholder="Your name" required>
         <input id="accountEmailInput" type="email" autocomplete="email" placeholder="Email address" required>
@@ -1327,7 +1335,7 @@ function paintAccountAvatar(root,profile){
   const initials=root.querySelector('span');
   if(initials) initials.textContent=accountInitials(profile&&profile.name,profile&&profile.email);
   const avatar=safeUrl(profile&&profile.avatar)||String(profile&&profile.avatar||'');
-  if(avatar&&/^data:image\//.test(avatar)){
+  if(avatar&&/^(data:image\/|https?:\/\/)/.test(avatar)){
     if(img) img.src=avatar;
     root.classList.add('has-image');
   }else{
@@ -1407,6 +1415,8 @@ function openAccountMenu(){
 function closeAccountMenu(){ $('#accountMenuOverlay').classList.remove('show'); }
 function signOutAccount(){
   try{ localStorage.removeItem(ACCOUNT_PROFILE_KEY); }catch(_){}
+  try{ localStorage.removeItem('findai_user'); }catch(_){}
+  try{ if(window.google&&google.accounts&&google.accounts.id) google.accounts.id.disableAutoSelect(); }catch(_){}
   closeAccountMenu();closeProfile();updateAccountHeader();
   toast('Logged out. Your device interests remain available.');
 }
@@ -1994,7 +2004,9 @@ function writePersonalisedCache(){
   }catch(_){ /* Cache failure should never block the feed. */ }
 }
 function preparePersonalisedLaneItems(raw,lane){
-  const valid=(Array.isArray(raw)?raw:[]).filter(item=>item&&Number(item.price)>0);
+  /* Keep AliExpress out of the main For You feed (quality/brand consistency).
+     It can still appear in explicit search/tracker results elsewhere. */
+  const valid=(Array.isArray(raw)?raw:[]).filter(item=>item&&Number(item.price)>0&&getSource(item)!=='aliexpress');
   const ranked=[...valid].sort((a,b)=>personalisedItemScore(b,lane.query,lane.cluster)-personalisedItemScore(a,lane.query,lane.cluster));
   const preferred=ranked.filter(item=>personalisedSeenInfo(item).count<2);
   const repeatFallback=ranked.filter(item=>personalisedSeenInfo(item).count>=2);
@@ -2177,10 +2189,24 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
   if(showToast) toast('Building your For You feed…');
   try{
     markPersonalisedRefreshNow();
-    const settled=await Promise.allSettled(lanes.map(fetchPersonalisedLane));
+    /* Progressive launch: paint the feed as soon as the FIRST lane returns,
+       then merge in the rest as they arrive — instead of waiting on the slowest
+       lane (Promise.allSettled). This makes the app feel far faster on open. */
+    const laneResults=[];
+    let painted=false;
+    await Promise.all(lanes.map(lane=>
+      fetchPersonalisedLane(lane).then(res=>{
+        if(feedState.source!=='personalised'||!res) return;
+        laneResults.push(res);
+        // First lane back → paint immediately. Later lanes → re-interleave the growing set.
+        if(!painted){ painted=true; renderPersonalisedFeed(interleavePersonalised(laneResults)); }
+        else if((res.items&&res.items.length)){ renderPersonalisedFeed(interleavePersonalised(laneResults)); }
+      }).catch(err=>{ if(err&&err.name==='AbortError') throw err; })
+    ));
     if(feedState.source!=='personalised') return;
-    const laneResults=settled.filter(result=>result.status==='fulfilled').map(result=>result.value);
-    renderPersonalisedFeed(interleavePersonalised(laneResults));
+    if(!painted){
+      $('#feed').innerHTML='<div class="feed-status"><div><b>Couldn\'t build your feed</b>Check your connection and try again.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
+    }
   }catch(error){
     if(error&&error.name==='AbortError') return;
     $('#feed').innerHTML='<div class="feed-status"><div><b>Couldn\'t build your feed</b>Check your connection and try again.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
@@ -3908,6 +3934,63 @@ async function refreshTrackedBatch(items){
   updateAccountHeader();
   loadPersonalisedFeed();
 })();
+</script>
+<!-- ===== FindAI Google Sign-In (mirrors main site index.html flow) ===== -->
+<script src="https://accounts.google.com/gsi/client" async></script>
+<script>
+const GOOGLE_CLIENT_ID = '258387139240-a60g5n1hortfo0tnpm03dj8ht7jemqt0.apps.googleusercontent.com';
+const WORKER_BASE      = 'https://api.carsearchapi.workers.dev';
+function findaiSession(){
+  try{ var u = JSON.parse(localStorage.getItem('findai_user')||'null'); return (u && u.session) ? u.session : ''; }catch(_){ return ''; }
+}
+(function migrateLegacyLogin(){
+  try{ var u = JSON.parse(localStorage.getItem('findai_user')||'null'); if(u && u.email && !u.session) localStorage.removeItem('findai_user'); }catch(_){}
+})();
+function applyFindaiUser(data){
+  try{ localStorage.setItem('findai_user', JSON.stringify(data)); }catch(_){}
+  var existing = (typeof getAccountProfile==='function' && getAccountProfile()) || {};
+  var profile = {
+    ...existing,
+    name: data.name || existing.name || (data.email||'').split('@')[0],
+    email: data.email,
+    avatar: data.picture || existing.avatar || '',
+    google: true,
+    createdAt: existing.createdAt || Date.now(),
+    updatedAt: Date.now()
+  };
+  if(typeof saveAccountProfile==='function') saveAccountProfile(profile);
+  if(typeof updateAccountHeader==='function') updateAccountHeader();
+  if(typeof renderAccountProfile==='function'){ try{ renderAccountProfile(); }catch(_){} }
+  if(typeof closeLogin==='function') closeLogin();
+  if(typeof toast==='function') toast('Signed in as '+String(profile.name).split(/\s+/)[0]);
+}
+var googleTokenClient = null;
+async function handleGoogleToken(resp){
+  var fb = document.getElementById('googleAuthError');
+  if(!resp || !resp.access_token){ if(fb) fb.textContent='Google sign-in was cancelled.'; return; }
+  try{
+    const r = await fetch(WORKER_BASE + '/auth/google-token', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ access_token: resp.access_token })
+    });
+    const data = await r.json();
+    if(data && data.email){ applyFindaiUser(data); }
+    else if(fb){ fb.textContent = (data && data.error) || 'Sign-in failed, please try again.'; }
+  }catch(e){ if(fb) fb.textContent = 'Could not reach the sign-in server.'; }
+}
+function startGoogleAuth(){
+  var fb = document.getElementById('googleAuthError'); if(fb) fb.textContent='';
+  if(!googleTokenClient){ if(fb) fb.textContent='Google sign-in is still loading — try again in a moment.'; return; }
+  googleTokenClient.requestAccessToken();
+}
+function initGoogleAuth(){
+  try{ var u = JSON.parse(localStorage.getItem('findai_user')||'null'); if(u && u.email && u.session) applyFindaiUser(u); }catch(_){}
+  if(!(window.google && google.accounts && google.accounts.oauth2)){ setTimeout(initGoogleAuth,400); return; }
+  googleTokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID, scope: 'openid email profile', callback: handleGoogleToken
+  });
+}
+window.addEventListener('load', initGoogleAuth);
 </script>
 </body>
 </html>
