@@ -765,8 +765,142 @@
   .scan-live-rail{height:39px}
 }
 
+
+/* =========================================================
+   FindAI v16 — account header, profile shell and adaptive images
+   ========================================================= */
+.login-pill{
+  height:32px;padding:0 15px;border:0;border-radius:999px;background:#f4f5f6;color:#08090b;
+  font-size:12px;font-weight:760;letter-spacing:-.1px;box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 5px 16px rgba(0,0,0,.22)
+}
+.login-pill:active{transform:scale(.97)}
+.header-saved-btn[hidden],.account-avatar[hidden],.login-pill[hidden]{display:none!important}
+.account-avatar{
+  width:31px;height:31px;padding:0;border:1px solid rgba(255,255,255,.18);border-radius:50%;overflow:hidden;
+  display:grid;place-items:center;background:linear-gradient(145deg,#20242a,#0c0e12);color:#fff;font-size:10px;font-weight:780
+}
+.account-avatar img{width:100%;height:100%;object-fit:cover;display:none}
+.account-avatar.has-image img{display:block}.account-avatar.has-image span{display:none}
+#search .header-actions.account-logged-in{gap:7px}
+#search .header-actions.account-logged-in .header-saved-btn{display:grid}
+
+/* Product photos choose a fit from their real aspect ratio. Wide marketplace photos
+   receive a controlled crop while square and portrait photography stay intact. */
+#search .hero-image.fit-panorama{top:21%;height:47%;object-fit:cover;object-position:center;transform:scale(1.035)}
+#search .hero-image.fit-wide{top:16%;height:59%;object-fit:cover;object-position:center;transform:scale(1.025)}
+#search .hero-image.fit-landscape{top:8%;height:76%;object-fit:contain;transform:scale(1.07)}
+#search .hero-image.fit-square{top:2%;height:91%;object-fit:contain;transform:scale(1.045)}
+#search .hero-image.fit-portrait{top:0;height:100%;object-fit:contain;transform:scale(1.025)}
+
+.account-overlay{
+  position:absolute;inset:0;z-index:110;display:none;background:rgba(0,0,0,.58);backdrop-filter:blur(10px);
+  align-items:flex-end;justify-content:center
+}
+.account-overlay.show{display:flex}
+.account-overlay.centered{align-items:center;padding:18px}
+.account-sheet{
+  width:100%;max-height:86%;overflow:auto;padding:9px 14px calc(18px + var(--safe-bottom));border-radius:27px 27px 0 0;
+  border-top:1px solid rgba(255,255,255,.12);background:linear-gradient(180deg,#171a1f,#0e1014 36%);box-shadow:0 -24px 70px rgba(0,0,0,.48)
+}
+.account-grabber{width:39px;height:4px;margin:1px auto 15px;border-radius:999px;background:#4b5058}
+.account-user-row{display:flex;align-items:center;gap:12px;padding:5px 4px 15px;border-bottom:1px solid rgba(255,255,255,.075)}
+.account-menu-avatar,.profile-avatar{
+  flex:0 0 auto;overflow:hidden;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#28303a,#11151b);
+  border:1px solid rgba(255,255,255,.16);color:#fff;font-weight:800
+}
+.account-menu-avatar{width:48px;height:48px;font-size:14px}.profile-avatar{width:82px;height:82px;font-size:23px}
+.account-menu-avatar img,.profile-avatar img{width:100%;height:100%;object-fit:cover;display:none}
+.account-menu-avatar.has-image img,.profile-avatar.has-image img{display:block}
+.account-menu-avatar.has-image span,.profile-avatar.has-image span{display:none}
+.account-user-copy{min-width:0;flex:1}.account-user-copy b{display:block;font-size:15px}.account-user-copy span{display:block;margin-top:3px;color:#8f96a0;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.account-menu-list{display:flex;flex-direction:column;padding-top:8px}
+.account-menu-item{
+  width:100%;min-height:51px;padding:0 5px;border:0;border-bottom:1px solid rgba(255,255,255,.055);background:transparent;color:#f0f2f4;
+  display:grid;grid-template-columns:27px minmax(0,1fr) auto;align-items:center;gap:9px;text-align:left;font-size:13px;font-weight:600
+}
+.account-menu-item svg{width:20px;height:20px;color:#d7dbe0}.account-menu-item .chevron{width:15px;height:15px;color:#6f7680}
+.account-menu-item .soon{padding:5px 8px;border-radius:999px;background:rgba(77,140,255,.13);color:#7da7ff;font-size:9px;font-weight:750}
+.account-menu-item.danger{margin-top:9px;border-bottom:0;color:#ff716d}.account-menu-item.danger svg{color:#ff716d}
+
+.auth-card{
+  width:min(100%,390px);padding:18px;border:1px solid rgba(255,255,255,.12);border-radius:26px;
+  background:linear-gradient(180deg,#181b20,#0d0f13);box-shadow:0 28px 90px rgba(0,0,0,.58)
+}
+.auth-top{display:flex;align-items:flex-start;justify-content:space-between;gap:15px}.auth-top h2{margin:0;font-size:24px;letter-spacing:-.65px}.auth-top p{margin:6px 0 0;color:#989fa9;font-size:11.5px;line-height:1.45}
+.auth-close{width:34px;height:34px;border:1px solid rgba(255,255,255,.09);border-radius:50%;background:#15181d;color:#fff;display:grid;place-items:center}.auth-close svg{width:17px;height:17px}
+.auth-avatar-picker{width:72px;height:72px;margin:19px auto 14px;border:1px solid rgba(255,255,255,.13);border-radius:50%;background:#14171c;color:#fff;display:grid;place-items:center;overflow:hidden;position:relative}
+.auth-avatar-picker svg{width:27px;height:27px;color:#adb4bd}.auth-avatar-picker img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}.auth-avatar-picker.has-image img{display:block}.auth-avatar-picker.has-image svg{display:none}
+.auth-form{display:flex;flex-direction:column;gap:9px}.auth-form input{height:47px;padding:0 13px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:#111419;color:#fff;outline:0;font-size:13px}.auth-form input:focus{border-color:rgba(118,160,255,.7);box-shadow:0 0 0 3px rgba(77,140,255,.1)}
+.auth-primary{height:48px;margin-top:3px;border:0;border-radius:14px;background:#f5f6f7;color:#090b0d;font-size:13px;font-weight:760}
+.auth-note{margin:11px 2px 0;color:#747b85;font-size:9.5px;line-height:1.4;text-align:center}
+
+.profile-screen{
+  position:absolute;inset:0;z-index:120;display:none;flex-direction:column;overflow:hidden;background:linear-gradient(180deg,#0b0e13,#050607 48%)
+}
+.profile-screen.show{display:flex}
+.profile-header{height:calc(var(--safe-top) + 52px);padding:var(--safe-top) 14px 0;display:flex;align-items:center;justify-content:space-between}
+.profile-header button{width:35px;height:35px;border:0;border-radius:50%;background:rgba(255,255,255,.05);color:#fff;display:grid;place-items:center}.profile-header svg{width:19px;height:19px}
+.profile-scroll{flex:1;min-height:0;overflow:auto;padding:7px 15px calc(22px + var(--safe-bottom));scrollbar-width:none}.profile-scroll::-webkit-scrollbar{display:none}
+.profile-identity{text-align:center}.profile-avatar{margin:4px auto 12px;cursor:pointer}.profile-identity h2{margin:0;font-size:23px;letter-spacing:-.55px}.profile-identity p{margin:4px 0 0;color:#8e959f;font-size:11px}
+.profile-stats{display:grid;grid-template-columns:repeat(3,1fr);margin:22px 0 14px}.profile-stat{text-align:center;border-right:1px solid rgba(255,255,255,.07)}.profile-stat:last-child{border:0}.profile-stat b{display:block;font-size:19px}.profile-stat span{display:block;margin-top:4px;color:#858c96;font-size:10px}
+.profile-card{margin-top:11px;padding:14px;border:1px solid rgba(255,255,255,.065);border-radius:19px;background:rgba(16,19,24,.92)}
+.profile-card-head{display:flex;align-items:center;justify-content:space-between}.profile-card-head h3{margin:0;font-size:13px}.profile-card-head span{color:#689cff;font-size:10px}
+.interest-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.interest-chip{padding:8px 10px;border:1px solid rgba(255,255,255,.06);border-radius:999px;background:#191c21;color:#e7e9ec;font-size:10px}
+.recent-search-list{margin-top:7px}.recent-search-row{min-height:42px;display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid rgba(255,255,255,.055);font-size:11px}.recent-search-row:last-child{border:0}.recent-search-row span:last-child{color:#777e88;font-size:9px}
+.profile-device-note{margin-top:12px;padding:12px;border-radius:15px;background:rgba(77,140,255,.08);color:#a9c3f7;font-size:10px;line-height:1.45;text-align:center}
+
+@media (max-height:720px){
+  .login-pill{height:30px;padding:0 13px}.account-avatar{width:29px;height:29px}
+  #search .hero-image.fit-wide{top:14%;height:61%}
+}
+
+/* =========================================================
+   FindAI v17 — fullscreen reels header + social product actions
+   ========================================================= */
+#search .search-header{
+  transition:transform .23s cubic-bezier(.22,.75,.25,1),opacity .18s ease;
+  will-change:transform,opacity
+}
+#search.header-hidden .search-header{
+  transform:translateY(calc(-100% - var(--safe-top)));
+  opacity:0;pointer-events:none
+}
+#search.header-hidden .search-header>*{pointer-events:none}
+
+/* Instagram-style action rail. The heart is a real preference signal,
+   Compare opens matching listings, and Share uses the native share sheet. */
+.reel-actions-rail{
+  position:absolute;right:10px;bottom:142px;z-index:12;display:flex;flex-direction:column;align-items:center;gap:13px
+}
+.reel-social-action{
+  width:50px;min-height:53px;padding:0;border:0;background:transparent;color:#fff;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+  text-shadow:0 1px 7px rgba(0,0,0,.8)
+}
+.reel-social-icon{
+  width:40px;height:40px;border:1px solid rgba(255,255,255,.12);border-radius:50%;
+  display:grid;place-items:center;background:rgba(5,7,10,.48);backdrop-filter:blur(13px);
+  box-shadow:0 8px 22px rgba(0,0,0,.2);transition:transform .16s ease,color .16s ease,background .16s ease
+}
+.reel-social-action:active .reel-social-icon{transform:scale(.9)}
+.reel-social-action svg{width:23px;height:23px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+.reel-social-label{font-size:9px;font-weight:650;line-height:1;color:#f5f6f8}
+.reel-social-action.like.active{color:#ff3040}
+.reel-social-action.like.active .reel-social-icon{background:rgba(255,48,64,.14);border-color:rgba(255,75,88,.34)}
+.reel-social-action.like.active .reel-social-label{color:#ff6875}
+#search .title{max-width:calc(100% - 58px)}
+#search .view-deal{margin-right:1px}
+
+@media (max-height:740px){
+  .reel-actions-rail{right:8px;bottom:126px;gap:9px}
+  .reel-social-action{width:46px;min-height:48px;gap:2px}
+  .reel-social-icon{width:36px;height:36px}
+  .reel-social-action svg{width:21px;height:21px}
+  .reel-social-label{font-size:8px}
+}
+
 </style>
-  <meta name="findai-build" content="v15-personalised-fresh-sessions">
+  <meta name="findai-build" content="v17-fullscreen-social-actions">
 </head>
 <body>
 <div class="app">
@@ -775,12 +909,10 @@
     <header class="search-header">
       <div class="brand-row">
         <div class="brand" role="button" tabindex="0" aria-label="Open For You feed" onclick="openForYou()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openForYou();}">FindAI</div>
-        <div class="header-actions">
-          <button class="icon-btn" id="headerTrackBtn" aria-label="Track current listing" onclick="toggleCurrentTrack(event)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg>
-          </button>
-          <button class="icon-btn" aria-label="More options" onclick="toast('More settings coming soon')">
-            <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+        <div class="header-actions" id="headerAccountActions">
+          <button class="login-pill" id="loginPill" type="button" onclick="openLogin()">Log in</button>
+          <button class="account-avatar" id="accountAvatar" type="button" aria-label="Open account" onclick="openAccountMenu()" hidden>
+            <img id="headerAvatarImage" alt=""><span id="headerAvatarInitials">F</span>
           </button>
         </div>
       </div>
@@ -914,6 +1046,58 @@
     </button>
   </nav>
 
+
+
+  <!-- Account interface. Authentication is deliberately isolated from the shopping and scanner code. -->
+  <div class="account-overlay centered" id="loginOverlay" role="dialog" aria-modal="true" aria-labelledby="loginTitle" onclick="if(event.target===this)closeLogin()">
+    <div class="auth-card" onclick="event.stopPropagation()">
+      <div class="auth-top">
+        <div><h2 id="loginTitle">Log in to FindAI</h2><p>Keep your profile, saved products and personalised interests together.</p></div>
+        <button class="auth-close" type="button" onclick="closeLogin()" aria-label="Close login"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      </div>
+      <button class="auth-avatar-picker" type="button" id="authAvatarPicker" onclick="document.getElementById('accountAvatarInput').click()" aria-label="Choose profile photo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg><img id="authAvatarPreview" alt="Profile preview">
+      </button>
+      <form class="auth-form" onsubmit="return completeLocalLogin(event)">
+        <input id="accountNameInput" autocomplete="name" placeholder="Your name" required>
+        <input id="accountEmailInput" type="email" autocomplete="email" placeholder="Email address" required>
+        <button class="auth-primary" type="submit">Continue</button>
+      </form>
+      <p class="auth-note">This version creates the account interface and saves the profile on this device. Secure cross-device login and D1 syncing require authentication endpoints in the Cloudflare Worker.</p>
+      <input id="accountAvatarInput" type="file" accept="image/*" hidden onchange="accountAvatarPicked(event)">
+    </div>
+  </div>
+
+  <div class="account-overlay" id="accountMenuOverlay" role="dialog" aria-modal="true" aria-label="Account menu" onclick="if(event.target===this)closeAccountMenu()">
+    <div class="account-sheet" onclick="event.stopPropagation()">
+      <div class="account-grabber"></div>
+      <div class="account-user-row">
+        <div class="account-menu-avatar" id="menuAvatar"><img alt=""><span>F</span></div>
+        <div class="account-user-copy"><b id="menuAccountName">FindAI user</b><span id="menuAccountEmail"></span></div>
+      </div>
+      <div class="account-menu-list">
+        <button class="account-menu-item" onclick="openProfile()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 21a7 7 0 0 1 14 0"/></svg><span>My Account</span><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+        <button class="account-menu-item" onclick="closeAccountMenu();go('tracker')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg><span>Saved items</span><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+        <button class="account-menu-item" onclick="closeAccountMenu();go('tracker')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 17l5-5 3.5 3.5L20 8"/><path d="M16 8h4v4"/></svg><span>Tracked products</span><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+        <button class="account-menu-item" onclick="toast('Create Listing is being prepared for the FindAI marketplace')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16v13H4zM8 7V5a4 4 0 0 1 8 0v2"/></svg><span>My Listings</span><span class="soon">Soon</span></button>
+        <button class="account-menu-item" onclick="toast('Account settings are coming next')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.87l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.25.37.6.7 1 .9.34.17.72.25 1.1.25H21v4h-.1a1.7 1.7 0 0 0-1.5.85z"/></svg><span>Settings</span><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+        <button class="account-menu-item danger" onclick="signOutAccount()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 17l5-5-5-5M15 12H3M14 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5"/></svg><span>Log out</span><span></span></button>
+      </div>
+    </div>
+  </div>
+
+  <section class="profile-screen" id="profileScreen" aria-label="FindAI profile">
+    <header class="profile-header"><button onclick="closeProfile()" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><button onclick="toast('Profile settings are coming next')" aria-label="Profile settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.87l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.25.37.6.7 1 .9.34.17.72.25 1.1.25H21v4h-.1a1.7 1.7 0 0 0-1.5.85z"/></svg></button></header>
+    <div class="profile-scroll">
+      <div class="profile-identity"><button class="profile-avatar" id="profileAvatar" onclick="document.getElementById('accountAvatarInput').click()" aria-label="Change profile photo"><img alt=""><span>F</span></button><h2 id="profileName">FindAI user</h2><p id="profileEmail"></p></div>
+      <div class="profile-stats"><div class="profile-stat"><b id="profileSavedCount">0</b><span>Saved</span></div><div class="profile-stat"><b id="profileTrackedCount">0</b><span>Tracked</span></div><div class="profile-stat"><b>0</b><span>Listings</span></div></div>
+      <div class="profile-card"><div class="profile-card-head"><h3>Interests</h3><span>Personalised</span></div><div class="interest-chips" id="profileInterests"></div></div>
+      <div class="profile-card"><div class="profile-card-head"><h3>Recent searches</h3><span>See all</span></div><div class="recent-search-list" id="profileRecentSearches"></div></div>
+      <div class="profile-device-note">Your current recommendation profile remains stored locally on this device. The interface is ready for secure account sync when the Worker authentication endpoints are added.</div>
+    </div>
+  </section>
+
+
   <div class="sheet-backdrop" id="matchBackdrop" role="dialog" aria-modal="true" aria-labelledby="matchTitle">
     <div class="match-sheet">
       <div class="sheet-grabber"></div>
@@ -1007,6 +1191,9 @@ let personalisedHiddenAt = 0;
 let personalisedSeenCache = null;
 let personalisedImpressionsThisView = new Set();
 let personalisedBackgroundRefreshTimer = null;
+let feedHeaderLastScrollTop = 0;
+let feedHeaderScrollDirection = 0;
+let feedHeaderBound = false;
 
 const $ = (sel, root=document) => root.querySelector(sel);
 const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
@@ -1023,6 +1210,148 @@ function safeUrl(value){
     return ['http:','https:'].includes(u.protocol) ? u.href : '';
   }catch(_){ return ''; }
 }
+
+
+const ACCOUNT_PROFILE_KEY='fa_account_profile_v1';
+let pendingAccountAvatar='';
+function getAccountProfile(){
+  try{
+    const profile=JSON.parse(localStorage.getItem(ACCOUNT_PROFILE_KEY)||'null');
+    return profile&&profile.email?profile:null;
+  }catch(_){ return null; }
+}
+function saveAccountProfile(profile){
+  try{ localStorage.setItem(ACCOUNT_PROFILE_KEY,JSON.stringify(profile)); }catch(_){}
+}
+function accountInitials(name,email){
+  const parts=String(name||'').trim().split(/\s+/).filter(Boolean);
+  if(parts.length>1) return `${parts[0][0]}${parts[parts.length-1][0]}`.toUpperCase();
+  return (parts[0]&&parts[0][0]||String(email||'F')[0]||'F').toUpperCase();
+}
+function paintAccountAvatar(root,profile){
+  if(!root) return;
+  const img=root.querySelector('img');
+  const initials=root.querySelector('span');
+  if(initials) initials.textContent=accountInitials(profile&&profile.name,profile&&profile.email);
+  const avatar=safeUrl(profile&&profile.avatar)||String(profile&&profile.avatar||'');
+  if(avatar&&/^data:image\//.test(avatar)){
+    if(img) img.src=avatar;
+    root.classList.add('has-image');
+  }else{
+    if(img) img.removeAttribute('src');
+    root.classList.remove('has-image');
+  }
+}
+function updateAccountHeader(){
+  const profile=getAccountProfile();
+  const actions=$('#headerAccountActions');
+  const login=$('#loginPill');
+  const avatar=$('#accountAvatar');
+  if(login) login.hidden=!!profile;
+  if(avatar) avatar.hidden=!profile;
+  if(actions) actions.classList.toggle('account-logged-in',!!profile);
+  if(profile) paintAccountAvatar(avatar,profile);
+}
+function openLogin(){
+  const profile=getAccountProfile();
+  if(profile){ openAccountMenu(); return; }
+  $('#accountNameInput').value='';
+  $('#accountEmailInput').value='';
+  pendingAccountAvatar='';
+  $('#authAvatarPicker').classList.remove('has-image');
+  $('#authAvatarPreview').removeAttribute('src');
+  $('#loginOverlay').classList.add('show');
+  setTimeout(()=>$('#accountNameInput').focus(),120);
+}
+function closeLogin(){ $('#loginOverlay').classList.remove('show'); }
+function completeLocalLogin(event){
+  event.preventDefault();
+  const name=$('#accountNameInput').value.trim();
+  const email=$('#accountEmailInput').value.trim().toLowerCase();
+  if(!name||!email){ toast('Enter your name and email'); return false; }
+  const existing=getAccountProfile()||{};
+  saveAccountProfile({...existing,name,email,avatar:pendingAccountAvatar||existing.avatar||'',createdAt:existing.createdAt||Date.now(),updatedAt:Date.now()});
+  closeLogin();
+  updateAccountHeader();
+  toast(`Welcome, ${name.split(/\s+/)[0]}`);
+  return false;
+}
+function accountAvatarPicked(event){
+  const file=event.target.files&&event.target.files[0];
+  event.target.value='';
+  if(!file||!file.type.startsWith('image/')) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const image=new Image();
+    image.onload=()=>{
+      const size=180,canvas=document.createElement('canvas');
+      canvas.width=size;canvas.height=size;
+      const ctx=canvas.getContext('2d');
+      const scale=Math.max(size/image.naturalWidth,size/image.naturalHeight);
+      const width=image.naturalWidth*scale,height=image.naturalHeight*scale;
+      ctx.drawImage(image,(size-width)/2,(size-height)/2,width,height);
+      const avatar=canvas.toDataURL('image/jpeg',.82);
+      pendingAccountAvatar=avatar;
+      const profile=getAccountProfile();
+      if(profile){ profile.avatar=avatar;profile.updatedAt=Date.now();saveAccountProfile(profile);updateAccountHeader();renderAccountProfile(); }
+      const picker=$('#authAvatarPicker');
+      const preview=$('#authAvatarPreview');
+      if(preview) preview.src=avatar;
+      if(picker) picker.classList.add('has-image');
+    };
+    image.src=String(reader.result||'');
+  };
+  reader.readAsDataURL(file);
+}
+function openAccountMenu(){
+  const profile=getAccountProfile();
+  if(!profile){ openLogin(); return; }
+  $('#menuAccountName').textContent=profile.name||'FindAI user';
+  $('#menuAccountEmail').textContent=profile.email||'';
+  paintAccountAvatar($('#menuAvatar'),profile);
+  $('#accountMenuOverlay').classList.add('show');
+}
+function closeAccountMenu(){ $('#accountMenuOverlay').classList.remove('show'); }
+function signOutAccount(){
+  try{ localStorage.removeItem(ACCOUNT_PROFILE_KEY); }catch(_){}
+  closeAccountMenu();closeProfile();updateAccountHeader();
+  toast('Logged out. Your device interests remain available.');
+}
+function openProfile(){
+  closeAccountMenu();
+  renderAccountProfile();
+  $('#profileScreen').classList.add('show');
+}
+function closeProfile(){ $('#profileScreen').classList.remove('show'); }
+function renderAccountProfile(){
+  const profile=getAccountProfile();
+  if(!profile) return;
+  $('#profileName').textContent=profile.name||'FindAI user';
+  $('#profileEmail').textContent=profile.email||'';
+  paintAccountAvatar($('#profileAvatar'),profile);
+  const tracked=getTracked();
+  $('#profileSavedCount').textContent=String(tracked.length);
+  $('#profileTrackedCount').textContent=String(tracked.length);
+  const interests=getInterestProfile().slice(0,8);
+  $('#profileInterests').innerHTML=interests.length?interests.map(item=>`<span class="interest-chip">${escapeHTML(item.discoveryQuery||item.query||item.category)}</span>`).join(''):'<span class="interest-chip">Search to shape your feed</span>';
+  let history=[];
+  try{ const raw=JSON.parse(localStorage.getItem(INTEREST_HISTORY_KEY)||'[]');history=Array.isArray(raw)?raw.slice(0,7):[]; }catch(_){}
+  $('#profileRecentSearches').innerHTML=history.length?history.map(item=>`<div class="recent-search-row"><span>${escapeHTML(item.query||'Search')}</span><span>${escapeHTML(timeAgo(item.at))}</span></div>`).join(''):'<div class="recent-search-row"><span>No searches yet</span><span></span></div>';
+}
+function adaptListingImage(img){
+  if(!img||!img.naturalWidth||!img.naturalHeight) return;
+  const ratio=img.naturalWidth/img.naturalHeight;
+  img.classList.remove('fit-panorama','fit-wide','fit-landscape','fit-square','fit-portrait');
+  if(ratio>=2.05) img.classList.add('fit-panorama');
+  else if(ratio>=1.42) img.classList.add('fit-wide');
+  else if(ratio>=1.08) img.classList.add('fit-landscape');
+  else if(ratio>=.82) img.classList.add('fit-square');
+  else img.classList.add('fit-portrait');
+}
+document.addEventListener('keydown',event=>{
+  if(event.key!=='Escape') return;
+  closeLogin();closeAccountMenu();closeProfile();
+});
 
 function collectImageCandidates(item){
   if(!item) return [];
@@ -1236,6 +1565,9 @@ const INTEREST_EVENT_WEIGHTS = {
   search:5,
   scan:8,
   click:3.5,
+  like:12,
+  unlike:-5,
+  compare:4.5,
   track:8,
   tracker:4,
   dwell:1,
@@ -1654,7 +1986,34 @@ async function fetchPersonalisedLane(lane){
   persistPersonalisedLaneState([lane]);
   return {lane,items,data:result.data};
 }
+function surfaceLikedListingInFeed(items){
+  const base=[...(Array.isArray(items)?items:[])];
+  const liked=getTracked().filter(item=>item&&item.title&&Number(item.price)>0);
+  if(!liked.length) return base;
+  const ordered=[...liked].sort((a,b)=>(Number(a.lastFeedAt)||0)-(Number(b.lastFeedAt)||0) || (Number(b.savedAt)||0)-(Number(a.savedAt)||0));
+  const choiceIndex=Math.floor(seededUnit(personalisedSessionSeed,'liked-feed-choice')*Math.min(ordered.length,4));
+  const chosen=ordered[choiceIndex]||ordered[0];
+  const chosenKey=chosen.key||trackedKey(chosen);
+  const existingIndex=base.findIndex(item=>trackedKey(item)===chosenKey);
+  const card=existingIndex>=0?base.splice(existingIndex,1)[0]:{
+    ...chosen,
+    sellerName:chosen.sellerName||'Saved by you',
+    condition:chosen.condition||'',
+    _likedReminder:true
+  };
+  card._interestQuery=card._interestQuery||chosen.query||chosen.title;
+  card._interestCluster=card._interestCluster||interestClusterKey(card._interestQuery);
+  card._interestCategory=card._interestCategory||interestCategory(card._interestQuery);
+  const insertAt=Math.min(base.length,3+Math.floor(seededUnit(personalisedSessionSeed,'liked-feed-position')*4));
+  base.splice(insertAt,0,card);
+  chosen.lastFeedAt=Date.now();
+  const updated=getTracked().map(item=>(item.key||trackedKey(item))===chosenKey?{...item,lastFeedAt:chosen.lastFeedAt}:item);
+  setTracked(updated);
+  return base;
+}
+
 function renderPersonalisedFeed(items,{writeCache=true}={}){
+  items=surfaceLikedListingInFeed(items);
   currentFeedItems=items;
   currentFeedData={personalised:true};
   activeReelIndex=0;
@@ -1665,10 +2024,12 @@ function renderPersonalisedFeed(items,{writeCache=true}={}){
   }
   feed.innerHTML=items.map((item,index)=>renderReelCard(item,index,currentFeedData)).join('');
   feed.scrollTop=0;
+  feedHeaderLastScrollTop=0;
+  showFeedHeader();
+  bindFeedHeaderAutoHide();
   beginReelTracking(0);
   attachReelObserver();
   teachSwipeOnce(items.length);
-  updateHeaderTrackButton();
   if(writeCache) writePersonalisedCache();
   /* Never auto-fetch merely because a marketplace returned a short page.
      More listings are fetched only when the user actually scrolls near the end. */
@@ -1784,6 +2145,40 @@ async function loadMorePersonalisedListings(){
     if(feedState.source==='personalised') feedState.loading=false;
   }
 }
+function showFeedHeader(){
+  const search=$('#search');
+  if(search) search.classList.remove('header-hidden');
+}
+function hideFeedHeader(){
+  const search=$('#search');
+  if(search) search.classList.add('header-hidden');
+}
+function bindFeedHeaderAutoHide(){
+  const feed=$('#feed');
+  if(!feed||feedHeaderBound) return;
+  feedHeaderBound=true;
+  feedHeaderLastScrollTop=Math.max(0,feed.scrollTop||0);
+  feed.addEventListener('scroll',()=>{
+    if(!$('#search').classList.contains('active')) return;
+    const top=Math.max(0,feed.scrollTop||0);
+    const delta=top-feedHeaderLastScrollTop;
+    if(top<38){
+      showFeedHeader();
+      feedHeaderScrollDirection=0;
+    }else if(delta>4){
+      feedHeaderScrollDirection=Math.min(30,feedHeaderScrollDirection+delta);
+      if(feedHeaderScrollDirection>12) hideFeedHeader();
+    }else if(delta<-4){
+      feedHeaderScrollDirection=Math.max(-30,feedHeaderScrollDirection+delta);
+      if(feedHeaderScrollDirection<-8) showFeedHeader();
+    }
+    feedHeaderLastScrollTop=top;
+  },{passive:true});
+  feed.addEventListener('pointerup',event=>{
+    if(event.clientY<=92 && $('#search').classList.contains('header-hidden')) showFeedHeader();
+  },{passive:true});
+}
+
 function openForYou(){
   go('search');
   if(feedState.source==='personalised'&&currentFeedItems.length){
@@ -1829,6 +2224,7 @@ document.addEventListener('visibilitychange',()=>{
 function go(tab){
   $$('.screen').forEach(screen=>screen.classList.toggle('active',screen.id===tab));
   $$('.nav button').forEach(button=>button.classList.toggle('active',button.dataset.tab===tab));
+  if(tab==='search'){ showFeedHeader(); bindFeedHeaderAutoHide(); }
   if(tab === 'scan'){
     setTimeout(()=>{ if(!stream) startCam(); },80);
   }else{
@@ -2193,8 +2589,10 @@ function renderFeed(data,query){
   beginReelTracking(0);
   attachReelObserver();
   feed.scrollTop=0;
+  feedHeaderLastScrollTop=0;
+  showFeedHeader();
+  bindFeedHeaderAutoHide();
   teachSwipeOnce(items.length);
-  updateHeaderTrackButton();
   if(items.length<8) setTimeout(loadMoreListings,80);
 }
 
@@ -2223,10 +2621,24 @@ function renderReelCard(item,index,data){
   return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}">
     <div class="hero-stage">
       <div class="hero-backdrop" ${bg}></div>
-      ${image ? `<img class="hero-image" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onerror="imageFailed(this)">` : ''}
+      ${image ? `<img class="hero-image" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
       <div class="image-fallback" style="${image?'':'display:grid'}">Image unavailable</div>
     </div>
     ${index>0 ? `<div class="reel-peek-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 15l6-6 6 6"/></svg></div>` : ''}
+    <div class="reel-actions-rail" aria-label="Listing actions">
+      <button class="reel-social-action like ${isTracked(item)?'active':''}" data-like-key="${escapeAttr(trackedKey(item))}" onclick="toggleLike(${index},event)" aria-label="${isTracked(item)?'Unlike':'Like'} this listing">
+        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="${isTracked(item)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></span>
+        <span class="reel-social-label">Like</span>
+      </button>
+      <button class="reel-social-action compare" onclick="compareItem(${index},event)" aria-label="Compare prices for this product">
+        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h13l-3-3M20 7l-3 3M17 17H4l3 3M4 17l3-3"/></svg></span>
+        <span class="reel-social-label">Compare</span>
+      </button>
+      <button class="reel-social-action share" onclick="shareItem(${index},event)" aria-label="Share this listing">
+        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 13v6h14v-6"/></svg></span>
+        <span class="reel-social-label">Share</span>
+      </button>
+    </div>
     <div class="product-panel">
       <div class="source-chip" data-source="${escapeAttr(source)}"><span class="source-brand">${escapeHTML(sourceLabel(source))}</span><span class="source-separator">·</span><span>${escapeHTML(sellerLabel)}</span></div>
       <h2 class="title">${escapeHTML(title)}</h2>
@@ -2328,7 +2740,7 @@ function getTracked(){
     return Array.isArray(raw) ? raw : [];
   }catch(_){ return []; }
 }
-function setTracked(items){ try{localStorage.setItem('fa_tracked_v2',JSON.stringify(items.slice(0,50)))}catch(_){} }
+function setTracked(items){ try{localStorage.setItem('fa_tracked_v2',JSON.stringify(items.slice(0,50)))}catch(_){} if(typeof renderAccountProfile==='function'&&getAccountProfile()) renderAccountProfile(); }
 function isTracked(item){ const key=trackedKey(item); return getTracked().some(x=>x.key===key); }
 
 function imageFailed(img){
@@ -2356,8 +2768,7 @@ function attachReelObserver(){
     if(index!==activeReelIndex){
       finaliseReelTracking();
       beginReelTracking(index);
-      updateHeaderTrackButton();
-      haptic();
+          haptic();
     }
     if(index>=currentFeedItems.length-5) loadMoreListings();
   },{root:feed,threshold:[.52,.7,.86]});
@@ -2398,61 +2809,67 @@ async function shareItem(index,event){
     else { await navigator.clipboard.writeText(shareData.url); toast('Listing link copied'); }
   }catch(_){ /* user cancelled */ }
 }
-function toggleTrack(index,event){
+function toggleLike(index,event){
   if(event) event.stopPropagation();
-  const item = currentFeedItems[index];
+  const item=currentFeedItems[index];
   if(!item) return;
-  const key = trackedKey(item);
-  let tracked = getTracked();
-  const existing = tracked.findIndex(x=>x.key===key);
+  const key=trackedKey(item);
+  let liked=getTracked();
+  const existing=liked.findIndex(entry=>entry.key===key);
+  const interestQuery=item._interestQuery||deriveDiscoveryQuery(item.title)||item.title;
   if(existing>=0){
-    tracked.splice(existing,1);
-    toast('Removed from Tracker');
+    liked.splice(existing,1);
+    recordInterest(interestQuery,'unlike');
+    toast('Removed from your likes');
   }else{
-    recordInterest(item._interestQuery||feedState.query||item.title,'track');
-    tracked.unshift({
+    recordInterest(interestQuery,'like');
+    if(normaliseQueryText(interestQuery)!==normaliseQueryText(item.title)) recordInterest(item.title,'like',4.5);
+    liked.unshift({
       key,
-      query:item.title || lastSearch(),
-      title:item.title || 'Product listing',
+      query:interestQuery||item.title||lastSearch(),
+      title:item.title||'Product listing',
       image:getImage(item),
-      price:Number(item.price) || null,
-      initialPrice:Number(item.price) || null,
+      fallbackImage:getImageFallback(item),
+      price:Number(item.price)||null,
+      initialPrice:Number(item.price)||null,
       currency:currencyOf(item,currentFeedData),
       source:getSource(item),
       url:getListingUrl(item),
       trust:getTrust(item),
+      sellerName:item.sellerName||item.seller||item.storeName||'',
+      condition:conditionText(item),
       savedAt:Date.now(),
       updatedAt:Date.now(),
-      history:[Number(item.price) || null].filter(Number.isFinite)
+      lastFeedAt:0,
+      history:[Number(item.price)||null].filter(Number.isFinite)
     });
-    toast('Added to Tracker');
+    toast('Liked — FindAI will recommend more like this');
     haptic();
   }
-  setTracked(tracked);
-  const nowTracked = existing<0;
-  updateHeaderTrackButton();
-  $$(`[data-track-key="${CSS.escape(key)}"]`).forEach(button=>{
-    button.classList.toggle('active',nowTracked);
-    const svg=button.querySelector('svg'); if(svg) svg.setAttribute('fill',nowTracked?'currentColor':'none');
-    button.setAttribute('aria-label',nowTracked?'Remove from tracker':'Add to tracker');
+  setTracked(liked);
+  const nowLiked=existing<0;
+  $$(`[data-like-key="${CSS.escape(key)}"]`).forEach(button=>{
+    button.classList.toggle('active',nowLiked);
+    const svg=button.querySelector('svg');
+    if(svg) svg.setAttribute('fill',nowLiked?'currentColor':'none');
+    button.setAttribute('aria-label',nowLiked?'Unlike this listing':'Like this listing');
   });
 }
+function toggleTrack(index,event){ toggleLike(index,event); }
 
-function toggleCurrentTrack(event){
-  if(event) event.stopPropagation();
-  if(!currentFeedItems.length){ go('tracker'); return; }
-  toggleTrack(activeReelIndex,event);
-  updateHeaderTrackButton();
+function buildCompareQuery(item){
+  const title=String(item&&item.title||'').trim();
+  const tokens=importantQueryTokens(title).slice(0,10);
+  return tokens.length>=3?tokens.join(' '):(item&&item._interestQuery)||title;
 }
-function updateHeaderTrackButton(){
-  const button=$('#headerTrackBtn');
-  if(!button) return;
-  const item=currentFeedItems[activeReelIndex];
-  const tracked=!!item && isTracked(item);
-  button.classList.toggle('active',tracked);
-  const svg=button.querySelector('svg');
-  if(svg) svg.setAttribute('fill',tracked?'currentColor':'none');
-  button.setAttribute('aria-label',tracked?'Remove current listing from tracker':'Track current listing');
+function compareItem(index,event){
+  if(event) event.stopPropagation();
+  const item=currentFeedItems[index];
+  if(!item) return;
+  const query=buildCompareQuery(item);
+  if(!query){ toast('Not enough product details to compare yet'); return; }
+  recordInterest(item._interestQuery||query,'compare');
+  searchListings(query,{showToast:true,source:'compare',preserveExact:true});
 }
 
 /* Scan */
@@ -2929,7 +3346,6 @@ function rerenderScannedFeed(data){
   feed.innerHTML=currentFeedItems.map((item,index)=>renderReelCard(item,index,data)).join('');
   activeReelIndex=0;
   attachReelObserver();
-  updateHeaderTrackButton();
   feed.scrollTop=0;
 }
 async function hydrateExactScanFeed(query){
@@ -3365,6 +3781,7 @@ async function refreshTrackedBatch(items){
 (function boot(){
   renderTracker();
   bootstrapInterestProfile();
+  updateAccountHeader();
   loadPersonalisedFeed();
 })();
 </script>
