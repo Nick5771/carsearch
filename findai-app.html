@@ -1002,7 +1002,7 @@
 }
 
 </style>
-  <meta name="findai-build" content="v19-reliable-cinematic-backdrop">
+  <meta name="findai-build" content="v20-featured-leads-no-junk">
 </head>
 <body>
 <div class="app">
@@ -1276,10 +1276,10 @@ const MAX_INTERESTS = 30;
 /* Cost guardrails for the For You feed.
    Three mixed interest lanes are enough to keep the feed varied without
    multiplying marketplace/API work every time the app opens. */
-const PERSONALISED_INTEREST_LIMIT = 3;
+const PERSONALISED_INTEREST_LIMIT = 5;
 const PERSONALISED_LANE_LIMIT = 8;
 const PERSONALISED_LOAD_MORE_LANES = 2;
-const PERSONALISED_CACHE_KEY = 'fa_personalised_feed_cache_v5';
+const PERSONALISED_CACHE_KEY = 'fa_personalised_feed_cache_v6';
 const PERSONALISED_CACHE_TTL = 10 * 60 * 1000;
 const PERSONALISED_REQUEST_BUDGET_KEY = 'fa_personalised_request_count_v1';
 const PERSONALISED_SESSION_REQUEST_BUDGET = 600;
@@ -1859,22 +1859,31 @@ function scoredInterests(limit=PERSONALISED_INTEREST_LIMIT){
     const score=(Number(item.weight)||1)*decay+Math.max(0,2-ageDays*.08);
     return {...item,score};
   }).filter(item=>item.score>.12).sort((a,b)=>b.score-a.score);
-  if(profile.length){
-    /* Keep the strongest interests, but let the seeded interleaver vary which
-       one appears first. This preserves relevance without freezing the feed. */
-    const core=profile.slice(0,Math.min(limit,profile.length));
-    const rotatedCold=featuredColdStart(0.7,'cold-start-order');
-    for(const starter of rotatedCold){
-      if(core.length>=limit) break;
-      if(core.some(item=>item.category===starter.category)) continue;
-      core.push(starter);
-    }
-    return core;
+
+  /* Featured hyped products lead the feed by design. Even for a user WITH
+     interests, only the single strongest interest is allowed in; the rest of the
+     feed is exciting featured lanes. This stops a stray search (e.g. hair clips)
+     from filling the feed with boring items, while still personalising a little. */
+  const featured=featuredColdStart(1.1,'empty-cold-start');
+  if(!profile.length) return featured.slice(0,limit);
+
+  const topInterest=profile[0];
+  const lanes=[topInterest];
+  for(const starter of featured){
+    if(lanes.length>=limit) break;
+    if(lanes.some(item=>item.category===starter.category)) continue;
+    lanes.push(starter);
   }
-  return featuredColdStart(1.1,'empty-cold-start').slice(0,limit);
+  return lanes.slice(0,limit);
 }
 function interestQueryVariants(interest){
   const category=interest.category||interestCategory(interest.query);
+  // Featured lanes stay tightly on their hyped product — no broad category
+  // variants (which pulled in generic junk like hair clips under "fashion
+  // accessories"). Only real user interests get the exploratory widening.
+  if(interest.featured){
+    return [...new Set([interest.discoveryQuery,interest.query].map(value=>String(value||'').trim()).filter(Boolean))];
+  }
   const categoryVariants=CATEGORY_EXPLORATION_QUERIES[category]||CATEGORY_EXPLORATION_QUERIES.other;
   return [...new Set([interest.discoveryQuery,interest.query,...categoryVariants].map(value=>String(value||'').trim()).filter(Boolean))];
 }
