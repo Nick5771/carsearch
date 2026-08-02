@@ -952,8 +952,48 @@
   #search .hero-stage.cinematic-wide .hero-image.fit-landscape{top:11%}
 }
 
+/* =========================================================
+   FindAI v19 — reliable cinematic backdrop
+   =========================================================
+   The blurred layer is a real <img> using no-referrer rather than a CSS
+   background request. This prevents marketplace CDNs from leaving a flat
+   grey area when the foreground image itself loads successfully. */
+#search .hero-backdrop-media{
+  position:absolute;z-index:0;pointer-events:none;
+  width:calc(100% + 72px);height:calc(100% + 72px);
+  max-width:none;max-height:none;object-fit:cover;object-position:center;
+  user-select:none;-webkit-user-drag:none
+}
+#search .hero-stage.cinematic-wide{background:#050607}
+#search .hero-stage.cinematic-wide .hero-backdrop-media{
+  display:block;inset:-36px;
+  width:calc(100% + 72px);height:calc(100% + 72px);
+  object-fit:cover;object-position:center center;
+  opacity:1;filter:blur(24px) saturate(.92) brightness(.48);
+  transform:scale(1.10);transform-origin:center;
+}
+#search .hero-stage.cinematic-wide:before{
+  z-index:1;
+  background:
+    linear-gradient(180deg,rgba(5,6,7,.20) 0%,rgba(5,6,7,.03) 25%,rgba(5,6,7,.01) 58%,rgba(5,6,7,.24) 76%,rgba(5,6,7,.72) 100%),
+    radial-gradient(ellipse at 50% 47%,rgba(255,255,255,.035),transparent 58%)
+}
+#search .hero-stage.cinematic-wide:after{
+  z-index:3;
+  background:linear-gradient(180deg,rgba(5,6,7,.04) 0%,rgba(5,6,7,0) 52%,rgba(5,6,7,.22) 69%,rgba(5,6,7,.76) 86%,#050607 100%)
+}
+#search .hero-stage.cinematic-wide .hero-image{z-index:2}
+#search .hero-stage.cinematic-wide .hero-image.fit-panorama{top:24%;left:-7%;width:114%}
+#search .hero-stage.cinematic-wide .hero-image.fit-wide{top:18%;left:-5%;width:110%}
+#search .hero-stage.cinematic-wide .hero-image.fit-landscape{top:10%;left:-3%;width:106%}
+@media (max-height:740px){
+  #search .hero-stage.cinematic-wide .hero-image.fit-panorama{top:21%}
+  #search .hero-stage.cinematic-wide .hero-image.fit-wide{top:15%}
+  #search .hero-stage.cinematic-wide .hero-image.fit-landscape{top:8%}
+}
+
 </style>
-  <meta name="findai-build" content="v18-selective-cinematic-images">
+  <meta name="findai-build" content="v19-reliable-cinematic-backdrop">
 </head>
 <body>
 <div class="app">
@@ -2677,11 +2717,9 @@ function renderReelCard(item,index,data){
   const condition=conditionText(item);
   const seller=String(item.sellerName || item.seller || item.storeName || '').trim();
   const sellerLabel=item.topRatedSeller ? 'Top-rated seller' : (seller || 'Live listing');
-  const bg=image ? `style="background-image:url('${escapeAttr(image)}')"` : '';
-
   return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}">
     <div class="hero-stage">
-      <div class="hero-backdrop" ${bg}></div>
+      ${image ? `<img class="hero-backdrop hero-backdrop-media" src="${escapeAttr(image)}" alt="" aria-hidden="true" loading="${index<3?'eager':'lazy'}" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : `<div class="hero-backdrop"></div>`}
       ${image ? `<img class="hero-image" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
       <div class="image-fallback" style="${image?'':'display:grid'}">Image unavailable</div>
     </div>
