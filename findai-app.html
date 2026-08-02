@@ -833,13 +833,6 @@
 .auth-form{display:flex;flex-direction:column;gap:9px}.auth-form input{height:47px;padding:0 13px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:#111419;color:#fff;outline:0;font-size:13px}.auth-form input:focus{border-color:rgba(118,160,255,.7);box-shadow:0 0 0 3px rgba(77,140,255,.1)}
 .auth-primary{height:48px;margin-top:3px;border:0;border-radius:14px;background:#f5f6f7;color:#090b0d;font-size:13px;font-weight:760}
 .auth-note{margin:11px 2px 0;color:#747b85;font-size:9.5px;line-height:1.4;text-align:center}
-.google-signin-btn{display:flex;align-items:center;justify-content:center;gap:11px;width:100%;box-sizing:border-box;height:48px;margin-top:4px;border:1px solid rgba(255,255,255,.14);border-radius:14px;background:#0d0f13;color:#fff;font-size:13px;font-weight:730;cursor:pointer;transition:border-color .15s,background .15s}
-.google-signin-btn:hover{border-color:rgba(255,255,255,.28);background:#141821}
-.google-signin-btn:active{transform:scale(.98)}
-.google-signin-btn svg{flex:none}
-.google-auth-error{min-height:14px;margin:7px 2px 0;color:#ff8f8f;font-size:11px;text-align:center;line-height:1.35}
-.auth-divider{display:flex;align-items:center;gap:10px;margin:13px 0 3px;color:#6a717b;font-size:10px;text-transform:uppercase;letter-spacing:.5px}
-.auth-divider:before,.auth-divider:after{content:'';flex:1;height:1px;background:rgba(255,255,255,.08)}
 
 .profile-screen{
   position:absolute;inset:0;z-index:120;display:none;flex-direction:column;overflow:hidden;background:linear-gradient(180deg,#0b0e13,#050607 48%)
@@ -906,8 +899,61 @@
   .reel-social-label{font-size:8px}
 }
 
+
+/* =========================================================
+   FindAI v18 — selective cinematic treatment for wide images
+   =========================================================
+   Only genuinely landscape marketplace photos use this treatment. Portrait
+   and near-square images keep their existing full-height presentation. */
+#search .hero-stage.cinematic-wide{
+  background:#090b0e;
+  isolation:isolate
+}
+#search .hero-stage.cinematic-wide .hero-backdrop{
+  display:block;
+  inset:-58px;
+  opacity:.92;
+  background-size:cover;
+  background-position:center;
+  filter:blur(34px) saturate(.88) brightness(.58);
+  transform:scale(1.2)
+}
+#search .hero-stage.cinematic-wide:before{
+  content:"";
+  position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% 52%,rgba(255,255,255,.05),rgba(5,6,7,.08) 48%,rgba(5,6,7,.52) 100%)
+}
+#search .hero-stage.cinematic-wide:after{
+  z-index:2;
+  background:
+    linear-gradient(180deg,rgba(5,6,7,.16) 0%,rgba(5,6,7,.02) 24%,rgba(5,6,7,0) 49%,rgba(5,6,7,.2) 67%,rgba(5,6,7,.76) 84%,#050607 100%),
+    linear-gradient(90deg,rgba(5,6,7,.13),transparent 14%,transparent 86%,rgba(5,6,7,.13))
+}
+#search .hero-stage.cinematic-wide .hero-image{
+  right:auto;bottom:auto;
+  max-width:none;max-height:none;
+  object-fit:contain;object-position:center;
+  filter:drop-shadow(0 18px 30px rgba(0,0,0,.28));
+  -webkit-mask-image:linear-gradient(180deg,transparent 0%,#000 7%,#000 88%,transparent 100%);
+  mask-image:linear-gradient(180deg,transparent 0%,#000 7%,#000 88%,transparent 100%)
+}
+#search .hero-stage.cinematic-wide .hero-image.fit-panorama{
+  top:28%;left:-9%;width:118%;height:auto;transform:none
+}
+#search .hero-stage.cinematic-wide .hero-image.fit-wide{
+  top:23%;left:-6%;width:112%;height:auto;transform:none
+}
+#search .hero-stage.cinematic-wide .hero-image.fit-landscape{
+  top:14%;left:-4%;width:108%;height:auto;transform:none
+}
+@media (max-height:740px){
+  #search .hero-stage.cinematic-wide .hero-image.fit-panorama{top:25%}
+  #search .hero-stage.cinematic-wide .hero-image.fit-wide{top:20%}
+  #search .hero-stage.cinematic-wide .hero-image.fit-landscape{top:11%}
+}
+
 </style>
-  <meta name="findai-build" content="v17-fullscreen-social-actions">
+  <meta name="findai-build" content="v18-selective-cinematic-images">
 </head>
 <body>
 <div class="app">
@@ -1065,9 +1111,6 @@
       <button class="auth-avatar-picker" type="button" id="authAvatarPicker" onclick="document.getElementById('accountAvatarInput').click()" aria-label="Choose profile photo">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg><img id="authAvatarPreview" alt="Profile preview">
       </button>
-      <button type="button" class="google-signin-btn" onclick="startGoogleAuth()"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>Continue with Google</button>
-      <div id="googleAuthError" class="google-auth-error" role="alert"></div>
-      <div class="auth-divider"><span>or continue on this device</span></div>
       <form class="auth-form" onsubmit="return completeLocalLogin(event)">
         <input id="accountNameInput" autocomplete="name" placeholder="Your name" required>
         <input id="accountEmailInput" type="email" autocomplete="email" placeholder="Email address" required>
@@ -1324,8 +1367,6 @@ function openAccountMenu(){
 function closeAccountMenu(){ $('#accountMenuOverlay').classList.remove('show'); }
 function signOutAccount(){
   try{ localStorage.removeItem(ACCOUNT_PROFILE_KEY); }catch(_){}
-  try{ localStorage.removeItem('findai_user'); }catch(_){}
-  try{ if(window.google&&google.accounts&&google.accounts.id) google.accounts.id.disableAutoSelect(); }catch(_){}
   closeAccountMenu();closeProfile();updateAccountHeader();
   toast('Logged out. Your device interests remain available.');
 }
@@ -1353,10 +1394,18 @@ function renderAccountProfile(){
 function adaptListingImage(img){
   if(!img||!img.naturalWidth||!img.naturalHeight) return;
   const ratio=img.naturalWidth/img.naturalHeight;
+  const stage=img.closest('.hero-stage');
   img.classList.remove('fit-panorama','fit-wide','fit-landscape','fit-square','fit-portrait');
+
+  // Only photos that are clearly wider than they are tall receive the
+  // cinematic blurred-backdrop treatment. Tall and near-square images keep
+  // the existing full-height layout so good source photography is untouched.
+  const cinematic=ratio>=1.14;
+  if(stage) stage.classList.toggle('cinematic-wide',cinematic);
+
   if(ratio>=2.05) img.classList.add('fit-panorama');
   else if(ratio>=1.42) img.classList.add('fit-wide');
-  else if(ratio>=1.08) img.classList.add('fit-landscape');
+  else if(ratio>=1.14) img.classList.add('fit-landscape');
   else if(ratio>=.82) img.classList.add('fit-square');
   else img.classList.add('fit-portrait');
 }
@@ -3796,90 +3845,6 @@ async function refreshTrackedBatch(items){
   updateAccountHeader();
   loadPersonalisedFeed();
 })();
-</script>
-<!-- ===== FindAI Google Sign-In (mirrors main site index.html flow) ===== -->
-<script src="https://accounts.google.com/gsi/client" async></script>
-<script>
-/* Uses the SAME Worker endpoint and SAME findai_user storage as the main site,
-   so the session token issued here is valid for every user-scoped Worker call.
-   Do not change the verification/session logic — that lives on the Worker. */
-const GOOGLE_CLIENT_ID = '258387139240-a60g5n1hortfo0tnpm03dj8ht7jemqt0.apps.googleusercontent.com';
-const WORKER_BASE      = 'https://api.carsearchapi.workers.dev';
-
-/* Returns the signed session token issued at login (empty string if signed out). */
-function findaiSession(){
-  try{ var u = JSON.parse(localStorage.getItem('findai_user')||'null'); return (u && u.session) ? u.session : ''; }
-  catch(_){ return ''; }
-}
-
-/* One-time cleanup: a pre-token profile has no session and would fail every
-   user-scoped call — clear it so the user gets a clean Google prompt. */
-(function migrateLegacyLogin(){
-  try{
-    var u = JSON.parse(localStorage.getItem('findai_user')||'null');
-    if(u && u.email && !u.session) localStorage.removeItem('findai_user');
-  }catch(_){}
-})();
-
-/* Bridge the authoritative findai_user (from the Worker) into the app's own
-   account profile + interest sync, then refresh the header UI. */
-function applyFindaiUser(data){
-  try{ localStorage.setItem('findai_user', JSON.stringify(data)); }catch(_){}
-  // Mirror into the app's existing account profile so its UI (avatar, menu) works unchanged.
-  var existing = (typeof getAccountProfile==='function' && getAccountProfile()) || {};
-  var profile = {
-    ...existing,
-    name: data.name || existing.name || (data.email||'').split('@')[0],
-    email: data.email,
-    avatar: data.picture || existing.avatar || '',
-    google: true,
-    createdAt: existing.createdAt || Date.now(),
-    updatedAt: Date.now()
-  };
-  if(typeof saveAccountProfile==='function') saveAccountProfile(profile);
-  if(typeof updateAccountHeader==='function') updateAccountHeader();
-  if(typeof closeLogin==='function') closeLogin();
-  if(typeof toast==='function') toast('Signed in as '+(profile.name.split(/\s+/)[0]));
-}
-
-var googleTokenClient = null;
-async function handleGoogleToken(resp){
-  var fb = document.getElementById('googleAuthError');
-  if(!resp || !resp.access_token){ if(fb) fb.textContent='Google sign-in was cancelled.'; return; }
-  try{
-    const r = await fetch(WORKER_BASE + '/auth/google-token', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ access_token: resp.access_token })
-    });
-    const data = await r.json();
-    if(data && data.email){ applyFindaiUser(data); }
-    else if(fb){ fb.textContent = (data && data.error) || 'Sign-in failed, please try again.'; }
-  }catch(e){
-    if(fb) fb.textContent = 'Could not reach the sign-in server.';
-  }
-}
-
-function startGoogleAuth(){
-  var fb = document.getElementById('googleAuthError'); if(fb) fb.textContent='';
-  if(!googleTokenClient){ if(fb) fb.textContent='Google sign-in is still loading — try again in a moment.'; return; }
-  googleTokenClient.requestAccessToken();
-}
-
-function initGoogleAuth(){
-  // If already signed in on this device, reflect it in the app UI on load.
-  try{
-    var u = JSON.parse(localStorage.getItem('findai_user')||'null');
-    if(u && u.email && u.session) applyFindaiUser(u);
-  }catch(_){}
-  if(!(window.google && google.accounts && google.accounts.oauth2)){ setTimeout(initGoogleAuth,400); return; }
-  googleTokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: GOOGLE_CLIENT_ID,
-    scope: 'openid email profile',
-    callback: handleGoogleToken
-  });
-}
-window.addEventListener('load', initGoogleAuth);
 </script>
 </body>
 </html>
