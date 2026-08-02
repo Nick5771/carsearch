@@ -1001,8 +1001,49 @@
   #search .hero-stage.cinematic-wide .hero-image.fit-landscape{top:50%}
 }
 
+/* =========================================================
+   FindAI v22 — universal same-image blur fill (reliable)
+   =========================================================
+   The blurred background is built from the SAME image element that already
+   loaded (via a CSS background set in adaptListingImage), so it can never fail
+   like a second network request. Applies to EVERY listing regardless of shape:
+   screen is always 100% filled, product is always fully visible, never zoomed. */
+#search .hero-stage{position:absolute;inset:0;overflow:hidden;background:#050607}
+#search .hero-stage.has-bg-fill::before{
+  content:"";position:absolute;inset:-8%;z-index:0;
+  background-image:var(--hero-bg);background-size:cover;background-position:center;
+  filter:blur(46px) saturate(1.05) brightness(.44);
+  transform:scale(1.16);pointer-events:none
+}
+/* Hide the old unreliable network-image backdrop entirely. */
+#search .hero-backdrop,#search .hero-backdrop-media{display:none!important}
+
+/* Subtle top + bottom scrim so the wordmark/search and the product panel stay
+   legible over any image, without hiding the product. */
+#search .hero-stage.has-bg-fill::after{
+  content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:linear-gradient(180deg,rgba(5,6,7,.42) 0%,rgba(5,6,7,0) 20%,rgba(5,6,7,0) 55%,rgba(5,6,7,.35) 78%,rgba(5,6,7,.92) 100%)
+}
+
+/* The sharp product: always fully contained, centered, filling as much as it can
+   without cropping. One rule for every aspect ratio. */
+#search .hero-stage.has-bg-fill .hero-image,
+#search .hero-stage.cinematic-wide .hero-image{
+  position:absolute;top:50%;left:50%;z-index:1;
+  width:100%;height:100%;max-width:100%;max-height:100%;
+  object-fit:contain;object-position:center;
+  transform:translate(-50%,-50%);padding:0;
+  -webkit-mask-image:none;mask-image:none;filter:none
+}
+/* Tune how much width the contained image is allowed, per shape, for balance. */
+#search .hero-stage.has-bg-fill .hero-image.fit-portrait{width:100%;height:100%}
+#search .hero-stage.has-bg-fill .hero-image.fit-square{width:100%;height:100%}
+#search .hero-stage.has-bg-fill .hero-image.fit-landscape{width:100%;height:94%}
+#search .hero-stage.has-bg-fill .hero-image.fit-wide{width:100%;height:88%}
+#search .hero-stage.has-bg-fill .hero-image.fit-panorama{width:100%;height:82%}
+
 </style>
-  <meta name="findai-build" content="v21-contain-blur-fill">
+  <meta name="findai-build" content="v22-universal-blur-fill">
 </head>
 <body>
 <div class="app">
@@ -1451,12 +1492,23 @@ function adaptListingImage(img){
   const stage=img.closest('.hero-stage');
   img.classList.remove('fit-panorama','fit-wide','fit-landscape','fit-square','fit-portrait');
 
-  // Only photos that are clearly wider than they are tall receive the
-  // cinematic blurred-backdrop treatment. Tall and near-square images keep
-  // the existing full-height layout so good source photography is untouched.
-  const cinematic=ratio>=1.14;
-  if(stage) stage.classList.toggle('cinematic-wide',cinematic);
+  /* Universal premium fill (Instagram/Spotify method):
+     EVERY card gets a guaranteed blurred background built from the SAME image
+     that already loaded — set as a CSS background on the stage, so it can never
+     fail like a second network <img> request did. The sharp copy on top is fully
+     CONTAINED (whole product visible, never zoomed/cropped) and the blur fills
+     all remaining space. This handles wide, tall and square identically. */
+  if(stage){
+    stage.classList.add('cinematic-wide');
+    const src=img.currentSrc||img.src;
+    if(src && stage.dataset.bgSrc!==src){
+      stage.dataset.bgSrc=src;
+      stage.style.setProperty('--hero-bg',`url("${src.replace(/"/g,'\\"')}")`);
+      stage.classList.add('has-bg-fill');
+    }
+  }
 
+  // Fit class only tunes how much of the width the contained image uses.
   if(ratio>=2.05) img.classList.add('fit-panorama');
   else if(ratio>=1.42) img.classList.add('fit-wide');
   else if(ratio>=1.14) img.classList.add('fit-landscape');
@@ -2784,8 +2836,7 @@ function renderReelCard(item,index,data){
   const seller=String(item.sellerName || item.seller || item.storeName || '').trim();
   const sellerLabel=item.topRatedSeller ? 'Top-rated seller' : (seller || 'Live listing');
   return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}">
-    <div class="hero-stage">
-      ${image ? `<img class="hero-backdrop hero-backdrop-media" src="${escapeAttr(image)}" alt="" aria-hidden="true" loading="${index<3?'eager':'lazy'}" decoding="async" referrerpolicy="no-referrer" onerror="this.style.display='none'">` : `<div class="hero-backdrop"></div>`}
+    <div class="hero-stage${image?' cinematic-wide has-bg-fill':''}"${image?` style="--hero-bg:url('${escapeAttr(image)}')"`:''}>
       ${image ? `<img class="hero-image" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
       <div class="image-fallback" style="${image?'':'display:grid'}">Image unavailable</div>
     </div>
