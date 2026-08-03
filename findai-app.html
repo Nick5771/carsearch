@@ -1032,8 +1032,54 @@
 #search .hero-image.fit-cover{object-fit:contain;object-position:center}
 #search .hero-image.fit-contain{object-fit:contain;object-position:center}
 
+/* ============================================================
+   FindAI v28 — product-panel UI polish
+   - action icons: plain white with a soft shadow (no grey circle)
+   - eBay label: bigger, clean, no pill (source-brand only)
+   - condition: bold white badge beside the price
+   - shipping: quiet grey line beneath the price
+   ============================================================ */
+/* Action buttons: drop the grey circle, keep white icons legible on any bg via shadow */
+#search .reel-social-icon{
+  width:auto;height:auto;border:0!important;border-radius:0!important;
+  background:transparent!important;backdrop-filter:none!important;box-shadow:none!important
+}
+#search .reel-social-action svg{
+  width:29px;height:29px;color:#fff;
+  filter:drop-shadow(0 1px 4px rgba(0,0,0,.55)) drop-shadow(0 2px 10px rgba(0,0,0,.4))
+}
+#search .reel-social-label{color:#fff;text-shadow:0 1px 5px rgba(0,0,0,.7);font-size:9.5px}
+#search .reel-social-action.like.active svg{color:#ff3040}
+#search .reel-social-action.like.active .reel-social-icon{background:transparent!important;border:0!important}
+#search .reel-social-action.like.active .reel-social-label{color:#fff}
+
+/* eBay / source label: bigger, clean, no pill background */
+#search .source-chip{
+  background:transparent!important;border:0!important;backdrop-filter:none!important;
+  padding:0!important;margin:0 0 10px!important;font-size:20px!important;line-height:1
+}
+#search .source-chip .source-separator,#search .source-chip .source-dot{display:none!important}
+#search .source-chip .source-brand{
+  font-size:20px;font-weight:800;letter-spacing:-.3px;
+  text-shadow:0 1px 6px rgba(0,0,0,.55)
+}
+/* keep eBay's brand colours but larger */
+#search .source-chip[data-source="ebay"] .source-brand{
+  background:linear-gradient(90deg,#e53238 0 22%,#0064d2 22% 48%,#f5af02 48% 72%,#86b817 72%);
+  -webkit-background-clip:text;background-clip:text;color:transparent
+}
+
+/* Price + condition side by side; shipping quiet below */
+#search .listing-price-copy{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;flex:1}
+#search .price-line{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+#search .condition-badge{
+  color:#fff;font-size:14px;font-weight:750;letter-spacing:-.2px;
+  text-shadow:0 1px 5px rgba(0,0,0,.6);white-space:nowrap
+}
+#search .listing-meta{margin-top:2px;color:#aab0b9;font-size:11px;font-weight:500}
+
 </style>
-  <meta name="findai-build" content="v27-clean-fill-no-ai">
+  <meta name="findai-build" content="v28-panel-polish">
 </head>
 <body>
 <div class="app">
@@ -2869,11 +2915,16 @@ function renderReelCard(item,index,data){
       </button>
     </div>
     <div class="product-panel">
-      <div class="source-chip" data-source="${escapeAttr(source)}"><span class="source-brand">${escapeHTML(sourceLabel(source))}</span><span class="source-separator">·</span><span>${escapeHTML(sellerLabel)}</span></div>
+      <div class="source-chip" data-source="${escapeAttr(source)}"><span class="source-brand">${escapeHTML(sourceLabel(source))}</span></div>
       <h2 class="title">${escapeHTML(title)}</h2>
-      <div class="listing-meta">${condition?`${escapeHTML(condition)} · `:''}${escapeHTML(shipping)}</div>
       <div class="price-action-row">
-        <div class="listing-price-copy"><div class="price">${escapeHTML(money(price,currency))}</div></div>
+        <div class="listing-price-copy">
+          <div class="price-line">
+            <span class="price">${escapeHTML(money(price,currency))}</span>
+            ${condition?`<span class="condition-badge">${escapeHTML(condition)}</span>`:''}
+          </div>
+          ${shipping?`<div class="listing-meta">${escapeHTML(shipping)}</div>`:''}
+        </div>
         <button class="view-deal" onclick="openDeal(${index},event)" ${url?'':'disabled'}>View Deal<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 5h5v5M10 14L19 5M19 14v5H5V5h5"/></svg></button>
       </div>
       ${index===0 && feedState.source!=='personalised' ? renderFirstListingMarketStrip(currentFeedItems,data) : ''}
