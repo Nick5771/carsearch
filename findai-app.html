@@ -1118,8 +1118,27 @@
 #scan .scan-fs .scan-processing{position:absolute;inset:0;z-index:6;display:none;place-items:center;background:rgba(3,4,6,.55);backdrop-filter:blur(4px)}
 #scan .scan-fs .scan-processing.show,#scan .scan-fs.processing .scan-processing{display:grid}
 
+/* ============================================================
+   FindAI v33 — scanner full-screen fix
+   - #scan ignores the global nav padding (true full-screen)
+   - the bottom nav is hidden while scanning (SellRaze-style)
+   - camera element always visible; placeholder only shows before start
+   ============================================================ */
+#scan.screen{padding-bottom:0!important;height:100%!important;overflow:hidden}
+#scan .scan-fs{position:absolute;inset:0;background:#000;overflow:hidden;z-index:1}
+/* Hide the app's bottom tab bar while the scan screen is active */
+body.scanning-fs .nav{display:none!important}
+/* Camera fills the screen; keep it visible (JS reveals it on stream) */
+#scan .scan-fs #cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#scan .scan-fs .camera-placeholder{z-index:6;background:#000}
+/* Hide the 'Capture item' hint until the camera is live (JS adds .cam-live) */
+#scan .scan-fs .scan-fs-hint{opacity:0;transition:opacity .2s}
+#scan .scan-fs.cam-live .scan-fs-hint{opacity:1}
+/* Controls sit above the very bottom safe-area, not under a nav */
+#scan .scan-fs-controls{bottom:0;padding-bottom:max(30px,env(safe-area-inset-bottom))}
+
 </style>
-  <meta name="findai-build" content="v32-sellraze-scanner">
+  <meta name="findai-build" content="v33-scanner-fixed">
 </head>
 <body>
 <div class="app">
@@ -2540,6 +2559,7 @@ document.addEventListener('visibilitychange',()=>{
 function go(tab){
   $$('.screen').forEach(screen=>screen.classList.toggle('active',screen.id===tab));
   $$('.nav button').forEach(button=>button.classList.toggle('active',button.dataset.tab===tab));
+  document.body.classList.toggle('scanning-fs',tab==='scan');
   if(tab==='search'){ showFeedHeader(); bindFeedHeaderAutoHide(); }
   if(tab === 'scan'){
     setTimeout(()=>{ if(!stream) startCam(); },80);
@@ -3444,11 +3464,11 @@ function startAutoScanLoop(){
 
 async function startCam(){
   stopScanProgress({hide:true});
-  if(stream){ startAutoScanLoop(); return; }
   const cam = $('#cam');
   const placeholder = $('#camPlaceholder');
+  if(stream){ if(cam) cam.style.display='block'; if(placeholder) placeholder.style.display='none'; return; }
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
-    setScanStatus('Camera unavailable — choose a photo instead');
+    if(placeholder){ placeholder.querySelector('div').textContent='Camera unavailable — use Upload'; }
     return;
   }
   try{
@@ -3458,14 +3478,13 @@ async function startCam(){
     cam.srcObject = stream;
     cam.style.display='block';
     $('#preview').style.display='none';
-    placeholder.style.display='none';
+    if(placeholder) placeholder.style.display='none';   // hide "Starting camera"
+    const fs=$('.scan-fs'); if(fs) fs.classList.add('cam-live');
     cameraTrack = stream.getVideoTracks()[0];
-    
-    setScanStatus('Finding an item');
     try{ await cam.play(); }catch(_){}
-    startAutoScanLoop();
   }catch(error){
-    setScanStatus('Camera permission blocked — choose a photo instead');
+    const fs=$('.scan-fs'); if(fs) fs.classList.remove('cam-live');
+    if(placeholder){ placeholder.style.display='grid'; placeholder.querySelector('div').textContent='Allow camera access, or tap Upload'; }
   }
 }
 function stopCam(){
@@ -3474,7 +3493,7 @@ function stopCam(){
   if(stream){ stream.getTracks().forEach(t=>t.stop()); }
   stream=null;cameraTrack=null;
   autoScanBusy=false;
-  const cam=$('#cam'); if(cam){cam.srcObject=null;cam.style.display='none'}
+  const cam=$('#cam'); if(cam){cam.srcObject=null;cam.style.display='none'} const fs=$('.scan-fs'); if(fs) fs.classList.remove('cam-live');
 }
 async function toggleTorch(){
   if(!cameraTrack){ await startCam(); return; }
