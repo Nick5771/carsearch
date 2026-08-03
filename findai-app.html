@@ -1002,48 +1002,43 @@
 }
 
 /* =========================================================
-   FindAI v22 — universal same-image blur fill (reliable)
+   FindAI v23 — balanced full-screen fill
    =========================================================
-   The blurred background is built from the SAME image element that already
-   loaded (via a CSS background set in adaptListingImage), so it can never fail
-   like a second network request. Applies to EVERY listing regardless of shape:
-   screen is always 100% filled, product is always fully visible, never zoomed. */
+   fill-cover  → image fills the screen edge-to-edge (premium immersive look),
+                 used when the crop needed is small (<20% of the image).
+   fill-contain→ whole product shown, centered, over a blurred fill of the SAME
+                 image, used only when cover would slice off real product.
+   The blurred fill is a CSS background from the already-loaded image, so it can
+   never fail like a second network request. */
 #search .hero-stage{position:absolute;inset:0;overflow:hidden;background:#050607}
+#search .hero-backdrop,#search .hero-backdrop-media{display:none!important}
+
+/* Blurred fill layer (only visible where the contained image doesn't cover). */
 #search .hero-stage.has-bg-fill::before{
   content:"";position:absolute;inset:-8%;z-index:0;
   background-image:var(--hero-bg);background-size:cover;background-position:center;
-  filter:blur(46px) saturate(1.05) brightness(.44);
+  filter:blur(46px) saturate(1.05) brightness(.46);
   transform:scale(1.16);pointer-events:none
 }
-/* Hide the old unreliable network-image backdrop entirely. */
-#search .hero-backdrop,#search .hero-backdrop-media{display:none!important}
+#search .hero-stage.fill-cover::before{display:none} /* cover fills fully; no blur needed */
 
-/* Subtle top + bottom scrim so the wordmark/search and the product panel stay
-   legible over any image, without hiding the product. */
-#search .hero-stage.has-bg-fill::after{
+/* Legibility scrim top + bottom, never hides the product. */
+#search .hero-stage::after{
   content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
-  background:linear-gradient(180deg,rgba(5,6,7,.42) 0%,rgba(5,6,7,0) 20%,rgba(5,6,7,0) 55%,rgba(5,6,7,.35) 78%,rgba(5,6,7,.92) 100%)
+  background:linear-gradient(180deg,rgba(5,6,7,.44) 0%,rgba(5,6,7,0) 19%,rgba(5,6,7,0) 54%,rgba(5,6,7,.34) 77%,rgba(5,6,7,.93) 100%)
 }
 
-/* The sharp product: always fully contained, centered, filling as much as it can
-   without cropping. One rule for every aspect ratio. */
-#search .hero-stage.has-bg-fill .hero-image,
-#search .hero-stage.cinematic-wide .hero-image{
+/* The sharp product image. */
+#search .hero-image{
   position:absolute;top:50%;left:50%;z-index:1;
-  width:100%;height:100%;max-width:100%;max-height:100%;
-  object-fit:contain;object-position:center;
-  transform:translate(-50%,-50%);padding:0;
-  -webkit-mask-image:none;mask-image:none;filter:none
+  width:100%;height:100%;transform:translate(-50%,-50%);
+  padding:0;filter:none;-webkit-mask-image:none;mask-image:none
 }
-/* Tune how much width the contained image is allowed, per shape, for balance. */
-#search .hero-stage.has-bg-fill .hero-image.fit-portrait{width:100%;height:100%}
-#search .hero-stage.has-bg-fill .hero-image.fit-square{width:100%;height:100%}
-#search .hero-stage.has-bg-fill .hero-image.fit-landscape{width:100%;height:94%}
-#search .hero-stage.has-bg-fill .hero-image.fit-wide{width:100%;height:88%}
-#search .hero-stage.has-bg-fill .hero-image.fit-panorama{width:100%;height:82%}
+#search .hero-image.fit-cover{object-fit:cover;object-position:center}
+#search .hero-image.fit-contain{object-fit:contain;object-position:center}
 
 </style>
-  <meta name="findai-build" content="v22-universal-blur-fill">
+  <meta name="findai-build" content="v23-balanced-fill">
 </head>
 <body>
 <div class="app">
@@ -1490,30 +1485,35 @@ function adaptListingImage(img){
   if(!img||!img.naturalWidth||!img.naturalHeight) return;
   const ratio=img.naturalWidth/img.naturalHeight;
   const stage=img.closest('.hero-stage');
-  img.classList.remove('fit-panorama','fit-wide','fit-landscape','fit-square','fit-portrait');
+  if(!stage) return;
+  img.classList.remove('fit-cover','fit-contain');
 
-  /* Universal premium fill (Instagram/Spotify method):
-     EVERY card gets a guaranteed blurred background built from the SAME image
-     that already loaded — set as a CSS background on the stage, so it can never
-     fail like a second network <img> request did. The sharp copy on top is fully
-     CONTAINED (whole product visible, never zoomed/cropped) and the blur fills
-     all remaining space. This handles wide, tall and square identically. */
-  if(stage){
-    stage.classList.add('cinematic-wide');
-    const src=img.currentSrc||img.src;
-    if(src && stage.dataset.bgSrc!==src){
-      stage.dataset.bgSrc=src;
-      stage.style.setProperty('--hero-bg',`url("${src.replace(/"/g,'\\"')}")`);
-      stage.classList.add('has-bg-fill');
-    }
+  // Guaranteed blurred fill from the SAME loaded image (used only when we letterbox).
+  const src=img.currentSrc||img.src;
+  if(src && stage.dataset.bgSrc!==src){
+    stage.dataset.bgSrc=src;
+    stage.style.setProperty('--hero-bg',`url("${src.replace(/"/g,'\\"')}")`);
+    stage.classList.add('has-bg-fill');
   }
 
-  // Fit class only tunes how much of the width the contained image uses.
-  if(ratio>=2.05) img.classList.add('fit-panorama');
-  else if(ratio>=1.42) img.classList.add('fit-wide');
-  else if(ratio>=1.14) img.classList.add('fit-landscape');
-  else if(ratio>=.82) img.classList.add('fit-square');
-  else img.classList.add('fit-portrait');
+  /* Balanced full-screen: fill edge-to-edge (premium immersive look) whenever the
+     crop needed to fill the screen is small — you keep almost the whole image and
+     never notice the trim. Only images far from the screen's shape (where filling
+     would slice off real product) fall back to contain-on-blur. */
+  const stageRatio=(stage.clientWidth||img.clientWidth||1)/(stage.clientHeight||img.clientHeight||1);
+  const bigger=Math.max(ratio,stageRatio);
+  const smaller=Math.min(ratio,stageRatio);
+  const cropLoss=1-(smaller/bigger); // fraction of the image cropped away to fill
+  const COVER_MAX_CROP=0.20;         // fill if we'd lose <20% of the image
+  if(cropLoss<=COVER_MAX_CROP){
+    stage.classList.add('fill-cover');
+    stage.classList.remove('fill-contain');
+    img.classList.add('fit-cover');
+  }else{
+    stage.classList.add('fill-contain');
+    stage.classList.remove('fill-cover');
+    img.classList.add('fit-contain');
+  }
 }
 document.addEventListener('keydown',event=>{
   if(event.key!=='Escape') return;
@@ -2836,8 +2836,8 @@ function renderReelCard(item,index,data){
   const seller=String(item.sellerName || item.seller || item.storeName || '').trim();
   const sellerLabel=item.topRatedSeller ? 'Top-rated seller' : (seller || 'Live listing');
   return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}">
-    <div class="hero-stage${image?' cinematic-wide has-bg-fill':''}"${image?` style="--hero-bg:url('${escapeAttr(image)}')"`:''}>
-      ${image ? `<img class="hero-image" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
+    <div class="hero-stage${image?' has-bg-fill fill-cover':''}"${image?` style="--hero-bg:url('${escapeAttr(image)}')"`:''}>
+      ${image ? `<img class="hero-image fit-cover" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
       <div class="image-fallback" style="${image?'':'display:grid'}">Image unavailable</div>
     </div>
     ${index>0 ? `<div class="reel-peek-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 15l6-6 6 6"/></svg></div>` : ''}
