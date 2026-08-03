@@ -1060,14 +1060,11 @@
 }
 #search .source-chip .source-separator,#search .source-chip .source-dot{display:none!important}
 #search .source-chip .source-brand{
-  font-size:20px;font-weight:800;letter-spacing:-.3px;
+  font-size:20px;font-weight:800;letter-spacing:-.3px;color:#fff;
   text-shadow:0 1px 6px rgba(0,0,0,.55)
 }
-/* keep eBay's brand colours but larger */
-#search .source-chip[data-source="ebay"] .source-brand{
-  background:linear-gradient(90deg,#e53238 0 22%,#0064d2 22% 48%,#f5af02 48% 72%,#86b817 72%);
-  -webkit-background-clip:text;background-clip:text;color:transparent
-}
+/* Real eBay logo (SVG) instead of gradient-text */
+#search .source-chip .ebay-logo{height:26px;width:auto;display:block;filter:drop-shadow(0 1px 5px rgba(0,0,0,.45))}
 
 /* Price + condition side by side; shipping quiet below */
 #search .listing-price-copy{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;flex:1}
@@ -1078,8 +1075,51 @@
 }
 #search .listing-meta{margin-top:2px;color:#aab0b9;font-size:11px;font-weight:500}
 
+/* ============================================================
+   FindAI v32 — SellRaze-style full-screen scanner
+   ============================================================ */
+#scan .scan-fs{position:absolute;inset:0;background:#000;overflow:hidden}
+#scan .scan-fs #cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+#scan .scan-fs .preview{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#scan .scan-fs .camera-placeholder{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:10px;color:#aab0b8;text-align:center}
+#scan .scan-fs .camera-placeholder svg{width:40px;height:40px}
+
+/* Top bar */
+#scan .scan-fs-top{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:max(14px,env(safe-area-inset-top)) 18px 14px;background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,0))}
+#scan .scan-fs-brand{color:#fff;font-size:22px;font-weight:800;letter-spacing:-.4px;text-shadow:0 1px 8px rgba(0,0,0,.5)}
+#scan .scan-fs-icon{width:44px;height:44px;border:0;border-radius:50%;display:grid;place-items:center;background:rgba(20,22,26,.72);backdrop-filter:blur(14px);color:#fff;cursor:pointer}
+#scan .scan-fs-icon svg{width:20px;height:20px}
+#scan .scan-fs-icon:active{transform:scale(.94)}
+
+/* Corner brackets */
+#scan .scan-fs-frame{position:absolute;inset:16% 12% 30%;z-index:3;pointer-events:none}
+#scan .scan-fs-frame span{position:absolute;width:46px;height:46px;border:3px solid rgba(255,255,255,.95);border-radius:6px}
+#scan .scan-fs-frame .tl{top:0;left:0;border-right:0;border-bottom:0}
+#scan .scan-fs-frame .tr{top:0;right:0;border-left:0;border-bottom:0}
+#scan .scan-fs-frame .bl{bottom:0;left:0;border-right:0;border-top:0}
+#scan .scan-fs-frame .br{bottom:0;right:0;border-left:0;border-top:0}
+
+/* Capture hint */
+#scan .scan-fs-hint{position:absolute;left:0;right:0;top:46%;z-index:4;text-align:center;pointer-events:none;text-shadow:0 1px 8px rgba(0,0,0,.6)}
+#scan .scan-fs-hint b{display:block;color:#fff;font-size:20px;font-weight:750}
+#scan .scan-fs-hint span{display:block;margin-top:4px;color:rgba(255,255,255,.82);font-size:12.5px}
+#scan.processing-active .scan-fs-hint,#scan .processing .scan-fs-hint{opacity:0}
+
+/* Bottom controls: Upload · Shutter · Rotate */
+#scan .scan-fs-controls{position:absolute;left:0;right:0;bottom:0;z-index:5;display:flex;align-items:center;justify-content:space-around;padding:20px 26px max(26px,env(safe-area-inset-bottom));background:linear-gradient(0deg,rgba(0,0,0,.62),rgba(0,0,0,0))}
+#scan .scan-fs-aux{display:flex;flex-direction:column;align-items:center;gap:6px;border:0;background:transparent;color:#fff;cursor:pointer;width:64px}
+#scan .scan-fs-aux svg{width:26px;height:26px}
+#scan .scan-fs-aux span{font-size:11px;font-weight:600;letter-spacing:.2px}
+#scan .scan-fs-aux:active{transform:scale(.94)}
+#scan .scan-fs-shutter{width:74px;height:74px;border-radius:50%;border:5px solid #fff;background:rgba(255,255,255,.92);cursor:pointer;padding:0;box-shadow:0 0 0 3px rgba(0,0,0,.25)}
+#scan .scan-fs-shutter:active{transform:scale(.93)}
+
+/* Processing overlay centered */
+#scan .scan-fs .scan-processing{position:absolute;inset:0;z-index:6;display:none;place-items:center;background:rgba(3,4,6,.55);backdrop-filter:blur(4px)}
+#scan .scan-fs .scan-processing.show,#scan .scan-fs.processing .scan-processing{display:grid}
+
 </style>
-  <meta name="findai-build" content="v28-panel-polish">
+  <meta name="findai-build" content="v32-sellraze-scanner">
 </head>
 <body>
 <div class="app">
@@ -1113,66 +1153,60 @@
 
   <!-- Scan -->
   <section id="scan" class="screen">
-    <header class="scan-header-premium">
-      <div class="scan-header-brand">FindAI</div>
-      <h1>Scan Any Item</h1>
-      <button class="scan-header-action" onclick="toggleTorch()" aria-label="Toggle flash">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M13 2L4 13h7l-1 9 10-12h-7z"/></svg>
-      </button>
-    </header>
-    <div class="scan-content scan-content-premium">
-      <div class="viewport" id="viewport">
-        <div class="camera-placeholder" id="camPlaceholder" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 8a2 2 0 0 1 2-2h2l1.4-2h5.2L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
-          <div>Starting camera</div>
-        </div>
-        <video id="cam" playsinline autoplay muted style="display:none"></video>
-        <img id="preview" class="preview" style="display:none" alt="Captured item">
+    <div class="scan-fs">
+      <video id="cam" playsinline autoplay muted></video>
+      <img id="preview" class="preview" style="display:none" alt="Captured item">
+      <div class="camera-placeholder" id="camPlaceholder" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 8a2 2 0 0 1 2-2h2l1.4-2h5.2L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
+        <div>Starting camera</div>
+      </div>
 
-        <div class="auto-scan-ring" id="autoScanRing" aria-hidden="true">
-          <svg viewBox="0 0 120 120">
-            <circle class="ring-track" cx="60" cy="60" r="53" pathLength="100"></circle>
-            <circle class="ring-progress" id="autoScanProgress" cx="60" cy="60" r="53" pathLength="100"></circle>
-          </svg>
-          <div class="auto-scan-center">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><circle cx="12" cy="12" r="3.2"/></svg>
-          </div>
-        </div>
+      <!-- Top bar: close · FindAI · flash -->
+      <div class="scan-fs-top">
+        <button class="scan-fs-icon" onclick="go('search')" aria-label="Close scanner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+        <div class="scan-fs-brand">FindAI</div>
+        <button class="scan-fs-icon" onclick="toggleTorch()" aria-label="Toggle flash">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M13 2L4 13h7l-1 9 10-12h-7z"/></svg>
+        </button>
+      </div>
 
-        <div class="scan-processing" id="scanProcessing" aria-live="polite">
-          <div class="scan-progress-card">
-            <div class="scan-stage-row">
-              <div class="scan-stage-icon" id="scanStageIcon" aria-hidden="true"></div>
-              <div class="scan-stage-copy">
-                <b id="scanStageTitle">Reading the item</b>
-                <span id="scanStageDetail">Looking for exact product details</span>
-              </div>
+      <!-- Corner brackets -->
+      <div class="scan-fs-frame"><span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span></div>
+
+      <!-- Capture hint -->
+      <div class="scan-fs-hint" id="scanStatus" aria-live="polite">
+        <b>Capture item</b>
+        <span>Point at one product, then tap to scan</span>
+      </div>
+
+      <!-- Processing overlay (kept for the scan pipeline) -->
+      <div class="scan-processing" id="scanProcessing" aria-live="polite">
+        <div class="scan-progress-card">
+          <div class="scan-stage-row">
+            <div class="scan-stage-icon" id="scanStageIcon" aria-hidden="true"></div>
+            <div class="scan-stage-copy">
+              <b id="scanStageTitle">Reading the item</b>
+              <span id="scanStageDetail">Looking for exact product details</span>
             </div>
-            <div class="scan-progress-track"><i id="scanProgressBar"></i></div>
-            <div class="scan-step-dots" id="scanStepDots" aria-hidden="true"><i class="active"></i><i></i><i></i><i></i><i></i></div>
           </div>
+          <div class="scan-progress-track"><i id="scanProgressBar"></i></div>
+          <div class="scan-step-dots" id="scanStepDots" aria-hidden="true"><i class="active"></i><i></i><i></i><i></i><i></i></div>
         </div>
+      </div>
 
-        <div class="frame"><span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span></div>
-        <div class="scan-line"></div>
-        <div class="scan-badge" id="scanStatus" aria-live="polite">Finding an item</div>
-
-        <div class="scan-controls">
-          <button class="scan-aux" onclick="triggerUpload()" aria-label="Choose photo">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="M21 15l-5-5L5 20"/></svg>
-          </button>
-          <button class="shutter" id="shutter" onclick="captureScan(false)" aria-label="Take photo manually"></button>
-          <button class="scan-aux" onclick="scanBarcode()" aria-label="Scan barcode">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg>
-          </button>
-        </div>
-
-        <div class="scan-live-rail" id="scanLiveRail" aria-hidden="true">
-          <span class="scan-stage-pill active" data-scan-stage="0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><circle cx="12" cy="12" r="3"/></svg></span>
-          <span class="scan-stage-pill" data-scan-stage="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8.5 15.5l7-7"/><path d="M7 8.5l-1.5 1.5a3 3 0 0 0 4.2 4.2L11 13M13 11l1.3-1.3a3 3 0 1 1 4.2 4.2L17 15.5"/></svg></span>
-          <span class="scan-stage-pill" data-scan-stage="2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5v14M8 5v14M12 5v14M16 5v14M20 5v14"/></svg></span>
-          <span class="scan-stage-pill" data-scan-stage="3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 17l5-5 3.5 3.5L20 8"/><path d="M16 8h4v4"/></svg></span>
-        </div>
+      <!-- Bottom controls: Upload · Shutter · Rotate -->
+      <div class="scan-fs-controls">
+        <button class="scan-fs-aux" onclick="triggerUpload()" aria-label="Upload photo">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="M21 15l-5-5L5 20"/></svg>
+          <span>Upload</span>
+        </button>
+        <button class="shutter scan-fs-shutter" id="shutter" onclick="captureScan(false)" aria-label="Capture item"></button>
+        <button class="scan-fs-aux" onclick="flipCamera()" aria-label="Rotate camera">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 0 1-15 6.7L3 16M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 21v-5h5M21 3v5h-5"/></svg>
+          <span>Rotate</span>
+        </button>
       </div>
       <input id="fileInput" type="file" accept="image/*" style="display:none" onchange="onFilePicked(event)">
     </div>
@@ -1306,6 +1340,7 @@
 const WORKER = 'https://api.carsearchapi.workers.dev';
 
 let stream = null;
+let scanFacingMode='environment';
 let cameraTrack = null;
 let currentFeedItems = [];
 let currentFeedData = null;
@@ -1359,7 +1394,7 @@ const PERSONALISED_LOAD_MORE_LANES = 2;
 const PERSONALISED_CACHE_KEY = 'fa_personalised_feed_cache_v6';
 const PERSONALISED_CACHE_TTL = 10 * 60 * 1000;
 const PERSONALISED_REQUEST_BUDGET_KEY = 'fa_personalised_request_count_v1';
-const PERSONALISED_SESSION_REQUEST_BUDGET = 600;
+const PERSONALISED_SESSION_REQUEST_BUDGET = 5000;
 const PERSONALISED_SEEN_KEY = 'fa_personalised_seen_v1';
 const PERSONALISED_SEEN_TTL = 14 * 24 * 60 * 60 * 1000;
 const PERSONALISED_SEEN_LIMIT = 300;
@@ -1651,6 +1686,7 @@ function getImage(item){ return enhanceImageUrl(rawImageValue(item)); }
 function getImageFallback(item){ return rawImageValue(item); }
 function getListingUrl(item){ return safeUrl(item && (item.url || item.itemWebUrl || item.webUrl || item.link)); }
 function getSource(item){ return String(item && (item.source || item.marketplace || item.platform) || 'listing').toLowerCase(); }
+const EBAY_LOGO_SVG = `<svg class="ebay-logo" viewBox="0 0 300 122" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="eBay"><path fill="#e53238" d="M44.7 57.3c-.5-9.9-7.7-13.6-15.4-13.6-8.3 0-15.1 4.2-16.2 13.6h31.6zm-31.9 8.4c.6 10.3 7.7 16.3 16.9 16.3 6.4 0 12-2.6 13.9-8.8h11.9c-2.3 12.6-15.6 17.4-25.6 17.4C15.5 98.9 1 88.6 1 66.7 1 44.4 15 34.5 30.2 34.5c19.5 0 27.5 10.7 27.5 30v1.2H12.8z"/><path fill="#0064d2" d="M61.4 12h11.4v33.6c5.5-6.6 13.2-9 21-9 13.2 0 27.8 8.9 27.8 31.9 0 19.7-11.2 32.1-28 32.1-8.5 0-16.4-3-21.4-9.4-.1 2.5-.3 5.1-.5 7.4H60.9c.2-4.1.5-9.4.5-13.4V12zm31.5 78.1c11.4 0 18.9-8.2 18.9-22.6 0-13.5-7.5-22.6-18.9-22.6-11.2 0-18.9 9.2-18.9 22.6.1 14.4 7.7 22.6 18.9 22.6z"/><path fill="#f5af02" d="M167.5 78.2c-2.6.1-5.3.5-8 .8-9.7 1.3-15 3.8-15 10.4 0 5 3.6 8.4 11.4 8.4 10.5 0 16.6-6.2 16.6-16.4v-3.2zm11.5 9.1c0 3.7.1 7.4.6 11.1h-10.7c-.3-2.5-.4-5-.3-7.4-5.4 6.9-12.5 9.5-22.1 9.5-14.2 0-21.4-7.5-21.4-16.4 0-12.9 10.6-16.9 27.2-18.4 5-.5 10.3-.7 14.6-.9v-1.4c0-9.4-6-13.2-15.1-13.2-6.8 0-12.6 2.7-13.1 9.1h-11.6c1.2-13.6 13.4-17.4 25.4-17.4 14.4 0 25.9 5.1 25.9 22.7v31.1z"/><path fill="#86b817" d="M182.3 36.4h13.2l19.2 38.5 19.1-38.5h11.9L231 96c-4.4 8.7-9.2 22.4-25 22.4-3.4 0-6.7-.4-8.9-1.1v-9.4c2.1.5 4.3.8 6.5.8 7.3 0 10.8-4.6 13.3-11.4l-30.6-59.9z"/></svg>`;
 function sourceLabel(source){
   const map = {ebay:'eBay',amazon:'Amazon',aliexpress:'AliExpress',stockx:'StockX',bricklink:'BrickLink',brickset:'Brickset',goat:'GOAT'};
   return map[source] || source.charAt(0).toUpperCase()+source.slice(1);
@@ -1659,9 +1695,12 @@ function currencyOf(item, data){ return String((item && item.currency) || (data 
 function money(value, currency='AUD'){
   const n = Number(value);
   if(!Number.isFinite(n)) return '—';
-  try{
-    return new Intl.NumberFormat(undefined,{style:'currency',currency,maximumFractionDigits:n%1?2:0}).format(n);
-  }catch(_){ return 'A$'+n.toLocaleString(undefined,{maximumFractionDigits:2}); }
+  const code = String(currency||'AUD').toUpperCase();
+  // Symbol in front, ISO code after (e.g. "$139 USD", "£95 GBP", "€80 EUR").
+  const symbols = {USD:'$',AUD:'A$',NZD:'NZ$',CAD:'C$',GBP:'£',EUR:'€',JPY:'¥',CNY:'¥',HKD:'HK$',SGD:'S$'};
+  const symbol = symbols[code] || '$';
+  const amount = n.toLocaleString(undefined,{maximumFractionDigits:n%1?2:0});
+  return `${symbol}${amount} ${code}`;
 }
 function median(nums){
   const a = nums.filter(Number.isFinite).sort((x,y)=>x-y);
@@ -2372,10 +2411,12 @@ async function backgroundRefreshPersonalisedFeed(){
   }
 }
 function refreshPersonalisedPresentationOnForeground(){
-  if(feedState.source!=='personalised'||!currentFeedItems.length) return;
+  if(feedState.source!=='personalised') return;
+  // Returning to the app after being away = a genuine reopen. Rebuild the feed
+  // fresh (new seed + seen-history + new listings from the network) so it never
+  // shows the same stack again. forceNetwork bypasses the short cache.
   rotatePersonalisedSessionSeed();
-  renderPersonalisedFeed(freshenPersonalisedItems(currentFeedItems),{writeCache:false});
-  schedulePersonalisedBackgroundRefresh(getPersonalisedLastRefresh());
+  loadPersonalisedFeed({forceNetwork:true});
 }
 async function loadMorePersonalisedListings(){
   if(feedState.source!=='personalised'||feedState.loading||!$('#search').classList.contains('active')) return;
@@ -2459,13 +2500,10 @@ function bindFeedHeaderAutoHide(){
 
 function openForYou(){
   go('search');
-  if(feedState.source==='personalised'&&currentFeedItems.length){
-    $('#q').value='';
-    rotatePersonalisedSessionSeed();
-    renderPersonalisedFeed(freshenPersonalisedItems(currentFeedItems),{writeCache:false});
-    return;
-  }
-  loadPersonalisedFeed();
+  $('#q').value='';
+  // Always rebuild fresh on entering the feed so it never shows the same stack.
+  rotatePersonalisedSessionSeed();
+  loadPersonalisedFeed({forceNetwork:true});
 }
 function finaliseReelTracking(){
   if(!activeReelTrackingKey||!currentFeedItems.length) return;
@@ -2915,7 +2953,7 @@ function renderReelCard(item,index,data){
       </button>
     </div>
     <div class="product-panel">
-      <div class="source-chip" data-source="${escapeAttr(source)}"><span class="source-brand">${escapeHTML(sourceLabel(source))}</span></div>
+      <div class="source-chip" data-source="${escapeAttr(source)}">${source==='ebay' ? EBAY_LOGO_SVG : `<span class="source-brand">${escapeHTML(sourceLabel(source))}</span>`}</div>
       <h2 class="title">${escapeHTML(title)}</h2>
       <div class="price-action-row">
         <div class="listing-price-copy">
@@ -3185,7 +3223,19 @@ const SCAN_STAGES=[
     icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.5 2.5L16.5 9"/></svg>'
   }
 ];
-function setScanStatus(message){ $('#scanStatus').textContent = message || ''; }
+function scanStageEl(){ return $('.scan-fs')||$('#viewport')||document.body; }
+function setScanStatus(message){
+  const hint=$('#scanStatus');
+  if(!hint) return;
+  const span=hint.querySelector('span');
+  if(span){ if(message) span.textContent=message; }        // update sub-line only
+  else hint.textContent=message||'';                        // legacy fallback
+}
+async function flipCamera(){
+  scanFacingMode = (scanFacingMode==='environment') ? 'user' : 'environment';
+  try{ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; cameraTrack=null; } }catch(_){}
+  await startCam();
+}
 function renderScanStage(index,progressOverride){
   const stage=SCAN_STAGES[clamp(index,0,SCAN_STAGES.length-1)];
   scanProgressStage=clamp(index,0,SCAN_STAGES.length-1);
@@ -3202,7 +3252,7 @@ function startScanProgress(){
   clearInterval(scanProgressTimer);
   scanProgressStage=0;
   scanProgressValue=8;
-  $('#viewport').classList.add('processing');
+  (scanStageEl().classList.add('processing'));
   $('.scan-content').classList.add('processing');
   renderScanStage(0,8);
   const stageDelays=[700,1050,1250,1450];
@@ -3224,7 +3274,7 @@ function stopScanProgress({hide=true}={}){
   clearInterval(scanProgressTimer);
   scanProgressTimer=null;
   if(hide){
-    $('#viewport').classList.remove('processing');
+    (scanStageEl().classList.remove('processing'));
     $('.scan-content').classList.remove('processing');
   }
 }
@@ -3251,7 +3301,7 @@ function failScanProgress(message){
 function setAutoScanProgress(value,state='seeking'){
   const progress=clamp(Number(value)||0,0,100);
   const circle=$('#autoScanProgress');
-  const viewport=$('#viewport');
+  const viewport=scanStageEl();
   if(circle) circle.style.strokeDashoffset=String(100-progress);
   if(viewport){
     viewport.classList.toggle('auto-ready',state==='ready' || state==='hold');
@@ -3331,7 +3381,7 @@ function sampleCameraFrame(cam){
   return {mean,contrast,detail,motion,centreContrast,outerContrast,centreDetail,outerDetail,objectSeparation};
 }
 function evaluateAutoScanFrame(now){
-  if(!stream || autoScanBusy || !$('#scan').classList.contains('active') || $('#viewport').classList.contains('processing')) return;
+  if(!stream || autoScanBusy || !$('#scan').classList.contains('active') || scanStageEl().classList.contains('processing')) return;
   // Give Safari only a brief moment to settle, then begin locking on immediately.
   if(now-autoScanStartedAt<320) return;
   const cam=$('#cam');
@@ -3350,13 +3400,15 @@ function evaluateAutoScanFrame(now){
   const clearItem=sample.contrast>15 && sample.detail>6.1 && (sample.objectSeparation>7.2 || sample.centreDetail>sample.outerDetail*1.16+.45);
   const steady=sample.motion<15;
   const verySteady=sample.motion<9.5;
-  const alreadyLocked=autoScanStableFrames>=28;
+  const alreadyLocked=autoScanStableFrames>=70;
 
   if(lit && hasItem){
     let gain;
-    if(verySteady) gain=clearItem?34:27;
-    else if(steady) gain=clearItem?25:18;
-    else if(alreadyLocked && sample.motion<24) gain=6;
+    // Tuned so a steady, clear item takes ~1.5s to reach 100 (was ~0.5s).
+    // At ~130ms per evaluated frame, a max gain of ~9 needs ~11-12 good frames.
+    if(verySteady) gain=clearItem?9:7;
+    else if(steady) gain=clearItem?6.5:5;
+    else if(alreadyLocked && sample.motion<24) gain=2;
     else gain=-4;
 
     // Use a forgiving 0–100 confidence meter rather than consecutive-frame counting.
@@ -3383,19 +3435,11 @@ function evaluateAutoScanFrame(now){
   }
 }
 function startAutoScanLoop(){
+  // Manual-only scanner (SellRaze-style): auto-capture disabled. The user taps
+  // the shutter to capture. This is intentionally a no-op so the rest of the
+  // scan pipeline (which used to call it) keeps working without auto-firing.
   stopAutoScanLoop();
-  resetAutoScan();
-  const cam=$('#cam');
-  const tick=(now)=>{
-    if(!stream || !$('#scan').classList.contains('active')){autoScanFrameHandle=null;return;}
-    if(now-autoScanLastTick>=130){autoScanLastTick=now;evaluateAutoScanFrame(now);}
-    autoScanFrameHandle=typeof cam.requestVideoFrameCallback==='function'
-      ? cam.requestVideoFrameCallback(tick)
-      : requestAnimationFrame(tick);
-  };
-  autoScanFrameHandle=typeof cam.requestVideoFrameCallback==='function'
-    ? cam.requestVideoFrameCallback(tick)
-    : requestAnimationFrame(tick);
+  setScanStatus('');
 }
 
 async function startCam(){
@@ -3409,14 +3453,14 @@ async function startCam(){
   }
   try{
     stream = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false
+      video:{facingMode:{ideal:scanFacingMode},width:{ideal:1920},height:{ideal:1080}},audio:false
     });
     cam.srcObject = stream;
     cam.style.display='block';
     $('#preview').style.display='none';
     placeholder.style.display='none';
     cameraTrack = stream.getVideoTracks()[0];
-    $('#viewport').classList.add('scanning');
+    
     setScanStatus('Finding an item');
     try{ await cam.play(); }catch(_){}
     startAutoScanLoop();
@@ -3426,7 +3470,7 @@ async function startCam(){
 }
 function stopCam(){
   stopAutoScanLoop();
-  $('#viewport').classList.remove('scanning','auto-ready','auto-hold');
+  
   if(stream){ stream.getTracks().forEach(t=>t.stop()); }
   stream=null;cameraTrack=null;
   autoScanBusy=false;
@@ -3464,7 +3508,7 @@ function sourceDimensions(source){
 function cropSourceToScannerGuide(source,maxSide=1200,quality=.82){
   const {width:sw,height:sh}=sourceDimensions(source);
   if(!sw || !sh) throw new Error('Image not ready');
-  const viewport=$('#viewport');
+  const viewport=scanStageEl();
   const frame=$('.frame',viewport);
   let sx=0,sy=0,cropW=sw,cropH=sh;
   if(viewport && frame && viewport.clientWidth && viewport.clientHeight){
@@ -3529,7 +3573,7 @@ function showPreview(dataUrl){
   preview.style.display='block';
   $('#cam').style.display='none';
   $('#camPlaceholder').style.display='none';
-  $('#viewport').classList.remove('scanning','auto-ready','auto-hold');
+  
   setAutoScanProgress(100,'hold');
 }
 function normaliseConfidence(data){
