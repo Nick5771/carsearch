@@ -1038,7 +1038,7 @@
 #search .hero-image.fit-contain{object-fit:contain;object-position:center}
 
 </style>
-  <meta name="findai-build" content="v24-fill-fix">
+  <meta name="findai-build" content="v25-fill-tuner">
 </head>
 <body>
 <div class="app">
@@ -1496,30 +1496,23 @@ function adaptListingImage(img){
     stage.classList.add('has-bg-fill');
   }
 
-  /* Balanced full-screen fill. Decide from the image's own aspect ratio against
-     the actual portrait screen ratio (always available, unlike element sizes at
-     onload time — the previous bug that dumped everything into blur).
-
-     cover-fill fills the screen edge-to-edge; the only images that can't do that
-     without hacking off real product are ones MUCH wider or MUCH taller than the
-     screen. Everything remotely close to the screen's tall shape fills. */
-  const vw=window.innerWidth||stage.clientWidth||390;
-  const vh=window.innerHeight||stage.clientHeight||780;
-  const screenRatio=vw/vh;               // ~0.46 on a phone (tall)
-  const bigger=Math.max(ratio,screenRatio);
-  const smaller=Math.min(ratio,screenRatio);
-  const cropLoss=1-(smaller/bigger);     // fraction cropped away to fill
-  // Generous: a phone screen is ~0.46, a square photo is 1.0 → without a generous
-  // bar even squares would "lose" >50% and blur. Product photos should fill, so we
-  // only letterbox genuinely extreme panoramas / ultra-tall images.
-  const useCover = ratio>=0.62 && ratio<=2.4;   // square-ish and moderately wide → fill
+  /* Fill vs blur decision, driven by ONE tunable number: FILL_MAX_RATIO.
+     An image cover-fills the tall screen only if it isn't too wide — wider images
+     would have to zoom/crop too hard, so they show whole on a blur of themselves.
+     Default 1.05 = portrait + square-ish photos fill (premium, no zoom); wider
+     shoe/watch shots show whole on blur. Live-tunable via the dev slider. */
+  const FILL_MAX_RATIO = Number(localStorage.getItem('fa_fill_max_ratio')) || 1.05;
+  const FILL_MIN_RATIO = 0.5; // ultra-tall skinny images also blur rather than crop
+  const useCover = ratio<=FILL_MAX_RATIO && ratio>=FILL_MIN_RATIO;
   if(useCover){
     stage.classList.add('fill-cover');
     stage.classList.remove('fill-contain');
+    img.classList.remove('fit-contain');
     img.classList.add('fit-cover');
   }else{
     stage.classList.add('fill-contain');
     stage.classList.remove('fill-cover');
+    img.classList.remove('fit-cover');
     img.classList.add('fit-contain');
   }
 }
@@ -4065,6 +4058,48 @@ function initGoogleAuth(){
   });
 }
 window.addEventListener('load', initGoogleAuth);
+</script>
+<!-- Hidden dev control: tap the FindAI wordmark 5x to tune fill vs blur live -->
+<div id="fillTuner" style="display:none;position:fixed;left:12px;right:12px;bottom:96px;z-index:200;padding:14px 16px;border-radius:16px;background:rgba(12,14,18,.94);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.14);color:#fff;font:13px -apple-system,sans-serif">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <b>Fill threshold</b>
+    <span id="fillTunerVal" style="color:#7da7ff;font-weight:700">1.05</span>
+  </div>
+  <input id="fillTunerRange" type="range" min="0.5" max="2.2" step="0.05" value="1.05" style="width:100%">
+  <div style="display:flex;justify-content:space-between;color:#8b929c;font-size:10px;margin-top:4px">
+    <span>← less zoom (more blur)</span><span>more fill (more zoom) →</span>
+  </div>
+  <div style="margin-top:8px;color:#9aa0aa;font-size:10.5px;line-height:1.4">Slide, then scroll the feed to see it. Higher = more images fill the screen (and crop more). Setting is saved on this device.</div>
+  <button onclick="document.getElementById('fillTuner').style.display='none'" style="margin-top:10px;width:100%;height:38px;border:0;border-radius:11px;background:#f4f5f6;color:#0b0d10;font-weight:700">Done</button>
+</div>
+<script>
+(function fillTunerSetup(){
+  var taps=0,timer=null;
+  document.addEventListener('click',function(e){
+    var b=e.target&&e.target.closest&&e.target.closest('.brand');
+    if(!b) return;
+    taps++; clearTimeout(timer); timer=setTimeout(function(){taps=0;},900);
+    if(taps>=5){
+      taps=0;
+      var panel=document.getElementById('fillTuner');
+      var range=document.getElementById('fillTunerRange');
+      var val=document.getElementById('fillTunerVal');
+      var saved=Number(localStorage.getItem('fa_fill_max_ratio'))||1.05;
+      range.value=saved; val.textContent=saved.toFixed(2);
+      panel.style.display='block';
+    }
+  },true);
+  var range=document.getElementById('fillTunerRange');
+  if(range) range.addEventListener('input',function(){
+    var v=Number(range.value);
+    document.getElementById('fillTunerVal').textContent=v.toFixed(2);
+    try{ localStorage.setItem('fa_fill_max_ratio',String(v)); }catch(_){}
+    // Re-apply to every currently rendered image immediately.
+    document.querySelectorAll('#feed .hero-image').forEach(function(img){
+      if(img.complete && img.naturalWidth) adaptListingImage(img);
+    });
+  });
+})();
 </script>
 </body>
 </html>
