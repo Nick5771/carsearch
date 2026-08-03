@@ -1038,7 +1038,7 @@
 #search .hero-image.fit-contain{object-fit:contain;object-position:center}
 
 </style>
-  <meta name="findai-build" content="v25-fill-tuner">
+  <meta name="findai-build" content="v26-prefer-vertical">
 </head>
 <body>
 <div class="app">
@@ -1560,6 +1560,18 @@ function imageCandidateScore(candidate){
   }
   if(/s-l(?:1000|1200|1400|1600)/i.test(url)) score+=3000000;
   if(/thumbnail|thumb|s-l(?:64|96|140|225|300)/i.test(url)) score-=1500000;
+  /* Option A — within THIS listing's own gallery, prefer a vertical/portrait
+     photo, because those fill the tall reel screen cleanly with no zoom or blur.
+     This only reorders a single listing's candidate images; it never changes
+     which listings appear or their position in the feed. Resolution above stays
+     the tiebreaker when no clearly-vertical option exists. */
+  const w=Number(candidate.width)||0, h=Number(candidate.height)||0;
+  if(w>0 && h>0){
+    const r=w/h;
+    if(r<=0.9) score+=4000000;        // clearly portrait → strongly preferred
+    else if(r<=1.05) score+=1200000;  // square-ish → mildly preferred over wide
+    else if(r>=1.5) score-=1500000;   // very wide → the ones that zoom/blur
+  }
   return score;
 }
 function rawImageValue(item){
