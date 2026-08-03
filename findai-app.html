@@ -1038,7 +1038,7 @@
 #search .hero-image.fit-contain{object-fit:contain;object-position:center}
 
 </style>
-  <meta name="findai-build" content="v23-balanced-fill">
+  <meta name="findai-build" content="v24-fill-fix">
 </head>
 <body>
 <div class="app">
@@ -1496,16 +1496,24 @@ function adaptListingImage(img){
     stage.classList.add('has-bg-fill');
   }
 
-  /* Balanced full-screen: fill edge-to-edge (premium immersive look) whenever the
-     crop needed to fill the screen is small — you keep almost the whole image and
-     never notice the trim. Only images far from the screen's shape (where filling
-     would slice off real product) fall back to contain-on-blur. */
-  const stageRatio=(stage.clientWidth||img.clientWidth||1)/(stage.clientHeight||img.clientHeight||1);
-  const bigger=Math.max(ratio,stageRatio);
-  const smaller=Math.min(ratio,stageRatio);
-  const cropLoss=1-(smaller/bigger); // fraction of the image cropped away to fill
-  const COVER_MAX_CROP=0.20;         // fill if we'd lose <20% of the image
-  if(cropLoss<=COVER_MAX_CROP){
+  /* Balanced full-screen fill. Decide from the image's own aspect ratio against
+     the actual portrait screen ratio (always available, unlike element sizes at
+     onload time — the previous bug that dumped everything into blur).
+
+     cover-fill fills the screen edge-to-edge; the only images that can't do that
+     without hacking off real product are ones MUCH wider or MUCH taller than the
+     screen. Everything remotely close to the screen's tall shape fills. */
+  const vw=window.innerWidth||stage.clientWidth||390;
+  const vh=window.innerHeight||stage.clientHeight||780;
+  const screenRatio=vw/vh;               // ~0.46 on a phone (tall)
+  const bigger=Math.max(ratio,screenRatio);
+  const smaller=Math.min(ratio,screenRatio);
+  const cropLoss=1-(smaller/bigger);     // fraction cropped away to fill
+  // Generous: a phone screen is ~0.46, a square photo is 1.0 → without a generous
+  // bar even squares would "lose" >50% and blur. Product photos should fill, so we
+  // only letterbox genuinely extreme panoramas / ultra-tall images.
+  const useCover = ratio>=0.62 && ratio<=2.4;   // square-ish and moderately wide → fill
+  if(useCover){
     stage.classList.add('fill-cover');
     stage.classList.remove('fill-contain');
     img.classList.add('fit-cover');
