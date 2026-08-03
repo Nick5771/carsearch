@@ -1076,69 +1076,143 @@
 #search .listing-meta{margin-top:2px;color:#aab0b9;font-size:11px;font-weight:500}
 
 /* ============================================================
-   FindAI v32 — SellRaze-style full-screen scanner
+   FindAI v34 — SellRaze-inspired manual full-screen scanner
    ============================================================ */
-#scan .scan-fs{position:absolute;inset:0;background:#000;overflow:hidden}
-#scan .scan-fs #cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-#scan .scan-fs .preview{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-#scan .scan-fs .camera-placeholder{position:absolute;inset:0;display:grid;place-content:center;justify-items:center;gap:10px;color:#aab0b8;text-align:center}
-#scan .scan-fs .camera-placeholder svg{width:40px;height:40px}
-
-/* Top bar */
-#scan .scan-fs-top{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;align-items:center;justify-content:space-between;padding:max(14px,env(safe-area-inset-top)) 18px 14px;background:linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,0))}
-#scan .scan-fs-brand{color:#fff;font-size:22px;font-weight:800;letter-spacing:-.4px;text-shadow:0 1px 8px rgba(0,0,0,.5)}
-#scan .scan-fs-icon{width:44px;height:44px;border:0;border-radius:50%;display:grid;place-items:center;background:rgba(20,22,26,.72);backdrop-filter:blur(14px);color:#fff;cursor:pointer}
-#scan .scan-fs-icon svg{width:20px;height:20px}
-#scan .scan-fs-icon:active{transform:scale(.94)}
-
-/* Corner brackets */
-#scan .scan-fs-frame{position:absolute;inset:16% 12% 30%;z-index:3;pointer-events:none}
-#scan .scan-fs-frame span{position:absolute;width:46px;height:46px;border:3px solid rgba(255,255,255,.95);border-radius:6px}
-#scan .scan-fs-frame .tl{top:0;left:0;border-right:0;border-bottom:0}
-#scan .scan-fs-frame .tr{top:0;right:0;border-left:0;border-bottom:0}
-#scan .scan-fs-frame .bl{bottom:0;left:0;border-right:0;border-top:0}
-#scan .scan-fs-frame .br{bottom:0;right:0;border-left:0;border-top:0}
-
-/* Capture hint */
-#scan .scan-fs-hint{position:absolute;left:0;right:0;top:46%;z-index:4;text-align:center;pointer-events:none;text-shadow:0 1px 8px rgba(0,0,0,.6)}
-#scan .scan-fs-hint b{display:block;color:#fff;font-size:20px;font-weight:750}
-#scan .scan-fs-hint span{display:block;margin-top:4px;color:rgba(255,255,255,.82);font-size:12.5px}
-#scan.processing-active .scan-fs-hint,#scan .processing .scan-fs-hint{opacity:0}
-
-/* Bottom controls: Upload · Shutter · Rotate */
-#scan .scan-fs-controls{position:absolute;left:0;right:0;bottom:0;z-index:5;display:flex;align-items:center;justify-content:space-around;padding:20px 26px max(26px,env(safe-area-inset-bottom));background:linear-gradient(0deg,rgba(0,0,0,.62),rgba(0,0,0,0))}
-#scan .scan-fs-aux{display:flex;flex-direction:column;align-items:center;gap:6px;border:0;background:transparent;color:#fff;cursor:pointer;width:64px}
-#scan .scan-fs-aux svg{width:26px;height:26px}
-#scan .scan-fs-aux span{font-size:11px;font-weight:600;letter-spacing:.2px}
-#scan .scan-fs-aux:active{transform:scale(.94)}
-#scan .scan-fs-shutter{width:74px;height:74px;border-radius:50%;border:5px solid #fff;background:rgba(255,255,255,.92);cursor:pointer;padding:0;box-shadow:0 0 0 3px rgba(0,0,0,.25)}
-#scan .scan-fs-shutter:active{transform:scale(.93)}
-
-/* Processing overlay centered */
-#scan .scan-fs .scan-processing{position:absolute;inset:0;z-index:6;display:none;place-items:center;background:rgba(3,4,6,.55);backdrop-filter:blur(4px)}
-#scan .scan-fs .scan-processing.show,#scan .scan-fs.processing .scan-processing{display:grid}
-
-/* ============================================================
-   FindAI v33 — scanner full-screen fix
-   - #scan ignores the global nav padding (true full-screen)
-   - the bottom nav is hidden while scanning (SellRaze-style)
-   - camera element always visible; placeholder only shows before start
-   ============================================================ */
-#scan.screen{padding-bottom:0!important;height:100%!important;overflow:hidden}
-#scan .scan-fs{position:absolute;inset:0;background:#000;overflow:hidden;z-index:1}
-/* Hide the app's bottom tab bar while the scan screen is active */
+#scan.screen{
+  position:relative;height:100%!important;padding:0!important;overflow:hidden!important;background:#000
+}
 body.scanning-fs .nav{display:none!important}
-/* Camera fills the screen; keep it visible (JS reveals it on stream) */
-#scan .scan-fs #cam{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
-#scan .scan-fs .camera-placeholder{z-index:6;background:#000}
-/* Hide the 'Capture item' hint until the camera is live (JS adds .cam-live) */
-#scan .scan-fs .scan-fs-hint{opacity:0;transition:opacity .2s}
-#scan .scan-fs.cam-live .scan-fs-hint{opacity:1}
-/* Controls sit above the very bottom safe-area, not under a nav */
-#scan .scan-fs-controls{bottom:0;padding-bottom:max(30px,env(safe-area-inset-bottom))}
+#scan .scan-fs{
+  position:absolute;inset:0;z-index:1;overflow:hidden;background:#000;color:#fff;
+  isolation:isolate
+}
+#scan .scan-fs:after{
+  content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:
+    linear-gradient(180deg,rgba(0,0,0,.50) 0%,rgba(0,0,0,.05) 20%,rgba(0,0,0,0) 55%,rgba(0,0,0,.13) 72%,rgba(0,0,0,.66) 100%)
+}
+#scan .scan-fs #cam,
+#scan .scan-fs .preview{
+  position:absolute;inset:0;width:100%;height:100%;display:block;object-fit:cover;
+  object-position:center center;background:#000;z-index:1
+}
+#scan .scan-fs .preview{display:none}
+#scan .scan-fs .camera-placeholder{
+  position:absolute;inset:0;z-index:8;display:grid;place-content:center;justify-items:center;gap:11px;
+  padding:28px;background:#000;color:#c7cbd1;text-align:center;font-size:13px
+}
+#scan .scan-fs .camera-placeholder svg{width:42px;height:42px}
+
+/* Top controls: close · FindAI · flash */
+#scan .scan-fs-top{
+  position:absolute;top:0;left:0;right:0;z-index:10;display:grid;
+  grid-template-columns:58px 1fr 58px;align-items:center;
+  padding:calc(max(13px,env(safe-area-inset-top)) + 4px) 17px 14px
+}
+#scan .scan-fs-brand{
+  justify-self:center;color:#fff;font-size:25px;font-weight:800;letter-spacing:-.8px;
+  text-shadow:0 2px 12px rgba(0,0,0,.62);user-select:none
+}
+#scan .scan-fs-icon{
+  width:52px;height:52px;border:1px solid rgba(255,255,255,.08);border-radius:50%;padding:0;
+  display:grid;place-items:center;background:rgba(12,14,17,.69);-webkit-backdrop-filter:blur(15px);
+  backdrop-filter:blur(15px);color:#fff;box-shadow:0 7px 24px rgba(0,0,0,.20);cursor:pointer
+}
+#scan .scan-fs-icon:first-child{justify-self:start}
+#scan .scan-fs-icon:last-child{justify-self:end}
+#scan .scan-fs-icon svg{width:27px;height:27px;stroke-linecap:round;stroke-linejoin:round}
+#scan .scan-fs-icon:active{transform:scale(.93)}
+#scan .scan-fs-icon.active{background:rgba(255,255,255,.93);color:#090a0c}
+
+/* Four open brackets only — no ring, no automatic scan indicator. */
+#scan .scan-fs-frame{
+  position:absolute;left:10%;right:10%;top:26%;bottom:29%;z-index:5;pointer-events:none
+}
+#scan .scan-fs-frame span{
+  position:absolute;width:62px;height:62px;border:4px solid rgba(255,255,255,.98);
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.32))
+}
+#scan .scan-fs-frame .tl{top:0;left:0;border-right:0;border-bottom:0;border-radius:28px 0 0 0}
+#scan .scan-fs-frame .tr{top:0;right:0;border-left:0;border-bottom:0;border-radius:0 28px 0 0}
+#scan .scan-fs-frame .bl{bottom:0;left:0;border-right:0;border-top:0;border-radius:0 0 0 28px}
+#scan .scan-fs-frame .br{bottom:0;right:0;border-left:0;border-top:0;border-radius:0 0 28px 0}
+
+#scan .scan-fs-hint{
+  position:absolute;left:18px;right:18px;bottom:31%;z-index:7;text-align:center;pointer-events:none;
+  text-shadow:0 2px 12px rgba(0,0,0,.78)
+}
+#scan .scan-fs-hint b{display:block;color:#fff;font-size:22px;line-height:1.1;font-weight:800;letter-spacing:-.45px}
+#scan .scan-fs-hint span{display:block;margin-top:6px;color:rgba(255,255,255,.88);font-size:13px;font-weight:650}
+#scan .scan-fs:not(.cam-live) .scan-fs-hint{opacity:0}
+#scan .scan-fs.processing .scan-fs-hint{opacity:0}
+
+/* Bottom controls: one upload, manual shutter, camera rotate. */
+#scan .scan-fs-controls{
+  position:absolute;left:0;right:0;bottom:0;z-index:10;display:grid;
+  grid-template-columns:1fr 118px 1fr;align-items:end;gap:5px;
+  padding:20px 27px calc(max(24px,env(safe-area-inset-bottom)) + 5px)
+}
+#scan .scan-fs-aux{
+  justify-self:center;width:86px;border:0;padding:0;display:flex;flex-direction:column;align-items:center;
+  gap:9px;background:transparent;color:#fff;cursor:pointer
+}
+#scan .scan-fs-aux-icon{
+  width:58px;height:58px;border:1px solid rgba(255,255,255,.08);border-radius:50%;display:grid;place-items:center;
+  background:rgba(10,12,15,.72);-webkit-backdrop-filter:blur(15px);backdrop-filter:blur(15px);
+  box-shadow:0 8px 28px rgba(0,0,0,.25)
+}
+#scan .scan-fs-aux svg{width:29px;height:29px;stroke-linecap:round;stroke-linejoin:round}
+#scan .scan-fs-aux span{font-size:11.5px;font-weight:760;letter-spacing:.7px;text-transform:uppercase;text-shadow:0 2px 8px rgba(0,0,0,.75)}
+#scan .scan-fs-aux:active{transform:scale(.94)}
+#scan .scan-fs-shutter{
+  justify-self:center;align-self:center;width:98px;height:98px;border:6px solid #fff;border-radius:50%;padding:8px;
+  background:transparent;box-shadow:0 0 0 2px rgba(0,0,0,.22),0 8px 30px rgba(0,0,0,.25);cursor:pointer
+}
+#scan .scan-fs-shutter:after{content:"";display:block;width:100%;height:100%;border-radius:50%;background:#fff}
+#scan .scan-fs-shutter:active{transform:scale(.94)}
+#scan .scan-fs-shutter:active:after{transform:scale(.96)}
+#scan #fileInput{display:none!important}
+
+/* Keep the captured frame visible while the existing eBay/vision pipeline works. */
+#scan .scan-fs .scan-processing{
+  position:absolute;inset:0;z-index:20;display:none;place-items:center;padding:28px;
+  background:rgba(3,4,6,.58);-webkit-backdrop-filter:none;backdrop-filter:none
+}
+#scan .scan-fs.processing .scan-processing{display:grid}
+#scan .scan-progress-card{
+  width:min(86%,310px);padding:19px 18px 16px;border:1px solid rgba(255,255,255,.14);
+  border-radius:22px;background:rgba(9,11,14,.82);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);
+  box-shadow:0 18px 58px rgba(0,0,0,.38)
+}
+#scan .scan-stage-row{display:flex;align-items:center;gap:13px}
+#scan .scan-stage-icon{
+  width:48px;height:48px;flex:0 0 48px;border-radius:15px;display:grid;place-items:center;
+  background:rgba(255,255,255,.09);color:#fff
+}
+#scan .scan-stage-icon svg{width:25px;height:25px}
+#scan .scan-stage-copy{min-width:0}
+#scan .scan-stage-copy b{display:block;color:#fff;font-size:14px;font-weight:760}
+#scan .scan-stage-copy span{display:block;margin-top:4px;color:#c2c7ce;font-size:10.5px;line-height:1.35}
+#scan .scan-progress-track{height:4px;margin-top:15px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden}
+#scan .scan-progress-track i{display:block;width:8%;height:100%;border-radius:inherit;background:#fff;transition:width .35s ease}
+#scan .scan-step-dots{display:none}
+
+@media (max-height:740px){
+  #scan .scan-fs-top{padding-top:calc(max(8px,env(safe-area-inset-top)) + 2px)}
+  #scan .scan-fs-icon{width:46px;height:46px}
+  #scan .scan-fs-brand{font-size:23px}
+  #scan .scan-fs-frame{top:23%;bottom:31%}
+  #scan .scan-fs-frame span{width:54px;height:54px}
+  #scan .scan-fs-hint{bottom:32%}
+  #scan .scan-fs-hint b{font-size:20px}
+  #scan .scan-fs-controls{grid-template-columns:1fr 104px 1fr;padding-bottom:calc(max(17px,env(safe-area-inset-bottom)) + 3px)}
+  #scan .scan-fs-shutter{width:86px;height:86px}
+  #scan .scan-fs-aux-icon{width:52px;height:52px}
+}
+
 
 </style>
-  <meta name="findai-build" content="v33-scanner-fixed">
+  <meta name="findai-build" content="v34-sellraze-manual-scanner">
 </head>
 <body>
 <div class="app">
@@ -1170,37 +1244,36 @@ body.scanning-fs .nav{display:none!important}
     </div>
   </section>
 
-  <!-- Scan -->
+  <!-- Scan: manual full-screen camera, one photo at a time -->
   <section id="scan" class="screen">
     <div class="scan-fs">
       <video id="cam" playsinline autoplay muted></video>
-      <img id="preview" class="preview" style="display:none" alt="Captured item">
+      <img id="preview" class="preview" alt="Captured item">
+
       <div class="camera-placeholder" id="camPlaceholder" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 8a2 2 0 0 1 2-2h2l1.4-2h5.2L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 8a2 2 0 0 1 2-2h2l1.4-2h5.2L16 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
         <div>Starting camera</div>
       </div>
 
-      <!-- Top bar: close · FindAI · flash -->
       <div class="scan-fs-top">
-        <button class="scan-fs-icon" onclick="go('search')" aria-label="Close scanner">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        <button class="scan-fs-icon" type="button" onclick="go('search')" aria-label="Close scanner">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8"><path d="M6 6l12 12M18 6L6 18"/></svg>
         </button>
         <div class="scan-fs-brand">FindAI</div>
-        <button class="scan-fs-icon" onclick="toggleTorch()" aria-label="Toggle flash">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M13 2L4 13h7l-1 9 10-12h-7z"/></svg>
+        <button class="scan-fs-icon" id="torchButton" type="button" onclick="toggleTorch()" aria-label="Toggle flash" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.2"><path d="M13.1 2.5L5.4 13h5.8l-.8 8.5 8.2-11.2h-5.7l.2-7.8z"/></svg>
         </button>
       </div>
 
-      <!-- Corner brackets -->
-      <div class="scan-fs-frame"><span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span></div>
-
-      <!-- Capture hint -->
-      <div class="scan-fs-hint" id="scanStatus" aria-live="polite">
-        <b>Capture item</b>
-        <span>Point at one product, then tap to scan</span>
+      <div class="scan-fs-frame" aria-hidden="true">
+        <span class="tl"></span><span class="tr"></span><span class="bl"></span><span class="br"></span>
       </div>
 
-      <!-- Processing overlay (kept for the scan pipeline) -->
+      <div class="scan-fs-hint" id="scanStatus" aria-live="polite">
+        <b>Capture item</b>
+        <span>Centre one item inside the frame</span>
+      </div>
+
       <div class="scan-processing" id="scanProcessing" aria-live="polite">
         <div class="scan-progress-card">
           <div class="scan-stage-row">
@@ -1215,19 +1288,18 @@ body.scanning-fs .nav{display:none!important}
         </div>
       </div>
 
-      <!-- Bottom controls: Upload · Shutter · Rotate -->
       <div class="scan-fs-controls">
-        <button class="scan-fs-aux" onclick="triggerUpload()" aria-label="Upload photo">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.5"/><path d="M21 15l-5-5L5 20"/></svg>
+        <button class="scan-fs-aux" type="button" onclick="triggerUpload()" aria-label="Upload one photo">
+          <span class="scan-fs-aux-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9" r="1.5"/><path d="M4.5 18l5.4-5.3 3.5 3.4 2.5-2.5 3.6 3.5"/></svg></span>
           <span>Upload</span>
         </button>
-        <button class="shutter scan-fs-shutter" id="shutter" onclick="captureScan(false)" aria-label="Capture item"></button>
-        <button class="scan-fs-aux" onclick="flipCamera()" aria-label="Rotate camera">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 0 1-15 6.7L3 16M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 21v-5h5M21 3v5h-5"/></svg>
+        <button class="scan-fs-shutter" id="shutter" type="button" onclick="captureScan(false)" aria-label="Capture item"></button>
+        <button class="scan-fs-aux" type="button" onclick="flipCamera()" aria-label="Rotate camera">
+          <span class="scan-fs-aux-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20.5 8.5A8.5 8.5 0 0 0 6 5.2L3.5 7.7"/><path d="M3.5 3.8v3.9h3.9M3.5 15.5A8.5 8.5 0 0 0 18 18.8l2.5-2.5"/><path d="M20.5 20.2v-3.9h-3.9"/></svg></span>
           <span>Rotate</span>
         </button>
       </div>
-      <input id="fileInput" type="file" accept="image/*" style="display:none" onchange="onFilePicked(event)">
+      <input id="fileInput" type="file" accept="image/*" onchange="onFilePicked(event)">
     </div>
   </section>
 
@@ -3272,8 +3344,7 @@ function startScanProgress(){
   clearInterval(scanProgressTimer);
   scanProgressStage=0;
   scanProgressValue=8;
-  (scanStageEl().classList.add('processing'));
-  $('.scan-content').classList.add('processing');
+  scanStageEl().classList.add('processing');
   renderScanStage(0,8);
   const stageDelays=[700,1050,1250,1450];
   let nextStage=1;
@@ -3294,8 +3365,7 @@ function stopScanProgress({hide=true}={}){
   clearInterval(scanProgressTimer);
   scanProgressTimer=null;
   if(hide){
-    (scanStageEl().classList.remove('processing'));
-    $('.scan-content').classList.remove('processing');
+    scanStageEl().classList.remove('processing');
   }
 }
 function completeScanProgress(message='Exact product matched'){
@@ -3455,11 +3525,8 @@ function evaluateAutoScanFrame(now){
   }
 }
 function startAutoScanLoop(){
-  // Manual-only scanner (SellRaze-style): auto-capture disabled. The user taps
-  // the shutter to capture. This is intentionally a no-op so the rest of the
-  // scan pipeline (which used to call it) keeps working without auto-firing.
+  // Deliberately manual-only. FindAI captures only when the user presses the shutter.
   stopAutoScanLoop();
-  setScanStatus('');
 }
 
 async function startCam(){
@@ -3479,7 +3546,8 @@ async function startCam(){
     cam.style.display='block';
     $('#preview').style.display='none';
     if(placeholder) placeholder.style.display='none';   // hide "Starting camera"
-    const fs=$('.scan-fs'); if(fs) fs.classList.add('cam-live');
+    const fs=$('.scan-fs'); if(fs){fs.classList.add('cam-live');fs.classList.remove('processing');}
+    setScanStatus('Centre one item inside the frame');
     cameraTrack = stream.getVideoTracks()[0];
     try{ await cam.play(); }catch(_){}
   }catch(error){
@@ -3493,6 +3561,7 @@ function stopCam(){
   if(stream){ stream.getTracks().forEach(t=>t.stop()); }
   stream=null;cameraTrack=null;
   autoScanBusy=false;
+  const torchButton=$('#torchButton'); if(torchButton){torchButton.classList.remove('active');torchButton.setAttribute('aria-pressed','false');}
   const cam=$('#cam'); if(cam){cam.srcObject=null;cam.style.display='none'} const fs=$('.scan-fs'); if(fs) fs.classList.remove('cam-live');
 }
 async function toggleTorch(){
@@ -3503,6 +3572,8 @@ async function toggleTorch(){
   try{
     await cameraTrack.applyConstraints({advanced:[{torch:next}]});
     cameraTrack.__torch=next;
+    const button=$('#torchButton');
+    if(button){ button.classList.toggle('active',next); button.setAttribute('aria-pressed',String(next)); }
     toast(next?'Flash on':'Flash off');
   }catch(_){ toast('Could not change the flash'); }
 }
@@ -3524,11 +3595,11 @@ function sourceDimensions(source){
     height:source.videoHeight || source.naturalHeight || source.height || 0
   };
 }
-function cropSourceToScannerGuide(source,maxSide=1200,quality=.82){
+function cropSourceToScannerGuide(source,maxSide=1400,quality=.86,useGuide=true){
   const {width:sw,height:sh}=sourceDimensions(source);
   if(!sw || !sh) throw new Error('Image not ready');
   const viewport=scanStageEl();
-  const frame=$('.frame',viewport);
+  const frame=useGuide ? ($('.scan-fs-frame',viewport) || $('.frame',viewport)) : null;
   let sx=0,sy=0,cropW=sw,cropH=sh;
   if(viewport && frame && viewport.clientWidth && viewport.clientHeight){
     const vw=viewport.clientWidth;
@@ -3563,7 +3634,7 @@ function prepareUploadedImage(file){
       const image=new Image();
       image.onerror=reject;
       image.onload=()=>{
-        try{ resolve(cropSourceToScannerGuide(image,1200,.82)); }
+        try{ resolve(cropSourceToScannerGuide(image,1400,.86,false)); }
         catch(error){ reject(error); }
       };
       image.src=reader.result;
@@ -3579,7 +3650,7 @@ async function captureScan(fromAuto=false){
   stopAutoScanLoop();
   if(!cam.videoWidth){ autoScanBusy=false; setScanStatus('Camera is still starting…'); startAutoScanLoop(); return; }
   let dataUrl;
-  try{ dataUrl=cropSourceToScannerGuide(cam,1200,.82); }
+  try{ dataUrl=cropSourceToScannerGuide(cam,1400,.86,true); }
   catch(_){ autoScanBusy=false; setScanStatus('Could not capture the item — try again'); startAutoScanLoop(); return; }
   showPreview(dataUrl);
   stopCam();
@@ -3592,9 +3663,8 @@ function showPreview(dataUrl){
   preview.style.display='block';
   $('#cam').style.display='none';
   $('#camPlaceholder').style.display='none';
-  
-  setAutoScanProgress(100,'hold');
 }
+
 function normaliseConfidence(data){
   const raw=Number(data && (data.confidence ?? data.matchConfidence ?? data.score));
   if(!Number.isFinite(raw)) return null;
