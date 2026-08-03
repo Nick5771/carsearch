@@ -1002,43 +1002,38 @@
 }
 
 /* =========================================================
-   FindAI v23 — balanced full-screen fill
+   FindAI v27 — clean adaptive fill (premium retail)
    =========================================================
-   fill-cover  → image fills the screen edge-to-edge (premium immersive look),
-                 used when the crop needed is small (<20% of the image).
-   fill-contain→ whole product shown, centered, over a blurred fill of the SAME
-                 image, used only when cover would slice off real product.
-   The blurred fill is a CSS background from the already-loaded image, so it can
-   never fail like a second network request. */
-#search .hero-stage{position:absolute;inset:0;overflow:hidden;background:#050607}
+   The whole product is ALWAYS shown (contain, never cropped). The space around
+   it is filled with the photo's own background colour, sampled per-image in JS
+   (--hero-fill): white-background products sit on seamless white, dark/lifestyle
+   photos on a matching dark tone. No zoom, no crop, no blur. */
+#search .hero-stage{position:absolute;inset:0;overflow:hidden;background:var(--hero-fill,#0a0b0d);transition:background-color .2s ease}
 #search .hero-backdrop,#search .hero-backdrop-media{display:none!important}
 
-/* Blurred fill layer (only visible where the contained image doesn't cover). */
-#search .hero-stage.has-bg-fill::before{
-  content:"";position:absolute;inset:-8%;z-index:0;
-  background-image:var(--hero-bg);background-size:cover;background-position:center;
-  filter:blur(46px) saturate(1.05) brightness(.46);
-  transform:scale(1.16);pointer-events:none
-}
-#search .hero-stage.fill-cover::before{display:none} /* cover fills fully; no blur needed */
-
-/* Legibility scrim top + bottom, never hides the product. */
+/* Legibility scrim. On dark fills, a soft top+bottom gradient keeps the header
+   and price panel readable. On light fills it must be far subtler or it greys the
+   white; so we lighten it dramatically. */
 #search .hero-stage::after{
   content:"";position:absolute;inset:0;z-index:2;pointer-events:none;
-  background:linear-gradient(180deg,rgba(5,6,7,.44) 0%,rgba(5,6,7,0) 19%,rgba(5,6,7,0) 54%,rgba(5,6,7,.34) 77%,rgba(5,6,7,.93) 100%)
+  background:linear-gradient(180deg,rgba(5,6,7,.34) 0%,rgba(5,6,7,0) 17%,rgba(5,6,7,0) 60%,rgba(5,6,7,.30) 80%,rgba(5,6,7,.90) 100%)
+}
+#search .hero-stage.fill-light::after{
+  background:linear-gradient(180deg,rgba(5,6,7,.10) 0%,rgba(5,6,7,0) 14%,rgba(5,6,7,0) 66%,rgba(0,0,0,.06) 82%,rgba(0,0,0,.14) 100%)
 }
 
-/* The sharp product image. */
+/* The product image: always fully contained, centered. */
 #search .hero-image{
   position:absolute;top:50%;left:50%;z-index:1;
   width:100%;height:100%;transform:translate(-50%,-50%);
+  object-fit:contain;object-position:center;
   padding:0;filter:none;-webkit-mask-image:none;mask-image:none
 }
-#search .hero-image.fit-cover{object-fit:cover;object-position:center}
+#search .hero-image.fit-cover{object-fit:contain;object-position:center}
 #search .hero-image.fit-contain{object-fit:contain;object-position:center}
 
 </style>
-  <meta name="findai-build" content="v26-prefer-vertical">
+  <meta name="findai-build" content="v27-clean-fill-no-ai">
 </head>
 <body>
 <div class="app">
@@ -1414,7 +1409,7 @@ function completeLocalLogin(event){
   saveAccountProfile({...existing,name,email,avatar:pendingAccountAvatar||existing.avatar||'',createdAt:existing.createdAt||Date.now(),updatedAt:Date.now()});
   closeLogin();
   updateAccountHeader();
-  toast(`Welcome, ${name.split(/\s+/)[0]}`);
+  
   return false;
 }
 function accountAvatarPicked(event){
@@ -1458,7 +1453,7 @@ function signOutAccount(){
   try{ localStorage.removeItem('findai_user'); }catch(_){}
   try{ if(window.google&&google.accounts&&google.accounts.id) google.accounts.id.disableAutoSelect(); }catch(_){}
   closeAccountMenu();closeProfile();updateAccountHeader();
-  toast('Logged out. Your device interests remain available.');
+  
 }
 function openProfile(){
   closeAccountMenu();
@@ -1483,37 +1478,42 @@ function renderAccountProfile(){
 }
 function adaptListingImage(img){
   if(!img||!img.naturalWidth||!img.naturalHeight) return;
-  const ratio=img.naturalWidth/img.naturalHeight;
   const stage=img.closest('.hero-stage');
   if(!stage) return;
-  img.classList.remove('fit-cover','fit-contain');
 
-  // Guaranteed blurred fill from the SAME loaded image (used only when we letterbox).
+  /* Premium retail fill: ALWAYS show the whole product (contain, never cropped).
+     Fill the surrounding space with the photo's own background colour, sampled
+     from its corners, so a white-background product sits on seamless white and a
+     dark/lifestyle photo sits on a matching dark tone. No zoom, crop, or blur. */
+  img.classList.add('fit-contain');
+  img.classList.remove('fit-cover');
+  stage.classList.add('fill-solid');
+  stage.classList.remove('fill-cover','fill-contain','has-bg-fill');
+
   const src=img.currentSrc||img.src;
-  if(src && stage.dataset.bgSrc!==src){
-    stage.dataset.bgSrc=src;
-    stage.style.setProperty('--hero-bg',`url("${src.replace(/"/g,'\\"')}")`);
-    stage.classList.add('has-bg-fill');
-  }
-
-  /* Fill vs blur decision, driven by ONE tunable number: FILL_MAX_RATIO.
-     An image cover-fills the tall screen only if it isn't too wide — wider images
-     would have to zoom/crop too hard, so they show whole on a blur of themselves.
-     Default 1.05 = portrait + square-ish photos fill (premium, no zoom); wider
-     shoe/watch shots show whole on blur. Live-tunable via the dev slider. */
-  const FILL_MAX_RATIO = Number(localStorage.getItem('fa_fill_max_ratio')) || 1.05;
-  const FILL_MIN_RATIO = 0.5; // ultra-tall skinny images also blur rather than crop
-  const useCover = ratio<=FILL_MAX_RATIO && ratio>=FILL_MIN_RATIO;
-  if(useCover){
-    stage.classList.add('fill-cover');
-    stage.classList.remove('fill-contain');
-    img.classList.remove('fit-contain');
-    img.classList.add('fit-cover');
-  }else{
-    stage.classList.add('fill-contain');
-    stage.classList.remove('fill-cover');
-    img.classList.remove('fit-cover');
-    img.classList.add('fit-contain');
+  if(src && stage.dataset.fillSrc===src) return;
+  stage.dataset.fillSrc=src;
+  try{
+    const c=document.createElement('canvas');
+    const S=12; c.width=S; c.height=S;
+    const ctx=c.getContext('2d',{willReadFrequently:true});
+    ctx.drawImage(img,0,0,S,S);
+    const pts=[[1,1],[S-2,1],[1,S-2],[S-2,S-2]];
+    let r=0,g=0,b=0;
+    for(const p of pts){ const d=ctx.getImageData(p[0],p[1],1,1).data; r+=d[0];g+=d[1];b+=d[2]; }
+    r=Math.round(r/4); g=Math.round(g/4); b=Math.round(b/4);
+    const lum=(0.299*r+0.587*g+0.114*b);
+    let fill;
+    if(lum>=205){ fill='rgb('+r+','+g+','+b+')'; stage.classList.add('fill-light'); }
+    else{
+      const k=0.16;
+      fill='rgb('+Math.round(r*k+6)+','+Math.round(g*k+6)+','+Math.round(b*k+7)+')';
+      stage.classList.remove('fill-light');
+    }
+    stage.style.setProperty('--hero-fill',fill);
+  }catch(_){
+    stage.style.setProperty('--hero-fill','#0a0b0d');
+    stage.classList.remove('fill-light');
   }
 }
 document.addEventListener('keydown',event=>{
@@ -2266,7 +2266,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
   }
 
   renderLoading();
-  if(showToast) toast('Building your For You feed…');
+  
   try{
     markPersonalisedRefreshNow();
     /* Progressive launch: paint the feed as soon as the FIRST lane returns,
@@ -2697,7 +2697,7 @@ async function searchListings(query,{showToast=false,source='search',preserveExa
   $('#q').value=q;
   go('search');
   renderLoading();
-  if(showToast) toast(source==='scan'?'Matching the exact product…':'Finding live listings…');
+  
   feedState={
     query:q,
     resolvedQuery:q,
@@ -2849,8 +2849,8 @@ function renderReelCard(item,index,data){
   const seller=String(item.sellerName || item.seller || item.storeName || '').trim();
   const sellerLabel=item.topRatedSeller ? 'Top-rated seller' : (seller || 'Live listing');
   return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}">
-    <div class="hero-stage${image?' has-bg-fill fill-cover':''}"${image?` style="--hero-bg:url('${escapeAttr(image)}')"`:''}>
-      ${image ? `<img class="hero-image fit-cover" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
+    <div class="hero-stage${image?' fill-solid':''}"${image?` style="--hero-fill:#0a0b0d"`:''}>
+      ${image ? `<img class="hero-image fit-contain" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} crossorigin="anonymous" referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
       <div class="image-fallback" style="${image?'':'display:grid'}">Image unavailable</div>
     </div>
     ${index>0 ? `<div class="reel-peek-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 15l6-6 6 6"/></svg></div>` : ''}
@@ -3049,7 +3049,7 @@ function toggleLike(index,event){
   if(existing>=0){
     liked.splice(existing,1);
     recordInterest(interestQuery,'unlike');
-    toast('Removed from your likes');
+    
   }else{
     recordInterest(interestQuery,'like');
     if(normaliseQueryText(interestQuery)!==normaliseQueryText(item.title)) recordInterest(item.title,'like',4.5);
@@ -3072,7 +3072,7 @@ function toggleLike(index,event){
       lastFeedAt:0,
       history:[Number(item.price)||null].filter(Number.isFinite)
     });
-    toast('Liked — FindAI will recommend more like this');
+    
     haptic();
   }
   setTracked(liked);
@@ -3639,7 +3639,7 @@ function showHybridScanResults(data,query){
   const payload={...data,listings};
   currentFeedData=payload;
   renderFeed(payload,exact);
-  toast('Matched against live marketplace listings');
+  
   // The visual search supplies the strongest candidates first. Then run one exact
   // text catalogue search in the background so the feed contains multiple accurate
   // listings instead of stopping at a single visual match.
@@ -3930,7 +3930,7 @@ function trackActiveTracker(){
   if(item.demo){
     $('#trackerQuery').value=item.query;
     lookupTrackerProduct(item.query);
-    toast('Checking the real live price…');
+    
     return;
   }
   let tracked=getTracked();
@@ -3949,7 +3949,7 @@ async function refreshActiveTracker(){
   const item=activeTrackerItem;
   if(!item) return;
   if(item.demo){ lookupTrackerProduct(item.query); return; }
-  toast('Refreshing live price…');
+  
   try{
     const {data}=await fetchProductResults(item.query || item.title);
     const listings=(data && data.listings || []).filter(x=>Number(x.price)>0).sort((a,b)=>Number(a.price)-Number(b.price));
@@ -3983,7 +3983,7 @@ function refreshAllTracked(){
 }
 
 async function refreshTrackedBatch(items){
-  toast('Refreshing your watchlist…');
+  
   for(let i=0;i<items.length;i++){
     try{
       const {data}=await fetchProductResults(items[i].query || items[i].title);
@@ -4041,7 +4041,7 @@ function applyFindaiUser(data){
   if(typeof updateAccountHeader==='function') updateAccountHeader();
   if(typeof renderAccountProfile==='function'){ try{ renderAccountProfile(); }catch(_){} }
   if(typeof closeLogin==='function') closeLogin();
-  if(typeof toast==='function') toast('Signed in as '+String(profile.name).split(/\s+/)[0]);
+  
 }
 var googleTokenClient = null;
 async function handleGoogleToken(resp){
@@ -4071,47 +4071,6 @@ function initGoogleAuth(){
 }
 window.addEventListener('load', initGoogleAuth);
 </script>
-<!-- Hidden dev control: tap the FindAI wordmark 5x to tune fill vs blur live -->
-<div id="fillTuner" style="display:none;position:fixed;left:12px;right:12px;bottom:96px;z-index:200;padding:14px 16px;border-radius:16px;background:rgba(12,14,18,.94);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,.14);color:#fff;font:13px -apple-system,sans-serif">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-    <b>Fill threshold</b>
-    <span id="fillTunerVal" style="color:#7da7ff;font-weight:700">1.05</span>
-  </div>
-  <input id="fillTunerRange" type="range" min="0.5" max="2.2" step="0.05" value="1.05" style="width:100%">
-  <div style="display:flex;justify-content:space-between;color:#8b929c;font-size:10px;margin-top:4px">
-    <span>← less zoom (more blur)</span><span>more fill (more zoom) →</span>
-  </div>
-  <div style="margin-top:8px;color:#9aa0aa;font-size:10.5px;line-height:1.4">Slide, then scroll the feed to see it. Higher = more images fill the screen (and crop more). Setting is saved on this device.</div>
-  <button onclick="document.getElementById('fillTuner').style.display='none'" style="margin-top:10px;width:100%;height:38px;border:0;border-radius:11px;background:#f4f5f6;color:#0b0d10;font-weight:700">Done</button>
-</div>
-<script>
-(function fillTunerSetup(){
-  var taps=0,timer=null;
-  document.addEventListener('click',function(e){
-    var b=e.target&&e.target.closest&&e.target.closest('.brand');
-    if(!b) return;
-    taps++; clearTimeout(timer); timer=setTimeout(function(){taps=0;},900);
-    if(taps>=5){
-      taps=0;
-      var panel=document.getElementById('fillTuner');
-      var range=document.getElementById('fillTunerRange');
-      var val=document.getElementById('fillTunerVal');
-      var saved=Number(localStorage.getItem('fa_fill_max_ratio'))||1.05;
-      range.value=saved; val.textContent=saved.toFixed(2);
-      panel.style.display='block';
-    }
-  },true);
-  var range=document.getElementById('fillTunerRange');
-  if(range) range.addEventListener('input',function(){
-    var v=Number(range.value);
-    document.getElementById('fillTunerVal').textContent=v.toFixed(2);
-    try{ localStorage.setItem('fa_fill_max_ratio',String(v)); }catch(_){}
-    // Re-apply to every currently rendered image immediately.
-    document.querySelectorAll('#feed .hero-image').forEach(function(img){
-      if(img.complete && img.naturalWidth) adaptListingImage(img);
-    });
-  });
-})();
-</script>
+
 </body>
 </html>
