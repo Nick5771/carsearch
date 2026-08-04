@@ -4229,9 +4229,13 @@ function renderScanResults(data){
       const currency=currencyOf(item,data);
       const meta=scanListingMeta(item);
       const verified=Number(item&&item._findaiVisualScore);
+      const matchMethod=String(item&&item._findaiMatchMethod||'visual');
+      const matchLabel=matchMethod==='exact-text'
+        ? 'Exact product match'
+        : (Number.isFinite(verified)?`${Math.round(verified*100)}% visual match`:'Visual match verified');
       return `<article class="scan-grid-card ${index===0?'cheapest':''}" role="button" tabindex="0" onclick="openScanResultListing(${index})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openScanResultListing(${index})}">
         <div class="scan-grid-image-wrap">${image?`<img class="scan-grid-image" src="${escapeAttr(image)}" alt="${escapeAttr(item.title||'Listing')}" loading="${index<4?'eager':'lazy'}" referrerpolicy="no-referrer">`:''}${index===0?'<span class="scan-grid-cheapest-badge">Cheapest</span>':''}</div>
-        <div class="scan-grid-body"><div class="scan-card-source">${scanSourceMarkup(item)}</div><div class="scan-grid-title">${escapeHTML(item.title||'Live listing')}</div>${meta?`<div class="scan-grid-meta">${escapeHTML(meta)}</div>`:''}<div class="scan-grid-verified"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg>${Number.isFinite(verified)?`${Math.round(verified*100)}% visual match`:'Visual match verified'}</div><div class="scan-grid-price-bottom">${escapeHTML(money(scanResultTotal(item),currency))}</div></div>
+        <div class="scan-grid-body"><div class="scan-card-source">${scanSourceMarkup(item)}</div><div class="scan-grid-title">${escapeHTML(item.title||'Live listing')}</div>${meta?`<div class="scan-grid-meta">${escapeHTML(meta)}</div>`:''}<div class="scan-grid-verified"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg>${matchLabel}</div><div class="scan-grid-price-bottom">${escapeHTML(money(scanResultTotal(item),currency))}</div></div>
       </article>`;
     }).join('')}</div>`;
   if(actions) actions.hidden=false;
