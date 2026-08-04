@@ -3858,7 +3858,7 @@ function sourceDimensions(source){
     height:source.videoHeight || source.naturalHeight || source.height || 0
   };
 }
-function cropSourceToScannerGuide(source,maxSide=1400,quality=.86,useGuide=true){
+function cropSourceToScannerGuide(source,maxSide=1100,quality=.82,useGuide=true){
   const {width:sw,height:sh}=sourceDimensions(source);
   if(!sw || !sh) throw new Error('Image not ready');
   const viewport=scanStageEl();
@@ -3897,7 +3897,7 @@ function prepareUploadedImage(file){
       const image=new Image();
       image.onerror=reject;
       image.onload=()=>{
-        try{ resolve(cropSourceToScannerGuide(image,1400,.86,false)); }
+        try{ resolve(cropSourceToScannerGuide(image,1100,.82,false)); }
         catch(error){ reject(error); }
       };
       image.src=reader.result;
@@ -3913,7 +3913,7 @@ async function captureScan(fromAuto=false){
   stopAutoScanLoop();
   if(!cam.videoWidth){ autoScanBusy=false; setScanStatus('Camera is still starting…'); startAutoScanLoop(); return; }
   let dataUrl;
-  try{ dataUrl=cropSourceToScannerGuide(cam,1400,.86,true); }
+  try{ dataUrl=cropSourceToScannerGuide(cam,1100,.82,true); }
   catch(_){ autoScanBusy=false; setScanStatus('Could not capture the item — try again'); startAutoScanLoop(); return; }
   showPreview(dataUrl);
   stopCam();
