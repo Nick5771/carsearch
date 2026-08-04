@@ -479,6 +479,16 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
   .mw-hero-search-btn{padding:0 22px;font-size:14px}
   .mw-header{flex-direction:column;gap:14px}
 }
+
+.nav-marketplace-create{padding:8px 17px;border-radius:999px;border:0;background:#fff;color:#050505;font:700 13px 'DM Sans',sans-serif;cursor:pointer;white-space:nowrap}
+.nav-marketplace-create:hover{opacity:.88}
+.findai-market-badge{display:inline-flex;align-items:center;gap:5px;background:#fff;color:#060606;border-radius:7px;padding:4px 8px;font-size:11px;font-weight:800}
+.marketplace-modal-bg{position:fixed;inset:0;z-index:30000;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);padding:18px}
+.marketplace-modal-bg.open{display:flex}.marketplace-modal{width:min(620px,100%);max-height:92vh;overflow:auto;background:#0d0d0d;border:1px solid #282828;border-radius:24px;padding:26px;color:#fff}
+.marketplace-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}.marketplace-modal-head h2{font-size:25px}.marketplace-close{width:36px;height:36px;border:0;border-radius:50%;background:#1c1c1c;color:#fff;font-size:22px;cursor:pointer}
+.marketplace-web-form{display:flex;flex-direction:column;gap:16px}.marketplace-web-field{display:flex;flex-direction:column;gap:7px;color:#ddd;font-size:13px;font-weight:700}.marketplace-web-field input,.marketplace-web-field textarea,.marketplace-web-field select{width:100%;padding:14px;border-radius:13px;border:1px solid #303030;background:#050505;color:#fff;font:inherit;outline:none}.marketplace-web-field textarea{min-height:120px;resize:vertical}.marketplace-web-images{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.marketplace-web-images img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;border:1px solid #2b2b2b}.marketplace-web-upload{padding:18px;border:1px dashed #444;border-radius:14px;background:#131313;color:#ddd;cursor:pointer;text-align:center}.marketplace-web-submit{height:50px;border:0;border-radius:14px;background:#fff;color:#050505;font-weight:800;font-size:15px;cursor:pointer}.marketplace-web-submit:disabled{opacity:.55}.marketplace-web-status{min-height:18px;color:#8b8b8b;font-size:12px;text-align:center}
+.marketplace-listing-detail{display:grid;grid-template-columns:1fr 1fr;gap:22px}.marketplace-detail-images img{width:100%;border-radius:16px;background:#151515}.marketplace-detail-copy h1{font-size:25px;line-height:1.15;margin:10px 0}.marketplace-detail-price{font-size:30px;font-weight:800;margin:16px 0}.marketplace-detail-copy p{color:#aaa;line-height:1.6}.marketplace-detail-meta{color:#8d8d8d;font-size:13px;margin-top:8px}
+@media(max-width:700px){.nav-marketplace-create{padding:7px 11px;font-size:11px}.marketplace-listing-detail{grid-template-columns:1fr}.marketplace-modal{padding:20px}.marketplace-web-images{grid-template-columns:repeat(2,1fr)}}
 </style>
 </head>
 <body>
@@ -488,7 +498,8 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
     <button class="nav-secondary" onclick="openAuth('Welcome back')">Log in</button>
     <button class="nav-cta" onclick="openAuth('Create your free account')">Sign up for free</button>
   </div>
-  <div class="nav-links" id="nav-auth-in" style="display:none">
+  <div class="nav-links" id="nav-auth-in" style="display:none;align-items:center">
+    <button class="nav-marketplace-create" type="button" onclick="openWebsiteCreateListing()">Create Listing</button>
     <div style="position:relative">
       <button class="nav-avatar" id="nav-avatar" onclick="toggleUserMenu(event)" title="Account">U</button>
       <div id="user-menu" class="user-menu">
@@ -519,6 +530,12 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
       <span class="auth-notify-toggle"><span class="auth-notify-knob"></span></span>
     </label>
     <div id="auth-fallback" style="color:#666;font-size:12px;margin-top:16px"></div>
+  </div>
+</div>
+<div class="marketplace-modal-bg" id="website-marketplace-modal" onclick="if(event.target===this)closeWebsiteMarketplaceModal()">
+  <div class="marketplace-modal" onclick="event.stopPropagation()">
+    <div class="marketplace-modal-head"><h2 id="website-marketplace-title">Create Listing</h2><button class="marketplace-close" onclick="closeWebsiteMarketplaceModal()">&times;</button></div>
+    <div id="website-marketplace-content"></div>
   </div>
 </div>
 <div class="app">
@@ -1941,6 +1958,7 @@ function mwSourceBadge(l){
   if(l._stockx || s==='stockx') return '<span style="font-weight:800;color:#08A05F;font-size:13px;font-family:\'DM Sans\',sans-serif;letter-spacing:-0.3px">StockX</span>';
   if(l._discogs || s==='discogs') return discogsWordmark();
   if(l._etsy || s==='etsy') return etsyWordmark();
+  if(s==='findai'||l._findaiMarketplace) return '<span class="findai-market-badge">FindAI Marketplace</span>';
   if(s.indexOf('ali')!==-1) return '<span style="font-size:12px;font-weight:800;color:#ff4747;font-family:\'DM Sans\',sans-serif">AliExpress</span>';
   if(s==='lego') return legoLogoHtml();
   if(s==='bricklink') return bricklinkLogoHtml();
@@ -2427,9 +2445,10 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
     var isym=(item.currency&&CURSYM[item.currency])?CURSYM[item.currency]:sym;
     const price=item.price?`${isym}${Number(item.price).toLocaleString()}`:'See listing';
     const isAli=item.source==='AliExpress';
-    const srcBadge=isAli
+    const isFindAI=String(item.source||'').toLowerCase()==='findai'||item._findaiMarketplace;
+    const srcBadge=isFindAI?`<span class="findai-market-badge">FindAI Marketplace</span>`:(isAli
       ?`<span style="font-size:11px;font-weight:800;color:#ff4747;font-family:'DM Sans',sans-serif">AliExpress</span>`
-      :ebayLogoHtml();
+      :ebayLogoHtml());
     const _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
     const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
     const _hasOffer=Array.isArray(item.buyingOptions)&&item.buyingOptions.indexOf('BEST_OFFER')!==-1;
@@ -2629,7 +2648,8 @@ function showMoreCards(sid){
     const isym=(item.currency&&CURSYM[item.currency])?CURSYM[item.currency]:sym;
     const price=item.price?`${isym}${Number(item.price).toLocaleString()}`:'See listing';
     const isAli=item.source==='AliExpress';
-    const srcBadge=isAli?`<span style="font-size:11px;font-weight:800;color:#ff4747">AliExpress</span>`:ebayLogoHtml();
+    const isFindAI=String(item.source||'').toLowerCase()==='findai'||item._findaiMarketplace;
+    const srcBadge=isFindAI?`<span class="findai-market-badge">FindAI Marketplace</span>`:(isAli?`<span style="font-size:11px;font-weight:800;color:#ff4747">AliExpress</span>`:ebayLogoHtml());
     const _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
     const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
     const _hasOffer=Array.isArray(item.buyingOptions)&&item.buyingOptions.indexOf('BEST_OFFER')!==-1;
@@ -3658,6 +3678,25 @@ function closeAuth(){ document.getElementById('auth-modal-bg').style.display = '
     if(u && u.email && !u.session) localStorage.removeItem('findai_user');
   }catch(_){}
 })();
+
+
+var websiteListingImages=[];
+function websiteMarketplaceHeaders(){var h={'Content-Type':'application/json'},s=findaiSession();if(s)h.Authorization='Bearer '+s;return h;}
+async function websiteMarketplaceFetch(path,options){options=options||{};var r=await fetch(WORKER_BASE+path,Object.assign({},options,{headers:Object.assign({},websiteMarketplaceHeaders(),options.headers||{})}));var d={};try{d=await r.json();}catch(_){ }if(r.status===401){logoutUser();throw new Error('Please sign in again');}if(!r.ok)throw new Error(d.error||'Marketplace request failed');return d;}
+function closeWebsiteMarketplaceModal(){document.getElementById('website-marketplace-modal').classList.remove('open');}
+function websiteCompressImage(file){return new Promise(function(resolve,reject){var reader=new FileReader();reader.onerror=reject;reader.onload=function(){var image=new Image();image.onerror=reject;image.onload=function(){var max=1200,scale=Math.min(1,max/Math.max(image.naturalWidth||1,image.naturalHeight||1)),canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.naturalWidth*scale));canvas.height=Math.max(1,Math.round(image.naturalHeight*scale));canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL('image/jpeg',.78));};image.src=String(reader.result||'');};reader.readAsDataURL(file);});}
+async function websiteListingImagesPicked(event){var files=Array.from(event.target.files||[]).filter(function(f){return /^image\//.test(f.type);}).slice(0,6);event.target.value='';try{websiteListingImages=await Promise.all(files.map(websiteCompressImage));document.getElementById('website-listing-images').innerHTML=websiteListingImages.map(function(src){return '<img src="'+src+'" alt="Listing image">';}).join('');}catch(_){document.getElementById('website-listing-status').textContent='One of those images could not be added.';}}
+function openWebsiteCreateListing(){
+  var u=null;try{u=JSON.parse(localStorage.getItem('findai_user')||'null');}catch(_){ }if(!u||!u.session){openAuth('Sign in to create a listing');return;}
+  websiteListingImages=[];document.getElementById('website-marketplace-title').textContent='Create Listing';
+  document.getElementById('website-marketplace-content').innerHTML='<form class="marketplace-web-form" onsubmit="return submitWebsiteListing(event)"><label class="marketplace-web-field">Item Name<input id="website-listing-name" maxlength="180" required placeholder="What are you selling?"></label><label class="marketplace-web-field">Item Description<textarea id="website-listing-description" maxlength="5000" required placeholder="Describe the item and its condition."></textarea></label><label class="marketplace-web-field">Condition<select id="website-listing-condition"><option>New</option><option>Used</option><option>New (Other)</option></select></label><label class="marketplace-web-field">Price (AUD)<input id="website-listing-price" type="number" min="0.01" step="0.01" required placeholder="0.00"></label><label class="marketplace-web-upload">Upload up to 6 images<input type="file" accept="image/*" multiple hidden onchange="websiteListingImagesPicked(event)"></label><div class="marketplace-web-images" id="website-listing-images"></div><button class="marketplace-web-submit" id="website-listing-submit" type="submit">Publish Listing</button><div class="marketplace-web-status" id="website-listing-status"></div></form>';
+  document.getElementById('website-marketplace-modal').classList.add('open');
+}
+async function submitWebsiteListing(event){event.preventDefault();var u=null;try{u=JSON.parse(localStorage.getItem('findai_user')||'null');}catch(_){ }if(!u||!u.session){openAuth('Sign in to create a listing');return false;}var title=document.getElementById('website-listing-name').value.trim(),description=document.getElementById('website-listing-description').value.trim(),condition=document.getElementById('website-listing-condition').value,price=Number(document.getElementById('website-listing-price').value),status=document.getElementById('website-listing-status'),button=document.getElementById('website-listing-submit');if(!websiteListingImages.length){status.textContent='Add at least one image.';return false;}button.disabled=true;button.textContent='Uploading images…';try{var uploaded=await websiteMarketplaceFetch('/marketplace/images',{method:'POST',body:JSON.stringify({images:websiteListingImages,displayName:u.name||'FindAI seller',country:'AU'})});button.textContent='Publishing…';var created=await websiteMarketplaceFetch('/marketplace/listings',{method:'POST',body:JSON.stringify({title:title,description:description,condition:condition,itemPrice:price,currency:'AUD',imageUrls:uploaded.imageUrls||[],displayName:u.name||'FindAI seller',publish:true})});status.style.color='#75e56b';status.textContent='Listing is live across FindAI.';button.textContent='Published';setTimeout(function(){closeWebsiteMarketplaceModal();if(created.listing)openWebsiteListing(created.listing);},700);}catch(e){status.style.color='#ff7770';status.textContent=e.message||'Could not publish listing.';button.disabled=false;button.textContent='Publish Listing';}return false;}
+function websiteMoney(v,c){var n=Number(v)||0;return (String(c||'AUD').toUpperCase()==='AUD'?'A$':'$')+n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
+function openWebsiteListing(listing){if(!listing)return;document.getElementById('website-marketplace-title').textContent='FindAI Marketplace';var imgs=Array.isArray(listing.images)?listing.images:listing.image?[listing.image]:[];document.getElementById('website-marketplace-content').innerHTML='<div class="marketplace-listing-detail"><div class="marketplace-detail-images">'+(imgs[0]?'<img src="'+imgs[0]+'" alt="">':'')+'</div><div class="marketplace-detail-copy"><span class="findai-market-badge">FindAI Marketplace</span><h1>'+escapeHtml(listing.title||'FindAI listing')+'</h1><div class="marketplace-detail-price">'+websiteMoney(listing.price,listing.currency)+'</div><div class="marketplace-detail-meta">'+escapeHtml((listing.condition||'')+' · Seller: '+(listing.sellerName||'FindAI seller'))+'</div><p>'+escapeHtml(listing.description||'')+'</p></div></div>';document.getElementById('website-marketplace-modal').classList.add('open');}
+async function openWebsiteListingFromUrl(){var id=new URLSearchParams(location.search).get('listing');if(!id)return;try{var data=await websiteMarketplaceFetch('/marketplace/listings/'+encodeURIComponent(id),{method:'GET'});openWebsiteListing(data.listing);}catch(_){}}
+window.addEventListener('load',openWebsiteListingFromUrl);
 
 function updateAuthUI(user){
   const out = document.getElementById('nav-auth-out');
