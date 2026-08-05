@@ -780,11 +780,17 @@
 .login-pill:active{transform:scale(.97)}
 .header-saved-btn[hidden],.account-avatar[hidden],.login-pill[hidden]{display:none!important}
 .account-avatar{
-  width:31px;height:31px;padding:0;border:1px solid rgba(255,255,255,.18);border-radius:50%;overflow:hidden;
+  position:relative;width:31px;height:31px;padding:0;border:1px solid rgba(255,255,255,.18);border-radius:50%;overflow:visible;
   display:grid;place-items:center;background:linear-gradient(145deg,#20242a,#0c0e12);color:#fff;font-size:10px;font-weight:780
 }
-.account-avatar img{width:100%;height:100%;object-fit:cover;display:none}
-.account-avatar.has-image img{display:block}.account-avatar.has-image span{display:none}
+.account-avatar img{width:100%;height:100%;object-fit:cover;display:none;border-radius:50%}
+.account-avatar.has-image img{display:block}.account-avatar.has-image #headerAvatarInitials{display:none}
+.app-avatar-unread{
+  position:absolute;right:-7px;top:-7px;z-index:5;min-width:19px;height:19px;padding:0 5px;
+  border:2px solid #050607;border-radius:999px;background:#1a6fff;color:#fff;
+  display:none;place-items:center;font-size:9px;font-weight:850;line-height:1
+}
+.app-avatar-unread.show{display:grid}
 #search .header-actions.account-logged-in{gap:7px}
 #search .header-actions.account-logged-in .header-saved-btn{display:grid}
 
@@ -1605,8 +1611,9 @@ body.scan-results-open .nav{display:none!important}
         <div class="header-actions" id="headerAccountActions">
           <button class="login-pill" id="loginPill" type="button" onclick="openLogin()">Log in</button>
           <button class="create-listing-pill" id="createListingPill" type="button" onclick="openCreateListing()" hidden>Create Listing</button>
-          <button class="account-avatar" id="accountAvatar" type="button" aria-label="Open account" onclick="openAccountMenu()" hidden>
+          <button class="account-avatar" id="accountAvatar" type="button" aria-label="Open account and messages" onclick="openAccountMenu()" hidden>
             <img id="headerAvatarImage" alt=""><span id="headerAvatarInitials">F</span>
+            <span class="app-avatar-unread" id="appMpAvatarBadge" aria-label="Unread marketplace messages">0</span>
           </button>
         </div>
       </div>
@@ -1861,7 +1868,7 @@ body.scan-results-open .nav{display:none!important}
 
 
   <section class="app-mp-product" id="appMpProduct" aria-label="FindAI marketplace listing">
-    <header class="app-mp-header"><button type="button" onclick="closeAppMarketplaceListing()" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>FindAI Marketplace</h2><button type="button" onclick="appMpShareListing()" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4M7 9l5-5 5 5M5 13v6h14v-6"/></svg></button></header>
+    <header class="app-mp-header"><button type="button" onclick="closeAppMarketplaceListing()" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Listing</h2><button type="button" onclick="appMpShareListing()" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4M7 9l5-5 5 5M5 13v6h14v-6"/></svg></button></header>
     <div class="app-mp-scroll" id="appMpProductContent"></div>
   </section>
 
@@ -5005,7 +5012,7 @@ async function appMpSubmitCounter(event,id){event.preventDefault();try{await mar
 async function appMpOfferAction(id,action){try{await marketplaceFetch('/marketplace/offers/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({action})});await openAppMarketplaceOffers();if(action==='accept')openAppMarketplaceListing(appMpListing);}catch(error){toast(error.message||'Offer could not be updated');}}
 
 async function openAppMarketplaceMessages(preselect){if(!appMpListing||!appMpRequireLogin())return;appMpInboxMode='listing';appMpConversation='';closeAccountMenu();$('#appMpInbox').classList.add('show');$('#appMpInboxTitle').textContent='Messages';$('#appMpInboxBody').innerHTML='<div class="app-mp-loading"><div><div class="app-mp-spinner"></div>Loading messages</div></div>';try{const data=await marketplaceFetch('/marketplace/conversations?listingId='+encodeURIComponent(appMpId(appMpListing)),{method:'GET'});renderAppMpConversationList(data,true,preselect||'');}catch(error){$('#appMpInboxBody').innerHTML='<div class="app-mp-empty">'+escapeHTML(error.message||'Messages could not be loaded')+'</div>';}}
-async function openAppMarketplaceInbox(){if(!appMpRequireLogin())return;closeAccountMenu();appMpInboxMode='global';appMpConversation='';$('#appMpInbox').classList.add('show');$('#appMpInboxTitle').textContent='Messages';$('#appMpInboxBody').innerHTML='<div class="app-mp-loading"><div><div class="app-mp-spinner"></div>Loading inbox</div></div>';try{const data=await marketplaceFetch('/marketplace/conversations',{method:'GET'});renderAppMpConversationList(data,false,'');marketplaceFetch('/marketplace/notifications/read',{method:'POST',body:'{}'}).catch(()=>{});appRefreshMarketplaceBadge();}catch(error){$('#appMpInboxBody').innerHTML='<div class="app-mp-empty">'+escapeHTML(error.message||'Messages could not be loaded')+'</div>';}}
+async function openAppMarketplaceInbox(preselect){if(!appMpRequireLogin())return;closeAccountMenu();appMpInboxMode='global';appMpConversation='';$('#appMpInbox').classList.add('show');$('#appMpInboxTitle').textContent='Messages';$('#appMpInboxBody').innerHTML='<div class="app-mp-loading"><div><div class="app-mp-spinner"></div>Loading inbox</div></div>';try{const data=await marketplaceFetch('/marketplace/conversations',{method:'GET'});renderAppMpConversationList(data,false,String(preselect||''));marketplaceFetch('/marketplace/notifications/read',{method:'POST',body:'{}'}).catch(()=>{});appRefreshMarketplaceBadge();}catch(error){$('#appMpInboxBody').innerHTML='<div class="app-mp-empty">'+escapeHTML(error.message||'Messages could not be loaded')+'</div>';}}
 function renderAppMpConversationList(data,listingScoped,preselect){appMpConversationList=Array.isArray(data.conversations)?data.conversations:[];const isSeller=!!data.isSeller;if(!appMpConversationList.length&&listingScoped&&!isSeller){renderAppMpChat('',true);return;}if(!appMpConversationList.length){$('#appMpInboxBody').innerHTML='<div class="app-mp-empty">No marketplace messages yet.<br>Your buyer and seller conversations will appear here.</div>';return;}$('#appMpInboxBody').innerHTML='<div class="app-mp-conversation-list">'+appMpConversationList.map(c=>`<button class="app-mp-conversation-card" onclick="appMpOpenConversation('${escapeAttr(c.id)}')"><span class="app-mp-conversation-avatar">${escapeHTML(appMpInitial(c.otherParty))}</span><span class="app-mp-conversation-copy"><b>${escapeHTML(c.otherParty||'FindAI member')}</b><span>${escapeHTML(c.listingTitle||'FindAI listing')}</span><span>${escapeHTML(c.lastMessage||'No messages yet')}</span></span>${Number(c.unreadCount)>0?`<span class="app-mp-unread">${Number(c.unreadCount)>99?'99+':Number(c.unreadCount)}</span>`:''}</button>`).join('')+'</div>';if(preselect)appMpOpenConversation(preselect);}
 async function appMpEnsureConversation(){if(appMpConversation)return appMpConversation;if(appMpInboxMode!=='listing'||!appMpListing)throw new Error('Choose a conversation first');const data=await marketplaceFetch('/marketplace/conversations',{method:'POST',body:JSON.stringify({listingId:appMpId(appMpListing)})});appMpConversation=data.conversation.id;return appMpConversation;}
 function renderAppMpChat(id,newBuyer){appMpConversation=id||'';$('#appMpInboxBody').innerHTML=`<div class="app-mp-chat"><div class="app-mp-messages" id="appMpMessages"><div class="app-mp-empty">${newBuyer?'Ask the seller about condition, delivery or anything else you need to know.':'Loading messages…'}</div></div><form class="app-mp-compose" onsubmit="return appMpSendMessage(event)"><textarea id="appMpMessageInput" maxlength="2000" placeholder="Write a message"></textarea><button id="appMpMessageSend" type="submit">➤</button></form></div>`;}
@@ -5019,7 +5026,7 @@ function appPushSupported(){return 'serviceWorker' in navigator&&'PushManager' i
 function appPushKey(value){const padding='='.repeat((4-value.length%4)%4),raw=atob((value+padding).replace(/-/g,'+').replace(/_/g,'/')),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);return out;}
 async function appServiceWorker(){
   if(!appPushSupported()) throw new Error('On iPhone, add FindAI to your Home Screen first');
-  const registration=await navigator.serviceWorker.register('/service-worker.js?v=4',{
+  const registration=await navigator.serviceWorker.register('/service-worker.js?v=5',{
     scope:'/',
     updateViaCache:'none'
   });
@@ -5065,7 +5072,7 @@ async function appEnableNotifications(){
 }
 async function appRemovePush(){if(!appPushSupported()||!marketplaceSession())return;try{const registration=await navigator.serviceWorker.ready,subscription=await registration.pushManager.getSubscription();if(subscription)await marketplaceFetch('/marketplace/push/unsubscribe',{method:'POST',body:JSON.stringify({endpoint:subscription.endpoint})});}catch(_){}}
 let appMpBadgeTimer=null;
-async function appRefreshMarketplaceBadge(){if(!marketplaceSession())return;try{const data=await marketplaceFetch('/marketplace/conversations',{method:'GET'}),count=Number(data.unreadCount||0),badge=$('#appMpUnreadBadge');if(badge){badge.textContent=count>99?'99+':String(count);badge.classList.toggle('show',count>0);}if(navigator.setAppBadge){if(count>0)navigator.setAppBadge(count);else navigator.clearAppBadge&&navigator.clearAppBadge();}}catch(_){}}
+async function appRefreshMarketplaceBadge(){if(!marketplaceSession()){['#appMpUnreadBadge','#appMpAvatarBadge'].forEach(selector=>{const badge=$(selector);if(badge)badge.classList.remove('show');});return;}try{const data=await marketplaceFetch('/marketplace/conversations',{method:'GET'}),count=Number(data.unreadCount||0),label=count>99?'99+':String(count);['#appMpUnreadBadge','#appMpAvatarBadge'].forEach(selector=>{const badge=$(selector);if(badge){badge.textContent=label;badge.classList.toggle('show',count>0);}});const avatar=$('#accountAvatar');if(avatar)avatar.setAttribute('aria-label',count>0?`Open account — ${count} unread message${count===1?'':'s'}`:'Open account and messages');if(navigator.setAppBadge){if(count>0)navigator.setAppBadge(count);else navigator.clearAppBadge&&navigator.clearAppBadge();}}catch(_){}}
 function appStartMarketplaceSync(){clearInterval(appMpBadgeTimer);if(!marketplaceSession())return;appRefreshMarketplaceBadge();appMpBadgeTimer=setInterval(appRefreshMarketplaceBadge,30000);if(appPushSupported()&&Notification.permission==='granted')appSyncPush(false,false).catch(()=>{});else appSetPushState(appPushSupported()&&Notification.permission==='denied'?'Blocked':'Off');}
 
 
@@ -5073,18 +5080,22 @@ async function appHandleLaunchDeepLink(){
   const params=new URLSearchParams(location.search);
   const listingId=String(params.get('listing')||'').trim();
   const conversationId=String(params.get('conversation')||'').trim();
-  if(!listingId) return;
-  // The personalised feed remains loaded underneath the listing/message
-  // overlays, so closing them returns the user to the exact feed they had.
+
+  // Message notifications go straight to the Messages inbox and open the
+  // relevant conversation. The listing page is not shown first.
+  if(conversationId&&marketplaceSession()){
+    await openAppMarketplaceInbox(conversationId);
+    try{history.replaceState({},'',location.pathname);}catch(_){}
+    return;
+  }
+
+  if(!listingId)return;
   await openAppMarketplaceListing({
     marketplaceListingId:listingId,
     itemId:listingId,
     id:listingId,
     source:'findai'
   });
-  if(conversationId&&marketplaceSession()){
-    await openAppMarketplaceMessages(conversationId);
-  }
   try{history.replaceState({},'',location.pathname);}catch(_){}
 }
 
