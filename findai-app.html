@@ -1063,6 +1063,15 @@
   font-size:20px;font-weight:800;letter-spacing:-.3px;color:#fff;
   text-shadow:0 1px 6px rgba(0,0,0,.55)
 }
+#search .source-chip[data-source="findai"]{
+  background:transparent!important;border:0!important;box-shadow:none!important;
+  padding:0!important
+}
+.findai-source-brand{
+  display:inline-flex;align-items:baseline;background:transparent!important;
+  border:0!important;padding:0!important;color:#fff;font-weight:800
+}
+.findai-source-ai{color:#1a6fff}
 /* Official eBay wordmark supplied for the app. */
 #search .source-chip .ebay-logo{height:24px;width:auto;display:block;object-fit:contain;filter:drop-shadow(0 1px 5px rgba(0,0,0,.35))}
 
@@ -2275,6 +2284,14 @@ const EBAY_LOGO_SVG = `<img class="ebay-logo" src="data:image/png;base64,iVBORw0
 function sourceLabel(source){
   const map = {ebay:'eBay',findai:'FindAI Marketplace',amazon:'Amazon',aliexpress:'AliExpress',stockx:'StockX',bricklink:'BrickLink',brickset:'Brickset',goat:'GOAT'};
   return map[source] || source.charAt(0).toUpperCase()+source.slice(1);
+}
+function sourceMarkup(source){
+  const normalized=String(source||'listing').toLowerCase();
+  if(normalized==='ebay') return EBAY_LOGO_SVG;
+  if(normalized==='findai'){
+    return '<span class="source-brand findai-source-brand">Find<span class="findai-source-ai">AI</span> Marketplace</span>';
+  }
+  return `<span class="source-brand">${escapeHTML(sourceLabel(normalized))}</span>`;
 }
 function currencyOf(item, data){ return String((item && item.currency) || (data && data.currency) || 'AUD').toUpperCase(); }
 function money(value, currency='AUD'){
@@ -3578,7 +3595,7 @@ function renderReelCard(item,index,data){
       </button>
     </div>
     <div class="product-panel">
-      <div class="source-chip" data-source="${escapeAttr(source)}">${source==='ebay' ? EBAY_LOGO_SVG : `<span class="source-brand">${escapeHTML(sourceLabel(source))}</span>`}</div>
+      <div class="source-chip" data-source="${escapeAttr(source)}">${sourceMarkup(source)}</div>
       <h2 class="title">${escapeHTML(title)}</h2>
       <div class="price-action-row">
         <div class="listing-price-copy">
@@ -4446,8 +4463,7 @@ function scanMarketFromListings(listings){
   };
 }
 function scanSourceMarkup(item){
-  const source=getSource(item);
-  return source==='ebay'?EBAY_LOGO_SVG:`<span class="source-brand">${escapeHTML(sourceLabel(source))}</span>`;
+  return sourceMarkup(getSource(item));
 }
 function scanListingMeta(item){
   return [conditionText(item),getShippingText(item)].filter(Boolean).join(' · ');
