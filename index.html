@@ -482,7 +482,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 
 .nav-marketplace-create{padding:8px 17px;border-radius:999px;border:0;background:#fff;color:#050505;font:700 13px 'DM Sans',sans-serif;cursor:pointer;white-space:nowrap}
 .nav-marketplace-create:hover{opacity:.88}
-.findai-market-badge{display:inline-flex;align-items:center;background:transparent;color:#f5f5f5;border-radius:0;padding:0;font-size:11px;font-weight:800;line-height:1.2}.findai-market-ai{color:#1a6fff}
+.findai-market-badge{display:inline-flex;align-items:baseline;background:transparent;color:#f5f5f5;border-radius:0;padding:0;font-family:Arial,sans-serif;font-size:16px;font-weight:900;letter-spacing:-.3px;line-height:1}.findai-market-ai{color:#1a6fff}
 .marketplace-modal-bg{position:fixed;inset:0;z-index:30000;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.82);backdrop-filter:blur(8px);padding:18px}
 .marketplace-modal-bg.open{display:flex}.marketplace-modal{width:min(620px,100%);max-height:92vh;overflow:auto;background:#0d0d0d;border:1px solid #282828;border-radius:24px;padding:26px;color:#fff}
 .marketplace-modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}.marketplace-modal-head h2{font-size:25px}.marketplace-close{width:36px;height:36px;border:0;border-radius:50%;background:#1c1c1c;color:#fff;font-size:22px;cursor:pointer}
@@ -1958,7 +1958,7 @@ function mwSourceBadge(l){
   if(l._stockx || s==='stockx') return '<span style="font-weight:800;color:#08A05F;font-size:13px;font-family:\'DM Sans\',sans-serif;letter-spacing:-0.3px">StockX</span>';
   if(l._discogs || s==='discogs') return discogsWordmark();
   if(l._etsy || s==='etsy') return etsyWordmark();
-  if(s==='findai'||l._findaiMarketplace) return '<span class="findai-market-badge">Find<span class="findai-market-ai">AI</span> Marketplace</span>';
+  if(s==='findai'||l._findaiMarketplace) return '<span class="findai-market-badge">Find<span class="findai-market-ai">AI</span></span>';
   if(s.indexOf('ali')!==-1) return '<span style="font-size:12px;font-weight:800;color:#ff4747;font-family:\'DM Sans\',sans-serif">AliExpress</span>';
   if(s==='lego') return legoLogoHtml();
   if(s==='bricklink') return bricklinkLogoHtml();
@@ -2446,7 +2446,7 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
     const price=item.price?`${isym}${Number(item.price).toLocaleString()}`:'See listing';
     const isAli=item.source==='AliExpress';
     const isFindAI=String(item.source||'').toLowerCase()==='findai'||item._findaiMarketplace;
-    const srcBadge=isFindAI?`<span class="findai-market-badge">Find<span class="findai-market-ai">AI</span> Marketplace</span>`:(isAli
+    const srcBadge=isFindAI?`<span class="findai-market-badge">Find<span class="findai-market-ai">AI</span></span>`:(isAli
       ?`<span style="font-size:11px;font-weight:800;color:#ff4747;font-family:'DM Sans',sans-serif">AliExpress</span>`
       :ebayLogoHtml());
     const _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
@@ -2649,7 +2649,7 @@ function showMoreCards(sid){
     const price=item.price?`${isym}${Number(item.price).toLocaleString()}`:'See listing';
     const isAli=item.source==='AliExpress';
     const isFindAI=String(item.source||'').toLowerCase()==='findai'||item._findaiMarketplace;
-    const srcBadge=isFindAI?`<span class="findai-market-badge">Find<span class="findai-market-ai">AI</span> Marketplace</span>`:(isAli?`<span style="font-size:11px;font-weight:800;color:#ff4747">AliExpress</span>`:ebayLogoHtml());
+    const srcBadge=isFindAI?`<span class="findai-market-badge">Find<span class="findai-market-ai">AI</span></span>`:(isAli?`<span style="font-size:11px;font-weight:800;color:#ff4747">AliExpress</span>`:ebayLogoHtml());
     const _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
     const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
     const _hasOffer=Array.isArray(item.buyingOptions)&&item.buyingOptions.indexOf('BEST_OFFER')!==-1;
@@ -3694,7 +3694,7 @@ function openWebsiteCreateListing(){
 }
 async function submitWebsiteListing(event){event.preventDefault();var u=null;try{u=JSON.parse(localStorage.getItem('findai_user')||'null');}catch(_){ }if(!u||!u.session){openAuth('Sign in to create a listing');return false;}var title=document.getElementById('website-listing-name').value.trim(),description=document.getElementById('website-listing-description').value.trim(),condition=document.getElementById('website-listing-condition').value,price=Number(document.getElementById('website-listing-price').value),status=document.getElementById('website-listing-status'),button=document.getElementById('website-listing-submit');if(!websiteListingImages.length){status.textContent='Add at least one image.';return false;}button.disabled=true;button.textContent='Uploading images…';try{var uploaded=await websiteMarketplaceFetch('/marketplace/images',{method:'POST',body:JSON.stringify({images:websiteListingImages,displayName:u.name||'FindAI seller',country:'AU'})});button.textContent='Publishing…';var created=await websiteMarketplaceFetch('/marketplace/listings',{method:'POST',body:JSON.stringify({title:title,description:description,condition:condition,itemPrice:price,currency:'AUD',imageUrls:uploaded.imageUrls||[],displayName:u.name||'FindAI seller',publish:true})});status.style.color='#75e56b';status.textContent='Listing is live across FindAI.';button.textContent='Published';setTimeout(function(){closeWebsiteMarketplaceModal();if(created.listing)openWebsiteListing(created.listing);},700);}catch(e){status.style.color='#ff7770';status.textContent=e.message||'Could not publish listing.';button.disabled=false;button.textContent='Publish Listing';}return false;}
 function websiteMoney(v,c){var n=Number(v)||0;return (String(c||'AUD').toUpperCase()==='AUD'?'A$':'$')+n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
-function openWebsiteListing(listing){if(!listing)return;document.getElementById('website-marketplace-title').textContent='FindAI Marketplace';var imgs=Array.isArray(listing.images)?listing.images:listing.image?[listing.image]:[];document.getElementById('website-marketplace-content').innerHTML='<div class="marketplace-listing-detail"><div class="marketplace-detail-images">'+(imgs[0]?'<img src="'+imgs[0]+'" alt="">':'')+'</div><div class="marketplace-detail-copy"><span class="findai-market-badge">Find<span class="findai-market-ai">AI</span> Marketplace</span><h1>'+escapeHtml(listing.title||'FindAI listing')+'</h1><div class="marketplace-detail-price">'+websiteMoney(listing.price,listing.currency)+'</div><div class="marketplace-detail-meta">'+escapeHtml((listing.condition||'')+' · Seller: '+(listing.sellerName||'FindAI seller'))+'</div><p>'+escapeHtml(listing.description||'')+'</p></div></div>';document.getElementById('website-marketplace-modal').classList.add('open');}
+function openWebsiteListing(listing){if(!listing)return;document.getElementById('website-marketplace-title').textContent='FindAI Marketplace';var imgs=Array.isArray(listing.images)?listing.images:listing.image?[listing.image]:[];document.getElementById('website-marketplace-content').innerHTML='<div class="marketplace-listing-detail"><div class="marketplace-detail-images">'+(imgs[0]?'<img src="'+imgs[0]+'" alt="">':'')+'</div><div class="marketplace-detail-copy"><span class="findai-market-badge">Find<span class="findai-market-ai">AI</span></span><h1>'+escapeHtml(listing.title||'FindAI listing')+'</h1><div class="marketplace-detail-price">'+websiteMoney(listing.price,listing.currency)+'</div><div class="marketplace-detail-meta">'+escapeHtml((listing.condition||'')+' · Seller: '+(listing.sellerName||'FindAI seller'))+'</div><p>'+escapeHtml(listing.description||'')+'</p></div></div>';document.getElementById('website-marketplace-modal').classList.add('open');}
 async function openWebsiteListingFromUrl(){var id=new URLSearchParams(location.search).get('listing');if(!id)return;try{var data=await websiteMarketplaceFetch('/marketplace/listings/'+encodeURIComponent(id),{method:'GET'});openWebsiteListing(data.listing);}catch(_){}}
 window.addEventListener('load',openWebsiteListingFromUrl);
 
