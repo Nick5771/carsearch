@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="FindAI">
-<link rel="manifest" href="/app.webmanifest?v=12">
+<link rel="manifest" href="/app.webmanifest?v=13">
 <link rel="apple-touch-icon" sizes="180x180" href="/findai-apple-touch-icon.png?v=12">
 <link rel="icon" type="image/png" sizes="32x32" href="/findai-favicon-32.png?v=12">
 <link rel="icon" type="image/png" sizes="192x192" href="/findai-icon-192.png?v=12">
@@ -1573,7 +1573,7 @@ body.scan-results-open .nav{display:none!important}
 .app-mp-header button{width:38px;height:38px;border:1px solid rgba(255,255,255,.09);border-radius:50%;background:#14171c;color:#fff;display:grid;place-items:center}
 .app-mp-header button svg{width:19px;height:19px}.app-mp-header-spacer{width:38px}
 .app-mp-scroll{flex:1;min-height:0;overflow-y:auto;padding:13px 14px calc(34px + var(--safe-bottom));scrollbar-width:none}.app-mp-scroll::-webkit-scrollbar{display:none}
-.app-mp-gallery{border-radius:22px;overflow:hidden;background:#f7f7f7;border:1px solid rgba(255,255,255,.08)}
+.app-mp-gallery{position:relative;border-radius:22px;overflow:hidden;background:#f7f7f7;border:1px solid rgba(255,255,255,.08)}.app-mp-image-price{position:absolute;left:14px;bottom:14px;z-index:2;padding:10px 13px;border:1px solid rgba(255,255,255,.16);border-radius:13px;background:rgba(5,6,7,.82);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);box-shadow:0 8px 24px rgba(0,0,0,.28);color:#fff;font-size:25px;line-height:1;font-weight:820;letter-spacing:-.8px}
 .app-mp-main-image{width:100%;height:min(53dvh,510px);object-fit:contain;display:block;padding:10px}
 .app-mp-thumbs{display:flex;gap:8px;overflow-x:auto;padding:10px 2px 2px;scrollbar-width:none}.app-mp-thumbs::-webkit-scrollbar{display:none}
 .app-mp-thumb{width:62px;height:62px;flex:0 0 auto;border-radius:13px;border:1px solid rgba(255,255,255,.1);background:#12151a;padding:3px;overflow:hidden}.app-mp-thumb.active{border-color:#fff}.app-mp-thumb img{width:100%;height:100%;object-fit:cover;border-radius:9px}
@@ -4981,7 +4981,7 @@ function renderAppMarketplaceListing(){
   if(!appMpListing)return;const listing=appMpListing,context=appMpContext||{},seller=context.seller||{},viewer=context.viewer||{},images=(Array.isArray(listing.images)?listing.images:[]).filter(Boolean);if(!images.length&&listing.image)images.push(listing.image);appMpSelectedImage=0;
   const sellerName=seller.displayName||listing.sellerName||'FindAI seller',sold=Number(seller.soldCount||0),joined=seller.joinedAt?'Member since '+appMpDate(seller.joinedAt):'FindAI seller',available=String(listing.status||'active')==='active',offers=['active','reserved'].includes(String(listing.status||'active'));
   const thumbs=images.map((src,index)=>`<button class="app-mp-thumb ${index===0?'active':''}" onclick="appMpSelectImage(${index})"><img src="${escapeAttr(src)}" alt="Product image"></button>`).join('');
-  $('#appMpProductContent').innerHTML=`<div class="app-mp-gallery">${images[0]?`<img class="app-mp-main-image" id="appMpMainImage" src="${escapeAttr(images[0])}" alt="${escapeAttr(listing.title||'FindAI listing')}">`:'<div class="app-mp-loading">No image supplied</div>'}</div>${images.length>1?`<div class="app-mp-thumbs">${thumbs}</div>`:''}
+  $('#appMpProductContent').innerHTML=`<div class="app-mp-gallery">${images[0]?`<img class="app-mp-main-image" id="appMpMainImage" src="${escapeAttr(images[0])}" alt="${escapeAttr(listing.title||'FindAI listing')}">`:'<div class="app-mp-loading">No image supplied</div>'}<div class="app-mp-image-price">${escapeHTML(appMpMoney(listing.price,listing.currency))}</div></div>${images.length>1?`<div class="app-mp-thumbs">${thumbs}</div>`:''}
     <div class="app-mp-source"><span class="app-mp-wordmark">Find<i>AI</i></span><span>Marketplace listing</span></div><h1 class="app-mp-title">${escapeHTML(listing.title||'FindAI listing')}</h1>
     <div class="app-mp-seller"><div class="app-mp-avatar">${escapeHTML(appMpInitial(sellerName))}</div><div class="app-mp-seller-copy"><b>${escapeHTML(sellerName)}</b><span>${escapeHTML((sold?sold+' sold · ':'')+joined)}</span></div><button class="app-mp-message-pill" onclick="openAppMarketplaceMessages()">${viewer.isSeller?'Messages':'Message'}</button></div>
     <div class="app-mp-price">${escapeHTML(appMpMoney(listing.price,listing.currency))}</div><div class="app-mp-price-note">Secure checkout and tracked delivery through FindAI</div>
@@ -4992,7 +4992,7 @@ function renderAppMarketplaceListing(){
     <section class="app-mp-section"><h3>Item details</h3><div class="app-mp-detail-grid"><div class="app-mp-detail"><span>Condition</span><b>${escapeHTML(listing.condition||'Not specified')}</b></div><div class="app-mp-detail"><span>Location</span><b>${escapeHTML(listing.sellerCountry||seller.country||'Australia')}</b></div><div class="app-mp-detail"><span>Listed</span><b>${escapeHTML(appMpDate(listing.publishedAt||listing.createdAt)||'Recently')}</b></div><div class="app-mp-detail"><span>Item number</span><b>${escapeHTML(appMpId(listing))}</b></div></div></section>`;
 }
 function appMpSelectImage(index){const images=Array.isArray(appMpListing&&appMpListing.images)?appMpListing.images:[],img=images[index];if(img)$('#appMpMainImage').src=img;$$('.app-mp-thumb').forEach((el,i)=>el.classList.toggle('active',i===index));appMpSelectedImage=index;}
-async function appMpShareListing(){if(!appMpListing)return;const url='https://findai.ai/?listing='+encodeURIComponent(appMpId(appMpListing));try{if(navigator.share)await navigator.share({title:appMpListing.title||'FindAI listing',url});else{await navigator.clipboard.writeText(url);toast('Listing link copied');}}catch(_){}}
+async function appMpShareListing(){if(!appMpListing)return;const url='https://findai.ai/findai-app.html?listing='+encodeURIComponent(appMpId(appMpListing));try{if(navigator.share)await navigator.share({title:appMpListing.title||'FindAI listing',url});else{await navigator.clipboard.writeText(url);toast('Listing link copied');}}catch(_){}}
 async function appMpBuy(offerId){if(!appMpListing||!appMpRequireLogin())return;try{const data=await marketplaceFetch('/marketplace/checkout',{method:'POST',body:JSON.stringify({listingId:appMpId(appMpListing),offerId:offerId||''})});if(data.checkoutUrl)location.href=data.checkoutUrl;else throw new Error('Checkout is not available yet');}catch(error){toast(error.message||'Checkout could not be opened');}}
 function openAppMpSheet(title,html){$('#appMpSheetTitle').textContent=title;$('#appMpSheetBody').innerHTML=html||'';$('#appMpSheetBg').classList.add('show');}
 function closeAppMpSheet(){clearInterval(appMpMessageTimer);appMpMessageTimer=null;$('#appMpSheetBg').classList.remove('show');}
@@ -5017,15 +5017,76 @@ function appMpInboxBack(){clearInterval(appMpMessageTimer);appMpMessageTimer=nul
 // Standards-based Web Push for the installed FindAI PWA and supported browsers.
 function appPushSupported(){return 'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;}
 function appPushKey(value){const padding='='.repeat((4-value.length%4)%4),raw=atob((value+padding).replace(/-/g,'+').replace(/_/g,'/')),out=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);return out;}
-async function appServiceWorker(){if(!appPushSupported())throw new Error('On iPhone, add FindAI to your Home Screen first');await navigator.serviceWorker.register('/service-worker.js?v=3',{scope:'/'});return navigator.serviceWorker.ready;}
+async function appServiceWorker(){
+  if(!appPushSupported()) throw new Error('On iPhone, add FindAI to your Home Screen first');
+  const registration=await navigator.serviceWorker.register('/service-worker.js?v=4',{
+    scope:'/',
+    updateViaCache:'none'
+  });
+  try{await registration.update();}catch(_){}
+  return navigator.serviceWorker.ready;
+}
 function appSetPushState(value){const el=$('#appPushState');if(el)el.textContent=value;}
-async function appSyncPush(promptUser,sendTest){if(!marketplaceSession())throw new Error('Sign in first');if(!appPushSupported())throw new Error('On iPhone, add FindAI to your Home Screen first, then enable notifications inside the app');const registration=await appServiceWorker();let permission=Notification.permission;if(promptUser&&permission==='default')permission=await Notification.requestPermission();if(permission!=='granted')throw new Error(permission==='denied'?'Notifications are blocked in your phone settings':'Notification permission was not granted');const config=await marketplaceFetch('/marketplace/push/config',{method:'GET'});let subscription=await registration.pushManager.getSubscription();if(!subscription)subscription=await registration.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:appPushKey(config.publicKey)});await marketplaceFetch('/marketplace/push/subscribe',{method:'POST',body:JSON.stringify(subscription.toJSON())});appSetPushState('On');if(sendTest)await marketplaceFetch('/marketplace/push/test',{method:'POST',body:'{}'});}
-async function appEnableNotifications(){appSetPushState('…');try{await appSyncPush(true,true);appSetPushState('On');toast('Phone notifications enabled');}catch(error){appSetPushState(typeof Notification!=='undefined'&&Notification.permission==='denied'?'Blocked':'Off');toast(error.message||'Notifications could not be enabled');}}
+async function appSyncPush(promptUser,sendTest){
+  if(!marketplaceSession()) throw new Error('Sign in first');
+  if(!appPushSupported()) throw new Error('On iPhone, add FindAI to your Home Screen first, then enable notifications inside the app');
+  const registration=await appServiceWorker();
+  let permission=Notification.permission;
+  if(promptUser&&permission==='default') permission=await Notification.requestPermission();
+  if(permission!=='granted') throw new Error(permission==='denied'?'Notifications are blocked in your phone settings':'Notification permission was not granted');
+  const config=await marketplaceFetch('/marketplace/push/config',{method:'GET'});
+  let subscription=await registration.pushManager.getSubscription();
+  if(!subscription) subscription=await registration.pushManager.subscribe({
+    userVisibleOnly:true,
+    applicationServerKey:appPushKey(config.publicKey)
+  });
+  const payload=subscription.toJSON();
+  payload.surface='app';
+  payload.launchUrl='https://findai.ai/findai-app.html';
+  await marketplaceFetch('/marketplace/push/subscribe',{method:'POST',body:JSON.stringify(payload)});
+  appSetPushState('On');
+  if(sendTest) await marketplaceFetch('/marketplace/push/test',{
+    method:'POST',
+    body:JSON.stringify({surface:'app',launchUrl:'https://findai.ai/findai-app.html'})
+  });
+}
+async function appEnableNotifications(){
+  appSetPushState('…');
+  try{
+    // Permission is enabled in place. No test notification is sent, so the
+    // user stays on the current personalised feed.
+    await appSyncPush(true,false);
+    appSetPushState('On');
+    toast('Phone notifications enabled');
+  }catch(error){
+    appSetPushState(typeof Notification!=='undefined'&&Notification.permission==='denied'?'Blocked':'Off');
+    toast(error.message||'Notifications could not be enabled');
+  }
+}
 async function appRemovePush(){if(!appPushSupported()||!marketplaceSession())return;try{const registration=await navigator.serviceWorker.ready,subscription=await registration.pushManager.getSubscription();if(subscription)await marketplaceFetch('/marketplace/push/unsubscribe',{method:'POST',body:JSON.stringify({endpoint:subscription.endpoint})});}catch(_){}}
 let appMpBadgeTimer=null;
 async function appRefreshMarketplaceBadge(){if(!marketplaceSession())return;try{const data=await marketplaceFetch('/marketplace/conversations',{method:'GET'}),count=Number(data.unreadCount||0),badge=$('#appMpUnreadBadge');if(badge){badge.textContent=count>99?'99+':String(count);badge.classList.toggle('show',count>0);}if(navigator.setAppBadge){if(count>0)navigator.setAppBadge(count);else navigator.clearAppBadge&&navigator.clearAppBadge();}}catch(_){}}
 function appStartMarketplaceSync(){clearInterval(appMpBadgeTimer);if(!marketplaceSession())return;appRefreshMarketplaceBadge();appMpBadgeTimer=setInterval(appRefreshMarketplaceBadge,30000);if(appPushSupported()&&Notification.permission==='granted')appSyncPush(false,false).catch(()=>{});else appSetPushState(appPushSupported()&&Notification.permission==='denied'?'Blocked':'Off');}
 
+
+async function appHandleLaunchDeepLink(){
+  const params=new URLSearchParams(location.search);
+  const listingId=String(params.get('listing')||'').trim();
+  const conversationId=String(params.get('conversation')||'').trim();
+  if(!listingId) return;
+  // The personalised feed remains loaded underneath the listing/message
+  // overlays, so closing them returns the user to the exact feed they had.
+  await openAppMarketplaceListing({
+    marketplaceListingId:listingId,
+    itemId:listingId,
+    id:listingId,
+    source:'findai'
+  });
+  if(conversationId&&marketplaceSession()){
+    await openAppMarketplaceMessages(conversationId);
+  }
+  try{history.replaceState({},'',location.pathname);}catch(_){}
+}
 
 /* Boot */
 (function boot(){
@@ -5034,6 +5095,7 @@ function appStartMarketplaceSync(){clearInterval(appMpBadgeTimer);if(!marketplac
   updateAccountHeader();
   setTimeout(appStartMarketplaceSync,0);
   loadPersonalisedFeed();
+  setTimeout(()=>appHandleLaunchDeepLink().catch(()=>{}),350);
 })();
 </script>
 <!-- ===== FindAI Google Sign-In (mirrors main site index.html flow) ===== -->
