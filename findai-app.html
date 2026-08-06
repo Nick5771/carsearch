@@ -1451,22 +1451,62 @@ body.scan-results-open .nav{display:none!important}
 .create-listing-pill:active{transform:scale(.97)}
 .create-listing-pill[hidden]{display:none!important}
 
-/* Keep the login card spacious while making Google the only visible sign-in route. */
-.auth-card.google-only{
-  min-height:min(590px,78dvh);padding:24px 22px 25px;display:flex;flex-direction:column
+/* Multi-method sign-in: Google now, passwordless email through Resend, Apple later. */
+.auth-card.auth-multi{
+  width:min(100%,402px);min-height:min(590px,78dvh);max-height:calc(100dvh - 36px);overflow:auto;
+  padding:24px 22px 25px;display:flex;flex-direction:column
 }
-.auth-card.google-only .auth-top{margin-top:28px}
-.auth-card.google-only .auth-top h2{font-size:29px;letter-spacing:-.9px}
-.auth-card.google-only .auth-top p{max-width:280px;margin-top:10px;font-size:13px;line-height:1.5}
-.google-only-login-body{
-  flex:1;display:flex;flex-direction:column;justify-content:center;padding:10px 0 54px
+.auth-card.auth-multi .auth-top{margin-top:18px}
+.auth-card.auth-multi .auth-top h2{font-size:29px;letter-spacing:-.9px}
+.auth-card.auth-multi .auth-top p{max-width:292px;margin-top:10px;font-size:13px;line-height:1.5}
+.auth-login-body{
+  flex:1;display:flex;flex-direction:column;justify-content:center;padding:22px 0 42px
 }
-.auth-card.google-only .google-signin-btn{
-  height:58px;margin:0;border-radius:18px;font-size:15px;font-weight:760;gap:13px;
-  background:#0b0d10;border-color:rgba(255,255,255,.16)
+.auth-card.auth-multi .google-signin-btn,
+.email-signin-btn{
+  width:100%;height:58px;margin:0;border:1px solid rgba(255,255,255,.16);border-radius:18px;
+  display:flex;align-items:center;justify-content:center;gap:13px;background:#0b0d10;color:#fff;
+  font-size:15px;font-weight:760;cursor:pointer;transition:border-color .15s,background .15s,transform .12s
 }
-.auth-card.google-only .google-signin-btn svg{width:21px;height:21px}
-.auth-card.google-only .google-auth-error{margin-top:10px;min-height:18px;font-size:11.5px}
+.auth-card.auth-multi .google-signin-btn:hover,.email-signin-btn:hover{border-color:rgba(255,255,255,.28);background:#141821}
+.auth-card.auth-multi .google-signin-btn:active,.email-signin-btn:active{transform:scale(.985)}
+.auth-card.auth-multi .google-signin-btn svg,.email-signin-btn svg{width:21px;height:21px;flex:0 0 auto}
+.auth-method-divider{display:flex;align-items:center;gap:12px;margin:16px 2px;color:#686f79;font-size:10px;font-weight:750;text-transform:uppercase;letter-spacing:.08em}
+.auth-method-divider:before,.auth-method-divider:after{content:"";height:1px;flex:1;background:rgba(255,255,255,.08)}
+.auth-card.auth-multi .google-auth-error{margin-top:12px;min-height:18px;font-size:11.5px}
+.email-auth-panel{display:none;flex:1;flex-direction:column;padding-top:20px}
+.email-auth-panel.show{display:flex}
+.email-auth-back{
+  align-self:flex-start;margin:0 0 18px;padding:7px 2px;border:0;background:transparent;color:#aeb4bd;
+  display:flex;align-items:center;gap:7px;font-size:12px;font-weight:680
+}
+.email-auth-back svg{width:17px;height:17px}
+.email-auth-step{display:none;flex:1;flex-direction:column;justify-content:center;padding-bottom:36px}
+.email-auth-step.show{display:flex}
+.email-auth-copy{margin-bottom:20px;text-align:center}
+.email-auth-icon{width:54px;height:54px;margin:0 auto 15px;border:1px solid rgba(255,255,255,.1);border-radius:18px;background:#111419;display:grid;place-items:center;color:#e8ebef}
+.email-auth-icon svg{width:25px;height:25px}
+.email-auth-copy b{display:block;font-size:20px;letter-spacing:-.45px}
+.email-auth-copy span{display:block;margin-top:7px;color:#9299a3;font-size:12px;line-height:1.45}
+.email-auth-form{display:flex;flex-direction:column;gap:10px}
+.email-auth-input{
+  width:100%;height:54px;padding:0 15px;border:1px solid rgba(255,255,255,.11);border-radius:16px;
+  background:#0d1014;color:#fff;outline:0;font-size:15px;transition:border-color .15s,box-shadow .15s
+}
+.email-auth-input::placeholder{color:#727984}
+.email-auth-input:focus{border-color:rgba(77,140,255,.8);box-shadow:0 0 0 3px rgba(77,140,255,.11)}
+.email-code-input{text-align:center;font-size:22px;font-weight:750;letter-spacing:8px;padding-left:23px;font-variant-numeric:tabular-nums}
+.email-auth-primary{
+  width:100%;height:54px;border:0;border-radius:16px;background:#f4f5f7;color:#090b0d;font-size:14px;font-weight:780
+}
+.email-auth-primary:disabled{opacity:.58;cursor:default}
+.email-auth-destination{font-weight:720;color:#e8eaed;word-break:break-all}
+.email-auth-meta{margin-top:13px;color:#858c96;font-size:11px;line-height:1.45;text-align:center}
+.email-auth-resend{border:0;background:transparent;color:#75a2ff;font-weight:730;padding:3px 4px}
+.email-auth-resend:disabled{color:#69717d;cursor:default}
+.email-auth-feedback{min-height:18px;margin-top:11px;color:#ff8f8f;font-size:11.5px;line-height:1.4;text-align:center}
+.email-auth-feedback.success{color:#86d980}
+.email-auth-privacy{margin:14px 8px 0;color:#696f79;font-size:9.5px;line-height:1.45;text-align:center}
 
 .marketplace-screen{
   position:absolute;inset:0;z-index:125;display:none;flex-direction:column;overflow:hidden;
@@ -1557,9 +1597,10 @@ body.scan-results-open .nav{display:none!important}
   .condition-option{font-size:10px;padding:0 4px}
 }
 @media (max-height:720px){
-  .auth-card.google-only{min-height:min(500px,82dvh)}
-  .auth-card.google-only .auth-top{margin-top:14px}
-  .google-only-login-body{padding-bottom:24px}
+  .auth-card.auth-multi{min-height:min(500px,82dvh)}
+  .auth-card.auth-multi .auth-top{margin-top:8px}
+  .auth-login-body{padding:16px 0 20px}
+  .email-auth-step{padding-bottom:10px}
 }
 
 
@@ -1617,7 +1658,7 @@ body.scan-results-open .nav{display:none!important}
 .app-mp-messages{flex:1;min-height:0;overflow-y:auto;padding:18px 14px 13px;display:flex;flex-direction:column;gap:7px;scroll-behavior:smooth}.app-mp-bubble{max-width:82%;padding:10px 12px 8px;border:1px solid rgba(255,255,255,.09);border-radius:17px 17px 17px 5px;background:linear-gradient(180deg,#20252b,#191d22);color:#f0f2f4;font-size:12px;line-height:1.48;box-shadow:0 8px 18px rgba(0,0,0,.13)}.app-mp-bubble.mine{align-self:flex-end;border-color:#347cff;border-radius:17px 17px 5px 17px;background:linear-gradient(180deg,#2878ff,#1767e9);color:#fff}.app-mp-time{display:block;margin-top:5px;font-size:8px;opacity:.68}.app-mp-bubble.mine .app-mp-time{text-align:right}.app-mp-receipt{font-weight:760;opacity:.9}
 .app-mp-date-divider{display:flex;align-items:center;gap:9px;margin:9px 0;color:#6d7580;font-size:8.5px;font-weight:780;text-transform:uppercase;letter-spacing:.08em}.app-mp-date-divider:before,.app-mp-date-divider:after{content:"";height:1px;flex:1;background:rgba(255,255,255,.07)}
 .app-mp-chat-offer{align-self:center;width:94%;margin:7px 0;padding:14px;border:1px solid #2c3541;border-radius:18px;background:linear-gradient(145deg,#121923,#0d1117);box-shadow:0 15px 38px rgba(0,0,0,.25)}.app-mp-chat-offer-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.app-mp-chat-offer-eyebrow{color:#78aaff;font-size:8.5px;font-weight:850;text-transform:uppercase;letter-spacing:.08em}.app-mp-chat-offer-amount{margin-top:5px;font-size:26px;line-height:1;font-weight:850;letter-spacing:-.7px}.app-mp-chat-offer-status{padding:6px 8px;border-radius:999px;background:#222832;color:#adb5bf;font-size:8px;font-weight:850;text-transform:capitalize}.app-mp-chat-offer-status.accepted{background:#102b1b;color:#6fe18a}.app-mp-chat-offer-status.declined,.app-mp-chat-offer-status.withdrawn,.app-mp-chat-offer-status.expired{background:#2a1718;color:#ff918c}.app-mp-chat-offer-meta{margin-top:8px;color:#8c95a0;font-size:9.5px;line-height:1.45}.app-mp-chat-offer-note{margin-top:9px;padding:9px 10px;border-radius:11px;background:#171c23;color:#cbd0d6;font-size:10px;line-height:1.45}.app-mp-chat-offer-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}.app-mp-chat-offer-btn{height:34px;padding:0 11px;border:1px solid rgba(255,255,255,.12);border-radius:999px;background:#171c22;color:#fff;font-size:9px;font-weight:820}.app-mp-chat-offer-btn.primary{border-color:#1a6fff;background:#1a6fff}.app-mp-chat-offer-btn.danger{color:#ff918c}
-.app-mp-typing{flex:0 0 auto;min-height:22px;padding:2px 14px 6px;color:#858d97;font-size:9.5px;font-style:italic;background:#0b0e12}.app-mp-compose{position:relative;flex:0 0 auto;display:grid;grid-template-columns:auto minmax(0,1fr) 45px;align-items:end;gap:7px;padding:10px 11px calc(10px + var(--safe-bottom));border-top:1px solid rgba(255,255,255,.08);background:#0b0e12}.app-mp-compose-offer{height:44px;padding:0 10px;border:1px solid #315d9f;border-radius:13px;background:#101b2a;color:#78aaff;font-size:9px;font-weight:850}.app-mp-compose textarea{width:100%;min-height:44px;max-height:94px;border:1px solid rgba(255,255,255,.11);border-radius:14px;background:#15191e;color:#fff;padding:11px 12px;resize:none;font:inherit;outline:0}.app-mp-compose-send{width:45px;height:44px;border:0;border-radius:13px;background:#fff;color:#080a0d;font-size:17px}.app-mp-compose-send:disabled{opacity:.5}
+.app-mp-typing{flex:0 0 auto;min-height:22px;padding:2px 14px 6px;color:#858d97;font-size:9.5px;font-style:italic;background:#0b0e12}.app-mp-compose{position:relative;flex:0 0 auto;display:grid;grid-template-columns:auto minmax(0,1fr) 45px;align-items:end;gap:7px;padding:10px 11px calc(10px + var(--safe-bottom));border-top:1px solid rgba(255,255,255,.08);background:#0b0e12}.app-mp-compose-offer{height:44px;padding:0 10px;border:1px solid #315d9f;border-radius:13px;background:#101b2a;color:#78aaff;font-size:9px;font-weight:850}.app-mp-compose textarea{width:100%;min-height:44px;max-height:94px;border:1px solid rgba(255,255,255,.11);border-radius:14px;background:#15191e;color:#fff;padding:11px 12px;resize:none;font:inherit;outline:0}.app-mp-compose-send{width:45px;height:44px;border:0;border-radius:13px;background:#fff;color:#080a0d;font-size:17px}.app-mp-compose-send:disabled{opacity:.5}.app-mp-compose .app-mp-compose-offer{width:auto;min-width:58px;max-width:72px;overflow:visible}.app-mp-bubble.pending{opacity:.82}.app-mp-bubble.pending .app-mp-time{font-style:italic}.app-mp-bubble.failed{border-color:#7d3434;background:#312020}.app-mp-bubble.failed .app-mp-time{color:#ffaaa5;opacity:1}
 .app-mp-message-offer-layer{position:absolute;left:10px;right:10px;bottom:calc(69px + var(--safe-bottom));z-index:8;display:none}.app-mp-message-offer-layer.show{display:block}.app-mp-message-offer-panel{padding:14px;border:1px solid #354050;border-radius:17px;background:rgba(15,19,25,.99);box-shadow:0 22px 65px rgba(0,0,0,.58);backdrop-filter:blur(18px)}.app-mp-message-offer-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:11px}.app-mp-message-offer-head b{font-size:13px}.app-mp-message-offer-close{width:29px;height:29px;border:0;border-radius:50%;background:#252b33;color:#fff;font-size:18px}.app-mp-message-offer-panel input,.app-mp-message-offer-panel textarea{width:100%;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:#090b0e;color:#fff;padding:11px;font:inherit;outline:0}.app-mp-message-offer-panel textarea{margin-top:8px;min-height:50px;resize:none}.app-mp-message-offer-submit{width:100%;height:42px;margin-top:9px;border:0;border-radius:12px;background:#1a6fff;color:#fff;font-size:10px;font-weight:850}.app-mp-message-offer-error{min-height:14px;margin-top:6px;color:#ff8d88;font-size:9px}
 
 </style>
@@ -1777,14 +1818,45 @@ body.scan-results-open .nav{display:none!important}
 
   <!-- Account interface. Authentication is deliberately isolated from the shopping and scanner code. -->
   <div class="account-overlay centered" id="loginOverlay" role="dialog" aria-modal="true" aria-labelledby="loginTitle" onclick="if(event.target===this)closeLogin()">
-    <div class="auth-card google-only" onclick="event.stopPropagation()">
+    <div class="auth-card auth-multi" onclick="event.stopPropagation()">
       <div class="auth-top">
-        <div><h2 id="loginTitle">Log in to FindAI</h2><p>Keep your profile, saved products and personalised interests together.</p></div>
+        <div><h2 id="loginTitle">Log in to FindAI</h2><p id="loginSubtitle">Keep your profile, saved products and personalised interests together.</p></div>
         <button class="auth-close" type="button" onclick="closeLogin()" aria-label="Close login"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
       </div>
-      <div class="google-only-login-body">
+      <div class="auth-login-body" id="authLoginMethods">
         <button type="button" class="google-signin-btn" onclick="startGoogleAuth()"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>Continue with Google</button>
+        <div class="auth-method-divider">or</div>
+        <button type="button" class="email-signin-btn" onclick="openAppEmailAuth()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4.5 7 7.5 6 7.5-6"/></svg>Continue with email</button>
         <div id="googleAuthError" class="google-auth-error" role="alert"></div>
+      </div>
+      <div class="email-auth-panel" id="emailAuthPanel">
+        <button type="button" class="email-auth-back" onclick="backToAppAuthMethods()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>Other sign-in options</button>
+        <section class="email-auth-step show" id="emailAddressStep">
+          <div class="email-auth-copy">
+            <div class="email-auth-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4.5 7 7.5 6 7.5-6"/></svg></div>
+            <b>Continue with email</b>
+            <span>We’ll send a secure six-digit code. No password needed.</span>
+          </div>
+          <form class="email-auth-form" onsubmit="return requestAppEmailCode(event)">
+            <input class="email-auth-input" id="appEmailInput" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="Email address" aria-label="Email address">
+            <button class="email-auth-primary" id="appEmailSendButton" type="submit">Send login code</button>
+          </form>
+          <div class="email-auth-feedback" id="appEmailFeedback" role="alert" aria-live="polite"></div>
+          <div class="email-auth-privacy">The code expires after 15 minutes and can only be used once.</div>
+        </section>
+        <section class="email-auth-step" id="emailCodeStep">
+          <div class="email-auth-copy">
+            <div class="email-auth-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M7 10V8a5 5 0 0 1 10 0v2"/><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M12 14v3"/></svg></div>
+            <b>Check your email</b>
+            <span>Enter the code sent to <span class="email-auth-destination" id="appEmailDestination"></span></span>
+          </div>
+          <form class="email-auth-form" onsubmit="return verifyAppEmailCode(event)">
+            <input class="email-auth-input email-code-input" id="appEmailCodeInput" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="000000" aria-label="Six-digit login code" oninput="appEmailCodeChanged(this)">
+            <button class="email-auth-primary" id="appEmailVerifyButton" type="submit">Verify and sign in</button>
+          </form>
+          <div class="email-auth-meta">Didn’t receive it? <button type="button" class="email-auth-resend" id="appEmailResendButton" onclick="resendAppEmailCode()">Resend code</button></div>
+          <div class="email-auth-feedback" id="appCodeFeedback" role="alert" aria-live="polite"></div>
+        </section>
       </div>
       <input id="accountAvatarInput" type="file" accept="image/*" hidden onchange="accountAvatarPicked(event)">
     </div>
@@ -2047,11 +2119,15 @@ function updateAccountHeader(){
 function openLogin(){
   const profile=getAccountProfile();
   if(profile){ openAccountMenu(); return; }
+  resetAppEmailAuth();
   const error=$('#googleAuthError');
   if(error) error.textContent='';
   $('#loginOverlay').classList.add('show');
 }
-function closeLogin(){ $('#loginOverlay').classList.remove('show'); }
+function closeLogin(){
+  $('#loginOverlay').classList.remove('show');
+  resetAppEmailAuth();
+}
 function completeLocalLogin(event){
   event.preventDefault();
   const name=$('#accountNameInput').value.trim();
@@ -5005,7 +5081,7 @@ async function refreshTrackedBatch(items){
 
 
 /* FindAI Marketplace product page + offers + messaging */
-let appMpListing=null,appMpContext=null,appMpSelectedImage=0,appMpConversation='',appMpMessageTimer=null,appMpTypingTimer=null,appMpTypingClearTimer=null,appMpTypingLastSent=0,appMpInboxMode='global',appMpConversationList=[],appMpCurrentConversation=null,appMpCurrentOffers=[];
+let appMpListing=null,appMpContext=null,appMpSelectedImage=0,appMpConversation='',appMpMessageTimer=null,appMpTypingTimer=null,appMpTypingClearTimer=null,appMpTypingLastSent=0,appMpRemoteTypingActive=false,appMpInboxMode='global',appMpConversationList=[],appMpCurrentConversation=null,appMpCurrentOffers=[];
 function appMpId(item){return String(item&&(item.marketplaceListingId||item.itemId||item.id)||'');}
 function appMpMoney(value,currency){const n=Number(value)||0,code=String(currency||'AUD').toUpperCase(),symbols={AUD:'A$',USD:'$',NZD:'NZ$',CAD:'C$',GBP:'£',EUR:'€'};return (symbols[code]||code+' ')+n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
 function appMpDate(value){try{return new Intl.DateTimeFormat(undefined,{day:'numeric',month:'short',year:'numeric'}).format(new Date(value));}catch(_){return ''}}
@@ -5054,22 +5130,24 @@ async function openAppMarketplaceInbox(preselect){if(!appMpRequireLogin())return
 function appMpConversationTime(value){if(!value)return '';try{const d=new Date(value),n=new Date(),same=d.toDateString()===n.toDateString();return new Intl.DateTimeFormat(undefined,same?{hour:'numeric',minute:'2-digit'}:{day:'numeric',month:'short'}).format(d)}catch(_){return ''}}
 function renderAppMpConversationList(data,listingScoped,preselect){appMpConversationList=Array.isArray(data.conversations)?data.conversations:[];appMpCurrentConversation=null;const isSeller=!!data.isSeller;if(!appMpConversationList.length&&listingScoped&&!isSeller){appMpCurrentConversation={id:'',listingId:appMpId(appMpListing),listingTitle:appMpListing.title||'FindAI listing',listingImage:(appMpListing.images||[])[0]||appMpListing.image||'',listingPrice:Number(appMpListing.price)||0,currency:appMpListing.currency||'AUD',otherParty:(appMpContext&&appMpContext.seller&&appMpContext.seller.displayName)||appMpListing.sellerName||'FindAI seller',viewerRole:'buyer'};renderAppMpChat('',true);appMpRenderMessageHeader(appMpCurrentConversation,null);return;}if(!appMpConversationList.length){$('#appMpInboxBody').innerHTML='<div class="app-mp-empty">No marketplace messages yet.<br>Your buyer and seller conversations will appear here.</div>';return;}$('#appMpInboxBody').innerHTML='<div class="app-mp-conversation-list">'+appMpConversationList.map(c=>{const image=c.listingImage?`<img src="${escapeAttr(c.listingImage)}" alt="">`:escapeHTML(appMpInitial(c.otherParty));return `<button class="app-mp-conversation-card" onclick="appMpOpenConversation('${escapeAttr(c.id)}')"><span class="app-mp-conversation-avatar">${image}</span><span class="app-mp-conversation-copy"><b>${escapeHTML(c.otherParty||'FindAI member')}</b><span>${escapeHTML(c.listingTitle||'FindAI listing')}</span><span class="app-mp-conversation-preview">${escapeHTML(c.lastMessage||'Offer and message activity')}</span></span><span class="app-mp-conversation-side"><span class="app-mp-conversation-time">${escapeHTML(appMpConversationTime(c.lastMessageAt))}</span>${Number(c.unreadCount)>0?`<span class="app-mp-unread">${Number(c.unreadCount)>99?'99+':Number(c.unreadCount)}</span>`:''}</span></button>`}).join('')+'</div>';if(preselect)appMpOpenConversation(preselect);}
 async function appMpEnsureConversation(){if(appMpConversation)return appMpConversation;if(appMpInboxMode!=='listing'||!appMpListing)throw new Error('Choose a conversation first');const data=await marketplaceFetch('/marketplace/conversations',{method:'POST',body:JSON.stringify({listingId:appMpId(appMpListing)})});appMpConversation=data.conversation.id;appMpCurrentConversation=data.conversation;return appMpConversation;}
-function renderAppMpChat(id,newBuyer){appMpConversation=id||'';$('#appMpInboxBody').innerHTML=`<div class="app-mp-chat"><div class="app-mp-chat-head" id="appMpChatHead"><div class="app-mp-chat-person"><div class="app-mp-chat-avatar">F<span class="app-mp-presence-dot"></span></div><div class="app-mp-chat-person-copy"><b>${newBuyer?'Message seller':'Conversation'}</b><span class="app-mp-chat-presence">Private FindAI messages</span></div></div></div><div class="app-mp-messages" id="appMpMessages"><div class="app-mp-empty">${newBuyer?'Ask the seller about condition, delivery or anything else you need to know.':'Loading messages…'}</div></div><div class="app-mp-message-offer-layer" id="appMpMessageOfferLayer"></div><div class="app-mp-typing" id="appMpTyping" aria-live="polite"></div><form class="app-mp-compose" onsubmit="return appMpSendMessage(event)"><button class="app-mp-compose-offer" id="appMpComposeOffer" type="button" onclick="appMpOpenMessageOffer()">Offer</button><textarea id="appMpMessageInput" maxlength="2000" placeholder="Write a message" oninput="appMpTypingInput()"></textarea><button class="app-mp-compose-send" id="appMpMessageSend" type="submit">➤</button></form></div>`;}
+function renderAppMpChat(id,newBuyer){appMpConversation=id||'';$('#appMpInboxBody').innerHTML=`<div class="app-mp-chat"><div class="app-mp-chat-head" id="appMpChatHead"><div class="app-mp-chat-person"><div class="app-mp-chat-avatar">F<span class="app-mp-presence-dot"></span></div><div class="app-mp-chat-person-copy"><b>${newBuyer?'Message seller':'Conversation'}</b><span class="app-mp-chat-presence">Private FindAI messages</span></div></div></div><div class="app-mp-messages" id="appMpMessages"><div class="app-mp-empty">${newBuyer?'Ask the seller about condition, delivery or anything else you need to know.':'Loading messages…'}</div></div><div class="app-mp-message-offer-layer" id="appMpMessageOfferLayer"></div><div class="app-mp-typing" id="appMpTyping" aria-live="polite"></div><form class="app-mp-compose" onsubmit="return appMpSendMessage(event)"><button class="app-mp-compose-offer" id="appMpComposeOffer" type="button" onclick="appMpOpenMessageOffer()">Offer</button><textarea id="appMpMessageInput" maxlength="2000" placeholder="Write a message" oninput="appMpTypingInput()" onkeydown="appMpMessageInputKeydown(event)"></textarea><button class="app-mp-compose-send" id="appMpMessageSend" type="submit">➤</button></form></div>`;}
 function appMpPresenceText(p){if(!p||!p.lastActiveAt)return 'Active recently';if(p.online)return 'Online now';const age=Math.max(0,Date.now()-Date.parse(p.lastActiveAt)),mins=Math.floor(age/60000);if(mins<60){const n=Math.max(1,mins);return `Active ${n} minute${n===1?'':'s'} ago`;}const hours=Math.floor(mins/60);if(hours<24)return `Active ${hours} hour${hours===1?'':'s'} ago`;return 'Active recently';}
 function appMpRenderMessageHeader(c,presence){appMpCurrentConversation=c||appMpCurrentConversation;if(!appMpCurrentConversation)return;const h=$('#appMpChatHead');if(!h)return;const x=appMpCurrentConversation,online=!!(presence&&presence.online),image=x.listingImage?`<img src="${escapeAttr(x.listingImage)}" alt="">`:'<span class="app-mp-chat-listing-placeholder">◇</span>';h.innerHTML=`<div class="app-mp-chat-person"><div class="app-mp-chat-avatar">${escapeHTML(appMpInitial(x.otherParty))}<span class="app-mp-presence-dot ${online?'online':''}"></span></div><div class="app-mp-chat-person-copy"><b>${escapeHTML(x.otherParty||'FindAI member')}</b><span class="app-mp-chat-presence ${online?'online':''}" id="appMpChatPresence">${escapeHTML(appMpPresenceText(presence))}</span></div></div><button class="app-mp-chat-listing" type="button" onclick="appMpOpenConversationListing()">${image}<span class="app-mp-chat-listing-copy"><span>About item</span><b>${escapeHTML(x.listingTitle||'FindAI listing')}</b><strong>${escapeHTML(appMpMoney(x.listingPrice,x.currency))}</strong></span></button>`;const offer=$('#appMpComposeOffer'),activeOffer=appMpCurrentOffers.some(o=>o.status==='pending'||o.status==='accepted');if(offer){offer.style.display=x.viewerRole==='buyer'&&Number(x.listingPrice)>0?'block':'none';offer.disabled=activeOffer;offer.textContent=activeOffer?'Active':'Offer';}}
 function appMpUpdatePresence(p){const el=$('#appMpChatPresence'),dot=document.querySelector('#appMpChatHead .app-mp-presence-dot');if(el){el.textContent=appMpPresenceText(p);el.classList.toggle('online',!!(p&&p.online));}if(dot)dot.classList.toggle('online',!!(p&&p.online));}
 async function appMpOpenConversationListing(){const id=appMpCurrentConversation&&appMpCurrentConversation.listingId;if(!id)return;$('#appMpInbox').classList.remove('show');try{const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id),{method:'GET'});openAppMarketplaceListing(data.listing,data);}catch(error){toast(error.message||'Listing could not be opened');}}
-async function appMpOpenConversation(id){appMpCurrentConversation=appMpConversationList.find(c=>c.id===id)||appMpCurrentConversation;renderAppMpChat(id,false);appMpRenderMessageHeader(appMpCurrentConversation,null);await appMpLoadMessages();clearInterval(appMpMessageTimer);clearInterval(appMpTypingTimer);appMpMessageTimer=setInterval(()=>{if(document.visibilityState==='visible')appMpLoadMessages();},12000);appMpTypingTimer=setInterval(appMpPollTyping,3000);appMpPollTyping();}
+async function appMpOpenConversation(id){appMpRemoteTypingActive=false;appMpCurrentConversation=appMpConversationList.find(c=>c.id===id)||appMpCurrentConversation;renderAppMpChat(id,false);appMpRenderMessageHeader(appMpCurrentConversation,null);await appMpLoadMessages();clearInterval(appMpMessageTimer);clearInterval(appMpTypingTimer);appMpMessageTimer=setInterval(()=>{if(document.visibilityState==='visible')appMpLoadMessages();},12000);appMpTypingTimer=setInterval(appMpPollTyping,3000);appMpPollTyping();}
 function appMpMessageDay(value){try{const d=new Date(value),n=new Date(),y=new Date();y.setDate(n.getDate()-1);if(d.toDateString()===n.toDateString())return 'Today';if(d.toDateString()===y.toDateString())return 'Yesterday';return new Intl.DateTimeFormat(undefined,{day:'numeric',month:'long',year:d.getFullYear()===n.getFullYear()?undefined:'numeric'}).format(d)}catch(_){return ''}}
 function appMpOfferCountdown(value){const ms=Date.parse(value||'')-Date.now();if(!Number.isFinite(ms)||ms<=0)return 'Expired';const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000);return h>=24?`Expires in ${Math.floor(h/24)}d ${h%24}h`:`Expires in ${h}h ${m}m`;}
 function appMpMessageOfferTitle(o){if(o.status==='accepted')return 'Offer accepted';if(o.status==='declined')return 'Offer declined';if(o.status==='withdrawn')return 'Offer withdrawn';if(o.status==='expired')return 'Offer expired';if(o.canRespond)return o.revision>1?'Counter offer received':'Offer received';return o.revision>1?'Counter offer sent':'Offer sent';}
 function appMpMessageOfferCard(o){const pct=o.listingPrice>0?Math.max(0,Math.round((o.listingPrice-o.amount)/o.listingPrice*100)):0,meta=(pct?`${pct}% below asking · `:'')+appMpOfferCountdown(o.expiresAt);let actions='';if(o.status==='accepted'&&o.viewerRole==='buyer')actions+=`<button class="app-mp-chat-offer-btn primary" onclick="appMpMessagePay('${escapeAttr(o.id)}','${escapeAttr(o.listingId)}')">Pay now</button>`;if(o.canRespond)actions+=`<button class="app-mp-chat-offer-btn primary" onclick="appMpMessageOfferAction('${escapeAttr(o.id)}','accept')">Accept</button><button class="app-mp-chat-offer-btn" onclick="appMpOpenMessageOffer('counter','${escapeAttr(o.id)}',${Number(o.amount)})">Counter</button><button class="app-mp-chat-offer-btn danger" onclick="appMpMessageOfferAction('${escapeAttr(o.id)}','decline')">Decline</button>`;if(o.canWithdraw)actions+=`<button class="app-mp-chat-offer-btn danger" onclick="appMpMessageOfferAction('${escapeAttr(o.id)}','withdraw')">Withdraw</button>`;return `<article class="app-mp-chat-offer"><div class="app-mp-chat-offer-head"><div><div class="app-mp-chat-offer-eyebrow">${escapeHTML(appMpMessageOfferTitle(o))}</div><div class="app-mp-chat-offer-amount">${escapeHTML(appMpMoney(o.amount,o.currency))}</div></div><span class="app-mp-chat-offer-status ${escapeAttr(o.status)}">${escapeHTML(o.status)}</span></div><div class="app-mp-chat-offer-meta">Asking ${escapeHTML(appMpMoney(o.listingPrice,o.currency))} · ${escapeHTML(meta)}</div>${o.message?`<div class="app-mp-chat-offer-note">${escapeHTML(o.message)}</div>`:''}${actions?`<div class="app-mp-chat-offer-actions">${actions}</div>`:''}</article>`;}
 function appMpMessageTimeline(messages,offers){let lastMine=-1;messages.forEach((m,i)=>{if(m.mine)lastMine=i;});const entries=messages.map((m,i)=>({kind:'message',time:m.createdAt,data:m,index:i})).concat(offers.map(o=>({kind:'offer',time:o.updatedAt||o.createdAt,data:o}))).sort((a,b)=>Date.parse(a.time||0)-Date.parse(b.time||0));let day='',html='';entries.forEach(e=>{const next=appMpMessageDay(e.time);if(next&&next!==day){day=next;html+=`<div class="app-mp-date-divider">${escapeHTML(next)}</div>`;}if(e.kind==='offer'){html+=appMpMessageOfferCard(e.data);return;}const m=e.data;let meta=appMpMessageTime(m.createdAt);if(m.mine&&e.index===lastMine)meta+=(m.readAt?' · Read '+appMpMessageTime(m.readAt):' · Sent');html+=`<div class="app-mp-bubble ${m.mine?'mine':''}">${escapeHTML(m.body)}<span class="app-mp-time ${m.mine&&e.index===lastMine?'app-mp-receipt':''}">${escapeHTML(meta)}</span></div>`;});return html;}
 async function appMpLoadMessages(){if(!appMpConversation)return;const root=$('#appMpMessages');if(!root)return;const near=root.scrollHeight-root.scrollTop-root.clientHeight<90,wasEmpty=!root.dataset.loaded;try{const data=await marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(appMpConversation)+'/messages',{method:'GET'}),messages=Array.isArray(data.messages)?data.messages:[],offers=Array.isArray(data.offers)?data.offers:[];appMpCurrentOffers=offers;appMpCurrentConversation=data.conversation||appMpCurrentConversation;appMpRenderMessageHeader(appMpCurrentConversation,data.presence);root.innerHTML=(messages.length||offers.length)?appMpMessageTimeline(messages,offers):'<div class="app-mp-empty">No messages yet. Say hello or make an offer.</div>';root.dataset.loaded='1';if(near||wasEmpty)root.scrollTop=root.scrollHeight;appRefreshMarketplaceBadge();}catch(error){if(!root.dataset.loaded)root.innerHTML='<div class="app-mp-empty">'+escapeHTML(error.message||'Messages could not be loaded')+'<br><button class="app-mp-mini" onclick="appMpLoadMessages()">Try again</button></div>';}}
-async function appMpSendMessage(event){event.preventDefault();const input=$('#appMpMessageInput'),button=$('#appMpMessageSend'),body=String(input&&input.value||'').trim();if(!body)return false;button.disabled=true;try{const id=await appMpEnsureConversation();await appMpSetTyping(false);await marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(id)+'/messages',{method:'POST',body:JSON.stringify({body})});input.value='';await appMpLoadMessages();}catch(error){toast(error.message||'Message could not be sent');}finally{button.disabled=false;}return false;}
+function appMpMessageInputKeydown(event){if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();const form=event.currentTarget&&event.currentTarget.form;if(form&&form.requestSubmit)form.requestSubmit();else appMpSendMessage(event);}}
+function appMpAppendOptimisticMessage(body){const root=$('#appMpMessages');if(!root)return null;const empty=root.querySelector('.app-mp-empty');if(empty)root.innerHTML='';const bubble=document.createElement('div');bubble.className='app-mp-bubble mine pending';bubble.innerHTML=escapeHTML(body)+`<span class="app-mp-time app-mp-receipt">${escapeHTML(appMpMessageTime(new Date().toISOString())+' · Sending…')}</span>`;root.appendChild(bubble);root.scrollTop=root.scrollHeight;return bubble;}
+async function appMpSendMessage(event){if(event&&event.preventDefault)event.preventDefault();const input=$('#appMpMessageInput'),button=$('#appMpMessageSend'),body=String(input&&input.value||'').trim();if(!body)return false;input.value='';input.style.height='';button.disabled=true;clearTimeout(appMpTypingClearTimer);appMpTypingLastSent=0;const optimistic=appMpAppendOptimisticMessage(body);try{const id=await appMpEnsureConversation();await marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(id)+'/messages',{method:'POST',body:JSON.stringify({body})});appMpSetTyping(false);await appMpLoadMessages();}catch(error){appMpSetTyping(false);if(optimistic&&optimistic.isConnected){optimistic.classList.remove('pending');optimistic.classList.add('failed');const meta=optimistic.querySelector('.app-mp-time');if(meta)meta.textContent=appMpMessageTime(new Date().toISOString())+' · Not sent';}if(input&&!input.value)input.value=body;toast(error.message||'Message could not be sent');}finally{button.disabled=false;}return false;}
 function appMpTypingInput(){const input=$('#appMpMessageInput');if(!input||!String(input.value||'').trim()){appMpSetTyping(false);return;}const now=Date.now();if(now-appMpTypingLastSent>3500){appMpTypingLastSent=now;appMpSetTyping(true);}clearTimeout(appMpTypingClearTimer);appMpTypingClearTimer=setTimeout(()=>appMpSetTyping(false),6000);}
 async function appMpSetTyping(active){if(!appMpConversation)return;try{await marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(appMpConversation)+'/typing',{method:'POST',body:JSON.stringify({active:!!active})});}catch(_){}}
-async function appMpPollTyping(){if(!appMpConversation||document.visibilityState!=='visible')return;try{const data=await marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(appMpConversation)+'/typing',{method:'GET'}),el=$('#appMpTyping');if(el){el.textContent=data.typing?`${data.name||'The other person'} is typing`:'';el.classList.toggle('show',!!data.typing);}appMpUpdatePresence(data.presence);}catch(_){}}
+async function appMpPollTyping(){if(!appMpConversation||document.visibilityState!=='visible')return;try{const data=await marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(appMpConversation)+'/typing',{method:'GET'}),el=$('#appMpTyping'),wasTyping=appMpRemoteTypingActive;appMpRemoteTypingActive=!!data.typing;if(el){el.textContent=data.typing?`${data.name||'The other person'} is typing`:'';el.classList.toggle('show',!!data.typing);}appMpUpdatePresence(data.presence);if(wasTyping&&!appMpRemoteTypingActive)appMpLoadMessages();}catch(_){}}
 function appMpCloseMessageOffer(){const layer=$('#appMpMessageOfferLayer');if(layer){layer.classList.remove('show');layer.innerHTML='';}}
 function appMpOpenMessageOffer(mode,offerId,current){const c=appMpCurrentConversation||{},price=Number(c.listingPrice||(appMpListing&&appMpListing.price))||0;if(c.viewerRole!=='buyer'&&mode!=='counter')return;const layer=$('#appMpMessageOfferLayer');if(!layer)return;const isCounter=mode==='counter';layer.innerHTML=`<form class="app-mp-message-offer-panel" onsubmit="return appMpSubmitMessageOffer(event,'${isCounter?'counter':'create'}','${escapeAttr(offerId||'')}')"><div class="app-mp-message-offer-head"><b>${isCounter?'Send a counter offer':'Make an offer'}</b><button class="app-mp-message-offer-close" type="button" onclick="appMpCloseMessageOffer()">×</button></div><input id="appMpMessageOfferAmount" type="number" min="0.01" max="${Math.max(.01,price-.01)}" step="0.01" value="${current?Number(current).toFixed(2):''}" required placeholder="Offer amount"><textarea id="appMpMessageOfferNote" maxlength="500" placeholder="Add a note (optional)"></textarea><button class="app-mp-message-offer-submit" id="appMpMessageOfferSubmit">${isCounter?'Send counter':'Send offer'}</button><div class="app-mp-message-offer-error" id="appMpMessageOfferError"></div></form>`;layer.classList.add('show');setTimeout(()=>$('#appMpMessageOfferAmount')&&$('#appMpMessageOfferAmount').focus(),30);}
 async function appMpSubmitMessageOffer(event,mode,offerId){event.preventDefault();const amount=Number($('#appMpMessageOfferAmount').value),note=$('#appMpMessageOfferNote').value,error=$('#appMpMessageOfferError'),button=$('#appMpMessageOfferSubmit');button.disabled=true;try{if(mode==='counter')await marketplaceFetch('/marketplace/offers/'+encodeURIComponent(offerId),{method:'PATCH',body:JSON.stringify({action:'counter',amount,message:note})});else{const id=await appMpEnsureConversation();await marketplaceFetch('/marketplace/offers',{method:'POST',body:JSON.stringify({listingId:(appMpCurrentConversation&&appMpCurrentConversation.listingId)||appMpId(appMpListing),amount,message:note})});appMpConversation=id;}appMpCloseMessageOffer();await appMpLoadMessages();}catch(err){error.textContent=err.message||'Offer could not be sent';button.disabled=false;}return false;}
@@ -5125,7 +5203,7 @@ function findaiSession(){
 (function migrateLegacyLogin(){
   try{ var u = JSON.parse(localStorage.getItem('findai_user')||'null'); if(u && u.email && !u.session) localStorage.removeItem('findai_user'); }catch(_){}
 })();
-function applyFindaiUser(data){
+function applyFindaiUser(data,provider){
   try{ localStorage.setItem('findai_user', JSON.stringify(data)); }catch(_){}
   var existing = (typeof getAccountProfile==='function' && getAccountProfile()) || {};
   var profile = {
@@ -5133,7 +5211,8 @@ function applyFindaiUser(data){
     name: data.name || existing.name || (data.email||'').split('@')[0],
     email: data.email,
     avatar: data.picture || existing.avatar || '',
-    google: true,
+    provider: provider || data.provider || existing.provider || 'google',
+    google: (provider || data.provider || existing.provider || 'google') === 'google',
     createdAt: existing.createdAt || Date.now(),
     updatedAt: Date.now()
   };
@@ -5144,6 +5223,170 @@ function applyFindaiUser(data){
   setTimeout(appStartMarketplaceSync,0);
   
 }
+var appAuthEmail = '';
+var appEmailCooldownTimer = null;
+var appEmailAutoVerifyTimer = null;
+
+function setAppAuthHeading(title,subtitle){
+  var heading=document.getElementById('loginTitle');
+  var copy=document.getElementById('loginSubtitle');
+  if(heading) heading.textContent=title;
+  if(copy) copy.textContent=subtitle;
+}
+function setAppEmailFeedback(id,message,success){
+  var el=document.getElementById(id);
+  if(!el) return;
+  el.textContent=message||'';
+  el.classList.toggle('success',!!success);
+}
+function resetAppEmailAuth(){
+  clearInterval(appEmailCooldownTimer);appEmailCooldownTimer=null;
+  clearTimeout(appEmailAutoVerifyTimer);appEmailAutoVerifyTimer=null;
+  appAuthEmail='';
+  var methods=document.getElementById('authLoginMethods');
+  var panel=document.getElementById('emailAuthPanel');
+  var emailStep=document.getElementById('emailAddressStep');
+  var codeStep=document.getElementById('emailCodeStep');
+  var emailInput=document.getElementById('appEmailInput');
+  var codeInput=document.getElementById('appEmailCodeInput');
+  var send=document.getElementById('appEmailSendButton');
+  var verify=document.getElementById('appEmailVerifyButton');
+  var resend=document.getElementById('appEmailResendButton');
+  if(methods) methods.style.display='flex';
+  if(panel) panel.classList.remove('show');
+  if(emailStep) emailStep.classList.add('show');
+  if(codeStep) codeStep.classList.remove('show');
+  if(emailInput) emailInput.value='';
+  if(codeInput) codeInput.value='';
+  if(send){send.disabled=false;send.textContent='Send login code';}
+  if(verify){verify.disabled=false;verify.textContent='Verify and sign in';}
+  if(resend){resend.disabled=false;resend.textContent='Resend code';}
+  setAppEmailFeedback('appEmailFeedback','',false);
+  setAppEmailFeedback('appCodeFeedback','',false);
+  setAppAuthHeading('Log in to FindAI','Keep your profile, saved products and personalised interests together.');
+}
+function openAppEmailAuth(){
+  var methods=document.getElementById('authLoginMethods');
+  var panel=document.getElementById('emailAuthPanel');
+  if(methods) methods.style.display='none';
+  if(panel) panel.classList.add('show');
+  setAppAuthHeading('Email sign in','Secure, passwordless access to your FindAI account.');
+  setTimeout(function(){var input=document.getElementById('appEmailInput');if(input)input.focus();},100);
+}
+function backToAppAuthMethods(){
+  resetAppEmailAuth();
+}
+function normaliseAppEmail(value){return String(value||'').trim().toLowerCase();}
+function validAppEmail(value){return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value);}
+function startAppEmailCooldown(seconds){
+  clearInterval(appEmailCooldownTimer);
+  var remaining=Number(seconds)||60;
+  var button=document.getElementById('appEmailResendButton');
+  function paint(){
+    if(!button) return;
+    if(remaining>0){button.disabled=true;button.textContent='Resend in '+remaining+'s';}
+    else{button.disabled=false;button.textContent='Resend code';clearInterval(appEmailCooldownTimer);appEmailCooldownTimer=null;}
+    remaining--;
+  }
+  paint();
+  appEmailCooldownTimer=setInterval(paint,1000);
+}
+async function requestAppEmailCode(event){
+  if(event) event.preventDefault();
+  var input=document.getElementById('appEmailInput');
+  var button=document.getElementById('appEmailSendButton');
+  var email=normaliseAppEmail(input&&input.value);
+  setAppEmailFeedback('appEmailFeedback','',false);
+  if(!validAppEmail(email)){
+    setAppEmailFeedback('appEmailFeedback','Enter a valid email address.',false);
+    if(input) input.focus();
+    return false;
+  }
+  appAuthEmail=email;
+  if(button){button.disabled=true;button.textContent='Sending code…';}
+  try{
+    var response=await fetch(WORKER_BASE+'/auth/request-code',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:email,notify:false})
+    });
+    var data={};try{data=await response.json();}catch(_){}
+    if(!response.ok || !data.ok) throw new Error(data.error||'Could not send the code.');
+    var emailStep=document.getElementById('emailAddressStep');
+    var codeStep=document.getElementById('emailCodeStep');
+    var destination=document.getElementById('appEmailDestination');
+    var codeInput=document.getElementById('appEmailCodeInput');
+    if(emailStep) emailStep.classList.remove('show');
+    if(codeStep) codeStep.classList.add('show');
+    if(destination) destination.textContent=email;
+    if(codeInput) codeInput.value='';
+    setAppAuthHeading('Enter your code','We sent a secure login code to your email.');
+    setAppEmailFeedback('appCodeFeedback','Code sent. It expires in 15 minutes.',true);
+    startAppEmailCooldown(60);
+    setTimeout(function(){if(codeInput)codeInput.focus();},100);
+  }catch(error){
+    setAppEmailFeedback('appEmailFeedback',error.message||'Could not send the code. Try again.',false);
+    if(button){button.disabled=false;button.textContent='Send login code';}
+  }
+  return false;
+}
+function appEmailCodeChanged(input){
+  if(!input) return;
+  input.value=String(input.value||'').replace(/\D/g,'').slice(0,6);
+  clearTimeout(appEmailAutoVerifyTimer);
+  if(input.value.length===6){appEmailAutoVerifyTimer=setTimeout(function(){verifyAppEmailCode();},220);}
+}
+async function verifyAppEmailCode(event){
+  if(event) event.preventDefault();
+  var input=document.getElementById('appEmailCodeInput');
+  var button=document.getElementById('appEmailVerifyButton');
+  var code=String(input&&input.value||'').replace(/\D/g,'').slice(0,6);
+  setAppEmailFeedback('appCodeFeedback','',false);
+  if(!appAuthEmail){backToAppAuthMethods();openAppEmailAuth();return false;}
+  if(!/^\d{6}$/.test(code)){
+    setAppEmailFeedback('appCodeFeedback','Enter the six-digit code from your email.',false);
+    if(input) input.focus();
+    return false;
+  }
+  if(button){button.disabled=true;button.textContent='Verifying…';}
+  try{
+    var response=await fetch(WORKER_BASE+'/auth/verify-code',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:appAuthEmail,code:code})
+    });
+    var data={};try{data=await response.json();}catch(_){}
+    if(!response.ok || !data.email || !data.session) throw new Error(data.error||'That code was not valid.');
+    data.provider='email';
+    setAppEmailFeedback('appCodeFeedback','Signed in.',true);
+    applyFindaiUser(data,'email');
+  }catch(error){
+    setAppEmailFeedback('appCodeFeedback',error.message||'That code was not valid. Try again.',false);
+    if(button){button.disabled=false;button.textContent='Verify and sign in';}
+    if(input){input.select();input.focus();}
+  }
+  return false;
+}
+async function resendAppEmailCode(){
+  var button=document.getElementById('appEmailResendButton');
+  if(!appAuthEmail || (button&&button.disabled)) return;
+  setAppEmailFeedback('appCodeFeedback','',false);
+  if(button){button.disabled=true;button.textContent='Sending…';}
+  try{
+    var response=await fetch(WORKER_BASE+'/auth/request-code',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({email:appAuthEmail,notify:false})
+    });
+    var data={};try{data=await response.json();}catch(_){}
+    if(!response.ok || !data.ok) throw new Error(data.error||'Could not resend the code.');
+    var input=document.getElementById('appEmailCodeInput');if(input)input.value='';
+    setAppEmailFeedback('appCodeFeedback','A new code was sent.',true);
+    startAppEmailCooldown(60);
+    if(input) input.focus();
+  }catch(error){
+    if(button){button.disabled=false;button.textContent='Resend code';}
+    setAppEmailFeedback('appCodeFeedback',error.message||'Could not resend the code.',false);
+  }
+}
+
 var googleTokenClient = null;
 async function handleGoogleToken(resp){
   var fb = document.getElementById('googleAuthError');
@@ -5154,7 +5397,7 @@ async function handleGoogleToken(resp){
       body: JSON.stringify({ access_token: resp.access_token })
     });
     const data = await r.json();
-    if(data && data.email){ applyFindaiUser(data); }
+    if(data && data.email){ data.provider='google'; applyFindaiUser(data,'google'); }
     else if(fb){ fb.textContent = (data && data.error) || 'Sign-in failed, please try again.'; }
   }catch(e){ if(fb) fb.textContent = 'Could not reach the sign-in server.'; }
 }
@@ -5164,7 +5407,7 @@ function startGoogleAuth(){
   googleTokenClient.requestAccessToken();
 }
 function initGoogleAuth(){
-  try{ var u = JSON.parse(localStorage.getItem('findai_user')||'null'); if(u && u.email && u.session) applyFindaiUser(u); }catch(_){}
+  try{ var u = JSON.parse(localStorage.getItem('findai_user')||'null'); if(u && u.email && u.session) applyFindaiUser(u,u.provider||'google'); }catch(_){}
   if(!(window.google && google.accounts && google.accounts.oauth2)){ setTimeout(initGoogleAuth,400); return; }
   googleTokenClient = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID, scope: 'openid email profile', callback: handleGoogleToken
