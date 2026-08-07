@@ -121,6 +121,19 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 @media(max-width:820px){.deal-answer{grid-template-columns:1fr;gap:20px}.deal-featured{grid-template-columns:minmax(135px,42%) minmax(0,58%);gap:12px}.deal-featured-image,.deal-featured-placeholder{height:180px}.deal-headline{font-size:18px}.deal-explanation{font-size:14px}}
 @media(max-width:540px){.deal-featured{grid-template-columns:1fr}.deal-featured-image,.deal-featured-placeholder{height:210px}.deal-featured-details{min-height:170px}.deal-price{font-size:23px}.deal-answer{padding-bottom:8px}}
 @media(prefers-reduced-motion:reduce){.search-status-text:after{animation:none}.assistant-copy-line,.search-summary-line,.search-card-enter,.search-more-enter,.deal-headline,.deal-explanation,.deal-saving,.deal-featured{opacity:1!important;transform:none!important;transition:none!important}}
+/* Best Deals v3 */
+.best-deal-card{position:relative}
+.best-deal-badge{position:absolute;top:8px;left:8px;z-index:3;max-width:calc(100% - 16px);padding:5px 9px;border-radius:7px;background:#185FA5;color:#fff;font-size:10.5px;font-weight:760;line-height:1.15;box-shadow:0 2px 9px rgba(0,0,0,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.best-deal-badge.exceptional{background:#1769aa}
+.best-deal-save-chip{position:absolute;top:8px;right:8px;z-index:3;padding:5px 8px;border-radius:7px;background:rgba(9,12,15,.86);border:1px solid rgba(255,255,255,.14);color:#71d982;font-size:10px;font-weight:760;line-height:1.15;backdrop-filter:blur(10px)}
+.best-deal-price-row{display:flex;align-items:baseline;gap:6px;min-width:0;flex-wrap:wrap}
+.best-deal-was{color:#737980;font-size:10.5px;text-decoration:line-through;font-weight:500}
+.best-deal-signal{margin-top:6px;color:#a9afb7;font-size:10px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.best-deal-signal strong{color:#55c96a;font-weight:700}
+.best-deal-history{margin-top:4px;color:#6fa7db;font-size:9.5px;font-weight:650;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.best-deal-card .chat-card-country{font-size:10px!important;font-weight:400!important;line-height:1.2!important}
+.best-deal-card .chat-card-shipping{font-size:10px!important;font-weight:400!important;line-height:1.25!important}
+@media(max-width:700px){.best-deal-badge{font-size:8.5px;padding:4px 6px}.best-deal-save-chip{font-size:8px;padding:4px 5px}.best-deal-signal{font-size:8px}.best-deal-history{font-size:7.5px}.best-deal-card .chat-card-shipping,.best-deal-card .chat-card-country{font-size:8px!important}}
 .auth-modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:10000;display:none;align-items:center;justify-content:center}
 .auth-modal{background:#0d0d0d;border:1px solid #262626;border-radius:28px;padding:48px 40px 40px;width:400px;max-width:92vw;text-align:center;font-family:'DM Sans',sans-serif}
 .auth-modal h3{color:#fff;font-size:29px;font-weight:700;margin:0 0 14px;letter-spacing:-0.5px}
@@ -3347,8 +3360,9 @@ function categorySearch(query,label){
 }
 
 // ── BEST DEALS ────────────────────────────────────────────────────────────
-// Pulls the worker's pre-scored deal feed (genuine markdowns + below-market prices)
-// and renders it with a deal badge on each card.
+// Public name stays "Best Deals". The worker now ranks a conservative feed using real
+// dollar savings, discount %, shipping, condition-aware market baselines and available
+// FindAI price history — so the top row is about genuinely compelling value, not just % off.
 async function loadBestDeals(){
   document.querySelectorAll('.sb-item').forEach(b=>b.classList.remove('active'));
   var btn=document.getElementById('sb-best-deals'); if(btn) btn.classList.add('active');
@@ -3356,7 +3370,7 @@ async function loadBestDeals(){
   busy=true; document.getElementById('send-btn').disabled=true;
   showChat();
   addMsg('user','🔥 Best Deals');
-  addThinking();
+  addThinking('Finding standout deals','search');
   requestAnimationFrame(scrollToLastUser);
   try{
     var res=await fetch(WORKER+'/?bestdeals=1');
@@ -3365,54 +3379,71 @@ async function loadBestDeals(){
     var items=Array.isArray(data.items)?data.items:[];
     var c=data.country||country;
     var body=addMsg('assistant','');
-    if(!items.length){ typeReply(body,"No standout deals right now \u2014 check back soon.",''); }
-    else{ typeReply(body, "Today's best deals \u2014 genuinely marked down or priced below the going rate for similar listings. Every price is live.", renderDeals(items,c)); }
+    if(!items.length){ typeReply(body,"No standout deals right now — FindAI is being picky. Check back soon.",''); }
+    else{
+      var intro="Today's Best Deals — ranked by real savings, market price, shipping and recent price context. The strongest deals rise first.";
+      typeReply(body,intro,renderDeals(items,c));
+    }
     setTimeout(scrollToLastUser,150);
-  }catch(e){ removeThinking(); addMsg('assistant',"Couldn't load deals just now \u2014 try again in a moment."); }
+  }catch(e){ removeThinking(); addMsg('assistant',"Couldn't load deals just now — try again in a moment."); }
   busy=false; document.getElementById('send-btn').disabled=false;
 }
-// Build the Best Deals grid: same card as a normal result, plus a blue deal badge and a
-// struck-through "was" price when it's a real seller markdown.
+function bestDealMoney(value,item,c){
+  var cur=String(item&&item.currency||'').toUpperCase();
+  var sym=(cur&&CURSYM[cur])?CURSYM[cur]:(c==='UK'?'£':c==='DE'?'€':(c==='AU'?'A$':'$'));
+  var n=Number(value);
+  if(!Number.isFinite(n))return '';
+  return sym+n.toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:2});
+}
+// Same grid language as a normal FindAI search, with two extra pieces of evidence:
+// a confidence tier and an approximate dollar saving. PAGE follows normal search sizing.
 function renderDeals(items,c){
-  var sym=c==='UK'?'£':c==='DE'?'€':'$';
-  var PAGE=16; // show 16 (4 rows), reveal the rest on demand
+  var PAGE=pageSize();
   var gid='deals-'+Date.now()+'-'+Math.floor(Math.random()*1000);
   var cards=items.map(function(item,idx){
-    var isym=(item.currency&&CURSYM[item.currency])?CURSYM[item.currency]:sym;
-    var price=item.price?isym+Number(item.price).toLocaleString():'See listing';
+    var price=item.price?bestDealMoney(item.price,item,c):'See listing';
     var was=(item.origPrice&&item.origPrice>item.price)
-      ? '<span style="color:#777;font-size:12px;text-decoration:line-through;margin-left:6px">'+isym+Number(item.origPrice).toLocaleString()+'</span>' : '';
-    var badgeTxt=item.dealReason==='markdown' ? (item.dealPct+'% off') : (item.dealPct+'% below typical');
-    var badge='<div style="position:absolute;top:8px;left:8px;z-index:2;background:#185FA5;color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.45)">'+badgeTxt+'</div>';
+      ? '<span class="best-deal-was">'+bestDealMoney(item.origPrice,item,c)+'</span>' : '';
+    var tier=String(item.dealTier||'Great deal');
+    var exceptional=Number(item.dealScore)>=90?' exceptional':'';
+    var badge='<div class="best-deal-badge'+exceptional+'">'+(Number(item.dealScore)>=90?'🔥 ':'')+escapeHtml(tier)+'</div>';
+    var saving=Number(item.savingsAmount)||0;
+    var saveChip=saving>=10?'<div class="best-deal-save-chip">Save ~'+escapeHtml(bestDealMoney(saving,item,c))+'</div>':'';
+    var reason=item.dealReason==='markdown'
+      ? (Math.round(Number(item.dealPct)||0)+'% off seller price')
+      : (Math.round(Number(item.dealPct)||0)+'% below typical');
+    var signal='<div class="best-deal-signal">'+(saving>=10?'<strong>'+escapeHtml(bestDealMoney(saving,item,c))+' saved</strong> · ':'')+escapeHtml(reason)+(item.affordableFind?' · Under '+escapeHtml(bestDealMoney(120,item,c)):'')+'</div>';
+    var history=item.historyLabel?'<div class="best-deal-history">↘ '+escapeHtml(item.historyLabel)+'</div>':'';
     var _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
     var imgSrc=item.image?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
     var _btns=cardButtonsHtml(item.url,false,item.itemId,false,item.image);
-    var dataItem=escapeHtml(JSON.stringify({title:item.title,image:item.image,price:item.price,url:item.url,itemId:item.itemId,source:item.source,country:c,searchQ:'best deals'}));
+    var dataItem=escapeHtml(JSON.stringify({title:item.title,image:item.image,price:item.price,url:item.url,itemId:item.itemId,source:item.source,country:item.country||item.location||c,currency:item.currency,shippingCost:item.shippingCost,shipping:item.shipping,searchQ:item.dealQuery||'best deals'}));
     var hideCls=idx>=PAGE?' deal-extra':'';
     var hideSty=idx>=PAGE?'display:none;':'';
-    return '<div class="chat-card'+hideCls+'" data-q="best deals" data-item="'+dataItem+'" style="'+hideSty+'position:relative">'+badge+
-      '<a href="'+item.url+'" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">'+
-      (imgSrc?'<img class="chat-card-img" src="'+imgSrc+'" alt="" loading="lazy" onerror="this.parentNode.querySelector(\'.chat-card-ph\')&&(this.style.display=\'none\')">':'<div class="chat-card-ph">🛍️</div>')+
+    return '<div class="chat-card best-deal-card'+hideCls+'" data-q="'+escapeHtml(item.dealQuery||'best deals')+'" data-item="'+dataItem+'" style="'+hideSty+'">'+badge+saveChip+
+      '<a href="'+escapeHtml(item.url||'#')+'" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">'+
+      (imgSrc?'<img class="chat-card-img" src="'+escapeHtml(imgSrc)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">':'<div class="chat-card-ph">🛍️</div>')+
       '<div class="chat-card-body"><div style="margin-bottom:5px">'+ebayLogoHtml()+'</div>'+
-      '<div class="chat-card-title">'+(item.title||'')+'</div>'+
-      '<div class="chat-card-price">'+price+was+'</div></div></a>'+
+      '<div class="chat-card-title">'+escapeHtml(item.title||'')+'</div>'+
+      '<div class="best-deal-price-row"><div class="chat-card-price">'+price+'</div>'+was+'</div>'+signal+history+cardListingMeta(item,c)+'</div></a>'+
       '<div style="padding:0 12px 12px">'+_btns+'</div></div>';
   }).join('');
   var more=items.length>PAGE
-    ? '<div style="text-align:center;margin-top:16px"><button data-grid="'+gid+'" onclick="revealMoreDeals(this)" style="background:#185FA5;color:#fff;border:none;border-radius:8px;padding:10px 24px;font-size:14px;font-weight:600;cursor:pointer;font-family:\'DM Sans\',sans-serif">Show more deals</button></div>'
+    ? '<div style="text-align:center;margin-top:16px"><button data-grid="'+gid+'" onclick="revealMoreDeals(this)" style="background:#111;border:1px solid #333;color:#fff;border-radius:8px;padding:10px 28px;font-size:14px;font-weight:600;cursor:pointer;font-family:\'DM Sans\',sans-serif">Show more</button></div>'
     : '';
   return '<div class="chat-grid" id="'+gid+'">'+cards+'</div>'+more;
 }
-// Reveal the next batch of hidden Best Deals cards; shows a clear end-state once none remain.
+// Reveal exactly the same batch size as a normal result feed.
 function revealMoreDeals(btn){
   var grid=document.getElementById(btn.getAttribute('data-grid'));
   if(!grid) return;
-  var hidden=grid.querySelectorAll('.deal-extra'), shown=0;
-  for(var i=0;i<hidden.length&&shown<16;i++){ hidden[i].classList.remove('deal-extra'); hidden[i].style.display=''; shown++; }
+  var hidden=grid.querySelectorAll('.deal-extra'), shown=0, batch=pageSize();
+  for(var i=0;i<hidden.length&&shown<batch;i++){ hidden[i].classList.remove('deal-extra'); hidden[i].style.display=''; shown++; }
   if(!grid.querySelector('.deal-extra')){
-    btn.textContent="That\u2019s all today\u2019s deals";
+    btn.textContent="That's all today's deals";
     btn.disabled=true;
     btn.style.background='transparent';
+    btn.style.borderColor='transparent';
     btn.style.color='#666';
     btn.style.cursor='default';
   }
