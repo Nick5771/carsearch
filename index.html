@@ -3381,7 +3381,7 @@ async function loadBestDeals(){
     var body=addMsg('assistant','');
     if(!items.length){ typeReply(body,"No standout deals right now — FindAI is being picky. Check back soon.",''); }
     else{
-      var intro="Today's Best Deals — ranked by real savings, market price, shipping and recent price context. The strongest deals rise first.";
+      var intro="Today's Best Deals — the cheapest legitimate listings FindAI found on exciting products. Broken, damaged and parts-only listings are excluded.";
       typeReply(body,intro,renderDeals(items,c));
     }
     setTimeout(scrollToLastUser,150);
@@ -3402,18 +3402,9 @@ function renderDeals(items,c){
   var gid='deals-'+Date.now()+'-'+Math.floor(Math.random()*1000);
   var cards=items.map(function(item,idx){
     var price=item.price?bestDealMoney(item.price,item,c):'See listing';
-    var was=(item.origPrice&&item.origPrice>item.price)
-      ? '<span class="best-deal-was">'+bestDealMoney(item.origPrice,item,c)+'</span>' : '';
-    var tier=String(item.dealTier||'Great deal');
-    var exceptional=Number(item.dealScore)>=90?' exceptional':'';
-    var badge='<div class="best-deal-badge'+exceptional+'">'+(Number(item.dealScore)>=90?'🔥 ':'')+escapeHtml(tier)+'</div>';
+    var badge='<div class="best-deal-badge exceptional">🔥 Cheapest found</div>';
     var saving=Number(item.savingsAmount)||0;
-    var saveChip=saving>=10?'<div class="best-deal-save-chip">Save ~'+escapeHtml(bestDealMoney(saving,item,c))+'</div>':'';
-    var reason=item.dealReason==='markdown'
-      ? (Math.round(Number(item.dealPct)||0)+'% off seller price')
-      : (Math.round(Number(item.dealPct)||0)+'% below typical');
-    var signal='<div class="best-deal-signal">'+(saving>=10?'<strong>'+escapeHtml(bestDealMoney(saving,item,c))+' saved</strong> · ':'')+escapeHtml(reason)+(item.affordableFind?' · Under '+escapeHtml(bestDealMoney(120,item,c)):'')+'</div>';
-    var history=item.historyLabel?'<div class="best-deal-history">↘ '+escapeHtml(item.historyLabel)+'</div>':'';
+    var saveChip=saving>0?'<div class="best-deal-save-chip">Save ~'+escapeHtml(bestDealMoney(saving,item,c))+'</div>':'';
     var _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
     var imgSrc=item.image?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
     var _btns=cardButtonsHtml(item.url,false,item.itemId,false,item.image);
@@ -3425,7 +3416,7 @@ function renderDeals(items,c){
       (imgSrc?'<img class="chat-card-img" src="'+escapeHtml(imgSrc)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">':'<div class="chat-card-ph">🛍️</div>')+
       '<div class="chat-card-body"><div style="margin-bottom:5px">'+ebayLogoHtml()+'</div>'+
       '<div class="chat-card-title">'+escapeHtml(item.title||'')+'</div>'+
-      '<div class="best-deal-price-row"><div class="chat-card-price">'+price+'</div>'+was+'</div>'+signal+history+cardListingMeta(item,c)+'</div></a>'+
+      '<div class="best-deal-price-row"><div class="chat-card-price">'+price+'</div></div>'+cardListingMeta(item,c)+'</div></a>'+
       '<div style="padding:0 12px 12px">'+_btns+'</div></div>';
   }).join('');
   var more=items.length>PAGE
