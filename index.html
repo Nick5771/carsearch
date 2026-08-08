@@ -269,7 +269,12 @@ body.findai-signed-in #sidebar-categories-label{margin-top:8px!important}
 .chat-in::placeholder{color:#888;font-size:16px}
 .send-btn{width:34px;height:34px;border-radius:8px;background:#fff;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background 0.15s}
 .send-btn:hover{background:#e0e0e0}
-.send-btn:disabled{background:#222;cursor:not-allowed}
+.send-btn:disabled{background:#fff;opacity:1;cursor:default}
+.send-btn.is-searching svg{display:none}
+.send-btn.is-searching::after{content:'';width:14px;height:14px;border:2px solid rgba(0,0,0,.22);border-top-color:#000;border-radius:50%;animation:findaiSendSpin .72s linear infinite}
+@keyframes findaiSendSpin{to{transform:rotate(360deg)}}
+.fa-search-usage-notice{display:none;max-width:820px;margin:0 auto 8px;padding:8px 13px;border:1px solid #2a2a2a;border-radius:11px;background:#0b0b0b;color:#aaa;font-size:11.5px;line-height:1.35;text-align:center;box-sizing:border-box}
+.fa-search-usage-notice.show{display:block}.fa-search-usage-notice strong{color:#fff;font-weight:750}.fa-search-usage-notice .action{color:#d7d7d7}
 .plus-wrap{position:relative;flex-shrink:0;display:flex}
 .plus-btn{width:34px;height:34px;border-radius:8px;background:#fff;border:none;color:#000;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s}
 .plus-btn:hover{background:#e0e0e0}
@@ -667,16 +672,14 @@ body.fmp-active .auth-modal-bg{z-index:33000}
 </style>
 
 <style id="findai-pro-style">
-.pro-mini-badge{margin-left:auto;padding:3px 6px;border-radius:999px;background:#1a6fff;color:#fff;font-size:8px;font-weight:850;letter-spacing:.04em;line-height:1}
-.pro-sidebar-item{border:1px solid rgba(26,111,255,.2)!important;background:linear-gradient(135deg,rgba(26,111,255,.12),rgba(26,111,255,.025))!important;color:#d9e8ff!important;font-weight:750!important}
-.pro-sidebar-item:hover{border-color:rgba(26,111,255,.5)!important;background:rgba(26,111,255,.15)!important}
-.fa-pro-overlay{position:fixed;inset:0;z-index:50000;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(0,0,0,.82);backdrop-filter:blur(10px)}
-.fa-pro-overlay.show{display:flex}.fa-pro-card{position:relative;width:min(510px,96vw);max-height:90vh;overflow:auto;border:1px solid #2b3038;border-radius:28px;background:linear-gradient(180deg,#10141b,#090a0d 56%);box-shadow:0 34px 100px rgba(0,0,0,.65);padding:32px;color:#fff}
-.fa-pro-close{position:absolute;right:18px;top:18px;width:34px;height:34px;border:0;border-radius:50%;background:#1a1e24;color:#aab0b8;font-size:23px;cursor:pointer}.fa-pro-mark{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border-radius:999px;background:#102a51;border:1px solid #204f90;color:#9cc8ff;font-size:11px;font-weight:850;letter-spacing:.04em;text-transform:uppercase}.fa-pro-mark i{width:8px;height:8px;border-radius:50%;background:#4f9cff;box-shadow:0 0 18px #4f9cff}
-.fa-pro-card h2{font-size:34px;letter-spacing:-1px;margin:17px 0 7px}.fa-pro-sub{color:#9ca3ad;font-size:14px;line-height:1.55;margin:0 0 22px}.fa-pro-price{display:flex;align-items:flex-end;gap:8px;margin:0 0 22px}.fa-pro-price strong{font-size:38px;letter-spacing:-1.3px}.fa-pro-price span{color:#89919c;font-size:13px;padding-bottom:6px}.fa-pro-features{display:grid;gap:9px;margin:18px 0 24px}.fa-pro-feature{display:flex;gap:11px;align-items:flex-start;padding:11px 12px;border:1px solid #242932;border-radius:14px;background:#11151b;color:#dce0e6;font-size:13px;line-height:1.35}.fa-pro-feature b{color:#69a7ff;font-size:15px}.fa-pro-cta{width:100%;height:52px;border:0;border-radius:15px;background:#fff;color:#050607;font-size:15px;font-weight:850;cursor:pointer}.fa-pro-cta:disabled{opacity:.55}.fa-pro-secondary{width:100%;margin-top:8px;height:43px;border:1px solid #303640;border-radius:14px;background:#15191f;color:#d3d6da;font-weight:750;cursor:pointer}.fa-pro-note{margin-top:13px;text-align:center;color:#707883;font-size:10.5px;line-height:1.45}.fa-pro-usage{margin:13px 0 0;color:#8f98a4;font-size:11px}.fa-pro-error{min-height:18px;margin-top:10px;color:#ff8f8f;font-size:11px;text-align:center}
-.fa-pro-inline{margin-top:16px;padding:16px 18px;border:1px solid #2a4770;border-radius:16px;background:linear-gradient(135deg,#0d1b2d,#0c1016);color:#d9e8ff}.fa-pro-inline b{display:block;font-size:13px}.fa-pro-inline span{display:block;color:#8ca3bf;font-size:11px;line-height:1.5;margin-top:4px}.fa-pro-inline button{margin-top:11px;border:0;border-radius:999px;background:#fff;color:#090a0c;padding:9px 15px;font-size:11px;font-weight:850;cursor:pointer}
-.fa-pro-deals-lock{position:relative;margin-top:12px;min-height:250px;border-radius:16px;overflow:hidden}.fa-pro-deals-blur{filter:blur(7px);opacity:.58;pointer-events:none;user-select:none;transform:scale(1.012);transform-origin:center}.fa-pro-deals-cover{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.38));z-index:3}.fa-pro-deals-banner{width:min(390px,92%);padding:18px 20px;border:1px solid #31547f;border-radius:18px;background:rgba(9,16,26,.94);box-shadow:0 18px 55px rgba(0,0,0,.5);text-align:center;color:#fff;backdrop-filter:blur(14px)}.fa-pro-deals-banner b{display:block;font-size:16px;letter-spacing:-.2px}.fa-pro-deals-banner span{display:block;margin-top:6px;color:#9bb0ca;font-size:11.5px;line-height:1.45}.fa-pro-deals-banner button{margin-top:13px;border:0;border-radius:999px;background:#fff;color:#07090c;padding:10px 17px;font-size:11.5px;font-weight:850;cursor:pointer}
-@media(max-width:620px){.fa-pro-overlay{padding:0;align-items:flex-end}.fa-pro-card{width:100%;max-height:92vh;border-radius:25px 25px 0 0;padding:27px 20px calc(28px + env(safe-area-inset-bottom))}.fa-pro-card h2{font-size:30px}}
+.fa-pro-overlay{position:fixed;inset:0;z-index:50000;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(0,0,0,.84);backdrop-filter:blur(10px)}
+.fa-pro-overlay.show{display:flex}.fa-pro-card{position:relative;width:min(900px,96vw);max-height:90vh;overflow:auto;border:1px solid #2a2a2a;border-radius:28px;background:#050505;box-shadow:0 34px 100px rgba(0,0,0,.72);padding:34px;color:#fff}
+.fa-pro-close{position:absolute;right:18px;top:18px;width:34px;height:34px;border:0;border-radius:50%;background:#151515;color:#aaa;font-size:23px;cursor:pointer}.fa-pro-card h2{font-size:34px;letter-spacing:-1px;margin:0 48px 7px 0}.fa-pro-sub{color:#949494;font-size:14px;line-height:1.55;margin:0 48px 22px 0}.fa-pro-value{display:inline-flex;align-items:center;gap:8px;margin:0 0 24px;padding:8px 11px;border:1px solid #2a2a2a;border-radius:999px;background:#0b0b0b;color:#d5d5d5;font-size:11.5px;font-weight:700}.fa-pro-value svg{width:14px;height:14px;stroke:#fff}
+.fa-pro-compare{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:3px}.fa-plan-card{display:flex;flex-direction:column;min-width:0;border:1px solid #292929;border-radius:20px;background:#0b0b0b;padding:22px}.fa-plan-card.pro{border-color:#3b3b3b;background:#0e0e0e}.fa-plan-kicker{color:#8d8d8d;font-size:10.5px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.fa-plan-title{font-size:21px;font-weight:850;margin-top:6px}.fa-plan-price{display:flex;align-items:flex-end;gap:7px;margin:13px 0 18px}.fa-plan-price strong{font-size:31px;letter-spacing:-1px}.fa-plan-price span{color:#858585;font-size:12px;padding-bottom:4px}.fa-plan-list{display:grid;gap:11px;margin:0 0 22px;padding:0;list-style:none;flex:1}.fa-plan-list li{display:flex;gap:9px;color:#d0d0d0;font-size:12.5px;line-height:1.4}.fa-plan-list li:before{content:'✓';color:#fff;font-weight:900}.fa-plan-cta{width:100%;height:49px;border-radius:14px;font-size:14px;font-weight:850;cursor:pointer}.fa-plan-cta.free{border:1px solid #303030;background:#151515;color:#e2e2e2}.fa-plan-cta.pro{border:0;background:#fff;color:#050505}.fa-plan-cta:disabled{opacity:.55}.fa-plan-foot{min-height:17px;margin-top:8px;text-align:center;color:#737373;font-size:10.5px}.fa-pro-error{min-height:18px;margin-top:10px;color:#ff8f8f;font-size:11px;text-align:center}.fa-pro-note{margin-top:13px;text-align:center;color:#6f6f6f;font-size:10.5px;line-height:1.45}
+.fa-pro-active{padding:18px 0 2px}.fa-pro-active h3{font-size:23px;margin:0 0 8px}.fa-pro-active p{color:#929292;font-size:13px;line-height:1.5;margin:0 0 20px}.fa-pro-cta{width:100%;height:52px;border:0;border-radius:15px;background:#fff;color:#050607;font-size:15px;font-weight:850;cursor:pointer}.fa-pro-cta:disabled{opacity:.55}
+.fa-pro-inline{margin-top:16px;padding:16px 18px;border:1px solid #2b2b2b;border-radius:16px;background:#0b0b0b;color:#e2e2e2}.fa-pro-inline b{display:block;font-size:13px}.fa-pro-inline span{display:block;color:#929292;font-size:11px;line-height:1.5;margin-top:4px}.fa-pro-inline button{margin-top:11px;border:0;border-radius:999px;background:#fff;color:#090a0c;padding:9px 15px;font-size:11px;font-weight:850;cursor:pointer}
+.fa-pro-deals-lock{position:relative;margin-top:12px;min-height:250px;border-radius:16px;overflow:hidden}.fa-pro-deals-blur{filter:blur(7px);opacity:.58;pointer-events:none;user-select:none;transform:scale(1.012);transform-origin:center}.fa-pro-deals-cover{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.46));z-index:3}.fa-pro-deals-banner{width:min(390px,92%);padding:18px 20px;border:1px solid #333;border-radius:18px;background:rgba(7,7,7,.95);box-shadow:0 18px 55px rgba(0,0,0,.58);text-align:center;color:#fff;backdrop-filter:blur(14px)}.fa-pro-deals-banner b{display:block;font-size:16px;letter-spacing:-.2px}.fa-pro-deals-banner span{display:block;margin-top:6px;color:#aaa;font-size:11.5px;line-height:1.45}.fa-pro-deals-banner button{margin-top:13px;border:0;border-radius:999px;background:#fff;color:#07090c;padding:10px 17px;font-size:11.5px;font-weight:850;cursor:pointer}
+@media(max-width:720px){.fa-pro-overlay{padding:0;align-items:flex-end}.fa-pro-card{width:100%;max-height:92vh;border-radius:25px 25px 0 0;padding:27px 18px calc(28px + env(safe-area-inset-bottom))}.fa-pro-card h2{font-size:29px}.fa-pro-compare{grid-template-columns:1fr}.fa-plan-card{padding:19px}}
 </style>
 </head>
 <body class="findai-signed-out">
@@ -721,7 +724,7 @@ body.fmp-active .auth-modal-bg{z-index:33000}
   <div class="auth-modal" style="position:relative">
     <button class="auth-close" onclick="closeAuth()">&times;</button>
     <h3 id="auth-title">Log in or sign up</h3>
-    <p>Save searches, track items, and get notified about the best deals.</p>
+    <p id="auth-subtitle">Save searches, track items, and get notified about the best deals.</p>
     <button class="google-custom" id="google-custom-btn" onclick="startGoogleAuth()"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>Continue with Google</button>
     <div class="auth-divider">OR</div>
     <div id="email-auth" style="display:flex;flex-direction:column;gap:12px">
@@ -761,8 +764,6 @@ body.fmp-active .auth-modal-bg{z-index:33000}
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M3 3v18h18"/><path d="M7 14l4 -4l3 3l5 -6"/></svg>Price Tracker</button>
     <button class="sb-item" id="sb-best-deals" onclick="loadBestDeals()" style="color:#4d9fe6;font-weight:600">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M12 10.941c2.333 -3.308 .167 -7.823 -1 -8.941c0 3.395 -2.235 5.299 -3.667 6.706c-1.43 1.408 -2.333 3.294 -2.333 5.588c0 3.704 3.134 6.706 7 6.706c3.866 0 7 -3.002 7 -6.706c0 -1.712 -1.232 -4.403 -2.333 -5.588c-2.084 3.353 -3.257 3.353 -4.667 2.235"/></svg>Best Deals</button>
-    <button class="sb-item pro-sidebar-item" id="sb-findai-pro" onclick="openFindaiPro('Upgrade to unlock every FindAI shopping tool')">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M12 3l2.4 4.9L20 9l-4 3.9.9 5.6L12 15.9 7.1 18.5 8 12.9 4 9l5.6-1.1L12 3z"/></svg><span>FindAI Pro</span><span class="pro-mini-badge" id="website-pro-badge">PRO</span></button>
     <a class="sb-item" href="https://www.amazon.com.au/?tag=findai09e-22" target="_blank" rel="noopener nofollow sponsored" onclick="amazonAffiliate();return false;" style="text-decoration:none">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M4 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M15 19a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/><path d="M17 17h-11v-14h-2"/><path d="M6 5l14 1l-1 7h-13"/></svg>Amazon</a>
     <button class="sb-item" onclick="categorySearch('Sneakers Nike Jordan Adidas','sneakers')">
@@ -793,6 +794,7 @@ body.fmp-active .auth-modal-bg{z-index:33000}
     </div>
     <div class="input-area">
       <div id="img-preview" class="img-preview"></div>
+      <div class="fa-search-usage-notice" id="search-usage-notice" aria-live="polite"></div>
       <div class="input-wrap">
         <div class="plus-wrap">
           <button class="plus-btn" id="plus-btn" onclick="togglePlusMenu(event)" title="Add" aria-label="Add">
@@ -3078,6 +3080,13 @@ function showMoreCards(sid){
 }
 
 let pendingImage=null;
+function setSendButtonSearching(active){
+  const button=document.getElementById('send-btn');
+  if(!button)return;
+  button.disabled=!!active;
+  button.classList.toggle('is-searching',!!active);
+  button.setAttribute('aria-busy',active?'true':'false');
+}
 async function sendMsg(){
   const inp=document.getElementById('chat-in');
   const q=inp.value.trim();
@@ -3092,10 +3101,13 @@ async function sendMsg(){
   if(!q)return;
   const _faDealIntent=isDealValueQuestion(q);
   const _faProductIntent=!_faDealIntent&&isProductSearch(q);
-  if((_faDealIntent||_faProductIntent) && !(await findaiProConsume('search'))) return;
+  if(_faDealIntent||_faProductIntent){
+    setSendButtonSearching(true);
+    if(!(await findaiProConsume('search'))){setSendButtonSearching(false);return;}
+  }
   saveRecentSearch(q);
   noteInterest(q, false);
-  busy=true; document.getElementById('send-btn').disabled=true;
+  busy=true; setSendButtonSearching(true);
   inp.value=''; inp.style.height='auto';
   const dealIntent=_faDealIntent;
   const productIntent=_faProductIntent;
@@ -3141,7 +3153,8 @@ async function sendMsg(){
         var routedOk = await submitTrackerQuery(rj.trackerQuery, routedProduct, {fromRouter:true});
         if(routedOk){
           try{ removeThinking(); }catch(_){}
-          busy=false; document.getElementById('send-btn').disabled=false;
+          busy=false; setSendButtonSearching(false);
+          findaiHandlePostSearchLimit();
           return;
         }
         // Tracker/API failure: keep the thinking bubble and continue into the
@@ -3292,7 +3305,8 @@ async function sendMsg(){
       typeReply(body, items.length?'':"Couldn't find that one — try different words?", cardsHtml);
       setTimeout(scrollToLastUser,150);
     }catch(e){removeThinking();console.error('FINDAI SEARCH ERROR:', e && (e.stack||e.message||e)); addMsg('assistant','Sorry, the search hiccupped — try again?');}
-    busy=false; document.getElementById('send-btn').disabled=false; inp.focus();
+    busy=false; setSendButtonSearching(false); inp.focus();
+    findaiHandlePostSearchLimit();
     return;
   }
 
@@ -3325,7 +3339,8 @@ async function sendMsg(){
     }
     setTimeout(scrollToLastUser,150);
   }catch(e){removeThinking();addMsg('assistant','Sorry, I had trouble just now. Please try again.');}
-  busy=false; document.getElementById('send-btn').disabled=false; inp.focus();
+  busy=false; setSendButtonSearching(false); inp.focus();
+  findaiHandlePostSearchLimit();
 }
 
 // Shared image handler — used by BOTH the "Upload file" picker and drag-and-drop.
@@ -3381,7 +3396,7 @@ async function sendImageMessage(dataUrl, text){
   if(!(await findaiProConsume('scan'))) return;
   busy=true;
   const sb=document.getElementById('send-btn'),pb=document.getElementById('plus-btn');
-  if(sb)sb.disabled=true; if(pb)pb.disabled=true;
+  setSendButtonSearching(true); if(pb)pb.disabled=true;
   showChat();
   const cap=text?`<div style="margin-top:8px">${escapeHtml(text)}</div>`:'';
   addMsg('user',`<img src="${dataUrl}" alt="uploaded" style="max-width:240px;max-height:240px;width:100%;border-radius:14px;display:block">${cap}`);
@@ -3407,7 +3422,7 @@ async function sendImageMessage(dataUrl, text){
     setTimeout(scrollToLastUser,150);
   }catch(e){removeThinking();addMsg('assistant','Sorry, I had trouble with that image. Please try again.');}
   busy=false;
-  if(sb)sb.disabled=false; if(pb)pb.disabled=false;
+  setSendButtonSearching(false); if(pb)pb.disabled=false;
 }
 
 function categorySearch(query,label){
@@ -3424,7 +3439,7 @@ async function loadBestDeals(){
   document.querySelectorAll('.sb-item').forEach(b=>b.classList.remove('active'));
   var btn=document.getElementById('sb-best-deals'); if(btn) btn.classList.add('active');
   if(busy) return;
-  busy=true; document.getElementById('send-btn').disabled=true;
+  busy=true; setSendButtonSearching(true);
   showChat();
   addMsg('user','🔥 Best Deals');
   addThinking('Finding standout deals','search');
@@ -3446,7 +3461,7 @@ async function loadBestDeals(){
     }
     setTimeout(scrollToLastUser,150);
   }catch(e){ removeThinking(); addMsg('assistant',"Couldn't load deals just now — try again in a moment."); }
-  busy=false; document.getElementById('send-btn').disabled=false;
+  busy=false; setSendButtonSearching(false);
 }
 function bestDealMoney(value,item,c){
   var cur=String(item&&item.currency||'').toUpperCase();
@@ -4106,8 +4121,10 @@ renderRecents();
 const GOOGLE_CLIENT_ID = '258387139240-a60g5n1hortfo0tnpm03dj8ht7jemqt0.apps.googleusercontent.com';
 const WORKER_AUTH_URL  = 'https://api.carsearchapi.workers.dev/auth/google';
 
-function openAuth(title){
+function openAuth(title,subtitle){
   document.getElementById('auth-title').textContent = title || 'Sign in to FindAI';
+  var sub=document.getElementById('auth-subtitle');
+  if(sub)sub.textContent=subtitle||'Save searches, track items, and get notified about the best deals.';
   document.getElementById('auth-modal-bg').style.display = 'flex';
 }
 function closeAuth(){ document.getElementById('auth-modal-bg').style.display = 'none'; }
@@ -5017,17 +5034,35 @@ window.addEventListener('load', initGoogleAuth);
 <script id="findai-pro-script">
 var findaiProState=null;
 var findaiProPromise=null;
+var findaiPendingPostSearchGate=null;
 function findaiProHeaders(json){
   var h=json===false?{}:{'Content-Type':'application/json'};
   try{var sess=findaiSession();if(sess)h.Authorization='Bearer '+sess;}catch(_){}
   return h;
 }
 function findaiProUser(){try{return JSON.parse(localStorage.getItem('findai_user')||'null');}catch(_){return null;}}
+function findaiRenderSearchUsageNotice(state){
+  var el=document.getElementById('search-usage-notice');if(!el)return;
+  state=state||findaiProState;
+  if(!state||state.isPro){el.classList.remove('show');el.innerHTML='';return;}
+  var remaining=Number(state.remainingSearches);
+  if(!Number.isFinite(remaining)){el.classList.remove('show');el.innerHTML='';return;}
+  var html='';
+  if(!state.signedIn){
+    if(remaining===1)html='<strong>1 free search left</strong> <span class="action">before login is required · Log in or sign up for 8 searches every day.</span>';
+    else if(remaining===0)html='<strong>Your 3 free searches are used</strong> <span class="action">· Log in or sign up to keep searching.</span>';
+  }else{
+    if(remaining===2)html='<strong>2 searches left today</strong> <span class="action">· FindAI Pro gives you unlimited searches.</span>';
+    else if(remaining===1)html='<strong>1 search left today</strong> <span class="action">· Upgrade to Pro for unlimited searching.</span>';
+    else if(remaining===0)html='<strong>Today’s 8 free searches are used</strong> <span class="action">· Searches reset tomorrow, or upgrade for unlimited searching.</span>';
+  }
+  if(html){el.innerHTML=html;el.classList.add('show');}else{el.classList.remove('show');el.innerHTML='';}
+}
 function findaiPaintProUI(state){
   if(!state)return;
   findaiProState=state;
-  var badge=document.getElementById('website-pro-badge');if(badge)badge.textContent=state.isPro?'ACTIVE':'PRO';
   var menu=document.getElementById('website-pro-menu-state');if(menu)menu.textContent=state.isPro?'Active':'Upgrade';
+  findaiRenderSearchUsageNotice(state);
 }
 async function findaiGetProStatus(force){
   if(findaiProState&&!force)return findaiProState;
@@ -5040,10 +5075,28 @@ async function findaiProConsume(feature){
     var r=await fetch(WORKER_BASE+'/pro/consume',{method:'POST',headers:findaiProHeaders(true),body:JSON.stringify({feature:feature||'search'})});
     var d={};try{d=await r.json();}catch(_){}
     if(d.pro)findaiPaintProUI(d.pro);
-    if(r.ok&&d.ok)return true;
+    if(r.ok&&d.ok){
+      if((feature||'search')==='search'&&d.pro&&!d.pro.isPro&&Number(d.pro.remainingSearches)===0){
+        findaiPendingPostSearchGate=d.pro.signedIn?'pro':'auth';
+      }
+      return true;
+    }
+    if((feature||'search')==='search'&&(d.code==='guest_limit'||(d.pro&&!d.pro.signedIn))){
+      openAuth('Log in or sign up for more searches','Free accounts get 8 searches every day.');
+      return false;
+    }
     openFindaiPro(d.message||((feature==='scan')?'Free accounts get 1 product scan per day. FindAI Pro unlocks unlimited scanning.':'You have reached today’s free search limit.'));
     return false;
   }catch(_){return true;} // network trouble must not make the search box unusable
+}
+function findaiHandlePostSearchLimit(){
+  var gate=findaiPendingPostSearchGate;if(!gate)return;
+  findaiPendingPostSearchGate=null;
+  // Let the shopper see the result they were promised before the next-step prompt appears.
+  setTimeout(function(){
+    if(gate==='auth')openAuth('Log in or sign up for more searches','You’ve used your 3 free searches. Create a free account for 8 searches every day.');
+    else if(gate==='pro')openFindaiPro('You’ve used today’s 8 free searches. Searches reset tomorrow, or unlock unlimited shopping with Pro.');
+  },650);
 }
 function ensureFindaiProModal(){
   var overlay=document.getElementById('findai-pro-overlay');if(overlay)return overlay;
@@ -5057,22 +5110,27 @@ function findaiProRender(state,reason){
   var remaining=state.remainingSearches==null?'Unlimited':state.remainingSearches;
   var price=(state.price&&state.price.displayPrice)||'Local price';
   var creator=state.provider==='manual';
-  card.innerHTML='<button class="fa-pro-close" onclick="closeFindaiPro()" aria-label="Close">&times;</button>'+
-    '<div class="fa-pro-mark"><i></i>'+(isPro?'Pro active':'FindAI Pro')+'</div>'+
-    '<h2>'+(isPro?'You’re on FindAI Pro':'Shop with the full FindAI')+'</h2>'+
-    '<p class="fa-pro-sub">'+(isPro?'Your premium shopping tools are unlocked across FindAI.':(reason||'Search more, scan products and unlock FindAI’s strongest deal and price tools.'))+'</p>'+
-    (isPro?'':'<div class="fa-pro-price"><strong>'+price+'</strong><span>/ month</span></div>')+
-    '<div class="fa-pro-features">'+
-      '<div class="fa-pro-feature"><b>✓</b><span><strong>Unlimited AI shopping searches</strong><br>Free accounts get 8 searches per day.</span></div>'+
-      '<div class="fa-pro-feature"><b>✓</b><span><strong>Unlimited product scans</strong><br>Free accounts get 1 product scan per day; Pro unlocks unlimited scanning.</span></div>'+
-      '<div class="fa-pro-feature"><b>✓</b><span><strong>Full Best Deals feed</strong><br>See every standout deal FindAI finds, not only the free preview.</span></div>'+
-      '<div class="fa-pro-feature"><b>✓</b><span><strong>Unlimited price tracking</strong><br>Free accounts can track up to 3 products.</span></div>'+
-      '<div class="fa-pro-feature"><b>✓</b><span><strong>Unlimited full FindAI Verify</strong><br>Free accounts get 1 full Verify report per day, including price-vs-market intelligence.</span></div>'+
-    '</div>'+
-    (isPro?(creator?'<button class="fa-pro-cta" onclick="closeFindaiPro()">Lifetime Pro active</button>':'<button class="fa-pro-cta" id="findai-pro-main-cta" onclick="manageFindaiPro()">Manage subscription</button>'):(signed?'<button class="fa-pro-cta" id="findai-pro-main-cta" onclick="startFindaiProCheckout()">Get FindAI Pro</button>':'<button class="fa-pro-cta" onclick="closeFindaiPro();openAuth(\'Sign in to get FindAI Pro\')">Sign in to upgrade</button>'))+
-    (!isPro?'<div class="fa-pro-usage">'+(signed?(remaining+' free searches left today'):'Create a free account for 8 searches per day')+'</div>':'')+
-    '<div class="fa-pro-error" id="findai-pro-error"></div>'+
-    '<div class="fa-pro-note">Cancel anytime. Marketplace buying and selling remain available without Pro. Unlimited features are subject to fair use.</div>';
+  if(isPro){
+    card.innerHTML='<button class="fa-pro-close" onclick="closeFindaiPro()" aria-label="Close">&times;</button>'+ 
+      '<h2>You’re on FindAI Pro</h2>'+ 
+      '<div class="fa-pro-active"><h3>Every FindAI shopping tool is unlocked.</h3><p>Unlimited shopping searches, product scans, FindAI Verify, Best Deals and price tracking are active on this account.</p>'+ 
+      (creator?'<button class="fa-pro-cta" onclick="closeFindaiPro()">Lifetime Pro active</button>':'<button class="fa-pro-cta" id="findai-pro-main-cta" onclick="manageFindaiPro()">Manage subscription</button>')+'</div>'+ 
+      '<div class="fa-pro-error" id="findai-pro-error"></div><div class="fa-pro-note">Unlimited features are subject to fair use.</div>';
+    return;
+  }
+  var freeFoot=signed&&Number(remaining)===0?'Searches reset tomorrow.':(signed?(remaining+' searches left today'):'No card required.');
+  card.innerHTML='<button class="fa-pro-close" onclick="closeFindaiPro()" aria-label="Close">&times;</button>'+ 
+    '<h2>Shop smarter with FindAI</h2>'+ 
+    '<p class="fa-pro-sub">'+(reason||'Choose the plan that fits how you shop.')+'</p>'+ 
+    '<div class="fa-pro-value"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M12 3v18M17 7.5c0-1.9-1.9-3.2-5-3.2s-5 1.3-5 3.2 1.6 2.8 5 3.5 5 1.7 5 3.7-1.9 3.4-5 3.4-5-1.4-5-3.4"/></svg>A single great deal can cover the cost of Pro.</div>'+ 
+    '<div class="fa-pro-compare">'+
+      '<section class="fa-plan-card free"><div class="fa-plan-kicker">Free</div><div class="fa-plan-title">FindAI Free</div><div class="fa-plan-price"><strong>Free</strong></div><ul class="fa-plan-list">'+
+        '<li>8 AI shopping searches per day</li><li>1 product scan per day</li><li>1 full FindAI Verify report per day</li><li>First 4 Best Deals</li><li>Track up to 3 products</li></ul>'+ 
+        '<button class="fa-plan-cta free" onclick="closeFindaiPro()">Continue with Free</button><div class="fa-plan-foot">'+freeFoot+'</div></section>'+ 
+      '<section class="fa-plan-card pro"><div class="fa-plan-kicker">Pro</div><div class="fa-plan-title">FindAI Pro</div><div class="fa-plan-price"><strong>'+price+'</strong><span>/ month</span></div><ul class="fa-plan-list">'+
+        '<li>Unlimited AI shopping searches</li><li>Unlimited product scans</li><li>Unlimited full FindAI Verify</li><li>Full Best Deals feed</li><li>Unlimited price tracking</li></ul>'+ 
+        (signed?'<button class="fa-plan-cta pro" id="findai-pro-main-cta" onclick="startFindaiProCheckout()">Get FindAI Pro</button>':'<button class="fa-plan-cta pro" onclick="closeFindaiPro();openAuth(\'Sign in to get FindAI Pro\')">Sign in to upgrade</button>')+'<div class="fa-plan-foot">Cancel anytime.</div></section>'+ 
+    '</div><div class="fa-pro-error" id="findai-pro-error"></div><div class="fa-pro-note">Marketplace buying and selling remain available without Pro. Unlimited features are subject to fair use.</div>';
 }
 function openFindaiPro(reason){
   var o=ensureFindaiProModal();findaiProRender(findaiProState,reason);o.classList.add('show');
