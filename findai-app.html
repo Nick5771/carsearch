@@ -352,8 +352,6 @@
 .listing-foot svg{width:15px;height:15px}
 .reel-dots{right:14px;top:55px;transform:none;gap:8px}
 .reel-dot{width:7px;height:7px}
-.reel-peek-chevron{position:absolute;left:50%;top:7px;transform:translateX(-50%);z-index:8;width:36px;height:25px;border-radius:999px;background:rgba(8,9,11,.58);display:grid;place-items:center;color:#fff;backdrop-filter:blur(10px)}
-.reel-peek-chevron svg{width:20px;height:20px}
 .nav{height:calc(var(--nav-h) + var(--safe-bottom));background:rgba(8,9,11,.93);border-top:1px solid rgba(255,255,255,.07)}
 .nav button{gap:5px;padding-top:7px;font-size:10.5px;font-weight:520;color:#8e949e}
 .nav button svg{width:25px;height:25px}
@@ -475,8 +473,6 @@
 .reel-dots{right:14px;top:72px;transform:none;gap:8px}
 .reel-dot{width:7px;height:7px;border-color:rgba(255,255,255,.7);background:rgba(0,0,0,.22)}
 .reel-dot.active{background:#fff;border-color:#fff;transform:none}
-.reel-peek-chevron{position:absolute;left:50%;top:8px;transform:translateX(-50%);z-index:8;width:38px;height:25px;border-radius:999px;background:rgba(8,9,11,.58);display:grid;place-items:center;color:#fff;backdrop-filter:blur(10px)}
-.reel-peek-chevron svg{width:20px;height:20px}
 .reel-skeleton{flex:0 0 calc(100% - 54px);border:0;border-radius:0 0 28px 28px;background:linear-gradient(180deg,#17191d 0%,#111316 62%,#050607 72%)}
 .reel-loading-splash{flex:0 0 100%;height:100%;min-height:100%;display:grid;place-items:center;background:#000;border-radius:0}
 .reel-loading-word{color:#fff;font-size:32px;font-weight:800;letter-spacing:-.5px;opacity:.96;animation:reelLoadPulse 1.15s ease-in-out infinite}
@@ -666,9 +662,7 @@
 #search .price-action-row{margin-top:9px;gap:10px}
 #search .price{font-size:28px;letter-spacing:-.75px}
 #search .view-deal{height:43px;min-width:108px;padding:0 13px;border-radius:13px;font-size:12.5px}
-#search .reel-peek-chevron{top:4px;height:23px;background:rgba(8,9,11,.48)}
-
-/* Compact market information lives inside the first listing instead of above the feed. */
+#search /* Compact market information lives inside the first listing instead of above the feed. */
 .first-market-strip{
   margin-top:9px;padding-top:8px;border-top:1px solid rgba(255,255,255,.075)
 }
@@ -1727,8 +1721,6 @@ body.scan-results-open .nav{display:none!important}
    FindAI v46 — four-result search pages + stable discovery reel
    ========================================================= */
 /* The discovery reel should have a completely clean top edge. */
-.reel-peek-chevron{display:none!important}
-
 /* A deliberate search is comparison mode: exactly four listings per viewport. */
 #search .reel-feed.search-grid-mode{
   display:flex;flex-direction:column;gap:0;padding:0;
@@ -2171,7 +2163,7 @@ const MAX_INTERESTS = 30;
 const PERSONALISED_INTEREST_LIMIT = 5;
 const PERSONALISED_LANE_LIMIT = 8;
 const PERSONALISED_LOAD_MORE_LANES = 2;
-const PERSONALISED_CACHE_KEY = 'fa_personalised_feed_cache_v6';
+const PERSONALISED_CACHE_KEY = 'fa_personalised_feed_cache_v7';
 const PERSONALISED_CACHE_TTL = 10 * 60 * 1000;
 const PERSONALISED_REQUEST_BUDGET_KEY = 'fa_personalised_request_count_v1';
 const PERSONALISED_SESSION_REQUEST_BUDGET = 5000;
@@ -3180,6 +3172,43 @@ function interleavePersonalised(laneResults,maxItems=48){
   }
   return output;
 }
+function personalisedSequenceCluster(item){
+  return String(item&&item._interestCluster||item&&item._recommendationFamily||recommendationFamilyKey(item)||'other');
+}
+function personalisedSequenceCategory(item){
+  return String(item&&item._interestCategory||interestCategory(item&&item._interestQuery||item&&item.title||'')||'other');
+}
+function sequencePersonalisedBatch(items,existingItems=[],maxItems=60){
+  const remaining=(Array.isArray(items)?items:[]).filter(Boolean).map((item,index)=>({item,index}));
+  if(!remaining.length) return [];
+  const output=[];
+  const history=(Array.isArray(existingItems)?existingItems:[]).slice(-5);
+  const recentCategoryCount=(category)=>{
+    const recent=[...history,...output].slice(-4);
+    return recent.reduce((sum,item)=>sum+(personalisedSequenceCategory(item)===category?1:0),0);
+  };
+  let guard=0;
+  while(remaining.length&&output.length<maxItems&&guard<1000){
+    guard++;
+    const last=[...history,...output].slice(-1)[0];
+    const lastCluster=last?personalisedSequenceCluster(last):'';
+    const lastCategory=last?personalisedSequenceCategory(last):'';
+    const hasOtherCluster=remaining.some(entry=>personalisedSequenceCluster(entry.item)!==lastCluster);
+    const hasOtherCategory=remaining.some(entry=>personalisedSequenceCategory(entry.item)!==lastCategory);
+    const hasUnderusedCategory=remaining.some(entry=>recentCategoryCount(personalisedSequenceCategory(entry.item))<2);
+    let bestIndex=0,bestScore=Infinity;
+    for(let i=0;i<remaining.length;i++){
+      const entry=remaining[i],cluster=personalisedSequenceCluster(entry.item),category=personalisedSequenceCategory(entry.item);
+      let score=entry.index*.12;
+      if(lastCluster&&cluster===lastCluster&&hasOtherCluster) score+=1000;
+      if(lastCategory&&category===lastCategory&&hasOtherCategory) score+=180;
+      if(recentCategoryCount(category)>=2&&hasUnderusedCategory) score+=90;
+      if(score<bestScore){bestScore=score;bestIndex=i;}
+    }
+    output.push(remaining.splice(bestIndex,1)[0].item);
+  }
+  return output;
+}
 function freshenPersonalisedItems(items,maxItems=60){
   const groups=new Map();
   for(const item of Array.isArray(items)?items:[]){
@@ -3199,7 +3228,7 @@ function freshenPersonalisedItems(items,maxItems=60){
     const left=laneOrder.indexOf(a.lane.cluster),right=laneOrder.indexOf(b.lane.cluster);
     return (left<0?999:left)-(right<0?999:right);
   });
-  return interleavePersonalised(results,maxItems);
+  return sequencePersonalisedBatch(interleavePersonalised(results,maxItems),[],maxItems);
 }
 async function fetchPersonalisedLane(lane){
   let page=lane.page+1;
@@ -3314,24 +3343,17 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
   
   try{
     markPersonalisedRefreshNow();
-    /* Progressive launch without moving the floor underneath the user:
-       paint the first non-empty lane once, then lock those visible cards in place.
-       Any slower lanes that arrive afterwards are appended below the existing reel. */
-    let painted=false;
-    await Promise.all(lanes.map(lane=>
-      fetchPersonalisedLane(lane).then(res=>{
-        if(feedState.source!=='personalised'||!res||!(res.items&&res.items.length)) return;
-        if(!painted){
-          painted=true;
-          renderPersonalisedFeed(res.items);
-        }else{
-          appendFeedItems(res.items,currentFeedData);
-          writePersonalisedCache();
-        }
-      }).catch(err=>{ if(err&&err.name==='AbortError') throw err; })
-    ));
+    /* Fetch the recommendation lanes in parallel, then sequence them as ONE reel.
+       Rendering each lane as it arrived created blocks such as 5 Pokemon then
+       5 PS5 listings. Waiting for this small parallel batch keeps the opening reel
+       varied without ever rebuilding it underneath a user who has started scrolling. */
+    const settled=await Promise.allSettled(lanes.map(fetchPersonalisedLane));
     if(feedState.source!=='personalised') return;
-    if(!painted){
+    const laneResults=settled.filter(result=>result.status==='fulfilled'&&result.value&&result.value.items&&result.value.items.length).map(result=>result.value);
+    const mixed=sequencePersonalisedBatch(interleavePersonalised(laneResults,48),[],48);
+    if(mixed.length){
+      renderPersonalisedFeed(mixed);
+    }else{
       $('#feed').innerHTML='<div class="feed-status"><div><b>Couldn\'t build your feed</b>Check your connection and try again.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
     }
   }catch(error){
@@ -3352,15 +3374,24 @@ async function backgroundRefreshPersonalisedFeed(){
   if(!claimPersonalisedBackgroundRefresh()) return;
   const lanes=Array.isArray(feedState.interests)?feedState.interests:[];
   if(!lanes.length||getPersonalisedRequestCount()>=PERSONALISED_SESSION_REQUEST_BUDGET) return;
-  const index=Math.floor(seededUnit(personalisedSessionSeed,'background-lane')*lanes.length)%lanes.length;
-  const lane=lanes[index];
+  const start=Math.floor(seededUnit(personalisedSessionSeed,'background-lane')*lanes.length)%lanes.length;
+  const chosen=[];
+  for(let offset=0;offset<lanes.length&&chosen.length<Math.min(2,lanes.length);offset++){
+    const lane=lanes[(start+offset)%lanes.length];
+    if(lane.hasMore||lane.variantIndex<lane.variants.length-1) chosen.push(lane);
+  }
+  if(!chosen.length) return;
   feedState.loading=true;
   try{
-    const result=await fetchPersonalisedLane(lane);
-    if(feedState.source!=='personalised'||!result.items.length) return;
+    const settled=await Promise.allSettled(chosen.map(fetchPersonalisedLane));
+    if(feedState.source!=='personalised') return;
+    const incoming=interleavePersonalised(settled.filter(result=>result.status==='fulfilled').map(result=>result.value),20);
+    const fresh=sequencePersonalisedBatch(incoming,currentFeedItems,20);
+    if(!fresh.length) return;
     // Once a discovery reel is visible, never rebuild it in place. Fresh results
-    // are appended below so scrolling can never jump back to the first card.
-    appendFeedItems(result.items,currentFeedData);
+    // are mixed against the current tail and appended below, so scrolling cannot
+    // jump and a background lane cannot create another block of one product type.
+    appendFeedItems(fresh,currentFeedData);
     writePersonalisedCache();
   }catch(error){
     if(!(error&&error.name==='AbortError')){
@@ -3415,7 +3446,8 @@ async function loadMorePersonalisedListings(){
   try{
     const settled=await Promise.allSettled(chosen.map(fetchPersonalisedLane));
     if(feedState.source!=='personalised') return;
-    const fresh=interleavePersonalised(settled.filter(result=>result.status==='fulfilled').map(result=>result.value),20);
+    const incoming=interleavePersonalised(settled.filter(result=>result.status==='fulfilled').map(result=>result.value),20);
+    const fresh=sequencePersonalisedBatch(incoming,currentFeedItems,20);
     if(fresh.length){
       appendFeedItems(fresh,currentFeedData);
       writePersonalisedCache();
