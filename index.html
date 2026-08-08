@@ -630,6 +630,23 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .fmp-message-offer-layer{position:absolute;left:14px;right:14px;bottom:76px;z-index:6;display:none}.fmp-message-offer-layer.show{display:block}.fmp-message-offer-panel{padding:16px;border:1px solid #354050;border-radius:18px;background:rgba(15,19,25,.98);box-shadow:0 24px 70px rgba(0,0,0,.55);backdrop-filter:blur(18px)}.fmp-message-offer-panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:13px}.fmp-message-offer-panel-head b{font-size:14px}.fmp-message-offer-close{width:30px;height:30px;border:0;border-radius:50%;background:#252b33;color:#fff;font-size:18px;cursor:pointer}.fmp-message-offer-grid{display:grid;grid-template-columns:160px minmax(0,1fr);gap:9px}.fmp-message-offer-grid input,.fmp-message-offer-grid textarea{width:100%;border:1px solid #343b45;border-radius:13px;background:#090b0e;color:#fff;padding:12px;font:inherit;outline:none}.fmp-message-offer-grid textarea{resize:none;min-height:44px;max-height:70px}.fmp-message-offer-submit{height:42px;margin-top:10px;padding:0 16px;border:0;border-radius:13px;background:#1a6fff;color:#fff;font-weight:850;cursor:pointer}.fmp-message-offer-error{margin-top:8px;color:#ff8d88;font-size:10px}
 @media(max-width:760px){.fmp-dialog.wide{width:100%;height:94vh;max-height:94vh}.fmp-chat-layout{grid-template-columns:1fr}.fmp-conversation-list{display:none}.fmp-chat-listing{max-width:48%}.fmp-chat-listing-copy b{display:none}.fmp-chat-listing img,.fmp-chat-listing-placeholder{width:38px;height:38px}.fmp-message{max-width:84%}.fmp-message-offer-grid{grid-template-columns:1fr}.fmp-compose{grid-template-columns:64px minmax(0,1fr) 46px}.fmp-compose .fmp-compose-offer{width:64px;min-width:64px;max-width:64px;padding:0 8px;font-size:0}.fmp-compose-offer:after{content:'Offer';font-size:10px}}
 
+
+/* Marketplace verified seller feedback + purchases */
+.fmp-seller-rating{margin-top:4px;color:#ffd45a;font-size:12px;font-weight:800}
+.fmp-seller-joined{margin-top:3px;color:#858585;font-size:11px}
+.fmp-feedback-list{display:flex;flex-direction:column;gap:10px}
+.fmp-feedback-card{padding:13px 14px;border:1px solid #292929;border-radius:14px;background:#101010}
+.fmp-feedback-head{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;font-weight:800}
+.fmp-feedback-stars{color:#ffd45a;letter-spacing:1px}.fmp-feedback-verified{color:#73dc8c;font-size:11px}
+.fmp-feedback-card p{margin:8px 0 0;color:#b2b2b2;font-size:12px;line-height:1.5}
+.website-purchase-list{display:flex;flex-direction:column;gap:10px}
+.website-purchase-card{display:grid;grid-template-columns:68px minmax(0,1fr) auto;gap:12px;align-items:center;padding:11px;border:1px solid #292929;border-radius:15px;background:#111}
+.website-purchase-card img,.website-purchase-placeholder{width:68px;height:68px;border-radius:11px;object-fit:cover;background:#202020}
+.website-purchase-copy{min-width:0}.website-purchase-copy b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.website-purchase-copy span{display:block;margin-top:5px;color:#8f8f8f;font-size:11px}.website-purchase-copy strong{display:block;margin-top:6px}
+.website-purchase-actions{display:flex;flex-direction:column;gap:6px}.website-purchase-actions button{height:34px;padding:0 11px;border:1px solid #353535;border-radius:10px;background:#181818;color:#fff;font-size:10px;font-weight:800}.website-purchase-actions button.primary{background:#176cff;border-color:#176cff}
+.website-review-stars{display:flex;justify-content:center;gap:8px;margin:18px 0}.website-review-stars button{width:46px;height:46px;border:1px solid #333;border-radius:12px;background:#151515;color:#555;font-size:25px}.website-review-stars button.active{color:#ffd45a;border-color:#6b5c25;background:#211e12}
+@media(max-width:620px){.website-purchase-card{grid-template-columns:58px minmax(0,1fr)}.website-purchase-card img,.website-purchase-placeholder{width:58px;height:58px}.website-purchase-actions{grid-column:1/-1;flex-direction:row}.website-purchase-actions button{flex:1}}
+
 </style>
 </head>
 <body>
@@ -656,6 +673,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
       <div id="user-menu" class="user-menu">
         <div id="user-menu-email" class="user-menu-email"></div>
         <button class="user-menu-btn" onclick="websiteMenuAccount()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 21a7 7 0 0 1 14 0"/></svg><span class="menu-label">My Account</span></button>
+        <button class="user-menu-btn" onclick="websiteOpenPurchases()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 7h14l-1 13H6L5 7z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/><path d="M9 14l2 2 4-4"/></svg><span class="menu-label">Purchases</span></button>
         <button class="user-menu-btn" onclick="websiteOpenMyListings()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16v13H4zM8 7V5a4 4 0 0 1 8 0v2"/></svg><span class="menu-label">My Listings</span></button>
         <button class="user-menu-btn" onclick="websiteOpenInbox()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v12H8l-4 4V5z"/></svg><span class="menu-label">Messages</span><span class="user-menu-badge" id="website-menu-unread">0</span></button>
         <button class="user-menu-btn" onclick="openWebsiteCreateListing();websiteCloseUserMenu()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg><span class="menu-label">Create Listing</span></button>
@@ -4066,6 +4084,11 @@ function websiteMoney(v,c){var n=Number(v)||0,code=String(c||'AUD').toUpperCase(
 var websiteActiveListing=null,websiteListingContext=null,websiteMessageConversation='',websiteMessageTimer=null,websiteTypingTimer=null,websiteTypingClearTimer=null,websiteTypingLastSent=0,websiteRemoteTypingActive=false,websiteMessageScope='listing',websiteUnreadTimer=null,websiteMyListingCache=[],websiteConversationList=[],websiteCurrentConversation=null,websiteCurrentOffers=[];
 function websiteListingId(listing){return String(listing&&(listing.marketplaceListingId||listing.itemId||listing.id)||'');}
 function websiteDate(value){try{return new Intl.DateTimeFormat(undefined,{day:'numeric',month:'short',year:'numeric'}).format(new Date(value));}catch(_){return ''}}
+
+function websiteMonthYear(value){try{return new Intl.DateTimeFormat(undefined,{month:'short',year:'numeric'}).format(new Date(value));}catch(_){return ''}}
+function websitePublicFirstName(value){var text=String(value||'').trim();return text?text.split(/\s+/)[0]:'FindAI seller';}
+function websiteStars(value){var n=Math.max(0,Math.min(5,Math.round(Number(value)||0)));return '★★★★★'.slice(0,n)+'☆☆☆☆☆'.slice(0,5-n);}
+
 function websiteDateTime(value){try{return new Intl.DateTimeFormat(undefined,{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}).format(new Date(value));}catch(_){return ''}}
 function websiteMessageTime(value){try{var d=new Date(value),n=new Date(),same=d.toDateString()===n.toDateString();return new Intl.DateTimeFormat(undefined,same?{hour:'numeric',minute:'2-digit'}:{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}).format(d);}catch(_){return ''}}
 function websiteSellerInitial(name){return String(name||'F').trim().charAt(0).toUpperCase()||'F';}
@@ -4079,7 +4102,7 @@ function renderWebsiteProductPage(listing,context){
   if(!listing)return;websiteActiveListing=listing;websiteListingContext=context||websiteListingContext||{};
   var page=document.getElementById('findai-product-page'),imgs=(Array.isArray(listing.images)?listing.images:[]).filter(Boolean);if(!imgs.length&&listing.image)imgs=[listing.image];
   var seller=(websiteListingContext&&websiteListingContext.seller)||{},viewer=(websiteListingContext&&websiteListingContext.viewer)||{},id=websiteListingId(listing),available=String(listing.status||'active')==='active',offerAccessible=['active','reserved'].includes(String(listing.status||'active'));
-  var sellerName=seller.displayName||listing.sellerName||'FindAI seller',joined=seller.joinedAt?('Member since '+websiteDate(seller.joinedAt)):'FindAI seller',sold=Number(seller.soldCount||0),sellerMeta=(sold? sold+' item'+(sold===1?'':'s')+' sold · ':'')+joined;
+  var sellerName=websitePublicFirstName(seller.displayName||listing.sellerName||'FindAI seller'),joined=seller.joinedAt?('Member since '+websiteMonthYear(seller.joinedAt)):'FindAI seller',sold=Number(seller.soldCount||0),rating=Number(seller.rating)||0,reviewCount=Number(seller.reviewCount)||0,recentReviews=Array.isArray(seller.recentReviews)?seller.recentReviews:[];
   var thumbs=imgs.map(function(src,i){return '<button class="fmp-thumb '+(i===0?'active':'')+'" type="button" onclick="websiteSelectListingImage('+i+')"><img src="'+escapeHtml(src)+'" alt="Product image '+(i+1)+'"></button>'}).join('');
   var status=websiteListingStatusText(listing.status),created=listing.publishedAt||listing.createdAt,description=listing.description||'The seller has not added a description yet.';
   page.innerHTML='<div class="fmp-shell">'+
@@ -4087,12 +4110,12 @@ function renderWebsiteProductPage(listing,context){
     
     '<div class="fmp-main"><div class="fmp-gallery"><div class="fmp-thumbs">'+thumbs+'</div><div class="fmp-image-stage">'+(imgs[0]?'<img class="fmp-main-image" id="fmp-main-image" src="'+escapeHtml(imgs[0])+'" alt="'+escapeHtml(listing.title||'FindAI listing')+'">':'<div style="color:#777">No image supplied</div>')+(imgs.length>1?'<span class="fmp-image-count">1 of '+imgs.length+'</span>':'')+'</div></div>'+
     '<aside class="fmp-buy-panel"><div class="fmp-source"><span class="findai-market-badge">Find<span class="findai-market-ai">AI</span></span><span>Marketplace listing</span></div><h1 class="fmp-title">'+escapeHtml(listing.title||'FindAI listing')+'</h1>'+
-    '<div class="fmp-seller-card"><div class="fmp-avatar">'+escapeHtml(websiteSellerInitial(sellerName))+'</div><div class="fmp-seller-copy"><div class="fmp-seller-name">'+escapeHtml(sellerName)+'</div><div class="fmp-seller-meta">'+escapeHtml(sellerMeta)+'</div></div><button class="fmp-seller-message" type="button" onclick="websiteOpenMessages()">'+(viewer.isSeller?'View messages':'Message')+'</button></div>'+
+    '<div class="fmp-seller-card"><div class="fmp-avatar">'+escapeHtml(websiteSellerInitial(sellerName))+'</div><div class="fmp-seller-copy"><div class="fmp-seller-name">'+escapeHtml(sellerName)+'</div>'+(reviewCount?'<div class="fmp-seller-rating">★ '+rating.toFixed(1)+' ('+reviewCount+')'+(sold?' · '+sold+' sold':'')+'</div>':(sold?'<div class="fmp-seller-meta">'+sold+' sold</div>':''))+'<div class="fmp-seller-joined">'+escapeHtml(joined)+'</div></div><button class="fmp-seller-message" type="button" onclick="websiteOpenMessages()">'+(viewer.isSeller?'View messages':'Message')+'</button></div>'+
     '<div class="fmp-price">'+websiteMoney(listing.price,listing.currency)+'</div><div class="fmp-price-note">Secure checkout and tracked delivery through FindAI</div>'+
     '<div class="fmp-fact-row"><div class="fmp-fact-label">Condition</div><div class="fmp-fact-value">'+escapeHtml(listing.condition||'Not specified')+'</div></div><div class="fmp-fact-row"><div class="fmp-fact-label">Delivery</div><div class="fmp-fact-value">'+escapeHtml(websiteShippingText(listing))+'</div></div><div class="fmp-fact-row"><div class="fmp-fact-label">Availability</div><div class="fmp-fact-value">'+escapeHtml(status)+'</div></div>'+
     '<div class="fmp-actions"><button class="fmp-action primary" type="button" '+(!available||viewer.isSeller?'disabled':'')+' onclick="websiteBuyListing()">'+(viewer.isSeller?'Your listing':status==='Reserved'?'Reserved':'Buy It Now')+'</button><button class="fmp-action secondary" type="button" '+(!offerAccessible?'disabled':'')+' onclick="websiteOpenMessagesWithOffer()">'+(viewer.isSeller?'Manage offers':String(listing.status)==='reserved'?'View offer':'Make offer')+'</button><button class="fmp-action tertiary" type="button" onclick="websiteOpenMessages()">'+(viewer.isSeller?'Manage messages':'Message seller')+'</button></div>'+
     '<div class="fmp-protection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 4v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V7l8-4z"/><path d="M8.5 12.5l2.2 2.2 4.8-5"/></svg><div><b>FindAI Buyer Protection</b><span>Pay inside FindAI, keep messages here and use tracked delivery. Eligible purchases are covered if the item does not arrive or is materially different from the listing.</span></div></div></aside></div>'+
-    '<div class="fmp-lower"><div><section class="fmp-section"><h2>About this item</h2><div class="fmp-description">'+escapeHtml(description)+'</div></section><section class="fmp-section"><h2>Item details</h2><div class="fmp-detail-table"><div class="fmp-detail-cell"><span>Condition</span><b>'+escapeHtml(listing.condition||'Not specified')+'</b></div><div class="fmp-detail-cell"><span>Location</span><b>'+escapeHtml(listing.sellerCountry||seller.country||'Australia')+'</b></div><div class="fmp-detail-cell"><span>Listed</span><b>'+escapeHtml(created?websiteDate(created):'Recently')+'</b></div><div class="fmp-detail-cell"><span>Item number</span><b>'+escapeHtml(id)+'</b></div></div></section></div>'+
+    '<div class="fmp-lower"><div><section class="fmp-section"><h2>About this item</h2><div class="fmp-description">'+escapeHtml(description)+'</div></section>'+(recentReviews.length?'<section class="fmp-section"><h2>Seller feedback</h2><div class="fmp-feedback-list">'+recentReviews.map(function(review){return '<div class="fmp-feedback-card"><div class="fmp-feedback-head"><span class="fmp-feedback-stars">'+escapeHtml(websiteStars(review.rating))+'</span><span class="fmp-feedback-verified">✓ Verified purchase</span></div>'+(review.comment?'<p>'+escapeHtml(review.comment)+'</p>':'')+'</div>'}).join('')+'</div></section>':'')+'<section class="fmp-section"><h2>Item details</h2><div class="fmp-detail-table"><div class="fmp-detail-cell"><span>Condition</span><b>'+escapeHtml(listing.condition||'Not specified')+'</b></div><div class="fmp-detail-cell"><span>Location</span><b>'+escapeHtml(listing.sellerCountry||seller.country||'Australia')+'</b></div><div class="fmp-detail-cell"><span>Listed</span><b>'+escapeHtml(created?websiteDate(created):'Recently')+'</b></div><div class="fmp-detail-cell"><span>Item number</span><b>'+escapeHtml(id)+'</b></div></div></section></div>'+
     '<aside><section class="fmp-section"><h2>Buy with confidence</h2><div class="fmp-safety-list"><div class="fmp-safety-item"><span class="fmp-safety-dot">✓</span><span><b>Secure payment</b><br>Never send money directly to a seller.</span></div><div class="fmp-safety-item"><span class="fmp-safety-dot">✓</span><span><b>Tracked delivery</b><br>Tracking is attached to your FindAI order.</span></div><div class="fmp-safety-item"><span class="fmp-safety-dot">✓</span><span><b>Messages on record</b><br>Keep communication in FindAI so it can support a dispute.</span></div></div></section><section class="fmp-section"><button class="fmp-mini-btn" type="button" onclick="websiteReportListing()">Report this listing</button></section></aside></div></div>';
   page.classList.add('open');page.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';
 }
@@ -4199,6 +4222,41 @@ async function websiteOpenNotification(notification){
 function websiteCloseUserMenu(){var um=document.getElementById('user-menu');if(um)um.classList.remove('open');}
 function websiteMenuAccount(){websiteCloseUserMenu();alert('Your FindAI account page is coming next.');}
 function websiteMenuSettings(){websiteCloseUserMenu();alert('FindAI settings are coming next.');}
+var websiteReviewRating=5;
+async function websiteOpenPurchases(){
+  if(!websiteRequireLogin('Sign in to view your purchases'))return;websiteCloseUserMenu();
+  openWebsiteActionDialog('Purchases','<div class="fmp-loading" style="min-height:220px"><div><div class="fmp-spinner"></div>Loading purchases</div></div>',true);
+  try{
+    var data=await websiteMarketplaceFetch('/marketplace/orders',{method:'GET'}),orders=(Array.isArray(data.orders)?data.orders:[]).filter(function(order){return order.relationship==='buyer'}),html='';
+    if(!orders.length)html='<div class="fmp-owner-note">Your FindAI Marketplace purchases will appear here.</div>';
+    else html='<div class="website-purchase-list">'+orders.map(function(order){
+      var image=order.image||(order.images&&order.images[0])||'',seller=websitePublicFirstName(order.sellerName),actions='',review=order.review||null,status=String(order.status||'').replace(/_/g,' ');
+      if(order.canConfirmReceived)actions+='<button class="primary" onclick="websiteConfirmPurchaseReceived(\''+escapeHtml(order.id)+'\')">Confirm received</button>';
+      if(order.canReview)actions+='<button class="primary" onclick="websiteOpenPurchaseReview(\''+escapeHtml(order.id)+'\',\''+escapeHtml(seller)+'\')">Rate seller</button>';
+      return '<article class="website-purchase-card">'+(image?'<img src="'+escapeHtml(image)+'" alt="">':'<span class="website-purchase-placeholder"></span>')+'<div class="website-purchase-copy"><b>'+escapeHtml(order.title||'FindAI purchase')+'</b><span>Seller: '+escapeHtml(seller)+' · '+escapeHtml(status||'Order placed')+'</span><strong>'+websiteMoney(order.total,order.currency)+'</strong>'+(review?'<span style="color:#ffd45a">'+escapeHtml(websiteStars(review.rating))+' · Verified review</span>':'')+'</div>'+(actions?'<div class="website-purchase-actions">'+actions+'</div>':'')+'</article>';
+    }).join('')+'</div>';
+    document.getElementById('fmp-dialog-body').innerHTML=html;
+  }catch(e){document.getElementById('fmp-dialog-body').innerHTML='<p class="fmp-muted">'+escapeHtml(e.message||'Purchases could not be loaded')+'</p>';}
+}
+async function websiteConfirmPurchaseReceived(orderId){
+  try{await websiteMarketplaceFetch('/marketplace/orders/'+encodeURIComponent(orderId)+'/complete',{method:'POST'});await websiteOpenPurchases();}
+  catch(e){alert(e.message||'Could not complete the order');}
+}
+function websiteSetReviewRating(value){
+  websiteReviewRating=Math.max(1,Math.min(5,Number(value)||5));
+  document.querySelectorAll('#website-review-stars button').forEach(function(button,index){button.classList.toggle('active',index<websiteReviewRating)});
+}
+function websiteOpenPurchaseReview(orderId,sellerName){
+  websiteReviewRating=5;
+  openWebsiteActionDialog('Rate '+websitePublicFirstName(sellerName),'<form onsubmit="return websiteSubmitPurchaseReview(event,\''+escapeHtml(orderId)+'\')"><p class="fmp-muted">Only completed FindAI purchases can be reviewed. Your feedback will be marked as a verified purchase.</p><div class="website-review-stars" id="website-review-stars">'+[1,2,3,4,5].map(function(n){return '<button type="button" class="active" onclick="websiteSetReviewRating('+n+')">★</button>'}).join('')+'</div><label class="marketplace-web-field">Review (optional)<textarea id="website-review-comment" maxlength="1200" placeholder="How was your experience with the seller?"></textarea></label><button class="fmp-submit" type="submit">Submit verified review</button><p class="fmp-muted" id="website-review-status" style="text-align:center"></p></form>');
+}
+async function websiteSubmitPurchaseReview(event,orderId){
+  event.preventDefault();var status=document.getElementById('website-review-status');
+  try{await websiteMarketplaceFetch('/marketplace/reviews',{method:'POST',body:JSON.stringify({orderId:orderId,rating:websiteReviewRating,comment:String(document.getElementById('website-review-comment').value||'').trim()})});await websiteOpenPurchases();}
+  catch(e){if(status)status.textContent=e.message||'Review could not be submitted';}
+  return false;
+}
+
 async function websiteOpenMyListings(){
   if(!websiteRequireLogin('Sign in to view your listings'))return;websiteCloseUserMenu();
   openWebsiteActionDialog('My Listings','<div class="fmp-loading" style="min-height:220px"><div><div class="fmp-spinner"></div>Loading listings</div></div>');
