@@ -13,6 +13,19 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/findai-favicon-32.png?v=12">
 <link rel="icon" type="image/png" sizes="192x192" href="/findai-icon-192.png?v=12">
 <title>FindAI</title>
+<script>
+(function(){
+  try{
+    var p=new URLSearchParams(location.search);
+    if(p.get('mobile_web')==='1'){
+      window.__FINDAI_MOBILE_WEB=true;
+      p.delete('mobile_web');
+      var q=p.toString();
+      history.replaceState({},'', '/'+(q?'?'+q:''));
+    }
+  }catch(_){}
+})();
+</script>
 <style>
   :root{
     --bg:#050607;
@@ -1053,13 +1066,19 @@
 #search .reel-social-action.like.active svg{color:#ff3040}
 #search .reel-social-action.like.active .reel-social-icon{background:transparent!important;border:0!important}
 #search .reel-social-action.like.active .reel-social-label{color:#fff}
-/* Subtle Instagram-style acknowledgement: a quick heart pop + soft ring. */
+/* Like acknowledgement: animate only the heart itself — no ring, tile or box. */
 #search .reel-social-action.like .reel-social-icon{position:relative}
-@keyframes findaiHeartPop{0%{transform:scale(1)}38%{transform:scale(1.24)}68%{transform:scale(.94)}100%{transform:scale(1)}}
-@keyframes findaiHeartRing{0%{opacity:.7;transform:scale(.55)}100%{opacity:0;transform:scale(1.5)}}
-#search .reel-social-action.like.just-liked svg{animation:findaiHeartPop .38s cubic-bezier(.2,.85,.35,1)}
-#search .reel-social-action.like.just-liked .reel-social-icon::after{content:'';position:absolute;inset:-7px;border:2px solid rgba(255,48,64,.55);border-radius:50%;pointer-events:none;animation:findaiHeartRing .42s ease-out forwards}
-@media (prefers-reduced-motion:reduce){#search .reel-social-action.like.just-liked svg,#search .reel-social-action.like.just-liked .reel-social-icon::after{animation:none}}
+#search .reel-social-action.like svg{transform-origin:50% 54%;will-change:transform,filter}
+@keyframes findaiHeartPop{
+  0%{transform:scale(1) rotate(0deg);filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+  18%{transform:scale(.82) rotate(-7deg);filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+  45%{transform:scale(1.43) rotate(5deg);filter:drop-shadow(0 0 11px rgba(255,48,64,.68))}
+  64%{transform:scale(1.03) rotate(-2deg);filter:drop-shadow(0 0 6px rgba(255,48,64,.42))}
+  80%{transform:scale(1.16) rotate(1deg);filter:drop-shadow(0 0 4px rgba(255,48,64,.28))}
+  100%{transform:scale(1) rotate(0deg);filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
+}
+#search .reel-social-action.like.just-liked svg{animation:findaiHeartPop .52s cubic-bezier(.18,.86,.28,1.2)}
+@media (prefers-reduced-motion:reduce){#search .reel-social-action.like.just-liked svg{animation:none}}
 
 /* eBay / source label: bigger, clean, no pill background */
 #search .source-chip{
@@ -1714,6 +1733,13 @@ body.scan-results-open .nav{display:none!important}
 .search-detail-view{height:48px;border:0;border-radius:15px;background:#f4f5f6;color:#080a0d;font-size:12px;font-weight:820}
 .search-detail-icon{width:48px;height:48px;border:1px solid rgba(255,255,255,.1);border-radius:15px;background:#15181d;color:#fff;display:grid;place-items:center}
 .search-detail-icon svg{width:20px;height:20px}
+
+/* Conversational search answer: the app uses the same live narrative as web,
+   compressed into a full-width mobile card above the normal two-column grid. */
+#search .app-search-answer{grid-column:1/-1;border:1px solid rgba(255,255,255,.085);border-radius:21px;background:linear-gradient(145deg,#101318,#0b0d11);overflow:hidden;box-shadow:0 14px 36px rgba(0,0,0,.2)}
+.app-search-answer-copy{padding:17px 16px 13px}.app-search-answer-copy h2{margin:0;color:#f7f8f9;font-size:18px;line-height:1.28;font-weight:790;letter-spacing:-.5px}.app-search-answer-copy p{margin:9px 0 0;color:#b6bcc5;font-size:11.5px;line-height:1.52}.app-search-work{margin-top:10px;color:#727a85;font-size:9px;line-height:1.45}
+.app-search-evidence{width:100%;display:grid;grid-template-columns:112px minmax(0,1fr);gap:12px;align-items:center;padding:11px;border:0;border-top:1px solid rgba(255,255,255,.075);background:#0d1014;color:#fff;text-align:left}.app-search-evidence img,.app-search-evidence-ph{width:112px;height:104px;border-radius:14px;background:#171a1f;object-fit:contain}.app-search-evidence-ph{display:grid;place-items:center;color:#69717b;font-size:9px}.app-search-evidence-copy{min-width:0}.app-search-evidence-source{height:20px;display:flex;align-items:center}.app-search-evidence-title{margin-top:4px;font-size:10.5px;line-height:1.38;color:#dfe2e6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.app-search-evidence-price{margin-top:8px;font-size:19px;font-weight:850;letter-spacing:-.5px}.app-search-evidence-meta{margin-top:5px;color:#8a929c;font-size:8.5px;line-height:1.45}.app-search-results-label{grid-column:1/-1;margin:4px 2px -1px;color:#8d949d;font-size:9px;font-weight:760;text-transform:uppercase;letter-spacing:.08em}
+
 .purchase-list{display:flex;flex-direction:column;gap:10px}.purchase-card{padding:11px;border:1px solid rgba(255,255,255,.075);border-radius:19px;background:#0f1217}
 .purchase-main{display:grid;grid-template-columns:76px minmax(0,1fr);gap:12px;align-items:center}.purchase-image{width:76px;height:76px;border-radius:13px;object-fit:cover;background:#191c21}
 .purchase-copy{min-width:0}.purchase-copy h3{margin:0;font-size:13px;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.purchase-copy p{margin:5px 0 0;color:#838b95;font-size:9.5px;line-height:1.4}.purchase-copy strong{display:block;margin-top:7px;font-size:15px}
@@ -1767,6 +1793,11 @@ body.scan-results-open .nav{display:none!important}
 #search .search-grid-mode .reel-loading-card{
   flex:0 0 100%;min-height:100%;width:100%;border-radius:0;scroll-snap-align:start
 }
+
+#search .reel-feed.search-grid-mode .app-search-answer{flex:0 0 auto;width:calc(100% - 20px);margin:calc(var(--safe-top) + 91px) 10px 10px}
+#search .reel-feed.search-grid-mode .app-search-results-label{flex:0 0 auto;margin:3px 12px 0;padding:0 0 4px}
+@media(max-height:740px){#search .reel-feed.search-grid-mode .app-search-answer{margin-top:calc(var(--safe-top) + 82px)}}
+
 @media (max-height:740px){
   #search .search-grid-page{padding-top:calc(var(--safe-top) + 82px);gap:7px;padding-left:8px;padding-right:8px;padding-bottom:8px}
   #search .search-grid-body{padding:6px 7px 7px}
@@ -2203,15 +2234,14 @@ const sessionDwellRecorded = new Set();
 
 const INTEREST_PROFILE_KEY = 'fa_interest_profile_v1';
 const INTEREST_HISTORY_KEY = 'fa_search_history_v1';
-const MAX_INTERESTS = 30;
+const MAX_INTERESTS = 40;
 
-/* Cost guardrails for the For You feed.
-   Three mixed interest lanes are enough to keep the feed varied without
-   multiplying marketplace/API work every time the app opens. */
-const PERSONALISED_INTEREST_LIMIT = 5;
+/* Cost guardrails for the For You feed. Six mixed lanes give the opening
+   Reels broad shopping coverage while keeping marketplace/API work bounded. */
+const PERSONALISED_INTEREST_LIMIT = 6;
 const PERSONALISED_LANE_LIMIT = 8;
 const PERSONALISED_LOAD_MORE_LANES = 2;
-const PERSONALISED_CACHE_KEY = 'fa_personalised_feed_cache_v8';
+const PERSONALISED_CACHE_KEY = 'fa_personalised_feed_cache_v10';
 const PERSONALISED_CACHE_TTL = 10 * 60 * 1000;
 const PERSONALISED_CACHE_STALE_TTL = 24 * 60 * 60 * 1000;
 const PERSONALISED_REQUEST_BUDGET_KEY = 'fa_personalised_request_count_v1';
@@ -2951,64 +2981,144 @@ const INTEREST_EVENT_WEIGHTS = {
   legacy:2.5
 };
 const INTEREST_CATEGORY_PATTERNS = [
-  ['fragrance',/\b(?:perfumes?|fragrances?|colognes?|colonges?|edp|edt|parfum|eau de parfum|eau de toilette|aftershave)\b/i],
-  ['lego',/\b(?:lego|bricklink|brickset|minifigure|minifig)\b/i],
-  ['computing',/\b(?:computers?|desktops?|laptops?|notebooks?|gaming pcs?|graphics cards?|gpus?|cpus?|processors?|monitors?|keyboards?|mice|mouse|macbooks?|imacs?|rtx|radeon)\b/i],
+  ['fragrance',/\b(?:perfumes?|fragrances?|colognes?|colonges?|edp|edt|parfum|eau de parfum|eau de toilette|aftershave|beauty|makeup|skincare|dior sauvage|jean paul gaultier le male|tom ford fragrance|giorgio armani fragrance|paco rabanne 1 million|paco rabanne invictus|creed aventus|bleu de chanel|gucci guilty)\b/i],
+  ['lego',/\b(?:lego|bricklink|brickset|minifigure|minifig|technic|ninjago)\b/i],
+  ['apple',/\b(?:apple|iphone|ipad|apple watch|airpods?|macbook|imac|mac mini|apple pencil|apple tv)\b/i],
+  ['gaming',/\b(?:playstation|ps5|xbox|nintendo|switch|steam deck|video game|gaming console|controller)\b/i],
+  ['watches',/\b(?:rolex|omega|cartier santos|tag heuer|watch|watches|timepiece)\b/i],
   ['sneakers',/\b(?:sneaker|trainer|yeezy|jordan|dunk|air force|nike|adidas|new balance|asics|stockx|goat)\b/i],
-  ['collectibles',/\b(?:collectible|pokemon|trading card|funko|figure|figurine|harry potter|star wars|marvel|dc comics)\b/i],
-  ['fashion',/\b(?:shirt|jacket|jeans|dress|handbag|bag|wallet|watch|sunglasses|gucci|prada|ralph lauren|burberry|louis vuitton)\b/i],
-  ['gaming',/\b(?:playstation|ps5|xbox|nintendo|switch|video game|gaming console|controller)\b/i],
-  ['audio',/\b(?:headphones|earbuds|speaker|airpods|soundbar|microphone|turntable)\b/i],
-  ['home',/\b(?:sofa|chair|table|lamp|mattress|vacuum|kitchen|appliance|furniture)\b/i],
-  ['sports',/\b(?:tennis|racquet|racket|golf|football|soccer|basketball|fitness|gym)\b/i]
+  ['collectibles',/\b(?:collectibles?|pokemon|trading cards?|sports (?:trading )?cards?|funko|figures?|figurines?|rare coins?|vintage toys?|memorabilia|harry potter|star wars|marvel|dc comics)\b/i],
+  ['luxury',/\b(?:louis vuitton|gucci|prada|chanel|hermes|dior bag|balenciaga|bottega veneta|saint laurent|ysl bag)\b/i],
+  ['fashion',/\b(?:shirt|jacket|jeans|dress|handbag|bag|wallet|sunglasses|ralph lauren|burberry|streetwear|premium fashion|designer fashion|clothing|apparel)\b/i],
+  ['sports',/\b(?:tennis|racquet|racket|golf|football|soccer|basketball|fitness|gym|cricket|cycling)\b/i],
+  ['media',/\b(?:audio|headphones|earbuds|speaker|soundbar|microphone|turntable|camera|cameras|lens|lenses|mirrorless|dslr|bose|sony wh|canon|fujifilm|nikon)\b/i],
+  ['electronics',/\b(?:samsung galaxy|android phone|television|oled|qled|laptop|notebook|gaming pc|desktop|graphics card|gpu|rtx|radeon|monitor|tablet|smartwatch|electronics)\b/i]
 ];
 const DISCOVERY_BRANDS = [
-  'ralph lauren','giorgio armani','tom ford','calvin klein','hugo boss','paco rabanne','jean paul gaultier',
-  'gucci','dior','chanel','versace','ysl','yves saint laurent','nike','adidas','new balance','asics','apple',
-  'samsung','lenovo','asus','acer','dell','hp','msi','sony','lego','pokemon'
+  'apple','samsung','sony','bose','canon','nikon','fujifilm','lenovo','asus','acer','dell','hp','msi',
+  'nike','adidas','new balance','asics','jordan','lego','pokemon','ralph lauren','burberry',
+  'louis vuitton','gucci','prada','chanel','hermes','dior','cartier','rolex','omega','tag heuer',
+  'giorgio armani','tom ford','calvin klein','hugo boss','paco rabanne','jean paul gaultier','ysl','yves saint laurent'
 ];
-/* Featured cold-start seed — the hyped items the front page rotates through.
-   `featured:true` flags these so the ranker floats them to the top of the feed
-   instead of letting a bland-but-"relevant" listing outscore them. */
-const FEATURED_COLD_START = [
-  {id:'cold_jordan',  query:'air jordan 1',        discoveryQuery:'air jordan 1 retro',       category:'sneakers',    cluster:'sneakers:jordan',      featured:true},
-  {id:'cold_yeezy',   query:'yeezy 350',           discoveryQuery:'adidas yeezy boost 350',   category:'sneakers',    cluster:'sneakers:yeezy',       featured:true},
-  {id:'cold_dunk',    query:'nike dunk low',       discoveryQuery:'nike sb dunk low',         category:'sneakers',    cluster:'sneakers:dunk',        featured:true},
-  {id:'cold_lv',      query:'louis vuitton bag',   discoveryQuery:'louis vuitton handbag',    category:'fashion',     cluster:'fashion:louis vuitton',featured:true},
-  {id:'cold_pokemon', query:'pokemon booster box', discoveryQuery:'pokemon booster box sealed',category:'collectibles',cluster:'collectibles:pokemon', featured:true},
-  {id:'cold_ps5',     query:'playstation 5 console',discoveryQuery:'playstation 5 console',    category:'gaming',      cluster:'gaming:ps5',           featured:true},
-  {id:'cold_gucci',   query:'gucci bag',           discoveryQuery:'gucci handbag',            category:'fashion',     cluster:'fashion:gucci',        featured:true},
-  {id:'cold_rolex',   query:'rolex watch',         discoveryQuery:'rolex submariner',         category:'fashion',     cluster:'fashion:rolex',        featured:true},
-  {id:'cold_travis',  query:'travis scott jordan', discoveryQuery:'travis scott jordan',      category:'sneakers',    cluster:'sneakers:travis',      featured:true},
-  {id:'cold_lego',    query:'lego star wars',      discoveryQuery:'lego star wars ucs',       category:'lego',        cluster:'lego:star wars',       featured:true},
-  {id:'cold_dior',    query:'dior sauvage',        discoveryQuery:'dior sauvage',             category:'fragrance',   cluster:'fragrance:dior',       featured:true},
-  {id:'cold_supreme', query:'supreme box logo',    discoveryQuery:'supreme box logo',         category:'fashion',     cluster:'fashion:supreme',      featured:true}
+
+/* Broad cold-start discovery universe. Each group represents a major shopping
+   area, and each session selects a live-search seed from every group. This keeps
+   the opening Reels exciting without making FindAI look like a Gucci/Supreme-only
+   app. The seeds are queries, not hard-coded listings: the Worker still returns
+   live products and prices. */
+const DISCOVERY_SEED_GROUPS = [
+  {category:'sneakers', seeds:[
+    ['air jordan 1 retro','air jordan 1 retro'],
+    ['nike dunk low','nike dunk low'],
+    ['adidas yeezy boost 350','adidas yeezy boost 350'],
+    ['new balance 9060','new balance 9060'],
+    ['asics gel kayano 14','asics gel kayano 14']
+  ]},
+  {category:'apple', seeds:[
+    ['iphone','iphone'],
+    ['apple watch','apple watch'],
+    ['ipad pro','ipad pro'],
+    ['airpods pro','airpods pro']
+  ]},
+  {category:'electronics', seeds:[
+    ['samsung galaxy','samsung galaxy'],
+    ['oled tv','oled tv'],
+    ['gaming laptop','gaming laptop'],
+    ['nvidia rtx graphics card','nvidia rtx graphics card']
+  ]},
+  {category:'gaming', seeds:[
+    ['playstation 5 console','playstation 5 console'],
+    ['xbox series x','xbox series x'],
+    ['nintendo switch','nintendo switch'],
+    ['steam deck','steam deck']
+  ]},
+  {category:'lego', seeds:[
+    ['lego star wars','lego star wars ucs'],
+    ['lego harry potter','lego harry potter'],
+    ['lego technic supercar','lego technic supercar'],
+    ['lego icons','lego icons']
+  ]},
+  {category:'collectibles', seeds:[
+    ['pokemon booster box','pokemon booster box sealed'],
+    ['sports trading cards','sports trading cards'],
+    ['rare collectibles','rare collectibles'],
+    ['vintage star wars figures','vintage star wars action figures']
+  ]},
+  {category:'fashion', seeds:[
+    ['ralph lauren jacket','ralph lauren jacket'],
+    ['designer sunglasses','designer sunglasses'],
+    ['streetwear jacket','streetwear jacket'],
+    ['premium fashion accessories','premium fashion accessories']
+  ]},
+  {category:'luxury', seeds:[
+    ['louis vuitton bag','louis vuitton handbag'],
+    ['gucci bag','gucci handbag'],
+    ['prada bag','prada handbag'],
+    ['chanel bag','chanel handbag']
+  ]},
+  {category:'watches', seeds:[
+    ['rolex submariner','rolex submariner'],
+    ['omega speedmaster','omega speedmaster'],
+    ['cartier santos','cartier santos'],
+    ['tag heuer carrera','tag heuer carrera']
+  ]},
+  {category:'fragrance', seeds:[
+    ['dior sauvage','dior sauvage'],
+    ['jean paul gaultier le male','jean paul gaultier le male'],
+    ['tom ford fragrance','tom ford fragrance'],
+    ['giorgio armani fragrance','giorgio armani fragrance']
+  ]},
+  {category:'sports', seeds:[
+    ['tennis racket','tennis racket'],
+    ['golf clubs','golf clubs'],
+    ['football shirt','football shirt'],
+    ['basketball shoes','basketball shoes']
+  ]},
+  {category:'media', seeds:[
+    ['sony mirrorless camera','sony mirrorless camera'],
+    ['canon mirrorless camera','canon mirrorless camera'],
+    ['bose headphones','bose headphones'],
+    ['sony headphones','sony headphones']
+  ]}
 ];
 function featuredColdStart(baseScore,seedKey){
-  const n=FEATURED_COLD_START.length;
-  const offset=Math.floor(seededUnit(personalisedSessionSeed,seedKey)*n);
-  return [...FEATURED_COLD_START.slice(offset),...FEATURED_COLD_START.slice(0,offset)]
-    .map((item,i)=>({...item,score:baseScore-i*0.02}));
+  const groups=DISCOVERY_SEED_GROUPS.map((group,index)=>{
+    const pick=Math.floor(seededUnit(personalisedSessionSeed,`${seedKey}:pick:${group.category}`)*group.seeds.length)%group.seeds.length;
+    const [query,discoveryQuery]=group.seeds[pick];
+    return {id:`cold_${group.category}_${pick}`,query,discoveryQuery,category:group.category,cluster:`${group.category}:${normaliseQueryText(discoveryQuery)}`,featured:true};
+  });
+  if(!groups.length)return [];
+  const offset=Math.floor(seededUnit(personalisedSessionSeed,`${seedKey}:category-order`)*groups.length)%groups.length;
+  return [...groups.slice(offset),...groups.slice(0,offset)].map((item,i)=>({...item,score:baseScore-i*0.015}));
 }
 
 const CATEGORY_EXPLORATION_QUERIES = {
   fragrance:['designer fragrance','mens fragrance','womens fragrance'],
-  lego:['lego sets','lego collectibles','retired lego sets'],
-  computing:['gaming laptops','desktop computers','computer hardware'],
+  lego:['lego sets','retired lego sets','lego collectibles'],
+  apple:['iphone','apple watch','ipad','airpods'],
+  electronics:['consumer electronics','oled tv','gaming laptop','computer hardware'],
   sneakers:['sneakers','limited sneakers','running shoes'],
-  collectibles:['collectibles','trading cards','collectible figures'],
-  fashion:['designer fashion','fashion accessories','watches'],
+  collectibles:['rare collectibles','trading cards','collectible figures'],
+  fashion:['premium fashion','designer sunglasses','streetwear'],
+  luxury:['designer bags','luxury handbags','designer accessories'],
+  watches:['luxury watches','automatic watches','collectible watches'],
   gaming:['gaming consoles','video games','gaming accessories'],
-  audio:['wireless headphones','speakers','audio equipment'],
-  home:['home appliances','home furniture','home accessories'],
-  sports:['sports equipment','tennis gear','fitness equipment'],
+  media:['mirrorless cameras','headphones','audio equipment'],
+  sports:['sports equipment','tennis gear','golf equipment'],
   other:['popular products','best value products','new listings']
 };
 
 function getInterestProfile(){
   try{
     const value=JSON.parse(localStorage.getItem(INTEREST_PROFILE_KEY)||'[]');
-    return Array.isArray(value)?value:[];
+    if(!Array.isArray(value))return [];
+    // Reclassify older local profiles into the newer broad-shopping taxonomy so
+    // legacy buckets such as computing/audio/fashion-watch do not linger forever.
+    return value.filter(Boolean).map(item=>{
+      const query=String(item.query||item.discoveryQuery||'').trim();if(!query)return item;
+      const category=interestCategory(query),discoveryQuery=deriveDiscoveryQuery(query),cluster=interestClusterKey(query,category);
+      return {...item,query,category,discoveryQuery,cluster};
+    });
   }catch(_){ return []; }
 }
 function saveInterestProfile(profile){
@@ -3020,7 +3130,7 @@ function interestCategory(query){
   if(match) return match[0];
   const tokens=normaliseQueryText(value).split(/\s+/).filter(Boolean);
   if(tokens.some(token=>editDistance(token,'cologne')<=2||editDistance(token,'perfume')<=2||editDistance(token,'fragrance')<=2)) return 'fragrance';
-  if(tokens.some(token=>editDistance(token,'computer')<=2||editDistance(token,'laptop')<=2||editDistance(token,'desktop')<=2)) return 'computing';
+  if(tokens.some(token=>editDistance(token,'computer')<=2||editDistance(token,'laptop')<=2||editDistance(token,'desktop')<=2)) return 'electronics';
   return 'other';
 }
 function findDiscoveryBrand(query){
@@ -3036,10 +3146,18 @@ function deriveDiscoveryQuery(query){
   if(category==='lego'){
     const franchises=['harry potter','star wars','marvel','dc','technic','city','icons','ideas','architecture','ninjago','minecraft','friends'];
     const franchise=franchises.find(value=>text.includes(normaliseQueryText(value)));
-    return ['lego',franchise].filter(Boolean).join(' ');
+    return ['lego',franchise].filter(Boolean).join(' ') || 'lego sets';
   }
-  if(category==='computing'){
-    const kind=/\blaptop|notebook|macbook\b/.test(text)?'laptop':/\b(?:desktop|computer|gaming pc|imac)\b/.test(text)?'computer':/\b(?:gpu|graphics card|rtx|radeon)\b/.test(text)?'graphics card':'computer hardware';
+  if(category==='apple'){
+    if(/\biphone\b/.test(text)) return 'iphone';
+    if(/\bapple watch\b/.test(text)) return 'apple watch';
+    if(/\bipad\b/.test(text)) return 'ipad';
+    if(/\bairpods?\b/.test(text)) return 'airpods';
+    if(/\bmacbook\b/.test(text)) return 'macbook';
+    return 'apple electronics';
+  }
+  if(category==='electronics'){
+    const kind=/\boled|qled|television|\btv\b/.test(text)?'tv':/\blaptop|notebook\b/.test(text)?'laptop':/\b(?:desktop|computer|gaming pc)\b/.test(text)?'computer':/\b(?:gpu|graphics card|rtx|radeon)\b/.test(text)?'graphics card':/\bsamsung galaxy|android phone\b/.test(text)?'smartphone':'electronics';
     const gaming=/\bgaming|rtx|radeon\b/.test(text)?'gaming':'';
     return [brand,gaming,kind].filter(Boolean).join(' ');
   }
@@ -3050,10 +3168,15 @@ function deriveDiscoveryQuery(query){
   if(category==='collectibles'){
     if(/\bharry potter\b/.test(text)) return 'harry potter collectibles';
     if(/\bpokemon\b/.test(text)) return 'pokemon collectibles';
-    return importantQueryTokens(raw).slice(0,4).join(' ') || 'collectibles';
+    if(/\bsports? card|trading card\b/.test(text)) return importantQueryTokens(raw).slice(0,5).join(' ') || 'trading cards';
+    return importantQueryTokens(raw).slice(0,5).join(' ') || 'rare collectibles';
   }
-  if(category==='gaming') return /\bps5|playstation\b/.test(text)?'playstation 5':/\bxbox\b/.test(text)?'xbox':/\bnintendo|switch\b/.test(text)?'nintendo switch':'gaming';
-  if(category==='audio') return [brand,/\bearbud|airpods\b/.test(text)?'wireless earbuds':/\bheadphone\b/.test(text)?'headphones':'audio'].filter(Boolean).join(' ');
+  if(category==='luxury') return importantQueryTokens(raw).slice(0,5).join(' ') || 'designer bags';
+  if(category==='watches') return importantQueryTokens(raw).slice(0,5).join(' ') || 'luxury watches';
+  if(category==='gaming') return /\bps5|playstation\b/.test(text)?'playstation 5':/\bxbox\b/.test(text)?'xbox series x':/\bnintendo|switch\b/.test(text)?'nintendo switch':/\bsteam deck\b/.test(text)?'steam deck':'gaming';
+  if(category==='media') return [brand,/\bcamera|mirrorless|dslr|\blens\b/.test(text)?'camera':/\bearbud|airpods\b/.test(text)?'wireless earbuds':/\bheadphone\b/.test(text)?'headphones':'audio camera gear'].filter(Boolean).join(' ');
+  if(category==='sports') return importantQueryTokens(raw).slice(0,5).join(' ') || 'sports equipment';
+  if(category==='fashion') return importantQueryTokens(raw).slice(0,5).join(' ') || 'premium fashion';
   const tokens=importantQueryTokens(raw).slice(0,5);
   return tokens.join(' ') || raw;
 }
@@ -3068,6 +3191,69 @@ function interestTokenSimilarity(a,b){
 function interestClusterKey(query,category=interestCategory(query)){
   const discovery=deriveDiscoveryQuery(query);
   return `${category}:${normaliseQueryText(discovery)||normaliseQueryText(query)}`;
+}
+let appTasteSyncPromise=null;
+let appTasteLastSyncAt=0;
+let personalisedLaneRebalanceTimer=null;
+function appTasteMigrationKey(){
+  let user=null;try{user=JSON.parse(localStorage.getItem('findai_user')||'null')}catch(_){}
+  return 'findai_taste_migrated_v1:'+String(user&&user.email||'').trim().toLowerCase();
+}
+function mergeSharedTasteProfile(remote){
+  const local=getInterestProfile();
+  const byCluster=new Map(local.filter(Boolean).map(item=>[String(item.cluster||interestClusterKey(item.query||'')),{...item}]));
+  for(const source of Array.isArray(remote)?remote:[]){
+    const query=String(source&&source.query||'').trim();if(!query)continue;
+    const category=String(source.category||interestCategory(query));
+    const discoveryQuery=String(source.discoveryQuery||deriveDiscoveryQuery(query)||query);
+    const cluster=String(source.cluster||`${category}:${normaliseQueryText(discoveryQuery)}`);
+    const incoming={id:source.id||`shared_${cluster}`,query,discoveryQuery,category,cluster,weight:clamp(Number(source.weight)||.15,.15,80),lastAt:Number(source.lastAt)||Date.now(),events:source.events||{}};
+    const existing=byCluster.get(cluster);
+    if(!existing){byCluster.set(cluster,incoming);continue;}
+    existing.weight=Math.max(Number(existing.weight)||0,Number(incoming.weight)||0);
+    if((Number(incoming.lastAt)||0)>=(Number(existing.lastAt)||0)){
+      existing.query=incoming.query;existing.discoveryQuery=incoming.discoveryQuery;existing.category=incoming.category;existing.lastAt=incoming.lastAt;
+    }
+    byCluster.set(cluster,existing);
+  }
+  const merged=[...byCluster.values()].sort((a,b)=>(Number(b.weight)||0)-(Number(a.weight)||0)||(Number(b.lastAt)||0)-(Number(a.lastAt)||0)).slice(0,MAX_INTERESTS);
+  saveInterestProfile(merged);return merged;
+}
+async function appTasteSyncFromServer(force=false){
+  if(!marketplaceSession())return getInterestProfile();
+  if(appTasteSyncPromise&&!force)return appTasteSyncPromise;
+  if(!force&&appTasteLastSyncAt&&Date.now()-appTasteLastSyncAt<120000)return getInterestProfile();
+  appTasteSyncPromise=(async()=>{
+    const migrationKey=appTasteMigrationKey();let migrated=false;
+    try{migrated=localStorage.getItem(migrationKey)==='1'}catch(_){}
+    let data;
+    if(!migrated){
+      data=await marketplaceFetch('/taste/sync',{method:'POST',body:JSON.stringify({interests:getInterestProfile().slice(0,MAX_INTERESTS)})});
+      try{localStorage.setItem(migrationKey,'1')}catch(_){}
+    }else data=await marketplaceFetch('/taste/profile',{method:'GET'});
+    appTasteLastSyncAt=Date.now();
+    return mergeSharedTasteProfile(Array.isArray(data&&data.interests)?data.interests:[]);
+  })().catch(()=>getInterestProfile()).finally(()=>{appTasteSyncPromise=null});
+  return appTasteSyncPromise;
+}
+function appTasteEvent(query,event='search',customBoost=null){
+  if(!marketplaceSession())return;
+  const clean=String(query||'').trim();if(!clean)return;
+  marketplaceFetch('/taste/event',{method:'POST',body:JSON.stringify({query:clean,event:String(event||'search'),boost:Number.isFinite(customBoost)?customBoost:null})}).catch(()=>{});
+}
+function schedulePersonalisedLaneRebalance(event){
+  if(!feedState||feedState.source!=='personalised')return;
+  if(!['like','unlike','click','compare','dwell','quickSkip','track','tracker'].includes(String(event||'')))return;
+  clearTimeout(personalisedLaneRebalanceTimer);
+  personalisedLaneRebalanceTimer=setTimeout(()=>{
+    if(!feedState||feedState.source!=='personalised')return;
+    const existing=new Map((feedState.interests||[]).map(lane=>[lane.cluster,lane]));
+    const fresh=scoredInterests().map(newPersonalisedLane).map(lane=>{
+      const old=existing.get(lane.cluster);
+      return old?{...lane,page:old.page,cursor:old.cursor,hasMore:old.hasMore,noNewPages:old.noNewPages,variantIndex:old.variantIndex,query:old.query}:lane;
+    });
+    feedState.interests=fresh;feedState.laneCursor=0;
+  },120);
 }
 function recordInterest(query,event='search',customBoost=null){
   const clean=String(query||'').trim();
@@ -3093,6 +3279,8 @@ function recordInterest(query,event='search',customBoost=null){
   item.events[event]=(Number(item.events[event])||0)+1;
   profile.sort((a,b)=>(Number(b.weight)||0)-(Number(a.weight)||0) || (Number(b.lastAt)||0)-(Number(a.lastAt)||0));
   saveInterestProfile(profile);
+  appTasteEvent(clean,event,boost);
+  schedulePersonalisedLaneRebalance(event);
   if(event==='search'||event==='scan'||event==='tracker'){
     try{
       const history=JSON.parse(localStorage.getItem(INTEREST_HISTORY_KEY)||'[]');
@@ -3119,26 +3307,52 @@ function scoredInterests(limit=PERSONALISED_INTEREST_LIMIT){
     const score=(Number(item.weight)||1)*decay+Math.max(0,2-ageDays*.08);
     return {...item,score};
   }).filter(item=>item.score>.12).sort((a,b)=>b.score-a.score);
+  const discovery=featuredColdStart(1.1,'broad-cold-start');
+  if(!profile.length)return discovery.slice(0,limit);
 
-  /* Featured hyped products lead the feed by design. Even for a user WITH
-     interests, only the single strongest interest is allowed in; the rest of the
-     feed is exciting featured lanes. This stops a stray search (e.g. hair clips)
-     from filling the feed with boring items, while still personalising a little. */
-  const featured=featuredColdStart(1.1,'empty-cold-start');
-  if(!profile.length) return featured.slice(0,limit);
+  // New users stay broad; as meaningful behaviour accumulates, several strong
+  // interests progressively replace discovery lanes. One discovery lane always
+  // survives so Reels can still uncover a new shopping interest.
+  const strength=profile.slice(0,8).reduce((sum,item)=>sum+Math.min(20,Number(item.score)||0),0);
+  let personalTarget=1;
+  if(strength>=18)personalTarget=2;
+  if(strength>=45)personalTarget=Math.min(3,limit-1);
+  if(strength>=90)personalTarget=Math.max(1,limit-1);
 
-  const topInterest=profile[0];
-  const lanes=[topInterest];
-  for(const starter of featured){
-    if(lanes.length>=limit) break;
-    if(lanes.some(item=>item.category===starter.category)) continue;
-    lanes.push(starter);
+  const personal=[];const categoryCounts=new Map();
+  for(const interest of profile){
+    if(personal.length>=personalTarget)break;
+    const category=interest.category||interestCategory(interest.query);
+    const count=Number(categoryCounts.get(category)||0);
+    if(count>=2)continue; // preserve taste breadth without banning two strong sneaker/LEGO interests
+    personal.push(interest);categoryCounts.set(category,count+1);
   }
+  const discoverySelected=[];
+  for(const starter of discovery){
+    if(discoverySelected.length>=Math.max(0,limit-personal.length))break;
+    if(personal.some(item=>item.cluster===starter.cluster)||discoverySelected.some(item=>item.cluster===starter.cluster))continue;
+    if(personal.some(item=>item.category===starter.category)||discoverySelected.some(item=>item.category===starter.category))continue;
+    discoverySelected.push(starter);
+  }
+  // Preserve the intended maturity ratio while distributing discovery through
+  // the opening sequence instead of putting all personal or all generic lanes first.
+  if(!personal.length)return discoverySelected.slice(0,limit);
+  if(personal.length===1){return [discoverySelected[0],personal[0],...discoverySelected.slice(1)].filter(Boolean).slice(0,limit);}
+  if(personal.length===2){return [personal[0],discoverySelected[0],personal[1],...discoverySelected.slice(1)].filter(Boolean).slice(0,limit);}
+  if(discoverySelected.length===1&&personal.length>=3){return [...personal.slice(0,2),discoverySelected[0],...personal.slice(2)].filter(Boolean).slice(0,limit);}
+  const lanes=[];
+  const discoveryGap=Math.max(1,Math.ceil(personal.length/Math.max(1,discoverySelected.length)));
+  let di=0;
+  personal.forEach((item,index)=>{
+    lanes.push(item);
+    if(di<discoverySelected.length&&((index+1)%discoveryGap===0||index===personal.length-1))lanes.push(discoverySelected[di++]);
+  });
+  while(di<discoverySelected.length)lanes.push(discoverySelected[di++]);
   return lanes.slice(0,limit);
 }
 function interestQueryVariants(interest){
   const category=interest.category||interestCategory(interest.query);
-  // Featured lanes stay tightly on their hyped product — no broad category
+  // Featured discovery lanes stay tightly on their selected product — no broad category
   // variants (which pulled in generic junk like hair clips under "fashion
   // accessories"). Only real user interests get the exploratory widening.
   if(interest.featured){
@@ -3483,6 +3697,12 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
   feedRequestController=new AbortController();
   go('search');
   $('#q').value='';
+  // Give the shared account taste profile a very small head start. If the network
+  // is slow, Reels still paints from the local cache immediately and the remote
+  // profile is merged quietly for the next batch/session.
+  if(marketplaceSession()){
+    try{await Promise.race([appTasteSyncFromServer(false),new Promise(resolve=>setTimeout(resolve,450))]);}catch(_){}
+  }
   const lanes=scoredInterests().map(newPersonalisedLane);
   restorePersistentPersonalisedLaneState(lanes);
   const cacheSignature=personalisedProfileSignature(lanes);
@@ -3633,7 +3853,7 @@ async function loadMorePersonalisedListings(){
   }
   /* If every lane is exhausted but we still have request budget, keep the feed
      alive (Instagram/TikTok never dead-end): recycle the strongest lanes back to
-     page 1, and fold in fresh featured lanes so new hyped items keep appearing.
+     page 1, and fold in fresh discovery lanes so new shopping areas keep appearing.
      personalisedSeenInfo demotion + the seen-set stop the same items repeating. */
   if(!chosen.length){
     const featuredLanes=featuredColdStart(0.6,'infinite-topup-'+getPersonalisedRequestCount()).map(newPersonalisedLane);
@@ -3796,8 +4016,15 @@ function renderLoading(query='',source=''){
     : `<div class="reel-loading-splash search-status-loading" aria-label="Searching products"><div class="reel-loading-word">FindAI</div><div class="search-loading-copy" id="appSearchLoadingCopy">Searching for “${escapeHTML(subject)}”</div></div>`;
   $('#reelDots').innerHTML='';
   if(!personalised){
-    appSearchLoadingTimers.push(setTimeout(()=>setAppSearchLoadingText('Comparing live prices and shipping'),720));
-    appSearchLoadingTimers.push(setTimeout(()=>setAppSearchLoadingText('Finding the best matches'),1550));
+    const minute=Math.floor(Date.now()/60000),stages=[
+      ['Checking live marketplace listings','Searching the main marketplaces and specialist sources','Pulling live listings from across the market'],
+      ['Filtering duplicates and weak matches','Removing obvious mismatches before I rank anything','Cleaning up the results so I do not show you junk'],
+      ['Comparing prices and shipping','Checking price + delivery across the strongest matches','Ranking the strongest results after price and shipping']
+    ];
+    const pick=(arr,salt)=>{let h=2166136261;String(query+minute+salt).split('').forEach(ch=>{h^=ch.charCodeAt(0);h=Math.imul(h,16777619)});return arr[Math.abs(h)%arr.length];};
+    appSearchLoadingTimers.push(setTimeout(()=>setAppSearchLoadingText(pick(stages[0],'a')),620));
+    appSearchLoadingTimers.push(setTimeout(()=>setAppSearchLoadingText(pick(stages[1],'b')),1320));
+    appSearchLoadingTimers.push(setTimeout(()=>setAppSearchLoadingText(pick(stages[2],'c')),2050));
   }
 }
 
@@ -4014,43 +4241,32 @@ function extractPagination(data,rawCount,limit){
 }
 
 async function fetchProductResults(query,{
-  page=1,cursor=null,limit=FEED_BATCH_SIZE,preserveExact=false,skipResolve=false,signal=null
+  page=1,cursor=null,limit=FEED_BATCH_SIZE,preserveExact=false,skipResolve=false,signal=null,useTracker=false
 }={}){
   let resolvedQuery=String(query || '').trim();
-  if(page===1 && !preserveExact && !skipResolve){
+  // The general shopping endpoint already understands natural commands and does
+  // exact LEGO/product resolution itself. Only tracker mode needs the extra
+  // canonical resolver because it is building a stable product time-series.
+  if(useTracker && page===1 && !preserveExact && !skipResolve){
     try{
       const resolveResponse=await fetch(WORKER+'/resolve-product',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({query:resolvedQuery}),
-        signal
+        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:resolvedQuery}),signal
       });
       if(resolveResponse.ok){
         const resolvedData=await resolveResponse.json();
         const candidate=String(resolvedData && resolvedData.resolved && resolvedData.trackerQuery || '').trim();
         if(candidate && shouldAcceptResolvedQuery(resolvedQuery,candidate)) resolvedQuery=candidate;
       }
-    }catch(error){
-      if(error && error.name==='AbortError') throw error;
-    }
+    }catch(error){if(error&&error.name==='AbortError')throw error;}
   }
 
-  const payload={
-    query:resolvedQuery,
-    page,
-    limit,
-    offset:Math.max(0,(page-1)*limit)
-  };
-  if(cursor) payload.cursor=cursor;
-  const response=await fetch(WORKER+'/tracker/search',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify(payload),
-    signal
-  });
-  if(!response.ok) throw new Error('Search failed');
+  const payload={query:resolvedQuery,page,limit,offset:Math.max(0,(page-1)*limit)};
+  if(cursor)payload.cursor=cursor;
+  const endpoint=useTracker?'/tracker/search':'/search';
+  const response=await fetch(WORKER+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal});
+  if(!response.ok)throw new Error('Search failed');
   const data=await response.json();
-  const raw=Array.isArray(data && data.listings) ? data.listings : [];
+  const raw=Array.isArray(data && data.listings)?data.listings:[];
   const pagination=extractPagination(data,raw.length,limit);
   return {data,resolvedQuery,...pagination};
 }
@@ -4095,6 +4311,8 @@ async function searchListings(query,{showToast=false,source='search',preserveExa
     feedState.cursor=result.nextCursor;
     feedState.hasMore=result.hasMore;
     currentFeedData=result.data;
+    const liveCount=Number(result.data&&result.data.searchNarrative&&result.data.searchNarrative.marketCount)||Number(result.data&&result.data.stats&&result.data.stats.count)||0;
+    if(liveCount)setAppSearchLoadingText(`${liveCount.toLocaleString()} live marketplace match${liveCount===1?'':'es'} surfaced — ranking the strongest`);
     renderFeed(result.data,feedState.resolvedQuery);
   }catch(error){
     if(error && error.name==='AbortError') return;
@@ -4188,14 +4406,38 @@ function renderSearchGridCard(item,index,data){
   const title=String(item.title||(data&&data.productDetails&&data.productDetails.name)||'Product listing'),image=getImage(item)||getImage(data&&data.productDetails),source=getSource(item),condition=conditionText(item),country=appListingCountry(item),shipping=getShippingText(item);
   return `<article class="search-grid-card" data-grid-index="${index}" onclick="openSearchResultDetail(${index})" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSearchResultDetail(${index})}"><div class="search-grid-image-wrap">${image?`<img class="search-grid-image" src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="${index<6?'eager':'lazy'}" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:'<div class="search-grid-image-empty">Image unavailable</div>'}${condition?`<span class="search-grid-condition">${escapeHTML(condition)}</span>`:''}</div><div class="search-grid-body"><div class="search-grid-source">${sourceMarkup(source)}</div><div class="search-grid-title">${escapeHTML(title)}</div><div class="search-grid-price">${escapeHTML(money(item.price,currencyOf(item,data)))}</div><div class="search-grid-meta">${country?`<span>${escapeHTML(country)}</span>`:''}<span class="shipping">${escapeHTML(shipping)}</span></div></div></article>`;
 }
+
+function appSearchFeaturedIndex(items,data){
+  const list=Array.isArray(items)?items:[];if(!list.length)return -1;
+  const intent=data&&data.shoppingIntent||{};
+  const total=it=>{const p=Number(it&&it.price);if(!(p>0))return Infinity;const s=Number(it&&it.shippingCost);return p+(Number.isFinite(s)&&s>0?s:0);};
+  if(intent.sort==='price_asc'){let best=0;for(let i=1;i<list.length;i++)if(total(list[i])<total(list[best]))best=i;return best;}
+  if(intent.sort==='price_desc'){let best=0;for(let i=1;i<list.length;i++)if(total(list[i])>total(list[best]))best=i;return best;}
+  const idx=list.findIndex(it=>getImage(it)&&Number(it&&it.price)>0);return idx>=0?idx:0;
+}
+function appFallbackSearchNarrative(items,data,query){
+  const count=items.length,n=data&&data.searchNarrative||{},subject=appSearchStatusSubject(query);
+  if(n&&n.headline)return n;
+  const featured=items[appSearchFeaturedIndex(items,data)],price=featured&&Number(featured.price)>0?money(featured.price,currencyOf(featured,data)):'';
+  return {headline:`I've found ${count} strong ${subject} listing${count===1?'':'s'} for you.`,explanation:price?`I've put one of the stronger live listings below so you have a quick ${price} reference.`:'I filtered the obvious weak matches before ranking these.',workLine:'I checked the live market, filtered weak matches and compared price + shipping before ranking these.'};
+}
+function renderAppSearchAnswer(items,data,query){
+  if(!items.length)return '';
+  const n=appFallbackSearchNarrative(items,data,query),idx=appSearchFeaturedIndex(items,data),item=items[idx]||items[0];
+  const image=getImage(item),title=String(item.title||'Live listing'),source=getSource(item),country=appListingCountry(item),shipping=getShippingText(item),price=Number(item.price)>0?money(item.price,currencyOf(item,data)):'';
+  return `<section class="app-search-answer"><div class="app-search-answer-copy"><h2>${escapeHTML(n.headline||'Here is what I found.')}</h2><p>${escapeHTML(n.explanation||'')}</p>${n.workLine?`<div class="app-search-work">${escapeHTML(n.workLine)}</div>`:''}</div><button type="button" class="app-search-evidence" onclick="openSearchResultDetail(${idx})">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="eager" referrerpolicy="no-referrer">`:'<span class="app-search-evidence-ph">Image unavailable</span>'}<span class="app-search-evidence-copy"><span class="app-search-evidence-source">${sourceMarkup(source)}</span><span class="app-search-evidence-title">${escapeHTML(title)}</span>${price?`<span class="app-search-evidence-price">${escapeHTML(price)}</span>`:''}<span class="app-search-evidence-meta">${country?escapeHTML(country)+' · ':''}${escapeHTML(shipping)}</span></span></button></section><div class="app-search-results-label">Other matching listings</div>`;
+}
+
 function renderSearchGridPages(items,data){
   const list=Array.isArray(items)?items:[];
+  const featuredIndex=appSearchFeaturedIndex(list,data);
+  const rest=list.map((item,index)=>({item,index})).filter(entry=>entry.index!==featuredIndex);
   const pages=[];
-  for(let start=0;start<list.length;start+=4){
-    const cards=list.slice(start,start+4).map((item,offset)=>renderSearchGridCard(item,start+offset,data)).join('');
-    pages.push(`<section class="search-grid-page" data-search-page="${Math.floor(start/4)}" aria-label="Search results ${start+1} to ${Math.min(start+4,list.length)}">${cards}</section>`);
+  for(let start=0;start<rest.length;start+=4){
+    const cards=rest.slice(start,start+4).map(entry=>renderSearchGridCard(entry.item,entry.index,data)).join('');
+    pages.push(`<section class="search-grid-page" data-search-page="${Math.floor(start/4)}" aria-label="Search results ${start+1} to ${Math.min(start+4,rest.length)}">${cards}</section>`);
   }
-  return pages.join('');
+  return renderAppSearchAnswer(list,data,feedState.query||'')+pages.join('');
 }
 function renderSearchDetailCard(item,index){
   const title=String(item.title||'Product listing'),image=getImage(item),source=getSource(item),country=appListingCountry(item),shipping=getShippingText(item),condition=conditionText(item);
@@ -4564,7 +4806,7 @@ async function toggleLike(index,event){
     button.setAttribute('aria-label',nowLiked?'Unlike this listing':'Like this listing');
     if(nowLiked){
       button.classList.remove('just-liked');void button.offsetWidth;button.classList.add('just-liked');
-      setTimeout(()=>button.classList.remove('just-liked'),460);
+      setTimeout(()=>button.classList.remove('just-liked'),580);
     }
   });
 }
@@ -5455,7 +5697,7 @@ async function lookupTrackerProduct(query){
   go('tracker');
   $('#trackerDetail').innerHTML=`<div class="tracker-loading"><div class="tracker-spinner"></div><b>Checking live prices for ${escapeHTML(appSearchStatusSubject(query))}</b><span>Comparing current listings and shipping…</span></div>`;
   try{
-    const {data,resolvedQuery}=await fetchProductResults(query);
+    const {data,resolvedQuery}=await fetchProductResults(query,{useTracker:true});
     const listings=(data && Array.isArray(data.listings)?data.listings:[]).filter(x=>Number(x.price)>0).sort((a,b)=>Number(a.price)-Number(b.price));
     if(!listings.length) throw new Error('No prices');
     const best=listings[0];
@@ -5606,7 +5848,7 @@ async function refreshActiveTracker(){
   if(item.demo){ lookupTrackerProduct(item.query); return; }
   
   try{
-    const {data}=await fetchProductResults(item.query || item.title);
+    const {data}=await fetchProductResults(item.query || item.title,{useTracker:true});
     const listings=(data && data.listings || []).filter(x=>Number(x.price)>0).sort((a,b)=>Number(a.price)-Number(b.price));
     if(!listings.length) throw new Error('No price');
     const best=listings[0];
@@ -5641,7 +5883,7 @@ async function refreshTrackedBatch(items){
   
   for(let i=0;i<items.length;i++){
     try{
-      const {data}=await fetchProductResults(items[i].query || items[i].title);
+      const {data}=await fetchProductResults(items[i].query || items[i].title,{useTracker:true});
       const listings=(data && data.listings || []).filter(x=>Number(x.price)>0).sort((a,b)=>Number(a.price)-Number(b.price));
       if(listings.length){
         const best=listings[0];
@@ -5810,6 +6052,7 @@ function applyFindaiUser(data,provider){
   if(typeof closeLogin==='function') closeLogin();
   setTimeout(appStartMarketplaceSync,0);
   if(typeof appSavedSyncFromServer==='function') setTimeout(()=>appSavedSyncFromServer(false).catch(()=>{}),0);
+  if(typeof appTasteSyncFromServer==='function') setTimeout(()=>appTasteSyncFromServer(true).catch(()=>{}),30);
   if(typeof appGetProStatus==='function') setTimeout(()=>appGetProStatus(true).catch(()=>{}),0);
   
 }
