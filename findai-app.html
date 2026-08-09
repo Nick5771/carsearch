@@ -2204,8 +2204,9 @@ const MAX_INTERESTS = 30;
 const PERSONALISED_INTEREST_LIMIT = 5;
 const PERSONALISED_LANE_LIMIT = 8;
 const PERSONALISED_LOAD_MORE_LANES = 2;
-const PERSONALISED_CACHE_KEY = 'fa_personalised_feed_cache_v7';
+const PERSONALISED_CACHE_KEY = 'fa_personalised_feed_cache_v8';
 const PERSONALISED_CACHE_TTL = 10 * 60 * 1000;
+const PERSONALISED_CACHE_STALE_TTL = 24 * 60 * 60 * 1000;
 const PERSONALISED_REQUEST_BUDGET_KEY = 'fa_personalised_request_count_v1';
 const PERSONALISED_SESSION_REQUEST_BUDGET = 5000;
 const PERSONALISED_SEEN_KEY = 'fa_personalised_seen_v1';
@@ -3237,9 +3238,16 @@ function consumePersonalisedRequestBudget(){
 }
 function readPersonalisedCache(signature){
   try{
-    const cached=JSON.parse(sessionStorage.getItem(PERSONALISED_CACHE_KEY)||'null');
-    if(!cached||cached.signature!==signature||Date.now()-Number(cached.savedAt)>PERSONALISED_CACHE_TTL) return null;
+    let raw=localStorage.getItem(PERSONALISED_CACHE_KEY);
+    if(!raw){
+      // One-release migration path from the old session-only cache.
+      try{raw=sessionStorage.getItem('fa_personalised_feed_cache_v7');}catch(_){}
+    }
+    const cached=JSON.parse(raw||'null');
+    const age=Date.now()-Number(cached&&cached.savedAt||0);
+    if(!cached||cached.signature!==signature||age>PERSONALISED_CACHE_STALE_TTL) return null;
     if(!Array.isArray(cached.items)||!cached.items.length) return null;
+    cached.stale=age>PERSONALISED_CACHE_TTL;
     return cached;
   }catch(_){ return null; }
 }
@@ -3263,7 +3271,7 @@ function writePersonalisedCache(){
       cluster:lane.cluster,query:lane.query,variantIndex:lane.variantIndex,page:lane.page,
       cursor:lane.cursor||null,hasMore:lane.hasMore!==false,noNewPages:lane.noNewPages||0
     }));
-    sessionStorage.setItem(PERSONALISED_CACHE_KEY,JSON.stringify({
+    localStorage.setItem(PERSONALISED_CACHE_KEY,JSON.stringify({
       savedAt:Date.now(),signature:feedState.cacheSignature||'',
       items:currentFeedItems.slice(0,60),lanes
     }));
@@ -3495,24 +3503,64 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
   
   try{
     markPersonalisedRefreshNow();
-    /* Fetch the recommendation lanes in parallel, then sequence them as ONE reel.
-       Rendering each lane as it arrived created blocks such as 5 Pokemon then
-       5 PS5 listings. Waiting for this small parallel batch keeps the opening reel
-       varied without ever rebuilding it underneath a user who has started scrolling. */
-    const settled=await Promise.allSettled(lanes.map(fetchPersonalisedLane));
-    if(feedState.source!=='personalised') return;
-    const laneResults=settled.filter(result=>result.status==='fulfilled'&&result.value&&result.value.items&&result.value.items.length).map(result=>result.value);
-    const mixed=sequencePersonalisedBatch(interleavePersonalised(laneResults,48),[],48);
-    if(mixed.length){
-      renderPersonalisedFeed(mixed);
-    }else{
-      $('#feed').innerHTML='<div class="feed-status"><div><b>Couldn\'t build your feed</b>Check your connection and try again.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
+    /* Cold start: launch every lane together, but do NOT wait for the slowest one.
+       The first useful lane gets a short grace period for a second category so the
+       opening reel is both fast and varied. Remaining lanes append underneath the
+       visible cards without rebuilding or moving the user's current position. */
+    const lanePromises=lanes.map((lane,index)=>fetchPersonalisedLane(lane)
+      .then(value=>({index,value}))
+      .catch(error=>({index,error})));
+    const pending=new Set(lanes.map((_,index)=>index));
+    const early=[];
+    const takeNext=async function(timeoutMs){
+      if(!pending.size)return null;
+      const racers=Array.from(pending).map(index=>lanePromises[index]);
+      if(timeoutMs>0)racers.push(new Promise(resolve=>setTimeout(()=>resolve({timeout:true}),timeoutMs)));
+      const next=await Promise.race(racers);
+      if(next&&next.timeout)return next;
+      if(next&&Number.isInteger(next.index))pending.delete(next.index);
+      return next;
+    };
+    // Wait only until we have the first real recommendation. Errors are skipped.
+    while(pending.size&&!early.length){
+      const next=await takeNext(0);
+      if(next&&next.value&&next.value.items&&next.value.items.length)early.push(next.value);
     }
+    // Once something useful is ready, allow only 450ms for a second category.
+    const graceEnds=Date.now()+450;
+    while(pending.size&&early.length<2&&Date.now()<graceEnds){
+      const next=await takeNext(Math.max(1,graceEnds-Date.now()));
+      if(next&&next.timeout)break;
+      if(next&&next.value&&next.value.items&&next.value.items.length)early.push(next.value);
+    }
+    if(feedState.source!=='personalised')return;
+    if(!early.length){
+      $('#feed').innerHTML='<div class="feed-status"><div><b>Couldn\'t build your feed</b>Check your connection and try again.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
+      feedState.loading=false;return;
+    }
+    const earlyMixed=sequencePersonalisedBatch(interleavePersonalised(early,24),[],24);
+    // If only one category won the race, show just two cards until another lane
+    // arrives instead of presenting a long block of one product family.
+    const firstPaint=early.length===1?earlyMixed.slice(0,2):earlyMixed.slice(0,12);
+    const deferredEarly=earlyMixed.slice(firstPaint.length);
+    renderPersonalisedFeed(firstPaint);
+    feedState.loading=false;
+
+    // Finish the remaining requests quietly. This intentionally isn't awaited, so
+    // the first reel is already interactive while slower marketplaces finish.
+    (async function(){
+      const rest=await Promise.all(Array.from(pending).map(index=>lanePromises[index]));
+      if(feedState.source!=='personalised')return;
+      const restLanes=rest.filter(entry=>entry&&entry.value&&entry.value.items&&entry.value.items.length).map(entry=>entry.value);
+      const incoming=deferredEarly.concat(interleavePersonalised(restLanes,44));
+      const fresh=sequencePersonalisedBatch(incoming,currentFeedItems,44);
+      if(fresh.length){appendFeedItems(fresh,currentFeedData);writePersonalisedCache();}
+      else writePersonalisedCache();
+    })().catch(()=>{});
   }catch(error){
     if(error&&error.name==='AbortError') return;
     $('#feed').innerHTML='<div class="feed-status"><div><b>Couldn\'t build your feed</b>Check your connection and try again.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
-  }finally{
-    if(feedState.source==='personalised') feedState.loading=false;
+    if(feedState.source==='personalised')feedState.loading=false;
   }
 }
 function schedulePersonalisedBackgroundRefresh(cacheSavedAt=0){
