@@ -3025,6 +3025,7 @@ function dealSourceHtml(item){
   if(source.indexOf('etsy')>=0)return etsyWordmark();
   if(source.indexOf('discogs')>=0)return discogsWordmark();
   if(source.indexOf('ali')>=0)return '<span style="font-size:12px;font-weight:800;color:#ff4747">AliExpress</span>';
+  if(item&&item._webDiscovery)return `<span style="font-size:12px;font-weight:800;color:#f3f4f6;font-family:'DM Sans',sans-serif">${escapeHtml(item.retailer||item.source||'Retailer')}</span>`;
   return ebayLogoHtml();
 }
 function dealButtonLabel(item){
@@ -3321,14 +3322,15 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
     var isym=(item.currency&&CURSYM[item.currency])?CURSYM[item.currency]:sym;
     const price=cardPriceText(item,c,isym);
     const isAli=item.source==='AliExpress';
+    const isWeb=!!item._webDiscovery;
     const isFindAI=isFindAIListing(item);
     const srcBadge=isFindAI?`<span class="findai-market-badge">Find<span class="findai-market-ai">AI</span></span>`:(isAli
       ?`<span style="font-size:11px;font-weight:800;color:#ff4747;font-family:'DM Sans',sans-serif">AliExpress</span>`
-      :ebayLogoHtml());
+      :(isWeb?`<span style="font-size:11px;font-weight:800;color:#f3f4f6;font-family:'DM Sans',sans-serif">${escapeHtml(item.retailer||item.source||'Retailer')}</span>`:ebayLogoHtml()));
     const _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
     const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
     const _hasOffer=Array.isArray(item.buyingOptions)&&item.buyingOptions.indexOf('BEST_OFFER')!==-1;
-    const _btns=cardButtonsHtml(item.url, _hasOffer, item.itemId, isAli, item.image);
+    const _btns=cardButtonsHtml(item.url, _hasOffer, item.itemId, isAli||isWeb, item.image);
     const _savedItem={title:item.title,image:item.image,price:item.price,url:item.url,itemId:item.itemId,marketplaceListingId:item.marketplaceListingId,_findaiMarketplace:item._findaiMarketplace,source:item.source,currency:item.currency,shippingCost:item.shippingCost,shipping:item.shipping,location:item.location,country:item.country||c,searchQ:label};
     return `<div class="chat-card" data-q="${escapeHtml(label||'')}" data-item="${escapeHtml(JSON.stringify(_savedItem))}">${findaiSavedHeartHtml(_savedItem)}<a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">${imgSrc?`<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" onerror="this.parentNode.querySelector('.chat-card-ph')&&(this.style.display='none')">`:`<div class="chat-card-ph">🛍️</div>`}<div class="chat-card-body"><div style="margin-bottom:5px">${srcBadge}</div><div class="chat-card-title">${item.title||''}</div><div class="chat-card-price">${price}</div>${cardListingMeta(item,c)}</div></a><div style="padding:0 12px 12px">${_btns}</div></div>`;
   }).join('');
@@ -3532,7 +3534,7 @@ function showMoreCards(sid){
     const _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
     const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
     const _hasOffer=Array.isArray(item.buyingOptions)&&item.buyingOptions.indexOf('BEST_OFFER')!==-1;
-    const _btns=cardButtonsHtml(item.url, _hasOffer, item.itemId, isAli, item.image);
+    const _btns=cardButtonsHtml(item.url, _hasOffer, item.itemId, isAli||isWeb, item.image);
     const card=document.createElement('div');
     card.className='chat-card';
     card.setAttribute('data-q', state.query||'');
@@ -5638,6 +5640,7 @@ window.addEventListener('load', initGoogleAuth);
     const source=String(item&&item.source||'');
     if(isFindAIListing(item)) return `<span class="findai-market-badge">Find<span class="findai-market-ai">AI</span></span>`;
     if(source==='AliExpress') return `<span class="ali-logo" style="font-weight:800;color:#ff4747;font-family:'DM Sans',sans-serif">AliExpress</span>`;
+    if(item&&item._webDiscovery) return `<span style="font-weight:800;color:#f3f4f6;font-family:'DM Sans',sans-serif;font-size:11px">${escapeHtml(item.retailer||source||'Retailer')}</span>`;
     return `<span class="ebay-logo" style="font-family:Arial,sans-serif;font-weight:900;letter-spacing:-0.3px"><span style="color:#E53238">e</span><span style="color:#0064D2">b</span><span style="color:#F5AF02">a</span><span style="color:#86B817">y</span></span>`;
   }
 
