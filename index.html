@@ -227,11 +227,11 @@ body.findai-signed-in #sidebar-categories-label{margin-top:8px!important}
 .stockx-card .chat-card-body{padding:10px 12px}
 .discogs-card .chat-card-body{padding:10px 12px}
 .chat-card:hover{border-color:#444;transform:translateY(-2px)}
-.chat-card-img{width:100%;height:160px;object-fit:cover;display:block;background:#1a1a1a}
-.chat-card-ph{width:100%;height:160px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:32px}
+.chat-card-img{width:100%;height:176px;object-fit:cover;display:block;background:#1a1a1a}
+.chat-card-ph{width:100%;height:176px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:32px}
 .chat-card-body{padding:10px 12px;flex:1;display:flex;flex-direction:column}
 .chat-card-title{font-size:12px;color:#ddd;margin-bottom:6px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.8em}
-.chat-card-price{font-size:17px;font-weight:800;color:#fff;letter-spacing:-0.3px}
+.chat-card-price{font-size:20px;font-weight:800;color:#fff;letter-spacing:-0.4px}
 .chat-card-loc{font-size:10px;color:#999;margin-top:3px}
 .card-btns{display:flex;gap:4px;margin-top:8px}
 .card-btn{flex:1;background:#fff;color:#1c1c1c;border:none;border-radius:7px;padding:7px 2px;font-size:11px;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:3px;white-space:nowrap;text-decoration:none;transition:opacity .15s}
@@ -2644,7 +2644,9 @@ const REFINE_TOKENS=new Set([
   'violet','magenta','pink','rose','black','white','cream','beige','tan','khaki',
   'brown','grey','gray','gold','silver','bronze','maroon',
   'only','just','please','show','me','the','a','an','some','any','more','ones','one',
-  'version','edition','instead','now','make','it','that','these','those','them','with','without','no'
+  'version','edition','instead','now','make','it','that','these','those','them','with','without','no',
+  'free','shipping','delivery','postage','returns','return','ebay','stockx','etsy','discogs','aliexpress',
+  'auction','auctions','offer','offers','negotiable','refurbished','refurb','preowned','pre-owned','disc','digital'
 ]);
 // True when the message is a refinement of the last search (e.g. "brand new", "red ones",
 // "under $50") rather than a new product search — so we stitch it onto the previous query.
@@ -2786,27 +2788,77 @@ function typeReply(bodyEl,replyText,cardsHtml){
   revealSearchSlot(slot,replyLines.length?90+replyLines.length*115:45);
 }
 
+function normalizeFindAIProductQuery(value){
+  let q=String(value||'').replace(/[’]/g,"'");
+  q=q.replace(/\bplay\s*station\s*5\b/gi,'playstation 5');
+  q=q.replace(/\bps\s*5\s+pro\b/gi,'playstation 5 pro console');
+  q=q.replace(/\bps\s*5\s+slim\s+(?:disc|disk)\b/gi,'playstation 5 slim disc console');
+  q=q.replace(/\bps\s*5\s+(?:digital|digital\s+edition)\b/gi,'playstation 5 digital console');
+  q=q.replace(/\bps\s*5\b/gi,'playstation 5 console').replace(/\bps\s*4\b/gi,'playstation 4 console');
+  q=q.replace(/\baf\s*1s?\b/gi,'nike air force 1').replace(/\baj\s*1s?\b/gi,'air jordan 1');
+  q=q.replace(/\bmbp\b/gi,'macbook pro').replace(/\baw\s+ultra\b/gi,'apple watch ultra');
+  q=q.replace(/\bairpod\s+pros?\b/gi,'airpods pro').replace(/\bairpods\s+pros\b/gi,'airpods pro');
+  return q.replace(/\s+/g,' ').trim();
+}
 function parseQuery(text){
-  const lower=text.toLowerCase();
-  let cleaned=lower
-    .replace(/^(show me|find me|search for|look for|i want|get me|can you find|find|show|search)\s+/i,'')
-    .replace(/\b(a|an|the|some|any)\s+/gi,' ').replace(/\bfor sale\b/gi,'').replace(/\s+/g,' ').trim();
-  let maxPrice='';
-  const pm=cleaned.match(/(?:under|below|max|less than|for less than|up to|no more than|for)\s*\$?\s*([0-9,.]+)\s*(k|m|thousand|dollars|dollar|usd|aud)?/i);
-  if(pm){
-    let p=parseFloat(pm[1].replace(/,/g,''));
-    const unit=(pm[2]||'').toLowerCase();
-    if(unit==='k')p*=1000; if(unit==='m')p*=1000000;
-    maxPrice=Math.round(p);
-    cleaned=cleaned.replace(/(?:under|below|max|less than|for less than|up to|no more than|for)\s*\$?\s*[0-9,.]+\s*(k|m|thousand|dollars|dollar|usd|aud)?/i,'');
-  }
-  cleaned=cleaned.replace(/\b(dollars|dollar|usd|aud|less|than)\b/gi,'').replace(/\s+/g,' ').trim();
-  let c=country;
-  if(lower.match(/\b(australia|australian|aus|in au)\b/))c='AU';
-  else if(lower.match(/\b(united states|america|american|in us|in the us|from us|from the us|usa)\b/))c='US';
-  else if(lower.match(/\b(united kingdom|england|english|in uk|in the uk|from uk|britain|british)\b/))c='UK';
-  else if(lower.match(/\b(germany|german|deutschland|in germany)\b/))c='DE';
-  return{q:cleaned,maxPrice,country:c};
+  const original=String(text||'').trim();
+  const lower=original.toLowerCase();
+  let cleaned=' '+lower+' ';
+  let c=country,source='';
+  const take=(re,val,kind)=>{if(re.test(cleaned)){cleaned=cleaned.replace(re,' ');if(kind==='c')c=val;if(kind==='s'&&!source)source=val;}};
+  take(/\b(?:in|from|to|for)?\s*(?:australia|australian)\b/gi,'AU','c');
+  take(/\b(?:in|from|to|for)\s+(?:the\s+)?(?:us|usa|united\s+states|america)\b/gi,'US','c');
+  take(/\b(?:in|from|to|for)\s+(?:the\s+)?(?:uk|united\s+kingdom|britain|england)\b/gi,'UK','c');
+  take(/\b(?:in|from|to|for)?\s*(?:germany|deutschland)\b/gi,'DE','c');
+  take(/\b(?:on|from|via|at|off)?\s*ebay(?:\s+only)?\b/gi,'ebay','s');
+  take(/\b(?:on|from|via|at|off)?\s*stockx(?:\s+only)?\b/gi,'stockx','s');
+  take(/\b(?:on|from|via|at|off)?\s*etsy(?:\s+only)?\b/gi,'etsy','s');
+  take(/\b(?:on|from|via|at|off)?\s*discogs(?:\s+only)?\b/gi,'discogs','s');
+  take(/\b(?:on|from|via|at|off)?\s*ali\s*express(?:\s+only)?\b/gi,'ali','s');
+  let maxPrice='',minPrice='',maxShipping='',freeShipping=/\bfree\s+(?:shipping|delivery|postage)\b/i.test(original);
+  const amount='(?:A\\$|AU\\$|US\\$|C\\$|NZ\\$|HK\\$|S\\$|\\$|£|€)?\\s*([0-9][0-9,.]*)(?:\\s*(k|m|thousand|million))?';
+  const money=(m,u)=>{let n=parseFloat(String(m||'').replace(/,/g,''));u=String(u||'').toLowerCase();if(u==='k'||u==='thousand')n*=1000;if(u==='m'||u==='million')n*=1000000;return Number.isFinite(n)?Math.round(n):'';};
+  const budgetText=original.replace(/(?:shipping|delivery|postage)\s+(?:under|below|less\s+than|max(?:imum)?|up\s+to)\s*(?:A\$|AU\$|US\$|C\$|NZ\$|HK\$|S\$|\$|£|€)?\s*[0-9][0-9,.]*(?:\s*(?:k|m|thousand|million))?/ig,' ');
+  let pm=budgetText.match(new RegExp('\\bbetween\\s+'+amount+'\\s+(?:and|to)\\s+'+amount,'i'));
+  if(pm){const a=money(pm[1],pm[2]),b=money(pm[3],pm[4]);if(a&&b){minPrice=Math.min(a,b);maxPrice=Math.max(a,b);}}
+  if(!maxPrice){pm=budgetText.match(new RegExp('(?:\\bunder\\b|\\bbelow\\b|\\bless\\s+than\\b|\\bfor\\s+less\\s+than\\b|\\bup\\s+to\\b|\\bno\\s+more\\s+than\\b|\\bmax(?:imum)?\\b|\\bbudget(?:\\s+is|\\s+of)?\\b)\\s*'+amount,'i'));if(pm)maxPrice=money(pm[1],pm[2]);}
+  if(!minPrice){pm=budgetText.match(new RegExp('(?:\\bover\\b|\\babove\\b|\\bat\\s+least\\b|\\bminimum\\b|\\bmin\\b)\\s*'+amount,'i'));if(pm)minPrice=money(pm[1],pm[2]);}
+  pm=original.match(new RegExp('(?:shipping|delivery|postage)\\s+(?:under|below|less\\s+than|max(?:imum)?|up\\s+to)\\s*'+amount,'i'));if(pm)maxShipping=money(pm[1],pm[2]);
+  let condition='';
+  if(/\b(?:brand\s+new|new\s+only|sealed\s+only|factory\s+sealed|unopened|bnib|nib)\b/i.test(original))condition='new';
+  else if(/\b(?:used\s+only|pre[-\s]?owned\s+only|second[-\s]?hand\s+only)\b/i.test(original))condition='used';
+  else if(/\b(?:refurbished\s+only|refurb\s+only|renewed\s+only)\b/i.test(original))condition='refurbished';
+  else if(/\b(?:used|pre[-\s]?owned|second[-\s]?hand)\b/i.test(original))condition='used';
+  else if(/\b(?:refurbished|refurb|renewed)\b/i.test(original))condition='refurbished';
+  else if(/\b(?:new|brand\s+new|sealed)\b/i.test(original)&&!/\bnew\s+balance\b/i.test(original))condition='new';
+  let sort='';
+  if(/\b(?:cheap|cheaper|cheapest|chepest|cheepest|chep|cheep|lowest\s+(?:price|cost)|least\s+expensive|best\s+price|budget|affordable|bargain)\b/i.test(original))sort='price_asc';
+  else if(/\b(?:most\s+expensive|highest\s+price|priciest|dearest)\b/i.test(original))sort='price_desc';
+  let limit='';const lm=original.match(/^\s*(?:show|give|find|get)\s+(?:me\s+)?(?:the\s+)?(?:best\s+|cheapest\s+|top\s+)?(\d{1,2})\b/i);if(lm)limit=Math.max(1,Math.min(50,Number(lm[1])||0));
+  cleaned=cleaned
+    .replace(new RegExp('\\bbetween\\s+'+amount+'\\s+(?:and|to)\\s+'+amount,'ig'),' ')
+    .replace(new RegExp('(?:\\bunder\\b|\\bbelow\\b|\\bless\\s+than\\b|\\bfor\\s+less\\s+than\\b|\\bup\\s+to\\b|\\bno\\s+more\\s+than\\b|\\bmax(?:imum)?\\b|\\bbudget(?:\\s+is|\\s+of)?\\b|\\bover\\b|\\babove\\b|\\bat\\s+least\\b|\\bminimum\\b|\\bmin\\b|\\baround\\b|\\babout\\b|\\broughly\\b)\\s*'+amount,'ig'),' ')
+    .replace(new RegExp('(?:shipping|delivery|postage)\\s+(?:under|below|less\\s+than|max(?:imum)?|up\\s+to)\\s*'+amount,'ig'),' ')
+    .replace(/\bfree\s+(?:shipping|delivery|postage)\b/gi,' ')
+    .replace(/^\s*(?:please\s+)?(?:can\s+you\s+|could\s+you\s+|would\s+you\s+)?(?:show\s+me|find\s+me|search\s+for|look\s+for|get\s+me|can\s+you\s+find|find|show|search|locate|source|grab|cop)\s+/i,' ')
+    .replace(/^\s*(?:i\s+(?:want|need|would\s+like)|i'?m\s+looking\s+for|looking\s+for)\s+/i,' ')
+    .replace(/^\s*(?:what(?:'s|\s+is)\s+the|who\s+has\s+the)\s+/i,' ')
+    .replace(limit?new RegExp('^\\s*'+limit+'\\s+'):/a^/,' ')
+    .replace(/^\s*(?:a|an|the|some|any)\s+/i,' ')
+    .replace(/\bfor\s+sale\b/gi,' ')
+    .replace(/\b(?:cheapest|chepest|cheepest|chep|cheep|cheaper|lowest\s+(?:price|cost)|least\s+expensive|best\s+price|best\s+deal|best\s+value|most\s+expensive|highest\s+price|priciest|dearest|newest|latest\s+listings?|recently\s+listed)\b/gi,' ')
+    .replace(/\b(?:new\s+only|used\s+only|pre[-\s]?owned\s+only|refurbished\s+only|sealed\s+only|buy\s*it\s*now\s+only|auctions?\s+only|best\s+offer\s+only)\b/gi,' ')
+    .replace(/\b(?:available\s+now|in\s+stock|right\s+now|today|online|everywhere|anywhere|please|for\s+me)\b/gi,' ')
+    .replace(/\s+/g,' ').trim();
+  if(condition==='new')cleaned=cleaned.replace(/\b(?:brand\s+new|factory\s+sealed|sealed|unopened|bnib|nib|new)\b/gi,' ');
+  if(condition==='used')cleaned=cleaned.replace(/\b(?:pre[-\s]?owned|preowned|second[-\s]?hand|used)\b/gi,' ');
+  if(condition==='refurbished')cleaned=cleaned.replace(/\b(?:refurbished|refurb|renewed)\b/gi,' ');
+  if(freeShipping||maxShipping!=='')cleaned=cleaned.replace(/\b(?:shipping|delivery|postage)\b/gi,' ');
+  cleaned=cleaned.replace(/\s+/g,' ').trim();
+  if(limit)cleaned=cleaned.replace(/^\d{1,2}\s+/,'');
+  cleaned=cleaned.replace(/^(?:a|an|the|some|any)\s+/i,'').replace(/^(?:with|and)\s+|\s+(?:with|and)$/gi,' ').trim();
+  cleaned=normalizeFindAIProductQuery(cleaned).replace(/[?!.]+$/g,'').trim();
+  return{q:cleaned,maxPrice,minPrice,country:c,source,freeShipping,maxShipping,condition,sort,limit,raw:original};
 }
 
 function isDealValueQuestion(text){
@@ -2826,6 +2878,7 @@ function isProductSearch(t){
   if(/\d\s*[+\-*/^×÷]\s*\d/.test(s) && /^[\d\s+\-*/^×÷=().,]+$/.test(s)) return false;                          // arithmetic like "2+2", "5 * 3"
   if(/\b(square root|sqrt|cube root|divided by|multiplied by|to the power|squared|cubed|percent of|factorial)\b/.test(s)) return false; // worded math
   if(/\b(find|buy|get|looking for|search for|need|want|show me|locate|source|cop|grab)\b/.test(s)) return true; // explicit shopping
+  if(/\b(?:cheapest|lowest\s+price|best\s+(?:deal|price)|where\s+can\s+i\s+buy|who\s+has\s+the)\b/.test(s)) return true; // shopping questions
   if(s.includes('?')) return false;                                                                           // a question
   if(/^((what|why|how|who|whom|when|where|which)('?s)?|is|are|am|was|were|can|could|would|should|do|does|did|will|tell me|explain|help|define|calculate|hi|hello|hey|thanks|thank|ok|okay)\b/.test(s)) return false; // chit-chat / question
   return true;                                                                                                  // default on a shopping tool → product search
@@ -3404,6 +3457,33 @@ function showMoreCards(sid){
   }
 }
 
+function applyFindAIShoppingIntent(items,intent){
+  let list=Array.isArray(items)?items.slice():[];
+  intent=intent||{};
+  const conditionKind=item=>{
+    const t=(String(item&&item.condition||'')+' '+String(item&&item.title||'')).toLowerCase();
+    if(/\b(refurb(?:ished)?|renewed|manufacturer refurbished|seller refurbished)\b/.test(t))return'refurbished';
+    if(/\b(pre[-\s]?owned|preowned|used|worn|second[-\s]?hand)\b/.test(t))return'used';
+    if(/\b(new|brand new|sealed|unopened|bnib|nib)\b/.test(t))return'new';
+    return'unknown';
+  };
+  if(Number(intent.minPrice)>0)list=list.filter(x=>!(Number(x.price)>0)||Number(x.price)>=Number(intent.minPrice));
+  if(Number(intent.maxPrice)>0)list=list.filter(x=>!(Number(x.price)>0)||Number(x.price)<=Number(intent.maxPrice));
+  if(intent.condition)list=list.filter(x=>conditionKind(x)===intent.condition);
+  if(intent.freeShipping)list=list.filter(x=>x&&(x.freeShipping===true||(x.shipping&&x.shipping.free===true)||Number(x.shippingCost)===0));
+  if(intent.maxShipping!==''&&intent.maxShipping!=null)list=list.filter(x=>x&&x.shippingCost!=null&&Number(x.shippingCost)<=Number(intent.maxShipping));
+  if(intent.source){
+    const src=String(intent.source).toLowerCase();
+    list=list.filter(x=>{const s=String(x&&x.source||'').toLowerCase();return src==='ali'?s.includes('ali'):s.includes(src);});
+  }
+  if(intent.sort==='price_asc'||intent.sort==='price_desc'){
+    const total=x=>{const p=Number(x&&x.price);if(!(p>0))return Infinity;const sh=Number(x&&x.shippingCost);return p+(Number.isFinite(sh)&&sh>0?sh:0);};
+    list.sort((a,b)=>intent.sort==='price_desc'?total(b)-total(a):total(a)-total(b));
+  }
+  if(Number(intent.limit)>0)list=list.slice(0,Number(intent.limit));
+  return list;
+}
+
 let pendingImage=null;
 let activeFindaiSearchController=null;
 function setSendButtonSearching(active){
@@ -3507,15 +3587,17 @@ async function sendMsg(){
       }
     }catch(_){ /* resolver failed → fall through to generic search, no harm */ }
     try{
-      let kw, maxPrice;
+      let kw, maxPrice, parsed, searchCommand;
       if(isRefinement(q)){
-        // Continue from the previous search: "lego harry potter 2001" + "brand new"
-        // → "lego harry potter 2001 brand new". A new price overrides; otherwise keep the old one.
-        const ref=parseQuery(q);
-        kw=(lastSearchKw+' '+(ref.q||'')).replace(/\s+/g,' ').trim();
-        maxPrice=ref.maxPrice||lastMaxPrice||'';
+        // Continue from the previous PRODUCT while preserving the new command words.
+        // e.g. "PS5" then "cheapest with free shipping" becomes one structured search.
+        searchCommand=(lastSearchKw+' '+q).replace(/\s+/g,' ').trim();
+        parsed=parseQuery(searchCommand);
+        kw=parsed.q||lastSearchKw;
+        maxPrice=parsed.maxPrice||lastMaxPrice||'';
       }else{
-        const parsed=parseQuery(q);
+        searchCommand=q;
+        parsed=parseQuery(q);
         kw=parsed.q||q;
         maxPrice=parsed.maxPrice||'';
       }
@@ -3524,23 +3606,30 @@ async function sendMsg(){
       // StockX for ANY category (sneakers, LEGO, cards...), so only genuine
       // matches come back. Spinner stays up through the grace window.
       const _findaiSignal=activeFindaiSearchController?activeFindaiSearchController.signal:undefined;
-      const mainP=fetch(`${WORKER}/?q=${encodeURIComponent(kw)}&maxPrice=${encodeURIComponent(maxPrice||'')}`,{signal:_findaiSignal}).then(r=>r.json());
+      // Send the ORIGINAL shopping command to the Worker. Its shared command
+      // interpreter extracts product + budget + condition + shipping + sort, while
+      // `kw` stays clean for StockX/Etsy/Discogs side searches.
+      const mainP=(parsed.source&&['stockx','etsy','discogs'].includes(parsed.source))
+        ? Promise.resolve({items:[],country:parsed.country||country,ebayCount:0})
+        : fetch(`${WORKER}/?q=${encodeURIComponent(searchCommand)}&maxPrice=${encodeURIComponent(maxPrice||'')}`,{signal:_findaiSignal}).then(r=>r.json());
       // Sneaker searches want up to 2 StockX cards near the top; everything else
       // up to 1. StockX gets a longer grace window now because we always fetch
       // the live Lowest Ask + Highest Bid (slower, but the price always shows).
       const isSneaker=/\b(yeezy|jordan|nike|adidas|dunk|sneaker|air\s*force|af1|air\s*max|new\s*balance|asics|converse|vans|foam\s*runner|slides?|sb\s*dunk|trainers?|reebok|puma|salomon|hoka|samba|gazelle|campus)\b/i.test(kw);
-      const sxLimit=isSneaker?2:1;
-      const sxUrl=`${WORKER}/stockx/search?q=${encodeURIComponent(kw)}&country=${encodeURIComponent(country||'')}&limit=${sxLimit}`;
-      const sxLive=fetch(sxUrl,{signal:_findaiSignal}).then(r=>r.json()).then(d=>(d&&Array.isArray(d.items))?d.items:[]).catch(()=>[]);
+      const sxLimit=parsed.source==='stockx'?8:(isSneaker?2:1);
+      const sxUrl=`${WORKER}/stockx/search?q=${encodeURIComponent(kw)}&country=${encodeURIComponent(parsed.country||country||'')}&limit=${sxLimit}`;
+      const sxLive=(!parsed.source||parsed.source==='stockx')
+        ? fetch(sxUrl,{signal:_findaiSignal}).then(r=>r.json()).then(d=>(d&&Array.isArray(d.items))?d.items:[]).catch(()=>[])
+        : Promise.resolve([]);
       // Discogs runs in parallel too, but only for music-format queries.
-      const isMusic=MUSIC_QUERY_RE.test(kw);
-      const dgLive=isMusic
-        ? fetch(`${WORKER}/discogs/search?q=${encodeURIComponent(kw)}&country=${encodeURIComponent(country||'')}&limit=3`,{signal:_findaiSignal}).then(r=>r.json()).then(d=>(d&&Array.isArray(d.items))?d.items:[]).catch(()=>[])
+      const isMusic=MUSIC_QUERY_RE.test(kw)||parsed.source==='discogs';
+      const dgLive=(!parsed.source||parsed.source==='discogs')&&isMusic
+        ? fetch(`${WORKER}/discogs/search?q=${encodeURIComponent(kw)}&country=${encodeURIComponent(parsed.country||country||'')}&limit=${parsed.source==='discogs'?8:3}`,{signal:_findaiSignal}).then(r=>r.json()).then(d=>(d&&Array.isArray(d.items))?d.items:[]).catch(()=>[])
         : Promise.resolve([]);
       // Etsy fires on non-sneaker queries (Etsy sneakers are mostly customs/replicas).
-      const isEtsy=!STOCKX_QUERY_RE.test(kw);
+      const isEtsy=parsed.source==='etsy'||(!parsed.source&&!STOCKX_QUERY_RE.test(kw));
       const etLive=isEtsy
-        ? fetch(`${WORKER}/etsy/search?q=${encodeURIComponent(kw)}&limit=3`,{signal:_findaiSignal}).then(r=>r.json()).then(d=>(d&&Array.isArray(d.items))?d.items:[]).catch(()=>[])
+        ? fetch(`${WORKER}/etsy/search?q=${encodeURIComponent(kw)}&limit=${parsed.source==='etsy'?8:3}`,{signal:_findaiSignal}).then(r=>r.json()).then(d=>(d&&Array.isArray(d.items))?d.items:[]).catch(()=>[])
         : Promise.resolve([]);
       const data=await mainP;
       const c=data.country||country;
@@ -3644,6 +3733,7 @@ async function sendMsg(){
         for(const e of etItems.slice(0,3)){ e._etsy=true; merged.splice(Math.min(at,merged.length),0,e); at+=4; }
         items=merged;
       }
+      items=applyFindAIShoppingIntent(items,parsed);
       const cardsHtml=items.length?renderCards(items,kw,'',maxPrice||'',c,data.ebayCount||0,0,false):'';
       conversation.push({role:'assistant',content:'(showed results for '+kw+')'});
       const body=addMsg('assistant','');
