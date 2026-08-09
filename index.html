@@ -943,7 +943,7 @@ body.findai-light .fa-pro-deals-banner{background:#fff;color:#17191c;border-colo
           <input type="file" id="img-input" accept="image/*" style="display:none" onchange="onImagePicked(this)">
           <textarea id="chat-in" class="chat-in" placeholder='Try "Find me a Macbook Pro for less than $750"' rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
           <button class="send-btn" id="send-btn" onclick="handleFindaiSendButton()" aria-label="Send">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
             <span class="send-stop-icon" aria-hidden="true"></span>
           </button>
         </div>
@@ -2981,6 +2981,7 @@ function findaiSavedItems(){
 }
 function findaiSavedKey(item){
   item=item||{};
+  if(item.key)return String(item.key);
   var mid=String(item.marketplaceListingId||((item._findaiMarketplace||String(item.source||'').toLowerCase()==='findai')?item.itemId:'')||'').trim();
   if(mid)return 'findai:'+mid;
   var iid=String(item.itemId||'').trim(),src=String(item.source||'market').trim().toLowerCase();
@@ -2997,6 +2998,42 @@ function findaiSaveSnapshot(item){
 }
 function findaiStoreSavedItems(items){
   try{localStorage.setItem('findai_saved_items_v1',JSON.stringify((items||[]).slice(0,250)));}catch(_){}
+}
+var findaiSavedSyncPromise=null;
+function findaiSavedMigrationKey(){
+  var user=null;try{user=JSON.parse(localStorage.getItem('findai_user')||'null')}catch(_){}
+  return 'findai_saved_migrated_v1:' + String(user&&user.email||'').trim().toLowerCase();
+}
+async function findaiSavedRemoteSet(item,active){
+  if(!findaiSession())return null;
+  var snapshot=findaiSaveSnapshot(item||{}),key=String(item&&item.key||'')||findaiSavedKey(snapshot);
+  return websiteMarketplaceFetch('/saved/toggle',{method:'POST',body:JSON.stringify({key:key,item:Object.assign({key:key},snapshot),active:active!==false})});
+}
+async function findaiSavedSyncFromServer(force){
+  if(!findaiSession())return findaiSavedItems();
+  if(findaiSavedSyncPromise&&!force)return findaiSavedSyncPromise;
+  findaiSavedSyncPromise=(async function(){
+    var migrationKey=findaiSavedMigrationKey(),migrated=false;
+    try{migrated=localStorage.getItem(migrationKey)==='1'}catch(_){}
+    var data;
+    if(!migrated){
+      var local=findaiSavedItems().map(function(item){var snap=findaiSaveSnapshot(item);snap.key=findaiSavedKey(snap);return snap;});
+      data=await websiteMarketplaceFetch('/saved/sync',{method:'POST',body:JSON.stringify({items:local})});
+      try{localStorage.setItem(migrationKey,'1')}catch(_){}
+    }else{
+      data=await websiteMarketplaceFetch('/saved/list',{method:'GET'});
+    }
+    var items=Array.isArray(data&&data.items)?data.items:[];
+    findaiStoreSavedItems(items);
+    try{
+      var legacy=items.filter(function(item){return item&&item.marketplaceListingId}).map(function(item){return String(item.marketplaceListingId)});
+      localStorage.setItem('findai_saved_marketplace',JSON.stringify(legacy));
+    }catch(_){}
+    refreshSavedHearts();
+    try{websiteRenderSavedDropdown();}catch(_){}
+    return items;
+  })().catch(function(){return findaiSavedItems();}).finally(function(){findaiSavedSyncPromise=null;});
+  return findaiSavedSyncPromise;
 }
 function findaiIsSaved(item){var key=findaiSavedKey(item);return findaiSavedItems().some(function(x){return findaiSavedKey(x)===key;});}
 function findaiSavedHeartHtml(item){
@@ -3015,9 +3052,11 @@ function toggleSavedCard(event,button){
   var card=button&&button.closest?button.closest('.chat-card'):null,item={};
   try{item=JSON.parse(card&&card.getAttribute('data-item')||'{}')}catch(_){}
   if(!item||(!item.title&&!item.url&&!item.itemId&&!item.marketplaceListingId))return false;
-  var key=findaiSavedKey(item),items=findaiSavedItems(),at=items.findIndex(function(x){return findaiSavedKey(x)===key;});
-  if(at===-1)items.unshift(findaiSaveSnapshot(item));else items.splice(at,1);
-  findaiStoreSavedItems(items);refreshSavedHearts();try{websiteRenderSavedDropdown();}catch(_){}return false;
+  var key=findaiSavedKey(item),items=findaiSavedItems(),at=items.findIndex(function(x){return findaiSavedKey(x)===key;}),adding=at===-1,snapshot=findaiSaveSnapshot(item);
+  if(adding)items.unshift(snapshot);else items.splice(at,1);
+  findaiStoreSavedItems(items);refreshSavedHearts();try{websiteRenderSavedDropdown();}catch(_){}
+  findaiSavedRemoteSet(snapshot,adding).catch(function(){});
+  return false;
 }
 function websiteSavedPrice(item){
   if(item.price==null||item.price===''||!Number.isFinite(Number(item.price)))return '';
@@ -3043,6 +3082,7 @@ function websiteRemoveSaved(encodedKey,event){
   }
   refreshSavedHearts();
   websiteRenderSavedDropdown();
+  findaiSavedRemoteSet({key:key,title:'Saved listing'},false).catch(function(){});
 }
 function websiteAllSavedItems(){
   var items=findaiSavedItems();
@@ -3098,7 +3138,7 @@ function websiteToggleSavedPanel(event){
   var opening=!panel.classList.contains('open');
   panel.classList.toggle('open',opening);
   if(button)button.setAttribute('aria-expanded',opening?'true':'false');
-  if(opening)websiteRenderSavedDropdown();
+  if(opening){websiteRenderSavedDropdown();findaiSavedSyncFromServer(true).catch(function(){});}
 }
 function websiteOpenSaved(){
   websiteCloseUserMenu();
@@ -4523,7 +4563,7 @@ function websiteListingStatusText(status){var map={active:'Available',paused:'Te
 function websiteShippingText(listing){var mode=String(listing&&listing.shippingMode||'flat').toLowerCase(),n=Number(listing&&listing.shippingCost);if(mode==='free')return 'Free shipping';if(mode==='calculated')return String(listing&&listing.sellerCountry||'').toUpperCase()==='US'?'USPS calculated by delivery ZIP':'Calculated shipping';if(Number.isFinite(n)&&n>0)return websiteMoney(n,listing.currency)+' shipping';return 'Delivery details at checkout';}
 function websiteSavedListings(){try{return JSON.parse(localStorage.getItem('findai_saved_marketplace')||'[]')}catch(_){return []}}
 function websiteIsSaved(id){if(websiteSavedListings().indexOf(id)!==-1)return true;return findaiSavedItems().some(function(item){return findaiSavedKey(item)==='findai:'+String(id)});}
-function websiteToggleSaved(){if(!websiteActiveListing)return;if(!findaiSession()){openAuth('Sign in to save items');return;}var id=websiteListingId(websiteActiveListing),legacy=websiteSavedListings(),legacyAt=legacy.indexOf(id),saved=findaiSavedItems(),snapshot=findaiSaveSnapshot(Object.assign({},websiteActiveListing,{itemId:id,marketplaceListingId:id,_findaiMarketplace:true,source:'FindAI',image:((websiteActiveListing.images||[])[0]||websiteActiveListing.image||'')})),key=findaiSavedKey(snapshot),at=saved.findIndex(function(item){return findaiSavedKey(item)===key}),adding=at===-1;if(adding){saved.unshift(snapshot);if(legacyAt===-1)legacy.push(id);}else{saved.splice(at,1);if(legacyAt!==-1)legacy.splice(legacyAt,1);}findaiStoreSavedItems(saved);try{localStorage.setItem('findai_saved_marketplace',JSON.stringify(legacy));}catch(_){}var b=document.getElementById('fmp-save');if(b)b.classList.toggle('saved',adding);refreshSavedHearts();try{websiteRenderSavedDropdown();}catch(_){}}
+function websiteToggleSaved(){if(!websiteActiveListing)return;if(!findaiSession()){openAuth('Sign in to save items');return;}var id=websiteListingId(websiteActiveListing),legacy=websiteSavedListings(),legacyAt=legacy.indexOf(id),saved=findaiSavedItems(),snapshot=findaiSaveSnapshot(Object.assign({},websiteActiveListing,{itemId:id,marketplaceListingId:id,_findaiMarketplace:true,source:'FindAI',image:((websiteActiveListing.images||[])[0]||websiteActiveListing.image||'')})),key=findaiSavedKey(snapshot),at=saved.findIndex(function(item){return findaiSavedKey(item)===key}),adding=at===-1;if(adding){saved.unshift(snapshot);if(legacyAt===-1)legacy.push(id);}else{saved.splice(at,1);if(legacyAt!==-1)legacy.splice(legacyAt,1);}findaiStoreSavedItems(saved);try{localStorage.setItem('findai_saved_marketplace',JSON.stringify(legacy));}catch(_){}var b=document.getElementById('fmp-save');if(b)b.classList.toggle('saved',adding);refreshSavedHearts();try{websiteRenderSavedDropdown();}catch(_){}findaiSavedRemoteSet(snapshot,adding).catch(function(){});}
 function websiteSelectListingImage(index){var imgs=Array.isArray(websiteActiveListing&&websiteActiveListing.images)?websiteActiveListing.images:[];var image=imgs[index]||websiteActiveListing.image||'';var main=document.getElementById('fmp-main-image');if(main)main.src=image;document.querySelectorAll('.fmp-thumb').forEach(function(el,i){el.classList.toggle('active',i===index)});}
 function renderWebsiteProductPage(listing,context){
   if(!listing)return;websiteActiveListing=listing;websiteListingContext=context||websiteListingContext||{};websiteCheckoutPostalCode='';websiteCheckoutShippingService='';websiteShippingQuoteCache=null;
@@ -4843,6 +4883,7 @@ function updateAuthUI(user){
     const me = document.getElementById('user-menu-email');
     if(me) me.textContent = user.email;
     websiteStartUnreadPolling();
+    setTimeout(function(){findaiSavedSyncFromServer(false).catch(function(){});},0);
   } else {
     out.style.display='flex'; inn.style.display='none';clearInterval(websiteUnreadTimer);websiteUnreadTimer=null;
     ['website-menu-unread','website-notification-badge'].forEach(function(id){var el=document.getElementById(id);if(el)el.classList.remove('show')});websiteCloseNotificationPanel();
@@ -4984,6 +5025,9 @@ window.addEventListener('load', checkMagicLink);
 
 function logoutUser(){
   localStorage.removeItem('findai_user');
+  localStorage.removeItem('findai_saved_items_v1');
+  localStorage.removeItem('findai_saved_marketplace');
+  try{websiteRenderSavedDropdown();refreshSavedHearts();}catch(_){}
   if(window.google&&google.accounts&&google.accounts.id) google.accounts.id.disableAutoSelect();
   updateAuthUI(null);
 }
