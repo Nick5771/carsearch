@@ -1053,6 +1053,13 @@
 #search .reel-social-action.like.active svg{color:#ff3040}
 #search .reel-social-action.like.active .reel-social-icon{background:transparent!important;border:0!important}
 #search .reel-social-action.like.active .reel-social-label{color:#fff}
+/* Subtle Instagram-style acknowledgement: a quick heart pop + soft ring. */
+#search .reel-social-action.like .reel-social-icon{position:relative}
+@keyframes findaiHeartPop{0%{transform:scale(1)}38%{transform:scale(1.24)}68%{transform:scale(.94)}100%{transform:scale(1)}}
+@keyframes findaiHeartRing{0%{opacity:.7;transform:scale(.55)}100%{opacity:0;transform:scale(1.5)}}
+#search .reel-social-action.like.just-liked svg{animation:findaiHeartPop .38s cubic-bezier(.2,.85,.35,1)}
+#search .reel-social-action.like.just-liked .reel-social-icon::after{content:'';position:absolute;inset:-7px;border:2px solid rgba(255,48,64,.55);border-radius:50%;pointer-events:none;animation:findaiHeartRing .42s ease-out forwards}
+@media (prefers-reduced-motion:reduce){#search .reel-social-action.like.just-liked svg,#search .reel-social-action.like.just-liked .reel-social-icon::after{animation:none}}
 
 /* eBay / source label: bigger, clean, no pill background */
 #search .source-chip{
@@ -2348,7 +2355,7 @@ function closeAccountMenu(){ $('#accountMenuOverlay').classList.remove('show'); 
 function signOutAccount(){
   appRemovePush().catch(()=>{});
   try{ localStorage.removeItem(ACCOUNT_PROFILE_KEY); }catch(_){}
-  try{ localStorage.removeItem('findai_user');localStorage.removeItem(MARKETPLACE_LISTINGS_KEY);marketplaceListingsCache=[]; }catch(_){}
+  try{ localStorage.removeItem('findai_user');localStorage.removeItem(MARKETPLACE_LISTINGS_KEY);localStorage.removeItem('fa_tracked_v2');marketplaceListingsCache=[]; }catch(_){}
   try{ if(window.google&&google.accounts&&google.accounts.id) google.accounts.id.disableAutoSelect(); }catch(_){}
   appProState=null;appProScanUnlocked=false;appPaintProUI({isPro:false});
   closeAccountMenu();closeProfile();closeCreateListing();closeMyListings();closePurchases();closeSearchResultDetail();updateAccountHeader();
@@ -4372,16 +4379,66 @@ async function loadMoreListings(){
 }
 
 function trackedKey(item){
-  return (getListingUrl(item) || String(item.title || '')+'|'+String(item.price || '')).toLowerCase();
+  item=item||{};
+  if(item.key)return String(item.key);
+  const marketplaceId=String(item.marketplaceListingId||((item._findaiMarketplace||String(item.source||'').toLowerCase()==='findai')?item.itemId:'')||'').trim();
+  if(marketplaceId)return 'findai:'+marketplaceId;
+  const itemId=String(item.itemId||'').trim(),source=String(item.source||'market').trim().toLowerCase();
+  if(itemId)return source+':'+itemId;
+  const url=String(item.url||getListingUrl(item)||'').trim();
+  if(url)return 'url:'+url.split('#')[0];
+  return 'item:'+String(item.title||'').trim().toLowerCase()+'|'+String(item.price||'')+'|'+String(item.image||'');
 }
 function getTracked(){
   try{
     const raw = JSON.parse(localStorage.getItem('fa_tracked_v2') || '[]');
-    return Array.isArray(raw) ? raw : [];
+    if(!Array.isArray(raw))return [];
+    return raw.map(item=>Object.assign({},item,{key:trackedKey(item)}));
   }catch(_){ return []; }
 }
-function setTracked(items){ try{localStorage.setItem('fa_tracked_v2',JSON.stringify(items.slice(0,50)))}catch(_){} if(typeof renderAccountProfile==='function'&&getAccountProfile()) renderAccountProfile(); }
+function refreshTrackedHeartUI(){
+  const saved=new Set(getTracked().map(item=>String(item.key)));
+  $$('[data-like-key]').forEach(button=>{
+    const active=saved.has(String(button.getAttribute('data-like-key')||''));
+    button.classList.toggle('active',active);
+    const svg=button.querySelector('svg');if(svg)svg.setAttribute('fill',active?'currentColor':'none');
+    button.setAttribute('aria-label',active?'Unlike this listing':'Like this listing');
+  });
+}
+function setTracked(items){
+  try{localStorage.setItem('fa_tracked_v2',JSON.stringify((items||[]).slice(0,250)))}catch(_){}
+  try{refreshTrackedHeartUI()}catch(_){}
+  if(typeof renderAccountProfile==='function'&&getAccountProfile()) renderAccountProfile();
+}
 function isTracked(item){ const key=trackedKey(item); return getTracked().some(x=>x.key===key); }
+let appSavedSyncPromise=null;
+function appSavedMigrationKey(){
+  let user=null;try{user=JSON.parse(localStorage.getItem('findai_user')||'null')}catch(_){}
+  return 'findai_saved_migrated_v1:'+String(user&&user.email||'').trim().toLowerCase();
+}
+async function appSavedRemoteSet(item,active){
+  if(!marketplaceSession())return null;
+  const key=String(item&&item.key||trackedKey(item||{}));
+  return marketplaceFetch('/saved/toggle',{method:'POST',body:JSON.stringify({key,item:Object.assign({},item||{},{key}),active:active!==false})});
+}
+async function appSavedSyncFromServer(force=false){
+  if(!marketplaceSession())return getTracked();
+  if(appSavedSyncPromise&&!force)return appSavedSyncPromise;
+  appSavedSyncPromise=(async()=>{
+    const migrationKey=appSavedMigrationKey();let migrated=false;
+    try{migrated=localStorage.getItem(migrationKey)==='1'}catch(_){}
+    let data;
+    if(!migrated){
+      const local=getTracked().map(item=>Object.assign({},item,{key:trackedKey(item)}));
+      data=await marketplaceFetch('/saved/sync',{method:'POST',body:JSON.stringify({items:local})});
+      try{localStorage.setItem(migrationKey,'1')}catch(_){}
+    }else data=await marketplaceFetch('/saved/list',{method:'GET'});
+    const items=Array.isArray(data&&data.items)?data.items:[];
+    setTracked(items);
+    return items;
+  })().catch(()=>getTracked()).finally(()=>{appSavedSyncPromise=null});
+  return appSavedSyncPromise;
+}
 
 function imageFailed(img){
   const fallback=safeUrl(img.dataset.fallback || '');
@@ -4478,6 +4535,13 @@ async function toggleLike(index,event){
       currency:currencyOf(item,currentFeedData),
       source:getSource(item),
       url:getListingUrl(item),
+      itemId:item.itemId||'',
+      marketplaceListingId:item.marketplaceListingId||'',
+      _findaiMarketplace:!!item._findaiMarketplace,
+      country:item.country||item.location||'',
+      shippingCost:item.shippingCost==null?null:item.shippingCost,
+      shipping:item.shipping==null?null:item.shipping,
+      searchQ:interestQuery||item.title||'',
       trust:getTrust(item),
       sellerName:item.sellerName||item.seller||item.storeName||'',
       condition:conditionText(item),
@@ -4491,11 +4555,17 @@ async function toggleLike(index,event){
   }
   setTracked(liked);
   const nowLiked=existing<0;
+  const remoteItem=liked.find(entry=>entry.key===key)||{key:key,title:item.title||'Saved listing',url:getListingUrl(item),source:getSource(item),itemId:item.itemId||'',marketplaceListingId:item.marketplaceListingId||''};
+  appSavedRemoteSet(remoteItem,nowLiked).catch(()=>{});
   $$(`[data-like-key="${CSS.escape(key)}"]`).forEach(button=>{
     button.classList.toggle('active',nowLiked);
     const svg=button.querySelector('svg');
     if(svg) svg.setAttribute('fill',nowLiked?'currentColor':'none');
     button.setAttribute('aria-label',nowLiked?'Unlike this listing':'Like this listing');
+    if(nowLiked){
+      button.classList.remove('just-liked');void button.offsetWidth;button.classList.add('just-liked');
+      setTimeout(()=>button.classList.remove('just-liked'),460);
+    }
   });
 }
 function toggleTrack(index,event){ toggleLike(index,event); }
@@ -5705,6 +5775,7 @@ async function appHandleLaunchDeepLink(){
   updateAccountHeader();
   setTimeout(()=>appGetProStatus(true).catch(()=>{}),0);
   setTimeout(appStartMarketplaceSync,0);
+  setTimeout(()=>appSavedSyncFromServer(false).catch(()=>{}),80);
   loadPersonalisedFeed();
   setTimeout(()=>appHandleLaunchDeepLink().catch(()=>{}),350);
 })();
@@ -5738,6 +5809,7 @@ function applyFindaiUser(data,provider){
   if(typeof renderAccountProfile==='function'){ try{ renderAccountProfile(); }catch(_){} }
   if(typeof closeLogin==='function') closeLogin();
   setTimeout(appStartMarketplaceSync,0);
+  if(typeof appSavedSyncFromServer==='function') setTimeout(()=>appSavedSyncFromServer(false).catch(()=>{}),0);
   if(typeof appGetProStatus==='function') setTimeout(()=>appGetProStatus(true).catch(()=>{}),0);
   
 }
