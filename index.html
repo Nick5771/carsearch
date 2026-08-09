@@ -9,6 +9,26 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="application-name" content="FindAI">
 <meta name="apple-mobile-web-app-title" content="FindAI">
+<script>
+(function(){
+  // Phone browsers use the same interface as the FindAI app. Keep crawlers on
+  // the indexable desktop document so mobile-first SEO is not redirected to
+  // the noindex app shell. Add ?desktop=1 on a phone to inspect desktop mode.
+  try{
+    var ua=String(navigator.userAgent||'');
+    var params=new URLSearchParams(location.search);
+    var bot=/googlebot|bingbot|duckduckbot|yandexbot|baiduspider|applebot|crawler|spider|slurp|facebookexternalhit|twitterbot|linkedinbot/i.test(ua);
+    var phone=/iphone|ipod|android[^;]*;[^)]*mobile|android.*mobile|windows phone|opera mini|opera mobi/i.test(ua);
+    var compactTouch=(navigator.maxTouchPoints||0)>0 && window.matchMedia && window.matchMedia('(max-width: 700px)').matches;
+    var alreadyApp=/\/findai-app(?:\.html)?\/?$/i.test(location.pathname);
+    if(!bot && !alreadyApp && params.get('desktop')!=='1' && (phone||compactTouch)){
+      params.delete('desktop');
+      params.set('mobile_web','1');
+      location.replace('/findai-app.html?'+params.toString());
+    }
+  }catch(_){}
+})();
+</script>
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-SRSCS0W200"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -113,11 +133,14 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .assistant-copy-line{display:block;opacity:0;transform:translateY(5px);transition:opacity .28s ease,transform .28s ease}.assistant-copy-line.visible{opacity:1;transform:none}
 .search-summary-line{font-size:14px;color:#f3f4f6;line-height:1.5;margin-bottom:12px;padding:4px 2px;min-height:30px;display:block;opacity:0;transform:translateY(5px);transition:opacity .3s ease,transform .3s ease}.search-summary-line.visible{opacity:1;transform:none}.search-summary-line strong{font-weight:750}
 .search-card-enter{opacity:0;transform:translateY(11px);transition:opacity .34s ease,transform .34s cubic-bezier(.22,.75,.25,1)}.search-card-enter.visible{opacity:1;transform:none}.search-more-enter{opacity:0;transform:translateY(6px);transition:opacity .25s ease,transform .25s ease}.search-more-enter.visible{opacity:1;transform:none}
-.chat-card-country,.chat-card-loc{margin-top:5px;color:#9aa0a8;font-family:'DM Sans',sans-serif!important;font-size:10.5px!important;font-weight:400!important;font-style:normal!important;line-height:1.25!important;letter-spacing:0!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.chat-card-shipping{margin-top:7px;color:#f4f4f4;font-family:'DM Sans',sans-serif!important;font-size:10.5px!important;font-weight:650!important;font-style:normal!important;line-height:1.25!important;letter-spacing:0!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.chat-card-shipping.free{color:#46c267}.chat-card-market-sub{margin-top:4px;color:#9aa0a8;font-size:10px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-card-country,.chat-card-loc{margin-top:5px;color:#f1f2f4;font-family:'DM Sans',sans-serif!important;font-size:10.5px!important;font-weight:450!important;font-style:normal!important;line-height:1.25!important;letter-spacing:0!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.chat-card-shipping{margin-top:7px;color:#f4f4f4;font-family:'DM Sans',sans-serif!important;font-size:10.5px!important;font-weight:650!important;font-style:normal!important;line-height:1.25!important;letter-spacing:0!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.chat-card-shipping.free{color:#46c267}.chat-card-shipping.varies{color:#8d949d;font-weight:500!important}.chat-card-market-sub{margin-top:4px;color:#9aa0a8;font-size:10px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .msg.assistant{gap:0}.msg.assistant .msg-av{display:none}.msg.assistant .msg-body{padding-left:0;padding-right:0}
 .chat-card-body>div:first-child{min-height:18px;display:flex;align-items:center}.chat-card-title{height:2.8em;min-height:2.8em}.chat-card-price{margin-top:auto;font-variant-numeric:tabular-nums;line-height:1.2}.chat-card-country,.chat-card-loc{min-height:13px}.chat-card-shipping{min-height:13px;font-variant-numeric:tabular-nums}.chat-card>a{min-height:0}
 .deal-answer{width:100%;display:grid;grid-template-columns:minmax(260px,.8fr) minmax(430px,1.2fr);gap:34px;align-items:center;padding:4px 0 18px}.deal-copy{min-width:0}.deal-headline{font-size:20px;line-height:1.35;font-weight:760;letter-spacing:-.35px;color:#f7f7f8;opacity:0;transform:translateY(5px);transition:opacity .3s ease,transform .3s ease}.deal-explanation{margin:11px 0 0;color:#c4c8ce;font-size:15px;line-height:1.65;opacity:0;transform:translateY(5px);transition:opacity .3s ease .08s,transform .3s ease .08s}.deal-saving{margin-top:15px;color:#9ba1a9;font-size:12px;line-height:1.5;opacity:0;transform:translateY(5px);transition:opacity .3s ease .14s,transform .3s ease .14s}.deal-answer.visible .deal-headline,.deal-answer.visible .deal-explanation,.deal-answer.visible .deal-saving{opacity:1;transform:none}.deal-money-inline{white-space:nowrap;font-variant-numeric:tabular-nums}.deal-answer.market-answer .deal-saving{margin-top:13px}
-.deal-featured{min-width:0;border-top:1px solid #2a2d31;border-bottom:1px solid #2a2d31;padding:16px 0;display:grid;grid-template-columns:minmax(180px,46%) minmax(0,54%);gap:18px;opacity:0;transform:translateY(10px);transition:opacity .36s ease .12s,transform .36s cubic-bezier(.22,.75,.25,1) .12s}.deal-answer.visible .deal-featured{opacity:1;transform:none}.deal-featured-image{width:100%;height:210px;object-fit:contain;background:#f5f5f5;border-radius:12px;display:block}.deal-featured-placeholder{width:100%;height:210px;border-radius:12px;background:#151719;display:grid;place-items:center;color:#7e858e;font-size:16px;font-weight:750}.deal-featured-details{display:flex;flex-direction:column;min-width:0;padding:3px 0}.deal-source{min-height:22px;display:flex;align-items:center;margin-bottom:8px}.deal-title{font-size:15px;line-height:1.45;color:#f0f1f3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.deal-price-label{margin-top:auto;color:#898f97;font-size:10px;text-transform:uppercase;letter-spacing:.08em}.deal-price{margin-top:4px;font-size:27px;line-height:1.1;font-weight:820;letter-spacing:-.6px;font-variant-numeric:tabular-nums}.deal-shipping{margin-top:8px;color:#aeb3ba;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:400;line-height:1.2;letter-spacing:0}.deal-shipping.free{color:#50be65}.deal-country{margin-top:5px;color:#858b93;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:400;line-height:1.2;letter-spacing:0}.deal-action{margin-top:14px;height:42px;border:1px solid #373b40;border-radius:10px;background:#151719;color:#fff;text-decoration:none;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:720;transition:background .15s,border-color .15s}.deal-action:hover{background:#202329;border-color:#4b5057}.deal-comparables-title{margin:10px 0 0;color:#f1f2f4;font-size:13px;font-weight:720}.deal-comparables-sub{margin-top:4px;color:#737982;font-size:10.5px;font-weight:400;line-height:1.3}.deal-comparables{margin-top:10px}
+.deal-featured{min-width:0;border-top:1px solid #2a2d31;border-bottom:1px solid #2a2d31;padding:16px 0;display:grid;grid-template-columns:minmax(180px,46%) minmax(0,54%);gap:18px;opacity:0;transform:translateY(10px);transition:opacity .36s ease .12s,transform .36s cubic-bezier(.22,.75,.25,1) .12s}.deal-answer.visible .deal-featured{opacity:1;transform:none}.deal-featured-image{width:100%;height:210px;object-fit:contain;background:#f5f5f5;border-radius:12px;display:block}.deal-featured-placeholder{width:100%;height:210px;border-radius:12px;background:#151719;display:grid;place-items:center;color:#7e858e;font-size:16px;font-weight:750}.deal-featured-details{display:flex;flex-direction:column;min-width:0;padding:3px 0}.deal-source{min-height:22px;display:flex;align-items:center;margin-bottom:8px}.deal-title{font-size:15px;line-height:1.45;color:#f0f1f3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.deal-price-label{margin-top:auto;color:#898f97;font-size:10px;text-transform:uppercase;letter-spacing:.08em}.deal-price{margin-top:4px;font-size:27px;line-height:1.1;font-weight:820;letter-spacing:-.6px;font-variant-numeric:tabular-nums}.deal-country{margin-top:8px;color:#f0f1f3;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:450;line-height:1.2;letter-spacing:0}.deal-shipping{margin-top:5px;color:#e7e9ec;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:520;line-height:1.2;letter-spacing:0}.deal-shipping.free{color:#50be65}.deal-shipping.varies{color:#858b93;font-weight:400}.deal-action{margin-top:14px;height:42px;border:1px solid #373b40;border-radius:10px;background:#151719;color:#fff;text-decoration:none;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:720;transition:background .15s,border-color .15s}.deal-action:hover{background:#202329;border-color:#4b5057}.deal-comparables-title{margin:10px 0 0;color:#f1f2f4;font-size:13px;font-weight:720}.deal-comparables-sub{margin-top:4px;color:#737982;font-size:10.5px;font-weight:400;line-height:1.3}.deal-comparables{margin-top:10px}
+
+.search-answer{padding-top:2px}.search-answer .deal-featured{border-top-color:#24272c;border-bottom-color:#24272c}.search-answer .deal-featured-details{min-height:210px}.search-answer .search-featured-price{margin-top:auto}.search-workline{margin-top:14px;color:#868d96;font-size:11.5px;line-height:1.55;opacity:0;transform:translateY(5px);transition:opacity .3s ease .14s,transform .3s ease .14s}.search-answer.visible .search-workline{opacity:1;transform:none}.search-results-heading{margin:10px 0 10px;color:#f1f2f4;font-size:13px;font-weight:720}.search-featured .deal-price{margin-top:7px}.search-featured .deal-action{margin-top:12px}.search-featured .deal-title{font-size:14.5px}.search-featured-no-price{margin-top:auto;color:#8c929a;font-size:12px;font-weight:650}.search-answer .deal-headline{font-size:21px}.search-answer .deal-explanation{max-width:620px}
+body.findai-light .search-answer .deal-headline,body.findai-light .search-results-heading{color:#14171a}body.findai-light .search-answer .deal-explanation{color:#4e555d}body.findai-light .search-workline{color:#777f88}body.findai-light .search-answer .deal-featured{border-color:#dfe2e6}body.findai-light .search-featured .deal-title,body.findai-light .search-featured .deal-country{color:#25282c}body.findai-light .search-featured .deal-shipping{color:#3f444a}body.findai-light .search-featured .deal-shipping.varies{color:#7b828a}
 @media(max-width:820px){.deal-answer{grid-template-columns:1fr;gap:20px}.deal-featured{grid-template-columns:minmax(135px,42%) minmax(0,58%);gap:12px}.deal-featured-image,.deal-featured-placeholder{height:180px}.deal-headline{font-size:18px}.deal-explanation{font-size:14px}}
 @media(max-width:540px){.deal-featured{grid-template-columns:1fr}.deal-featured-image,.deal-featured-placeholder{height:210px}.deal-featured-details{min-height:170px}.deal-price{font-size:23px}.deal-answer{padding-bottom:8px}}
 @media(prefers-reduced-motion:reduce){.search-status-text:after{animation:none}.assistant-copy-line,.search-summary-line,.search-card-enter,.search-more-enter,.deal-headline,.deal-explanation,.deal-saving,.deal-featured{opacity:1!important;transform:none!important;transition:none!important}}
@@ -743,7 +766,7 @@ body.findai-light .search-status{color:#6e7680}body.findai-light .search-summary
 body.findai-light .assistant-copy-line,body.findai-light .msg.assistant .msg-body{color:#24272c}
 body.findai-light .chat-card{background:#fff;border-color:#dfe2e6;box-shadow:0 4px 14px rgba(31,38,48,.06)}body.findai-light .chat-card:hover{border-color:#c8cdd4;box-shadow:0 8px 22px rgba(31,38,48,.10)}
 body.findai-light .chat-card-ph{background:#eef0f3}body.findai-light .chat-card-title{color:#34383e}body.findai-light .chat-card-price{color:#111317}
-body.findai-light .chat-card-shipping{color:#202327}body.findai-light .chat-card-shipping.free{color:#269b49}body.findai-light .chat-card-country,body.findai-light .chat-card-loc,body.findai-light .chat-card-market-sub{color:#7d848d}
+body.findai-light .chat-card-shipping{color:#202327}body.findai-light .chat-card-shipping.free{color:#269b49}body.findai-light .chat-card-shipping.varies{color:#7d848d}body.findai-light .chat-card-country,body.findai-light .chat-card-loc{color:#202327}body.findai-light .chat-card-market-sub{color:#7d848d}
 body.findai-light .card-btn{background:#fff;color:#17191c;border:1px solid #d4d8de}body.findai-light .card-btn:hover{background:#f2f4f6;opacity:1}
 body.findai-light .ambient-card{background:#fff;border-color:#d8dce1;box-shadow:0 12px 34px rgba(31,38,48,.16)}body.findai-light .ambient-card.show{opacity:.96}body.findai-light .ambient-card:hover{border-color:#bfc5cc;opacity:1}
 body.findai-light .ambient-card img{background:#f3f4f6}body.findai-light .ambient-card .ac-price{color:#17191c}
@@ -2714,6 +2737,27 @@ function searchStatusSubject(text){
   if(/^[a-z]/.test(s) && !/^i(?:Phone|Pad)\b/.test(s))s=s.charAt(0).toUpperCase()+s.slice(1);
   return s.length>54?s.slice(0,51).replace(/\s+\S*$/,'')+'…':s;
 }
+function findaiStagePick(list,seed){
+  if(!list||!list.length)return '';
+  let h=2166136261;String(seed||'').split('').forEach(function(ch){h^=ch.charCodeAt(0);h=Math.imul(h,16777619);});
+  return list[Math.abs(h) % list.length];
+}
+function findaiThinkingStages(mode,queryText){
+  const subject=searchStatusSubject(queryText)||'your search',tick=Math.floor(Date.now()/60000);
+  if(mode==='deal'){
+    const compare=[`Checking live comparables for ${subject}`,`Looking at what ${subject} is selling for now`,`Pulling current prices for ${subject}`];
+    const filter=['Removing weak or mismatched comparisons','Separating real comparables from noisy listings','Filtering out listings that would distort the comparison'];
+    const price=['Comparing item price and shipping','Checking the price spread before I call it good or bad','Lining up the strongest prices side by side'];
+    return [findaiStagePick(compare,queryText+tick+'a'),findaiStagePick(filter,queryText+tick+'b'),findaiStagePick(price,queryText+tick+'c')];
+  }
+  if(mode==='search'){
+    const source=['Checking live marketplace listings','Searching the main marketplaces and specialist sources','Pulling live listings from across the market'];
+    const filter=['Filtering duplicates and weak matches','Removing obvious mismatches before I rank anything','Cleaning up the results so I do not show you junk'];
+    const price=['Comparing prices and shipping','Checking price + delivery across the strongest matches','Ranking the listings after price and shipping'];
+    return [findaiStagePick(source,queryText+tick+'d'),findaiStagePick(filter,queryText+tick+'e'),findaiStagePick(price,queryText+tick+'f')];
+  }
+  return [];
+}
 function addThinking(label,mode,queryText){
   findaiThinkingTimers.forEach(clearTimeout);findaiThinkingTimers=[];
   const inner=document.getElementById('messages-inner');
@@ -2722,8 +2766,7 @@ function addThinking(label,mode,queryText){
   const first=subject?`Searching for “${subject}”`:(label||'Searching live marketplaces');
   d.innerHTML=`<div class="search-status ai-thinking-row"><span class="search-status-text" id="search-status-text">${escapeHtml(first)}</span></div>`;
   inner.appendChild(d);
-  const stages=mode==='deal'?['Comparing current prices and shipping','Checking the strongest comparable listings']:mode==='search'?['Comparing live prices and shipping','Ranking the strongest matches']:[];
-  stages.forEach(function(stage,index){findaiThinkingTimers.push(setTimeout(function(){setThinkingStage(stage);},760+index*900));});
+  findaiThinkingStages(mode,queryText).forEach(function(stage,index){findaiThinkingTimers.push(setTimeout(function(){setThinkingStage(stage);},650+index*820));});
 }
 function removeThinking(){findaiThinkingTimers.forEach(clearTimeout);findaiThinkingTimers=[];const t=document.getElementById('thinking');if(t)t.remove();}
 // Scroll so the latest user message sits at the top — called the INSTANT a search is
@@ -2967,12 +3010,12 @@ function cardShipping(item,c){
   if(/free\s+(shipping|delivery)/i.test(text))return {text:'Free shipping',free:true,known:true};
   const amount=text.match(/(?:A\$|C\$|NZ\$|HK\$|S\$|\$|£|€)\s*[0-9]+(?:\.[0-9]{1,2})?/);
   if(amount)return {text:'Shipping '+amount[0].replace(/\s+/g,''),free:false,known:true};
-  return {text:'Shipping varies',free:false,known:true};
+  return {text:'Shipping varies',free:false,known:true,varies:true};
 }
 function cardListingMeta(item,c){
   const shipping=cardShipping(item,c),countryName=cardListingCountry(item,c);
   const countryHtml=countryName?'<div class="chat-card-country">'+escapeHtml(countryName)+'</div>':'';
-  const shippingHtml=shipping.known?'<div class="chat-card-shipping'+(shipping.free?' free':'')+'">'+escapeHtml(shipping.text)+'</div>':'';
+  const shippingHtml=shipping.known?'<div class="chat-card-shipping'+(shipping.free?' free':(shipping.varies?' varies':''))+'">'+escapeHtml(shipping.text)+'</div>':'';
   return countryHtml+shippingHtml;
 }
 function dealSourceHtml(item){
@@ -2999,11 +3042,61 @@ function dealFeaturedCardHtml(item,c){
   const shipping=cardShipping(item,c),countryName=cardListingCountry(item,c);
   const source=String(item.source||'').toLowerCase();
   const label=(source==='stockx'||item._stockx)?'Lowest ask':(item._marketExact===false?'Related listing':'Comparable listing');
-  return `<article class="deal-featured">${img?`<img class="deal-featured-image" src="${escapeHtml(img)}" alt="${escapeHtml(item.title||'Listing')}" loading="eager" onerror="this.outerHTML='<div class=&quot;deal-featured-placeholder&quot;>Image unavailable</div>'">`:'<div class="deal-featured-placeholder">Image unavailable</div>'}<div class="deal-featured-details"><div class="deal-source">${dealSourceHtml(item)}</div><div class="deal-title">${escapeHtml(item.title||'Comparable listing')}</div><div class="deal-price-label">${escapeHtml(label)}</div><div class="deal-price">${escapeHtml(price)}</div><div class="deal-shipping${shipping.free?' free':''}">${escapeHtml(shipping.text)}</div>${countryName?`<div class="deal-country">${escapeHtml(countryName)}</div>`:''}<a class="deal-action" href="${escapeHtml(item.url||'#')}" target="_blank" rel="noopener">${escapeHtml(dealButtonLabel(item))}</a></div></article>`;
+  return `<article class="deal-featured">${img?`<img class="deal-featured-image" src="${escapeHtml(img)}" alt="${escapeHtml(item.title||'Listing')}" loading="eager" onerror="this.outerHTML='<div class=&quot;deal-featured-placeholder&quot;>Image unavailable</div>'">`:'<div class="deal-featured-placeholder">Image unavailable</div>'}<div class="deal-featured-details"><div class="deal-source">${dealSourceHtml(item)}</div><div class="deal-title">${escapeHtml(item.title||'Comparable listing')}</div><div class="deal-price-label">${escapeHtml(label)}</div><div class="deal-price">${escapeHtml(price)}</div>${countryName?`<div class="deal-country">${escapeHtml(countryName)}</div>`:''}<div class="deal-shipping${shipping.free?' free':(shipping.varies?' varies':'')}">${escapeHtml(shipping.text)}</div><a class="deal-action" href="${escapeHtml(item.url||'#')}" target="_blank" rel="noopener">${escapeHtml(dealButtonLabel(item))}</a></div></article>`;
 }
 function dealTextHtml(text){
   return escapeHtml(String(text||'')).replace(/(?:A\$|AU\$|US\$|C\$|NZ\$|HK\$|S\$|\$|£|€)\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?/g,function(m){return '<span class="deal-money-inline">'+m+'</span>';});
 }
+
+function findaiFeaturedSearchItem(items,parsed){
+  const list=(Array.isArray(items)?items:[]).filter(Boolean);
+  if(!list.length)return null;
+  const total=function(it){const p=Number(it&&it.price);if(!(p>0))return Infinity;const s=Number(it&&it.shippingCost);return p+(Number.isFinite(s)&&s>0?s:0);};
+  if(parsed&&parsed.sort==='price_asc')return list.filter(x=>Number(x&&x.price)>0).sort((a,b)=>total(a)-total(b))[0]||list[0];
+  if(parsed&&parsed.sort==='price_desc')return list.filter(x=>Number(x&&x.price)>0).sort((a,b)=>total(b)-total(a))[0]||list[0];
+  return list.find(x=>x&&x.image&&Number(x.price)>0)||list.find(x=>x&&Number(x.price)>0)||list[0];
+}
+function searchFeaturedCardHtml(item,c){
+  if(!item)return '';
+  const img=item.image||item.stockxImage||'',price=Number(item.price)>0?cardPriceText(item,c):'',shipping=cardShipping(item,c),countryName=cardListingCountry(item,c);
+  return `<article class="deal-featured search-featured">${img?`<img class="deal-featured-image" src="${escapeHtml(img)}" alt="${escapeHtml(item.title||'Listing')}" loading="eager" onerror="this.outerHTML='<div class=&quot;deal-featured-placeholder&quot;>Image unavailable</div>'">`:'<div class="deal-featured-placeholder">Image unavailable</div>'}<div class="deal-featured-details"><div class="deal-source">${dealSourceHtml(item)}</div><div class="deal-title">${escapeHtml(item.title||'Live listing')}</div>${price?`<div class="deal-price search-featured-price">${escapeHtml(price)}</div>`:'<div class="search-featured-no-price">See current price</div>'}${countryName?`<div class="deal-country">${escapeHtml(countryName)}</div>`:''}<div class="deal-shipping${shipping.free?' free':(shipping.varies?' varies':'')}">${escapeHtml(shipping.text)}</div><a class="deal-action" href="${escapeHtml(item.url||'#')}" target="_blank" rel="noopener">${escapeHtml(dealButtonLabel(item))}</a></div></article>`;
+}
+function findaiFallbackSearchNarrative(query,items,data,parsed,c,featured){
+  const count=(Array.isArray(items)?items:[]).length,subject=searchStatusSubject((parsed&&parsed.q)||query)||'those products';
+  const total=Number(data&&data.ebayCount)||Number(data&&data.total)||count;
+  const price=featured&&Number(featured.price)>0?cardPriceText(featured,c):'';
+  let headline='',explanation='';
+  if(parsed&&parsed.sort==='price_asc'&&price){headline=`The cheapest credible ${subject} I found is ${price}.`;explanation='I filtered out obvious weak matches before ordering the results by price and known shipping.';}
+  else if(parsed&&Number(parsed.maxPrice)>0){headline=`I've found ${count.toLocaleString()} strong ${subject} listing${count===1?'':'s'} inside the budget you gave me.`;explanation=price?`One of the strongest live options is ${price}, and I've put it beside this so you can compare quickly.`:'I filtered the live results against the budget before ranking them.';}
+  else if(total>count&&total>=100){headline=`I found ${total.toLocaleString()} live marketplace matches for ${subject}.`;explanation=`I narrowed the live results down to ${count.toLocaleString()} stronger listing${count===1?'':'s'} before showing them to you.`;}
+  else{headline=`I've found ${count.toLocaleString()} strong ${subject} listing${count===1?'':'s'} for you.`;explanation=price?`I've put one of the stronger live listings beside this so you have a quick price reference.`:'I filtered the results before ranking what was left.';}
+  return {headline,explanation,workLine:'I checked the live market, filtered obvious mismatches and compared price + shipping before ranking these.'};
+}
+function renderSearchAnswer(query,kw,items,data,parsed,c){
+  const featured=findaiFeaturedSearchItem(items,parsed);if(!featured)return null;
+  const n=(data&&data.searchNarrative)||findaiFallbackSearchNarrative(query,items,data,parsed,c,featured);
+  const fkey=String(featured.itemId||featured.url||featured.title||'');
+  const others=(Array.isArray(items)?items:[]).filter(function(it){return String(it&&it.itemId||it&&it.url||it&&it.title||'')!==fkey;});
+  let html=`<section class="deal-answer search-answer"><div class="deal-copy"><div class="deal-headline">${dealTextHtml(n.headline||'Here is what I found.')}</div><p class="deal-explanation">${dealTextHtml(n.explanation||'')}</p>${n.workLine?`<div class="search-workline">${dealTextHtml(n.workLine)}</div>`:''}</div>${searchFeaturedCardHtml(featured,c)}</section>`;
+  if(others.length)html+=`<div class="search-results-heading">Other matching listings</div><div class="deal-comparables">${renderCards(others,kw,'',parsed&&parsed.maxPrice||'',c,data&&data.ebayCount||0,0,true)}</div>`;
+  return {html,plain:[n.headline,n.explanation].filter(Boolean).join(' ')};
+}
+function revealSearchAnswer(body){
+  requestAnimationFrame(function(){const root=body&&body.querySelector('.search-answer');if(root)root.classList.add('visible');});
+  const cards=body?Array.from(body.querySelectorAll('.deal-comparables .chat-card')):[];
+  cards.forEach(function(card,index){card.classList.add('search-card-enter');setTimeout(function(){card.classList.add('visible');},220+index*45);});
+}
+function findaiNoResultsReply(query,parsed){
+  const subject=searchStatusSubject((parsed&&parsed.q)||query)||'that item';
+  const choices=[
+    `I couldn't get a clean live match for ${subject} yet. I would rather show you nothing than fill the page with unrelated listings.`,
+    `I tried a few ways of searching for ${subject}, but the live matches were too weak to recommend.`,
+    `I couldn't find a strong enough ${subject} listing to put in front of you right now.`
+  ];
+  const lead=findaiStagePick(choices,String(query)+Math.floor(Date.now()/60000));
+  return lead+' Try the exact model, set number, size or one fewer filter and I’ll search it again.';
+}
+
 function renderDealAnswer(deal,items,c){
   const targetCurrency=String(deal&&deal.currency||'').toUpperCase();
   const markDealItem=function(it){return it?Object.assign({},it,{_dealCurrencyNormalized:true}):it;};
@@ -3012,6 +3105,7 @@ function renderDealAnswer(deal,items,c){
   const savingPct=Number(deal&&deal.savingPercent)||0;
   let savingLine='';
   if(deal&&deal.verdict==='bad'&&saving>0)savingLine=`You could save ${escapeHtml(cardMoney(saving,{currency:deal.currency,_dealCurrencyNormalized:true},c))}${savingPct?' ('+savingPct+'%)':''} compared with the price you asked about.`;
+  else if(deal&&deal.verdict==='uncertain'&&Number(deal.comparisonsCount)>0)savingLine=`I found ${Number(deal.comparisonsCount).toLocaleString()} live examples, but they do not form one clean comparable market yet.`;
   else if(deal&&Number(deal.comparisonsCount)>0)savingLine=`Based on ${Number(deal.comparisonsCount).toLocaleString()} comparable current listing${Number(deal.comparisonsCount)===1?'':'s'}.`;
   const marketMode=deal&&deal.mode==='market';
   let html=`<section class="deal-answer${marketMode?' market-answer':''}"><div class="deal-copy"><div class="deal-headline">${dealTextHtml(deal&&deal.headline||'Here is what I found.')}</div><p class="deal-explanation">${dealTextHtml(deal&&deal.explanation||'')}</p>${savingLine?`<div class="deal-saving">${savingLine}</div>`:''}</div>${dealFeaturedCardHtml(cheapest,c)}</section>`;
@@ -3633,15 +3727,17 @@ async function sendMsg(){
         : Promise.resolve([]);
       const data=await mainP;
       const c=data.country||country;
+      if(Number(data.ebayCount)>0)setThinkingStage(`${Number(data.ebayCount).toLocaleString()} live marketplace matches surfaced — checking specialist sources`);
+      else setThinkingStage('The main marketplaces are back — checking specialist sources');
       let items=Array.isArray(data.items)?data.items:[];
       saveSearchedItems(items, kw);
       let sxItems=[];
+      setThinkingStage('Checking specialist marketplaces for another strong match');
       try{ sxItems=await Promise.race([sxLive, new Promise(res=>setTimeout(()=>res([]),4500))]); }catch(_){}
       let dgItems=[];
       if(isMusic){ try{ dgItems=await Promise.race([dgLive, new Promise(res=>setTimeout(()=>res([]),4500))]); }catch(_){} }
       let etItems=[];
       if(isEtsy){ try{ etItems=await Promise.race([etLive, new Promise(res=>setTimeout(()=>res([]),4500))]); }catch(_){} }
-      removeThinking();
       if(items.length && sxItems && sxItems.length){
         // Only take as many StockX cards as genuinely returned (already relevance-
         // filtered server-side). "yeezy 350" -> up to 2; "yeezy 350 zebra" -> the
@@ -3734,10 +3830,16 @@ async function sendMsg(){
         items=merged;
       }
       items=applyFindAIShoppingIntent(items,parsed);
-      const cardsHtml=items.length?renderCards(items,kw,'',maxPrice||'',c,data.ebayCount||0,0,false):'';
-      conversation.push({role:'assistant',content:'(showed results for '+kw+')'});
+      if(items.length)setThinkingStage(`Comparing price + shipping across ${items.length.toLocaleString()} strong live result${items.length===1?'':'s'}`);
       const body=addMsg('assistant','');
-      typeReply(body, items.length?'':"Couldn't find that one — try different words?", cardsHtml);
+      if(items.length){
+        const answer=renderSearchAnswer(q,kw,items,data,parsed,c);
+        if(answer){body.innerHTML=answer.html;revealSearchAnswer(body);conversation.push({role:'assistant',content:answer.plain||('(showed results for '+kw+')')});}
+        else typeReply(body,'',renderCards(items,kw,'',maxPrice||'',c,data.ebayCount||0,0,false));
+      }else{
+        const noReply=findaiNoResultsReply(q,parsed);conversation.push({role:'assistant',content:noReply});typeReply(body,noReply,'');
+      }
+      removeThinking();
       setTimeout(scrollToLastUser,150);
     }catch(e){removeThinking();if(!(e&&e.name==='AbortError')){console.error('FINDAI SEARCH ERROR:', e && (e.stack||e.message||e)); addMsg('assistant','Sorry, the search hiccupped — try again?');}}
     activeFindaiSearchController=null;
