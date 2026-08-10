@@ -1090,6 +1090,9 @@
   font-size:20px;font-weight:800;letter-spacing:-.3px;color:#fff;
   text-shadow:0 1px 6px rgba(0,0,0,.55)
 }
+#search .source-chip .retailer-source{display:inline-flex;align-items:center;gap:6px}
+#search .source-chip .retailer-source-logo{width:18px;height:18px;object-fit:contain;border-radius:3px}
+#search .source-chip .retailer-source-name{font-weight:800;color:#fff}
 #search .source-chip[data-source="findai"]{
   background:transparent!important;border:0!important;box-shadow:none!important;
   padding:0!important
@@ -1701,6 +1704,12 @@ body.scan-results-open .nav{display:none!important}
 .search-grid-image-empty{width:100%;height:100%;display:grid;place-items:center;color:#666d76;font-size:10px}
 .search-grid-source{height:25px;display:flex;align-items:center;margin-bottom:3px}
 .search-grid-source .source-brand{font-size:10px}.search-grid-source .ebay-logo{width:38px;height:auto}
+.retailer-source{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%}
+.retailer-source-logo{display:block;width:18px;height:18px;object-fit:contain;flex:0 0 auto;border-radius:3px}
+.retailer-source-name{font-weight:800!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.search-grid-source .retailer-source-name{font-size:10px!important;color:#f3f5f7}
+.search-detail-source .retailer-source-logo{width:20px;height:20px}.search-detail-source .retailer-source-name{font-size:11px!important;color:#fff}
+.app-search-evidence-source .retailer-source-logo{width:18px;height:18px}.app-search-evidence-source .retailer-source-name{font-size:10px!important;color:#fff}
 .search-grid-body{padding:9px 9px 11px}
 .search-grid-title{height:34px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:11.5px;line-height:1.42;font-weight:650;color:#e9ebee}
 .search-grid-price{margin-top:8px;font-size:17px;line-height:1;font-weight:820;letter-spacing:-.45px}
@@ -2825,14 +2834,19 @@ function sourceLabel(source){
   const map = {ebay:'eBay',findai:'FindAI',amazon:'Amazon',aliexpress:'AliExpress',stockx:'StockX',bricklink:'BrickLink',brickset:'Brickset',goat:'GOAT',myer:'Myer','david jones':'David Jones',sephora:'Sephora','chemist warehouse':'Chemist Warehouse',mecca:'MECCA'};
   return map[key] || raw.replace(/\b[a-z]/g,m=>m.toUpperCase());
 }
-function sourceMarkup(source){
+function sourceMarkup(source,item=null){
   const raw=String(source||'listing').trim();
   const normalized=raw.toLowerCase();
   if(normalized==='ebay') return EBAY_LOGO_SVG;
   if(normalized==='findai'){
     return '<span class="source-brand findai-source-brand">Find<span class="findai-source-ai">AI</span></span>';
   }
-  return `<span class="source-brand">${escapeHTML(sourceLabel(raw))}</span>`;
+  const label=String((item && (item.retailerName || item.retailer || item.source)) || sourceLabel(raw) || raw).trim();
+  const logo=safeUrl(item && item.retailerLogo);
+  if(logo){
+    return `<span class="retailer-source"><img class="retailer-source-logo" src="${escapeAttr(logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'"><span class="source-brand retailer-source-name">${escapeHTML(label)}</span></span>`;
+  }
+  return `<span class="source-brand retailer-source-name">${escapeHTML(label)}</span>`;
 }
 function currencyOf(item, data){ return String((item && item.currency) || (data && data.currency) || 'AUD').toUpperCase(); }
 function money(value, currency='AUD'){
@@ -4407,7 +4421,7 @@ function appListingCountry(item){
 }
 function renderSearchGridCard(item,index,data){
   const title=String(item.title||(data&&data.productDetails&&data.productDetails.name)||'Product listing'),image=getImage(item)||getImage(data&&data.productDetails),source=getSource(item),condition=conditionText(item),country=appListingCountry(item),shipping=getShippingText(item);
-  return `<article class="search-grid-card" data-grid-index="${index}" onclick="openSearchResultDetail(${index})" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSearchResultDetail(${index})}"><div class="search-grid-image-wrap">${image?`<img class="search-grid-image" src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="${index<6?'eager':'lazy'}" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:'<div class="search-grid-image-empty">Image unavailable</div>'}${condition?`<span class="search-grid-condition">${escapeHTML(condition)}</span>`:''}</div><div class="search-grid-body"><div class="search-grid-source">${sourceMarkup(source)}</div><div class="search-grid-title">${escapeHTML(title)}</div><div class="search-grid-price">${escapeHTML(money(item.price,currencyOf(item,data)))}</div><div class="search-grid-meta">${country?`<span>${escapeHTML(country)}</span>`:''}<span class="shipping">${escapeHTML(shipping)}</span></div></div></article>`;
+  return `<article class="search-grid-card" data-grid-index="${index}" onclick="openSearchResultDetail(${index})" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSearchResultDetail(${index})}"><div class="search-grid-image-wrap">${image?`<img class="search-grid-image" src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="${index<6?'eager':'lazy'}" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:'<div class="search-grid-image-empty">Image unavailable</div>'}${condition?`<span class="search-grid-condition">${escapeHTML(condition)}</span>`:''}</div><div class="search-grid-body"><div class="search-grid-source">${sourceMarkup(source,item)}</div><div class="search-grid-title">${escapeHTML(title)}</div><div class="search-grid-price">${escapeHTML(money(item.price,currencyOf(item,data)))}</div><div class="search-grid-meta">${country?`<span>${escapeHTML(country)}</span>`:''}<span class="shipping">${escapeHTML(shipping)}</span></div></div></article>`;
 }
 
 function appSearchFeaturedIndex(items,data){
@@ -4428,7 +4442,7 @@ function renderAppSearchAnswer(items,data,query){
   if(!items.length)return '';
   const n=appFallbackSearchNarrative(items,data,query),idx=appSearchFeaturedIndex(items,data),item=items[idx]||items[0];
   const image=getImage(item),title=String(item.title||'Live listing'),source=getSource(item),country=appListingCountry(item),shipping=getShippingText(item),price=Number(item.price)>0?money(item.price,currencyOf(item,data)):'';
-  return `<section class="app-search-answer"><div class="app-search-answer-copy"><h2>${escapeHTML(n.headline||'Here is what I found.')}</h2><p>${escapeHTML(n.explanation||'')}</p>${n.workLine?`<div class="app-search-work">${escapeHTML(n.workLine)}</div>`:''}</div><button type="button" class="app-search-evidence" onclick="openSearchResultDetail(${idx})">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="eager" referrerpolicy="no-referrer">`:'<span class="app-search-evidence-ph">Image unavailable</span>'}<span class="app-search-evidence-copy"><span class="app-search-evidence-source">${sourceMarkup(source)}</span><span class="app-search-evidence-title">${escapeHTML(title)}</span>${price?`<span class="app-search-evidence-price">${escapeHTML(price)}</span>`:''}<span class="app-search-evidence-meta">${country?escapeHTML(country)+' · ':''}${escapeHTML(shipping)}</span></span></button></section><div class="app-search-results-label">Other matching listings</div>`;
+  return `<section class="app-search-answer"><div class="app-search-answer-copy"><h2>${escapeHTML(n.headline||'Here is what I found.')}</h2><p>${escapeHTML(n.explanation||'')}</p>${n.workLine?`<div class="app-search-work">${escapeHTML(n.workLine)}</div>`:''}</div><button type="button" class="app-search-evidence" onclick="openSearchResultDetail(${idx})">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="eager" referrerpolicy="no-referrer">`:'<span class="app-search-evidence-ph">Image unavailable</span>'}<span class="app-search-evidence-copy"><span class="app-search-evidence-source">${sourceMarkup(source,item)}</span><span class="app-search-evidence-title">${escapeHTML(title)}</span>${price?`<span class="app-search-evidence-price">${escapeHTML(price)}</span>`:''}<span class="app-search-evidence-meta">${country?escapeHTML(country)+' · ':''}${escapeHTML(shipping)}</span></span></button></section><div class="app-search-results-label">Other matching listings</div>`;
 }
 
 function renderSearchGridPages(items,data){
@@ -4444,7 +4458,7 @@ function renderSearchGridPages(items,data){
 }
 function renderSearchDetailCard(item,index){
   const title=String(item.title||'Product listing'),image=getImage(item),source=getSource(item),country=appListingCountry(item),shipping=getShippingText(item),condition=conditionText(item);
-  return `<article class="search-detail-card" data-detail-index="${index}"><div class="search-detail-media">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}" referrerpolicy="no-referrer">`:'<div class="image-fallback" style="display:grid">Image unavailable</div>'}</div><div class="search-detail-content"><div class="search-detail-source">${sourceMarkup(source)}</div><h2 class="search-detail-title">${escapeHTML(title)}</h2><div class="search-detail-price">${escapeHTML(money(item.price,currencyOf(item,currentFeedData)))}</div><div class="search-detail-meta">${condition?`<div><b>Condition</b> · ${escapeHTML(condition)}</div>`:''}${country?`<div><b>${escapeHTML(country)}</b></div>`:''}<div>${escapeHTML(shipping)}</div></div><div class="search-detail-actions"><button class="search-detail-view" onclick="openDeal(${index},event)">View Deal</button><button class="search-detail-icon ${isTracked(item)?'active':''}" onclick="toggleLike(${index},event)" aria-label="Save"><svg viewBox="0 0 24 24" fill="${isTracked(item)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></button><button class="search-detail-icon" onclick="shareItem(${index},event)" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 13v6h14v-6"/></svg></button></div></div></article>`;
+  return `<article class="search-detail-card" data-detail-index="${index}"><div class="search-detail-media">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}" referrerpolicy="no-referrer">`:'<div class="image-fallback" style="display:grid">Image unavailable</div>'}</div><div class="search-detail-content"><div class="search-detail-source">${sourceMarkup(source,item)}</div><h2 class="search-detail-title">${escapeHTML(title)}</h2><div class="search-detail-price">${escapeHTML(money(item.price,currencyOf(item,currentFeedData)))}</div><div class="search-detail-meta">${condition?`<div><b>Condition</b> · ${escapeHTML(condition)}</div>`:''}${country?`<div><b>${escapeHTML(country)}</b></div>`:''}<div>${escapeHTML(shipping)}</div></div><div class="search-detail-actions"><button class="search-detail-view" onclick="openDeal(${index},event)">View Deal</button><button class="search-detail-icon ${isTracked(item)?'active':''}" onclick="toggleLike(${index},event)" aria-label="Save"><svg viewBox="0 0 24 24" fill="${isTracked(item)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></button><button class="search-detail-icon" onclick="shareItem(${index},event)" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 13v6h14v-6"/></svg></button></div></div></article>`;
 }
 function openSearchResultDetail(index){
   if(feedState.source==='personalised')return;
@@ -4522,7 +4536,7 @@ function renderReelCard(item,index,data){
       </button>
     </div>
     <div class="product-panel">
-      <div class="source-chip" data-source="${escapeAttr(source)}">${sourceMarkup(source)}</div>
+      <div class="source-chip" data-source="${escapeAttr(source)}">${sourceMarkup(source,item)}</div>
       <h2 class="title">${escapeHTML(title)}</h2>
       <div class="price-action-row">
         <div class="listing-price-copy">
@@ -5461,7 +5475,7 @@ function scanMarketFromListings(listings){
   };
 }
 function scanSourceMarkup(item){
-  return sourceMarkup(getSource(item));
+  return sourceMarkup(getSource(item),item);
 }
 function scanListingMeta(item){
   return [conditionText(item),getShippingText(item)].filter(Boolean).join(' · ');
