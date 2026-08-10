@@ -2993,6 +2993,10 @@ function money(value, currency='AUD'){
   const amount = n.toLocaleString(undefined,{maximumFractionDigits:n%1?2:0});
   return `${symbol}${amount} ${code}`;
 }
+function appListingPriceText(item,data){
+  if(item&&item._retailerLinkOnly)return 'Check price';
+  return Number(item&&item.price)>0?money(item.price,currencyOf(item,data)):'See listing';
+}
 function median(nums){
   const a = nums.filter(Number.isFinite).sort((x,y)=>x-y);
   if(!a.length) return null;
@@ -4496,7 +4500,7 @@ function trackerSearch(event){
 }
 
 function prepareNewFeedItems(raw,query,source){
-  const valid=(Array.isArray(raw)?raw:[]).filter(item=>item && Number(item.price)>0);
+  const valid=(Array.isArray(raw)?raw:[]).filter(item=>item && (Number(item.price)>0 || (source==='search' && item._retailerLinkOnly===true)));
   const ranked=rankListings(valid,query,source);
   const fresh=[];
   for(const item of ranked){
@@ -4562,8 +4566,8 @@ function appListingCountry(item){
   return map[raw.toUpperCase()]||raw;
 }
 function renderSearchGridCard(item,index,data){
-  const title=String(item.title||(data&&data.productDetails&&data.productDetails.name)||'Product listing'),image=getImage(item)||getImage(data&&data.productDetails),source=getSource(item),condition=conditionText(item),country=appListingCountry(item),shipping=getShippingText(item);
-  return `<article class="search-grid-card" data-grid-index="${index}" onclick="openSearchResultDetail(${index})" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSearchResultDetail(${index})}"><div class="search-grid-image-wrap">${image?`<img class="search-grid-image" src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="${index<6?'eager':'lazy'}" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:'<div class="search-grid-image-empty">Image unavailable</div>'}${condition?`<span class="search-grid-condition">${escapeHTML(condition)}</span>`:''}</div><div class="search-grid-body"><div class="search-grid-source">${sourceMarkup(source,item)}</div><div class="search-grid-title">${escapeHTML(title)}</div><div class="search-grid-price">${escapeHTML(money(item.price,currencyOf(item,data)))}</div><div class="search-grid-meta">${country?`<span>${escapeHTML(country)}</span>`:''}<span class="shipping">${escapeHTML(shipping)}</span></div></div></article>`;
+  const title=String(item.title||(data&&data.productDetails&&data.productDetails.name)||'Product listing'),image=getImage(item)||getImage(data&&data.productDetails),source=getSource(item),condition=conditionText(item),country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item);
+  return `<article class="search-grid-card" data-grid-index="${index}" onclick="openSearchResultDetail(${index})" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSearchResultDetail(${index})}"><div class="search-grid-image-wrap">${image?`<img class="search-grid-image" src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="${index<6?'eager':'lazy'}" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:'<div class="search-grid-image-empty">Image unavailable</div>'}${condition?`<span class="search-grid-condition">${escapeHTML(condition)}</span>`:''}</div><div class="search-grid-body"><div class="search-grid-source">${sourceMarkup(source,item)}</div><div class="search-grid-title">${escapeHTML(title)}</div><div class="search-grid-price">${escapeHTML(appListingPriceText(item,data))}</div><div class="search-grid-meta">${country?`<span>${escapeHTML(country)}</span>`:''}<span class="shipping">${escapeHTML(shipping)}</span></div></div></article>`;
 }
 
 function appSearchFeaturedIndex(items,data){
@@ -4572,7 +4576,7 @@ function appSearchFeaturedIndex(items,data){
   const total=it=>{const p=Number(it&&it.price);if(!(p>0))return Infinity;const s=Number(it&&it.shippingCost);return p+(Number.isFinite(s)&&s>0?s:0);};
   if(intent.sort==='price_asc'){let best=0;for(let i=1;i<list.length;i++)if(total(list[i])<total(list[best]))best=i;return best;}
   if(intent.sort==='price_desc'){let best=0;for(let i=1;i<list.length;i++)if(total(list[i])>total(list[best]))best=i;return best;}
-  const idx=list.findIndex(it=>getImage(it)&&Number(it&&it.price)>0);return idx>=0?idx:0;
+  return 0;
 }
 function appFallbackSearchNarrative(items,data,query){
   const count=items.length,n=data&&data.searchNarrative||{},subject=appSearchStatusSubject(query);
@@ -4583,8 +4587,8 @@ function appFallbackSearchNarrative(items,data,query){
 function renderAppSearchAnswer(items,data,query){
   if(!items.length)return '';
   const n=appFallbackSearchNarrative(items,data,query),idx=appSearchFeaturedIndex(items,data),item=items[idx]||items[0];
-  const image=getImage(item),title=String(item.title||'Live listing'),source=getSource(item),country=appListingCountry(item),shipping=getShippingText(item),price=Number(item.price)>0?money(item.price,currencyOf(item,data)):'';
-  return `<section class="app-search-answer"><div class="app-search-answer-copy"><h2>${escapeHTML(n.headline||'Here is what I found.')}</h2><p>${escapeHTML(n.explanation||'')}</p>${n.workLine?`<div class="app-search-work">${escapeHTML(n.workLine)}</div>`:''}</div><button type="button" class="app-search-evidence" onclick="openSearchResultDetail(${idx})">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="eager" referrerpolicy="no-referrer">`:'<span class="app-search-evidence-ph">Image unavailable</span>'}<span class="app-search-evidence-copy"><span class="app-search-evidence-source">${sourceMarkup(source,item)}</span><span class="app-search-evidence-title">${escapeHTML(title)}</span>${price?`<span class="app-search-evidence-price">${escapeHTML(price)}</span>`:''}<span class="app-search-evidence-meta">${country?escapeHTML(country)+' · ':''}${escapeHTML(shipping)}</span></span></button></section><div class="app-search-results-label">Other matching listings</div>`;
+  const image=getImage(item),title=String(item.title||'Live listing'),source=getSource(item),country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item),price=appListingPriceText(item,data);
+  return `<section class="app-search-answer"><div class="app-search-answer-copy"><h2>${escapeHTML(n.headline||'Here is what I found.')}</h2><p>${escapeHTML(n.explanation||'')}</p>${n.workLine?`<div class="app-search-work">${escapeHTML(n.workLine)}</div>`:''}</div><button type="button" class="app-search-evidence" onclick="openSearchResultDetail(${idx})">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="eager" referrerpolicy="no-referrer">`:'<span class="app-search-evidence-ph">Image unavailable</span>'}<span class="app-search-evidence-copy"><span class="app-search-evidence-source">${sourceMarkup(source,item)}</span><span class="app-search-evidence-title">${escapeHTML(title)}</span>${price?`<span class="app-search-evidence-price">${escapeHTML(price)}</span>`:''}<span class="app-search-evidence-meta">${country?escapeHTML(country)+(shipping?' · ':''):''}${escapeHTML(shipping)}</span></span></button></section><div class="app-search-results-label">Other matching listings</div>`;
 }
 
 function renderSearchGridPages(items,data){
@@ -4599,8 +4603,8 @@ function renderSearchGridPages(items,data){
   return renderAppSearchAnswer(list,data,feedState.query||'')+pages.join('');
 }
 function renderSearchDetailCard(item,index){
-  const title=String(item.title||'Product listing'),image=getImage(item),source=getSource(item),country=appListingCountry(item),shipping=getShippingText(item),condition=conditionText(item);
-  return `<article class="search-detail-card" data-detail-index="${index}"><div class="search-detail-media">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}" referrerpolicy="no-referrer">`:'<div class="image-fallback" style="display:grid">Image unavailable</div>'}</div><div class="search-detail-content"><div class="search-detail-source">${sourceMarkup(source,item)}</div><h2 class="search-detail-title">${escapeHTML(title)}</h2><div class="search-detail-price">${escapeHTML(money(item.price,currencyOf(item,currentFeedData)))}</div><div class="search-detail-meta">${condition?`<div><b>Condition</b> · ${escapeHTML(condition)}</div>`:''}${country?`<div><b>${escapeHTML(country)}</b></div>`:''}<div>${escapeHTML(shipping)}</div></div><div class="search-detail-actions"><button class="search-detail-view" onclick="openDeal(${index},event)">View Deal</button><button class="search-detail-icon ${isTracked(item)?'active':''}" onclick="toggleLike(${index},event)" aria-label="Save"><svg viewBox="0 0 24 24" fill="${isTracked(item)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></button><button class="search-detail-icon" onclick="shareItem(${index},event)" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 13v6h14v-6"/></svg></button></div></div></article>`;
+  const title=String(item.title||'Product listing'),image=getImage(item),source=getSource(item),country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item),condition=conditionText(item);
+  return `<article class="search-detail-card" data-detail-index="${index}"><div class="search-detail-media">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}" referrerpolicy="no-referrer">`:'<div class="image-fallback" style="display:grid">Image unavailable</div>'}</div><div class="search-detail-content"><div class="search-detail-source">${sourceMarkup(source,item)}</div><h2 class="search-detail-title">${escapeHTML(title)}</h2><div class="search-detail-price">${escapeHTML(appListingPriceText(item,currentFeedData))}</div><div class="search-detail-meta">${condition?`<div><b>Condition</b> · ${escapeHTML(condition)}</div>`:''}${country?`<div><b>${escapeHTML(country)}</b></div>`:''}${shipping?`<div>${escapeHTML(shipping)}</div>`:''}</div><div class="search-detail-actions"><button class="search-detail-view" onclick="openDeal(${index},event)">${item&&item._retailerLinkOnly?'View retailer':'View Deal'}</button><button class="search-detail-icon ${isTracked(item)?'active':''}" onclick="toggleLike(${index},event)" aria-label="Save"><svg viewBox="0 0 24 24" fill="${isTracked(item)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></button><button class="search-detail-icon" onclick="shareItem(${index},event)" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 13v6h14v-6"/></svg></button></div></div></article>`;
 }
 function openSearchResultDetail(index){
   if(feedState.source==='personalised')return;
