@@ -134,6 +134,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .search-summary-line{font-size:14px;color:#f3f4f6;line-height:1.5;margin-bottom:12px;padding:4px 2px;min-height:30px;display:block;opacity:0;transform:translateY(5px);transition:opacity .3s ease,transform .3s ease}.search-summary-line.visible{opacity:1;transform:none}.search-summary-line strong{font-weight:750}
 .search-card-enter{opacity:0;transform:translateY(11px);transition:opacity .34s ease,transform .34s cubic-bezier(.22,.75,.25,1)}.search-card-enter.visible{opacity:1;transform:none}.search-more-enter{opacity:0;transform:translateY(6px);transition:opacity .25s ease,transform .25s ease}.search-more-enter.visible{opacity:1;transform:none}
 .chat-card-country,.chat-card-loc{margin-top:5px;color:#f1f2f4;font-family:'DM Sans',sans-serif!important;font-size:10.5px!important;font-weight:450!important;font-style:normal!important;line-height:1.25!important;letter-spacing:0!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.chat-card-shipping{margin-top:7px;color:#f4f4f4;font-family:'DM Sans',sans-serif!important;font-size:10.5px!important;font-weight:650!important;font-style:normal!important;line-height:1.25!important;letter-spacing:0!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.chat-card-shipping.free{color:#46c267}.chat-card-shipping.varies{color:#8d949d;font-weight:500!important}.chat-card-market-sub{margin-top:4px;color:#9aa0a8;font-size:10px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.retailer-source{display:inline-flex;align-items:center;gap:7px;min-width:0;max-width:100%;font-family:'DM Sans',sans-serif}.retailer-source-logo{display:block;flex:0 0 auto;max-width:88px;height:18px;object-fit:contain;object-position:left center}.retailer-source-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f4f5f7;font-size:13px;line-height:18px;font-weight:820;letter-spacing:-.18px}.retailer-source.hero .retailer-source-logo{height:20px;max-width:104px}.retailer-source.hero .retailer-source-name{font-size:14px;line-height:20px;font-weight:840}.retailer-source-logo+ .retailer-source-name{padding-left:1px}
 .msg.assistant{gap:0}.msg.assistant .msg-av{display:none}.msg.assistant .msg-body{padding-left:0;padding-right:0}
 .chat-card-body>div:first-child{min-height:18px;display:flex;align-items:center}.chat-card-title{height:2.8em;min-height:2.8em}.chat-card-price{margin-top:auto;font-variant-numeric:tabular-nums;line-height:1.2}.chat-card-country,.chat-card-loc{min-height:13px}.chat-card-shipping{min-height:13px;font-variant-numeric:tabular-nums}.chat-card>a{min-height:0}
 .deal-answer{width:100%;display:grid;grid-template-columns:minmax(260px,.8fr) minmax(430px,1.2fr);gap:34px;align-items:center;padding:4px 0 18px}.deal-copy{min-width:0}.deal-headline{font-size:20px;line-height:1.35;font-weight:760;letter-spacing:-.35px;color:#f7f7f8;opacity:0;transform:translateY(5px);transition:opacity .3s ease,transform .3s ease}.deal-explanation{margin:11px 0 0;color:#c4c8ce;font-size:15px;line-height:1.65;opacity:0;transform:translateY(5px);transition:opacity .3s ease .08s,transform .3s ease .08s}.deal-saving{margin-top:15px;color:#9ba1a9;font-size:12px;line-height:1.5;opacity:0;transform:translateY(5px);transition:opacity .3s ease .14s,transform .3s ease .14s}.deal-answer.visible .deal-headline,.deal-answer.visible .deal-explanation,.deal-answer.visible .deal-saving{opacity:1;transform:none}.deal-money-inline{white-space:nowrap;font-variant-numeric:tabular-nums}.deal-answer.market-answer .deal-saving{margin-top:13px}
@@ -898,7 +899,7 @@ body.findai-light .chat-card-shipping,
 body.findai-light .chat-card-shipping.varies,
 body.findai-light .chat-card-market-sub{color:#111317}
 body.findai-light .chat-card-title{font-weight:550}
-body.findai-light .chat-card-shipping.free{color:#18863a}
+body.findai-light .chat-card-shipping.free{color:#18863a}body.findai-light .retailer-source-name{color:#111317}body.findai-light .deal-source .retailer-source-name{color:#111317}
 body.findai-light .prev-card{border-color:#15171a}
 body.findai-light .prev-card:hover{border-color:#000}
 body.findai-light .prev-card-title{color:#111317}
@@ -3096,6 +3097,12 @@ function cardListingMeta(item,c){
   const shippingHtml=shipping.known?'<div class="chat-card-shipping'+(shipping.free?' free':(shipping.varies?' varies':''))+'">'+escapeHtml(shipping.text)+'</div>':'';
   return countryHtml+shippingHtml;
 }
+function retailerSourceHtml(item,hero){
+  const name=String(item&& (item.retailer||item.source) || 'Retailer').trim()||'Retailer';
+  const logo=String(item&&item.retailerLogo||'').trim();
+  const logoHtml=logo?`<img class="retailer-source-logo" src="${escapeHtml(logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:'';
+  return `<span class="retailer-source${hero?' hero':''}">${logoHtml}<span class="retailer-source-name">${escapeHtml(name)}</span></span>`;
+}
 function dealSourceHtml(item){
   const source=String(item&&item.source||'').toLowerCase();
   if(item&&item._stockx||source==='stockx')return stockxWordmark();
@@ -3103,7 +3110,7 @@ function dealSourceHtml(item){
   if(source.indexOf('etsy')>=0)return etsyWordmark();
   if(source.indexOf('discogs')>=0)return discogsWordmark();
   if(source.indexOf('ali')>=0)return '<span style="font-size:12px;font-weight:800;color:#ff4747">AliExpress</span>';
-  if(item&&item._webDiscovery)return `<span style="font-size:12px;font-weight:800;color:#f3f4f6;font-family:'DM Sans',sans-serif">${escapeHtml(item.retailer||item.source||'Retailer')}</span>`;
+  if(item&&item._webDiscovery)return retailerSourceHtml(item,true);
   return ebayLogoHtml();
 }
 function dealButtonLabel(item){
@@ -3404,7 +3411,7 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
     const isFindAI=isFindAIListing(item);
     const srcBadge=isFindAI?`<span class="findai-market-badge">Find<span class="findai-market-ai">AI</span></span>`:(isAli
       ?`<span style="font-size:11px;font-weight:800;color:#ff4747;font-family:'DM Sans',sans-serif">AliExpress</span>`
-      :(isWeb?`<span style="font-size:11px;font-weight:800;color:#f3f4f6;font-family:'DM Sans',sans-serif">${escapeHtml(item.retailer||item.source||'Retailer')}</span>`:ebayLogoHtml()));
+      :(isWeb?retailerSourceHtml(item,false):ebayLogoHtml()));
     const _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
     const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
     const _hasOffer=Array.isArray(item.buyingOptions)&&item.buyingOptions.indexOf('BEST_OFFER')!==-1;
@@ -3621,7 +3628,7 @@ function showMoreCards(sid){
     const isFindAI=isFindAIListing(item);
     const srcBadge=isFindAI?`<span class="findai-market-badge">Find<span class="findai-market-ai">AI</span></span>`:(isAli
       ?`<span style="font-size:11px;font-weight:800;color:#ff4747">AliExpress</span>`
-      :(isWeb?`<span style="font-size:11px;font-weight:800;color:#f3f4f6;font-family:'DM Sans',sans-serif">${escapeHtml(item.retailer||item.source||'Retailer')}</span>`:ebayLogoHtml()));
+      :(isWeb?retailerSourceHtml(item,false):ebayLogoHtml()));
     const _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
     const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
     const _hasOffer=Array.isArray(item.buyingOptions)&&item.buyingOptions.indexOf('BEST_OFFER')!==-1;
