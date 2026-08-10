@@ -3080,6 +3080,7 @@ function cardMoney(value,item,c){
   return symbol+n.toLocaleString(undefined,{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2});
 }
 function cardPriceText(item,c,fallbackSymbol){
+  if(item&&item._retailerLinkOnly)return 'Check price';
   if(!item||!Number(item.price))return 'See listing';
   const currency=String(item.currency||'').toUpperCase();
   let symbol=CURSYM[currency]||fallbackSymbol||(c==='AU'?'A$':c==='UK'?'£':c==='DE'?'€':'$');
@@ -3105,7 +3106,7 @@ function cardShipping(item,c){
   return {text:'Shipping varies',free:false,known:true,varies:true};
 }
 function cardListingMeta(item,c){
-  const shipping=cardShipping(item,c),countryName=cardListingCountry(item,c);
+  const shipping=item&&item._retailerLinkOnly?{known:false,free:false,varies:false,text:''}:cardShipping(item,c),countryName=cardListingCountry(item,c);
   const countryHtml=countryName?'<div class="chat-card-country">'+escapeHtml(countryName)+'</div>':'';
   const shippingHtml=shipping.known?'<div class="chat-card-shipping'+(shipping.free?' free':(shipping.varies?' varies':''))+'">'+escapeHtml(shipping.text)+'</div>':'';
   return countryHtml+shippingHtml;
@@ -3133,6 +3134,7 @@ function listingSourceHtml(item,hero){
 function dealSourceHtml(item){ return listingSourceHtml(item,true); }
 function dealButtonLabel(item){
   const source=String(item&&item.source||'').toLowerCase();
+  if(item&&item._retailerLinkOnly)return 'View retailer';
   if(source==='stockx'||item&&item._stockx)return 'View on StockX';
   if(source.indexOf('etsy')>=0)return 'View on Etsy';
   if(source.indexOf('discogs')>=0)return 'View on Discogs';
@@ -3142,11 +3144,11 @@ function dealButtonLabel(item){
 function dealFeaturedCardHtml(item,c){
   if(!item)return '';
   const img=item.image||item.stockxImage||'';
-  const price=cardMoney(Number(item.price)||0,item,c);
-  const shipping=cardShipping(item,c),countryName=cardListingCountry(item,c);
+  const price=item._retailerLinkOnly?'Check price':cardMoney(Number(item.price)||0,item,c);
+  const shipping=item._retailerLinkOnly?{text:'',free:false,varies:false}:cardShipping(item,c),countryName=cardListingCountry(item,c);
   const source=String(item.source||'').toLowerCase();
   const label=(source==='stockx'||item._stockx)?'Lowest ask':(item._marketExact===false?'Related listing':'Comparable listing');
-  return `<article class="deal-featured">${img?`<img class="deal-featured-image" src="${escapeHtml(img)}" alt="${escapeHtml(item.title||'Listing')}" loading="eager" onerror="this.outerHTML='<div class=&quot;deal-featured-placeholder&quot;>Image unavailable</div>'">`:'<div class="deal-featured-placeholder">Image unavailable</div>'}<div class="deal-featured-details"><div class="deal-source">${dealSourceHtml(item)}</div><div class="deal-title">${escapeHtml(item.title||'Comparable listing')}</div><div class="deal-price-label">${escapeHtml(label)}</div><div class="deal-price">${escapeHtml(price)}</div>${countryName?`<div class="deal-country">${escapeHtml(countryName)}</div>`:''}<div class="deal-shipping${shipping.free?' free':(shipping.varies?' varies':'')}">${escapeHtml(shipping.text)}</div><a class="deal-action" href="${escapeHtml(item.url||'#')}" target="_blank" rel="noopener">${escapeHtml(dealButtonLabel(item))}</a></div></article>`;
+  return `<article class="deal-featured">${img?`<img class="deal-featured-image" src="${escapeHtml(img)}" alt="${escapeHtml(item.title||'Listing')}" loading="eager" onerror="this.outerHTML='<div class=&quot;deal-featured-placeholder&quot;>Image unavailable</div>'">`:'<div class="deal-featured-placeholder">Image unavailable</div>'}<div class="deal-featured-details"><div class="deal-source">${dealSourceHtml(item)}</div><div class="deal-title">${escapeHtml(item.title||'Comparable listing')}</div><div class="deal-price-label">${escapeHtml(label)}</div><div class="deal-price">${escapeHtml(price)}</div>${countryName?`<div class="deal-country">${escapeHtml(countryName)}</div>`:''}${shipping.text?`<div class="deal-shipping${shipping.free?' free':(shipping.varies?' varies':'')}">${escapeHtml(shipping.text)}</div>`:''}<a class="deal-action" href="${escapeHtml(item.url||'#')}" target="_blank" rel="noopener">${escapeHtml(dealButtonLabel(item))}</a></div></article>`;
 }
 function dealTextHtml(text){
   return escapeHtml(String(text||'')).replace(/(?:A\$|AU\$|US\$|C\$|NZ\$|HK\$|S\$|\$|£|€)\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?/g,function(m){return '<span class="deal-money-inline">'+m+'</span>';});
@@ -3158,12 +3160,15 @@ function findaiFeaturedSearchItem(items,parsed){
   const total=function(it){const p=Number(it&&it.price);if(!(p>0))return Infinity;const s=Number(it&&it.shippingCost);return p+(Number.isFinite(s)&&s>0?s:0);};
   if(parsed&&parsed.sort==='price_asc')return list.filter(x=>Number(x&&x.price)>0).sort((a,b)=>total(a)-total(b))[0]||list[0];
   if(parsed&&parsed.sort==='price_desc')return list.filter(x=>Number(x&&x.price)>0).sort((a,b)=>total(b)-total(a))[0]||list[0];
-  return list.find(x=>x&&x.image&&Number(x.price)>0)||list.find(x=>x&&Number(x.price)>0)||list[0];
+  // The Worker already ranks normal shopping searches official/local-retailer first.
+  // Respect that ordering instead of silently skipping an official "Check price" result
+  // just because eBay has a numeric price.
+  return list[0];
 }
 function searchFeaturedCardHtml(item,c){
   if(!item)return '';
-  const img=item.image||item.stockxImage||'',price=Number(item.price)>0?cardPriceText(item,c):'',shipping=cardShipping(item,c),countryName=cardListingCountry(item,c);
-  return `<article class="deal-featured search-featured">${img?`<img class="deal-featured-image" src="${escapeHtml(img)}" alt="${escapeHtml(item.title||'Listing')}" loading="eager" onerror="this.outerHTML='<div class=&quot;deal-featured-placeholder&quot;>Image unavailable</div>'">`:'<div class="deal-featured-placeholder">Image unavailable</div>'}<div class="deal-featured-details"><div class="deal-source">${dealSourceHtml(item)}</div><div class="deal-title">${escapeHtml(item.title||'Live listing')}</div>${price?`<div class="deal-price search-featured-price">${escapeHtml(price)}</div>`:'<div class="search-featured-no-price">See current price</div>'}${countryName?`<div class="deal-country">${escapeHtml(countryName)}</div>`:''}<div class="deal-shipping${shipping.free?' free':(shipping.varies?' varies':'')}">${escapeHtml(shipping.text)}</div><a class="deal-action" href="${escapeHtml(item.url||'#')}" target="_blank" rel="noopener">${escapeHtml(dealButtonLabel(item))}</a></div></article>`;
+  const img=item.image||item.stockxImage||'',price=item._retailerLinkOnly?'Check price':(Number(item.price)>0?cardPriceText(item,c):''),shipping=item._retailerLinkOnly?{text:'',free:false,varies:false}:cardShipping(item,c),countryName=cardListingCountry(item,c);
+  return `<article class="deal-featured search-featured">${img?`<img class="deal-featured-image" src="${escapeHtml(img)}" alt="${escapeHtml(item.title||'Listing')}" loading="eager" onerror="this.outerHTML='<div class=&quot;deal-featured-placeholder&quot;>Image unavailable</div>'">`:'<div class="deal-featured-placeholder">Image unavailable</div>'}<div class="deal-featured-details"><div class="deal-source">${dealSourceHtml(item)}</div><div class="deal-title">${escapeHtml(item.title||'Live listing')}</div>${price?`<div class="deal-price search-featured-price">${escapeHtml(price)}</div>`:'<div class="search-featured-no-price">See current price</div>'}${countryName?`<div class="deal-country">${escapeHtml(countryName)}</div>`:''}${shipping.text?`<div class="deal-shipping${shipping.free?' free':(shipping.varies?' varies':'')}">${escapeHtml(shipping.text)}</div>`:''}<a class="deal-action" href="${escapeHtml(item.url||'#')}" target="_blank" rel="noopener">${escapeHtml(dealButtonLabel(item))}</a></div></article>`;
 }
 function findaiFallbackSearchNarrative(query,items,data,parsed,c,featured){
   const count=(Array.isArray(items)?items:[]).length,subject=searchStatusSubject((parsed&&parsed.q)||query)||'those products';
@@ -3434,7 +3439,9 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
     const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
     const _hasOffer=Array.isArray(item.buyingOptions)&&item.buyingOptions.indexOf('BEST_OFFER')!==-1;
     const _buyOnly=isAli||isWeb||isBrickLink||(!isFindAI&&sourceKey&&sourceKey!=='ebay');
-    const _btns=cardButtonsHtml(item.url, _hasOffer, item.itemId, _buyOnly, item.image);
+    const _btns=item._retailerLinkOnly
+      ? '<div class="card-btns"><a class="card-btn" href="'+escapeHtml(item.url||'#')+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">View retailer</a></div>'
+      : cardButtonsHtml(item.url, _hasOffer, item.itemId, _buyOnly, item.image);
     const _savedItem={title:item.title,image:item.image,price:item.price,url:item.url,itemId:item.itemId,marketplaceListingId:item.marketplaceListingId,_findaiMarketplace:item._findaiMarketplace,source:item.source,currency:item.currency,shippingCost:item.shippingCost,shipping:item.shipping,location:item.location,country:item.country||c,searchQ:label};
     return `<div class="chat-card" data-q="${escapeHtml(label||'')}" data-item="${escapeHtml(JSON.stringify(_savedItem))}">${findaiSavedHeartHtml(_savedItem)}<a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">${imgSrc?`<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="findaiCardImgError(this,'${escapeHtml(item.retailer||item.source||'Product')}')">`:`<div class="chat-card-ph">🛍️</div>`}<div class="chat-card-body"><div style="margin-bottom:5px">${srcBadge}</div><div class="chat-card-title">${item.title||''}</div><div class="chat-card-price">${price}</div>${cardListingMeta(item,c)}</div></a><div style="padding:0 12px 12px">${_btns}</div></div>`;
   }).join('');
@@ -3652,7 +3659,9 @@ function showMoreCards(sid){
     const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
     const _hasOffer=Array.isArray(item.buyingOptions)&&item.buyingOptions.indexOf('BEST_OFFER')!==-1;
     const _buyOnly=isAli||isWeb||isBrickLink||(!isFindAI&&sourceKey&&sourceKey!=='ebay');
-    const _btns=cardButtonsHtml(item.url, _hasOffer, item.itemId, _buyOnly, item.image);
+    const _btns=item._retailerLinkOnly
+      ? '<div class="card-btns"><a class="card-btn" href="'+escapeHtml(item.url||'#')+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">View retailer</a></div>'
+      : cardButtonsHtml(item.url, _hasOffer, item.itemId, _buyOnly, item.image);
     const card=document.createElement('div');
     card.className='chat-card';
     card.setAttribute('data-q', state.query||'');
