@@ -16,6 +16,19 @@
 <script>
 (function(){
   try{
+    var pref=localStorage.getItem('findai_theme')||'system';
+    var resolved=(pref==='light'||pref==='dark')?pref:((window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');
+    document.documentElement.classList.toggle('findai-light',resolved==='light');
+    document.documentElement.setAttribute('data-findai-theme',resolved);
+    document.documentElement.style.colorScheme=resolved;
+    var meta=document.querySelector('meta[name="theme-color"]');
+    if(meta)meta.setAttribute('content',resolved==='light'?'#f6f7f9':'#050607');
+  }catch(_){}
+})();
+</script>
+<script>
+(function(){
+  try{
     var p=new URLSearchParams(location.search);
     if(p.get('mobile_web')==='1'){
       window.__FINDAI_MOBILE_WEB=true;
@@ -1705,11 +1718,11 @@ body.scan-results-open .nav{display:none!important}
 .search-grid-source{height:25px;display:flex;align-items:center;margin-bottom:3px}
 .search-grid-source .source-brand{font-size:10px}.search-grid-source .ebay-logo{width:38px;height:auto}
 .retailer-source{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%}
-.retailer-source-logo{display:block;width:18px;height:18px;object-fit:contain;flex:0 0 auto;border-radius:3px}
-.retailer-source-name{font-weight:800!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.search-grid-source .retailer-source-name{font-size:10px!important;color:#f3f5f7}
-.search-detail-source .retailer-source-logo{width:20px;height:20px}.search-detail-source .retailer-source-name{font-size:11px!important;color:#fff}
-.app-search-evidence-source .retailer-source-logo{width:18px;height:18px}.app-search-evidence-source .retailer-source-name{font-size:10px!important;color:#fff}
+.retailer-source-logo{display:block;max-width:78px;width:auto;height:18px;object-fit:contain;flex:0 0 auto;border-radius:4px;background:#f5f6f7;padding:2px 3px;border:1px solid rgba(255,255,255,.12);box-sizing:content-box}
+.retailer-source-name{font-weight:850!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.search-grid-source .retailer-source-name{font-size:11px!important;color:#fff}
+.search-detail-source .retailer-source-logo{height:20px}.search-detail-source .retailer-source-name{font-size:12px!important;color:#fff}
+.app-search-evidence-source .retailer-source-logo{height:19px}.app-search-evidence-source .retailer-source-name{font-size:12px!important;color:#fff}
 .search-grid-body{padding:9px 9px 11px}
 .search-grid-title{height:34px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-size:11.5px;line-height:1.42;font-weight:650;color:#e9ebee}
 .search-grid-price{margin-top:8px;font-size:17px;line-height:1;font-weight:820;letter-spacing:-.45px}
@@ -1844,6 +1857,115 @@ body.scan-results-open .nav{display:none!important}
 .app-pro-secondary{width:100%;height:42px;margin-top:8px;border:1px solid rgba(255,255,255,.10);border-radius:14px;background:transparent;color:#d7dbe1;font-size:12px;font-weight:700}
 .app-pro-note{margin:11px 8px 0;color:#6f7680;text-align:center;font-size:9px;line-height:1.45}
 .app-pro-error{min-height:15px;margin:7px 8px 0;color:#ff8581;text-align:center;font-size:9.5px}
+
+
+
+/* =========================================================
+   FindAI adaptive appearance — System / Light / Dark
+   System is the default and follows prefers-color-scheme live.
+   ========================================================= */
+html.findai-light{
+  --bg:#f6f7f9;--surface:#ffffff;--surface-2:#f3f4f6;--surface-3:#eceff2;
+  --ink:#17191c;--muted:#6f7781;--muted-2:#9299a2;
+  --line:rgba(22,27,34,.10);--line-strong:rgba(22,27,34,.18);
+  color-scheme:light;background:#eef0f3
+}
+html.findai-light body{background:#eef0f3;color:var(--ink)}
+html.findai-light .app,html.findai-light .screen,html.findai-light .feed-wrap{background:#f6f7f9;color:#17191c}
+html.findai-light .search-header{background:linear-gradient(180deg,#fff 82%,rgba(255,255,255,.96));border-bottom:1px solid #e5e7ea}
+html.findai-light .brand,html.findai-light .icon-btn{color:#17191c}
+html.findai-light .icon-btn:active{background:rgba(17,19,23,.06)}
+html.findai-light .search-form{background:#fff;border-color:#d9dde2;box-shadow:0 3px 14px rgba(31,38,48,.05)}
+html.findai-light .search-form>svg,html.findai-light .filter-btn{color:#68717b}
+html.findai-light .search-form input{color:#17191c}html.findai-light .search-form input::placeholder{color:#8a919a}
+html.findai-light .reel-feed{background:#f6f7f9}
+html.findai-light .reel-card{background:#fff;border-color:#dce0e5;box-shadow:0 14px 38px rgba(31,38,48,.10)}
+html.findai-light .hero-stage{background:#f3f4f6}
+html.findai-light .hero-stage:after{background:linear-gradient(180deg,rgba(255,255,255,.03) 0%,rgba(255,255,255,0) 55%,rgba(246,247,249,.22) 72%,#fff 100%)}
+html.findai-light .hero-backdrop{opacity:.16;filter:blur(34px) saturate(.7)}
+html.findai-light .product-panel{background:#fff}
+html.findai-light .title,html.findai-light .price,html.findai-light .metric-value{color:#17191c}
+html.findai-light .deal-pill.neutral{background:#eef0f3;color:#626b75}
+html.findai-light .metrics{border-color:#e4e7eb}html.findai-light .metric{border-color:#e4e7eb}
+html.findai-light .listing-foot{color:#4d555f}html.findai-light .listing-foot svg{color:#68717b}
+html.findai-light .view-deal{background:#111317;color:#fff;box-shadow:none}
+html.findai-light .nav{background:rgba(255,255,255,.96);border-top-color:#dfe3e7;box-shadow:0 -5px 20px rgba(31,38,48,.04)}
+html.findai-light .nav button{color:#7a828c}html.findai-light .nav button.active{color:#17191c}
+html.findai-light .nav button.active:after{background:#17191c}
+html.findai-light .login-pill{background:#111317;color:#fff;box-shadow:none}
+html.findai-light .account-avatar{background:#fff;color:#17191c;border-color:#d5d9df}
+html.findai-light .app-avatar-unread{border-color:#fff}
+
+/* Search results */
+html.findai-light #search .reel-feed.search-grid-mode{background:#f6f7f9}
+html.findai-light #search .search-grid-card{background:#fff;color:#17191c;border-color:#cfd4da;box-shadow:0 7px 22px rgba(31,38,48,.07)}
+html.findai-light .search-grid-image-wrap,html.findai-light .search-grid-image{background:#f3f4f6}
+html.findai-light .search-grid-title{color:#23272c}
+html.findai-light .search-grid-source .retailer-source-name,html.findai-light .search-detail-source .retailer-source-name,html.findai-light .app-search-evidence-source .retailer-source-name{color:#111317!important}
+html.findai-light .retailer-source-logo{background:#fff;border-color:#d8dce1}
+html.findai-light .search-loading-copy{color:#626a74}
+html.findai-light .search-detail-card,html.findai-light .app-search-evidence-card{background:#fff!important;border-color:#d9dde2!important;color:#17191c!important}
+html.findai-light .search-detail-title,html.findai-light .app-search-evidence-title{color:#202328!important}
+
+/* Account, profile, dialogs */
+html.findai-light .account-overlay{background:rgba(218,223,229,.64)}
+html.findai-light .account-sheet{background:linear-gradient(180deg,#fff,#f8f9fa 40%);border-top-color:#d8dce1;box-shadow:0 -24px 70px rgba(31,38,48,.18)}
+html.findai-light .account-grabber{background:#c7ccd2}
+html.findai-light .account-user-row,html.findai-light .account-menu-item{border-color:#e7e9ec}
+html.findai-light .account-menu-avatar,html.findai-light .profile-avatar{background:#eef0f3;border-color:#d6dae0;color:#17191c}
+html.findai-light .account-user-copy b,html.findai-light .account-menu-item{color:#17191c}
+html.findai-light .account-user-copy span{color:#717984}
+html.findai-light .account-menu-item svg{color:#5d6670}html.findai-light .account-menu-item .chevron{color:#9aa1aa}
+html.findai-light .account-menu-item.danger,html.findai-light .account-menu-item.danger svg{color:#d94c49}
+html.findai-light .auth-card{background:#fff;border-color:#d8dce1;box-shadow:0 28px 90px rgba(31,38,48,.20)}
+html.findai-light .auth-top h2{color:#17191c}html.findai-light .auth-top p,html.findai-light .auth-note{color:#747c86}
+html.findai-light .auth-close,html.findai-light .auth-avatar-picker{background:#f1f3f5;color:#17191c;border-color:#d8dce1}
+html.findai-light .auth-form input,html.findai-light .email-auth-input{background:#f8f9fa;color:#17191c;border-color:#d5d9df}
+html.findai-light .google-signin-btn,html.findai-light .email-signin-btn{background:#fff;color:#17191c;border-color:#d6dae0}
+html.findai-light .auth-primary,html.findai-light .email-auth-primary{background:#111317;color:#fff}
+html.findai-light .profile-screen{background:linear-gradient(180deg,#fff,#f6f7f9 48%);color:#17191c}
+html.findai-light .profile-header button{background:#eef0f3;color:#17191c}
+html.findai-light .profile-identity p,html.findai-light .profile-stat span{color:#747c86}
+html.findai-light .profile-stat{border-color:#e2e5e9}
+html.findai-light .profile-card{background:#fff;border-color:#dfe2e6}
+html.findai-light .interest-chip{background:#f1f3f5;color:#333940;border-color:#dde1e6}
+html.findai-light .recent-search-row{border-color:#e7e9ec}
+
+/* Marketplace and sheets */
+html.findai-light .app-mp-sheet-bg{background:rgba(218,223,229,.66)}
+html.findai-light .app-mp-sheet{background:#fff;border-top-color:#d7dbe0;color:#17191c}
+html.findai-light .app-mp-sheet-head{border-color:#e5e7ea}html.findai-light .app-mp-sheet-head button{background:#eef0f3;color:#17191c}
+html.findai-light .app-mp-chat{background:#f6f7f9}
+html.findai-light .app-mp-chat-head,html.findai-light .app-mp-typing,html.findai-light .app-mp-compose{background:rgba(255,255,255,.96);border-color:#e0e3e7;color:#17191c}
+html.findai-light .app-mp-chat-listing{background:#fff;color:#17191c;border-color:#d9dde2}
+html.findai-light .app-mp-bubble:not(.mine){background:#fff;color:#24282d;border-color:#dce0e5;box-shadow:0 6px 16px rgba(31,38,48,.06)}
+html.findai-light .app-mp-date-divider:before,html.findai-light .app-mp-date-divider:after{background:#dfe2e6}
+html.findai-light .app-mp-compose textarea{background:#f8f9fa;color:#17191c;border-color:#d6dae0}
+html.findai-light .app-mp-compose-send{background:#111317;color:#fff}
+html.findai-light .app-mp-message-offer-panel{background:#fff;border-color:#d7dbe0;box-shadow:0 22px 65px rgba(31,38,48,.18);color:#17191c}
+html.findai-light .app-mp-message-offer-close{background:#eef0f3;color:#17191c}
+html.findai-light .app-mp-message-offer-panel input,html.findai-light .app-mp-message-offer-panel textarea{background:#f8f9fa;color:#17191c;border-color:#d5d9df}
+
+/* Appearance settings */
+.app-theme-overlay{position:absolute;inset:0;z-index:205;display:none;align-items:flex-end;background:rgba(0,0,0,.62);backdrop-filter:blur(9px)}
+.app-theme-overlay.show{display:flex}
+.app-theme-sheet{width:100%;padding:9px 16px calc(20px + var(--safe-bottom));border-radius:27px 27px 0 0;border-top:1px solid rgba(255,255,255,.12);background:#111419;color:#f5f6f7;box-shadow:0 -24px 70px rgba(0,0,0,.48)}
+.app-theme-grabber{width:39px;height:4px;margin:1px auto 16px;border-radius:999px;background:#4b5058}
+.app-theme-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:2px 1px 17px;border-bottom:1px solid rgba(255,255,255,.08)}
+.app-theme-head h2{margin:0;font-size:21px;letter-spacing:-.45px}.app-theme-head p{margin:5px 0 0;color:#8f97a1;font-size:11px;line-height:1.4}
+.app-theme-close{width:34px;height:34px;border:0;border-radius:50%;background:#22262c;color:#fff;font-size:21px}
+.app-theme-row{padding:18px 0 8px}.app-theme-label{display:block;margin-bottom:10px;color:#8d95a0;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.app-theme-segment{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:4px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:#090b0e}
+.app-theme-choice{height:42px;border:0;border-radius:10px;background:transparent;color:#9199a4;font-size:12px;font-weight:730}
+.app-theme-choice.active{background:#f5f6f7;color:#0b0d10;box-shadow:0 2px 8px rgba(0,0,0,.22)}
+.app-theme-note{margin:10px 1px 0;color:#777f89;font-size:10px;line-height:1.45}
+html.findai-light .app-theme-overlay{background:rgba(218,223,229,.66)}
+html.findai-light .app-theme-sheet{background:#fff;color:#17191c;border-top-color:#d8dce1;box-shadow:0 -24px 70px rgba(31,38,48,.18)}
+html.findai-light .app-theme-grabber{background:#c7ccd2}
+html.findai-light .app-theme-head{border-color:#e5e7ea}html.findai-light .app-theme-head p,html.findai-light .app-theme-label,html.findai-light .app-theme-note{color:#747c86}
+html.findai-light .app-theme-close{background:#eef0f3;color:#17191c}
+html.findai-light .app-theme-segment{background:#eef0f3;border-color:#d8dce1}
+html.findai-light .app-theme-choice{color:#68717b}html.findai-light .app-theme-choice.active{background:#111317;color:#fff;box-shadow:none}
 
 </style>
   <meta name="findai-build" content="v40-premium-message-room">
@@ -2062,9 +2184,21 @@ body.scan-results-open .nav{display:none!important}
         <button class="account-menu-item" onclick="openMyListings()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16v13H4zM8 7V5a4 4 0 0 1 8 0v2"/></svg><span>My Listings</span><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
         <button class="account-menu-item" onclick="openAppMarketplaceInbox()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v12H8l-4 4V5z"/></svg><span>Messages</span><span class="app-mp-menu-badge" id="appMpUnreadBadge">0</span></button>
         <button class="account-menu-item" onclick="appEnableNotifications()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span>Phone notifications</span><span class="app-push-state" id="appPushState">Off</span></button>
-        <button class="account-menu-item" onclick="toast('Account settings are coming next')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.87l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.25.37.6.7 1 .9.34.17.72.25 1.1.25H21v4h-.1a1.7 1.7 0 0 0-1.5.85z"/></svg><span>Settings</span><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+        <button class="account-menu-item" onclick="openAppSettings()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.87l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.25.37.6.7 1 .9.34.17.72.25 1.1.25H21v4h-.1a1.7 1.7 0 0 0-1.5.85z"/></svg><span>Settings</span><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
         <button class="account-menu-item danger" onclick="signOutAccount()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 17l5-5-5-5M15 12H3M14 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5"/></svg><span>Log out</span><span></span></button>
       </div>
+    </div>
+  </div>
+
+  <div class="app-theme-overlay" id="appThemeOverlay" role="dialog" aria-modal="true" aria-label="Appearance settings" onclick="if(event.target===this)closeAppSettings()">
+    <div class="app-theme-sheet" onclick="event.stopPropagation()">
+      <div class="app-theme-grabber"></div>
+      <div class="app-theme-head"><div><h2>Settings</h2><p>Choose how FindAI looks on this device.</p></div><button class="app-theme-close" type="button" onclick="closeAppSettings()" aria-label="Close">&times;</button></div>
+      <div class="app-theme-row"><span class="app-theme-label">Appearance</span><div class="app-theme-segment">
+        <button class="app-theme-choice" type="button" data-app-theme-choice="system" onclick="setAppTheme('system')">System</button>
+        <button class="app-theme-choice" type="button" data-app-theme-choice="light" onclick="setAppTheme('light')">Light</button>
+        <button class="app-theme-choice" type="button" data-app-theme-choice="dark" onclick="setAppTheme('dark')">Dark</button>
+      </div><div class="app-theme-note">System follows the Light or Dark appearance selected on your phone or computer, including automatic changes.</div></div>
     </div>
   </div>
 
@@ -4202,7 +4336,15 @@ function strongScanListing(item,query){
 }
 function rankListings(items,query,source='search'){
   const relevance=item=>listingRelevanceScore(item,query);
-  if(source!=='scan') return [...items].sort((a,b)=>relevance(b)-relevance(a));
+  if(source!=='scan') {
+    // /search already applies FindAI's universal authority + relevance ranking after
+    // every source is merged. Preserve that server order instead of re-sorting Apple,
+    // major retailers and marketplaces back into a simple keyword order on the phone.
+    if((items||[]).some(item=>Number(item&&item._findaiAuthorityRank)>0)){
+      return [...items].sort((a,b)=>(Number(a&&a._findaiAuthorityRank)||999999)-(Number(b&&b._findaiAuthorityRank)||999999));
+    }
+    return [...items].sort((a,b)=>relevance(b)-relevance(a));
+  }
 
   // Scanner results follow eBay Browse search_by_image exactly: keep eBay's
   // visual-match order and never discard a result because a title omits a word,
@@ -6236,6 +6378,45 @@ async function resendAppEmailCode(){
     setAppEmailFeedback('appCodeFeedback',error.message||'Could not resend the code.',false);
   }
 }
+
+
+// Adaptive appearance: System is the default, while Light/Dark are persistent manual overrides.
+function appThemePreference(){
+  try{var p=localStorage.getItem('findai_theme')||'system';return ['system','light','dark'].includes(p)?p:'system';}catch(_){return 'system';}
+}
+function appResolvedTheme(pref){
+  var p=pref||appThemePreference();
+  if(p==='light'||p==='dark')return p;
+  try{return window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}catch(_){return 'dark';}
+}
+function applyAppTheme(pref){
+  var p=pref||appThemePreference(),resolved=appResolvedTheme(p),root=document.documentElement;
+  root.classList.toggle('findai-light',resolved==='light');
+  root.setAttribute('data-findai-theme',resolved);
+  root.style.colorScheme=resolved;
+  var meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.setAttribute('content',resolved==='light'?'#f6f7f9':'#050607');
+  document.querySelectorAll('[data-app-theme-choice]').forEach(function(button){button.classList.toggle('active',button.getAttribute('data-app-theme-choice')===p);});
+}
+function setAppTheme(pref){
+  if(!['system','light','dark'].includes(pref))pref='system';
+  try{localStorage.setItem('findai_theme',pref);}catch(_){}
+  applyAppTheme(pref);
+}
+function openAppSettings(){
+  closeAccountMenu();
+  applyAppTheme();
+  var overlay=document.getElementById('appThemeOverlay');if(overlay)overlay.classList.add('show');
+}
+function closeAppSettings(){var overlay=document.getElementById('appThemeOverlay');if(overlay)overlay.classList.remove('show');}
+(function initAdaptiveAppearance(){
+  applyAppTheme();
+  try{
+    var mq=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)');
+    if(!mq)return;
+    var onChange=function(){if(appThemePreference()==='system')applyAppTheme('system');};
+    if(mq.addEventListener)mq.addEventListener('change',onChange);else if(mq.addListener)mq.addListener(onChange);
+  }catch(_){}
+})();
 
 var googleTokenClient = null;
 async function handleGoogleToken(resp){
