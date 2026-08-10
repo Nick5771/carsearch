@@ -4172,9 +4172,9 @@ function renderLoading(query='',source=''){
   $('#reelDots').innerHTML='';
   if(!personalised){
     const minute=Math.floor(Date.now()/60000),stages=[
-      ['Checking live marketplace listings','Searching the main marketplaces and specialist sources','Pulling live listings from across the market'],
-      ['Filtering duplicates and weak matches','Removing obvious mismatches before I rank anything','Cleaning up the results so I do not show you junk'],
-      ['Comparing prices and shipping','Checking price + delivery across the strongest matches','Ranking the strongest results after price and shipping']
+      ['Checking trusted retailers and marketplaces','Looking across current retailer stock','Searching current buying options'],
+      ['Matching the exact product and variant','Checking the product details','Narrowing this to the right product'],
+      ['Comparing current prices and availability','Finding the strongest buying options','Lining up the best current options']
     ];
     const pick=(arr,salt)=>{let h=2166136261;String(query+minute+salt).split('').forEach(ch=>{h^=ch.charCodeAt(0);h=Math.imul(h,16777619)});return arr[Math.abs(h)%arr.length];};
     appSearchLoadingTimers.push(setTimeout(()=>setAppSearchLoadingText(pick(stages[0],'a')),620));
@@ -4474,8 +4474,7 @@ async function searchListings(query,{showToast=false,source='search',preserveExa
     feedState.cursor=result.nextCursor;
     feedState.hasMore=result.hasMore;
     currentFeedData=result.data;
-    const liveCount=Number(result.data&&result.data.searchNarrative&&result.data.searchNarrative.marketCount)||Number(result.data&&result.data.stats&&result.data.stats.count)||0;
-    if(liveCount)setAppSearchLoadingText(`${liveCount.toLocaleString()} live marketplace match${liveCount===1?'':'es'} surfaced — ranking the strongest`);
+    setAppSearchLoadingText('Finding the strongest current buying options…');
     renderFeed(result.data,feedState.resolvedQuery);
   }catch(error){
     if(error && error.name==='AbortError') return;
@@ -4565,9 +4564,23 @@ function appListingCountry(item){
   if(raw.includes(','))raw=raw.split(',').pop().trim();
   return map[raw.toUpperCase()]||raw;
 }
+function appRetailerProductPlaceholder(item,cls){
+  const source=String(item&& (item.retailer||item.source) || 'Retailer').trim()||'Retailer';
+  const logo=safeUrl(item&&item.retailerLogo);
+  const mark=logo?`<img src="${escapeAttr(logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="max-width:76px;max-height:38px;object-fit:contain">`:`<span style="font-size:20px;font-weight:800">${escapeHTML(source.slice(0,2).toUpperCase())}</span>`;
+  return `<div class="${escapeAttr(cls||'search-grid-image-empty')}" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;text-align:center;padding:16px">${mark}<span style="font-size:11px;font-weight:750;opacity:.7">${escapeHTML(source)}</span><span style="font-size:9px;opacity:.48">Product image unavailable</span></div>`;
+}
+function appRetailerImgError(img,source,logo,cls){
+  try{
+    const wrap=document.createElement('div');
+    wrap.innerHTML=appRetailerProductPlaceholder({retailer:String(source||'Retailer'),source:String(source||'Retailer'),retailerLogo:String(logo||'')},cls||'search-grid-image-empty');
+    img.replaceWith(wrap.firstElementChild);
+  }catch(_){try{img.style.display='none'}catch(__){}}
+}
+
 function renderSearchGridCard(item,index,data){
   const title=String(item.title||(data&&data.productDetails&&data.productDetails.name)||'Product listing'),image=getImage(item)||getImage(data&&data.productDetails),source=getSource(item),condition=conditionText(item),country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item);
-  return `<article class="search-grid-card" data-grid-index="${index}" onclick="openSearchResultDetail(${index})" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSearchResultDetail(${index})}"><div class="search-grid-image-wrap">${image?`<img class="search-grid-image" src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="${index<6?'eager':'lazy'}" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:'<div class="search-grid-image-empty">Image unavailable</div>'}${condition?`<span class="search-grid-condition">${escapeHTML(condition)}</span>`:''}</div><div class="search-grid-body"><div class="search-grid-source">${sourceMarkup(source,item)}</div><div class="search-grid-title">${escapeHTML(title)}</div><div class="search-grid-price">${escapeHTML(appListingPriceText(item,data))}</div><div class="search-grid-meta">${country?`<span>${escapeHTML(country)}</span>`:''}<span class="shipping">${escapeHTML(shipping)}</span></div></div></article>`;
+  return `<article class="search-grid-card" data-grid-index="${index}" onclick="openSearchResultDetail(${index})" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSearchResultDetail(${index})}"><div class="search-grid-image-wrap">${image?`<img class="search-grid-image" src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="${index<6?'eager':'lazy'}" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,'${escapeAttr(item&& (item.retailer||item.source) || 'Retailer')}','${escapeAttr(item&&item.retailerLogo||'')}','search-grid-image-empty')">`:appRetailerProductPlaceholder(item,'search-grid-image-empty')}${condition?`<span class="search-grid-condition">${escapeHTML(condition)}</span>`:''}</div><div class="search-grid-body"><div class="search-grid-source">${sourceMarkup(source,item)}</div><div class="search-grid-title">${escapeHTML(title)}</div><div class="search-grid-price">${escapeHTML(appListingPriceText(item,data))}</div><div class="search-grid-meta">${country?`<span>${escapeHTML(country)}</span>`:''}<span class="shipping">${escapeHTML(shipping)}</span></div></div></article>`;
 }
 
 function appSearchFeaturedIndex(items,data){
@@ -4579,16 +4592,16 @@ function appSearchFeaturedIndex(items,data){
   return 0;
 }
 function appFallbackSearchNarrative(items,data,query){
-  const count=items.length,n=data&&data.searchNarrative||{},subject=appSearchStatusSubject(query);
-  if(n&&n.headline)return n;
-  const featured=items[appSearchFeaturedIndex(items,data)],price=featured&&Number(featured.price)>0?money(featured.price,currencyOf(featured,data)):'';
-  return {headline:`I've found ${count} strong ${subject} listing${count===1?'':'s'} for you.`,explanation:price?`I've put one of the stronger live listings below so you have a quick ${price} reference.`:'I filtered the obvious weak matches before ranking these.',workLine:'I checked the live market, filtered weak matches and compared price + shipping before ranking these.'};
+  const n=data&&data.searchNarrative||{};if(n&&n.headline)return n;
+  const subject=appSearchStatusSubject(query),idx=appSearchFeaturedIndex(items,data),featured=items[idx],price=featured&&Number(featured.price)>0?money(featured.price,currencyOf(featured,data)):'',source=String(featured&& (featured.retailer||featured.source) || '').trim();
+  if(price)return {headline:`I found a strong current option for ${subject} at ${price}${source?' from '+source:''}.`,explanation:'I prioritised reputable retailers and complete product matches.',workLine:''};
+  return {headline:`I found current retailer options for ${subject}.`,explanation:'Some live prices still need a check, so I kept the retailer links rather than guessing.',workLine:''};
 }
 function renderAppSearchAnswer(items,data,query){
   if(!items.length)return '';
   const n=appFallbackSearchNarrative(items,data,query),idx=appSearchFeaturedIndex(items,data),item=items[idx]||items[0];
   const image=getImage(item),title=String(item.title||'Live listing'),source=getSource(item),country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item),price=appListingPriceText(item,data);
-  return `<section class="app-search-answer"><div class="app-search-answer-copy"><h2>${escapeHTML(n.headline||'Here is what I found.')}</h2><p>${escapeHTML(n.explanation||'')}</p>${n.workLine?`<div class="app-search-work">${escapeHTML(n.workLine)}</div>`:''}</div><button type="button" class="app-search-evidence" onclick="openSearchResultDetail(${idx})">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="eager" referrerpolicy="no-referrer">`:'<span class="app-search-evidence-ph">Image unavailable</span>'}<span class="app-search-evidence-copy"><span class="app-search-evidence-source">${sourceMarkup(source,item)}</span><span class="app-search-evidence-title">${escapeHTML(title)}</span>${price?`<span class="app-search-evidence-price">${escapeHTML(price)}</span>`:''}<span class="app-search-evidence-meta">${country?escapeHTML(country)+(shipping?' · ':''):''}${escapeHTML(shipping)}</span></span></button></section><div class="app-search-results-label">Other matching listings</div>`;
+  return `<section class="app-search-answer"><div class="app-search-answer-copy"><h2>${escapeHTML(n.headline||'Here is what I found.')}</h2><p>${escapeHTML(n.explanation||'')}</p>${n.workLine?`<div class="app-search-work">${escapeHTML(n.workLine)}</div>`:''}</div><button type="button" class="app-search-evidence" onclick="openSearchResultDetail(${idx})">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="eager" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,'${escapeAttr(item&& (item.retailer||item.source) || 'Retailer')}','${escapeAttr(item&&item.retailerLogo||'')}','app-search-evidence-ph')">`:appRetailerProductPlaceholder(item,'app-search-evidence-ph')}<span class="app-search-evidence-copy"><span class="app-search-evidence-source">${sourceMarkup(source,item)}</span><span class="app-search-evidence-title">${escapeHTML(title)}</span>${price?`<span class="app-search-evidence-price">${escapeHTML(price)}</span>`:''}<span class="app-search-evidence-meta">${country?escapeHTML(country)+(shipping?' · ':''):''}${escapeHTML(shipping)}</span></span></button></section><div class="app-search-results-label">Other matching listings</div>`;
 }
 
 function renderSearchGridPages(items,data){
@@ -4604,7 +4617,7 @@ function renderSearchGridPages(items,data){
 }
 function renderSearchDetailCard(item,index){
   const title=String(item.title||'Product listing'),image=getImage(item),source=getSource(item),country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item),condition=conditionText(item);
-  return `<article class="search-detail-card" data-detail-index="${index}"><div class="search-detail-media">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}" referrerpolicy="no-referrer">`:'<div class="image-fallback" style="display:grid">Image unavailable</div>'}</div><div class="search-detail-content"><div class="search-detail-source">${sourceMarkup(source,item)}</div><h2 class="search-detail-title">${escapeHTML(title)}</h2><div class="search-detail-price">${escapeHTML(appListingPriceText(item,currentFeedData))}</div><div class="search-detail-meta">${condition?`<div><b>Condition</b> · ${escapeHTML(condition)}</div>`:''}${country?`<div><b>${escapeHTML(country)}</b></div>`:''}${shipping?`<div>${escapeHTML(shipping)}</div>`:''}</div><div class="search-detail-actions"><button class="search-detail-view" onclick="openDeal(${index},event)">${item&&item._retailerLinkOnly?'View retailer':'View Deal'}</button><button class="search-detail-icon ${isTracked(item)?'active':''}" onclick="toggleLike(${index},event)" aria-label="Save"><svg viewBox="0 0 24 24" fill="${isTracked(item)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></button><button class="search-detail-icon" onclick="shareItem(${index},event)" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 13v6h14v-6"/></svg></button></div></div></article>`;
+  return `<article class="search-detail-card" data-detail-index="${index}"><div class="search-detail-media">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,'${escapeAttr(item&& (item.retailer||item.source) || 'Retailer')}','${escapeAttr(item&&item.retailerLogo||'')}','image-fallback')">`:appRetailerProductPlaceholder(item,'image-fallback')}</div><div class="search-detail-content"><div class="search-detail-source">${sourceMarkup(source,item)}</div><h2 class="search-detail-title">${escapeHTML(title)}</h2><div class="search-detail-price">${escapeHTML(appListingPriceText(item,currentFeedData))}</div><div class="search-detail-meta">${condition?`<div><b>Condition</b> · ${escapeHTML(condition)}</div>`:''}${country?`<div><b>${escapeHTML(country)}</b></div>`:''}${shipping?`<div>${escapeHTML(shipping)}</div>`:''}</div><div class="search-detail-actions"><button class="search-detail-view" onclick="openDeal(${index},event)">${item&&item._retailerLinkOnly?'View retailer':'View Deal'}</button><button class="search-detail-icon ${isTracked(item)?'active':''}" onclick="toggleLike(${index},event)" aria-label="Save"><svg viewBox="0 0 24 24" fill="${isTracked(item)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></button><button class="search-detail-icon" onclick="shareItem(${index},event)" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 13v6h14v-6"/></svg></button></div></div></article>`;
 }
 function openSearchResultDetail(index){
   if(feedState.source==='personalised')return;
