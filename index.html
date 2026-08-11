@@ -3756,6 +3756,7 @@ function applyFindAIShoppingIntent(items,intent){
 }
 
 let pendingImage=null;
+let pendingImageContext=null;
 let activeFindaiSearchController=null;
 function setSendButtonSearching(active){
   const button=document.getElementById('send-btn');
@@ -3782,10 +3783,10 @@ async function sendMsg(){
   const q=inp.value.trim();
   if(busy)return;
   if(pendingImage){
-    const img=pendingImage, txt=q;
+    const img=pendingImage, contextImg=pendingImageContext, txt=q;
     clearPendingImage();
     inp.value=''; inp.style.height='auto';
-    sendImageMessage(img, txt);
+    sendImageMessage(img, txt, contextImg||'');
     return;
   }
   if(!q)return;
@@ -3945,14 +3946,15 @@ function handleImageFile(file,autoSearch){
     addMsg('assistant','That looks like a non-image file — FindAI searches from a photo, so drop a JPG, PNG or screenshot of the item.');
     return;
   }
-  resizeImage(file,512,0.72).then(function(dataUrl){
+  resizeImage(file,1400,0.90).then(async function(dataUrl){
+    let detail='';try{detail=await createVisualDetailCrop(dataUrl,1100,0.92);}catch(_){detail='';}
     if(autoSearch){
-      pendingImage=null;
+      pendingImage=null;pendingImageContext=null;
       const pv=document.getElementById('img-preview');if(pv){pv.innerHTML='';pv.classList.remove('show');}
-      sendImageMessage(dataUrl,'');
+      sendImageMessage(dataUrl,'',detail);
       return;
     }
-    pendingImage=dataUrl;
+    pendingImage=dataUrl;pendingImageContext=detail;
     const pv=document.getElementById('img-preview');
     if(pv){pv.innerHTML=`<span class="chip"><img src="${dataUrl}" alt="attached"><button class="rm" onclick="clearPendingImage()" title="Remove" aria-label="Remove">&times;</button></span>`;pv.classList.add('show');}
     const inp=document.getElementById('chat-in'); if(inp)inp.focus();
@@ -3964,7 +3966,7 @@ function onImagePicked(input){
   handleImageFile(file);
 }
 function clearPendingImage(){
-  pendingImage=null;
+  pendingImage=null;pendingImageContext=null;
   const pv=document.getElementById('img-preview');
   if(pv){pv.innerHTML='';pv.classList.remove('show');}
 }
@@ -3988,6 +3990,19 @@ function resizeImage(file,maxDim,quality){
       img.src=reader.result;
     };
     reader.readAsDataURL(file);
+  });
+}
+
+function createVisualDetailCrop(dataUrl,maxDim,quality){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();img.onerror=()=>reject(new Error('detail'));img.onload=()=>{
+      const sw=img.naturalWidth||img.width,sh=img.naturalHeight||img.height;if(!sw||!sh)return reject(new Error('detail'));
+      // Keep 86% of the frame around the centre: enough context for a full product while
+      // making tiny labels/patterns larger for the second independent vision view.
+      const ratio=.86,cw=sw*ratio,ch=sh*ratio,sx=(sw-cw)/2,sy=(sh-ch)/2,scale=Math.min(1,maxDim/Math.max(cw,ch));
+      const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(cw*scale));canvas.height=Math.max(1,Math.round(ch*scale));
+      const ctx=canvas.getContext('2d',{alpha:false});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(img,sx,sy,cw,ch,0,0,canvas.width,canvas.height);resolve(canvas.toDataURL('image/jpeg',quality));
+    };img.src=dataUrl;
   });
 }
 
@@ -4040,7 +4055,7 @@ function renderDesktopVisualSearch(body,data,opts){
   cardsEls.forEach(function(card,index){card.classList.add('search-card-enter');setTimeout(function(){card.classList.add('visible');},70+index*35);});
 }
 
-async function sendImageMessage(dataUrl, text){
+async function sendImageMessage(dataUrl, text, contextDataUrl=''){
   if(busy)return;
   busy=true;
   activeFindaiSearchController=(typeof AbortController!=='undefined')?new AbortController():null;
@@ -4062,6 +4077,7 @@ async function sendImageMessage(dataUrl, text){
       headers:findaiProHeaders(true),
       body:JSON.stringify({
         imageBase64:dataUrl,
+        imageContextBase64:contextDataUrl||'',
         msg:text||'',
         messages:conversation.slice(-6),
         scanPhase:'identify',
