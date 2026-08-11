@@ -5647,6 +5647,32 @@ function scanSourceMarkup(item){
 function scanListingMeta(item){
   return [conditionText(item),getShippingText(item)].filter(Boolean).join(' · ');
 }
+function scanListingMergeKey(item){
+  const url=String(getListingUrl(item)||'').replace(/[?#].*$/,'').toLowerCase();
+  if(url) return url;
+  return [String(getSource(item)||'').toLowerCase(),String(item&&item.itemId||item&&item.id||''),String(item&&item.title||'').toLowerCase(),Number(item&&item.price)||0].join('|');
+}
+function scanListingSourceKey(item){
+  let host='';try{host=new URL(getListingUrl(item)||'',location.href).hostname.replace(/^www\./,'').toLowerCase();}catch(_){ }
+  return (host||String(getSource(item)||'unknown').toLowerCase()).trim();
+}
+function mergeScanListings(){
+  const all=[],seen=new Set();
+  for(const set of arguments){
+    for(const item of (Array.isArray(set)?set:[])){
+      if(!item||!(Number(item.price)>0)) continue;
+      const key=scanListingMergeKey(item);if(!key||seen.has(key)) continue;
+      seen.add(key);all.push(item);
+    }
+  }
+  all.sort((x,y)=>scanResultTotal(x)-scanResultTotal(y));
+  const chosen=[],picked=new Set(),sourceCounts=new Map();
+  const add=(item,cap)=>{const key=scanListingMergeKey(item),source=scanListingSourceKey(item);if(!key||picked.has(key))return false;const used=sourceCounts.get(source)||0;if(used>=cap)return false;picked.add(key);sourceCounts.set(source,used+1);chosen.push(item);return true;};
+  for(const item of all){add(item,1);if(chosen.length>=12)return chosen;}
+  for(const item of all){add(item,2);if(chosen.length>=12)return chosen;}
+  for(const item of all){add(item,4);if(chosen.length>=12)return chosen;}
+  return chosen;
+}
 function renderScanResults(data){
   const listings=(Array.isArray(data&&data.listings)?data.listings:(Array.isArray(data&&data.items)?data.items:[]))
     .filter(item=>item&&Number(item.price)>0);
@@ -5687,8 +5713,11 @@ function renderScanResults(data){
     return;
   }
   if(!listings.length){
+    const identifiedProduct=!!String(data&&data.productName||data&&data.title||'').trim() && !(data&&data.kind==='unresolved_product') && !(data&&data.kind==='not_product');
     const angle=String(data&&data.angleRequest||data&&data.reply||'Try a clearer front photo with the brand or model visible.');
-    content.innerHTML=identityCard+failedBanner+`<div class="scan-results-empty"><b>No confident matching listing found</b>${escapeHTML(angle)}<br><button type="button" onclick="retryScanFromResults()">Retake photo</button></div>`;
+    content.innerHTML=identityCard+failedBanner+(identifiedProduct
+      ? `<div class="scan-results-empty"><b>Product identified — store search returned no verified offers</b>FindAI identified ${escapeHTML(productName)}, so you do not need to retake the photo. Retry the live store search or search the product directly.<br><button type="button" onclick="searchIdentifiedScanProduct()">Search product</button></div>`
+      : `<div class="scan-results-empty"><b>No confident product match found</b>${escapeHTML(angle)}<br><button type="button" onclick="retryScanFromResults()">Retake photo</button></div>`);
     if(actions) actions.hidden=true;
     go('scanResults');
     return;
@@ -5741,6 +5770,22 @@ function retryScanFromResults(){
   currentScanListings=[];
   resetPreview();
   go('scan');
+}
+async function searchIdentifiedScanProduct(){
+  const query=String(currentScanResults&& (currentScanResults.query||currentScanResults.productName||currentScanResults.title)||'').trim();
+  if(!query){retryScanFromResults();return;}
+  const content=$('#scanResultsContent');
+  if(content) content.innerHTML='<div class="scan-results-empty"><div class="tracker-spinner"></div><b>Searching FindAI</b>Checking live retailer and marketplace results for the identified product…</div>';
+  try{
+    const response=await fetch(WORKER+'/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query,page:1,limit:40})});
+    if(!response.ok) throw new Error('Search failed');
+    const result=await response.json();
+    const raw=Array.isArray(result&&result.listings)?result.listings:(Array.isArray(result&&result.items)?result.items:[]);
+    const listings=mergeScanListings((currentScanResults&&currentScanResults.listings)||[],raw);
+    renderScanResults({...currentScanResults,...result,query,productName:(currentScanResults&&currentScanResults.productName)||query,title:(currentScanResults&&currentScanResults.title)||query,listings,items:listings,market:scanMarketFromListings(listings),meta:{...((currentScanResults&&currentScanResults.meta)||{}),...((result&&result.meta)||{}),deepSearchPending:false,manualProductSearch:true}});
+  }catch(_){
+    if(content) content.innerHTML='<div class="scan-results-empty"><b>Store search failed</b>The product is identified correctly, but live offers could not be loaded right now.<br><button type="button" onclick="searchIdentifiedScanProduct()">Try again</button></div>';
+  }
 }
 async function refineScanResults(event){
   event.preventDefault();
@@ -5842,7 +5887,8 @@ async function analyseImage(dataUrl){
       let deep={};try{deep=await deepResponse.json();}catch(_){ }
       if(runId!==scanRunSequence) return;
       if(!deepResponse.ok) throw new Error(deep.error||'Live store expansion failed');
-      const finalData={...identified,...deep,identity:deep.identity||identified.identity,meta:{...((identified&&identified.meta)||{}),...((deep&&deep.meta)||{}),deepSearchPending:false,preserveScroll:true}};
+      const mergedListings=mergeScanListings(identified&&identified.listings,identified&&identified.items,deep&&deep.listings,deep&&deep.items);
+      const finalData={...identified,...deep,identity:deep.identity||identified.identity,listings:mergedListings,items:mergedListings,market:scanMarketFromListings(mergedListings),meta:{...((identified&&identified.meta)||{}),...((deep&&deep.meta)||{}),deepSearchPending:false,preserveScroll:true}};
       renderScanResults(finalData);
       const count=Array.isArray(finalData.listings)?finalData.listings.length:0;
       const sources=Number(finalData&&finalData.meta&&finalData.meta.sourceCount)||0;
