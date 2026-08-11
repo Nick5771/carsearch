@@ -3085,8 +3085,16 @@ function cardMoney(value,item,c){
   const n=Number(value);
   return symbol+n.toLocaleString(undefined,{minimumFractionDigits:n%1?2:0,maximumFractionDigits:2});
 }
+function authorityDestinationText(item){
+  const role=String(item&&item.retailerRole||'').toLowerCase();
+  if(item&&item._authorityDestinationLabel)return String(item._authorityDestinationLabel);
+  if(role==='manufacturer')return 'Official store';
+  if(role==='specialist')return 'Specialist marketplace';
+  if(role==='major_retailer')return 'Shop retailer';
+  return 'Retailer';
+}
 function cardPriceText(item,c,fallbackSymbol){
-  if(item&&item._retailerLinkOnly)return 'Check price';
+  if(item&&item._retailerLinkOnly)return authorityDestinationText(item);
   if(!item||!Number(item.price))return 'See listing';
   const currency=String(item.currency||'').toUpperCase();
   let symbol=CURSYM[currency]||fallbackSymbol||(c==='AU'?'A$':c==='UK'?'£':c==='DE'?'€':'$');
@@ -3155,7 +3163,12 @@ function listingSourceHtml(item,hero){
 function dealSourceHtml(item){ return listingSourceHtml(item,true); }
 function dealButtonLabel(item){
   const source=String(item&&item.source||'').toLowerCase();
-  if(item&&item._retailerLinkOnly)return 'View retailer';
+  if(item&&item._retailerLinkOnly){
+    const role=String(item.retailerRole||'').toLowerCase(),name=String(item.retailer||item.source||'Retailer');
+    if(role==='manufacturer')return 'Shop official';
+    if(role==='specialist')return 'Browse '+name;
+    return 'Shop at '+name;
+  }
   if(source==='stockx'||item&&item._stockx)return 'View on StockX';
   if(source.indexOf('etsy')>=0)return 'View on Etsy';
   if(source.indexOf('discogs')>=0)return 'View on Discogs';
@@ -3165,7 +3178,7 @@ function dealButtonLabel(item){
 function dealFeaturedCardHtml(item,c){
   if(!item)return '';
   const img=item.image||item.stockxImage||'';
-  const price=item._retailerLinkOnly?'Check price':cardMoney(Number(item.price)||0,item,c);
+  const price=item._retailerLinkOnly?authorityDestinationText(item):cardMoney(Number(item.price)||0,item,c);
   const shipping=item._retailerLinkOnly?{text:'',free:false,varies:false}:cardShipping(item,c),countryName=cardListingCountry(item,c);
   const source=String(item.source||'').toLowerCase();
   const label=(source==='stockx'||item._stockx)?'Lowest ask':(item._marketExact===false?'Related listing':'Comparable listing');
@@ -3177,11 +3190,10 @@ function dealTextHtml(text){
 }
 
 function findaiPresentationSearchItems(items){
-  const list=(Array.isArray(items)?items:[]).filter(Boolean);
-  const priced=list.filter(x=>!x._retailerLinkOnly&&Number(x.price)>0);
-  const other=list.filter(x=>!x._retailerLinkOnly&&!(Number(x.price)>0));
-  const links=list.filter(x=>x._retailerLinkOnly).slice(0,2);
-  return priced.concat(other,links);
+  // Backend v48 has already merged marketplace + retailer pools and assigned a global
+  // authority rank. Preserve that order here; re-grouping priced cards ahead of retailer
+  // destinations was undoing the search engine's ranking in the browser.
+  return (Array.isArray(items)?items:[]).filter(Boolean);
 }
 function findaiFeaturedSearchItem(items,parsed){
   const list=findaiPresentationSearchItems(items);
@@ -3190,21 +3202,27 @@ function findaiFeaturedSearchItem(items,parsed){
   const priced=list.filter(x=>!x._retailerLinkOnly&&Number(x&&x.price)>0);
   if(parsed&&parsed.sort==='price_asc')return priced.slice().sort((a,b)=>total(a)-total(b))[0]||list[0];
   if(parsed&&parsed.sort==='price_desc')return priced.slice().sort((a,b)=>total(b)-total(a))[0]||list[0];
-  // A verified priced listing should always lead the answer. Link-only retailer pages are
-  // useful fallbacks, but they no longer displace a real Buy Now price in the hero card.
-  return priced[0]||list[0];
+  // For ordinary searches the backend's first item is deliberate: family/category
+  // queries may lead with an official/specialist destination, while exact queries keep
+  // unpriced authority links in a lower band. Explicit price sorts still use price above.
+  return list[0]||priced[0];
 }
 function searchFeaturedCardHtml(item,c){
   if(!item)return '';
-  const img=item.image||item.stockxImage||'',price=item._retailerLinkOnly?'Check price':(Number(item.price)>0?cardPriceText(item,c):''),shipping=item._retailerLinkOnly?{text:'',free:false,varies:false}:cardShipping(item,c),countryName=cardListingCountry(item,c);
+  const img=item.image||item.stockxImage||'',price=item._retailerLinkOnly?authorityDestinationText(item):(Number(item.price)>0?cardPriceText(item,c):''),shipping=item._retailerLinkOnly?{text:'',free:false,varies:false}:cardShipping(item,c),countryName=cardListingCountry(item,c);
   const media=img?`<img class="deal-featured-image" src="${escapeHtml(img)}" alt="${escapeHtml(item.title||'Listing')}" loading="eager" onerror="findaiRetailerImgError(this,'${escapeHtml(item.retailer||item.source||'Retailer')}','${escapeHtml(item.retailerLogo||'')}')">`:retailerProductPlaceholderHtml(item,'deal-featured-placeholder');
-  return `<article class="deal-featured search-featured">${media}<div class="deal-featured-details"><div class="deal-source">${dealSourceHtml(item)}</div><div class="deal-title">${escapeHtml(item.title||'Live listing')}</div>${price?`<div class="deal-price search-featured-price">${escapeHtml(price)}</div>`:'<div class="search-featured-no-price">See current price</div>'}${countryName?`<div class="deal-country">${escapeHtml(countryName)}</div>`:''}${shipping.text?`<div class="deal-shipping${shipping.free?' free':(shipping.varies?' varies':'')}">${escapeHtml(shipping.text)}</div>`:''}<a class="deal-action" href="${escapeHtml(item.url||'#')}" target="_blank" rel="noopener">${escapeHtml(dealButtonLabel(item))}</a></div></article>`;
+  return `<article class="deal-featured search-featured">${media}<div class="deal-featured-details"><div class="deal-source">${dealSourceHtml(item)}</div><div class="deal-title">${escapeHtml(item.title||'Live listing')}</div>${price?`<div class="deal-price search-featured-price">${escapeHtml(price)}</div>`:`<div class="search-featured-no-price">${escapeHtml(authorityDestinationText(item))}</div>`}${countryName?`<div class="deal-country">${escapeHtml(countryName)}</div>`:''}${shipping.text?`<div class="deal-shipping${shipping.free?' free':(shipping.varies?' varies':'')}">${escapeHtml(shipping.text)}</div>`:''}<a class="deal-action" href="${escapeHtml(item.url||'#')}" target="_blank" rel="noopener">${escapeHtml(dealButtonLabel(item))}</a></div></article>`;
 }
 function findaiFallbackSearchNarrative(query,items,data,parsed,c,featured){
   const subject=searchStatusSubject((parsed&&parsed.q)||query)||'that product';
   const price=featured&&Number(featured.price)>0?cardPriceText(featured,c):'';
   const source=String(featured&& (featured.retailer||featured.source) || '').trim();
   if(parsed&&parsed.sort==='price_asc'&&price)return {headline:`The cheapest credible ${subject} I found is ${price}${source?' at '+source:''}.`,explanation:'I kept the results focused on the actual product.',workLine:''};
+  const scope=String(featured&&featured._findaiQueryScope||'');
+  if(scope&&scope!=='exact'){
+    const lead=source||'a trusted source';
+    return {headline:`For ${subject}, I’d start with ${lead}.`,explanation:scope==='collection'?'This is a broad range, so official and specialist sources come before isolated low-price listings.':'Prices vary by model or variant, so I ranked the strongest source first rather than treating every listing as the same product.',workLine:''};
+  }
   if(price)return {headline:`I found a strong current option for ${subject} at ${price}${source?' from '+source:''}.`,explanation:'I prioritised reputable retailers and complete product matches.',workLine:''};
   return {headline:`I found current retailer options for ${subject}.`,explanation:'Some live prices still need a check, so I have kept the retailer links rather than guessing.',workLine:''};
 }
@@ -3468,7 +3486,7 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
     const _hasOffer=Array.isArray(item.buyingOptions)&&item.buyingOptions.indexOf('BEST_OFFER')!==-1;
     const _buyOnly=isAli||isWeb||isBrickLink||(!isFindAI&&sourceKey&&sourceKey!=='ebay');
     const _btns=item._retailerLinkOnly
-      ? '<div class="card-btns"><a class="card-btn" href="'+escapeHtml(item.url||'#')+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">View retailer</a></div>'
+      ? '<div class="card-btns"><a class="card-btn" href="'+escapeHtml(item.url||'#')+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">'+escapeHtml(dealButtonLabel(item))+'</a></div>'
       : cardButtonsHtml(item.url, _hasOffer, item.itemId, _buyOnly, item.image);
     const _savedItem={title:item.title,image:item.image,price:item.price,url:item.url,itemId:item.itemId,marketplaceListingId:item.marketplaceListingId,_findaiMarketplace:item._findaiMarketplace,source:item.source,currency:item.currency,shippingCost:item.shippingCost,shipping:item.shipping,location:item.location,country:item.country||c,searchQ:label};
     return `<div class="chat-card" data-q="${escapeHtml(label||'')}" data-item="${escapeHtml(JSON.stringify(_savedItem))}">${findaiSavedHeartHtml(_savedItem)}<a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">${imgSrc?`<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="findaiRetailerImgError(this,'${escapeHtml(item.retailer||item.source||'Retailer')}','${escapeHtml(item.retailerLogo||'')}')">`:retailerProductPlaceholderHtml(item,'chat-card-ph')}<div class="chat-card-body"><div style="margin-bottom:5px">${srcBadge}</div><div class="chat-card-title">${item.title||''}</div><div class="chat-card-price">${price}</div>${cardListingMeta(item,c)}</div></a><div style="padding:0 12px 12px">${_btns}</div></div>`;
