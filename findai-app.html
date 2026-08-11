@@ -1421,6 +1421,14 @@ body.scan-results-open .nav{display:none!important}
 @media (max-width:380px){
   .scan-item-card{grid-template-columns:67px minmax(0,1fr) auto;gap:9px}.scan-item-image{width:67px;height:67px}.scan-estimate{min-width:78px}.scan-estimate b{font-size:16px}
 }
+.scan-live-searching,.scan-live-refresh-note{margin:13px 0 4px;padding:12px 13px;border:1px solid rgba(255,255,255,.075);border-radius:15px;background:#0d1116;color:#aeb5bf;display:flex;align-items:center;gap:10px;font-size:10px;line-height:1.35}
+.scan-live-searching b,.scan-live-refresh-note b{display:block;color:#f3f5f7;font-size:11px;margin-bottom:2px}
+.scan-live-searching-spinner{width:19px;height:19px;flex:0 0 19px;border:2px solid rgba(255,255,255,.14);border-top-color:#fff;border-radius:50%;animation:scanDeepSpin .72s linear infinite}
+.scan-live-searching-copy{min-width:0;flex:1}.scan-live-searching-copy span{display:block;color:#7f8791;margin-top:2px}
+.scan-live-refresh-note{color:#878f99}.scan-live-refresh-note svg{width:17px;height:17px;flex:0 0 auto}
+.scan-progressive-empty{padding:22px 5px 8px;text-align:center;color:#858d97;font-size:10.5px;line-height:1.5}
+.scan-progressive-empty b{display:block;color:#f2f4f6;font-size:13px;margin-bottom:5px}
+@keyframes scanDeepSpin{to{transform:rotate(360deg)}}
 
 
 /* =========================================================
@@ -2357,6 +2365,7 @@ let feedState = {
 };
 let feedRequestController = null;
 let scanRequestController = null;
+let scanRunSequence = 0;
 let scanProgressTimer = null;
 let scanProgressStage = 0;
 let scanProgressValue = 0;
@@ -5640,8 +5649,7 @@ function scanListingMeta(item){
 }
 function renderScanResults(data){
   const listings=(Array.isArray(data&&data.listings)?data.listings:(Array.isArray(data&&data.items)?data.items:[]))
-    .filter(item=>item&&Number(item.price)>0)
-    .sort((a,b)=>scanResultTotal(a)-scanResultTotal(b));
+    .filter(item=>item&&Number(item.price)>0);
   currentScanResults=data||{};
   currentScanListings=listings;
   const query=String(data&&data.query||data&&data.productName||data&&data.title||'').trim();
@@ -5649,38 +5657,53 @@ function renderScanResults(data){
   const heading=$('#scanResultsHeading'); if(heading) heading.textContent=productName||'Product matches';
   const content=$('#scanResultsContent');
   const actions=$('#scanResultActions');
-  if(!listings.length){
-    const angle=String(data&&data.angleRequest||data&&data.reply||'Try a clearer front photo with the brand or model visible.');
-    content.innerHTML=`<div class="scan-results-empty"><b>No confident matching listing found</b>${escapeHTML(angle)}<br><button type="button" onclick="retryScanFromResults()">Retake photo</button></div>`;
-    if(actions) actions.hidden=true;
-    go('scanResults');
-    return;
-  }
-  const first=listings[0];
-  const firstImage=getImage(first)||lastScanImage;
-  const firstCurrency=currencyOf(first,data);
+  const searchingDeep=!!(data&&data.meta&&data.meta.deepSearchPending);
+  const refreshFailed=!!(data&&data.meta&&data.meta.deepSearchFailed);
+  const identity=data&&data.identity||{};
+  const confidence=scanConfidenceLabel(data&&data.confidence);
+  const productSub=[identity.brand,identity.productLine,identity.model,identity.variant,identity.size].filter(Boolean).join(' · ');
+  const first=listings[0]||null;
+  const firstImage=(first&&getImage(first))||lastScanImage;
+  const firstCurrency=first?currencyOf(first,data):String(data&&data.market&&data.market.currency||'AUD');
   const market=(data&&data.market&&Number(data.market.listingCount)>0)?data.market:scanMarketFromListings(listings);
   const marketCurrency=market.currency||firstCurrency;
   const estimatedValue=market.average!=null?Number(market.average):(market.median!=null?Number(market.median):null);
-  const confidence=scanConfidenceLabel(data&&data.confidence);
-  const identity=data&&data.identity||{};
-  const productSub=[identity.brand,identity.productLine,identity.model,identity.variant].filter(Boolean).join(' · ');
-  content.innerHTML=`
+  const sourceCount=Number(data&&data.meta&&data.meta.sourceCount)||new Set(listings.map(item=>getSource(item))).size;
+  const identityCard=`
     <article class="scan-item-card">
       <div class="scan-identified-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h5M4 5v5M19 4h-5M20 5v5M5 20h5M4 19v-5M19 20h-5M20 19v-5"/><circle cx="12" cy="12" r="3"/></svg>FindAI Identified</div>
       <img class="scan-item-image" src="${escapeAttr(lastScanImage||firstImage||'')}" alt="Scanned item">
       <div class="scan-item-copy"><h2>${escapeHTML(productName)}</h2><p>${escapeHTML(productSub||confidence.text)}</p></div>
       <div class="scan-estimate"><b>${estimatedValue!=null?escapeHTML(money(estimatedValue,marketCurrency)):'—'}</b><span>Est. value</span></div>
-    </article>
+    </article>`;
+  const searchingBanner=searchingDeep?`<div class="scan-live-searching"><div class="scan-live-searching-spinner"></div><div class="scan-live-searching-copy"><b>Searching more stores</b><span>Refreshing known retailers and checking the wider shopping web in parallel. Results will update automatically.</span></div></div>`:'';
+  const failedBanner=refreshFailed?`<div class="scan-live-refresh-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v10"/><circle cx="12" cy="17" r="1"/><circle cx="12" cy="12" r="9"/></svg><div><b>Live store refresh incomplete</b>Showing the verified results FindAI already had. You can retry the scan to search again.</div></div>`:'';
+
+  if(!listings.length && searchingDeep){
+    content.innerHTML=identityCard+searchingBanner+`<div class="scan-progressive-empty"><b>Product identified</b>FindAI is now resolving live retailer and marketplace offers. You do not need to keep waiting on the camera screen.</div>`;
+    if(actions) actions.hidden=true;
+    go('scanResults');
+    const scroll=$('#scanResultsScroll'); if(scroll) scroll.scrollTop=0;
+    return;
+  }
+  if(!listings.length){
+    const angle=String(data&&data.angleRequest||data&&data.reply||'Try a clearer front photo with the brand or model visible.');
+    content.innerHTML=identityCard+failedBanner+`<div class="scan-results-empty"><b>No confident matching listing found</b>${escapeHTML(angle)}<br><button type="button" onclick="retryScanFromResults()">Retake photo</button></div>`;
+    if(actions) actions.hidden=true;
+    go('scanResults');
+    return;
+  }
+
+  content.innerHTML=identityCard+`
     <section class="scan-market-card scan-market-summary-only" aria-label="Verified market summary">
       <div class="scan-market-strip">
         <div class="scan-market-stat"><span>Lowest</span><b>${market.lowest!=null?escapeHTML(money(Number(market.lowest),marketCurrency)):'—'}</b></div>
         <div class="scan-market-stat"><span>Average</span><b>${market.average!=null?escapeHTML(money(Number(market.average),marketCurrency)):'—'}</b></div>
         <div class="scan-market-stat scan-market-listing-count"><span>Listings</span><b>${Number(market.listingCount)||listings.length}</b></div>
       </div>
-      <div class="scan-market-note">Verified across ${Number(data&&data.meta&&data.meta.sourceCount)||new Set(listings.map(item=>getSource(item))).size} retailer${(Number(data&&data.meta&&data.meta.sourceCount)||new Set(listings.map(item=>getSource(item))).size)===1?'':'s'} / marketplace source${(Number(data&&data.meta&&data.meta.sourceCount)||new Set(listings.map(item=>getSource(item))).size)===1?'':'s'}</div>
-    </section>
-    <div class="scan-section-title"><h2>Verified live listings</h2><span>Lowest total price first</span></div>
+      <div class="scan-market-note">Verified across ${sourceCount} retailer${sourceCount===1?'':'s'} / marketplace source${sourceCount===1?'':'s'}</div>
+    </section>`+searchingBanner+failedBanner+`
+    <div class="scan-section-title"><h2>Verified live listings</h2><span>${searchingDeep?'Updating live…':'Source-diverse · lowest price first'}</span></div>
     <div class="scan-listing-grid">${listings.map((item,index)=>{
       const image=getImage(item);
       const currency=currencyOf(item,data);
@@ -5689,9 +5712,11 @@ function renderScanResults(data){
       const matchMethod=String(item&&item._findaiMatchMethod||'search');
       const matchLabel=matchMethod==='exact-text'
         ? 'Exact product match'
-        : (matchMethod==='visual'
-          ? (Number.isFinite(verified)?`${Math.round(verified*100)}% visual match`:'Visual match verified')
-          : 'Live product match');
+        : (matchMethod==='retailer-text'
+          ? 'Verified retailer match'
+          : (matchMethod==='visual'
+            ? (Number.isFinite(verified)?`${Math.round(verified*100)}% visual match`:'Visual match verified')
+            : 'Live product match'));
       return `<article class="scan-grid-card ${index===0?'cheapest':''}" role="button" tabindex="0" onclick="openScanResultListing(${index})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openScanResultListing(${index})}">
         <div class="scan-grid-image-wrap">${image?`<img class="scan-grid-image" src="${escapeAttr(image)}" alt="${escapeAttr(item.title||'Listing')}" loading="${index<4?'eager':'lazy'}" referrerpolicy="no-referrer">`:''}${index===0?'<span class="scan-grid-cheapest-badge">Cheapest</span>':''}</div>
         <div class="scan-grid-body"><div class="scan-card-source">${scanSourceMarkup(item)}</div><div class="scan-grid-title">${escapeHTML(item.title||'Live listing')}</div>${meta?`<div class="scan-grid-meta">${escapeHTML(meta)}</div>`:''}<div class="scan-grid-verified"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg>${matchLabel}</div><div class="scan-grid-price-bottom">${escapeHTML(money(scanResultTotal(item),currency))}</div></div>
@@ -5699,7 +5724,7 @@ function renderScanResults(data){
     }).join('')}</div>`;
   if(actions) actions.hidden=false;
   go('scanResults');
-  const scroll=$('#scanResultsScroll'); if(scroll) scroll.scrollTop=0;
+  const scroll=$('#scanResultsScroll'); if(scroll&&!(data&&data.meta&&data.meta.preserveScroll)) scroll.scrollTop=0;
 }
 function openScanResultListing(index){
   const item=currentScanListings[Number(index)||0];
@@ -5710,6 +5735,8 @@ function openScanResultListing(index){
   window.open(url,'_blank','noopener,noreferrer');
 }
 function retryScanFromResults(){
+  scanRunSequence++;
+  if(scanRequestController) scanRequestController.abort();
   currentScanResults=null;
   currentScanListings=[];
   resetPreview();
@@ -5740,52 +5767,91 @@ async function refineScanResults(event){
 async function analyseImage(dataUrl){
   if(scanRequestController) scanRequestController.abort();
   scanRequestController=new AbortController();
+  const runId=++scanRunSequence;
   startScanProgress();
   setScanStatus('FindAI is identifying the product…');
   try{
-    // Read a UPC/EAN locally when the browser supports it. This never replaces
-    // visual recognition; it is an extra deterministic clue sent to FindAI's
-    // universal scanner and is ignored server-side unless it is a valid GTIN.
     let barcodeHint='';
     try{
       barcodeHint=await Promise.race([
         detectBarcodeFromImage(dataUrl),
-        new Promise(resolve=>setTimeout(()=>resolve(''),700))
+        new Promise(resolve=>setTimeout(()=>resolve(''),650))
       ]);
     }catch(_){barcodeHint='';}
-    const response=await fetch(WORKER+'/vision-search',{
+
+    // Phase 1 is deliberately narrow: identify the exact product and read FindAI's
+    // already-cached retailer knowledge. The user sees this result immediately instead
+    // of waiting for every live store and candidate-image verification call to finish.
+    const identifyResponse=await fetch(WORKER+'/vision-search',{
       method:'POST',
       headers:appProHeaders(true),
       body:JSON.stringify({
         imageBase64:dataUrl,
         barcodeHint:barcodeHint||'',
+        scanPhase:'identify',
         mode:'findai-independent-product',
         requireStructuredProduct:true,
         preserveVisibleText:true,
-        searchScope:'shopping-web',
-        verifyCandidateImages:true
+        searchScope:'shopping-web'
       }),
       signal:scanRequestController.signal
     });
-    let data={};try{data=await response.json();}catch(_){ }
-    if(response.status===402){
+    let identified={};try{identified=await identifyResponse.json();}catch(_){ }
+    if(runId!==scanRunSequence) return;
+    if(identifyResponse.status===402){
       stopScanProgress({hide:true});
-      appPaintProUI(data.pro);
-      appOpenPro(data.reply||data.error||'Free accounts get 1 product scan per day. FindAI Pro unlocks unlimited scanning.');
+      appPaintProUI(identified.pro);
+      appOpenPro(identified.reply||identified.error||'Free accounts get 1 product scan per day. FindAI Pro unlocks unlimited scanning.');
       return;
     }
-    if(!response.ok) throw new Error(data.error||'FindAI identification failed');
-    const listings=Array.isArray(data&&data.listings)?data.listings:(Array.isArray(data&&data.items)?data.items:[]);
-    if(listings.length){
-      setScanStatus(`Found ${listings.length} close live listing${listings.length===1?'':'s'}`);
-      await completeScanProgress('Verified shopping-web matches ready');
-      renderScanResults(data);
+    if(!identifyResponse.ok) throw new Error(identified.error||'FindAI identification failed');
+    if(!identified||identified.kind==='not_product'||identified.kind==='unresolved_product'||!identified.productName){
+      const message=String(identified&&identified.angleRequest||identified&&identified.reply||'No confident product identity found — try the front label or a clearer angle');
+      setScanStatus(message);
+      await completeScanProgress('Identity checked');
+      if(runId===scanRunSequence) renderScanResults(identified||{reply:message,listings:[]});
       return;
     }
-    const message=String(data&&data.angleRequest||data&&data.reply||'No close listing found — try the front label or a clearer angle');
-    setScanStatus(message);
-    await completeScanProgress('Identity checked');
-    renderScanResults(data||{reply:message,listings:[]});
+
+    setScanStatus(`Identified ${identified.productName}`);
+    await completeScanProgress('Product identified');
+    if(runId!==scanRunSequence) return;
+    const initial={...identified,meta:{...((identified&&identified.meta)||{}),deepSearchPending:true}};
+    renderScanResults(initial);
+
+    // Phase 2 runs while the result screen is already usable. It refreshes known product
+    // URLs, searches multiple retailer/marketplace lanes in parallel, visually verifies
+    // candidates, persists newly verified retailer offers, then updates the same screen.
+    const token=String(identified.scanContinuationToken||'');
+    if(!token) return;
+    try{
+      const deepResponse=await fetch(WORKER+'/vision-search',{
+        method:'POST',
+        headers:appProHeaders(true),
+        body:JSON.stringify({
+          imageBase64:dataUrl,
+          scanPhase:'expand',
+          scanContinuationToken:token,
+          mode:'findai-independent-product',
+          requireStructuredProduct:true,
+          searchScope:'shopping-web',
+          verifyCandidateImages:true
+        }),
+        signal:scanRequestController.signal
+      });
+      let deep={};try{deep=await deepResponse.json();}catch(_){ }
+      if(runId!==scanRunSequence) return;
+      if(!deepResponse.ok) throw new Error(deep.error||'Live store expansion failed');
+      const finalData={...identified,...deep,identity:deep.identity||identified.identity,meta:{...((identified&&identified.meta)||{}),...((deep&&deep.meta)||{}),deepSearchPending:false,preserveScroll:true}};
+      renderScanResults(finalData);
+      const count=Array.isArray(finalData.listings)?finalData.listings.length:0;
+      const sources=Number(finalData&&finalData.meta&&finalData.meta.sourceCount)||0;
+      setScanStatus(count?`Found ${count} verified listing${count===1?'':'s'} across ${sources||1} source${sources===1?'':'s'}`:'Product identified');
+    }catch(error){
+      if(error&&error.name==='AbortError') return;
+      if(runId!==scanRunSequence) return;
+      renderScanResults({...initial,meta:{...((initial&&initial.meta)||{}),deepSearchPending:false,deepSearchFailed:true,preserveScroll:true}});
+    }
   }catch(error){
     if(error&&error.name==='AbortError') return;
     const message='Scan failed — check your connection and try again';
@@ -5800,6 +5866,8 @@ function showScanMatch(query,image,confidence){
   searchListings(query,{showToast:true});
 }
 function retryScan(){
+  scanRunSequence++;
+  if(scanRequestController) scanRequestController.abort();
   stopScanProgress({hide:true});
   $('#matchBackdrop').classList.remove('show');
   $('#preview').style.display='none';
