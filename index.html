@@ -3313,10 +3313,11 @@ function findaiFeaturedSearchItem(items,parsed){
   const priced=list.filter(x=>!x._retailerLinkOnly&&Number(x&&x.price)>0);
   if(parsed&&parsed.sort==='price_asc')return priced.slice().sort((a,b)=>total(a)-total(b))[0]||list[0];
   if(parsed&&parsed.sort==='price_desc')return priced.slice().sort((a,b)=>total(b)-total(a))[0]||list[0];
-  // For ordinary searches the backend's first item is deliberate: family/category
-  // queries may lead with an official/specialist destination, while exact queries keep
-  // unpriced authority links in a lower band. Explicit price sorts still use price above.
-  return list[0]||priced[0];
+  // The hero must be a real shopping offer whenever one exists. A no-price official
+  // destination can still appear below as a useful source, but never as a giant empty
+  // hero card. Prefer a priced offer with a real product image, then any priced offer.
+  const commerceReady=priced.find(x=>String(x&& (x.image||x.stockxImage)||'').trim());
+  return commerceReady||priced[0]||list[0];
 }
 function searchFeaturedCardHtml(item,c){
   if(!item)return '';
@@ -3331,8 +3332,7 @@ function findaiFallbackSearchNarrative(query,items,data,parsed,c,featured){
   if(parsed&&parsed.sort==='price_asc'&&price)return {headline:`The cheapest credible ${subject} I found is ${price}${source?' at '+source:''}.`,explanation:'I kept the results focused on the actual product.',workLine:''};
   const scope=String(featured&&featured._findaiQueryScope||'');
   if(scope&&scope!=='exact'){
-    const lead=source||'a trusted source';
-    return {headline:`For ${subject}, I’d start with ${lead}.`,explanation:scope==='collection'?'This is a broad range, so official and specialist sources come before isolated low-price listings.':'Prices vary by model or variant, so I ranked the strongest source first rather than treating every listing as the same product.',workLine:''};
+    return {headline:`Here are the strongest ${subject} listings I found.`,explanation:scope==='collection'?'I prioritised relevant retailer and specialist listings with real shopping data.':'Models and variants can differ, so I prioritised current priced offers rather than an unpriced brand destination.',workLine:''};
   }
   if(price)return {headline:`I found a strong current option for ${subject} at ${price}${source?' from '+source:''}.`,explanation:'I prioritised reputable retailers and complete product matches.',workLine:''};
   return {headline:`I found current retailer options for ${subject}.`,explanation:'Some live prices still need a check, so I have kept the retailer links rather than guessing.',workLine:''};
