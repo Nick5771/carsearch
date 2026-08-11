@@ -51,6 +51,7 @@
 })();
 </script>
 <meta name="findai-messages-build" content="v43-language-currency-global">
+<meta name="findai-visual-build" content="v49-unified-visual-search">
 <meta name="description" content="FindAI searches the web for live product listings and prices across retailers and marketplaces — all in one search.">
 <meta name="keywords" content="shopping search engine, product search, live product listings, compare prices, retailer search, marketplace search, online shopping, FindAI">
 <!-- max-image-preview:none stops Google rendering the square logo thumbnail beside
@@ -303,6 +304,7 @@ body.findai-signed-in #sidebar-categories-label{margin-top:8px!important}
 #drop-overlay .drop-title{font-size:26px;font-weight:600;color:#fff;letter-spacing:-0.3px}
 #drop-overlay .drop-sub{font-size:14px;color:#888}
 @media(max-width:700px){#drop-overlay .drop-card{padding:36px 32px}#drop-overlay .drop-title{font-size:20px}}
+.vision-search-copy{margin:2px 0 14px}.vision-search-headline{font-size:18px;line-height:1.45;color:inherit;letter-spacing:-.2px}.vision-search-confidence{display:inline-flex;margin-top:8px;padding:5px 9px;border:1px solid #32363c;border-radius:999px;font-size:10px;font-weight:750;letter-spacing:.02em;color:#969ca5}.vision-search-status{margin-top:10px;display:flex;align-items:center;gap:9px;color:#8b929c;font-size:13px;line-height:1.4}.vision-search-spinner{width:14px;height:14px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:visionSearchSpin .75s linear infinite;flex:0 0 auto}.vision-search-results{margin-top:8px}.vision-search-empty{margin-top:10px;color:#858c95;font-size:12px;line-height:1.5}.vision-search-empty button{border:0;background:transparent;color:inherit;text-decoration:underline;font:inherit;font-weight:700;cursor:pointer;padding:0}body.findai-light .vision-search-confidence{border-color:#d7dbe1;color:#69707a}body.findai-light .vision-search-status,body.findai-light .vision-search-empty{color:#68707a}@keyframes visionSearchSpin{to{transform:rotate(360deg)}}
 .chat-in{flex:1;background:transparent;border:none;outline:none;color:#fff;font-family:'DM Sans',sans-serif;font-size:16px;resize:none;max-height:120px;min-height:28px;line-height:1.6;caret-color:#fff}
 .chat-in::placeholder{color:#888;font-size:16px}
 .send-btn{width:34px;height:34px;border-radius:8px;background:#0d0e10;border:1px solid #2a2d31;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,border-color .15s,transform .15s}
@@ -3936,7 +3938,7 @@ async function sendMsg(){
 }
 
 // Shared image handler — used by BOTH the "Upload file" picker and drag-and-drop.
-function handleImageFile(file){
+function handleImageFile(file,autoSearch){
   if(!file||busy)return;
   if(file.type&&!/^image\//.test(file.type)){ // dropped a non-image (pdf, doc, etc.)
     showChat();
@@ -3944,6 +3946,12 @@ function handleImageFile(file){
     return;
   }
   resizeImage(file,512,0.72).then(function(dataUrl){
+    if(autoSearch){
+      pendingImage=null;
+      const pv=document.getElementById('img-preview');if(pv){pv.innerHTML='';pv.classList.remove('show');}
+      sendImageMessage(dataUrl,'');
+      return;
+    }
     pendingImage=dataUrl;
     const pv=document.getElementById('img-preview');
     if(pv){pv.innerHTML=`<span class="chip"><img src="${dataUrl}" alt="attached"><button class="rm" onclick="clearPendingImage()" title="Remove" aria-label="Remove">&times;</button></span>`;pv.classList.add('show');}
@@ -3983,38 +3991,157 @@ function resizeImage(file,maxDim,quality){
   });
 }
 
+function findaiVisualProductName(data){
+  data=data||{};
+  return String(data.productName||data.exactProductName||data.title||data.query||'').replace(/\s+/g,' ').trim();
+}
+function findaiVisualItems(data){
+  data=data||{};
+  return Array.isArray(data.items)?data.items:(Array.isArray(data.listings)?data.listings:[]);
+}
+function findaiVisualSourceCount(items){
+  const seen=new Set();
+  (Array.isArray(items)?items:[]).forEach(function(item){
+    let key='';
+    try{key=new URL(String(item&&item.url||''),location.href).hostname.replace(/^www\./,'').toLowerCase();}catch(_){key=String(item&& (item.retailerHost||item.retailer||item.source)||'').toLowerCase();}
+    if(key)seen.add(key);
+  });
+  return seen.size;
+}
+function findaiSearchVisualQuery(button){
+  const q=String(button&&button.getAttribute('data-q')||'').trim();
+  if(!q)return;
+  const inp=document.getElementById('chat-in');if(inp)inp.value=q;
+  sendMsg();
+}
+function renderDesktopVisualSearch(body,data,opts){
+  if(!body)return;
+  opts=opts||{};
+  const product=findaiVisualProductName(data)||'this product';
+  const items=findaiVisualItems(data);
+  const c=String(data&&data.country||country||'AU');
+  const query=String(data&& (data.query||data.exactQuery)||product).trim();
+  const confidence=Number(data&&data.confidence);
+  const confidenceText=Number.isFinite(confidence)&&confidence>=0.88?'High-confidence match':(Number.isFinite(confidence)&&confidence>=0.7?'Likely match':'');
+  let status='';
+  if(opts.searchingDeep) status='Searching live listings and prices across retailers and marketplaces…';
+  else if(items.length){
+    const sources=Number(data&&data.meta&&data.meta.sourceCount)||findaiVisualSourceCount(items);
+    status=`Found ${items.length} verified live listing${items.length===1?'':'s'}${sources?` across ${sources} source${sources===1?'':'s'}`:''}.`;
+  }else if(opts.deepFailed) status='The product was identified, but the wider live-store search did not finish. Try the product search again in a moment.';
+  else status=String(data&&data.reply||'I identified the product, but no verified live listing passed the exact-match checks.');
+  const headline=`Looks like you've sent a photo of <strong>${escapeHtml(product)}</strong>.`;
+  const confidenceHtml=confidenceText?`<div class="vision-search-confidence">${escapeHtml(confidenceText)}</div>`:'';
+  const statusHtml=`<div class="vision-search-status${opts.searchingDeep?' searching':''}">${opts.searchingDeep?'<span class="vision-search-spinner" aria-hidden="true"></span>':''}<span>${escapeHtml(status)}</span></div>`;
+  const cards=items.length?`<div class="vision-search-results">${renderCards(items,query,'','',c,0,0,true)}</div>`:'';
+  const empty=(!items.length&&!opts.searchingDeep)?`<div class="vision-search-empty">Try a clearer angle or search <button type="button" data-q="${escapeHtml(query||product)}" onclick="findaiSearchVisualQuery(this)">${escapeHtml(query||product)}</button> directly.</div>`:'';
+  body.innerHTML=`<div class="vision-search-copy"><div class="vision-search-headline">${headline}</div>${confidenceHtml}${statusHtml}</div>${cards}${empty}`;
+  const cardsEls=Array.from(body.querySelectorAll('.chat-card'));
+  cardsEls.forEach(function(card,index){card.classList.add('search-card-enter');setTimeout(function(){card.classList.add('visible');},70+index*35);});
+}
+
 async function sendImageMessage(dataUrl, text){
   if(busy)return;
-  if(!(await findaiProConsume('scan'))) return;
   busy=true;
-  const sb=document.getElementById('send-btn'),pb=document.getElementById('plus-btn');
+  activeFindaiSearchController=(typeof AbortController!=='undefined')?new AbortController():null;
+  const signal=activeFindaiSearchController?activeFindaiSearchController.signal:undefined;
+  const pb=document.getElementById('plus-btn');
   setSendButtonSearching(true); if(pb)pb.disabled=true;
   showChat();
   const cap=text?`<div style="margin-top:8px">${escapeHtml(text)}</div>`:'';
   addMsg('user',`<img src="${dataUrl}" alt="uploaded" style="max-width:240px;max-height:240px;width:100%;border-radius:14px;display:block">${cap}`);
-  addThinking();
-  requestAnimationFrame(scrollToLastUser);          // follow the search down NOW, while the dots load
+  addThinking('Identifying the exact product','search',text||'uploaded product photo');
+  requestAnimationFrame(scrollToLastUser);
+  let assistantBody=null, identified=null;
   try{
-    const res=await fetch(`${WORKER}/?vision=1`,{
+    // Desktop upload, drag-and-drop and the phone scanner now use the same FindAI
+    // Visual Search service. Phase 1 resolves the canonical product/variant and gets
+    // cached/fast offers; Phase 2 searches the wider shopping web and visually verifies it.
+    const identifyResponse=await fetch(`${WORKER}/vision-search`,{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({imageBase64:dataUrl, msg:text||'', messages:conversation.slice(-6)})
+      headers:findaiProHeaders(true),
+      body:JSON.stringify({
+        imageBase64:dataUrl,
+        msg:text||'',
+        messages:conversation.slice(-6),
+        scanPhase:'identify',
+        mode:'findai-independent-product',
+        requireStructuredProduct:true,
+        preserveVisibleText:true,
+        searchScope:'shopping-web'
+      }),
+      signal
     });
-    const data=await res.json();
+    try{identified=await identifyResponse.json();}catch(_){identified={};}
     removeThinking();
-    const reply=(data.reply||'').trim();
-    const c=data.country||country;
-    const hasItems=Array.isArray(data.items)&&data.items.length>0;
-    conversation.push({role:'user',content:text||(data.query?`find ${data.query}`:'uploaded an image')});
-    conversation.push({role:'assistant',content:reply||(data.query?`Here's what I found for ${data.query}.`:'')});
-    if(hasItems){ lastSearchKw=data.query||''; lastMaxPrice=''; saveSearchedItems(data.items, data.query||''); }
-    let cardsHtml=hasItems?renderCards(data.items,data.query||'image','','',c,(data.meta&&data.meta.ebayCount)||0,(data.meta&&data.meta.etsyCount)||0,true):'';
-    const body=addMsg('assistant','');
-    typeReply(body, reply||(hasItems?'':"I couldn't find a match for that image — try a clearer photo of the item."), cardsHtml);
-    setTimeout(scrollToLastUser,150);
-  }catch(e){removeThinking();addMsg('assistant','Sorry, I had trouble with that image. Please try again.');}
-  busy=false;
-  setSendButtonSearching(false); if(pb)pb.disabled=false;
+    if(identifyResponse.status===402){
+      if(identified&&identified.pro)findaiPaintProUI(identified.pro);
+      openFindaiPro(identified.reply||identified.error||'Free accounts get 1 product scan per day. FindAI Pro unlocks unlimited scanning.');
+      return;
+    }
+    if(!identifyResponse.ok)throw new Error(identified.error||'FindAI visual search failed');
+    if(!identified||identified.kind==='not_product'||identified.kind==='unresolved_product'||!findaiVisualProductName(identified)){
+      const reply=String(identified&& (identified.angleRequest||identified.reply)||"I couldn't identify that product confidently enough. Try a clearer photo of the front, label or model details.");
+      assistantBody=addMsg('assistant','');
+      typeReply(assistantBody,reply,'');
+      conversation.push({role:'user',content:text||'uploaded an image'});
+      conversation.push({role:'assistant',content:reply});
+      return;
+    }
+
+    const productName=findaiVisualProductName(identified);
+    const initialItems=findaiVisualItems(identified);
+    lastSearchKw=identified.query||productName; lastMaxPrice='';
+    if(initialItems.length)saveSearchedItems(initialItems,lastSearchKw);
+    conversation.push({role:'user',content:text||`photo of ${productName}`});
+    conversation.push({role:'assistant',content:`Looks like you've sent a photo of ${productName}. Searching live listings and prices across retailers and marketplaces.`});
+    assistantBody=addMsg('assistant','');
+    renderDesktopVisualSearch(assistantBody,identified,{searchingDeep:!!identified.scanContinuationToken});
+    setTimeout(scrollToLastUser,120);
+
+    const token=String(identified.scanContinuationToken||'');
+    if(!token)return;
+    try{
+      const deepResponse=await fetch(`${WORKER}/vision-search`,{
+        method:'POST',
+        headers:findaiProHeaders(true),
+        body:JSON.stringify({
+          imageBase64:dataUrl,
+          scanPhase:'expand',
+          scanContinuationToken:token,
+          mode:'findai-independent-product',
+          requireStructuredProduct:true,
+          searchScope:'shopping-web',
+          verifyCandidateImages:true
+        }),
+        signal
+      });
+      let deep={};try{deep=await deepResponse.json();}catch(_){ }
+      if(!deepResponse.ok)throw new Error(deep.error||'Live store expansion failed');
+      // The deep pass is authoritative because it includes direct candidate-image
+      // verification. If it returns results, replace the quick list rather than
+      // re-introducing candidates that the visual verifier rejected.
+      const deepItems=findaiVisualItems(deep);
+      const finalData=deepItems.length?{...identified,...deep,items:deepItems,listings:deepItems,meta:{...((identified&&identified.meta)||{}),...((deep&&deep.meta)||{}),deepSearchPending:false}}:{...identified,meta:{...((identified&&identified.meta)||{}),...((deep&&deep.meta)||{}),deepSearchPending:false}};
+      const finalItems=findaiVisualItems(finalData);
+      lastSearchKw=finalData.query||lastSearchKw||productName;
+      if(finalItems.length)saveSearchedItems(finalItems,lastSearchKw);
+      renderDesktopVisualSearch(assistantBody,finalData,{searchingDeep:false});
+      conversation[conversation.length-1]={role:'assistant',content:finalItems.length?`Looks like you've sent a photo of ${findaiVisualProductName(finalData)}. I found ${finalItems.length} verified live listings.`:`Looks like you've sent a photo of ${findaiVisualProductName(finalData)}. No additional verified live offers passed the exact-match checks.`};
+      setTimeout(scrollToLastUser,120);
+    }catch(error){
+      if(error&&error.name==='AbortError')return;
+      renderDesktopVisualSearch(assistantBody,identified,{searchingDeep:false,deepFailed:true});
+    }
+  }catch(e){
+    removeThinking();
+    if(!(e&&e.name==='AbortError'))addMsg('assistant','Sorry, I had trouble with that image. Please try again.');
+  }finally{
+    busy=false;
+    activeFindaiSearchController=null;
+    setSendButtonSearching(false); if(pb)pb.disabled=false;
+    try{findaiGetProStatus(true);}catch(_){ }
+  }
 }
 
 function categorySearch(query,label){
@@ -4736,7 +4863,7 @@ renderRecents();
     '<div class="drop-card">'+
       '<img src="/findai-icon-192.png?v=12" alt="FindAI" class="drop-logo">'+
       '<div class="drop-title">Drop image to search</div>'+
-      '<div class="drop-sub">FindAI finds it on Amazon, eBay &amp; AliExpress &middot; JPG, PNG, WEBP</div>'+
+      '<div class="drop-sub">FindAI identifies the exact product and searches live retailers &amp; marketplaces &middot; JPG, PNG, WEBP</div>'+
     '</div>';
   document.body.appendChild(overlay);
 
@@ -4757,7 +4884,7 @@ renderRecents();
     hide();
     if(!dragHasFiles(e))return;
     const file=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
-    if(file)handleImageFile(file);
+    if(file)handleImageFile(file,true);
   });
 })();
 </script>
