@@ -4350,10 +4350,9 @@ function rankListings(items,query,source='search'){
     return [...items].sort((a,b)=>relevance(b)-relevance(a));
   }
 
-  // Scanner results follow eBay Browse search_by_image exactly: keep eBay's
-  // visual-match order and never discard a result because a title omits a word,
-  // uses a different unit, or names the item differently. Keyword fallback
-  // results (used only when eBay returns no visual matches) keep Best Match order.
+  // Scanner results can now come from retailers and marketplaces across FindAI.
+  // When the universal visual scanner has attached match metadata, preserve its
+  // verified server order; otherwise preserve the source's natural order.
   return [...items]
     .map((item,index)=>({item,index}))
     .sort((a,b)=>{
@@ -5024,14 +5023,14 @@ const SCAN_STAGES=[
     icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l7 3v5c0 4.8-2.9 8.1-7 10-4.1-1.9-7-5.2-7-10V6z"/><path d="M8.5 12l2.2 2.2 4.8-5"/></svg>'
   },
   {
-    title:'Comparing live prices',
-    detail:'Finding accurate live listings and sorting by total price',
+    title:'Searching the shopping web',
+    detail:'Checking retailers, marketplaces and FindAI’s live product index',
     progress:78,
     icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 17l5-5 3.5 3.5L20 8"/><path d="M16 8h4v4"/></svg>'
   },
   {
-    title:'Preparing your results',
-    detail:'Opening the best matching listings',
+    title:'Verifying the matches',
+    detail:'Comparing listing photos to your scan and ranking verified prices',
     progress:91,
     icon:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M8 12.3l2.5 2.5L16.5 9"/></svg>'
   }
@@ -5679,17 +5678,20 @@ function renderScanResults(data){
         <div class="scan-market-stat"><span>Average</span><b>${market.average!=null?escapeHTML(money(Number(market.average),marketCurrency)):'—'}</b></div>
         <div class="scan-market-stat scan-market-listing-count"><span>Listings</span><b>${Number(market.listingCount)||listings.length}</b></div>
       </div>
+      <div class="scan-market-note">Verified across ${Number(data&&data.meta&&data.meta.sourceCount)||new Set(listings.map(item=>getSource(item))).size} retailer${(Number(data&&data.meta&&data.meta.sourceCount)||new Set(listings.map(item=>getSource(item))).size)===1?'':'s'} / marketplace source${(Number(data&&data.meta&&data.meta.sourceCount)||new Set(listings.map(item=>getSource(item))).size)===1?'':'s'}</div>
     </section>
-    <div class="scan-section-title"><h2>Cheapest listings</h2><span>Total price first</span></div>
+    <div class="scan-section-title"><h2>Verified live listings</h2><span>Lowest total price first</span></div>
     <div class="scan-listing-grid">${listings.map((item,index)=>{
       const image=getImage(item);
       const currency=currencyOf(item,data);
       const meta=scanListingMeta(item);
       const verified=Number(item&&item._findaiVisualScore);
-      const matchMethod=String(item&&item._findaiMatchMethod||'visual');
+      const matchMethod=String(item&&item._findaiMatchMethod||'search');
       const matchLabel=matchMethod==='exact-text'
         ? 'Exact product match'
-        : (Number.isFinite(verified)?`${Math.round(verified*100)}% visual match`:'Visual match verified');
+        : (matchMethod==='visual'
+          ? (Number.isFinite(verified)?`${Math.round(verified*100)}% visual match`:'Visual match verified')
+          : 'Live product match');
       return `<article class="scan-grid-card ${index===0?'cheapest':''}" role="button" tabindex="0" onclick="openScanResultListing(${index})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openScanResultListing(${index})}">
         <div class="scan-grid-image-wrap">${image?`<img class="scan-grid-image" src="${escapeAttr(image)}" alt="${escapeAttr(item.title||'Listing')}" loading="${index<4?'eager':'lazy'}" referrerpolicy="no-referrer">`:''}${index===0?'<span class="scan-grid-cheapest-badge">Cheapest</span>':''}</div>
         <div class="scan-grid-body"><div class="scan-card-source">${scanSourceMarkup(item)}</div><div class="scan-grid-title">${escapeHTML(item.title||'Live listing')}</div>${meta?`<div class="scan-grid-meta">${escapeHTML(meta)}</div>`:''}<div class="scan-grid-verified"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg>${matchLabel}</div><div class="scan-grid-price-bottom">${escapeHTML(money(scanResultTotal(item),currency))}</div></div>
@@ -5721,11 +5723,14 @@ async function refineScanResults(event){
   content.innerHTML='<div class="scan-results-empty"><div class="tracker-spinner"></div><b>Checking that exact model</b>Finding the cheapest close listings…</div>';
   const actions=$('#scanResultActions'); if(actions) actions.hidden=true;
   try{
-    const response=await fetch(WORKER+'/tracker/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query,page:1,limit:40})});
+    // Refinements now use FindAI's normal global shopping search rather than the
+    // tracker endpoint, so a corrected model searches retailers + marketplaces
+    // in the visitor's market instead of falling back to a tracker-only feed.
+    const response=await fetch(WORKER+'/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query,page:1,limit:40})});
     if(!response.ok) throw new Error('Refine search failed');
     const result=await response.json();
     const listings=Array.isArray(result&&result.listings)?result.listings:[];
-    renderScanResults({...(currentScanResults||{}),...result,query,productName:query,title:query,listings,items:listings,market:scanMarketFromListings(listings),confidence:null});
+    renderScanResults({...(currentScanResults||{}),...result,query,productName:query,title:query,listings,items:listings,market:scanMarketFromListings(listings),confidence:null,meta:{...((currentScanResults&&currentScanResults.meta)||{}),...((result&&result.meta)||{}),refinedByUser:true}});
   }catch(_){
     content.innerHTML='<div class="scan-results-empty"><b>Could not refresh those listings</b>Check your connection and try the model again.</div>';
   }
@@ -5738,14 +5743,27 @@ async function analyseImage(dataUrl){
   startScanProgress();
   setScanStatus('FindAI is identifying the product…');
   try{
+    // Read a UPC/EAN locally when the browser supports it. This never replaces
+    // visual recognition; it is an extra deterministic clue sent to FindAI's
+    // universal scanner and is ignored server-side unless it is a valid GTIN.
+    let barcodeHint='';
+    try{
+      barcodeHint=await Promise.race([
+        detectBarcodeFromImage(dataUrl),
+        new Promise(resolve=>setTimeout(()=>resolve(''),700))
+      ]);
+    }catch(_){barcodeHint='';}
     const response=await fetch(WORKER+'/vision-search',{
       method:'POST',
       headers:appProHeaders(true),
       body:JSON.stringify({
         imageBase64:dataUrl,
+        barcodeHint:barcodeHint||'',
         mode:'findai-independent-product',
         requireStructuredProduct:true,
-        preserveVisibleText:true
+        preserveVisibleText:true,
+        searchScope:'shopping-web',
+        verifyCandidateImages:true
       }),
       signal:scanRequestController.signal
     });
@@ -5760,7 +5778,7 @@ async function analyseImage(dataUrl){
     const listings=Array.isArray(data&&data.listings)?data.listings:(Array.isArray(data&&data.items)?data.items:[]);
     if(listings.length){
       setScanStatus(`Found ${listings.length} close live listing${listings.length===1?'':'s'}`);
-      await completeScanProgress('Cheapest matches ready');
+      await completeScanProgress('Verified shopping-web matches ready');
       renderScanResults(data);
       return;
     }
