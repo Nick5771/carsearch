@@ -1987,7 +1987,7 @@ html.findai-light .app-theme-choice{color:#68717b}html.findai-light .app-theme-c
         <div class="brand" role="button" tabindex="0" aria-label="Open For You feed" onclick="openForYou()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openForYou();}">FindAI</div>
         <div class="header-actions" id="headerAccountActions">
           <button class="login-pill" id="loginPill" type="button" onclick="openLogin()">Log in</button>
-          <button class="create-listing-pill" id="createListingPill" type="button" onclick="openCreateListing()" hidden>Create Listing</button>
+          <button class="create-listing-pill" id="createListingPill" type="button" onclick="openCreateListing()" hidden>Sell</button>
           <button class="account-avatar" id="accountAvatar" type="button" aria-label="Open account and messages" onclick="openAccountMenu()" hidden>
             <img id="headerAvatarImage" alt=""><span id="headerAvatarInitials">F</span>
             <span class="app-avatar-unread" id="appMpAvatarBadge" aria-label="Unread marketplace messages">0</span>
@@ -2230,10 +2230,10 @@ html.findai-light .app-theme-choice{color:#68717b}html.findai-light .app-theme-c
     </div>
   </section>
 
-  <section class="marketplace-screen" id="createListingScreen" aria-label="Create listing">
+  <section class="marketplace-screen" id="createListingScreen" aria-label="Sell an item">
     <header class="marketplace-header">
       <button type="button" onclick="closeCreateListing()" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
-      <h2>Create Listing</h2>
+      <h2>Sell an item</h2>
       <div class="marketplace-header-spacer" aria-hidden="true"></div>
     </header>
     <div class="marketplace-scroll">
@@ -2272,7 +2272,7 @@ html.findai-light .app-theme-choice{color:#68717b}html.findai-light .app-theme-c
       <div class="marketplace-header-spacer" aria-hidden="true"></div>
     </header>
     <div class="marketplace-scroll">
-      <div class="my-listings-toolbar"><h1>Your items</h1><button class="my-listings-create" type="button" onclick="closeMyListings();openCreateListing()">Create Listing</button></div>
+      <div class="my-listings-toolbar"><h1>Your items</h1><button class="my-listings-create" type="button" onclick="closeMyListings();openCreateListing()">Sell</button></div>
       <div class="my-listings-list" id="myListingsList"></div>
     </div>
   </section>
@@ -5311,10 +5311,12 @@ function onFilePicked(event){
   const file = event.target.files && event.target.files[0];
   event.target.value='';
   if(!file) return;
-  prepareUploadedImage(file).then(dataUrl=>{
-    showPreview(dataUrl);
+  prepareUploadedImage(file).then(views=>{
+    const primary=views&&views.primary?views.primary:views;
+    const context=views&&views.context?views.context:'';
+    showPreview(primary);
     stopCam();
-    analyseImage(dataUrl);
+    analyseImage(primary,context);
   }).catch(()=>setScanStatus('Could not read that image'));
 }
 
@@ -5355,6 +5357,21 @@ function cropSourceToScannerGuide(source,maxSide=1100,quality=.82,useGuide=true)
   context.drawImage(source,sx,sy,cropW,cropH,0,0,canvas.width,canvas.height);
   return canvas.toDataURL('image/jpeg',quality);
 }
+function resizeScannerSource(source,maxSide=1600,quality=.9){
+  const {width:sw,height:sh}=sourceDimensions(source);
+  if(!sw||!sh)throw new Error('Image not ready');
+  const scale=Math.min(1,maxSide/Math.max(sw,sh));
+  const canvas=document.createElement('canvas');
+  canvas.width=Math.max(1,Math.round(sw*scale));canvas.height=Math.max(1,Math.round(sh*scale));
+  const context=canvas.getContext('2d',{alpha:false});context.imageSmoothingEnabled=true;context.imageSmoothingQuality='high';context.drawImage(source,0,0,sw,sh,0,0,canvas.width,canvas.height);
+  return canvas.toDataURL('image/jpeg',quality);
+}
+function cropScannerCenterDetail(source,maxSide=1200,quality=.92,ratio=.88){
+  const {width:sw,height:sh}=sourceDimensions(source);if(!sw||!sh)throw new Error('Image not ready');
+  const cropW=sw*ratio,cropH=sh*ratio,sx=(sw-cropW)/2,sy=(sh-cropH)/2,scale=Math.min(1,maxSide/Math.max(cropW,cropH));
+  const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(cropW*scale));canvas.height=Math.max(1,Math.round(cropH*scale));
+  const ctx=canvas.getContext('2d',{alpha:false});ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(source,sx,sy,cropW,cropH,0,0,canvas.width,canvas.height);return canvas.toDataURL('image/jpeg',quality);
+}
 function prepareUploadedImage(file){
   return new Promise((resolve,reject)=>{
     const reader=new FileReader();
@@ -5363,8 +5380,11 @@ function prepareUploadedImage(file){
       const image=new Image();
       image.onerror=reject;
       image.onload=()=>{
-        try{ resolve(cropSourceToScannerGuide(image,1100,.82,false)); }
-        catch(error){ reject(error); }
+        try{
+          // Preserve a high-resolution full-frame view for labels/context, plus a clean
+          // product-focused primary view. The backend ensemble sees both.
+          resolve({primary:resizeScannerSource(image,1600,.90),context:cropScannerCenterDetail(image,1200,.92,.88)});
+        }catch(error){reject(error);}
       };
       image.src=reader.result;
     };
@@ -5378,12 +5398,14 @@ async function captureScan(fromAuto=false){
   autoScanBusy=true;
   stopAutoScanLoop();
   if(!cam.videoWidth){ autoScanBusy=false; setScanStatus('Camera is still starting…'); startAutoScanLoop(); return; }
-  let dataUrl;
-  try{ dataUrl=cropSourceToScannerGuide(cam,1100,.82,true); }
-  catch(_){ autoScanBusy=false; setScanStatus('Could not capture the item — try again'); startAutoScanLoop(); return; }
+  let dataUrl,contextDataUrl='';
+  try{
+    dataUrl=cropSourceToScannerGuide(cam,1400,.90,true);
+    contextDataUrl=resizeScannerSource(cam,1600,.88);
+  }catch(_){ autoScanBusy=false; setScanStatus('Could not capture the item — try again'); startAutoScanLoop(); return; }
   showPreview(dataUrl);
   stopCam();
-  analyseImage(dataUrl);
+  analyseImage(dataUrl,contextDataUrl);
 }
 function showPreview(dataUrl){
   lastScanImage=dataUrl;
@@ -5656,16 +5678,32 @@ function scanListingSourceKey(item){
   let host='';try{host=new URL(getListingUrl(item)||'',location.href).hostname.replace(/^www\./,'').toLowerCase();}catch(_){ }
   return (host||String(getSource(item)||'unknown').toLowerCase()).trim();
 }
+function scanMatchPriority(item){
+  const method=String(item&&item._findaiMatchMethod||'');
+  return method==='visual'?4:method==='retailer-text'?3:method==='exact-text'?2:1;
+}
 function mergeScanListings(){
-  const all=[],seen=new Set();
+  const map=new Map();
   for(const set of arguments){
     for(const item of (Array.isArray(set)?set:[])){
-      if(!item||!(Number(item.price)>0)) continue;
-      const key=scanListingMergeKey(item);if(!key||seen.has(key)) continue;
-      seen.add(key);all.push(item);
+      if(!item||!(Number(item.price)>0))continue;
+      const key=scanListingMergeKey(item);if(!key)continue;
+      const prior=map.get(key);
+      // Later/deep verified data should enrich the quick result, not be discarded by an
+      // early duplicate. Preserve all server-side authority/match metadata.
+      map.set(key,prior?{...prior,...item}:item);
     }
   }
-  all.sort((x,y)=>scanResultTotal(x)-scanResultTotal(y));
+  const all=[...map.values()];
+  all.sort((a,b)=>{
+    const ar=Number(a&&a._findaiAuthorityRank),br=Number(b&&b._findaiAuthorityRank);
+    const ah=Number.isFinite(ar)&&ar>0,bh=Number.isFinite(br)&&br>0;
+    if(ah&&bh&&ar!==br)return ar-br;
+    if(ah!==bh)return ah?-1:1;
+    const am=scanMatchPriority(a),bm=scanMatchPriority(b);if(am!==bm)return bm-am;
+    const as=Number(a&& (a._findaiMatchScore??a._findaiVisualScore))||0,bs=Number(b&& (b._findaiMatchScore??b._findaiVisualScore))||0;if(as!==bs)return bs-as;
+    return scanResultTotal(a)-scanResultTotal(b);
+  });
   const chosen=[],picked=new Set(),sourceCounts=new Map();
   const add=(item,cap)=>{const key=scanListingMergeKey(item),source=scanListingSourceKey(item);if(!key||picked.has(key))return false;const used=sourceCounts.get(source)||0;if(used>=cap)return false;picked.add(key);sourceCounts.set(source,used+1);chosen.push(item);return true;};
   for(const item of all){add(item,1);if(chosen.length>=12)return chosen;}
@@ -5673,13 +5711,19 @@ function mergeScanListings(){
   for(const item of all){add(item,4);if(chosen.length>=12)return chosen;}
   return chosen;
 }
+
+function cleanScanProductName(value){
+  const words=String(value||'').replace(/\s+/g,' ').trim().split(' ').filter(Boolean),out=[];
+  for(const w of words){if(out.length&&out[out.length-1].toLowerCase()===w.toLowerCase())continue;out.push(w);}
+  return out.join(' ');
+}
 function renderScanResults(data){
   const listings=(Array.isArray(data&&data.listings)?data.listings:(Array.isArray(data&&data.items)?data.items:[]))
     .filter(item=>item&&Number(item.price)>0);
   currentScanResults=data||{};
   currentScanListings=listings;
   const query=String(data&&data.query||data&&data.productName||data&&data.title||'').trim();
-  const productName=String(data&&data.productName||data&&data.exactProductName||query||'Product matches').trim();
+  const productName=cleanScanProductName(data&&data.productName||data&&data.exactProductName||query||'Product matches');
   const heading=$('#scanResultsHeading'); if(heading) heading.textContent=productName||'Product matches';
   const content=$('#scanResultsContent');
   const actions=$('#scanResultActions');
@@ -5695,6 +5739,8 @@ function renderScanResults(data){
   const marketCurrency=market.currency||firstCurrency;
   const estimatedValue=market.average!=null?Number(market.average):(market.median!=null?Number(market.median):null);
   const sourceCount=Number(data&&data.meta&&data.meta.sourceCount)||new Set(listings.map(item=>getSource(item))).size;
+  const cheapestListing=listings.reduce((best,item)=>!best||scanResultTotal(item)<scanResultTotal(best)?item:best,null);
+  const cheapestKey=cheapestListing?scanListingMergeKey(cheapestListing):'';
   const identityCard=`
     <article class="scan-item-card">
       <div class="scan-identified-pill"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h5M4 5v5M19 4h-5M20 5v5M5 20h5M4 19v-5M19 20h-5M20 19v-5"/><circle cx="12" cy="12" r="3"/></svg>FindAI Identified</div>
@@ -5732,7 +5778,7 @@ function renderScanResults(data){
       </div>
       <div class="scan-market-note">Verified across ${sourceCount} retailer${sourceCount===1?'':'s'} / marketplace source${sourceCount===1?'':'s'}</div>
     </section>`+searchingBanner+failedBanner+`
-    <div class="scan-section-title"><h2>Verified live listings</h2><span>${searchingDeep?'Updating live…':'Source-diverse · lowest price first'}</span></div>
+    <div class="scan-section-title"><h2>Verified live listings</h2><span>${searchingDeep?'Updating live…':'Exact matches · trusted sources first'}</span></div>
     <div class="scan-listing-grid">${listings.map((item,index)=>{
       const image=getImage(item);
       const currency=currencyOf(item,data);
@@ -5746,8 +5792,8 @@ function renderScanResults(data){
           : (matchMethod==='visual'
             ? (Number.isFinite(verified)?`${Math.round(verified*100)}% visual match`:'Visual match verified')
             : 'Live product match'));
-      return `<article class="scan-grid-card ${index===0?'cheapest':''}" role="button" tabindex="0" onclick="openScanResultListing(${index})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openScanResultListing(${index})}">
-        <div class="scan-grid-image-wrap">${image?`<img class="scan-grid-image" src="${escapeAttr(image)}" alt="${escapeAttr(item.title||'Listing')}" loading="${index<4?'eager':'lazy'}" referrerpolicy="no-referrer">`:''}${index===0?'<span class="scan-grid-cheapest-badge">Cheapest</span>':''}</div>
+      return `<article class="scan-grid-card ${scanListingMergeKey(item)===cheapestKey?'cheapest':''}" role="button" tabindex="0" onclick="openScanResultListing(${index})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openScanResultListing(${index})}">
+        <div class="scan-grid-image-wrap">${image?`<img class="scan-grid-image" src="${escapeAttr(image)}" alt="${escapeAttr(item.title||'Listing')}" loading="${index<4?'eager':'lazy'}" referrerpolicy="no-referrer">`:''}${scanListingMergeKey(item)===cheapestKey?'<span class="scan-grid-cheapest-badge">Cheapest</span>':''}</div>
         <div class="scan-grid-body"><div class="scan-card-source">${scanSourceMarkup(item)}</div><div class="scan-grid-title">${escapeHTML(item.title||'Live listing')}</div>${meta?`<div class="scan-grid-meta">${escapeHTML(meta)}</div>`:''}<div class="scan-grid-verified"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg>${matchLabel}</div><div class="scan-grid-price-bottom">${escapeHTML(money(scanResultTotal(item),currency))}</div></div>
       </article>`;
     }).join('')}</div>`;
@@ -5809,7 +5855,7 @@ async function refineScanResults(event){
   return false;
 }
 
-async function analyseImage(dataUrl){
+async function analyseImage(dataUrl,contextDataUrl=''){
   if(scanRequestController) scanRequestController.abort();
   scanRequestController=new AbortController();
   const runId=++scanRunSequence;
@@ -5832,6 +5878,7 @@ async function analyseImage(dataUrl){
       headers:appProHeaders(true),
       body:JSON.stringify({
         imageBase64:dataUrl,
+        imageContextBase64:contextDataUrl||'',
         barcodeHint:barcodeHint||'',
         scanPhase:'identify',
         mode:'findai-independent-product',
