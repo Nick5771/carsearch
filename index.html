@@ -3748,9 +3748,19 @@ function renderSearchAnswer(query,kw,items,data,parsed,c){
   return {html,plain:[n.headline,n.explanation].filter(Boolean).join(' ')};
 }
 function revealSearchAnswer(body){
-  requestAnimationFrame(function(){const root=body&&body.querySelector('.search-answer');if(root)root.classList.add('visible');});
+  const root=body&&body.querySelector('.search-answer');
+  const heading=body&&body.querySelector('.search-results-heading');
   const cards=body?Array.from(body.querySelectorAll('.deal-comparables .chat-card')):[];
-  cards.forEach(function(card,index){card.classList.add('search-card-enter');setTimeout(function(){card.classList.add('visible');},220+index*45);});
+  const more=body&&body.querySelector('[id^="show-more-"]');
+  cards.forEach(function(card){card.classList.add('search-card-enter');});
+  if(heading){heading.classList.add('search-more-enter');}
+  if(more){more.classList.add('search-more-enter');}
+  requestAnimationFrame(function(){requestAnimationFrame(function(){
+    if(root)setTimeout(function(){root.classList.add('visible');},45);
+    if(heading)setTimeout(function(){heading.classList.add('visible');},255);
+    cards.forEach(function(card,index){setTimeout(function(){card.classList.add('visible');},315+index*58);});
+    if(more)setTimeout(function(){more.classList.add('visible');},340+cards.length*58);
+  });});
 }
 function findaiNoResultsReply(query,parsed){
   const subject=searchStatusSubject((parsed&&parsed.q)||query)||'that item';
@@ -3783,9 +3793,16 @@ function renderDealAnswer(deal,items,c){
   return html;
 }
 function revealDealAnswer(body){
-  requestAnimationFrame(function(){const root=body&&body.querySelector('.deal-answer');if(root)root.classList.add('visible');});
+  const root=body&&body.querySelector('.deal-answer');
+  const heading=body&&body.querySelector('.deal-comparables-title');
   const cards=body?Array.from(body.querySelectorAll('.deal-comparables .chat-card')):[];
-  cards.forEach(function(card,index){card.classList.add('search-card-enter');setTimeout(function(){card.classList.add('visible');},220+index*45);});
+  cards.forEach(function(card){card.classList.add('search-card-enter');});
+  if(heading)heading.classList.add('search-more-enter');
+  requestAnimationFrame(function(){requestAnimationFrame(function(){
+    if(root)setTimeout(function(){root.classList.add('visible');},45);
+    if(heading)setTimeout(function(){heading.classList.add('visible');},255);
+    cards.forEach(function(card,index){setTimeout(function(){card.classList.add('visible');},315+index*58);});
+  });});
 }
 
 // ── Saved items ────────────────────────────────────────────────────────────
