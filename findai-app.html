@@ -1969,16 +1969,128 @@ html.findai-light .app-theme-close{background:#eef0f3;color:#17191c}
 html.findai-light .app-theme-segment{background:#eef0f3;border-color:#d8dce1}
 html.findai-light .app-theme-choice{color:#68717b}html.findai-light .app-theme-choice.active{background:#111317;color:#fff;box-shadow:none}
 
+
+/* =========================================================
+   FindAI v42 — Search first, Feed second, Scan third
+   ========================================================= */
+#search.search-home .feed-wrap{background:#050607}
+#search.search-home #feed{display:flex;align-items:center;justify-content:center;padding:calc(var(--safe-top) + 66px) 24px calc(var(--nav-h) + var(--safe-bottom) + 104px);overflow:hidden}
+.search-home-state{max-width:320px;text-align:center;color:#f7f8fa}
+.search-home-mark{width:64px;height:64px;margin:0 auto 20px;color:#f5f6f7}
+.search-home-mark svg{width:100%;height:100%}
+.search-home-state h1{margin:0;font-size:25px;line-height:1.2;font-weight:790;letter-spacing:-.65px}
+.search-home-state p{margin:10px auto 0;max-width:285px;color:#8f969f;font-size:12px;line-height:1.55}
+#search.search-home .search-header{pointer-events:none;background:linear-gradient(180deg,#050607 0%,rgba(5,6,7,.94) 72%,rgba(5,6,7,0) 100%)}
+#search.search-home .brand-row,#search.search-home .search-form{pointer-events:auto}
+#search.search-home .search-form{
+  position:absolute;left:14px;right:14px;bottom:calc(var(--nav-h) + var(--safe-bottom) + 14px);z-index:15;
+  width:auto;margin:0;height:54px;padding-left:16px;border-radius:18px;background:#15181c;border:1px solid #30343a;
+  box-shadow:0 12px 36px rgba(0,0,0,.38)
+}
+#search.search-home .search-form>svg{display:none}
+#search.search-home .search-form input{font-size:15px}
+.app-search-submit{
+  width:38px;height:38px;flex:0 0 38px;border:0;border-radius:9px;background:#fff;color:#000;
+  display:grid;place-items:center;cursor:pointer;transition:background .15s,transform .15s
+}
+.app-search-submit svg{width:17px;height:17px}
+.app-search-submit:active{transform:scale(.96)}
+.app-search-submit:hover{background:#e0e0e0}
+html.findai-light .app-search-submit{background:#f3f4f6;color:#17191c;border:1px solid #dfe2e6}
+html.findai-light .app-search-submit:hover{background:#e9ecef}
+html.findai-light #search.search-home .feed-wrap{background:#f6f7f9}
+html.findai-light #search.search-home #feed{background:#f6f7f9}
+html.findai-light .search-home-state{color:#17191c}
+html.findai-light .search-home-mark{color:#17191c}
+html.findai-light .search-home-state p{color:#747b84}
+html.findai-light #search.search-home .search-header{background:linear-gradient(180deg,#f6f7f9 0%,rgba(246,247,249,.94) 72%,rgba(246,247,249,0) 100%)}
+html.findai-light #search.search-home .search-form{background:#fff;border-color:#d7dbe0;box-shadow:0 10px 30px rgba(35,43,53,.12)}
+
+/* Feed is a dedicated tab; it never blocks first app paint. */
+#discover{background:#050607}
+.discover-header{
+  position:absolute;left:0;right:0;top:0;z-index:22;height:calc(var(--safe-top) + 62px);padding:var(--safe-top) 15px 0;
+  display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,rgba(5,6,7,.98),rgba(5,6,7,.88) 76%,rgba(5,6,7,0));
+  pointer-events:none
+}
+.discover-title,.discover-search-shortcut{pointer-events:auto}
+.discover-title span{display:block;color:#8b929b;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.discover-title h1{margin:1px 0 0;font-size:24px;letter-spacing:-.6px}
+.discover-search-shortcut{width:38px;height:38px;border:1px solid rgba(255,255,255,.1);border-radius:50%;background:#12151a;color:#fff;display:grid;place-items:center}
+.discover-search-shortcut svg{width:19px;height:19px}
+#discover .discover-feed-wrap{height:100%;background:#050607}
+#discover #personalFeed{height:100%;padding:0;gap:0;scroll-snap-type:y mandatory;scroll-padding-top:0}
+#discover #personalFeed .reel-card{flex-basis:100%;min-height:100%;border-radius:0}
+#discover #personalFeed .reel-loading-splash{min-height:100%}
+html.findai-light #discover,html.findai-light #discover .discover-feed-wrap{background:#f6f7f9}
+html.findai-light .discover-header{background:linear-gradient(180deg,rgba(246,247,249,.98),rgba(246,247,249,.9) 76%,rgba(246,247,249,0));color:#17191c}
+html.findai-light .discover-search-shortcut{background:#fff;color:#17191c;border-color:#d7dbe0}
+
+/* Search results are a normal continuous page, not paginated/snapping reels. */
+#search .reel-feed.search-grid-mode{
+  display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;grid-auto-rows:auto;
+  gap:10px!important;padding:calc(var(--safe-top) + 94px) 10px calc(var(--nav-h) + var(--safe-bottom) + 18px)!important;
+  overflow-y:auto!important;scroll-snap-type:none!important;scroll-padding-top:0!important;align-content:start
+}
+#search .search-grid-page{display:contents!important;width:auto!important;height:auto!important;min-height:0!important;overflow:visible!important}
+#search .search-grid-card{
+  height:auto!important;min-height:250px!important;scroll-snap-align:none!important;scroll-snap-stop:normal!important
+}
+#search .search-grid-image-wrap{flex:0 0 154px!important;height:154px!important}
+#search .reel-feed.search-grid-mode .app-search-answer{grid-column:1/-1!important;width:auto!important;margin:0 0 4px!important}
+#search .reel-feed.search-grid-mode .app-search-results-label{grid-column:1/-1!important;margin:3px 2px 1px!important}
+#search .search-grid-mode .reel-loading-card{grid-column:1/-1!important;min-height:76px!important;height:76px!important;scroll-snap-align:none!important}
+.search-detail-feed{scroll-snap-type:none!important;padding:10px 10px calc(14px + var(--safe-bottom));background:#07090b}
+.search-detail-card{min-height:0!important;scroll-snap-align:none!important;scroll-snap-stop:normal!important;border:1px solid rgba(255,255,255,.08);border-radius:18px;overflow:hidden}
+.search-detail-media{min-height:44vh}
+@media(max-height:740px){
+  #search .reel-feed.search-grid-mode{padding-top:calc(var(--safe-top) + 86px)!important}
+  #search .search-grid-card{min-height:228px!important}
+  #search .search-grid-image-wrap{flex-basis:136px!important;height:136px!important}
+}
+
+/* Better no-image state: retailer identity rather than a giant dead blank. */
+.reel-image-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:9px;text-align:center;padding:24px;color:#848b95}
+.reel-image-placeholder img{max-width:96px;max-height:42px;object-fit:contain}
+.reel-image-placeholder b{color:#c5c9cf;font-size:13px}
+.reel-image-placeholder span{font-size:10px;color:#6f7680}
+html.findai-light .reel-image-placeholder b{color:#33383f}
+html.findai-light .reel-image-placeholder span{color:#818892}
+
+/* Keep the dedicated Feed visually identical to the polished reel treatment. */
+#discover .hero-stage{position:absolute;inset:0;overflow:hidden;background:var(--hero-fill,#0a0b0d);transition:background-color .2s ease}
+#discover .hero-stage::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(180deg,rgba(5,6,7,.34) 0%,rgba(5,6,7,0) 17%,rgba(5,6,7,0) 60%,rgba(5,6,7,.30) 80%,rgba(5,6,7,.90) 100%)}
+#discover .hero-stage.fill-light::after{background:linear-gradient(180deg,rgba(5,6,7,.10) 0%,rgba(5,6,7,0) 14%,rgba(5,6,7,0) 66%,rgba(0,0,0,.06) 82%,rgba(0,0,0,.14) 100%)}
+#discover .hero-image{position:absolute;top:50%;left:50%;z-index:1;width:100%;height:100%;transform:translate(-50%,-50%);object-fit:contain;object-position:center;padding:0;filter:none;-webkit-mask-image:none;mask-image:none}
+#discover .product-panel{padding:64px 17px 12px;background:linear-gradient(180deg,rgba(5,6,7,0) 0%,rgba(5,6,7,.26) 27%,rgba(5,6,7,.73) 58%,rgba(5,6,7,.94) 80%,rgba(5,6,7,.98) 100%)}
+#discover .title{max-width:calc(100% - 58px);font-size:18.5px;line-height:1.1;letter-spacing:-.35px}
+#discover .listing-meta{margin-top:2px;color:#aab0b9;font-size:11px;font-weight:500}
+#discover .price-action-row{margin-top:9px;gap:10px}
+#discover .price{font-size:28px;letter-spacing:-.75px}
+#discover .view-deal{height:43px;min-width:108px;padding:0 13px;border-radius:13px;font-size:12.5px}
+#discover .reel-social-icon{width:auto;height:auto;border:0!important;border-radius:0!important;background:transparent!important;backdrop-filter:none!important;box-shadow:none!important}
+#discover .reel-social-action svg{width:29px;height:29px;color:#fff;filter:drop-shadow(0 1px 4px rgba(0,0,0,.55)) drop-shadow(0 2px 10px rgba(0,0,0,.4))}
+#discover .reel-social-label{color:#fff;text-shadow:0 1px 5px rgba(0,0,0,.7);font-size:9.5px}
+#discover .source-chip{background:transparent!important;border:0!important;backdrop-filter:none!important;padding:0!important;margin:0 0 10px!important;font-size:20px!important;line-height:1}
+#discover .source-chip .source-brand{font-size:20px;font-weight:800;letter-spacing:-.3px;color:#fff;text-shadow:0 1px 6px rgba(0,0,0,.55)}
+#discover .source-chip .retailer-source{display:inline-flex;align-items:center;gap:6px}
+#discover .source-chip .retailer-source-logo{width:18px;height:18px;object-fit:contain;border-radius:3px}
+#discover .source-chip .retailer-source-name{font-weight:800;color:#fff}
+#discover .source-chip .ebay-logo{height:24px;width:auto;display:block;object-fit:contain;filter:drop-shadow(0 1px 5px rgba(0,0,0,.35))}
+#discover .listing-price-copy{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-width:0;flex:1}
+#discover .price-line{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+#discover .condition-badge{color:#fff;font-size:14px;font-weight:750;letter-spacing:-.2px;text-shadow:0 1px 5px rgba(0,0,0,.6);white-space:nowrap}
+
 </style>
-  <meta name="findai-build" content="v41-fast-boot-search-mark">
+  <meta name="findai-build" content="v42-search-feed-scan-fast">
 </head>
 <body>
 <div class="app">
   <!-- Search / product reels -->
-  <section id="search" class="screen active">
+  <section id="search" class="screen active search-home">
     <header class="search-header">
       <div class="brand-row">
-        <div class="brand" role="button" tabindex="0" aria-label="Open For You feed" onclick="openForYou()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openForYou();}">FindAI</div>
+        <div class="brand" role="button" tabindex="0" aria-label="Open search" onclick="openSearchHome()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSearchHome();}">FindAI</div>
         <div class="header-actions" id="headerAccountActions">
           <button class="login-pill" id="loginPill" type="button" onclick="openLogin()">Log in</button>
           <button class="create-listing-pill" id="createListingPill" type="button" onclick="openCreateListing()" hidden>Create Listing</button>
@@ -1991,16 +2103,40 @@ html.findai-light .app-theme-choice{color:#68717b}html.findai-light .app-theme-c
       <form class="search-form" onsubmit="return doSearch(event)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7.5"/><path d="M20 20l-3.5-3.5"/></svg>
         <input id="q" type="search" placeholder="Search for anything…" enterkeyhint="search" autocomplete="off">
-        <button type="button" class="filter-btn" aria-label="Scan an item" onclick="go('scan')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/><circle cx="12" cy="12" r="3.5"/></svg>
+        <button type="submit" class="app-search-submit" aria-label="Search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
         </button>
       </form>
     </header>
     <div class="feed-wrap">
       <div class="reel-feed" id="feed" aria-live="polite">
-        <div class="reel-loading-splash"><div class="reel-loading-word">FindAI</div></div>
+        <div class="search-home-state">
+          <div class="search-home-mark" aria-hidden="true">
+            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round">
+              <path d="M7 15V9a2 2 0 0 1 2-2h6M33 7h6a2 2 0 0 1 2 2v6M41 33v6a2 2 0 0 1-2 2h-6M15 41H9a2 2 0 0 1-2-2v-6"/>
+              <circle cx="23" cy="23" r="8.5"/><path d="m29.2 29.2 6.2 6.2"/>
+            </svg>
+          </div>
+          <h1>What are you looking for?</h1>
+          <p>Search products, compare live listings and find the best place to buy.</p>
+        </div>
       </div>
       <div class="reel-dots" id="reelDots" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <!-- Feed: personalised discovery reel, loaded only when the user opens it -->
+  <section id="discover" class="screen">
+    <header class="discover-header">
+      <div class="discover-title"><span>FindAI</span><h1>Feed</h1></div>
+      <button class="discover-search-shortcut" type="button" onclick="openSearchHome()" aria-label="Open search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7.5"/><path d="M20 20l-3.5-3.5"/></svg>
+      </button>
+    </header>
+    <div class="feed-wrap discover-feed-wrap">
+      <div class="reel-feed" id="personalFeed" aria-live="polite">
+        <div class="feed-status"><div><b>Your FindAI feed</b>Personalised products will appear here when you open Feed.</div></div>
+      </div>
     </div>
   </section>
 
@@ -2108,17 +2244,17 @@ html.findai-light .app-theme-choice{color:#68717b}html.findai-light .app-theme-c
 
   <!-- Bottom navigation -->
   <nav class="nav" aria-label="Main navigation">
-    <button class="active" data-tab="search" onclick="openForYou()">
+    <button class="active" data-tab="search" onclick="openSearchHome()">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7.5"/><path d="M20 20l-3.5-3.5"/></svg>
       Search
+    </button>
+    <button data-tab="discover" onclick="openForYou()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 6.5h16M4 12h16M4 17.5h16"/><circle cx="8" cy="6.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="11" cy="17.5" r="1.5" fill="currentColor" stroke="none"/></svg>
+      Feed
     </button>
     <button data-tab="scan" onclick="go('scan')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/><circle cx="12" cy="12" r="3.5"/></svg>
       Scan
-    </button>
-    <button data-tab="tracker" onclick="go('tracker')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 17l5-5 3.5 3.5L20 8"/><path d="M16 8h4v4"/></svg>
-      Tracker
     </button>
   </nav>
 
@@ -3788,7 +3924,7 @@ async function fetchPersonalisedLane(lane){
   /* Personalised lane queries are already normalised locally, so skip the
      extra /resolve-product request. This keeps each lane to one Worker call. */
   const result=await fetchProductResults(lane.query,{
-    page,cursor,limit:PERSONALISED_LANE_LIMIT,preserveExact:false,skipResolve:true,
+    page,cursor,limit:PERSONALISED_LANE_LIMIT,preserveExact:false,skipResolve:true,passive:true,
     signal:feedRequestController&&feedRequestController.signal
   });
   lane.page=page;
@@ -3825,12 +3961,37 @@ function surfaceLikedListingInFeed(items){
   return base;
 }
 
+function appActiveFeedElement(){
+  return feedState&&feedState.source==='personalised' ? $('#personalFeed') : $('#feed');
+}
+function appActiveScreenForFeed(){
+  return feedState&&feedState.source==='personalised' ? $('#discover') : $('#search');
+}
+function openSearchHome(focus=true){
+  if(feedRequestController && feedState && feedState.source==='personalised'){try{feedRequestController.abort();}catch(_){}}
+  finaliseReelTracking();
+  go('search');
+  const search=$('#search'),feed=$('#feed');
+  if(search)search.classList.add('search-home');
+  if(feed){
+    feed.classList.remove('search-grid-mode');
+    feed.innerHTML=`<div class="search-home-state">
+      <div class="search-home-mark" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M7 15V9a2 2 0 0 1 2-2h6M33 7h6a2 2 0 0 1 2 2v6M41 33v6a2 2 0 0 1-2 2h-6M15 41H9a2 2 0 0 1-2-2v-6"/><circle cx="23" cy="23" r="8.5"/><path d="m29.2 29.2 6.2 6.2"/></svg></div>
+      <h1>What are you looking for?</h1>
+      <p>Search products, compare live listings and find the best place to buy.</p>
+    </div>`;
+    feed.scrollTop=0;
+  }
+  currentFeedItems=[];currentFeedData=null;
+  feedState={query:'',resolvedQuery:'',source:'searchhome',loading:false,hasMore:false,seen:new Set()};
+  const q=$('#q');if(q){q.value='';if(focus)setTimeout(()=>q.focus(),70);}
+}
 function renderPersonalisedFeed(items,{writeCache=true}={}){
   items=surfaceLikedListingInFeed(items);
   currentFeedItems=items;
   currentFeedData={personalised:true};
   activeReelIndex=0;
-  const feed=$('#feed');
+  const feed=appActiveFeedElement();
   clearAppSearchLoading();
   feed.classList.remove('search-grid-mode');
   if(!items.length){
@@ -3852,8 +4013,8 @@ function renderPersonalisedFeed(items,{writeCache=true}={}){
 async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
   if(feedRequestController) feedRequestController.abort();
   feedRequestController=new AbortController();
-  go('search');
-  $('#q').value='';
+  go('discover');
+  // Feed is a dedicated tab and only loads after the user asks for it.
   // First paint must never wait on account/network sync. Build the opening feed
   // from local taste + cache immediately; merge the shared profile quietly after
   // the app is already interactive.
@@ -3918,7 +4079,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     }
     if(feedState.source!=='personalised')return;
     if(!early.length){
-      $('#feed').innerHTML='<div class="feed-status"><div><b>Couldn\'t build your feed</b>Check your connection and try again.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
+      $('#personalFeed').innerHTML='<div class="feed-status"><div><b>Couldn\'t build your feed</b>Check your connection and try again.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
       feedState.loading=false;return;
     }
     const earlyMixed=sequencePersonalisedBatch(interleavePersonalised(early,24),[],24);
@@ -3942,7 +4103,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     })().catch(()=>{});
   }catch(error){
     if(error&&error.name==='AbortError') return;
-    $('#feed').innerHTML='<div class="feed-status"><div><b>Couldn\'t build your feed</b>Check your connection and try again.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
+    $('#personalFeed').innerHTML='<div class="feed-status"><div><b>Couldn\'t build your feed</b>Check your connection and try again.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
     if(feedState.source==='personalised')feedState.loading=false;
   }
 }
@@ -3953,7 +4114,7 @@ function schedulePersonalisedBackgroundRefresh(cacheSavedAt=0){
   personalisedBackgroundRefreshTimer=setTimeout(()=>backgroundRefreshPersonalisedFeed(),delay);
 }
 async function backgroundRefreshPersonalisedFeed(){
-  if(feedState.source!=='personalised'||feedState.loading||document.hidden||!$('#search').classList.contains('active')) return;
+  if(feedState.source!=='personalised'||feedState.loading||document.hidden||!$('#discover').classList.contains('active')) return;
   if(!claimPersonalisedBackgroundRefresh()) return;
   const lanes=Array.isArray(feedState.interests)?feedState.interests:[];
   if(!lanes.length||getPersonalisedRequestCount()>=PERSONALISED_SESSION_REQUEST_BUDGET) return;
@@ -3989,14 +4150,14 @@ function refreshPersonalisedPresentationOnForeground(){
   // Resuming the app must preserve the exact card and scroll position. If a feed
   // already exists, refresh quietly underneath it and append anything new.
   beginReelTracking(activeReelIndex);
-  if(currentFeedItems.length && $('#search').classList.contains('active')){
+  if(currentFeedItems.length && $('#discover').classList.contains('active')){
     backgroundRefreshPersonalisedFeed();
     return;
   }
   loadPersonalisedFeed({forceNetwork:false});
 }
 async function loadMorePersonalisedListings(){
-  if(feedState.source!=='personalised'||feedState.loading||!$('#search').classList.contains('active')) return;
+  if(feedState.source!=='personalised'||feedState.loading||!$('#discover').classList.contains('active')) return;
   let lanes=Array.isArray(feedState.interests)?feedState.interests:[];
   if(!lanes.length||getPersonalisedRequestCount()>=PERSONALISED_SESSION_REQUEST_BUDGET) return;
 
@@ -4084,10 +4245,8 @@ function bindFeedHeaderAutoHide(){
 }
 
 function openForYou(){
-  go('search');
-  $('#q').value='';
-  // If the For You reel is already open, keep the exact stack and position.
-  if(feedState.source==='personalised' && currentFeedItems.length){
+  go('discover');
+  if(feedState.source==='personalised' && currentFeedItems.length && $('#personalFeed') && $('#personalFeed').querySelector('.reel-card')){
     beginReelTracking(activeReelIndex);
     return;
   }
@@ -4166,11 +4325,12 @@ function renderLoading(query='',source=''){
   clearAppSearchLoading();
   const subject=appSearchStatusSubject(query);
   const personalised=!query||source==='personalised';
-  $('#feed').classList.remove('search-grid-mode');
-  $('#feed').innerHTML=personalised
+  const targetFeed=appActiveFeedElement();
+  targetFeed.classList.remove('search-grid-mode');
+  targetFeed.innerHTML=personalised
     ? `<div class="reel-loading-splash" aria-label="Loading products"><div class="reel-loading-word">FindAI</div></div>`
     : `<div class="reel-loading-splash search-status-loading" aria-label="Searching products"><div class="reel-loading-word">FindAI</div><div class="search-loading-copy" id="appSearchLoadingCopy">Searching for “${escapeHTML(subject)}”</div></div>`;
-  $('#reelDots').innerHTML='';
+  const dots=$('#reelDots');if(dots)dots.innerHTML='';
   if(!personalised){
     const minute=Math.floor(Date.now()/60000),stages=[
       ['Checking trusted retailers and marketplaces','Looking across current retailer stock','Searching current buying options'],
@@ -4405,7 +4565,7 @@ function extractPagination(data,rawCount,limit){
 }
 
 async function fetchProductResults(query,{
-  page=1,cursor=null,limit=FEED_BATCH_SIZE,preserveExact=false,skipResolve=false,signal=null,useTracker=false
+  page=1,cursor=null,limit=FEED_BATCH_SIZE,preserveExact=false,skipResolve=false,signal=null,useTracker=false,passive=false
 }={}){
   let resolvedQuery=String(query || '').trim();
   // The general shopping endpoint already understands natural commands and does
@@ -4426,6 +4586,7 @@ async function fetchProductResults(query,{
 
   const payload={query:resolvedQuery,page,limit,offset:Math.max(0,(page-1)*limit)};
   if(cursor)payload.cursor=cursor;
+  if(passive)payload.passive=true;
   const endpoint=useTracker?'/tracker/search':'/search';
   const response=await fetch(WORKER+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal});
   if(!response.ok)throw new Error('Search failed');
@@ -4446,6 +4607,10 @@ async function searchListings(query,{showToast=false,source='search',preserveExa
   else if(source==='search') recordInterest(q,'search');
   $('#q').value=q;
   go('search');
+  const searchScreen=$('#search');if(searchScreen)searchScreen.classList.remove('search-home');
+  // Set the destination before rendering the loader so a search launched from Feed
+  // can never paint its loading state into the personalised reel.
+  feedState={...(feedState||{}),query:q,resolvedQuery:q,source,loading:true};
   renderLoading(q,source);
   
   feedState={
@@ -4623,13 +4788,12 @@ function renderSearchDetailCard(item,index){
 function openSearchResultDetail(index){
   if(feedState.source==='personalised')return;
   const overlay=$('#searchDetailOverlay'),feed=$('#searchDetailFeed');if(!overlay||!feed||!currentFeedItems.length)return;
-  feed.innerHTML=currentFeedItems.map((item,i)=>renderSearchDetailCard(item,i)).join('');
-  overlay.classList.add('show');const target=feed.querySelector(`[data-detail-index="${Number(index)||0}"]`);if(target)setTimeout(()=>{feed.scrollTop=target.offsetTop;updateSearchDetailCount(Number(index)||0);},0);
-  if(searchDetailObserver)searchDetailObserver.disconnect();
-  searchDetailObserver=new IntersectionObserver(entries=>{const visible=entries.filter(x=>x.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];if(visible)updateSearchDetailCount(Number(visible.target.dataset.detailIndex)||0);},{root:feed,threshold:[.55,.75]});
-  $$('.search-detail-card',feed).forEach(card=>searchDetailObserver.observe(card));
+  const i=Math.max(0,Math.min(currentFeedItems.length-1,Number(index)||0));
+  feed.innerHTML=renderSearchDetailCard(currentFeedItems[i],i);
+  overlay.classList.add('show');feed.scrollTop=0;updateSearchDetailCount(i);
+  if(searchDetailObserver)searchDetailObserver.disconnect();searchDetailObserver=null;
 }
-function updateSearchDetailCount(index){const el=$('#searchDetailCount');if(el)el.textContent=`${index+1} of ${currentFeedItems.length}`;}
+function updateSearchDetailCount(index){const el=$('#searchDetailCount');if(el)el.textContent='Listing details';}
 function closeSearchResultDetail(){if(searchDetailObserver)searchDetailObserver.disconnect();searchDetailObserver=null;const overlay=$('#searchDetailOverlay');if(overlay)overlay.classList.remove('show');}
 
 function renderFeed(data,query){
@@ -4638,6 +4802,7 @@ function renderFeed(data,query){
   const items=prepareNewFeedItems(raw,query,feedState.source);
   currentFeedItems=items;activeReelIndex=0;
   const feed=$('#feed');
+  const searchScreen=$('#search');if(searchScreen)searchScreen.classList.remove('search-home');
   if(reelObserver)reelObserver.disconnect();
   if(!items.length){
     feed.classList.remove('search-grid-mode');
@@ -4664,10 +4829,44 @@ function conditionText(item){
   return '';
 }
 
+function reelImagePlaceholder(item){
+  const source=String(item&&(item.retailer||item.source)||'Retailer').trim()||'Retailer';
+  const logo=safeUrl(item&&item.retailerLogo);
+  return `<div class="reel-image-placeholder">${logo?`<img src="${escapeAttr(logo)}" alt="">`:''}<b>${escapeHTML(source)}</b><span>Product image not supplied by this retailer</span></div>`;
+}
+function imageMatchTokens(value){
+  const stop=new Set(['the','and','for','with','from','new','used','sale','bundle','console','edition','item','product','official']);
+  return normaliseQueryText(value).split(/\s+/).map(x=>x==='disk'?'disc':x).filter(x=>x.length>=2&&!stop.has(x));
+}
+function imageMatchConflict(a,b){
+  const aa=' '+normaliseQueryText(a)+' ',bb=' '+normaliseQueryText(b)+' ';
+  const pairs=[[' digital ',' disc '],[' digital ',' disk '],[' pro ',' slim '],[' max ',' mini '],[' left ',' right ']];
+  return pairs.some(([x,y])=>(aa.includes(x)&&bb.includes(y))||(aa.includes(y)&&bb.includes(x)));
+}
+function strictPeerImage(item,index){
+  const title=String(item&&item.title||'');if(!title)return '';
+  const target=imageMatchTokens(title),targetSet=new Set(target);if(targetSet.size<4)return '';
+  const targetCodes=[...title.toLowerCase().matchAll(/\b(?=[a-z0-9-]{4,}\b)(?=[a-z0-9-]*\d)[a-z0-9-]+\b/g)].map(m=>m[0]);
+  let best='',bestScore=0;
+  for(let i=0;i<currentFeedItems.length;i++){
+    if(i===Number(index))continue;
+    const peer=currentFeedItems[i],image=getImage(peer);if(!image)continue;
+    const peerTitle=String(peer&&peer.title||'');if(!peerTitle||imageMatchConflict(title,peerTitle))continue;
+    if(targetCodes.some(code=>!peerTitle.toLowerCase().includes(code)))continue;
+    const peerSet=new Set(imageMatchTokens(peerTitle));let shared=0;targetSet.forEach(t=>{if(peerSet.has(t))shared++;});
+    const score=shared/Math.min(targetSet.size,peerSet.size||1);
+    if(shared>=4&&score>=.78&&score>bestScore){bestScore=score;best=image;}
+  }
+  return best;
+}
 function renderReelCard(item,index,data){
   const title=String(item.title || (data && data.productDetails && data.productDetails.name) || 'Product listing');
-  const image=getImage(item) || getImage(data && data.productDetails);
-  const fallbackImage=getImageFallback(item) || getImageFallback(data && data.productDetails);
+  // Prefer the retailer's own product image. If it genuinely supplied none, reuse
+  // an image only from a very-close matching listing already in this result set.
+  // This costs no extra network search and avoids generic/wrong-product fallbacks.
+  const peerImage=strictPeerImage(item,index);
+  const image=getImage(item) || getImage(data && data.productDetails) || peerImage;
+  const fallbackImage=getImageFallback(item) || getImageFallback(data && data.productDetails) || peerImage;
   const url=getListingUrl(item);
   const source=getSource(item);
   const price=Number(item.price);
@@ -4678,8 +4877,8 @@ function renderReelCard(item,index,data){
   const sellerLabel=item.topRatedSeller ? 'Top-rated seller' : (seller || 'Live listing');
   return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}">
     <div class="hero-stage${image?' fill-solid':''}"${image?` style="--hero-fill:#0a0b0d"`:''}>
-      ${image ? `<img class="hero-image fit-contain" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} crossorigin="anonymous" referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
-      <div class="image-fallback" style="${image?'':'display:grid'}">Image unavailable</div>
+      ${image ? `<img class="hero-image fit-contain" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" data-peer-fallback="${escapeAttr(strictPeerImage(item,index))}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
+      <div class="image-fallback" style="${image?'':'display:grid'}">${reelImagePlaceholder(item)}</div>
     </div>
     <div class="reel-actions-rail" aria-label="Listing actions">
       <button class="reel-social-action like ${isTracked(item)?'active':''}" data-like-key="${escapeAttr(trackedKey(item))}" onclick="toggleLike(${index},event)" aria-label="${isTracked(item)?'Unlike':'Like'} this listing">
@@ -4714,7 +4913,7 @@ function renderReelCard(item,index,data){
 }
 
 function showFeedLoader(){
-  const feed=$('#feed');
+  const feed=appActiveFeedElement();
   if(!feed || $('#feedMoreLoader')) return;
   feed.insertAdjacentHTML('beforeend','<div class="reel-loading-card" id="feedMoreLoader"><div class="feed-more-spinner"></div><span>Finding more listings…</span></div>');
 }
@@ -4725,7 +4924,7 @@ function hideFeedLoader(){
 function appendFeedItems(items,data){
   if(!items.length)return;
   const start=currentFeedItems.length;currentFeedItems.push(...items);
-  const feed=$('#feed');
+  const feed=appActiveFeedElement();
   if(feedState.source!=='personalised'){
     const keepTop=feed.scrollTop;
     if(data) currentFeedData=data;
@@ -4738,7 +4937,8 @@ function appendFeedItems(items,data){
 }
 async function loadMoreListings(){
   if(feedState.source==='personalised') return loadMorePersonalisedListings();
-  if(feedState.loading || !feedState.query || !$('#search').classList.contains('active')) return;
+  const activeScreen=appActiveScreenForFeed();
+  if(feedState.loading || !feedState.query || !activeScreen || !activeScreen.classList.contains('active')) return;
   feedState.loading=true;
   showFeedLoader();
   try{
@@ -4861,10 +5061,12 @@ async function appSavedSyncFromServer(force=false){
 
 function imageFailed(img){
   const fallback=safeUrl(img.dataset.fallback || '');
+  const peer=safeUrl(img.dataset.peerFallback || '');
   if(fallback && !img.dataset.fallbackTried && img.src !== fallback){
-    img.dataset.fallbackTried='1';
-    img.src=fallback;
-    return;
+    img.dataset.fallbackTried='1';img.src=fallback;return;
+  }
+  if(peer && !img.dataset.peerFallbackTried && img.src !== peer){
+    img.dataset.peerFallbackTried='1';img.removeAttribute('crossorigin');img.src=peer;return;
   }
   img.style.display='none';
   const fallbackNode=img.parentElement && img.parentElement.querySelector('.image-fallback');
@@ -4876,7 +5078,7 @@ function renderDots(){ /* intentionally removed */ }
 function updateDots(){ /* intentionally removed */ }
 function attachReelObserver(){
   if(reelObserver) reelObserver.disconnect();
-  const feed=$('#feed');
+  const feed=appActiveFeedElement();
   reelObserver=new IntersectionObserver(entries=>{
     const visible=entries.filter(entry=>entry.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];
     if(!visible) return;
@@ -4897,7 +5099,7 @@ function teachSwipeOnce(count){
     if(localStorage.getItem('fa_reel_taught')) return;
     localStorage.setItem('fa_reel_taught','1');
   }catch(_){}
-  const feed = $('#feed');
+  const feed = appActiveFeedElement();
   setTimeout(()=>{
     feed.classList.add('teaching');
     feed.scrollTo({top:28,behavior:'smooth'});
@@ -6187,11 +6389,11 @@ async function appHandleLaunchDeepLink(){
   try{history.replaceState({},'',location.pathname);}catch(_){}
 }
 
-/* Boot — prioritise the visible Search/For You surface first. */
+/* Boot — Search is instant. The discovery Feed is deliberately lazy. */
 (function boot(){
   bootstrapInterestProfile();
   updateAccountHeader();
-  loadPersonalisedFeed();
+  openSearchHome(false);
 
   // Deep links should still open promptly, but hidden tracker/account work should
   // not compete with the first feed request or first paint. go('tracker') already
