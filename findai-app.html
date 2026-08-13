@@ -2270,6 +2270,12 @@ body.keyboard-open[data-active-tab="search"] #search .app-chat-scroll{padding-bo
 .app-chat-turn.result-turn{animation:appAnswerFade .28s ease both}
 @keyframes appResultIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 @keyframes appAnswerFade{from{opacity:0}to{opacity:1}}
+/* v61 — stage shopping answers like a chat response instead of popping the whole
+   result set into view at once. The DOM is ready immediately, but copy, hero and
+   comparison cards reveal in one short continuous sequence. */
+.app-chat-reveal{opacity:0!important;transform:translateY(8px)!important;animation:none!important;transition:opacity .28s ease,transform .34s cubic-bezier(.22,.75,.25,1)!important}
+.app-chat-reveal.visible{opacity:1!important;transform:none!important}
+@media(prefers-reduced-motion:reduce){.app-chat-reveal{opacity:1!important;transform:none!important;transition:none!important}}
 
 html.findai-light #search .app-chat-menu-btn{background:#fff;color:#17191c;border-color:#d8dce1}
 html.findai-light .app-chat-drawer{background:#fff;border-right-color:#d9dde2;box-shadow:24px 0 70px rgba(30,38,48,.16)}
@@ -2823,7 +2829,7 @@ const MAX_INTERESTS = 40;
    Reels broad shopping coverage while keeping marketplace/API work bounded. */
 const PERSONALISED_INTEREST_LIMIT = 6;
 const PERSONALISED_LANE_LIMIT = 8;
-const PERSONALISED_LOAD_MORE_LANES = 2;
+const PERSONALISED_LOAD_MORE_LANES = 3;
 const PERSONALISED_CACHE_KEY = 'fa_personalised_feed_cache_v10';
 const PERSONALISED_CACHE_TTL = 10 * 60 * 1000;
 const PERSONALISED_CACHE_STALE_TTL = 24 * 60 * 60 * 1000;
@@ -4310,6 +4316,57 @@ function openSearchHome(focus=true){
   feedState={query:'',resolvedQuery:'',source:'searchhome',loading:false,hasMore:false,seen:new Set()};
   const q=$('#q');if(q){q.value='';if(focus)setTimeout(()=>q.focus(),70);}
 }
+function preloadPersonalisedImages(start=0,count=12){
+  if(feedState&&feedState.source!=='personalised')return;
+  const from=Math.max(0,Number(start)||0),to=Math.min(currentFeedItems.length,from+Math.max(1,Number(count)||12));
+  const work=()=>{
+    for(let i=from;i<to;i++){
+      try{const plan=appImagePlan(currentFeedItems[i],i,currentFeedData);const src=plan&&plan.src;if(!src)continue;const img=new Image();img.decoding='async';img.referrerPolicy='no-referrer';img.src=src;}catch(_){}
+    }
+  };
+  if('requestIdleCallback' in window)requestIdleCallback(work,{timeout:350});else setTimeout(work,0);
+}
+let personalisedWarmPromise=null;
+function warmPersonalisedFeedCache(){
+  if(personalisedWarmPromise)return personalisedWarmPromise;
+  personalisedWarmPromise=(async()=>{
+    try{
+      const lanes=scoredInterests().map(newPersonalisedLane);
+      restorePersistentPersonalisedLaneState(lanes);
+      const signature=personalisedProfileSignature(lanes);
+      const existing=readPersonalisedCache(signature);if(existing&&existing.items&&existing.items.length>=8)return existing;
+      const chosen=lanes.slice(0,Math.min(4,lanes.length));if(!chosen.length)return null;
+      const settled=await Promise.allSettled(chosen.map(async lane=>{
+        if(!consumePersonalisedRequestBudget())return {lane,items:[]};
+        const result=await fetchProductResults(lane.query,{page:1,cursor:null,limit:PERSONALISED_LANE_LIMIT,preserveExact:false,skipResolve:true,passive:true});
+        lane.page=1;lane.cursor=result.nextCursor;lane.hasMore=result.hasMore;
+        const ranked=(Array.isArray(result.data&&result.data.listings)?result.data.listings:[])
+          .filter(item=>item&&Number(item.price)>0&&getSource(item)!=='aliexpress')
+          .sort((x,y)=>personalisedItemScore(y,lane.query,lane.cluster)-personalisedItemScore(x,lane.query,lane.cluster));
+        const seen=new Set(),families=new Map(),items=[];
+        for(const original of ranked){
+          const key=listingKey(original);if(seen.has(key))continue;
+          const family=recommendationFamilyKey(original),count=Number(families.get(family)||0);if(count>=2)continue;
+          seen.add(key);families.set(family,count+1);items.push({...original,_interestQuery:lane.originalQuery,_interestCluster:lane.cluster,_interestCategory:lane.category,_interestFeatured:!!lane.featured,_recommendationFamily:family});
+          if(items.length>=PERSONALISED_LANE_LIMIT)break;
+        }
+        return {lane,items,data:result.data};
+      }));
+      const laneResults=settled.filter(x=>x.status==='fulfilled'&&x.value&&x.value.items&&x.value.items.length).map(x=>x.value);
+      const mixed=sequencePersonalisedBatch(interleavePersonalised(laneResults,32),[],32);if(!mixed.length)return null;
+      const laneSnapshot=lanes.map(lane=>({cluster:lane.cluster,query:lane.query,variantIndex:lane.variantIndex,page:lane.page,cursor:lane.cursor||null,hasMore:lane.hasMore!==false,noNewPages:lane.noNewPages||0}));
+      const cached={savedAt:Date.now(),signature,items:mixed.slice(0,32),lanes:laneSnapshot};
+      try{localStorage.setItem(PERSONALISED_CACHE_KEY,JSON.stringify(cached));markPersonalisedRefreshNow();}catch(_){}
+      // Warm the browser image cache too, without changing screens or rendering anything.
+      const warmImages=mixed.slice(0,12);
+      const imageWork=()=>warmImages.forEach((item,index)=>{try{const plan=appImagePlan(item,index,{personalised:true});if(plan&&plan.src){const img=new Image();img.decoding='async';img.referrerPolicy='no-referrer';img.src=plan.src;}}catch(_){}});
+      if('requestIdleCallback' in window)requestIdleCallback(imageWork,{timeout:500});else setTimeout(imageWork,0);
+      return cached;
+    }catch(_){return null;}
+    finally{setTimeout(()=>{personalisedWarmPromise=null;},1200);}
+  })();
+  return personalisedWarmPromise;
+}
 function renderPersonalisedFeed(items,{writeCache=true}={}){
   items=surfaceLikedListingInFeed(items);
   currentFeedItems=items;
@@ -4329,6 +4386,7 @@ function renderPersonalisedFeed(items,{writeCache=true}={}){
   bindFeedHeaderAutoHide();
   beginReelTracking(0);
   attachReelObserver();
+  preloadPersonalisedImages(0,14);
   teachSwipeOnce(items.length);
   if(writeCache) writePersonalisedCache();
   /* Never auto-fetch merely because a marketplace returned a short page.
@@ -5252,6 +5310,9 @@ function renderReelCard(item,index,data){
 }
 
 function showFeedLoader(){
+  // Discovery should feel endless. Fetch the next batch invisibly while there are
+  // still several rendered cards ahead of the shopper; never insert a loading reel.
+  if(feedState&&feedState.source==='personalised')return;
   const feed=appActiveFeedElement();
   if(!feed || $('#feedMoreLoader')) return;
   feed.insertAdjacentHTML('beforeend','<div class="reel-loading-card" id="feedMoreLoader"><div class="feed-more-spinner"></div><span>Finding more listings…</span></div>');
@@ -5273,6 +5334,7 @@ function appendFeedItems(items,data){
   }
   feed.insertAdjacentHTML('beforeend',items.map((item,index)=>renderReelCard(item,start+index,data)).join(''));
   attachReelObserver();
+  preloadPersonalisedImages(start,Math.min(14,items.length));
 }
 async function loadMoreListings(){
   if(feedState.source==='personalised') return loadMorePersonalisedListings();
@@ -5429,7 +5491,9 @@ function attachReelObserver(){
       beginReelTracking(index);
           haptic();
     }
-    if(index>=currentFeedItems.length-5) loadMoreListings();
+    const preloadDistance=(feedState&&feedState.source==='personalised')?12:5;
+    if(index>=currentFeedItems.length-preloadDistance) loadMoreListings();
+    if(feedState&&feedState.source==='personalised')preloadPersonalisedImages(index+1,10);
   },{root:feed,threshold:[.52,.7,.86]});
   $$('.reel-card',feed).forEach(card=>reelObserver.observe(card));
 }
@@ -6941,6 +7005,30 @@ function appChatProductPlaceholder(item){
   const source=String(item&&(item.retailer||item.source)||'Retailer');
   return appRetailerProductPlaceholder({retailer:source,source:source,retailerLogo:String(item&&item.retailerLogo||'')},'reel-image-placeholder');
 }
+function appChatRevealResultTurn(row){
+  if(!row)return;
+  const body=row.querySelector('.app-chat-assistant');if(!body)return;
+  const reduce=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  const shell=body.querySelector('.app-chat-result-shell');
+  const copy=Array.from(body.children).filter(el=>el.tagName==='P'&&!el.closest('.app-chat-result-shell'));
+  const hero=shell&&shell.querySelector('.app-chat-result-hero');
+  const label=shell&&shell.querySelector('.app-chat-grid-label');
+  const cards=shell?Array.from(shell.querySelectorAll('.app-chat-grid-card')):[];
+  const more=shell&&shell.querySelector('.app-chat-show-more');
+  const staged=[...copy,hero,label,...cards,more].filter(Boolean);
+  staged.forEach(el=>el.classList.add('app-chat-reveal'));
+  if(reduce){staged.forEach(el=>el.classList.add('visible'));return;}
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    let delay=35;
+    copy.forEach((el,index)=>setTimeout(()=>el.classList.add('visible'),delay+index*82));
+    delay+=copy.length?copy.length*82+72:55;
+    if(hero){setTimeout(()=>hero.classList.add('visible'),delay);delay+=130;}
+    if(label){setTimeout(()=>label.classList.add('visible'),delay);delay+=65;}
+    cards.forEach((card,index)=>setTimeout(()=>card.classList.add('visible'),delay+index*58));
+    if(cards.length)delay+=cards.length*58+40;
+    if(more)setTimeout(()=>more.classList.add('visible'),delay);
+  }));
+}
 function appChatGridCard(batch,item,index,data,delayIndex=0){
   const plan=appImagePlan(item,index,data),image=plan.src,title=String(item.title||'Product listing'),source=getSource(item),price=appListingPriceText(item,data)||'',country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item),logo=String(item&&item.retailerLogo||'');
   const media=image?'<img src="'+escapeAttr(image)+'" data-image-alts="'+appImageAltAttr(plan.alts)+'" alt="'+escapeAttr(title)+'" loading="'+(delayIndex<4?'eager':'lazy')+'" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,\''+escapeAttr(item&&(item.retailer||item.source)||'Retailer')+'\',\''+escapeAttr(logo)+'\',\'search-grid-image-empty\')">':appRetailerProductPlaceholder(item,'search-grid-image-empty');
@@ -6972,7 +7060,7 @@ async function appChatRunProductSearch(displayText,searchText,thinking){
   appChatLastProductQuery=result.resolvedQuery||searchText;currentFeedItems=items.slice(0,16);currentFeedData=data;feedState={...(feedState||{}),query:appChatLastProductQuery,resolvedQuery:appChatLastProductQuery,source:'search',loading:false};
   appChatConversation.push({role:'assistant',content:items.length?'I found current listings for '+appChatLastProductQuery+'.':'I could not find a close live match.'});
   appChatRemoveThinking();
-  const row=appChatAddAssistant(appChatFallbackProductReply(displayText,items,data)+appChatRenderProducts(items,data,result.resolvedQuery||searchText));if(row)row.classList.add('result-turn');appChatPersistSession();
+  const row=appChatAddAssistant(appChatFallbackProductReply(displayText,items,data)+appChatRenderProducts(items,data,result.resolvedQuery||searchText));if(row){row.classList.add('result-turn');appChatRevealResultTurn(row);}appChatPersistSession();
 }
 async function appChatRunAssistant(displayText,thinking){
   const response=await fetch(WORKER+'/?chat=1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:appChatConversation.slice(-10)}),signal:appChatController?appChatController.signal:null});
@@ -6985,7 +7073,7 @@ async function appChatRunAssistant(displayText,thinking){
   if(!html&&items.length)html='<p>Here are the strongest current options I found.</p>';
   if(!html)html='<p>I had trouble with that one. Try rephrasing it.</p>';
   html+=appChatRenderProducts(items,data,appChatLastProductQuery||displayText);
-  const row=appChatAddAssistant(html);if(row&&items.length)row.classList.add('result-turn');if(items.length){currentFeedItems=items.slice(0,16);currentFeedData=data;}appChatPersistSession();
+  const row=appChatAddAssistant(html);if(row&&items.length){row.classList.add('result-turn');appChatRevealResultTurn(row);}if(items.length){currentFeedItems=items.slice(0,16);currentFeedData=data;}appChatPersistSession();
 }
 async function appChatSubmit(text){
   const displayText=String(text||'').trim();if(!displayText||appChatBusy)return;
@@ -7016,7 +7104,8 @@ function doSearch(event){
   input.value='';input.style.height='auto';try{input.blur();}catch(_){}document.body.classList.remove('keyboard-open');findaiSyncVisualViewport();setTimeout(findaiSyncVisualViewport,160);appChatSubmit(value);return false;
 }
 
-/* Boot — Search is instant. The discovery Feed is deliberately lazy. */
+/* Boot — Search stays instant, while the passive discovery feed warms quietly
+   behind it so tapping Feed does not start from an empty network request. */
 (function boot(){
   bootstrapInterestProfile();
   updateAccountHeader();
@@ -7032,6 +7121,7 @@ function doSearch(event){
     if('requestIdleCallback' in window){requestIdleCallback(()=>{try{fn();}catch(_){}},{timeout:delay+900});}
     else setTimeout(()=>{try{fn();}catch(_){}},delay);
   };
+  later(()=>warmPersonalisedFeedCache(),260);
   later(()=>appGetProStatus(true).catch(()=>{}),650);
   later(appStartMarketplaceSync,850);
   later(()=>appSavedSyncFromServer(false).catch(()=>{}),1050);
