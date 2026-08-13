@@ -3732,7 +3732,7 @@ function findaiFallbackSearchNarrative(query,items,data,parsed,c,featured){
   if(parsed&&parsed.sort==='price_asc'&&price)return {headline:`The cheapest credible ${subject} I found is ${price}${source?' at '+source:''}.`,explanation:'I kept the results focused on the actual product.',workLine:''};
   const scope=String(featured&&featured._findaiQueryScope||'');
   if(scope&&scope!=='exact'){
-    return {headline:`Here are the strongest ${subject} listings I found.`,explanation:scope==='collection'?'I prioritised relevant retailer and specialist listings with real shopping data.':'Models and variants can differ, so I prioritised current priced offers rather than an unpriced brand destination.',workLine:''};
+    return {headline:`I found several strong matches for ${subject}.`,explanation:scope==='collection'?'These can be different products or sets, so I ranked relevance and completeness ahead of raw price.':'Models and variants can differ, so I ranked like-for-like relevance ahead of simply showing the cheapest item.',workLine:'',queryScope:scope,resultLabel:'Top matches'};
   }
   if(price)return {headline:`I found a strong current option for ${subject} at ${price}${source?' from '+source:''}.`,explanation:'I prioritised reputable retailers and complete product matches.',workLine:''};
   return {headline:`I found current retailer options for ${subject}.`,explanation:'Some live prices still need a check, so I have kept the retailer links rather than guessing.',workLine:''};
@@ -3744,7 +3744,7 @@ function renderSearchAnswer(query,kw,items,data,parsed,c){
   const fkey=String(featured.itemId||featured.url||featured.title||'');
   const others=presentation.filter(function(it){return String(it&&it.itemId||it&&it.url||it&&it.title||'')!==fkey;});
   let html=`<section class="deal-answer search-answer"><div class="deal-copy"><div class="deal-headline">${dealTextHtml(n.headline||'Here is what I found.')}</div><p class="deal-explanation">${dealTextHtml(n.explanation||'')}</p>${n.workLine?`<div class="search-workline">${dealTextHtml(n.workLine)}</div>`:''}</div>${searchFeaturedCardHtml(featured,c,presentation)}</section>`;
-  if(others.length)html+=`<div class="search-results-heading">Other matching listings</div><div class="deal-comparables">${renderCards(others,kw,'',parsed&&parsed.maxPrice||'',c,data&&data.ebayCount||0,0,true,presentation)}</div>`;
+  if(others.length){const resultLabel=String(n.resultLabel||((n.queryScope||featured&&featured._findaiQueryScope)==='exact'?'Compare offers':'Top matches'));html+=`<div class="search-results-heading">${escapeHtml(resultLabel)}</div><div class="deal-comparables">${renderCards(others,kw,'',parsed&&parsed.maxPrice||'',c,data&&data.ebayCount||0,0,true,presentation)}</div>`;}
   return {html,plain:[n.headline,n.explanation].filter(Boolean).join(' ')};
 }
 function revealSearchAnswer(body){
