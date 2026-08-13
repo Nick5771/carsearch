@@ -2342,8 +2342,26 @@ html.findai-light #discover .hero-stage::after{background:linear-gradient(180deg
 .app-chat-speak.speaking{background:#f3f3f3;color:#111}
 html.findai-light .app-chat-speak{background:#fff;color:#626a74;border-color:#d8dce1}
 html.findai-light .app-chat-speak.speaking{background:#111;color:#fff}
+
+/* FindAI v47 — microphone voice input. UI-only; search/ranking/backend untouched. */
+#search .app-chat-composer{grid-template-columns:44px minmax(0,1fr) 40px 44px}
+#search .app-chat-voice{
+  grid-column:3;grid-row:2;width:40px;height:40px;border:0;border-radius:50%;padding:0;
+  display:grid;place-items:center;background:transparent;color:#f3f3f3;cursor:pointer;
+  transition:background .15s,color .15s,transform .15s
+}
+#search .app-chat-voice svg{width:21px;height:21px;stroke:currentColor}
+#search .app-chat-voice:active{transform:scale(.94)}
+#search .app-chat-voice.listening{background:#f3f3f3;color:#0b0b0b;animation:findaiMicPulse 1.2s ease-in-out infinite}
+#search .app-search-submit{grid-column:4}
+#search.app-chat-results-mode .app-chat-composer{grid-template-columns:44px minmax(0,1fr) 38px 44px}
+#search.app-chat-results-mode .app-chat-voice{grid-column:3;grid-row:1;width:38px;height:44px}
+#search.app-chat-results-mode .app-search-submit{grid-column:4;grid-row:1}
+html.findai-light #search .app-chat-voice{color:#17191c}
+html.findai-light #search .app-chat-voice.listening{background:#111;color:#fff}
+@keyframes findaiMicPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.08)}50%{box-shadow:0 0 0 7px rgba(255,255,255,0)}}
 </style>
-  <meta name="findai-build" content="v44-chat-drawer-grid-results">
+  <meta name="findai-build" content="v47-voice-input">
 </head>
 <body>
 <div class="app">
@@ -2369,6 +2387,9 @@ html.findai-light .app-chat-speak.speaking{background:#111;color:#fff}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </button>
       <textarea id="q" rows="1" placeholder="Shop with FindAI" enterkeyhint="send" autocomplete="off" autocapitalize="sentences" autofocus onfocus="appChatFocusInput(event)" onclick="appChatFocusInput(event)" ontouchstart="appChatTouchInput(event)" oninput="appChatAutoGrow(this)" onkeydown="appChatKeydown(event)"></textarea>
+      <button class="app-chat-voice" id="appChatVoice" type="button" aria-label="Voice input" title="Voice input" onclick="appVoiceToggle(event)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>
+      </button>
       <button type="submit" class="app-search-submit" id="appChatSend" aria-label="Send">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
       </button>
@@ -3343,8 +3364,30 @@ function enhanceImageUrl(value){
   }catch(_){ }
   return upgraded;
 }
-function getImage(item){ return enhanceImageUrl(rawImageValue(item)); }
-function getImageFallback(item){ return rawImageValue(item); }
+function imageCandidateUrls(item){
+  const candidates=collectImageCandidates(item);
+  candidates.sort((a,b)=>imageCandidateScore(b)-imageCandidateScore(a));
+  const out=[],seen=new Set();
+  const push=value=>{const u=safeUrl(value);if(u&&!seen.has(u)){seen.add(u);out.push(u);}};
+  candidates.forEach(candidate=>{
+    push(enhanceImageUrl(candidate.url));
+    push(candidate.url);
+  });
+  return out;
+}
+function getImage(item){ return (imageCandidateUrls(item)[0]||''); }
+function getImageFallback(item){
+  const urls=imageCandidateUrls(item),primary=urls[0]||'';
+  return urls.find(u=>u&&u!==primary)||'';
+}
+function appImageAltAttr(urls){return escapeAttr(JSON.stringify(Array.isArray(urls)?urls:[]));}
+function appImagePlan(item,index,data){
+  const own=imageCandidateUrls(item),product=imageCandidateUrls(data&&data.productDetails);
+  const peer=typeof strictPeerImage==='function'?strictPeerImage(item,index):'';
+  const all=[],seen=new Set();
+  [...own,...product,peer].forEach(u=>{const safe=safeUrl(u);if(safe&&!seen.has(safe)){seen.add(safe);all.push(safe);}});
+  return {src:all[0]||'',alts:all.slice(1,8),peer:peer||'',borrowed:!own.length&&!product.length&&!!peer};
+}
 function getListingUrl(item){ return safeUrl(item && (item.url || item.itemWebUrl || item.webUrl || item.link)); }
 function isFindAIListing(item){
   if(!item) return false;
@@ -5004,6 +5047,12 @@ function appRetailerProductPlaceholder(item,cls){
 }
 function appRetailerImgError(img,source,logo,cls){
   try{
+    let alts=[];try{alts=JSON.parse(img.getAttribute('data-image-alts')||'[]');}catch(_){}
+    while(alts.length){
+      const next=safeUrl(alts.shift());
+      img.setAttribute('data-image-alts',JSON.stringify(alts));
+      if(next&&next!==img.src){img.src=next;return;}
+    }
     const wrap=document.createElement('div');
     wrap.innerHTML=appRetailerProductPlaceholder({retailer:String(source||'Retailer'),source:String(source||'Retailer'),retailerLogo:String(logo||'')},cls||'search-grid-image-empty');
     img.replaceWith(wrap.firstElementChild);
@@ -5011,8 +5060,8 @@ function appRetailerImgError(img,source,logo,cls){
 }
 
 function renderSearchGridCard(item,index,data){
-  const title=String(item.title||(data&&data.productDetails&&data.productDetails.name)||'Product listing'),image=getImage(item)||getImage(data&&data.productDetails),source=getSource(item),condition=conditionText(item),country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item);
-  return `<article class="search-grid-card" data-grid-index="${index}" onclick="openSearchResultDetail(${index})" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSearchResultDetail(${index})}"><div class="search-grid-image-wrap">${image?`<img class="search-grid-image" src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="${index<6?'eager':'lazy'}" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,'${escapeAttr(item&& (item.retailer||item.source) || 'Retailer')}','${escapeAttr(item&&item.retailerLogo||'')}','search-grid-image-empty')">`:appRetailerProductPlaceholder(item,'search-grid-image-empty')}${condition?`<span class="search-grid-condition">${escapeHTML(condition)}</span>`:''}</div><div class="search-grid-body"><div class="search-grid-source">${sourceMarkup(source,item)}</div><div class="search-grid-title">${escapeHTML(title)}</div><div class="search-grid-price">${escapeHTML(appListingPriceText(item,data))}</div><div class="search-grid-meta">${country?`<span>${escapeHTML(country)}</span>`:''}<span class="shipping">${escapeHTML(shipping)}</span></div></div></article>`;
+  const title=String(item.title||(data&&data.productDetails&&data.productDetails.name)||'Product listing'),plan=appImagePlan(item,index,data),image=plan.src,source=getSource(item),condition=conditionText(item),country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item);
+  return `<article class="search-grid-card" data-grid-index="${index}" onclick="openSearchResultDetail(${index})" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSearchResultDetail(${index})}"><div class="search-grid-image-wrap">${image?`<img class="search-grid-image" src="${escapeAttr(image)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" loading="${index<6?'eager':'lazy'}" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,'${escapeAttr(item&& (item.retailer||item.source) || 'Retailer')}','${escapeAttr(item&&item.retailerLogo||'')}','search-grid-image-empty')">`:appRetailerProductPlaceholder(item,'search-grid-image-empty')}${condition?`<span class="search-grid-condition">${escapeHTML(condition)}</span>`:''}</div><div class="search-grid-body"><div class="search-grid-source">${sourceMarkup(source,item)}</div><div class="search-grid-title">${escapeHTML(title)}</div><div class="search-grid-price">${escapeHTML(appListingPriceText(item,data))}</div><div class="search-grid-meta">${country?`<span>${escapeHTML(country)}</span>`:''}<span class="shipping">${escapeHTML(shipping)}</span></div></div></article>`;
 }
 
 function appSearchFeaturedIndex(items,data){
@@ -5032,8 +5081,8 @@ function appFallbackSearchNarrative(items,data,query){
 function renderAppSearchAnswer(items,data,query){
   if(!items.length)return '';
   const n=appFallbackSearchNarrative(items,data,query),idx=appSearchFeaturedIndex(items,data),item=items[idx]||items[0];
-  const image=getImage(item),title=String(item.title||'Live listing'),source=getSource(item),country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item),price=appListingPriceText(item,data);
-  return `<section class="app-search-answer"><div class="app-search-answer-copy"><h2>${escapeHTML(n.headline||'Here is what I found.')}</h2><p>${escapeHTML(n.explanation||'')}</p>${n.workLine?`<div class="app-search-work">${escapeHTML(n.workLine)}</div>`:''}</div><button type="button" class="app-search-evidence" onclick="openSearchResultDetail(${idx})">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}" loading="eager" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,'${escapeAttr(item&& (item.retailer||item.source) || 'Retailer')}','${escapeAttr(item&&item.retailerLogo||'')}','app-search-evidence-ph')">`:appRetailerProductPlaceholder(item,'app-search-evidence-ph')}<span class="app-search-evidence-copy"><span class="app-search-evidence-source">${sourceMarkup(source,item)}</span><span class="app-search-evidence-title">${escapeHTML(title)}</span>${price?`<span class="app-search-evidence-price">${escapeHTML(price)}</span>`:''}<span class="app-search-evidence-meta">${country?escapeHTML(country)+(shipping?' · ':''):''}${escapeHTML(shipping)}</span></span></button></section><div class="app-search-results-label">Other matching listings</div>`;
+  const plan=appImagePlan(item,idx,data),image=plan.src,title=String(item.title||'Live listing'),source=getSource(item),country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item),price=appListingPriceText(item,data);
+  return `<section class="app-search-answer"><div class="app-search-answer-copy"><h2>${escapeHTML(n.headline||'Here is what I found.')}</h2><p>${escapeHTML(n.explanation||'')}</p>${n.workLine?`<div class="app-search-work">${escapeHTML(n.workLine)}</div>`:''}</div><button type="button" class="app-search-evidence" onclick="openSearchResultDetail(${idx})">${image?`<img src="${escapeAttr(image)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" loading="eager" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,'${escapeAttr(item&& (item.retailer||item.source) || 'Retailer')}','${escapeAttr(item&&item.retailerLogo||'')}','app-search-evidence-ph')">`:appRetailerProductPlaceholder(item,'app-search-evidence-ph')}<span class="app-search-evidence-copy"><span class="app-search-evidence-source">${sourceMarkup(source,item)}</span><span class="app-search-evidence-title">${escapeHTML(title)}</span>${price?`<span class="app-search-evidence-price">${escapeHTML(price)}</span>`:''}<span class="app-search-evidence-meta">${country?escapeHTML(country)+(shipping?' · ':''):''}${escapeHTML(shipping)}</span></span></button></section><div class="app-search-results-label">Other matching listings</div>`;
 }
 
 function renderSearchGridPages(items,data){
@@ -5048,8 +5097,8 @@ function renderSearchGridPages(items,data){
   return renderAppSearchAnswer(list,data,feedState.query||'')+pages.join('');
 }
 function renderSearchDetailCard(item,index){
-  const title=String(item.title||'Product listing'),image=getImage(item),source=getSource(item),country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item),condition=conditionText(item);
-  return `<article class="search-detail-card" data-detail-index="${index}"><div class="search-detail-media">${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(title)}" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,'${escapeAttr(item&& (item.retailer||item.source) || 'Retailer')}','${escapeAttr(item&&item.retailerLogo||'')}','image-fallback')">`:appRetailerProductPlaceholder(item,'image-fallback')}</div><div class="search-detail-content"><div class="search-detail-source">${sourceMarkup(source,item)}</div><h2 class="search-detail-title">${escapeHTML(title)}</h2><div class="search-detail-price">${escapeHTML(appListingPriceText(item,currentFeedData))}</div><div class="search-detail-meta">${condition?`<div><b>Condition</b> · ${escapeHTML(condition)}</div>`:''}${country?`<div><b>${escapeHTML(country)}</b></div>`:''}${shipping?`<div>${escapeHTML(shipping)}</div>`:''}</div><div class="search-detail-actions"><button class="search-detail-view" onclick="openDeal(${index},event)">${item&&item._retailerLinkOnly?'View retailer':'View Deal'}</button><button class="search-detail-icon ${isTracked(item)?'active':''}" onclick="toggleLike(${index},event)" aria-label="Save"><svg viewBox="0 0 24 24" fill="${isTracked(item)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></button><button class="search-detail-icon" onclick="shareItem(${index},event)" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 13v6h14v-6"/></svg></button></div></div></article>`;
+  const title=String(item.title||'Product listing'),plan=appImagePlan(item,index,currentFeedData),image=plan.src,source=getSource(item),country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item),condition=conditionText(item);
+  return `<article class="search-detail-card" data-detail-index="${index}"><div class="search-detail-media">${image?`<img src="${escapeAttr(image)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,'${escapeAttr(item&& (item.retailer||item.source) || 'Retailer')}','${escapeAttr(item&&item.retailerLogo||'')}','image-fallback')">`:appRetailerProductPlaceholder(item,'image-fallback')}</div><div class="search-detail-content"><div class="search-detail-source">${sourceMarkup(source,item)}</div><h2 class="search-detail-title">${escapeHTML(title)}</h2><div class="search-detail-price">${escapeHTML(appListingPriceText(item,currentFeedData))}</div><div class="search-detail-meta">${condition?`<div><b>Condition</b> · ${escapeHTML(condition)}</div>`:''}${country?`<div><b>${escapeHTML(country)}</b></div>`:''}${shipping?`<div>${escapeHTML(shipping)}</div>`:''}</div><div class="search-detail-actions"><button class="search-detail-view" onclick="openDeal(${index},event)">${item&&item._retailerLinkOnly?'View retailer':'View Deal'}</button><button class="search-detail-icon ${isTracked(item)?'active':''}" onclick="toggleLike(${index},event)" aria-label="Save"><svg viewBox="0 0 24 24" fill="${isTracked(item)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></button><button class="search-detail-icon" onclick="shareItem(${index},event)" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 13v6h14v-6"/></svg></button></div></div></article>`;
 }
 function openSearchResultDetail(index){
   if(feedState.source==='personalised')return;
@@ -5127,12 +5176,12 @@ function strictPeerImage(item,index){
 }
 function renderReelCard(item,index,data){
   const title=String(item.title || (data && data.productDetails && data.productDetails.name) || 'Product listing');
-  // Prefer the retailer's own product image. If it genuinely supplied none, reuse
-  // an image only from a very-close matching listing already in this result set.
-  // This costs no extra network search and avoids generic/wrong-product fallbacks.
-  const peerImage=strictPeerImage(item,index);
-  const image=getImage(item) || getImage(data && data.productDetails) || peerImage;
-  const fallbackImage=getImageFallback(item) || getImageFallback(data && data.productDetails) || peerImage;
+  // Display-only image recovery: try every image the retailer already supplied,
+  // then the product-level image, then a strict same-variant peer already present
+  // in this result set. No extra search/API call is made.
+  const plan=appImagePlan(item,index,data);
+  const image=plan.src;
+  const fallbackImage=plan.alts[0]||'';
   const url=getListingUrl(item);
   const source=getSource(item);
   const price=Number(item.price);
@@ -5143,7 +5192,7 @@ function renderReelCard(item,index,data){
   const sellerLabel=item.topRatedSeller ? 'Top-rated seller' : (seller || 'Live listing');
   return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}">
     <div class="hero-stage${image?' fill-solid':''}"${image?` style="--hero-fill:#0a0b0d"`:''}>
-      ${image ? `<img class="hero-image fit-contain" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" data-peer-fallback="${escapeAttr(strictPeerImage(item,index))}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
+      ${image ? `<img class="hero-image fit-contain" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
       <div class="image-fallback" style="${image?'':'display:grid'}">${reelImagePlaceholder(item)}</div>
     </div>
     <div class="reel-actions-rail" aria-label="Listing actions">
@@ -5326,13 +5375,15 @@ async function appSavedSyncFromServer(force=false){
 }
 
 function imageFailed(img){
+  let alts=[];try{alts=JSON.parse(img.getAttribute('data-image-alts')||'[]');}catch(_){}
+  while(alts.length){
+    const next=safeUrl(alts.shift());
+    img.setAttribute('data-image-alts',JSON.stringify(alts));
+    if(next&&next!==img.src){img.src=next;return;}
+  }
   const fallback=safeUrl(img.dataset.fallback || '');
-  const peer=safeUrl(img.dataset.peerFallback || '');
   if(fallback && !img.dataset.fallbackTried && img.src !== fallback){
     img.dataset.fallbackTried='1';img.src=fallback;return;
-  }
-  if(peer && !img.dataset.peerFallbackTried && img.src !== peer){
-    img.dataset.peerFallbackTried='1';img.removeAttribute('crossorigin');img.src=peer;return;
   }
   img.style.display='none';
   const fallbackNode=img.parentElement && img.parentElement.querySelector('.image-fallback');
@@ -6751,7 +6802,7 @@ function appChatScrollBottom(smooth=true){
 function appChatWelcomeHtml(){return '';}
 function startNewAppChat(focus=true){
   if(appChatController){try{appChatController.abort();}catch(_){}}
-  appChatStopSpeech();appChatSetResultsMode(false);
+  appVoiceStop(true);appChatStopSpeech();appChatSetResultsMode(false);
   appChatBusy=false;appChatConversation=[];appChatLastProductQuery='';appChatResultBatches=[];appChatSessionId='';currentFeedItems=[];currentFeedData=null;
   const feed=$('#feed');if(feed){feed.innerHTML='';feed.scrollTop=0;}
   const q=$('#q');if(q){q.value='';q.style.height='auto';if(focus)setTimeout(()=>{try{q.focus({preventScroll:true});}catch(_){q.focus();}appChatFocusInput();},70);}
@@ -6771,6 +6822,52 @@ function appChatAddUser(text){
   const feed=$('#feed');if(!feed)return null;const welcome=$('#appChatWelcome');if(welcome)welcome.remove();
   const row=document.createElement('div');row.className='app-chat-turn user';row.innerHTML='<div class="app-chat-user-bubble">'+escapeHTML(text)+'</div>';feed.appendChild(row);return row;
 }
+let appVoiceRecognition=null;
+let appVoiceListening=false;
+let appVoiceBaseText='';
+function appVoiceSetListening(on){
+  appVoiceListening=!!on;
+  const button=$('#appChatVoice');
+  if(button){button.classList.toggle('listening',appVoiceListening);button.setAttribute('aria-label',appVoiceListening?'Stop voice input':'Voice input');button.title=appVoiceListening?'Stop voice input':'Voice input';}
+}
+function appVoiceStop(abort=false){
+  const recognition=appVoiceRecognition;
+  if(recognition){try{abort&&recognition.abort?recognition.abort():recognition.stop();}catch(_){} }
+  appVoiceSetListening(false);
+}
+function appVoiceErrorMessage(code){
+  if(code==='not-allowed'||code==='service-not-allowed')return 'Microphone access is blocked. Allow microphone access for FindAI and try again.';
+  if(code==='audio-capture')return 'FindAI could not access a microphone.';
+  if(code==='no-speech')return "I didn't hear anything. Tap the mic and try again.";
+  if(code==='network')return 'Voice recognition is temporarily unavailable.';
+  return 'Voice input could not start. Please try again.';
+}
+function appVoiceToggle(event){
+  if(event){event.preventDefault();event.stopPropagation();}
+  if(appVoiceListening){appVoiceStop(false);return;}
+  const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!Recognition){toast('Voice input is not supported by this browser');return;}
+  const input=$('#q');if(!input)return;
+  appVoiceBaseText=String(input.value||'').trim();
+  try{
+    const recognition=new Recognition();appVoiceRecognition=recognition;
+    recognition.lang=(navigator.languages&&navigator.languages[0])||navigator.language||'en-AU';
+    recognition.interimResults=true;recognition.continuous=false;recognition.maxAlternatives=1;
+    recognition.onstart=()=>{appVoiceSetListening(true);try{input.focus({preventScroll:true});}catch(_){try{input.focus();}catch(__){}}};
+    recognition.onresult=(e)=>{
+      let transcript='';
+      for(let i=0;i<e.results.length;i++)transcript+=String(e.results[i][0]&&e.results[i][0].transcript||'')+' ';
+      transcript=transcript.replace(/\s+/g,' ').trim();
+      input.value=[appVoiceBaseText,transcript].filter(Boolean).join(' ');
+      input.selectionStart=input.selectionEnd=input.value.length;
+      appChatAutoGrow(input);
+    };
+    recognition.onerror=(e)=>{const code=String(e&&e.error||'');appVoiceSetListening(false);if(code!=='aborted')toast(appVoiceErrorMessage(code));};
+    recognition.onend=()=>{appVoiceSetListening(false);appVoiceRecognition=null;appChatAutoGrow(input);};
+    recognition.start();
+  }catch(_){appVoiceSetListening(false);appVoiceRecognition=null;toast('Voice input could not start. Please try again.');}
+}
+
 let appChatSpeakingButton=null;
 function appChatSpeechText(row){
   if(!row)return '';
@@ -6821,15 +6918,15 @@ function appChatProductPlaceholder(item){
   return appRetailerProductPlaceholder({retailer:source,source:source,retailerLogo:String(item&&item.retailerLogo||'')},'reel-image-placeholder');
 }
 function appChatGridCard(batch,item,index,data,delayIndex=0){
-  const image=getImage(item),title=String(item.title||'Product listing'),source=getSource(item),price=appListingPriceText(item,data)||'',country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item),logo=String(item&&item.retailerLogo||'');
-  const media=image?'<img src="'+escapeAttr(image)+'" alt="'+escapeAttr(title)+'" loading="'+(delayIndex<4?'eager':'lazy')+'" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,\''+escapeAttr(item&&(item.retailer||item.source)||'Retailer')+'\',\''+escapeAttr(logo)+'\',\'search-grid-image-empty\')">':appRetailerProductPlaceholder(item,'search-grid-image-empty');
+  const plan=appImagePlan(item,index,data),image=plan.src,title=String(item.title||'Product listing'),source=getSource(item),price=appListingPriceText(item,data)||'',country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item),logo=String(item&&item.retailerLogo||'');
+  const media=image?'<img src="'+escapeAttr(image)+'" data-image-alts="'+appImageAltAttr(plan.alts)+'" alt="'+escapeAttr(title)+'" loading="'+(delayIndex<4?'eager':'lazy')+'" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,\''+escapeAttr(item&&(item.retailer||item.source)||'Retailer')+'\',\''+escapeAttr(logo)+'\',\'search-grid-image-empty\')">':appRetailerProductPlaceholder(item,'search-grid-image-empty');
   return '<article class="app-chat-grid-card" style="animation-delay:'+(80+delayIndex*55)+'ms" onclick="appChatOpenItem('+batch+','+index+')"><div class="app-chat-grid-media">'+media+'</div><div class="app-chat-grid-body"><div class="app-chat-grid-source">'+sourceMarkup(source,item)+'</div><div class="app-chat-grid-title">'+escapeHTML(title)+'</div><div class="app-chat-grid-price">'+escapeHTML(price)+'</div><div class="app-chat-grid-meta">'+escapeHTML([country,shipping].filter(Boolean).join(' · '))+'</div></div></article>';
 }
 function appChatRenderProducts(items,data,query){
   const list=(Array.isArray(items)?items:[]).filter(Boolean).slice(0,16);if(!list.length)return '';
   const batch=appChatResultBatches.length;appChatResultBatches.push({items:list,data:data||{},query:String(query||'')});
-  const heroIndex=Math.max(0,appSearchFeaturedIndex(list,data));const hero=list[heroIndex]||list[0];const image=getImage(hero),title=String(hero.title||'Product listing'),source=getSource(hero),price=appListingPriceText(hero,data)||'',logo=String(hero&&hero.retailerLogo||'');
-  const heroMedia=image?'<img src="'+escapeAttr(image)+'" alt="'+escapeAttr(title)+'" loading="eager" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,\''+escapeAttr(hero&&(hero.retailer||hero.source)||'Retailer')+'\',\''+escapeAttr(logo)+'\',\'reel-image-placeholder\')">':appChatProductPlaceholder(hero);
+  const heroIndex=Math.max(0,appSearchFeaturedIndex(list,data));const hero=list[heroIndex]||list[0];const heroPlan=appImagePlan(hero,heroIndex,data),image=heroPlan.src,title=String(hero.title||'Product listing'),source=getSource(hero),price=appListingPriceText(hero,data)||'',logo=String(hero&&hero.retailerLogo||'');
+  const heroMedia=image?'<img src="'+escapeAttr(image)+'" data-image-alts="'+appImageAltAttr(heroPlan.alts)+'" alt="'+escapeAttr(title)+'" loading="eager" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,\''+escapeAttr(hero&&(hero.retailer||hero.source)||'Retailer')+'\',\''+escapeAttr(logo)+'\',\'reel-image-placeholder\')">':appChatProductPlaceholder(hero);
   const indexes=list.map((_,i)=>i).filter(i=>i!==heroIndex);const first=indexes.slice(0,8);const grid=first.map((i,n)=>appChatGridCard(batch,list[i],i,data,n)).join('');
   return '<div class="app-chat-result-shell" data-batch="'+batch+'"><article class="app-chat-result-hero" onclick="appChatOpenItem('+batch+','+heroIndex+')"><div class="app-chat-result-hero-media">'+heroMedia+'</div><div class="app-chat-result-hero-body"><div class="app-chat-result-hero-source">'+sourceMarkup(source,hero)+'</div><div class="app-chat-result-hero-title">'+escapeHTML(title)+'</div><div class="app-chat-result-hero-row"><strong class="app-chat-result-hero-price">'+escapeHTML(price)+'</strong><button class="app-chat-result-hero-view" type="button" onclick="appChatViewDeal('+batch+','+heroIndex+',event)">View deal</button></div></div></article><div class="app-chat-grid-label">Compare current listings</div><div class="app-chat-result-grid" data-grid-batch="'+batch+'" data-next="8">'+grid+'</div>'+(indexes.length>8?'<button class="app-chat-show-more" type="button" onclick="appChatShowMore('+batch+',this)">Show more results</button>':'')+'</div>';
 }
@@ -6891,6 +6988,7 @@ async function appChatSubmit(text){
 function doSearch(event){
   if(event&&event.preventDefault)event.preventDefault();
   const input=$('#q');const value=String(input&&input.value||'').trim();if(!value||appChatBusy)return false;
+  appVoiceStop(true);
   input.value='';input.style.height='auto';try{input.blur();}catch(_){}document.body.classList.remove('keyboard-open');findaiSyncVisualViewport();setTimeout(findaiSyncVisualViewport,160);appChatSubmit(value);return false;
 }
 
