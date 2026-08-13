@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#050607">
+<meta name="theme-color" content="#000000">
 <meta name="robots" content="noindex, follow">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="FindAI">
 <link rel="manifest" href="/app.webmanifest?v=15">
 <link rel="apple-touch-icon" sizes="180x180" href="/findai-search-touch-icon.png?v=15">
@@ -2081,61 +2081,167 @@ html.findai-light .reel-image-placeholder span{color:#818892}
 #discover .price-line{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
 #discover .condition-badge{color:#fff;font-size:14px;font-weight:750;letter-spacing:-.2px;text-shadow:0 1px 5px rgba(0,0,0,.6);white-space:nowrap}
 
+
+/* =========================================================
+   FindAI v43 — Chat-first Search + clean Feed
+   ========================================================= */
+:root{--nav-h:78px;--composer-h:64px}
+html:not(.findai-light),html:not(.findai-light) body,html:not(.findai-light) .app{background:#000!important}
+.app{max-width:520px;background:#000}
+
+/* Search is now a conversation, not a reel or hero page. */
+#search.app-chat-screen{position:relative;padding:0;background:#000;overflow:hidden}
+#search .app-chat-header{
+  position:absolute;top:0;left:0;right:0;z-index:35;height:calc(var(--safe-top) + 58px);
+  padding:var(--safe-top) 16px 0;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#000 0%,rgba(0,0,0,.97) 74%,rgba(0,0,0,0) 100%);
+  pointer-events:none
+}
+#search .app-chat-logo-btn{
+  pointer-events:auto;width:40px;height:40px;border:0;border-radius:12px;background:#000;padding:0;
+  display:grid;place-items:center;overflow:hidden;color:#fff
+}
+#search .app-chat-logo-btn img{width:40px;height:40px;display:block;object-fit:cover;border-radius:12px}
+#search .app-chat-account{position:absolute;right:16px;top:calc(var(--safe-top) + 8px);pointer-events:auto}
+#search .app-chat-account .login-pill{height:38px;padding:0 16px;font-size:12px}
+#search .app-chat-account .account-avatar{width:38px;height:38px}
+#createListingPill{display:none!important}
+
+#search .app-chat-scroll{
+  position:absolute;inset:0;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-width:none;
+  padding:calc(var(--safe-top) + 74px) 14px calc(var(--nav-h) + var(--safe-bottom) + 92px);
+  background:#000;scroll-behavior:smooth
+}
+#search .app-chat-scroll::-webkit-scrollbar{display:none}
+.app-chat-welcome{min-height:calc(100dvh - var(--safe-top) - var(--safe-bottom) - var(--nav-h) - 154px);display:grid;place-items:center;text-align:center}
+.app-chat-welcome h1{margin:0;color:#f5f5f5;font-size:27px;line-height:1.15;font-weight:680;letter-spacing:-.75px}
+
+#search .app-chat-composer{
+  position:absolute;left:12px;right:12px;bottom:calc(var(--nav-h) + var(--safe-bottom) + 10px);z-index:40;
+  min-height:58px;max-height:146px;padding:9px 9px 9px 10px;border:1px solid rgba(255,255,255,.11);border-radius:25px;
+  background:#1b1b1b;box-shadow:0 14px 44px rgba(0,0,0,.45);display:flex;align-items:flex-end;gap:9px
+}
+#search .app-chat-composer textarea{
+  min-width:0;flex:1;min-height:38px;max-height:116px;padding:8px 2px 7px;border:0;outline:0;resize:none;
+  background:transparent;color:#f7f7f7;font:430 16px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif
+}
+#search .app-chat-composer textarea::placeholder{color:#858585;opacity:1}
+#search .app-chat-plus{
+  width:40px;height:40px;flex:0 0 40px;border:0;border-radius:50%;display:grid;place-items:center;
+  background:#101010;color:#f3f3f3
+}
+#search .app-chat-plus svg{width:22px;height:22px}
+#search .app-search-submit{
+  width:40px;height:40px;flex:0 0 40px;border-radius:50%;border:0;background:#f3f3f3;color:#0b0b0b;display:grid;place-items:center
+}
+#search .app-search-submit svg{width:17px;height:17px;stroke:currentColor}
+#search .app-search-submit:disabled{opacity:.42;cursor:default}
+
+/* Chat turns */
+.app-chat-turn{width:100%;margin:0 auto 20px;max-width:760px;color:#f4f4f4}
+.app-chat-turn.user{display:flex;justify-content:flex-end}
+.app-chat-user-bubble{max-width:86%;padding:11px 14px;border-radius:19px 19px 5px 19px;background:#232323;color:#f7f7f7;font-size:14px;line-height:1.45;white-space:pre-wrap}
+.app-chat-assistant{padding:2px 2px 0;color:#eeeeee;font-size:14px;line-height:1.55}
+.app-chat-assistant p{margin:0 0 9px}.app-chat-assistant p:last-child{margin-bottom:0}
+.app-chat-thinking{display:flex;align-items:center;gap:9px;color:#8f8f8f;font-size:13px}
+.app-chat-thinking i{width:7px;height:7px;border-radius:50%;background:#9a9a9a;animation:appChatPulse .9s ease-in-out infinite}
+.app-chat-thinking i:nth-child(2){animation-delay:.12s}.app-chat-thinking i:nth-child(3){animation-delay:.24s}
+@keyframes appChatPulse{0%,100%{opacity:.32;transform:translateY(0)}50%{opacity:1;transform:translateY(-2px)}}
+
+.app-chat-result-stack{display:flex;flex-direction:column;gap:9px;margin-top:12px}
+.app-chat-product{
+  width:100%;min-height:106px;padding:9px;border:1px solid rgba(255,255,255,.09);border-radius:18px;background:#101010;
+  display:grid;grid-template-columns:92px minmax(0,1fr);gap:11px;text-align:left;color:#fff
+}
+.app-chat-product-media{width:92px;height:92px;border-radius:13px;overflow:hidden;background:#181818;display:grid;place-items:center}
+.app-chat-product-media img{width:100%;height:100%;object-fit:contain;display:block}
+.app-chat-product-copy{min-width:0;display:flex;flex-direction:column;justify-content:center}
+.app-chat-product-source{height:19px;display:flex;align-items:center;color:#9ea2a8;font-size:10px;font-weight:750}
+.app-chat-product-source .ebay-logo{height:17px!important;width:auto!important}
+.app-chat-product-source .retailer-source{display:inline-flex;align-items:center;gap:5px}.app-chat-product-source .retailer-source-logo{width:16px;height:16px;object-fit:contain;border-radius:3px}
+.app-chat-product-title{margin-top:3px;color:#e8e8e8;font-size:11px;line-height:1.34;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.app-chat-product-bottom{margin-top:8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.app-chat-product-price{font-size:18px;font-weight:820;letter-spacing:-.4px;white-space:nowrap}
+.app-chat-product-view{height:32px;padding:0 11px;border:0;border-radius:999px;background:#f2f2f2;color:#0b0b0b;font-size:10px;font-weight:800}
+.app-chat-more{margin-top:9px;color:#777;font-size:10px;text-align:center}
+
+/* The Feed is intentionally bare. Product imagery begins at the top edge; no logo,
+   no "FindAI / Feed" title and no redundant search shortcut. */
+#discover{padding-bottom:calc(var(--nav-h) + var(--safe-bottom));background:#000}
+#discover .discover-header{display:none!important}
+#discover .discover-feed-wrap{position:absolute;inset:0 0 calc(var(--nav-h) + var(--safe-bottom)) 0;background:#000}
+#discover #personalFeed{height:100%;padding:0!important;margin:0;gap:0;scroll-padding-top:0}
+#discover #personalFeed .reel-card{min-height:100%;height:100%;border-radius:0!important}
+#discover #personalFeed .product-panel{padding-bottom:18px}
+
+/* Make iOS/PWA chrome inherit a solid surface instead of the translucent grey strip. */
+html,body{background:#000!important}
+@supports(padding:max(0px)){body{padding-top:0!important}}
+
+html.findai-light #search.app-chat-screen,html.findai-light #search .app-chat-scroll{background:#f6f7f9}
+html.findai-light #search .app-chat-header{background:linear-gradient(180deg,#f6f7f9 0%,rgba(246,247,249,.97) 74%,rgba(246,247,249,0) 100%)}
+html.findai-light #search .app-chat-logo-btn{background:#000}
+html.findai-light #search .app-chat-composer{background:#fff;border-color:#d8dce1;box-shadow:0 12px 34px rgba(30,38,48,.12)}
+html.findai-light #search .app-chat-composer textarea{color:#17191c}
+html.findai-light #search .app-chat-composer textarea::placeholder{color:#8a9098}
+html.findai-light #search .app-chat-plus{background:#f0f2f4;color:#17191c}
+html.findai-light #search .app-search-submit{background:#111;color:#fff}
+html.findai-light .app-chat-welcome h1{color:#17191c}
+html.findai-light .app-chat-user-bubble{background:#e9ecef;color:#17191c}
+html.findai-light .app-chat-assistant{color:#22262b}
+html.findai-light .app-chat-product{background:#fff;border-color:#dfe2e6;color:#17191c}
+html.findai-light .app-chat-product-title{color:#33383e}
+html.findai-light .app-chat-product-source{color:#767d86}
+html.findai-light .app-chat-product-view{background:#111;color:#fff}
+
+@media(max-height:740px){
+  #search .app-chat-scroll{padding-top:calc(var(--safe-top) + 64px);padding-bottom:calc(var(--nav-h) + var(--safe-bottom) + 84px)}
+  #search .app-chat-composer{bottom:calc(var(--nav-h) + var(--safe-bottom) + 7px)}
+  .app-chat-welcome h1{font-size:24px}
+}
+
 </style>
-  <meta name="findai-build" content="v42-search-feed-scan-fast">
+  <meta name="findai-build" content="v43-chat-search-plain-feed">
 </head>
 <body>
 <div class="app">
-  <!-- Search / product reels -->
-  <section id="search" class="screen active search-home">
-    <header class="search-header">
-      <div class="brand-row">
-        <div class="brand" role="button" tabindex="0" aria-label="Open search" onclick="openSearchHome()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSearchHome();}">FindAI</div>
-        <div class="header-actions" id="headerAccountActions">
-          <button class="login-pill" id="loginPill" type="button" onclick="openLogin()">Log in</button>
-          <button class="create-listing-pill" id="createListingPill" type="button" onclick="openCreateListing()" hidden>Create Listing</button>
-          <button class="account-avatar" id="accountAvatar" type="button" aria-label="Open account and messages" onclick="openAccountMenu()" hidden>
-            <img id="headerAvatarImage" alt=""><span id="headerAvatarInitials">F</span>
-            <span class="app-avatar-unread" id="appMpAvatarBadge" aria-label="Unread marketplace messages">0</span>
-          </button>
-        </div>
-      </div>
-      <form class="search-form" onsubmit="return doSearch(event)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7.5"/><path d="M20 20l-3.5-3.5"/></svg>
-        <input id="q" type="search" placeholder="Search for anything…" enterkeyhint="search" autocomplete="off">
-        <button type="submit" class="app-search-submit" aria-label="Search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+  <!-- Search: conversational FindAI shopping assistant -->
+  <section id="search" class="screen active app-chat-screen">
+    <header class="app-chat-header">
+      <button class="app-chat-logo-btn" type="button" onclick="startNewAppChat()" aria-label="Start a new FindAI search">
+        <img src="/findai-search-icon-192.png?v=15" alt="">
+      </button>
+      <div class="header-actions app-chat-account" id="headerAccountActions">
+        <button class="login-pill" id="loginPill" type="button" onclick="openLogin()">Log in</button>
+        <button class="account-avatar" id="accountAvatar" type="button" aria-label="Open account" onclick="openAccountMenu()" hidden>
+          <img id="headerAvatarImage" alt=""><span id="headerAvatarInitials">F</span>
+          <span class="app-avatar-unread" id="appMpAvatarBadge" aria-label="Unread messages">0</span>
         </button>
-      </form>
-    </header>
-    <div class="feed-wrap">
-      <div class="reel-feed" id="feed" aria-live="polite">
-        <div class="search-home-state">
-          <div class="search-home-mark" aria-hidden="true">
-            <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round">
-              <path d="M7 15V9a2 2 0 0 1 2-2h6M33 7h6a2 2 0 0 1 2 2v6M41 33v6a2 2 0 0 1-2 2h-6M15 41H9a2 2 0 0 1-2-2v-6"/>
-              <circle cx="23" cy="23" r="8.5"/><path d="m29.2 29.2 6.2 6.2"/>
-            </svg>
-          </div>
-          <h1>What are you looking for?</h1>
-          <p>Search products, compare live listings and find the best place to buy.</p>
-        </div>
       </div>
-      <div class="reel-dots" id="reelDots" aria-hidden="true"></div>
+    </header>
+
+    <div class="app-chat-scroll" id="feed" aria-live="polite">
+      <div class="app-chat-welcome" id="appChatWelcome">
+        <h1>Shop with FindAI</h1>
+      </div>
     </div>
+
+    <form class="app-chat-composer" id="appChatComposer" onsubmit="return doSearch(event)">
+      <button class="app-chat-plus" type="button" onclick="go('scan')" aria-label="Scan or upload a product">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <textarea id="q" rows="1" placeholder="Shop with FindAI" enterkeyhint="send" autocomplete="off" autocapitalize="sentences" oninput="appChatAutoGrow(this)" onkeydown="appChatKeydown(event)"></textarea>
+      <button type="submit" class="app-search-submit" id="appChatSend" aria-label="Send">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+      </button>
+    </form>
   </section>
 
   <!-- Feed: personalised discovery reel, loaded only when the user opens it -->
   <section id="discover" class="screen">
-    <header class="discover-header">
-      <div class="discover-title"><span>FindAI</span><h1>Feed</h1></div>
-      <button class="discover-search-shortcut" type="button" onclick="openSearchHome()" aria-label="Open search">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7.5"/><path d="M20 20l-3.5-3.5"/></svg>
-      </button>
-    </header>
     <div class="feed-wrap discover-feed-wrap">
       <div class="reel-feed" id="personalFeed" aria-live="polite">
-        <div class="feed-status"><div><b>Your FindAI feed</b>Personalised products will appear here when you open Feed.</div></div>
+        <div class="reel-loading-splash plain-feed-loading" aria-label="Feed ready"><div class="feed-more-spinner"></div></div>
       </div>
     </div>
   </section>
@@ -2598,7 +2704,7 @@ function updateAccountHeader(){
   const avatar=$('#accountAvatar');
   const createListing=$('#createListingPill');
   if(login) login.hidden=!!profile;
-  if(createListing) createListing.hidden=!profile;
+  if(createListing) createListing.hidden=true;
   if(avatar) avatar.hidden=!profile;
   if(actions) actions.classList.toggle('account-logged-in',!!profile);
   if(profile) paintAccountAvatar(avatar,profile);
@@ -4328,7 +4434,7 @@ function renderLoading(query='',source=''){
   const targetFeed=appActiveFeedElement();
   targetFeed.classList.remove('search-grid-mode');
   targetFeed.innerHTML=personalised
-    ? `<div class="reel-loading-splash" aria-label="Loading products"><div class="reel-loading-word">FindAI</div></div>`
+    ? `<div class="reel-loading-splash plain-feed-loading" aria-label="Loading products"><div class="feed-more-spinner"></div></div>`
     : `<div class="reel-loading-splash search-status-loading" aria-label="Searching products"><div class="reel-loading-word">FindAI</div><div class="search-loading-copy" id="appSearchLoadingCopy">Searching for “${escapeHTML(subject)}”</div></div>`;
   const dots=$('#reelDots');if(dots)dots.innerHTML='';
   if(!personalised){
@@ -6387,6 +6493,158 @@ async function appHandleLaunchDeepLink(){
     source:'findai'
   });
   try{history.replaceState({},'',location.pathname);}catch(_){}
+}
+
+
+
+/* =========================================================
+   v43 conversational Search mechanics
+   - same product-vs-question split as the website
+   - plain ChatGPT/Claude-style composer
+   - normal vertical results, never reels
+   ========================================================= */
+let appChatConversation=[];
+let appChatBusy=false;
+let appChatController=null;
+let appChatLastProductQuery='';
+let appChatResultBatches=[];
+const APP_CHAT_REFINE_TOKENS=new Set(['new','brand','sealed','unsealed','used','unopened','opened','mint','boxed','unboxed','genuine','authentic','original','cheap','cheaper','cheapest','budget','red','orange','yellow','green','blue','navy','teal','purple','pink','black','white','cream','beige','tan','brown','grey','gray','gold','silver','only','just','please','show','me','the','a','an','some','any','more','ones','one','version','edition','instead','now','make','it','that','these','those','them','with','without','no','free','shipping','delivery','postage','returns','return','ebay','stockx','etsy','discogs','aliexpress','auction','auctions','offer','offers','refurbished','refurb','preowned','pre-owned','disc','digital']);
+
+function appChatAutoGrow(el){
+  if(!el)return;el.style.height='auto';el.style.height=Math.min(el.scrollHeight,116)+'px';
+}
+function appChatKeydown(event){
+  if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();doSearch(event);}
+}
+function appChatIsRefinement(text){
+  if(!appChatLastProductQuery)return false;
+  let s=String(text||'').toLowerCase()
+    .replace(/(?:under|below|max|less than|for less than|up to|no more than|cheaper than|over|above)\s*\$?\s*[0-9,.]+\s*(k|m|thousand|dollars|dollar|usd|aud)?/gi,' ')
+    .replace(/\$\s*[0-9,.]+/g,' ').replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+  if(!s)return true;
+  const toks=s.split(' ').filter(Boolean);if(toks.length>4)return false;
+  return toks.every(t=>APP_CHAT_REFINE_TOKENS.has(t)||/^(19|20)\d{2}$/.test(t));
+}
+function appChatIsDealQuestion(text){
+  const s=String(text||'').trim();if(!s)return false;
+  const price=/(?:A\$|AU\$|US\$|C\$|NZ\$|HK\$|S\$|\$|£|€|\bAUD\b|\bUSD\b|\bGBP\b|\bEUR\b)\s*[0-9]+|\b[0-9]+(?:\.[0-9]{1,2})?\s*(?:dollars?|bucks?|quid|aud|usd|gbp|eur)\b/i.test(s);
+  const verdict=/\b(good|fair|great|reasonable|bad|poor|expensive|overpriced|cheap|deal|value|worth|too\s+much|should\s+i\s+(?:buy|pay)|market\s+(?:price|value)|going\s+rate|price\s+range)\b/i.test(s);
+  return price&&verdict;
+}
+function appChatIsProductSearch(text){
+  const s=String(text||'').trim().toLowerCase();
+  if(!s)return false;
+  if(/\d\s*[+\-*/^×÷]\s*\d/.test(s)&&/^[\d\s+\-*/^×÷=().,]+$/.test(s))return false;
+  if(/\b(square root|sqrt|cube root|divided by|multiplied by|to the power|squared|cubed|percent of|factorial)\b/.test(s))return false;
+  if(appChatIsDealQuestion(s))return false;
+  if(/\b(find|buy|get|looking for|search for|need|want|show me|locate|source|cop|grab)\b/.test(s))return true;
+  if(/\b(?:cheapest|lowest\s+price|best\s+(?:deal|price)|where\s+can\s+i\s+buy|who\s+has\s+the)\b/.test(s))return true;
+  if(s.includes('?'))return false;
+  if(/^((what|why|how|who|whom|when|where|which)('?s)?|is|are|am|was|were|can|could|would|should|do|does|did|will|tell me|explain|help|define|calculate|hi|hello|hey|thanks|thank|ok|okay)\b/.test(s))return false;
+  return true;
+}
+function appChatReplyHtml(text){
+  const clean=String(text||'').trim();if(!clean)return '';
+  return clean.split(/\n{2,}|\n/).map(x=>x.trim()).filter(Boolean).map(x=>'<p>'+escapeHTML(x)+'</p>').join('');
+}
+function appChatScrollBottom(smooth=true){
+  const feed=$('#feed');if(!feed)return;requestAnimationFrame(()=>{feed.scrollTo({top:feed.scrollHeight,behavior:smooth?'smooth':'auto'});});
+}
+function appChatWelcomeHtml(){return '<div class="app-chat-welcome" id="appChatWelcome"><h1>Shop with FindAI</h1></div>';}
+function startNewAppChat(focus=true){
+  if(appChatController){try{appChatController.abort();}catch(_){}}
+  appChatBusy=false;appChatConversation=[];appChatLastProductQuery='';appChatResultBatches=[];currentFeedItems=[];currentFeedData=null;
+  const feed=$('#feed');if(feed){feed.innerHTML=appChatWelcomeHtml();feed.scrollTop=0;}
+  const q=$('#q');if(q){q.value='';q.style.height='auto';if(focus)setTimeout(()=>q.focus(),60);}
+  const send=$('#appChatSend');if(send)send.disabled=false;
+}
+function openSearchHome(focus=true){
+  if(feedRequestController&&feedState&&feedState.source==='personalised'){try{feedRequestController.abort();}catch(_){} }
+  finaliseReelTracking();go('search');
+  const feed=$('#feed');if(feed&&!feed.children.length)feed.innerHTML=appChatWelcomeHtml();
+  if(focus){const q=$('#q');if(q)setTimeout(()=>q.focus(),60);}
+}
+function appChatAddUser(text){
+  const feed=$('#feed');if(!feed)return null;const welcome=$('#appChatWelcome');if(welcome)welcome.remove();
+  const row=document.createElement('div');row.className='app-chat-turn user';row.innerHTML='<div class="app-chat-user-bubble">'+escapeHTML(text)+'</div>';feed.appendChild(row);return row;
+}
+function appChatAddAssistant(html){
+  const feed=$('#feed');if(!feed)return null;const row=document.createElement('div');row.className='app-chat-turn assistant';row.innerHTML='<div class="app-chat-assistant">'+html+'</div>';feed.appendChild(row);return row;
+}
+function appChatAddThinking(label){
+  const row=appChatAddAssistant('<div class="app-chat-thinking"><span>'+escapeHTML(label||'Thinking')+'</span><i></i><i></i><i></i></div>');
+  if(row)row.dataset.chatThinking='1';return row;
+}
+function appChatRemoveThinking(){const row=document.querySelector('[data-chat-thinking="1"]');if(row)row.remove();}
+function appChatProductPlaceholder(item){
+  const source=String(item&&(item.retailer||item.source)||'Retailer');
+  return '<div class="reel-image-placeholder"><b>'+escapeHTML(source)+'</b><span>Product image unavailable</span></div>';
+}
+function appChatRenderProducts(items,data,query){
+  const list=(Array.isArray(items)?items:[]).filter(Boolean).slice(0,12);if(!list.length)return '';
+  const batch=appChatResultBatches.length;appChatResultBatches.push({items:list,data:data||{},query:String(query||'')});
+  return '<div class="app-chat-result-stack">'+list.map((item,index)=>{
+    const image=getImage(item),title=String(item.title||'Product listing'),source=getSource(item),price=appListingPriceText(item,data)||'',logo=String(item&&item.retailerLogo||'');
+    const media=image?'<img src="'+escapeAttr(image)+'" alt="'+escapeAttr(title)+'" loading="lazy" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,\''+escapeAttr(item&&(item.retailer||item.source)||'Retailer')+'\',\''+escapeAttr(logo)+'\',\'reel-image-placeholder\')">':appChatProductPlaceholder(item);
+    return '<article class="app-chat-product" onclick="appChatOpenItem('+batch+','+index+')"><div class="app-chat-product-media">'+media+'</div><div class="app-chat-product-copy"><div class="app-chat-product-source">'+sourceMarkup(source,item)+'</div><div class="app-chat-product-title">'+escapeHTML(title)+'</div><div class="app-chat-product-bottom"><strong class="app-chat-product-price">'+escapeHTML(price)+'</strong><button class="app-chat-product-view" type="button" onclick="appChatViewDeal('+batch+','+index+',event)">View deal</button></div></div></article>';
+  }).join('')+'</div>'+(Array.isArray(items)&&items.length>12?'<div class="app-chat-more">More matching listings are available in this search.</div>':'');
+}
+function appChatSetBatch(batch){
+  const b=appChatResultBatches[batch];if(!b)return null;currentFeedItems=b.items;currentFeedData=b.data;feedState={...(feedState||{}),query:b.query,resolvedQuery:b.query,source:'search',loading:false};return b;
+}
+function appChatOpenItem(batch,index){const b=appChatSetBatch(batch);if(!b||!b.items[index])return;openSearchResultDetail(index);}
+function appChatViewDeal(batch,index,event){if(event){event.preventDefault();event.stopPropagation();}const b=appChatSetBatch(batch);if(!b||!b.items[index])return;openDeal(index,event);}
+function appChatFallbackProductReply(query,items,data){
+  const n=data&&data.searchNarrative;
+  if(n&&n.headline)return '<p>'+escapeHTML(n.headline)+'</p>'+(n.explanation?'<p>'+escapeHTML(n.explanation)+'</p>':'');
+  const count=Array.isArray(items)?items.length:0;
+  return '<p>'+(count?'I found '+count+' current option'+(count===1?'':'s')+' for '+escapeHTML(query)+'.':'I could not find a close live match yet.')+'</p>';
+}
+async function appChatRunProductSearch(displayText,searchText,thinking){
+  const result=await fetchProductResults(searchText,{page:1,limit:24,preserveExact:false,signal:appChatController?appChatController.signal:null,passive:false});
+  const data=result.data||{},items=Array.isArray(data.listings)?data.listings:[];
+  appChatLastProductQuery=result.resolvedQuery||searchText;
+  appChatConversation.push({role:'assistant',content:items.length?'I found current listings for '+appChatLastProductQuery+'.':'I could not find a close live match.'});
+  appChatRemoveThinking();
+  appChatAddAssistant(appChatFallbackProductReply(displayText,items,data)+appChatRenderProducts(items,data,result.resolvedQuery||searchText));
+}
+async function appChatRunAssistant(displayText,thinking){
+  const response=await fetch(WORKER+'/?chat=1',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:appChatConversation.slice(-10)}),signal:appChatController?appChatController.signal:null});
+  const data=await response.json();if(!response.ok)throw new Error(data&&data.error||'Assistant request failed');
+  const reply=String(data&&data.reply||'').trim();const items=Array.isArray(data&&data.items)?data.items:[];
+  if(data&&data.search&&data.search.query)appChatLastProductQuery=String(data.search.query||'').trim()||appChatLastProductQuery;
+  appChatConversation.push({role:'assistant',content:reply||(items.length?'I found current shopping options.':'I could not answer that just now.')});
+  appChatRemoveThinking();
+  let html=appChatReplyHtml(reply);
+  if(!html&&items.length)html='<p>Here are the strongest current options I found.</p>';
+  if(!html)html='<p>I had trouble with that one. Try rephrasing it.</p>';
+  html+=appChatRenderProducts(items,data,appChatLastProductQuery||displayText);
+  appChatAddAssistant(html);
+}
+async function appChatSubmit(text){
+  const displayText=String(text||'').trim();if(!displayText||appChatBusy)return;
+  const refinement=appChatIsRefinement(displayText);
+  const searchText=refinement?(appChatLastProductQuery+' '+displayText).replace(/\s+/g,' ').trim():displayText;
+  const productIntent=refinement||appChatIsProductSearch(displayText);
+  const pricedQuestion=appChatIsDealQuestion(displayText)||/\b(?:market\s+(?:price|value)|fair\s+price|going\s+rate|what.*worth|how\s+much)\b/i.test(displayText);
+  if((productIntent||pricedQuestion)&&!(await appProConsume('search')))return;
+  appChatBusy=true;appChatController=typeof AbortController!=='undefined'?new AbortController():null;
+  const send=$('#appChatSend');if(send)send.disabled=true;
+  appChatAddUser(displayText);appChatConversation.push({role:'user',content:displayText});
+  const thinking=appChatAddThinking(productIntent?'Searching live shops':'Thinking');appChatScrollBottom(false);
+  try{
+    if(productIntent)await appChatRunProductSearch(displayText,searchText,thinking);
+    else await appChatRunAssistant(displayText,thinking);
+  }catch(error){
+    appChatRemoveThinking();if(!(error&&error.name==='AbortError'))appChatAddAssistant('<p>Sorry, I had trouble just now. Please try again.</p>');
+  }finally{
+    appChatBusy=false;appChatController=null;if(send)send.disabled=false;const q=$('#q');if(q){q.focus();appChatAutoGrow(q);}appChatScrollBottom(true);if(typeof findaiHandlePostSearchLimit==='function')findaiHandlePostSearchLimit();
+  }
+}
+function doSearch(event){
+  if(event&&event.preventDefault)event.preventDefault();
+  const input=$('#q');const value=String(input&&input.value||'').trim();if(!value||appChatBusy)return false;
+  input.value='';input.style.height='auto';appChatSubmit(value);return false;
 }
 
 /* Boot — Search is instant. The discovery Feed is deliberately lazy. */
