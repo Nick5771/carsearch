@@ -3305,10 +3305,10 @@ function collectImageCandidates(item){
   };
   [
     item.primaryImage,item.primaryImageUrl,item.primaryImageURL,item.imageUrl,item.imageURL,item.image_url,
-    item.mainImage,item.mainImageUrl,item.galleryURL,item.galleryUrl,item.image,item.photo,item.photoUrl,
+    item.mainImage,item.mainImageUrl,item.galleryURL,item.galleryUrl,item.image,item.stockxImage,item.photo,item.photoUrl,
     item.thumbnailUrl,item.thumbnail,item.picture
   ].forEach(value=>push(value));
-  [item.images,item.imageUrls,item.galleryImages,item.additionalImages,item.photos].forEach(group=>{
+  [item.images,item.imageUrls,item.galleryImages,item.additionalImages,item.photos,item.thumbnailImages].forEach(group=>{
     if(Array.isArray(group)) group.forEach(value=>push(value));
   });
   return candidates;
@@ -5156,7 +5156,12 @@ function imageMatchTokens(value){
 function imageMatchConflict(a,b){
   const aa=' '+normaliseQueryText(a)+' ',bb=' '+normaliseQueryText(b)+' ';
   const pairs=[[' digital ',' disc '],[' digital ',' disk '],[' pro ',' slim '],[' max ',' mini '],[' left ',' right ']];
-  return pairs.some(([x,y])=>(aa.includes(x)&&bb.includes(y))||(aa.includes(y)&&bb.includes(x)));
+  if(pairs.some(([x,y])=>(aa.includes(x)&&bb.includes(y))||(aa.includes(y)&&bb.includes(x))))return true;
+  const colours=['white','black','red','blue','green','pink','brown','beige','cream','orange','yellow','purple','silver','gold','grey','gray'];
+  const collect=t=>new Set(colours.filter(c=>t.includes(' '+c+' ')).map(c=>c==='gray'?'grey':c));
+  const ca=collect(aa),cb=collect(bb);if(ca.size&&cb.size&&!Array.from(ca).some(c=>cb.has(c)))return true;
+  const cuts=['low','mid','high'],cut=t=>cuts.find(c=>t.includes(' '+c+' '))||'',xa=cut(aa),xb=cut(bb);
+  return !!(xa&&xb&&xa!==xb);
 }
 function strictPeerImage(item,index){
   const title=String(item&&item.title||'');if(!title)return '';
