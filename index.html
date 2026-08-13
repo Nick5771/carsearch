@@ -326,6 +326,10 @@ body.findai-light .findai-speak-btn.speaking{background:#111;color:#fff;border-c
 .plus-btn{width:34px;height:34px;border-radius:8px;background:#fff;border:none;color:#000;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s}
 .plus-btn:hover{background:#e0e0e0}
 .plus-btn:disabled{background:#222;color:#666;cursor:not-allowed}
+.mic-btn{width:34px;height:34px;border-radius:8px;background:transparent;border:none;color:#b8bcc2;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .15s,color .15s,transform .15s}
+.mic-btn svg{width:20px;height:20px;stroke:currentColor}.mic-btn:hover{background:#202124;color:#fff}.mic-btn:active{transform:scale(.95)}
+.mic-btn.listening{background:#fff;color:#111;animation:findaiWebMicPulse 1.2s ease-in-out infinite}
+@keyframes findaiWebMicPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.08)}50%{box-shadow:0 0 0 6px rgba(255,255,255,0)}}
 .plus-menu{position:absolute;bottom:46px;left:0;background:#1c1c1c;border:1px solid #333;border-radius:12px;padding:6px;display:none;box-shadow:0 8px 28px rgba(0,0,0,.55);z-index:1100;min-width:160px}
 .plus-menu.open{display:block}
 .plus-menu button{width:100%;background:transparent;border:none;color:#eee;font-family:inherit;font-size:14px;text-align:left;padding:9px 11px;border-radius:7px;cursor:pointer;display:flex;align-items:center;gap:9px;white-space:nowrap}
@@ -877,6 +881,7 @@ body.findai-light .send-btn svg{stroke:currentColor}
 body.findai-light .send-btn:hover{background:#e9ecef;border-color:#dfe2e6}
 body.findai-light .chat-in::placeholder{color:#8a9098}
 body.findai-light .plus-btn{background:#f3f4f6;color:#17191c;border:1px solid #dfe2e6}body.findai-light .plus-btn:hover{background:#e9ecef}
+body.findai-light .mic-btn{color:#5e646c}body.findai-light .mic-btn:hover{background:#eef0f2;color:#111}body.findai-light .mic-btn.listening{background:#111;color:#fff}
 body.findai-light .plus-menu{background:#fff;border-color:#d9dde2;box-shadow:0 12px 34px rgba(35,43,53,.15)}body.findai-light .plus-menu button{color:#17191c}body.findai-light .plus-menu button:hover{background:#f0f2f5}
 body.findai-light .fa-search-usage-notice{color:#717780}body.findai-light .fa-search-usage-notice strong{color:#202328}
 body.findai-light .msg-body{background:#fff;color:#24272c;border-color:#dfe2e6}
@@ -1159,6 +1164,9 @@ body.findai-light .prev-card-title{color:#111317}
           </div>
           <input type="file" id="img-input" accept="image/*" style="display:none" onchange="onImagePicked(this)">
           <textarea id="chat-in" class="chat-in" placeholder='Try "Find me a Macbook Pro for less than $750"' rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+          <button class="mic-btn" id="mic-btn" type="button" onclick="findaiVoiceToggle(event)" aria-label="Voice input" title="Voice input">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>
+          </button>
           <button class="send-btn" id="send-btn" onclick="handleFindaiSendButton()" aria-label="Send">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
             <span class="send-stop-icon" aria-hidden="true"></span>
@@ -3020,6 +3028,7 @@ function isRefinement(q){
 function escapeHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 function resetChat(){
+  findaiVoiceStop(true);
   conversation=[];
   document.getElementById('welcome').style.display='flex';
   document.getElementById('messages').style.display='none';
@@ -3031,6 +3040,52 @@ function showChat(){
   document.getElementById('welcome').style.display='none';
   document.getElementById('messages').style.display='flex';
 }
+let findaiVoiceRecognition=null;
+let findaiVoiceListening=false;
+let findaiVoiceBaseText='';
+function findaiVoiceSetListening(on){
+  findaiVoiceListening=!!on;
+  const button=document.getElementById('mic-btn');
+  if(button){button.classList.toggle('listening',findaiVoiceListening);button.setAttribute('aria-label',findaiVoiceListening?'Stop voice input':'Voice input');button.title=findaiVoiceListening?'Stop voice input':'Voice input';}
+}
+function findaiVoiceStop(abort=false){
+  const recognition=findaiVoiceRecognition;
+  if(recognition){try{abort&&recognition.abort?recognition.abort():recognition.stop();}catch(_){} }
+  findaiVoiceSetListening(false);
+}
+function findaiVoiceErrorMessage(code){
+  if(code==='not-allowed'||code==='service-not-allowed')return 'Microphone access is blocked. Allow microphone access for FindAI and try again.';
+  if(code==='audio-capture')return 'FindAI could not access a microphone.';
+  if(code==='no-speech')return "I didn't hear anything. Tap the mic and try again.";
+  if(code==='network')return 'Voice recognition is temporarily unavailable.';
+  return 'Voice input could not start. Please try again.';
+}
+function findaiVoiceToggle(event){
+  if(event){event.preventDefault();event.stopPropagation();}
+  if(findaiVoiceListening){findaiVoiceStop(false);return;}
+  const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!Recognition){try{toast('Voice input is not supported by this browser');}catch(_){}return;}
+  const input=document.getElementById('chat-in');if(!input)return;
+  findaiVoiceBaseText=String(input.value||'').trim();
+  try{
+    const recognition=new Recognition();findaiVoiceRecognition=recognition;
+    recognition.lang=(navigator.languages&&navigator.languages[0])||navigator.language||'en-AU';
+    recognition.interimResults=true;recognition.continuous=false;recognition.maxAlternatives=1;
+    recognition.onstart=()=>{findaiVoiceSetListening(true);try{input.focus({preventScroll:true});}catch(_){try{input.focus();}catch(__){}}};
+    recognition.onresult=(e)=>{
+      let transcript='';
+      for(let i=0;i<e.results.length;i++)transcript+=String(e.results[i][0]&&e.results[i][0].transcript||'')+' ';
+      transcript=transcript.replace(/\s+/g,' ').trim();
+      input.value=[findaiVoiceBaseText,transcript].filter(Boolean).join(' ');
+      input.selectionStart=input.selectionEnd=input.value.length;
+      autoResize(input);
+    };
+    recognition.onerror=(e)=>{const code=String(e&&e.error||'');findaiVoiceSetListening(false);if(code!=='aborted'){try{toast(findaiVoiceErrorMessage(code));}catch(_){}}};
+    recognition.onend=()=>{findaiVoiceSetListening(false);findaiVoiceRecognition=null;autoResize(input);};
+    recognition.start();
+  }catch(_){findaiVoiceSetListening(false);findaiVoiceRecognition=null;try{toast('Voice input could not start. Please try again.');}catch(__){}}
+}
+
 let findaiSpeechButton=null;
 function findaiStopSpeech(){
   try{if(window.speechSynthesis)window.speechSynthesis.cancel();}catch(_){}
@@ -3392,6 +3447,108 @@ function retailerSourceHtml(item,hero){
   const logoHtml=logo?`<img class="retailer-source-logo" src="${escapeHtml(logo)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:'';
   return `<span class="retailer-source${hero?' hero':''}">${logoHtml}<span class="retailer-source-name">${escapeHtml(name)}</span></span>`;
 }
+
+/* ── Conservative product-image recovery ───────────────────────────────────
+   Display-only fallback layer. It does NOT change search, ranking, pricing,
+   retailer URLs, API calls, D1 data, or affiliate behaviour.
+   Order: retailer's own alternate image fields -> exact/near-exact peer image
+   already present in this same result set -> existing branded placeholder. */
+function findaiWebsiteImageUrl(value){
+  if(!value)return '';
+  if(typeof value==='object')value=value.url||value.imageUrl||value.imageURL||value.src||value.href||'';
+  let u=String(value||'').trim();if(!u)return '';
+  if(u.indexOf('//')===0)u='https:'+u;
+  if(/^http:\/\//i.test(u))u=u.replace(/^http:/i,'https:');
+  if(!/^https:\/\//i.test(u))return '';
+  return u;
+}
+function findaiWebsiteImageCandidates(item){
+  if(!item)return [];
+  const logo=findaiWebsiteImageUrl(item.retailerLogo),out=[],seen=new Set(),push=function(v){
+    const u=findaiWebsiteImageUrl(v);if(!u||seen.has(u))return;
+    const lower=u.toLowerCase(),clean=lower.replace(/[?#].*$/,'');
+    if(logo&&clean===logo.toLowerCase().replace(/[?#].*$/,''))return;
+    if(/(?:^|[\/_\-.])(?:favicon|site[-_]?logo|brand[-_]?logo|company[-_]?logo|store[-_]?logo|wordmark)(?:[\/_\-.]|$)/i.test(lower))return;
+    seen.add(u);out.push(u);
+  };
+  [
+    item.image,item.image2,item.primaryImage,item.primaryImageUrl,item.primaryImageURL,
+    item.imageUrl,item.imageURL,item.image_url,item.mainImage,item.mainImageUrl,
+    item.galleryURL,item.galleryUrl,item.photo,item.photoUrl,item.thumbnailUrl,
+    item.thumbnail,item.picture,item.stockxImage
+  ].forEach(push);
+  [item.images,item.imageUrls,item.galleryImages,item.additionalImages,item.photos,item.thumbnailImages].forEach(function(group){
+    if(Array.isArray(group))group.forEach(push);
+  });
+  return out;
+}
+function findaiWebsiteImageNorm(value){
+  return String(value||'').toLowerCase()
+    .replace(/\bplaystation\s*5\b/g,' ps5 ')
+    .replace(/\bplaystation5\b/g,' ps5 ')
+    .replace(/\bdisk\b/g,' disc ')
+    .replace(/\bwi[\s-]?fi\b/g,' wifi ')
+    .replace(/\b(\d+)\s*gb\b/g,' $1gb ')
+    .replace(/\b(\d+)\s*tb\b/g,' $1tb ')
+    .replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
+}
+function findaiWebsiteImageConflict(a,b){
+  const aa=' '+findaiWebsiteImageNorm(a)+' ',bb=' '+findaiWebsiteImageNorm(b)+' ';
+  const pairs=[
+    [' digital ',' disc '],[' pro ',' slim '],[' max ',' mini '],[' left ',' right '],
+    [' 1tb ',' 2tb '],[' 512gb ',' 1tb '],[' 256gb ',' 512gb ']
+  ];
+  return pairs.some(function(p){return (aa.indexOf(p[0])>=0&&bb.indexOf(p[1])>=0)||(aa.indexOf(p[1])>=0&&bb.indexOf(p[0])>=0);});
+}
+function findaiWebsiteImageTokens(value){
+  const stop=new Set(['the','and','for','with','from','new','used','sale','bundle','console','edition','item','product','official','genuine','brand','very']);
+  return findaiWebsiteImageNorm(value).split(/\s+/).filter(function(x){return x.length>=2&&!stop.has(x);});
+}
+function findaiWebsiteExactPeerImage(item,peers){
+  const title=String(item&&item.title||'');if(!title||!Array.isArray(peers))return '';
+  const ids=['gtin','mpn','sku','styleId','modelNumber'].map(function(k){return String(item&&item[k]||'').toLowerCase().trim();}).filter(Boolean);
+  const target=findaiWebsiteImageTokens(title),targetSet=new Set(target);
+  let best='',bestScore=0;
+  for(const peer of peers){
+    if(!peer||peer===item)continue;
+    const imgs=findaiWebsiteImageCandidates(peer);if(!imgs.length)continue;
+    const peerTitle=String(peer.title||'');if(!peerTitle||findaiWebsiteImageConflict(title,peerTitle))continue;
+    if(ids.length){
+      const peerIds=['gtin','mpn','sku','styleId','modelNumber'].map(function(k){return String(peer&&peer[k]||'').toLowerCase().trim();}).filter(Boolean);
+      if(ids.some(function(id){return peerIds.indexOf(id)>=0;}))return imgs[0];
+    }
+    const peerSet=new Set(findaiWebsiteImageTokens(peerTitle));
+    let shared=0;targetSet.forEach(function(t){if(peerSet.has(t))shared++;});
+    const denom=Math.max(1,Math.min(targetSet.size,peerSet.size));
+    const score=shared/denom;
+    const familyStrong=(targetSet.has('ps5')&&peerSet.has('ps5'))||(targetSet.has('iphone')&&peerSet.has('iphone'))||(targetSet.has('ipad')&&peerSet.has('ipad'))||(targetSet.has('macbook')&&peerSet.has('macbook'));
+    const enough=(shared>=4&&score>=.76)||(familyStrong&&shared>=2&&score>=.72);
+    if(enough&&score>bestScore){bestScore=score;best=imgs[0];}
+  }
+  return best;
+}
+function findaiWebsiteCardImageUrl(value){
+  const u=findaiWebsiteImageUrl(value);if(!u)return '';
+  if(/i\.ebayimg\.com/i.test(u)){
+    const size=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
+    return u.replace(/s-l\d+\./i,size+'.');
+  }
+  return u;
+}
+function findaiWebsiteImagePlan(item,peers){
+  const own=findaiWebsiteImageCandidates(item),peer=findaiWebsiteExactPeerImage(item,peers||[]);
+  const raw=[...own];if(peer&&raw.indexOf(peer)===-1)raw.push(peer);
+  const display=[],seen=new Set();
+  raw.forEach(function(u){
+    const shown=findaiWebsiteCardImageUrl(u);
+    [shown,u].forEach(function(x){if(x&&!seen.has(x)){seen.add(x);display.push(x);}});
+  });
+  return {src:display[0]||'',alts:display.slice(1,7),borrowed:!own.length&&!!peer};
+}
+function findaiWebsiteImageAltAttr(alts){
+  return escapeHtml(JSON.stringify(Array.isArray(alts)?alts:[]));
+}
+
 function retailerProductPlaceholderHtml(item,cls){
   const name=String(item&& (item.retailer||item.source) || 'Retailer').trim()||'Retailer';
   const logo=String(item&&item.retailerLogo||'').trim();
@@ -3401,6 +3558,12 @@ function retailerProductPlaceholderHtml(item,cls){
 }
 function findaiRetailerImgError(img,name,logo){
   try{
+    let alts=[];try{alts=JSON.parse(img.getAttribute('data-image-alts')||'[]');}catch(_){}
+    while(alts.length){
+      const next=findaiWebsiteImageUrl(alts.shift());
+      img.setAttribute('data-image-alts',JSON.stringify(alts));
+      if(next&&next!==img.src){img.src=next;return;}
+    }
     const item={retailer:String(name||'Retailer'),source:String(name||'Retailer'),retailerLogo:String(logo||'')};
     const wrap=document.createElement('div');wrap.innerHTML=retailerProductPlaceholderHtml(item,img.classList.contains('deal-featured-image')?'deal-featured-placeholder':'chat-card-ph');
     img.replaceWith(wrap.firstElementChild);
@@ -3742,15 +3905,15 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
     const isFindAI=isFindAIListing(item);
     const sourceKey=String(item.source||'').toLowerCase();
     const srcBadge=listingSourceHtml(item,false);
-    const _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
-    const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
+    const imagePlan=findaiWebsiteImagePlan(item,items);
+    const imgSrc=imagePlan.src;
     const _hasOffer=Array.isArray(item.buyingOptions)&&item.buyingOptions.indexOf('BEST_OFFER')!==-1;
     const _buyOnly=isAli||isWeb||isBrickLink||(!isFindAI&&sourceKey&&sourceKey!=='ebay');
     const _btns=item._retailerLinkOnly
       ? '<div class="card-btns"><a class="card-btn" href="'+escapeHtml(item.url||'#')+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">'+escapeHtml(dealButtonLabel(item))+'</a></div>'
       : cardButtonsHtml(item.url, _hasOffer, item.itemId, _buyOnly, item.image);
-    const _savedItem={title:item.title,image:item.image,price:item.price,url:item.url,itemId:item.itemId,marketplaceListingId:item.marketplaceListingId,_findaiMarketplace:item._findaiMarketplace,source:item.source,currency:item.currency,shippingCost:item.shippingCost,shipping:item.shipping,location:item.location,country:item.country||c,searchQ:label};
-    return `<div class="chat-card" data-q="${escapeHtml(label||'')}" data-item="${escapeHtml(JSON.stringify(_savedItem))}">${findaiSavedHeartHtml(_savedItem)}<a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">${imgSrc?`<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="findaiRetailerImgError(this,'${escapeHtml(item.retailer||item.source||'Retailer')}','${escapeHtml(item.retailerLogo||'')}')">`:retailerProductPlaceholderHtml(item,'chat-card-ph')}<div class="chat-card-body"><div style="margin-bottom:5px">${srcBadge}</div><div class="chat-card-title">${item.title||''}</div><div class="chat-card-price">${price}</div>${cardListingMeta(item,c)}</div></a><div style="padding:0 12px 12px">${_btns}</div></div>`;
+    const _savedItem={title:item.title,image:imgSrc||item.image,price:item.price,url:item.url,itemId:item.itemId,marketplaceListingId:item.marketplaceListingId,_findaiMarketplace:item._findaiMarketplace,source:item.source,currency:item.currency,shippingCost:item.shippingCost,shipping:item.shipping,location:item.location,country:item.country||c,searchQ:label};
+    return `<div class="chat-card" data-q="${escapeHtml(label||'')}" data-item="${escapeHtml(JSON.stringify(_savedItem))}">${findaiSavedHeartHtml(_savedItem)}<a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">${imgSrc?`<img class="chat-card-img" src="${escapeHtml(imgSrc)}" data-image-alts="${findaiWebsiteImageAltAttr(imagePlan.alts)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="findaiRetailerImgError(this,'${escapeHtml(item.retailer||item.source||'Retailer')}','${escapeHtml(item.retailerLogo||'')}')">`:retailerProductPlaceholderHtml(item,'chat-card-ph')}<div class="chat-card-body"><div style="margin-bottom:5px">${srcBadge}</div><div class="chat-card-title">${item.title||''}</div><div class="chat-card-price">${price}</div>${cardListingMeta(item,c)}</div></a><div style="padding:0 12px 12px">${_btns}</div></div>`;
   }).join('');
   const gId='chat-grid-'+sid,bId='show-more-'+sid;
   const rem0=items.length-searchStates[sid].shown;
@@ -3962,8 +4125,8 @@ function showMoreCards(sid){
     const isFindAI=isFindAIListing(item);
     const sourceKey=String(item.source||'').toLowerCase();
     const srcBadge=listingSourceHtml(item,false);
-    const _imgSize=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
-    const imgSrc=item.image&&!isAli?item.image.replace(/s-l\d+\./,_imgSize+'.'):item.image;
+    const imagePlan=findaiWebsiteImagePlan(item,state.items);
+    const imgSrc=imagePlan.src;
     const _hasOffer=Array.isArray(item.buyingOptions)&&item.buyingOptions.indexOf('BEST_OFFER')!==-1;
     const _buyOnly=isAli||isWeb||isBrickLink||(!isFindAI&&sourceKey&&sourceKey!=='ebay');
     const _btns=item._retailerLinkOnly
@@ -3972,9 +4135,9 @@ function showMoreCards(sid){
     const card=document.createElement('div');
     card.className='chat-card';
     card.setAttribute('data-q', state.query||'');
-    const savedItem={title:item.title,image:item.image,price:item.price,url:item.url,itemId:item.itemId,marketplaceListingId:item.marketplaceListingId,_findaiMarketplace:item._findaiMarketplace,source:item.source,currency:item.currency,country:country,searchQ:state.query||''};
+    const savedItem={title:item.title,image:imgSrc||item.image,price:item.price,url:item.url,itemId:item.itemId,marketplaceListingId:item.marketplaceListingId,_findaiMarketplace:item._findaiMarketplace,source:item.source,currency:item.currency,country:country,searchQ:state.query||''};
     card.setAttribute('data-item', JSON.stringify(savedItem));
-    card.innerHTML=findaiSavedHeartHtml(savedItem)+`<a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">`+(imgSrc?`<img class="chat-card-img" src="${imgSrc}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="findaiRetailerImgError(this,'${escapeHtml(item.retailer||item.source||'Retailer')}','${escapeHtml(item.retailerLogo||'')}')">`:
+    card.innerHTML=findaiSavedHeartHtml(savedItem)+`<a href="${item.url}" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;display:flex;flex-direction:column;flex:1">`+(imgSrc?`<img class="chat-card-img" src="${escapeHtml(imgSrc)}" data-image-alts="${findaiWebsiteImageAltAttr(imagePlan.alts)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="findaiRetailerImgError(this,'${escapeHtml(item.retailer||item.source||'Retailer')}','${escapeHtml(item.retailerLogo||'')}')">`:
       retailerProductPlaceholderHtml(item,'chat-card-ph'))+
       `<div class="chat-card-body"><div style="margin-bottom:5px">${srcBadge}</div><div class="chat-card-title">${item.title||''}</div><div class="chat-card-price">${price}</div>${cardListingMeta(item,country)}</div></a><div style="padding:0 12px 12px">${_btns}</div>`;
     card.classList.add('search-card-enter');grid.appendChild(card);requestAnimationFrame(function(){card.classList.add('visible')});
@@ -4039,6 +4202,7 @@ function handleFindaiSendButton(){
 async function sendMsg(){
   const inp=document.getElementById('chat-in');
   const q=inp.value.trim();
+  if(q)findaiVoiceStop(true);
   if(busy)return;
   if(pendingImage){
     const img=pendingImage, txt=q;
