@@ -26,6 +26,8 @@
     document.documentElement.style.colorScheme=resolved;
     var meta=document.querySelector('meta[name="theme-color"]');
     if(meta)meta.setAttribute('content',resolved==='light'?'#f6f7f9':'#050607');
+    var statusMeta=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if(statusMeta)statusMeta.setAttribute('content',resolved==='light'?'default':'black');
   }catch(_){}
 })();
 </script>
@@ -2275,6 +2277,71 @@ html.findai-light .app-chat-new{background:#f0f2f4;color:#17191c}.findai-light .
 html.findai-light .app-chat-result-hero,html.findai-light .app-chat-grid-card{background:#fff;color:#17191c;border-color:#dce0e5}.findai-light .app-chat-result-hero-media,.findai-light .app-chat-grid-media,.findai-light .app-chat-result-hero-media img,.findai-light .app-chat-grid-media img{background:#f3f4f6}.findai-light .app-chat-result-hero-title,.findai-light .app-chat-grid-title{color:#24282d}.findai-light .app-chat-result-hero-view{background:#111;color:#fff}.findai-light .app-chat-show-more{background:#fff;color:#17191c;border-color:#d8dce1}
 
 @media(max-height:740px){#search .app-chat-composer{min-height:110px;padding-top:12px}#search .app-chat-scroll{padding-bottom:calc(var(--nav-h) + var(--safe-bottom) + 142px)}.app-chat-result-hero-media{height:190px}.app-chat-grid-media{height:122px}}
+
+/* =========================================================
+   FindAI v45 — compact feed chrome, true light mode, result-mode composer
+   and response narration
+   ========================================================= */
+:root{--nav-h:58px}
+
+/* height:100% previously over-constrained this absolutely-positioned wrapper, so
+   its bottom inset was ignored and the reel continued underneath the tab bar. */
+#discover .discover-feed-wrap{height:auto!important;top:0!important;bottom:calc(var(--nav-h) + var(--safe-bottom))!important}
+#discover #personalFeed{height:100%!important}
+#discover #personalFeed .reel-card{height:100%!important;min-height:100%!important}
+
+/* Smaller bottom tabs, physically lower on the screen. */
+.nav{height:calc(var(--nav-h) + var(--safe-bottom))!important;padding-bottom:var(--safe-bottom)!important}
+.nav button{gap:1px!important;padding:4px 0 1px!important;font-size:9.5px!important;line-height:1!important}
+.nav button svg{width:19px!important;height:19px!important}
+.nav button.active:after{display:none!important}
+
+/* Big composer at home; compact low composer once a conversation has begun. */
+#search.app-chat-results-mode .app-chat-composer{
+  bottom:calc(var(--nav-h) + var(--safe-bottom) + 2px);
+  min-height:62px;max-height:126px;padding:8px 9px;border-radius:25px;
+  grid-template-columns:44px minmax(0,1fr) 44px;grid-template-rows:auto;align-items:end;row-gap:0
+}
+#search.app-chat-results-mode .app-chat-composer textarea{
+  grid-column:2;grid-row:1;min-height:44px;max-height:96px;padding:10px 2px 8px;font-size:16px;align-self:end
+}
+#search.app-chat-results-mode .app-chat-plus{grid-column:1;grid-row:1}
+#search.app-chat-results-mode .app-search-submit{grid-column:3;grid-row:1}
+#search.app-chat-results-mode .app-chat-scroll{padding-bottom:calc(var(--nav-h) + var(--safe-bottom) + 78px)}
+
+/* Both action circles match: white in dark mode, black in light mode. */
+#search .app-chat-plus,#search .app-search-submit{background:#f3f3f3!important;color:#0b0b0b!important;border:0!important}
+html.findai-light #search .app-chat-plus,html.findai-light #search .app-search-submit{background:#111!important;color:#fff!important;border:0!important}
+
+/* True light mode into the status/safe area. */
+html.findai-light,html.findai-light body,html.findai-light .app{background:#f6f7f9!important}
+html.findai-light #search.app-chat-screen,html.findai-light #search .app-chat-scroll{background:#f6f7f9!important}
+html.findai-light #search .app-chat-header{background:linear-gradient(180deg,#f6f7f9 0%,rgba(246,247,249,.97) 76%,rgba(246,247,249,0) 100%)!important}
+
+/* Light reels use a light information panel instead of black-on-black copy. */
+html.findai-light #discover,html.findai-light #discover .discover-feed-wrap,html.findai-light #discover #personalFeed{background:#f6f7f9!important}
+html.findai-light #discover .reel-card{background:#fff!important}
+html.findai-light #discover .hero-stage{background:#f3f4f6!important}
+html.findai-light #discover .product-panel{
+  background:linear-gradient(180deg,rgba(255,255,255,0) 0%,rgba(255,255,255,.48) 28%,rgba(255,255,255,.92) 57%,#fff 78%,#fff 100%)!important
+}
+html.findai-light #discover .title,html.findai-light #discover .price,html.findai-light #discover .condition-badge{color:#17191c!important;text-shadow:none!important}
+html.findai-light #discover .listing-meta{color:#6f7680!important}
+html.findai-light #discover .source-chip .retailer-source-name{color:#17191c!important;text-shadow:none!important}
+html.findai-light #discover .view-deal{background:#111!important;color:#fff!important;box-shadow:none!important}
+html.findai-light #discover .hero-stage::after{background:linear-gradient(180deg,rgba(255,255,255,.06) 0%,rgba(255,255,255,0) 68%,rgba(255,255,255,.28) 84%,rgba(255,255,255,.82) 100%)!important}
+
+.app-chat-result-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+
+/* Narration control on FindAI answers. */
+.app-chat-speak{
+  width:34px;height:34px;margin:8px 0 2px;border:1px solid rgba(255,255,255,.10);border-radius:50%;
+  background:#121212;color:#aeb3ba;display:grid;place-items:center;padding:0
+}
+.app-chat-speak svg{width:17px;height:17px;stroke:currentColor}
+.app-chat-speak.speaking{background:#f3f3f3;color:#111}
+html.findai-light .app-chat-speak{background:#fff;color:#626a74;border-color:#d8dce1}
+html.findai-light .app-chat-speak.speaking{background:#111;color:#fff}
 </style>
   <meta name="findai-build" content="v44-chat-drawer-grid-results">
 </head>
@@ -6617,6 +6684,12 @@ if(window.visualViewport){visualViewport.addEventListener('resize',findaiSyncVis
 window.addEventListener('resize',findaiSyncVisualViewport,{passive:true});
 window.addEventListener('orientationchange',()=>setTimeout(findaiSyncVisualViewport,120),{passive:true});
 findaiSyncVisualViewport();
+document.addEventListener('click',function(event){
+  if(document.body.dataset.activeTab!=='search')return;
+  const search=$('#search');if(!search||!event.target.closest('#search'))return;
+  if(event.target.closest('button,a,input,textarea,.app-chat-drawer-overlay,.app-chat-result-shell'))return;
+  appChatTryFocus();
+},{passive:true});
 
 function appChatReadSessions(){try{const x=JSON.parse(localStorage.getItem(APP_CHAT_SESSIONS_KEY)||'[]');return Array.isArray(x)?x:[];}catch(_){return []}}
 function appChatSaveSessions(rows){try{localStorage.setItem(APP_CHAT_SESSIONS_KEY,JSON.stringify((rows||[]).slice(0,6)));}catch(_){}}
@@ -6631,7 +6704,7 @@ function appChatRelativeTime(ts){const d=Math.max(0,Date.now()-Number(ts||0));if
 function renderAppChatDrawerRecents(){const root=$('#appChatRecentList');if(!root)return;const rows=appChatReadSessions();root.innerHTML=rows.length?rows.map(r=>'<button class="app-chat-recent" type="button" onclick="restoreAppChatSession(\''+escapeAttr(r.id)+'\')"><span class="app-chat-recent-copy"><div class="app-chat-recent-title">'+escapeHTML(r.title||'FindAI search')+'</div><div class="app-chat-recent-time">'+escapeHTML(appChatRelativeTime(r.updatedAt))+' ago</div></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 18l6-6-6-6"/></svg></button>').join(''):'<div class="app-chat-recents-empty">Your recent FindAI searches will appear here.</div>';}
 function openAppChatDrawer(){renderAppChatDrawerRecents();const o=$('#appChatDrawerOverlay');if(o){o.classList.add('open');o.setAttribute('aria-hidden','false');}}
 function closeAppChatDrawer(){const o=$('#appChatDrawerOverlay');if(o){o.classList.remove('open');o.setAttribute('aria-hidden','true');}}
-function restoreAppChatSession(id){const row=appChatReadSessions().find(x=>x&&x.id===id);if(!row)return;appChatSessionId=row.id;appChatConversation=Array.isArray(row.conversation)?row.conversation:[];appChatLastProductQuery=String(row.lastProductQuery||'');appChatResultBatches=Array.isArray(row.batches)?row.batches:[];const feed=$('#feed');if(feed){feed.innerHTML=String(row.html||'');feed.scrollTop=0;}if(appChatResultBatches.length){const b=appChatResultBatches[appChatResultBatches.length-1];currentFeedItems=b.items||[];currentFeedData=b.data||null;}closeAppChatDrawer();go('search');const q=$('#q');if(q){q.value='';q.style.height='auto';setTimeout(()=>q.focus({preventScroll:true}),80);}}
+function restoreAppChatSession(id){const row=appChatReadSessions().find(x=>x&&x.id===id);if(!row)return;appChatStopSpeech();appChatSessionId=row.id;appChatConversation=Array.isArray(row.conversation)?row.conversation:[];appChatLastProductQuery=String(row.lastProductQuery||'');appChatResultBatches=Array.isArray(row.batches)?row.batches:[];const feed=$('#feed');if(feed){feed.innerHTML=String(row.html||'');feed.scrollTop=0;}appChatSetResultsMode(!!(row.html||appChatConversation.length));if(appChatResultBatches.length){const b=appChatResultBatches[appChatResultBatches.length-1];currentFeedItems=b.items||[];currentFeedData=b.data||null;}closeAppChatDrawer();go('search');const q=$('#q');if(q){q.value='';q.style.height='auto';setTimeout(()=>q.focus({preventScroll:true}),80);}}
 
 const APP_CHAT_REFINE_TOKENS=new Set(['new','brand','sealed','unsealed','used','unopened','opened','mint','boxed','unboxed','genuine','authentic','original','cheap','cheaper','cheapest','budget','red','orange','yellow','green','blue','navy','teal','purple','pink','black','white','cream','beige','tan','brown','grey','gray','gold','silver','only','just','please','show','me','the','a','an','some','any','more','ones','one','version','edition','instead','now','make','it','that','these','those','them','with','without','no','free','shipping','delivery','postage','returns','return','ebay','stockx','etsy','discogs','aliexpress','auction','auctions','offer','offers','refurbished','refurb','preowned','pre-owned','disc','digital']);
 
@@ -6678,22 +6751,65 @@ function appChatScrollBottom(smooth=true){
 function appChatWelcomeHtml(){return '';}
 function startNewAppChat(focus=true){
   if(appChatController){try{appChatController.abort();}catch(_){}}
+  appChatStopSpeech();appChatSetResultsMode(false);
   appChatBusy=false;appChatConversation=[];appChatLastProductQuery='';appChatResultBatches=[];appChatSessionId='';currentFeedItems=[];currentFeedData=null;
   const feed=$('#feed');if(feed){feed.innerHTML='';feed.scrollTop=0;}
   const q=$('#q');if(q){q.value='';q.style.height='auto';if(focus)setTimeout(()=>{try{q.focus({preventScroll:true});}catch(_){q.focus();}appChatFocusInput();},70);}
   const send=$('#appChatSend');if(send)send.disabled=false;renderAppChatDrawerRecents();
 }
+function appChatTryFocus(){
+  const q=$('#q');if(!q)return;
+  try{q.focus({preventScroll:true});}catch(_){try{q.focus();}catch(__){}}
+  appChatFocusInput();
+}
 function openSearchHome(focus=true){
   if(feedRequestController&&feedState&&feedState.source==='personalised'){try{feedRequestController.abort();}catch(_){} }
   finaliseReelTracking();go('search');
-  if(focus){const q=$('#q');if(q)setTimeout(()=>{try{q.focus({preventScroll:true});}catch(_){q.focus();}appChatFocusInput();},70);}
+  if(focus){requestAnimationFrame(appChatTryFocus);setTimeout(appChatTryFocus,80);setTimeout(appChatTryFocus,260);}
 }
 function appChatAddUser(text){
   const feed=$('#feed');if(!feed)return null;const welcome=$('#appChatWelcome');if(welcome)welcome.remove();
   const row=document.createElement('div');row.className='app-chat-turn user';row.innerHTML='<div class="app-chat-user-bubble">'+escapeHTML(text)+'</div>';feed.appendChild(row);return row;
 }
+let appChatSpeakingButton=null;
+function appChatSpeechText(row){
+  if(!row)return '';
+  const body=row.querySelector('.app-chat-assistant');if(!body)return '';
+  const clone=body.cloneNode(true);
+  clone.querySelectorAll('.app-chat-result-shell,.app-chat-speak,button,svg,.app-chat-thinking').forEach(x=>x.remove());
+  return String(clone.textContent||'').replace(/\s+/g,' ').trim();
+}
+function appChatStopSpeech(){
+  try{if(window.speechSynthesis)window.speechSynthesis.cancel();}catch(_){}
+  if(appChatSpeakingButton){appChatSpeakingButton.classList.remove('speaking');appChatSpeakingButton.setAttribute('aria-label','Read aloud');appChatSpeakingButton=null;}
+}
+function appChatSpeak(button,event){
+  if(event){event.preventDefault();event.stopPropagation();}
+  if(!('speechSynthesis' in window)||typeof SpeechSynthesisUtterance==='undefined'){toast('Read aloud is not available on this device');return;}
+  if(appChatSpeakingButton===button){appChatStopSpeech();return;}
+  appChatStopSpeech();
+  const row=button&&button.closest('.app-chat-turn');const text=appChatSpeechText(row);if(!text){toast('Nothing to read aloud yet');return;}
+  const utterance=new SpeechSynthesisUtterance(text);utterance.rate=1;utterance.pitch=1;
+  utterance.onend=utterance.onerror=()=>appChatStopSpeech();
+  appChatSpeakingButton=button;button.classList.add('speaking');button.setAttribute('aria-label','Stop reading');
+  try{window.speechSynthesis.speak(utterance);}catch(_){appChatStopSpeech();}
+}
+function appChatSpeakButtonHtml(){
+  return '<button class="app-chat-speak" type="button" aria-label="Read aloud" onclick="appChatSpeak(this,event)"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6.5 9H3v6h3.5L11 19V5Z"/><path d="M15 9.5a4 4 0 0 1 0 5"/><path d="M17.8 7a7.5 7.5 0 0 1 0 10"/></svg></button>';
+}
+function appChatSetResultsMode(on){
+  const search=$('#search');if(search)search.classList.toggle('app-chat-results-mode',!!on);
+}
 function appChatAddAssistant(html){
-  const feed=$('#feed');if(!feed)return null;const row=document.createElement('div');row.className='app-chat-turn assistant';row.innerHTML='<div class="app-chat-assistant">'+html+'</div>';feed.appendChild(row);return row;
+  const feed=$('#feed');if(!feed)return null;const row=document.createElement('div');row.className='app-chat-turn assistant';
+  const thinking=/app-chat-thinking/.test(String(html||''));
+  row.innerHTML='<div class="app-chat-assistant">'+html+'</div>';feed.appendChild(row);
+  if(!thinking){
+    const body=row.querySelector('.app-chat-assistant'),shell=body&&body.querySelector('.app-chat-result-shell');
+    if(shell)shell.insertAdjacentHTML('beforebegin',appChatSpeakButtonHtml());else if(body)body.insertAdjacentHTML('beforeend',appChatSpeakButtonHtml());
+    appChatSetResultsMode(true);
+  }
+  return row;
 }
 function appChatAddThinking(label){
   const row=appChatAddAssistant('<div class="app-chat-thinking"><span>'+escapeHTML(label||'Thinking')+'</span><i></i><i></i><i></i></div>');
@@ -6710,14 +6826,14 @@ function appChatGridCard(batch,item,index,data,delayIndex=0){
   return '<article class="app-chat-grid-card" style="animation-delay:'+(80+delayIndex*55)+'ms" onclick="appChatOpenItem('+batch+','+index+')"><div class="app-chat-grid-media">'+media+'</div><div class="app-chat-grid-body"><div class="app-chat-grid-source">'+sourceMarkup(source,item)+'</div><div class="app-chat-grid-title">'+escapeHTML(title)+'</div><div class="app-chat-grid-price">'+escapeHTML(price)+'</div><div class="app-chat-grid-meta">'+escapeHTML([country,shipping].filter(Boolean).join(' · '))+'</div></div></article>';
 }
 function appChatRenderProducts(items,data,query){
-  const list=(Array.isArray(items)?items:[]).filter(Boolean).slice(0,12);if(!list.length)return '';
+  const list=(Array.isArray(items)?items:[]).filter(Boolean).slice(0,16);if(!list.length)return '';
   const batch=appChatResultBatches.length;appChatResultBatches.push({items:list,data:data||{},query:String(query||'')});
   const heroIndex=Math.max(0,appSearchFeaturedIndex(list,data));const hero=list[heroIndex]||list[0];const image=getImage(hero),title=String(hero.title||'Product listing'),source=getSource(hero),price=appListingPriceText(hero,data)||'',logo=String(hero&&hero.retailerLogo||'');
   const heroMedia=image?'<img src="'+escapeAttr(image)+'" alt="'+escapeAttr(title)+'" loading="eager" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,\''+escapeAttr(hero&&(hero.retailer||hero.source)||'Retailer')+'\',\''+escapeAttr(logo)+'\',\'reel-image-placeholder\')">':appChatProductPlaceholder(hero);
-  const indexes=list.map((_,i)=>i).filter(i=>i!==heroIndex);const first=indexes.slice(0,4);const grid=first.map((i,n)=>appChatGridCard(batch,list[i],i,data,n)).join('');
-  return '<div class="app-chat-result-shell" data-batch="'+batch+'"><article class="app-chat-result-hero" onclick="appChatOpenItem('+batch+','+heroIndex+')"><div class="app-chat-result-hero-media">'+heroMedia+'</div><div class="app-chat-result-hero-body"><div class="app-chat-result-hero-source">'+sourceMarkup(source,hero)+'</div><div class="app-chat-result-hero-title">'+escapeHTML(title)+'</div><div class="app-chat-result-hero-row"><strong class="app-chat-result-hero-price">'+escapeHTML(price)+'</strong><button class="app-chat-result-hero-view" type="button" onclick="appChatViewDeal('+batch+','+heroIndex+',event)">View deal</button></div></div></article><div class="app-chat-grid-label">Compare current listings</div><div class="app-chat-result-grid" data-grid-batch="'+batch+'" data-next="4">'+grid+'</div>'+(indexes.length>4?'<button class="app-chat-show-more" type="button" onclick="appChatShowMore('+batch+',this)">Show more results</button>':'')+'</div>';
+  const indexes=list.map((_,i)=>i).filter(i=>i!==heroIndex);const first=indexes.slice(0,8);const grid=first.map((i,n)=>appChatGridCard(batch,list[i],i,data,n)).join('');
+  return '<div class="app-chat-result-shell" data-batch="'+batch+'"><article class="app-chat-result-hero" onclick="appChatOpenItem('+batch+','+heroIndex+')"><div class="app-chat-result-hero-media">'+heroMedia+'</div><div class="app-chat-result-hero-body"><div class="app-chat-result-hero-source">'+sourceMarkup(source,hero)+'</div><div class="app-chat-result-hero-title">'+escapeHTML(title)+'</div><div class="app-chat-result-hero-row"><strong class="app-chat-result-hero-price">'+escapeHTML(price)+'</strong><button class="app-chat-result-hero-view" type="button" onclick="appChatViewDeal('+batch+','+heroIndex+',event)">View deal</button></div></div></article><div class="app-chat-grid-label">Compare current listings</div><div class="app-chat-result-grid" data-grid-batch="'+batch+'" data-next="8">'+grid+'</div>'+(indexes.length>8?'<button class="app-chat-show-more" type="button" onclick="appChatShowMore('+batch+',this)">Show more results</button>':'')+'</div>';
 }
-function appChatShowMore(batch,button){const b=appChatResultBatches[batch];if(!b||!button)return;const shell=button.closest('.app-chat-result-shell'),grid=shell&&shell.querySelector('[data-grid-batch="'+batch+'"]');if(!grid)return;const heroIndex=Math.max(0,appSearchFeaturedIndex(b.items,b.data)),indexes=b.items.map((_,i)=>i).filter(i=>i!==heroIndex),next=Number(grid.dataset.next)||4,chunk=indexes.slice(next,next+4);chunk.forEach((i,n)=>grid.insertAdjacentHTML('beforeend',appChatGridCard(batch,b.items[i],i,b.data,next+n)));grid.dataset.next=String(next+chunk.length);if(next+chunk.length>=indexes.length)button.remove();}
+function appChatShowMore(batch,button){const b=appChatResultBatches[batch];if(!b||!button)return;const shell=button.closest('.app-chat-result-shell'),grid=shell&&shell.querySelector('[data-grid-batch="'+batch+'"]');if(!grid)return;const heroIndex=Math.max(0,appSearchFeaturedIndex(b.items,b.data)),indexes=b.items.map((_,i)=>i).filter(i=>i!==heroIndex),next=Number(grid.dataset.next)||8,chunk=indexes.slice(next,next+6);chunk.forEach((i,n)=>grid.insertAdjacentHTML('beforeend',appChatGridCard(batch,b.items[i],i,b.data,next+n)));grid.dataset.next=String(next+chunk.length);if(next+chunk.length>=indexes.length)button.remove();}
 function appChatSetBatch(batch){
   const b=appChatResultBatches[batch];if(!b)return null;currentFeedItems=b.items;currentFeedData=b.data;feedState={...(feedState||{}),query:b.query,resolvedQuery:b.query,source:'search',loading:false};return b;
 }
@@ -6732,7 +6848,7 @@ function appChatFallbackProductReply(query,items,data){
 async function appChatRunProductSearch(displayText,searchText,thinking){
   const result=await fetchProductResults(searchText,{page:1,limit:24,preserveExact:false,signal:appChatController?appChatController.signal:null,passive:false});
   const data=result.data||{},items=Array.isArray(data.listings)?data.listings:[];
-  appChatLastProductQuery=result.resolvedQuery||searchText;currentFeedItems=items.slice(0,12);currentFeedData=data;feedState={...(feedState||{}),query:appChatLastProductQuery,resolvedQuery:appChatLastProductQuery,source:'search',loading:false};
+  appChatLastProductQuery=result.resolvedQuery||searchText;currentFeedItems=items.slice(0,16);currentFeedData=data;feedState={...(feedState||{}),query:appChatLastProductQuery,resolvedQuery:appChatLastProductQuery,source:'search',loading:false};
   appChatConversation.push({role:'assistant',content:items.length?'I found current listings for '+appChatLastProductQuery+'.':'I could not find a close live match.'});
   appChatRemoveThinking();
   const row=appChatAddAssistant(appChatFallbackProductReply(displayText,items,data)+appChatRenderProducts(items,data,result.resolvedQuery||searchText));if(row)row.classList.add('result-turn');appChatPersistSession();
@@ -6748,7 +6864,7 @@ async function appChatRunAssistant(displayText,thinking){
   if(!html&&items.length)html='<p>Here are the strongest current options I found.</p>';
   if(!html)html='<p>I had trouble with that one. Try rephrasing it.</p>';
   html+=appChatRenderProducts(items,data,appChatLastProductQuery||displayText);
-  const row=appChatAddAssistant(html);if(row&&items.length)row.classList.add('result-turn');if(items.length){currentFeedItems=items.slice(0,12);currentFeedData=data;}appChatPersistSession();
+  const row=appChatAddAssistant(html);if(row&&items.length)row.classList.add('result-turn');if(items.length){currentFeedItems=items.slice(0,16);currentFeedData=data;}appChatPersistSession();
 }
 async function appChatSubmit(text){
   const displayText=String(text||'').trim();if(!displayText||appChatBusy)return;
@@ -7013,6 +7129,7 @@ function applyAppTheme(pref){
   root.setAttribute('data-findai-theme',resolved);
   root.style.colorScheme=resolved;
   var meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.setAttribute('content',resolved==='light'?'#f6f7f9':'#050607');
+  var statusMeta=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');if(statusMeta)statusMeta.setAttribute('content',resolved==='light'?'default':'black');
   document.querySelectorAll('[data-app-theme-choice]').forEach(function(button){button.classList.toggle('active',button.getAttribute('data-app-theme-choice')===p);});
 }
 function setAppTheme(pref){
