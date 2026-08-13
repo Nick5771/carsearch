@@ -883,7 +883,7 @@
 .profile-header button{width:35px;height:35px;border:0;border-radius:50%;background:rgba(255,255,255,.05);color:#fff;display:grid;place-items:center}.profile-header svg{width:19px;height:19px}
 .profile-scroll{flex:1;min-height:0;overflow:auto;padding:7px 15px calc(22px + var(--safe-bottom));scrollbar-width:none}.profile-scroll::-webkit-scrollbar{display:none}
 .profile-identity{text-align:center}.profile-avatar{margin:4px auto 12px;cursor:pointer}.profile-identity h2{margin:0;font-size:23px;letter-spacing:-.55px}.profile-identity p{margin:4px 0 0;color:#8e959f;font-size:11px}
-.profile-stats{display:grid;grid-template-columns:repeat(3,1fr);margin:22px 0 14px}.profile-stat{text-align:center;border-right:1px solid rgba(255,255,255,.07)}.profile-stat:last-child{border:0}.profile-stat b{display:block;font-size:19px}.profile-stat span{display:block;margin-top:4px;color:#858c96;font-size:10px}
+.profile-stats{display:grid;grid-template-columns:repeat(2,1fr);margin:22px 0 14px}.profile-stat{text-align:center;border-right:1px solid rgba(255,255,255,.07)}.profile-stat:last-child{border:0}.profile-stat b{display:block;font-size:19px}.profile-stat span{display:block;margin-top:4px;color:#858c96;font-size:10px}
 .profile-card{margin-top:11px;padding:14px;border:1px solid rgba(255,255,255,.065);border-radius:19px;background:rgba(16,19,24,.92)}
 .profile-card-head{display:flex;align-items:center;justify-content:space-between}.profile-card-head h3{margin:0;font-size:13px}.profile-card-head span{color:#689cff;font-size:10px}
 .interest-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}.interest-chip{padding:8px 10px;border:1px solid rgba(255,255,255,.06);border-radius:999px;background:#191c21;color:#e7e9ec;font-size:10px}
@@ -2361,7 +2361,29 @@ html.findai-light #search .app-chat-voice{color:#17191c}
 html.findai-light #search .app-chat-voice.listening{background:#111;color:#fff}
 @keyframes findaiMicPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.08)}50%{box-shadow:0 0 0 7px rgba(255,255,255,0)}}
 </style>
-  <meta name="findai-build" content="v47-voice-input">
+  <meta name="findai-build" content="v60-launch-focus-typo-repair">
+
+<style id="findai-v60-focus-overrides">
+.account-menu-item[onclick*="openPurchases"],
+.account-menu-item[onclick*="openMyListings"],
+.account-menu-item[onclick*="openAppMarketplaceInbox"]{display:none!important}
+#createListingScreen,#myListingsScreen,#purchasesScreen,#appMpInbox,.app-avatar-unread{display:none!important}
+.app-pro-menu-item{background:transparent!important}
+.app-pro-menu-item .app-pro-menu-star{color:#c9c8c4!important}
+.app-pro-state{background:#252524!important;color:#b9b8b3!important}
+.app-pro-profile-card{border-color:#3a3a38!important;background:#1d1d1c!important;color:#f5f5f3!important}
+.app-pro-profile-copy span{color:#999894!important}
+.app-pro-profile-chip{background:#292927!important;color:#c2c1bc!important}
+.app-pro-sheet{background:linear-gradient(180deg,#1a1a19 0,#121211 100%)!important;border-color:#393936!important}
+.app-pro-brand{color:#c9c8c4!important}
+.app-pro-brand i{background:#d8d7d2!important;box-shadow:none!important}
+.app-pro-check{background:#292927!important;color:#d8d7d2!important}
+.app-pro-feature{background:#1c1c1b!important;border-color:#343431!important}
+.app-pro-feature span,.app-pro-sub,.app-pro-note{color:#969590!important}
+.app-pro-cta{background:#f4f3ef!important;color:#151515!important}
+.app-pro-secondary{border-color:#41413e!important;color:#d8d7d2!important}
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -2601,9 +2623,6 @@ html.findai-light #search .app-chat-voice.listening{background:#111;color:#fff}
         <button class="account-menu-item app-pro-menu-item" onclick="closeAccountMenu();appOpenPro()"><svg class="app-pro-menu-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.4 4.9L20 9l-4 3.9.9 5.6L12 15.9 7.1 18.5 8 12.9 4 9l5.6-1.1L12 3z"/></svg><span>FindAI Pro</span><span class="app-pro-state" id="appProMenuState">Upgrade</span></button>
         <button class="account-menu-item" onclick="closeAccountMenu();go('tracker')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg><span>Saved items</span><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
         <button class="account-menu-item" onclick="closeAccountMenu();go('tracker')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 17l5-5 3.5 3.5L20 8"/><path d="M16 8h4v4"/></svg><span>Tracked products</span><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-        <button class="account-menu-item" onclick="openPurchases()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 7h14l-1 13H6L5 7z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/><path d="M9 14l2 2 4-4"/></svg><span>Purchases</span><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-        <button class="account-menu-item" onclick="openMyListings()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16v13H4zM8 7V5a4 4 0 0 1 8 0v2"/></svg><span>My Listings</span><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-        <button class="account-menu-item" onclick="openAppMarketplaceInbox()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v12H8l-4 4V5z"/></svg><span>Messages</span><span class="app-mp-menu-badge" id="appMpUnreadBadge">0</span></button>
         <button class="account-menu-item" onclick="appEnableNotifications()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span>Phone notifications</span><span class="app-push-state" id="appPushState">Off</span></button>
         <button class="account-menu-item" onclick="openAppSettings()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.87l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.25.37.6.7 1 .9.34.17.72.25 1.1.25H21v4h-.1a1.7 1.7 0 0 0-1.5.85z"/></svg><span>Settings</span><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
         <button class="account-menu-item danger" onclick="signOutAccount()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 17l5-5-5-5M15 12H3M14 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5"/></svg><span>Log out</span><span></span></button>
@@ -2635,11 +2654,11 @@ html.findai-light #search .app-chat-voice.listening{background:#111;color:#fff}
     <header class="profile-header"><button onclick="closeProfile()" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><button onclick="toast('Profile settings are coming next')" aria-label="Profile settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.87l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.25.37.6.7 1 .9.34.17.72.25 1.1.25H21v4h-.1a1.7 1.7 0 0 0-1.5.85z"/></svg></button></header>
     <div class="profile-scroll">
       <div class="profile-identity"><button class="profile-avatar" id="profileAvatar" onclick="document.getElementById('accountAvatarInput').click()" aria-label="Change profile photo"><img alt=""><span>F</span></button><h2 id="profileName">FindAI user</h2><p id="profileEmail"></p></div>
-      <div class="profile-stats"><div class="profile-stat"><b id="profileSavedCount">0</b><span>Saved</span></div><div class="profile-stat"><b id="profileTrackedCount">0</b><span>Tracked</span></div><div class="profile-stat"><b id="profileListingsCount">0</b><span>Listings</span></div></div>
+      <div class="profile-stats"><div class="profile-stat"><b id="profileSavedCount">0</b><span>Saved</span></div><div class="profile-stat"><b id="profileTrackedCount">0</b><span>Tracked</span></div></div>
       <button type="button" class="profile-card app-pro-profile-card" onclick="appOpenPro()"><div class="app-pro-profile-top"><div class="app-pro-profile-copy"><b id="appProProfileTitle">FindAI Pro</b><span id="appProProfileCopy">Unlimited search, scans and price intelligence</span></div><span class="app-pro-profile-chip" id="appProProfileChip">Upgrade</span></div></button>
       <div class="profile-card"><div class="profile-card-head"><h3>Interests</h3><span>Personalised</span></div><div class="interest-chips" id="profileInterests"></div></div>
       <div class="profile-card"><div class="profile-card-head"><h3>Recent searches</h3><span>See all</span></div><div class="recent-search-list" id="profileRecentSearches"></div></div>
-      <div class="profile-device-note">Your marketplace listings are securely synced to your FindAI account and appear across the app and website.</div>
+      
     </div>
   </section>
 
@@ -3049,7 +3068,7 @@ function appRenderPro(reason=''){
     <div class="app-pro-features">${appProFeatureRows().map(row=>`<div class="app-pro-feature"><div class="app-pro-check">✓</div><div><b>${row[0]}</b><span>${row[1]}</span></div></div>`).join('')}</div>
     ${active?(manual?'<button class="app-pro-cta" onclick="appClosePro()">Lifetime Pro active</button>':'<button class="app-pro-cta" id="appProCta" onclick="appManagePro()">Manage subscription</button>'):(signed?'<button class="app-pro-cta" id="appProCta" onclick="appStartProPurchase()">Get FindAI Pro</button>':'<button class="app-pro-cta" onclick="appClosePro();openLogin()">Sign in to upgrade</button>')}
     <div class="app-pro-error" id="appProError"></div>
-    <div class="app-pro-note">Marketplace buying and selling stay available without Pro. Unlimited features are subject to fair use. Cancel anytime.</div>`;
+    <div class="app-pro-note">Unlimited features are subject to fair use. Cancel anytime.</div>`;
 }
 function appOpenPro(reason=''){
   closeAccountMenu();appRenderPro(reason);const overlay=$('#appProOverlay');if(overlay)overlay.classList.add('show');
