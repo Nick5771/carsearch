@@ -274,7 +274,7 @@ body.findai-light .findai-speak-btn.speaking{background:#111;color:#fff;border-c
 .stockx-card .chat-card-body{padding:10px 12px}
 .discogs-card .chat-card-body{padding:10px 12px}
 .chat-card:hover{border-color:#444;transform:translateY(-2px)}
-.chat-card-img{width:100%;height:176px;object-fit:cover;display:block;background:#1a1a1a}
+.chat-card-img{width:100%;height:176px;object-fit:contain;object-position:center;display:block;background:#f4f5f7}
 .chat-card-ph{width:100%;height:176px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;font-size:32px}
 .chat-card-body{padding:10px 12px;flex:1;display:flex;flex-direction:column}
 .chat-card-title{font-size:12px;color:#ddd;margin-bottom:6px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.8em}
@@ -3464,22 +3464,62 @@ function findaiWebsiteImageUrl(value){
 }
 function findaiWebsiteImageCandidates(item){
   if(!item)return [];
-  const logo=findaiWebsiteImageUrl(item.retailerLogo),out=[],seen=new Set(),push=function(v){
-    const u=findaiWebsiteImageUrl(v);if(!u||seen.has(u))return;
+  const logo=findaiWebsiteImageUrl(item.retailerLogo),out=[],seen=new Set();
+  const push=function(v,priority){
+    if(!v)return;
+    let raw=v,width=0,height=0;
+    if(typeof v==='object'){
+      raw=v.url||v.imageUrl||v.imageURL||v.src||v.href||'';
+      width=Number(v.width||v.w)||0;height=Number(v.height||v.h)||0;
+    }
+    const u=findaiWebsiteImageUrl(raw);if(!u||seen.has(u))return;
     const lower=u.toLowerCase(),clean=lower.replace(/[?#].*$/,'');
     if(logo&&clean===logo.toLowerCase().replace(/[?#].*$/,''))return;
     if(/(?:^|[\/_\-.])(?:favicon|site[-_]?logo|brand[-_]?logo|company[-_]?logo|store[-_]?logo|wordmark)(?:[\/_\-.]|$)/i.test(lower))return;
-    seen.add(u);out.push(u);
+    seen.add(u);out.push({url:u,width:width,height:height,priority:Number(priority)||0});
   };
-  [
-    item.image,item.image2,item.primaryImage,item.primaryImageUrl,item.primaryImageURL,
-    item.imageUrl,item.imageURL,item.image_url,item.mainImage,item.mainImageUrl,
-    item.galleryURL,item.galleryUrl,item.photo,item.photoUrl,item.thumbnailUrl,
-    item.thumbnail,item.picture,item.stockxImage
-  ].forEach(push);
+  // Prefer fields that retailers explicitly describe as their primary/main product image.
+  [item.primaryImage,item.primaryImageUrl,item.primaryImageURL,item.mainImage,item.mainImageUrl].forEach(v=>push(v,5));
+  [item.image,item.image2,item.imageUrl,item.imageURL,item.image_url,item.stockxImage].forEach(v=>push(v,4));
+  [item.galleryURL,item.galleryUrl,item.photo,item.photoUrl,item.picture].forEach(v=>push(v,3));
+  [item.thumbnailUrl,item.thumbnail].forEach(v=>push(v,1));
   [item.images,item.imageUrls,item.galleryImages,item.additionalImages,item.photos,item.thumbnailImages].forEach(function(group){
-    if(Array.isArray(group))group.forEach(push);
+    if(Array.isArray(group))group.forEach(v=>push(v,2));
   });
+  return out;
+}
+function findaiWebsiteImageCandidateScore(candidate){
+  if(!candidate||!candidate.url)return -Infinity;
+  const u=String(candidate.url||'');
+  let score=(Number(candidate.priority)||0)*1000000;
+  const w=Number(candidate.width)||0,h=Number(candidate.height)||0;
+  if(w>0&&h>0){
+    score+=Math.min(5000000,w*h);
+    const ratio=w/h;
+    // Product cards are landscape-ish, but do not over-favour any aspect ratio.
+    if(ratio>=.72&&ratio<=1.8)score+=350000;
+    else if(ratio>2.8||ratio<.42)score-=250000;
+  }
+  const sizes=[...u.matchAll(/(?:s-l|width=|w=|odnWidth=)(\d+)/ig)].map(m=>Number(m[1])||0);
+  if(sizes.length){const n=Math.max(...sizes);score+=Math.min(1800000,n*n);}
+  if(/s-l(?:800|1000|1200|1400|1600)/i.test(u))score+=900000;
+  if(/(?:thumbnail|thumb|s-l(?:64|96|140|225|300))(?:[^0-9]|$)/i.test(u))score-=900000;
+  return score;
+}
+function findaiWebsiteEnhanceImageUrl(value){
+  const raw=findaiWebsiteImageUrl(value);if(!raw)return '';
+  let out=raw;
+  try{
+    // eBay: request the larger source while keeping the original URL as an immediate fallback.
+    if(/i\.ebayimg\.com/i.test(out))out=out.replace(/s-l\d+\./i,'s-l1200.');
+    const u=new URL(out),host=u.hostname.toLowerCase();
+    // Walmart CDN commonly exposes output dimensions in the query string.
+    if(host.includes('walmartimages')||host.includes('walmart')){
+      for(const key of ['w','width','odnWidth'])if(u.searchParams.has(key))u.searchParams.set(key,'1200');
+      for(const key of ['h','height','odnHeight'])if(u.searchParams.has(key))u.searchParams.set(key,'1200');
+      out=u.href;
+    }
+  }catch(_){ }
   return out;
 }
 function findaiWebsiteImageNorm(value){
@@ -3498,7 +3538,18 @@ function findaiWebsiteImageConflict(a,b){
     [' digital ',' disc '],[' pro ',' slim '],[' max ',' mini '],[' left ',' right '],
     [' 1tb ',' 2tb '],[' 512gb ',' 1tb '],[' 256gb ',' 512gb ']
   ];
-  return pairs.some(function(p){return (aa.indexOf(p[0])>=0&&bb.indexOf(p[1])>=0)||(aa.indexOf(p[1])>=0&&bb.indexOf(p[0])>=0);});
+  if(pairs.some(function(p){return (aa.indexOf(p[0])>=0&&bb.indexOf(p[1])>=0)||(aa.indexOf(p[1])>=0&&bb.indexOf(p[0])>=0);})){return true;}
+  // Variant-safe peer borrowing for fashion/sneakers: if both titles explicitly name
+  // different colours or different low/mid/high cuts, never reuse the photo.
+  const colours=['white','black','red','blue','green','pink','brown','beige','cream','orange','yellow','purple','silver','gold','grey'];
+  const normColour=function(c){return c==='gray'?'grey':c;};
+  const colourSet=function(t){const out=new Set();colours.concat(['gray']).forEach(function(c){if(t.indexOf(' '+c+' ')>=0)out.add(normColour(c));});return out;};
+  const ca=colourSet(aa),cb=colourSet(bb);
+  if(ca.size&&cb.size){let shared=false;ca.forEach(function(c){if(cb.has(c))shared=true;});if(!shared)return true;}
+  const cuts=['low','mid','high'];
+  const cutOf=function(t){return cuts.find(function(c){return t.indexOf(' '+c+' ')>=0;})||'';};
+  const cutA=cutOf(aa),cutB=cutOf(bb);if(cutA&&cutB&&cutA!==cutB)return true;
+  return false;
 }
 function findaiWebsiteImageTokens(value){
   const stop=new Set(['the','and','for','with','from','new','used','sale','bundle','console','edition','item','product','official','genuine','brand','very']);
@@ -3515,7 +3566,7 @@ function findaiWebsiteExactPeerImage(item,peers){
     const peerTitle=String(peer.title||'');if(!peerTitle||findaiWebsiteImageConflict(title,peerTitle))continue;
     if(ids.length){
       const peerIds=['gtin','mpn','sku','styleId','modelNumber'].map(function(k){return String(peer&&peer[k]||'').toLowerCase().trim();}).filter(Boolean);
-      if(ids.some(function(id){return peerIds.indexOf(id)>=0;}))return imgs[0];
+      if(ids.some(function(id){return peerIds.indexOf(id)>=0;}))return imgs.slice().sort(function(a,b){return findaiWebsiteImageCandidateScore(b)-findaiWebsiteImageCandidateScore(a);})[0].url;
     }
     const peerSet=new Set(findaiWebsiteImageTokens(peerTitle));
     let shared=0;targetSet.forEach(function(t){if(peerSet.has(t))shared++;});
@@ -3523,27 +3574,25 @@ function findaiWebsiteExactPeerImage(item,peers){
     const score=shared/denom;
     const familyStrong=(targetSet.has('ps5')&&peerSet.has('ps5'))||(targetSet.has('iphone')&&peerSet.has('iphone'))||(targetSet.has('ipad')&&peerSet.has('ipad'))||(targetSet.has('macbook')&&peerSet.has('macbook'));
     const enough=(shared>=4&&score>=.76)||(familyStrong&&shared>=2&&score>=.72);
-    if(enough&&score>bestScore){bestScore=score;best=imgs[0];}
+    if(enough&&score>bestScore){bestScore=score;best=imgs.slice().sort(function(a,b){return findaiWebsiteImageCandidateScore(b)-findaiWebsiteImageCandidateScore(a);})[0].url;}
   }
   return best;
 }
 function findaiWebsiteCardImageUrl(value){
-  const u=findaiWebsiteImageUrl(value);if(!u)return '';
-  if(/i\.ebayimg\.com/i.test(u)){
-    const size=(typeof window!=='undefined'&&window.innerWidth&&window.innerWidth<600)?'s-l300':'s-l500';
-    return u.replace(/s-l\d+\./i,size+'.');
-  }
-  return u;
+  return findaiWebsiteEnhanceImageUrl(value);
 }
 function findaiWebsiteImagePlan(item,peers){
-  const own=findaiWebsiteImageCandidates(item),peer=findaiWebsiteExactPeerImage(item,peers||[]);
-  const raw=[...own];if(peer&&raw.indexOf(peer)===-1)raw.push(peer);
+  const own=findaiWebsiteImageCandidates(item).slice().sort(function(a,b){return findaiWebsiteImageCandidateScore(b)-findaiWebsiteImageCandidateScore(a);});
+  const peer=findaiWebsiteExactPeerImage(item,peers||[]);
+  const raw=[];
+  own.forEach(function(c){raw.push(c.url);});
+  if(peer&&raw.indexOf(peer)===-1)raw.push(peer);
   const display=[],seen=new Set();
   raw.forEach(function(u){
-    const shown=findaiWebsiteCardImageUrl(u);
-    [shown,u].forEach(function(x){if(x&&!seen.has(x)){seen.add(x);display.push(x);}});
+    const upgraded=findaiWebsiteEnhanceImageUrl(u);
+    [upgraded,u].forEach(function(x){if(x&&!seen.has(x)){seen.add(x);display.push(x);}});
   });
-  return {src:display[0]||'',alts:display.slice(1,7),borrowed:!own.length&&!!peer};
+  return {src:display[0]||'',alts:display.slice(1,10),borrowed:!own.length&&!!peer};
 }
 function findaiWebsiteImageAltAttr(alts){
   return escapeHtml(JSON.stringify(Array.isArray(alts)?alts:[]));
@@ -3601,12 +3650,12 @@ function dealButtonLabel(item){
 }
 function dealFeaturedCardHtml(item,c){
   if(!item)return '';
-  const img=item.image||item.stockxImage||'';
+  const imagePlan=findaiWebsiteImagePlan(item,[]),img=imagePlan.src;
   const price=item._retailerLinkOnly?authorityDestinationText(item):cardMoney(Number(item.price)||0,item,c);
   const shipping=item._retailerLinkOnly?{text:'',free:false,varies:false}:cardShipping(item,c),countryName=cardListingCountry(item,c);
   const source=String(item.source||'').toLowerCase();
   const label=(source==='stockx'||item._stockx)?'Lowest ask':(item._marketExact===false?'Related listing':'Comparable listing');
-  const media=img?`<img class="deal-featured-image" src="${escapeHtml(img)}" alt="${escapeHtml(item.title||'Listing')}" loading="eager" onerror="findaiRetailerImgError(this,'${escapeHtml(item.retailer||item.source||'Retailer')}','${escapeHtml(item.retailerLogo||'')}')">`:retailerProductPlaceholderHtml(item,'deal-featured-placeholder');
+  const media=img?`<img class="deal-featured-image" src="${escapeHtml(img)}" data-image-alts="${findaiWebsiteImageAltAttr(imagePlan.alts)}" alt="${escapeHtml(item.title||'Listing')}" loading="eager" referrerpolicy="no-referrer" onerror="findaiRetailerImgError(this,'${escapeHtml(item.retailer||item.source||'Retailer')}','${escapeHtml(item.retailerLogo||'')}')">`:retailerProductPlaceholderHtml(item,'deal-featured-placeholder');
   return `<article class="deal-featured">${media}<div class="deal-featured-details"><div class="deal-source">${dealSourceHtml(item)}</div><div class="deal-title">${escapeHtml(item.title||'Comparable listing')}</div><div class="deal-price-label">${escapeHtml(label)}</div><div class="deal-price">${escapeHtml(price)}</div>${countryName?`<div class="deal-country">${escapeHtml(countryName)}</div>`:''}${shipping.text?`<div class="deal-shipping${shipping.free?' free':(shipping.varies?' varies':'')}">${escapeHtml(shipping.text)}</div>`:''}<a class="deal-action" href="${escapeHtml(item.url||'#')}" target="_blank" rel="noopener">${escapeHtml(dealButtonLabel(item))}</a></div></article>`;
 }
 function dealTextHtml(text){
@@ -3632,10 +3681,10 @@ function findaiFeaturedSearchItem(items,parsed){
   const commerceReady=priced.find(x=>String(x&& (x.image||x.stockxImage)||'').trim());
   return commerceReady||priced[0]||list[0];
 }
-function searchFeaturedCardHtml(item,c){
+function searchFeaturedCardHtml(item,c,peers){
   if(!item)return '';
-  const img=item.image||item.stockxImage||'',price=item._retailerLinkOnly?authorityDestinationText(item):(Number(item.price)>0?cardPriceText(item,c):''),shipping=item._retailerLinkOnly?{text:'',free:false,varies:false}:cardShipping(item,c),countryName=cardListingCountry(item,c);
-  const media=img?`<img class="deal-featured-image" src="${escapeHtml(img)}" alt="${escapeHtml(item.title||'Listing')}" loading="eager" onerror="findaiRetailerImgError(this,'${escapeHtml(item.retailer||item.source||'Retailer')}','${escapeHtml(item.retailerLogo||'')}')">`:retailerProductPlaceholderHtml(item,'deal-featured-placeholder');
+  const imagePlan=findaiWebsiteImagePlan(item,peers||[]),img=imagePlan.src,price=item._retailerLinkOnly?authorityDestinationText(item):(Number(item.price)>0?cardPriceText(item,c):''),shipping=item._retailerLinkOnly?{text:'',free:false,varies:false}:cardShipping(item,c),countryName=cardListingCountry(item,c);
+  const media=img?`<img class="deal-featured-image" src="${escapeHtml(img)}" data-image-alts="${findaiWebsiteImageAltAttr(imagePlan.alts)}" alt="${escapeHtml(item.title||'Listing')}" loading="eager" referrerpolicy="no-referrer" onerror="findaiRetailerImgError(this,'${escapeHtml(item.retailer||item.source||'Retailer')}','${escapeHtml(item.retailerLogo||'')}')">`:retailerProductPlaceholderHtml(item,'deal-featured-placeholder');
   return `<article class="deal-featured search-featured">${media}<div class="deal-featured-details"><div class="deal-source">${dealSourceHtml(item)}</div><div class="deal-title">${escapeHtml(item.title||'Live listing')}</div>${price?`<div class="deal-price search-featured-price">${escapeHtml(price)}</div>`:`<div class="search-featured-no-price">${escapeHtml(authorityDestinationText(item))}</div>`}${countryName?`<div class="deal-country">${escapeHtml(countryName)}</div>`:''}${shipping.text?`<div class="deal-shipping${shipping.free?' free':(shipping.varies?' varies':'')}">${escapeHtml(shipping.text)}</div>`:''}<a class="deal-action" href="${escapeHtml(item.url||'#')}" target="_blank" rel="noopener">${escapeHtml(dealButtonLabel(item))}</a></div></article>`;
 }
 function findaiFallbackSearchNarrative(query,items,data,parsed,c,featured){
@@ -3656,8 +3705,8 @@ function renderSearchAnswer(query,kw,items,data,parsed,c){
   const n=(data&&data.searchNarrative)||findaiFallbackSearchNarrative(query,presentation,data,parsed,c,featured);
   const fkey=String(featured.itemId||featured.url||featured.title||'');
   const others=presentation.filter(function(it){return String(it&&it.itemId||it&&it.url||it&&it.title||'')!==fkey;});
-  let html=`<section class="deal-answer search-answer"><div class="deal-copy"><div class="deal-headline">${dealTextHtml(n.headline||'Here is what I found.')}</div><p class="deal-explanation">${dealTextHtml(n.explanation||'')}</p>${n.workLine?`<div class="search-workline">${dealTextHtml(n.workLine)}</div>`:''}</div>${searchFeaturedCardHtml(featured,c)}</section>`;
-  if(others.length)html+=`<div class="search-results-heading">Other matching listings</div><div class="deal-comparables">${renderCards(others,kw,'',parsed&&parsed.maxPrice||'',c,data&&data.ebayCount||0,0,true)}</div>`;
+  let html=`<section class="deal-answer search-answer"><div class="deal-copy"><div class="deal-headline">${dealTextHtml(n.headline||'Here is what I found.')}</div><p class="deal-explanation">${dealTextHtml(n.explanation||'')}</p>${n.workLine?`<div class="search-workline">${dealTextHtml(n.workLine)}</div>`:''}</div>${searchFeaturedCardHtml(featured,c,presentation)}</section>`;
+  if(others.length)html+=`<div class="search-results-heading">Other matching listings</div><div class="deal-comparables">${renderCards(others,kw,'',parsed&&parsed.maxPrice||'',c,data&&data.ebayCount||0,0,true,presentation)}</div>`;
   return {html,plain:[n.headline,n.explanation].filter(Boolean).join(' ')};
 }
 function revealSearchAnswer(body){
@@ -3879,11 +3928,12 @@ function websiteOpenSaved(){
 }
 
 
-function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
+function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet,imagePeers){
   const sym=c==='AU'?'A$':c==='UK'?'£':c==='DE'?'€':'$';
   if(!items.length) return `<p style="color:#666;font-size:14px;margin-top:8px">No listings found right now. Try a different search.</p>`;
   searchCount++; const sid=searchCount;
-  searchStates[sid]={items,shown:Math.min(pageSize(),items.length),query:label};
+  const peerPool=Array.isArray(imagePeers)&&imagePeers.length?imagePeers:items;
+  searchStates[sid]={items,shown:Math.min(pageSize(),items.length),query:label,imagePeers:peerPool};
   const top=items.slice(0,searchStates[sid].shown);
   const displayCount=items.length;
   const displayCountFmt=Number(displayCount).toLocaleString();
@@ -3905,7 +3955,7 @@ function renderCards(items,label,_m,maxPrice,c,ebayCount,etsyCount,quiet){
     const isFindAI=isFindAIListing(item);
     const sourceKey=String(item.source||'').toLowerCase();
     const srcBadge=listingSourceHtml(item,false);
-    const imagePlan=findaiWebsiteImagePlan(item,items);
+    const imagePlan=findaiWebsiteImagePlan(item,peerPool);
     const imgSrc=imagePlan.src;
     const _hasOffer=Array.isArray(item.buyingOptions)&&item.buyingOptions.indexOf('BEST_OFFER')!==-1;
     const _buyOnly=isAli||isWeb||isBrickLink||(!isFindAI&&sourceKey&&sourceKey!=='ebay');
@@ -4125,7 +4175,7 @@ function showMoreCards(sid){
     const isFindAI=isFindAIListing(item);
     const sourceKey=String(item.source||'').toLowerCase();
     const srcBadge=listingSourceHtml(item,false);
-    const imagePlan=findaiWebsiteImagePlan(item,state.items);
+    const imagePlan=findaiWebsiteImagePlan(item,state.imagePeers||state.items);
     const imgSrc=imagePlan.src;
     const _hasOffer=Array.isArray(item.buyingOptions)&&item.buyingOptions.indexOf('BEST_OFFER')!==-1;
     const _buyOnly=isAli||isWeb||isBrickLink||(!isFindAI&&sourceKey&&sourceKey!=='ebay');
