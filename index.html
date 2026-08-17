@@ -1331,6 +1331,7 @@ var mwSneakerMarket = null;   // StockX variant matrix + currently selected size
 var mwSelectedVariantId = '';
 var mwSelectedSizeLabel = '';
 var mwProductId = null;
+var mwTrackerCondition = 'new';
 var mwDisplayTitle = '';
 
 var mwSuggestTimer = null;
@@ -1532,7 +1533,7 @@ function rememberAmbientTrackerItem(query,data,pickedProduct,displayTitle,candid
     var item={
       id:String((data&&data.productId)||d.pid||d.styleId||displayTitle),title:displayTitle||query,
       image:(candidates&&candidates[0])||d.image||'',price:last,symbol:mwFx.sym||'$',changePct:pct,history:raw,
-      product:{pid:d.pid||((d.brand==='LEGO'&&d.styleId)?('lego:'+d.styleId):String((data&&data.productId)||d.styleId||displayTitle)),styleId:d.styleId||'',title:displayTitle||query,colorway:d.colorway||'',brand:d.brand||'',theme:d.theme||'',image:(candidates&&candidates[0])||d.image||'',image2:d.image2||'',pieces:d.pieces||null,released:d.released||null,retired:d.retired||'',rrp:d.rrp||null,minifigures:d.minifigures||null}
+      product:{pid:d.pid||((d.brand==='LEGO'&&d.styleId)?('lego:'+d.styleId):String((data&&data.productId)||d.styleId||displayTitle)),productId:Number((data&&data.productId)||d.productId)||null,canonicalKey:d.canonicalKey||'',styleId:d.styleId||'',title:displayTitle||query,colorway:d.colorway||'',brand:d.brand||'',productType:d.productType||d.categoryKey||'',lifecycle:d.lifecycle||'',endOfLifeDate:d.endOfLifeDate||'',defaultCondition:d.defaultCondition||mwTrackerCondition||'',theme:d.theme||'',image:(candidates&&candidates[0])||d.image||'',image2:d.image2||'',pieces:d.pieces||null,released:d.released||null,retired:d.retired||'',rrp:d.rrp||null,minifigures:d.minifigures||null}
     };
     var old=mwReadAmbientLocal(), key=mwAmbientKey(item), out=[item];
     old.forEach(function(x){if(mwAmbientKey(x)!==key)out.push(x);});
@@ -1993,6 +1994,7 @@ function renderMarketWatch(query, data, pickedProduct){
   document.getElementById('mw-item-title').textContent = displayTitle;
   mwDisplayTitle = displayTitle;
   mwProductId = data.productId || null;
+  mwTrackerCondition = String(data.trackerCondition || (data.productDetails&&data.productDetails.defaultCondition) || 'new').toLowerCase()==='used'?'used':'new';
   mwSneakerMarket = data.sneakerMarket || null;
   mwRenderSizeSelector(mwSneakerMarket);
   var listings = data.listings || [];
@@ -2062,14 +2064,14 @@ function renderMarketWatch(query, data, pickedProduct){
       if(d.minifigures != null && d.minifigures !== '') rows.push(['Minifigures', String(d.minifigures)]);
       if(d.released) rows.push(['Release Year', String(d.released)]);
       if(d.retired != null && d.retired !== '') rows.push(['Retired', String(d.retired)]);
-      rows.push(['Condition', 'New']);
+      rows.push(['Condition', 'New / Sealed']);
     } else {
       if(d.brand) rows.push(['Brand', d.brand]);
       if(d.styleId) rows.push(['Style Code', d.styleId]);
       if(d.colorway) rows.push(['Colorway', mwCleanColorway(d.colorway)]);
       if(mwSelectedSizeLabel) rows.push(['Size', mwSelectedSizeLabel]);
       else if(mwSneakerMarket && mwSneakerMarket.enabled) rows.push(['Size', 'All sizes']);
-      rows.push(['Condition', 'Brand New']);
+      rows.push(['Condition', mwTrackerCondition==='used' ? 'Used / Pre-owned' : 'New']);
     }
     document.getElementById('mw-details-body').innerHTML =
       rows.map(function(r){return '<div class="mw-detail-row"><span>'+r[0]+'</span><span>'+escapeHtml(String(r[1]))+'</span></div>';}).join('');
@@ -2693,7 +2695,7 @@ function updateTrackBtn(){
   btn.classList.toggle('mw-tracking', mwTracking);
 }
 function mwTrackingSource(){
-  return mwSelectedVariantId ? ('variant:' + mwSelectedVariantId) : 'all';
+  return mwSelectedVariantId ? ('variant:' + mwSelectedVariantId) : (mwTrackerCondition==='used'?'all_used':'all');
 }
 
 async function toggleTracking(){
@@ -2710,6 +2712,7 @@ async function toggleTracking(){
         variantId: mwSelectedVariantId || '',
         sizeLabel: mwSelectedSizeLabel || '',
         productId: mwProductId || null,
+        condition: mwTrackerCondition,
         product: mwSelectedProduct || null
       })
     });
@@ -4693,8 +4696,16 @@ async function loadBestDeals(){
     // waiting for account status before it even begins the shopping request.
     var proPromise=findaiGetProStatus(false).catch(function(){return null;});
     var dealCountry=(typeof country==='string'&&country)?country:'AU';
-    var ctrl=new AbortController(),dealTimer=setTimeout(function(){try{ctrl.abort();}catch(_){}},6000);
-    var res;try{res=await fetch(WORKER+'/?bestdeals=1&country='+encodeURIComponent(dealCountry),{headers:findaiProHeaders(false),signal:ctrl.signal,cache:'no-store'});}finally{clearTimeout(dealTimer);}
+    var ctrl=new AbortController(),dealTimer=setTimeout(function(){try{ctrl.abort();}catch(_){}},9000);
+    var res;
+    try{
+      try{res=await fetch(WORKER+'/?bestdeals=1&country='+encodeURIComponent(dealCountry),{headers:findaiProHeaders(false),signal:ctrl.signal,cache:'no-store'});}
+      catch(firstErr){
+        // A cold refresh should never strand the user on an error page. Fall back to the
+        // worker's last-known-good prewarmed feed without starting another expensive scan.
+        res=await fetch(WORKER+'/?bestdeals=1&cacheonly=1&country='+encodeURIComponent(dealCountry),{headers:findaiProHeaders(false),cache:'no-store'}).catch(function(){throw firstErr;});
+      }
+    }finally{clearTimeout(dealTimer);}
     var data={};try{data=await res.json();}catch(_){throw new Error('Deals returned an invalid response');}
     if(!res.ok)throw new Error(data&&data.error?data.error:'Deals are temporarily unavailable');
     var proState=await Promise.race([proPromise,new Promise(function(resolve){setTimeout(function(){resolve(window.findaiProState||null);},350);})]);
