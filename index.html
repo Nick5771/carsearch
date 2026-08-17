@@ -514,11 +514,11 @@ body.findai-light .findai-speak-btn.speaking{background:#111;color:#fff;border-c
 .mw-tb-avatar{width:36px;height:36px;border-radius:50%;background:#1a6fff;color:#fff;border:none;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif}
 @media(max-width:640px){.mw-tb-search{max-width:none}.mw-tb-auth .nav-cta{display:none}.mw-detail-topbar{gap:10px;height:52px;min-height:52px;padding:0 14px}}
 .mw-detail-crumb{font-size:13px;color:#888}
-.mw-detail-grid{max-width:1240px;margin:12px auto 40px;padding:0 20px;display:grid;grid-template-columns:310px 1fr;gap:18px;align-items:start}
+.mw-detail-grid{max-width:1240px;margin:12px auto 40px;padding:0 20px;display:grid;grid-template-columns:340px 1fr;gap:18px;align-items:start}
 .mw-detail-left{display:flex;flex-direction:column;gap:10px}
 .mw-detail-right{display:flex;flex-direction:column;gap:10px;min-width:0}
 
-.mw-product-photo{width:100%;aspect-ratio:1/1;background:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;overflow:hidden;max-height:310px;border:1px solid rgba(255,255,255,.08);box-sizing:border-box}
+.mw-product-photo{width:100%;aspect-ratio:1/1;background:#fff;border-radius:14px;display:flex;align-items:center;justify-content:center;overflow:hidden;max-height:340px;border:1px solid rgba(255,255,255,.08);box-sizing:border-box}
 .mw-product-photo img{width:100%;height:100%;object-fit:contain}
 .mw-product-photo .mw-suggest-ph{width:100%;height:100%;border-radius:14px;font-size:34px}
 
@@ -601,7 +601,7 @@ body.findai-light .findai-speak-btn.speaking{background:#111;color:#fff;border-c
 .mw-listing-btn:hover{background:#185FA5}
 .mw-best-badge{position:absolute;top:-9px;right:10px;background:#1a6fff;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px}
 .mw-listing-shipping{font-size:10.5px;color:#999;white-space:nowrap;line-height:1.2;text-align:left;max-width:100%}.mw-listing-shipping.free{color:#34a853}.mw-listing-shipping.varies{font-size:10px;letter-spacing:-.1px}
-@media(max-width:1050px){.mw-detail-grid{grid-template-columns:270px 1fr;gap:14px;padding:0 14px}.mw-product-photo{max-height:270px}.mw-listings-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.mw-listing-card{padding:8px}.mw-listing-thumb{height:68px}.mw-stat{padding:9px 10px}.mw-stat-chg{padding:3px 5px}}
+@media(max-width:1050px){.mw-detail-grid{grid-template-columns:300px 1fr;gap:14px;padding:0 14px}.mw-product-photo{max-height:300px}.mw-listings-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.mw-listing-card{padding:8px}.mw-listing-thumb{height:68px}.mw-stat{padding:9px 10px}.mw-stat-chg{padding:3px 5px}}
 
 @media(max-width:820px){
   .mw-detail-grid{grid-template-columns:1fr}
@@ -2268,9 +2268,12 @@ function renderChartAndStats(){
         + '<div style="font-size:11px;color:#666;margin-top:2px">'+mwBackfill.marketValueSales+' completed sales \u00b7 6 months</div></div>';
     } else {
       var condLabel=mwTrackerCondition==='used'?'used':'new';
+      var marketSub=(s.count||0)<3
+        ? escapeHtml(String(s.count||0))+' current '+condLabel+' listing'+((s.count||0)===1?'':'s')+' · limited data'
+        : 'Median of '+escapeHtml(String(s.count||0))+' current '+condLabel+' listings';
       mvCard = '<div class="mw-stat"><div class="mw-stat-label">Live Market Value</div>'
         + '<div class="mw-stat-value-big">'+(medianNow?mwMoney(medianNow):'&mdash;')+'</div>'
-        + '<div style="font-size:11px;color:#666;margin-top:2px">Median of '+escapeHtml(String(s.count||0))+' current '+condLabel+' listing'+((s.count||0)===1?'':'s')+'</div></div>';
+        + '<div style="font-size:11px;color:#666;margin-top:2px">'+marketSub+'</div></div>';
     }
 
     if(mwBackfill && mwBackfill.lastSalePrice && mwBackfill.lastSaleDate){
@@ -4741,7 +4744,7 @@ async function loadBestDeals(){
     }else{
       // True first-run cache miss: allow one bounded live bootstrap. Any HTTP error, invalid
       // response or timeout falls back to cache again instead of throwing the whole feature.
-      live=await findaiFetchDealsPayload(base,7000).catch(function(){return null;});
+      live=await findaiFetchDealsPayload(base,8500).catch(function(){return null;});
       if(live)data=live;
       if(!(data&&Array.isArray(data.items)&&data.items.length)){
         var retryCache=await findaiFetchDealsPayload(base+'&cacheonly=1',1800).catch(function(){return null;});
