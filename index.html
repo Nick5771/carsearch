@@ -4689,12 +4689,15 @@ async function loadBestDeals(){
   addThinking('Finding standout deals','search');
   requestAnimationFrame(scrollToLastUser);
   try{
-    var proState=await findaiGetProStatus(false).catch(function(){return null;});
+    // Start entitlement lookup and the deal feed together. Best Deals should never sit idle
+    // waiting for account status before it even begins the shopping request.
+    var proPromise=findaiGetProStatus(false).catch(function(){return null;});
     var dealCountry=(typeof country==='string'&&country)?country:'AU';
-    var ctrl=new AbortController(),dealTimer=setTimeout(function(){try{ctrl.abort();}catch(_){}},9000);
+    var ctrl=new AbortController(),dealTimer=setTimeout(function(){try{ctrl.abort();}catch(_){}},6000);
     var res;try{res=await fetch(WORKER+'/?bestdeals=1&country='+encodeURIComponent(dealCountry),{headers:findaiProHeaders(false),signal:ctrl.signal,cache:'no-store'});}finally{clearTimeout(dealTimer);}
     var data={};try{data=await res.json();}catch(_){throw new Error('Deals returned an invalid response');}
     if(!res.ok)throw new Error(data&&data.error?data.error:'Deals are temporarily unavailable');
+    var proState=await Promise.race([proPromise,new Promise(function(resolve){setTimeout(function(){resolve(window.findaiProState||null);},350);})]);
     removeThinking();
     var items=Array.isArray(data.items)?data.items:[];
     var c=data.country||country;
@@ -4702,7 +4705,7 @@ async function loadBestDeals(){
     if(!items.length){ typeReply(body,"I’m not seeing any deals strong enough to recommend right now. I’d rather show nothing than call an ordinary price a bargain.",''); }
     else{
       var meta=data.meta||{};
-      var evidence='<div class="best-deals-intro"><h2>Deals worth knowing about</h2><p>FindAI checks local prices, recent price history, comparable offers and retailer quality — not just the discount label.</p><div class="best-deals-intro-meta">'+escapeHtml(String(items.length))+' qualified deals in '+escapeHtml(countryName(c)||c)+(meta.indexedRetailers?' · '+escapeHtml(String(meta.indexedRetailers))+' indexed retailers':'')+' · live marketplace + stored retailer intelligence</div></div>';
+      var evidence='<div class="best-deals-intro"><h2>Deals worth knowing about</h2><p>FindAI checks local prices, recent price history, comparable offers and retailer quality — not just the discount label.</p><div class="best-deals-intro-meta">'+escapeHtml(String(items.length))+' qualified deals in '+escapeHtml(countryName(c)||c)+(meta.indexedRetailers?' · '+escapeHtml(String(meta.indexedRetailers))+' indexed retailers':'')+' · live web + marketplace + stored retailer intelligence</div></div>';
       var dealHtml=evidence+((proState&&proState.isPro)?renderDeals(items,c):renderDeals(items.slice(0,4),c));
       if(!(proState&&proState.isPro) && items.length>4) dealHtml+=renderLockedDealsPreview(items.slice(4,12),c);
       typeReply(body,'',dealHtml);
