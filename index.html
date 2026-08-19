@@ -145,7 +145,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .notification-icon{width:36px;height:36px;border:1px solid #2d333c;border-radius:11px;background:#111419;color:#dce0e5;display:grid;place-items:center}.notification-icon svg{width:18px;height:18px}.notification-copy{min-width:0}.notification-copy b{display:block;font-size:12px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.notification-copy span{display:-webkit-box;margin-top:4px;color:#989fa9;font-size:10.5px;line-height:1.35;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.notification-time{padding-top:1px;color:#6f7680;font-size:9px;white-space:nowrap}.notification-unread-dot{display:inline-block;width:6px;height:6px;margin-left:5px;border-radius:50%;background:#1a6fff;vertical-align:1px}.notification-empty{padding:48px 24px;text-align:center;color:#858b94;font-size:12px}.notification-empty b{display:block;margin-bottom:6px;color:#f2f3f5;font-size:15px}
 
 /* Refined search reveal: one quiet inline status, then summary and cards in sequence. */
-.msg.search-loading{gap:0}.msg.search-loading .msg-av{display:none}.search-status{display:flex;align-items:center;padding:4px 2px;color:#a1a7af;font-size:13px;min-height:25px}.search-status-text{display:inline-block;opacity:1;transform:translateY(0);transition:opacity .2s ease,transform .2s ease}.search-status-text.changing{opacity:0;transform:translateY(3px)}.search-status-text:after{content:'';display:inline-block;width:34px;height:1px;margin-left:9px;vertical-align:middle;background:linear-gradient(90deg,transparent,#7b8189,transparent);background-size:200% 100%;animation:findaiStatusSweep 1.5s linear infinite}@keyframes findaiStatusSweep{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.msg.search-loading{gap:0}.msg.search-loading .msg-av{display:none}.search-status{display:flex;align-items:center;gap:12px;padding:4px 2px;color:#a1a7af;font-size:13px;min-height:48px;min-width:0}.search-status-text{display:inline-block;flex:0 1 auto;min-width:0;max-width:min(520px,62vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:1;transform:none}.search-status-text.changing{opacity:1;transform:none}.search-status-text:after{content:none}@keyframes findaiStatusSweep{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .assistant-copy-line{display:block;opacity:0;transform:translateY(5px);transition:opacity .28s ease,transform .28s ease}.assistant-copy-line.visible{opacity:1;transform:none}
 .search-summary-line{font-size:14px;color:#f3f4f6;line-height:1.5;margin-bottom:12px;padding:4px 2px;min-height:30px;display:block;opacity:0;transform:translateY(5px);transition:opacity .3s ease,transform .3s ease}.search-summary-line.visible{opacity:1;transform:none}.search-summary-line strong{font-weight:750}
 .search-card-enter{opacity:0;transform:translateY(11px);transition:opacity .34s ease,transform .34s cubic-bezier(.22,.75,.25,1)}.search-card-enter.visible{opacity:1;transform:none}.search-more-enter{opacity:0;transform:translateY(6px);transition:opacity .25s ease,transform .25s ease}.search-more-enter.visible{opacity:1;transform:none}
@@ -3239,7 +3239,9 @@ function addThinking(label,mode,queryText){
   const first=subject?`Searching for “${subject}”`:(label||'Searching live marketplaces');
   d.innerHTML=`<div class="search-status ai-thinking-row"><span class="search-status-text" id="search-status-text">${escapeHtml(first)}</span></div>`;
   inner.appendChild(d);
-  findaiThinkingStages(mode,queryText).forEach(function(stage,index){findaiThinkingTimers.push(setTimeout(function(){setThinkingStage(stage);},650+index*820));});
+  // Keep the product-search label fixed so the loading UI never shifts horizontally.
+  // The live source icon beside it is the only element that changes while FindAI searches.
+  if(mode!=='search')findaiThinkingStages(mode,queryText).forEach(function(stage,index){findaiThinkingTimers.push(setTimeout(function(){setThinkingStage(stage);},650+index*820));});
 }
 function removeThinking(){findaiThinkingTimers.forEach(clearTimeout);findaiThinkingTimers=[];const t=document.getElementById('thinking');if(t)t.remove();}
 // Scroll so the latest user message sits at the top — called the INSTANT a search is
@@ -6886,7 +6888,7 @@ window.addEventListener('load',function(){
   }catch(_){}
 })();
 </script>
-  <script src="https://api.carsearchapi.workers.dev/search/progress-ui.js?v=78" defer></script>
+  <script src="https://api.carsearchapi.workers.dev/search/progress-ui.js?v=79" defer></script>
 </body>
 </html>
 
