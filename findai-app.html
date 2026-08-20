@@ -2366,8 +2366,20 @@ html.findai-light .app-chat-speak.speaking{background:#111;color:#fff}
 html.findai-light #search .app-chat-voice{color:#17191c}
 html.findai-light #search .app-chat-voice.listening{background:#111;color:#fff}
 @keyframes findaiMicPulse{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.08)}50%{box-shadow:0 0 0 7px rgba(255,255,255,0)}}
+
+/* FindAI v86 — requested source/search polish. */
+.app-ebay-wordmark{display:inline-flex;align-items:center;font-family:Arial,sans-serif;font-size:22px;font-weight:900;letter-spacing:-1.15px;line-height:1;background:transparent!important;border:0!important;padding:0!important;border-radius:0!important;box-shadow:none!important;white-space:nowrap}
+.app-chat-product-source .app-ebay-wordmark{font-size:20px}.app-chat-result-hero-source .app-ebay-wordmark{font-size:20px}.app-chat-grid-source .app-ebay-wordmark{font-size:17px}.search-grid-source .app-ebay-wordmark{font-size:19px}.search-detail-source .app-ebay-wordmark{font-size:22px}
+.app-chat-shop-cycle{width:auto!important;min-height:48px!important;padding:5px 0!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:12px!important;color:#a8adb5!important;background:transparent!important}
+.app-chat-shop-query{font-size:15px;line-height:1.35;color:#a8adb5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(68vw,360px)}
+.app-chat-shop-cycle-icon{width:52px;height:38px;flex:0 0 52px;display:grid;place-items:center;transition:opacity .12s ease,transform .12s ease;background:transparent;border:0;padding:0}
+.app-chat-shop-cycle-icon.changing{opacity:.15;transform:translateY(2px) scale(.94)}
+.app-chat-shop-cycle-logo{display:block;max-width:50px;max-height:31px;width:auto;height:auto;object-fit:contain;background:transparent!important;padding:0!important;border-radius:0!important}
+html.findai-light .app-chat-shop-query,html.findai-light .app-chat-shop-cycle{color:#6e7680!important}
+@media(max-width:380px){.app-chat-shop-query{font-size:14px;max-width:64vw}.app-chat-shop-cycle-icon{width:46px;flex-basis:46px}.app-chat-shop-cycle-logo{max-width:44px}}
+
 </style>
-  <meta name="findai-build" content="v60-launch-focus-typo-repair">
+  <meta name="findai-build" content="v86-source-search-polish">
 
 <style id="findai-v60-focus-overrides">
 .account-menu-item[onclick*="openPurchases"],
@@ -3537,7 +3549,7 @@ function appRegionRetailerAllowed(item){
   if(host==='bestbuy.ca'||host.endsWith('.bestbuy.ca'))return r==='CA';
   return true;
 }
-const EBAY_LOGO_SVG = '<span class="app-source-logo-wrap">'+appRealLogoImg('ebay','app-source-logo','eBay')+'</span>';
+const EBAY_LOGO_SVG = '<span class="app-ebay-wordmark"><span style="color:#E53238">e</span><span style="color:#0064D2">b</span><span style="color:#F5AF02">a</span><span style="color:#86B817">y</span></span>';
 function sourceLabel(source){
   const raw=String(source||'listing').trim();
   const key=raw.toLowerCase();
@@ -3550,6 +3562,7 @@ function sourceMarkup(source,item=null){
   if(normalized==='findai') return '<span class="source-brand findai-source-brand">Find<span class="findai-source-ai">AI</span></span>';
   const label=String((item && (item.retailerName || item.retailer || item.source)) || sourceLabel(raw) || raw).trim();
   const key=appKnownBrandForItem(item,raw);
+  if(normalized==='ebay'||key==='ebay')return EBAY_LOGO_SVG;
   if(key) return '<span class="retailer-source app-source-real">'+appRealLogoImg(key,'app-source-logo',label)+'<span class="source-brand retailer-source-name">'+escapeHTML(label)+'</span></span>';
   return '<span class="source-brand retailer-source-name">'+escapeHTML(label)+'</span>';
 }
@@ -5766,12 +5779,12 @@ function scanDefaultMarketKeys(){
   const r=appShoppingRegion();
   if(r==='US')return ['ebay','amazon','walmart','target','bestbuy'];
   if(r==='CA')return ['ebay','amazon','walmart','bestbuy','aliexpress'];
-  if(r==='AU')return ['ebay','amazon','myer','aliexpress','stockx'];
-  return ['ebay','amazon','aliexpress','stockx','lego'];
+  if(r==='AU')return ['ebay','amazon','walmart','aliexpress','stockx'];
+  return ['ebay','amazon','walmart','aliexpress','stockx'];
 }
 function scanMarketKeysFromListings(listings){
   const found=[];
-  (Array.isArray(listings)?listings:[]).forEach(item=>{const key=appKnownBrandForItem(item,getSource(item));if(key&&key!=='lego'&&!found.includes(key)&&appRegionRetailerAllowed(item))found.push(key);});
+  (Array.isArray(listings)?listings:[]).forEach(item=>{const key=appKnownBrandForItem(item,getSource(item));if(key&&key!=='lego'&&key!=='myer'&&!found.includes(key)&&appRegionRetailerAllowed(item))found.push(key);});
   scanDefaultMarketKeys().forEach(key=>{if(!found.includes(key))found.push(key);});
   return found.slice(0,5);
 }
@@ -7136,19 +7149,46 @@ function appChatAddAssistant(html){
   }
   return row;
 }
+let appChatShopCycleTimer=null;
+function appChatShopSearchSequence(query){
+  const q=String(query||'').toLowerCase(),region=appShoppingRegion();
+  const seq=[];
+  // Start with a product/brand identity when FindAI can recognise one, then move through stores.
+  if(/\blego\b/.test(q))seq.push('lego');
+  const stores=region==='US'?['ebay','amazon','walmart','target','bestbuy']:
+    region==='CA'?['ebay','amazon','walmart','bestbuy','aliexpress']:
+    region==='AU'?['ebay','amazon','walmart','aliexpress','stockx']:
+    ['ebay','amazon','walmart','aliexpress','stockx'];
+  stores.forEach(k=>{if(!seq.includes(k))seq.push(k);});
+  return seq;
+}
 function appChatShopThinkingMarkup(query){
-  const q=String(query||'').toLowerCase();const region=appShoppingRegion();
-  const stores=region==='US'?['ebay','amazon','walmart','target']:region==='AU'?['ebay','amazon','myer','aliexpress']:['ebay','amazon','aliexpress','stockx'];
-  const center=q.includes('lego')?appRealLogoImg('lego','app-chat-shop-brand','LEGO'):'<b>FindAI</b>';
-  return '<div class="app-chat-thinking app-chat-shop-search"><div class="app-chat-shop-map"><div class="app-chat-shop-node s0">'+appRealLogoImg(stores[0],'','')+'</div><div class="app-chat-shop-node s1">'+appRealLogoImg(stores[1],'','')+'</div><div class="app-chat-shop-center">'+center+'</div><div class="app-chat-shop-node s2">'+appRealLogoImg(stores[2],'','')+'</div><div class="app-chat-shop-node s3">'+appRealLogoImg(stores[3],'','')+'</div></div><div class="app-chat-shop-label">Searching live shops</div></div>';
+  const subject=String(query||'your search').trim().replace(/\s+/g,' ');
+  const seq=appChatShopSearchSequence(query),first=seq[0]||'ebay';
+  return '<div class="app-chat-thinking app-chat-shop-search app-chat-shop-cycle" data-shop-cycle="'+escapeAttr(seq.join(','))+'"><span class="app-chat-shop-query">Searching for “'+escapeHTML(subject)+'”</span><span class="app-chat-shop-cycle-icon" data-shop-cycle-icon>'+appRealLogoImg(first,'app-chat-shop-cycle-logo',first)+'</span></div>';
+}
+function appChatStartShopCycle(row){
+  if(appChatShopCycleTimer){clearInterval(appChatShopCycleTimer);appChatShopCycleTimer=null;}
+  if(!row)return;
+  const wrap=row.querySelector('[data-shop-cycle]'),icon=row.querySelector('[data-shop-cycle-icon]');if(!wrap||!icon)return;
+  const seq=String(wrap.dataset.shopCycle||'').split(',').filter(Boolean);if(seq.length<2)return;
+  let i=0;
+  appChatShopCycleTimer=setInterval(()=>{
+    if(!document.body.contains(row)){clearInterval(appChatShopCycleTimer);appChatShopCycleTimer=null;return;}
+    i=(i+1)%seq.length;icon.classList.add('changing');
+    setTimeout(()=>{if(!document.body.contains(icon))return;icon.innerHTML=appRealLogoImg(seq[i],'app-chat-shop-cycle-logo',seq[i]);icon.classList.remove('changing');},120);
+  },720);
 }
 function appChatAddThinking(label,query){
   const shopping=/searching live shops/i.test(String(label||''));
   const html=shopping?appChatShopThinkingMarkup(query):'<div class="app-chat-thinking"><span>'+escapeHTML(label||'Thinking')+'</span><i></i><i></i><i></i></div>';
   const row=appChatAddAssistant(html);
-  if(row)row.dataset.chatThinking='1';return row;
+  if(row){row.dataset.chatThinking='1';if(shopping)appChatStartShopCycle(row);}return row;
 }
-function appChatRemoveThinking(){const row=document.querySelector('[data-chat-thinking="1"]');if(row)row.remove();}
+function appChatRemoveThinking(){
+  if(appChatShopCycleTimer){clearInterval(appChatShopCycleTimer);appChatShopCycleTimer=null;}
+  const row=document.querySelector('[data-chat-thinking="1"]');if(row)row.remove();
+}
 function appChatProductPlaceholder(item){
   const source=String(item&&(item.retailer||item.source)||'Retailer');
   return appRetailerProductPlaceholder({retailer:source,source:source,retailerLogo:String(item&&item.retailerLogo||'')},'reel-image-placeholder');
