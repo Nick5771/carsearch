@@ -2827,7 +2827,7 @@ function findaiRegionRetailerAllowed(item,region){
   return true;
 }
 function ebayLogoHtml() {
-  return '<span class="retailer-source">'+findaiRealLogoHtml('ebay','retailer-source-logo','eBay')+'</span>';
+  return `<span class="ebay-logo"><span style="color:#E53238">e</span><span style="color:#0064D2">b</span><span style="color:#F5AF02">a</span><span style="color:#86B817">y</span></span>`;
 }
 function aliLogoHtml() {
   return '<span class="retailer-source">'+findaiRealLogoHtml('aliexpress','retailer-source-logo','AliExpress')+'</span>';
@@ -3530,7 +3530,8 @@ function cardListingMeta(item,c){
 function retailerSourceHtml(item,hero){
   const name=String(item&& (item.retailer||item.source) || 'Retailer').trim()||'Retailer';
   const key=findaiKnownBrandForItem(item);
-  // Never trust a tiny arbitrary favicon for a known retailer. Use the genuine vector mark.
+  // eBay keeps FindAI's original clean colored wordmark. Other known retailers use sharp vector marks.
+  if(key==='ebay')return ebayLogoHtml();
   const logoHtml=key?findaiRealLogoHtml(key,'retailer-source-logo',name):'';
   return `<span class="retailer-source${hero?' hero':''}">${logoHtml}<span class="retailer-source-name">${escapeHtml(name)}</span></span>`;
 }
@@ -3689,7 +3690,7 @@ function retailerProductPlaceholderHtml(item,cls){
   const name=String(item&& (item.retailer||item.source) || 'Retailer').trim()||'Retailer';
   const klass=String(cls||'chat-card-ph');
   const key=findaiKnownBrandForItem(item);
-  const mark=key?findaiRealLogoHtml(key,'retailer-source-logo',name):`<span style="font-size:20px;font-weight:800">${escapeHtml(name.slice(0,2).toUpperCase())}</span>`;
+  const mark=key==='ebay'?ebayLogoHtml():(key?findaiRealLogoHtml(key,'retailer-source-logo',name):`<span style="font-size:20px;font-weight:800">${escapeHtml(name.slice(0,2).toUpperCase())}</span>`);
   return `<div class="${klass} retailer-product-placeholder" style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:18px;background:var(--card-image-bg,#f4f5f7)">${mark}<span style="font-size:12px;font-weight:750;opacity:.72">${escapeHtml(name)}</span><span style="font-size:10px;opacity:.5">Product image unavailable</span></div>`;
 }
 function findaiRetailerImgError(img,name,logo){
@@ -6639,6 +6640,7 @@ window.addEventListener('load', initGoogleAuth);
     if(isFindAIListing(item)) return `<span class="findai-market-badge">Find<span class="findai-market-ai">AI</span></span>`;
     const key=findaiKnownBrandForItem(item);
     const label=retailer || ((!['web','web-index','structured-product','meta-product','html-fallback'].includes(sourceLower))?source:'') || 'Retailer';
+    if(key==='ebay') return `<span class="ac-source-brand">${ebayLogoHtml()}</span>`;
     if(key) return `<span class="ac-source-brand">${findaiRealLogoHtml(key,'retailer-source-logo',label)}<span>${escapeHtml(label)}</span></span>`;
     return `<span class="ac-source-text">${escapeHtml(label)}</span>`;
   }
