@@ -926,9 +926,9 @@
 .reel-social-action:active .reel-social-icon{transform:scale(.9)}
 .reel-social-action svg{width:23px;height:23px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
 .reel-social-label{font-size:9px;font-weight:650;line-height:1;color:#f5f6f8}
-.reel-social-action.like.active{color:#ff3040}
+.reel-social-action.like.active{color:#ff3045}
 .reel-social-action.like.active .reel-social-icon{background:rgba(255,48,64,.14);border-color:rgba(255,75,88,.34)}
-.reel-social-action.like.active .reel-social-label{color:#ff6875}
+.reel-social-action.like.active .reel-social-label{color:#ff3045}
 #search .title{max-width:calc(100% - 58px)}
 #search .view-deal{margin-right:1px}
 
@@ -1081,7 +1081,7 @@
   filter:drop-shadow(0 1px 4px rgba(0,0,0,.55)) drop-shadow(0 2px 10px rgba(0,0,0,.4))
 }
 #search .reel-social-label{color:#fff;text-shadow:0 1px 5px rgba(0,0,0,.7);font-size:9.5px}
-#search .reel-social-action.like.active svg{color:#ff3040}
+#search .reel-social-action.like.active svg{color:#ff3045}
 #search .reel-social-action.like.active .reel-social-icon{background:transparent!important;border:0!important}
 #search .reel-social-action.like.active .reel-social-label{color:#fff}
 /* Like acknowledgement: animate only the heart itself — no ring, tile or box. */
@@ -2378,6 +2378,9 @@ html.findai-light #search .app-chat-voice.listening{background:#111;color:#fff}
 html.findai-light .app-chat-shop-query,html.findai-light .app-chat-shop-cycle{color:#6e7680!important}
 @media(max-width:380px){.app-chat-shop-query{font-size:14px;max-width:64vw}.app-chat-shop-cycle-icon{width:46px;flex-basis:46px}.app-chat-shop-cycle-logo{max-width:44px}}
 
+
+/* Launch polish: liked feed hearts use the same FindAI saved-heart red as the website. */
+#search .reel-social-action.like.active svg,#discover .reel-social-action.like.active svg{color:#ff3045!important;fill:#ff3045!important;stroke:#ff3045!important}
 </style>
   <meta name="findai-build" content="v86-source-search-polish">
 
@@ -2451,6 +2454,13 @@ html.findai-light .app-chat-shop-query,html.findai-light .app-chat-shop-cycle{co
 .app-chat-shop-label{text-align:center;color:#a8adb5;font-size:12px}
 </style>
 
+
+<style id="findai-launch-free-app-style">
+/* Launch mode: Pro and Scan remain in the codebase but are not public UI. */
+.app-pro-menu-item,.app-pro-profile-card,#appProOverlay,.nav button[data-tab="scan"],.app-chat-plus{display:none!important}
+.nav{grid-template-columns:repeat(2,1fr)!important}
+</style>
+<script>window.FINDAI_LAUNCH_FREE=true;window.FINDAI_PUBLIC_SCAN=false;</script>
 </head>
 <body>
 <div class="app">
@@ -3120,6 +3130,7 @@ async function appGetProStatus(force=false){
   return appProPromise;
 }
 async function appProConsume(feature){
+  if(window.FINDAI_LAUNCH_FREE)return true;
   try{
     const r=await fetch(WORKER+'/pro/consume',{method:'POST',headers:appProHeaders(true),body:JSON.stringify({feature:feature||'search'})});
     let d={};try{d=await r.json();}catch(_){ }
@@ -5663,8 +5674,6 @@ async function toggleLike(index,event){
     recordInterest(interestQuery,'unlike');
     
   }else{
-    const pro=await appGetProStatus(false).catch(()=>null);
-    if(!(pro&&pro.isPro) && liked.length>=3){appOpenPro('Free accounts can track up to 3 products. Pro unlocks unlimited price tracking.');return;}
     recordInterest(interestQuery,'like');
     if(normaliseQueryText(interestQuery)!==normaliseQueryText(item.title)) recordInterest(item.title,'like',4.5);
     liked.unshift({
