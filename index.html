@@ -1088,6 +1088,13 @@ body.findai-light .fa-plan-list li:before{color:#c8c7c2!important}
 body.findai-light .fa-plan-cta.free{background:transparent!important;color:#f1f0ec!important;border-color:#4b4b48!important}
 </style>
 
+
+<style id="findai-launch-free-style">
+/* Launch mode: Pro/quota/visual-scan UI is intentionally dormant, not deleted. */
+#website-pro-nav, .findai-pro-launch-hidden, #search-usage-notice, .plus-wrap{display:none!important}
+.input-row{grid-template-columns:minmax(0,1fr) auto auto!important}
+</style>
+<script>window.FINDAI_LAUNCH_FREE=true;window.FINDAI_PUBLIC_SCAN=false;</script>
 </head>
 <body class="findai-signed-out">
 <nav>
@@ -1113,7 +1120,7 @@ body.findai-light .fa-plan-cta.free{background:transparent!important;color:#f1f0
       <div id="user-menu" class="user-menu">
         <div id="user-menu-email" class="user-menu-email"></div>
         <button class="user-menu-btn" onclick="websiteMenuAccount()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="3.5"/><path d="M5 21a7 7 0 0 1 14 0"/></svg><span class="menu-label">My Account</span></button>
-        <button class="user-menu-btn" onclick="websiteCloseUserMenu();openFindaiPro()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.4 4.9L20 9l-4 3.9.9 5.6L12 15.9 7.1 18.5 8 12.9 4 9l5.6-1.1L12 3z"/></svg><span class="menu-label">FindAI Pro</span><span class="user-menu-state" id="website-pro-menu-state">Upgrade</span></button>
+        <button class="user-menu-btn findai-pro-launch-hidden" onclick="websiteCloseUserMenu();openFindaiPro()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.4 4.9L20 9l-4 3.9.9 5.6L12 15.9 7.1 18.5 8 12.9 4 9l5.6-1.1L12 3z"/></svg><span class="menu-label">FindAI Pro</span><span class="user-menu-state" id="website-pro-menu-state">Upgrade</span></button>
         <button class="user-menu-btn" onclick="websiteOpenSaved()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg><span class="menu-label">Saved</span></button>
         <button class="user-menu-btn" onclick="websiteMenuSettings()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1A7 7 0 0 0 15 6l-.3-2.6h-4L10.4 6a7 7 0 0 0-1.5.9l-2.4-1-2 3.4L6.5 11a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1A7 7 0 0 0 10.4 18l.3 2.6h4L15 18a7 7 0 0 0 1.5-.9l2.4 1 2-3.4-2-1.5a7 7 0 0 0 .1-1.2z"/></svg><span class="menu-label">Settings</span></button>
         <button class="user-menu-btn danger" onclick="logoutUser()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 17l5-5-5-5M15 12H3M14 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5"/></svg><span class="menu-label">Log out</span></button>
@@ -6787,6 +6794,7 @@ function findaiFormatResetTime(value){
   return (sameDay?'today':(isTomorrow?'tomorrow':d.toLocaleDateString([],{month:'short',day:'numeric'})))+' at '+time;
 }
 function findaiRenderSearchUsageNotice(state){
+  if(window.FINDAI_LAUNCH_FREE){var _n=document.getElementById('search-usage-notice');if(_n){_n.classList.remove('show');_n.innerHTML='';}return;}
   var el=document.getElementById('search-usage-notice');if(!el)return;
   state=state||findaiProState;
   if(!state||state.isPro){el.classList.remove('show');el.innerHTML='';return;}
@@ -6819,6 +6827,7 @@ async function findaiGetProStatus(force){
   return findaiProPromise;
 }
 async function findaiProConsume(feature){
+  if(window.FINDAI_LAUNCH_FREE)return true;
   try{
     var r=await fetch(WORKER_BASE+'/pro/consume',{method:'POST',headers:findaiProHeaders(true),body:JSON.stringify({feature:feature||'search'})});
     var d={};try{d=await r.json();}catch(_){}
@@ -6838,6 +6847,7 @@ async function findaiProConsume(feature){
   }catch(_){return true;} // network trouble must not make the search box unusable
 }
 function findaiHandlePostSearchLimit(){
+  if(window.FINDAI_LAUNCH_FREE){findaiPendingPostSearchGate=null;return;}
   var gate=findaiPendingPostSearchGate;if(!gate)return;
   findaiPendingPostSearchGate=null;
   // Let the shopper see the result they were promised before the next-step prompt appears.
