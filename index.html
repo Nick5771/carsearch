@@ -1925,7 +1925,7 @@ async function submitTrackerQuery(directQuery, directProduct, options){
     try{
       res = await fetch(WORKER + '/tracker/search', {
         method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ query: q, product: mwSelectedProduct, variantId: requestedVariantId, sizeLabel: requestedVariantId ? mwSelectedSizeLabel : '', fast: true }),
+        body: JSON.stringify({ query: q, product: mwSelectedProduct, listing: options.listingPayload || null, variantId: requestedVariantId, sizeLabel: requestedVariantId ? mwSelectedSizeLabel : '', fast: true }),
         signal: controller ? controller.signal : undefined
       });
     } finally { clearTimeout(timeout); }
@@ -1936,6 +1936,14 @@ async function submitTrackerQuery(directQuery, directProduct, options){
     }
     if(data.fx){ mwFx = { cur:data.fx.currency||'USD', sym:data.fx.symbol||'$', rate:Number(data.fx.rate)||1 }; }
     renderMarketWatch(q, data, mwSelectedProduct);
+    // The Worker is the source of truth for product identity. Once it resolves the item,
+    // keep the frontend on that one canonical product and put the permanent SEO URL in the
+    // address bar. Typing the item manually and clicking View Market now land on the SAME page.
+    if(data.productDetails&&data.productDetails.pid){mwSelectedProduct=data.productDetails;}
+    if(data.canonicalQuery){mwCurrentQuery=String(data.canonicalQuery);if(input)input.value=mwCurrentQuery;}
+    if(data.canonicalSlug){
+      try{var mk=findaiRegionPreference()||'AU';history.replaceState({mwDetail:1,findaiMarket:true},'', '/price/'+encodeURIComponent(String(data.canonicalSlug))+'?market='+encodeURIComponent(mk));}catch(_){ }
+    }
     var _right=document.querySelector('#mw-content .mw-detail-right'); if(_right) _right.classList.remove('mw-size-refreshing');
     var _sizeSel=document.getElementById('mw-size-select'); if(_sizeSel) _sizeSel.disabled=false;
     var _sizeStatus=document.getElementById('mw-size-status'); if(_sizeStatus) _sizeStatus.textContent='';
@@ -2008,7 +2016,8 @@ function renderMarketWatch(query, data, pickedProduct){
   window.scrollTo(0,0);
   var _pd0 = data.productDetails || {};
   var cwRaw = _pd0.colorway || '';
-  var displayTitle = mwStripColorway(query.charAt(0).toUpperCase()+query.slice(1), cwRaw);
+  var canonicalTitle = String(_pd0.title || _pd0.model || data.canonicalQuery || query || '').replace(/\s+/g,' ').trim();
+  var displayTitle = mwStripColorway(canonicalTitle, cwRaw);
   displayTitle = mwStripStyleCode(displayTitle, _pd0.styleId);
   document.getElementById('mw-item-title').textContent = displayTitle;
   mwDisplayTitle = displayTitle;
@@ -2941,7 +2950,7 @@ function findaiMarketTrackerQuery(payload){
   var brand=String(payload.brand||'').trim();
   var style=String(payload.styleId||payload.mpn||'').trim();
   if(style&&brand)return (brand+' '+style).trim();
-  return String(payload.title||payload.query||'').replace(/\s+/g,' ').trim();
+  return String(payload.query||payload.title||'').replace(/\s+/g,' ').trim();
 }
 function findaiMarketTrackerProduct(payload){
   payload=payload||{};
@@ -2952,9 +2961,11 @@ function findaiMarketTrackerProduct(payload){
   var style=String(payload.styleId||payload.mpn||'').trim();
   var brand=String(payload.brand||'').trim();
   if(setNo){brand='LEGO';style=setNo;canonical=canonical||('lego:'+setNo);}
-  // Only pass an explicit product object when the card carries a stable identity.
-  // Otherwise /tracker/search gets the title and uses its existing smart resolver.
-  if(!productId&&!fpid&&!canonical&&!style)return null;
+  // Only pass an explicit product object when the card already carries a FindAI
+  // canonical identity (or a deterministic LEGO set number). A retailer MPN/style code is
+  // valuable evidence, but it is NOT permission to turn that seller's title into a new
+  // product page; /tracker/search receives it in listingPayload and resolves it first.
+  if(!productId&&!fpid&&!canonical&&!setNo)return null;
   return {
     pid:fpid||canonical||(brand==='LEGO'&&style?('lego:'+style):String(productId||style)),
     productId:productId,canonicalKey:canonical,title:String(payload.title||payload.query||''),
@@ -2966,48 +2977,23 @@ function findaiMarketTrackerProduct(payload){
 async function openMarketFromElement(el){
   var card=el&&el.closest?el.closest('.chat-card'):null;
   if(!card)return;
-  var raw=card.getAttribute('data-market')||'';
-  var payload=null;
+  var raw=card.getAttribute('data-market')||'',payload=null;
   try{payload=JSON.parse(raw);}catch(_){payload=null;}
   if(!payload||!payload.title)return;
-
-  // Always use the shopper's active market. A US eBay listing found while an
-  // Australian shopper is searching must not turn the market page into US mode.
   payload.country=findaiRegionPreference()||payload.country||'AU';
   var q=findaiMarketTrackerQuery(payload);
   var directProduct=findaiMarketTrackerProduct(payload);
   var buttons=card.querySelectorAll('.findai-market-btn');
   buttons.forEach(function(b){b.disabled=true;b.dataset.oldText=b.textContent;b.textContent='Loading Market…';});
-
-  // IMPORTANT: do not wait for /market/resolve. Open the exact same blue Price
-  // Tracker experience immediately, then canonicalise the URL in parallel.
-  var trackerPromise;
   try{
+    // One request only. /tracker/search now resolves raw listing/query wording to the canonical
+    // product before it searches prices, then returns canonicalSlug + productDetails. This is
+    // faster than the old resolve-then-search double round trip and guarantees View Market and
+    // manual Price Tracker searches render the identical blue page.
     ensureMarketWatchOpen();
-    var inp=document.getElementById('mw-search-input'); if(inp)inp.value=q;
-    trackerPromise=submitTrackerQuery(q,directProduct,{fromRouter:false});
-  }catch(e){trackerPromise=Promise.resolve(false);}
-
-  (async function(){
-    try{
-      var r=await fetch(WORKER+'/market/resolve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-      var d=await r.json();
-      if(!r.ok||!d||!d.url)return;
-      try{
-        sessionStorage.setItem('findai_market_last:'+String(d.slug||''),JSON.stringify({payload:payload,product:directProduct,query:q,market:payload.country}));
-      }catch(_){ }
-      // renderMarketWatch creates the detail history entry. Replacing that entry
-      // gives the page its permanent SEO URL without adding another Back click.
-      try{history.replaceState({mwDetail:1,findaiMarket:true},'',d.url);}catch(_){ }
-    }catch(_){ }
-  })();
-
-  try{
-    var ok=await trackerPromise;
-    if(!ok){
-      openMarketWatch();
-      var input=document.getElementById('mw-search-input');if(input){input.value=q;onTrackerInput(q);}
-    }
+    var inp=document.getElementById('mw-search-input');if(inp)inp.value=q;
+    var ok=await submitTrackerQuery(q,directProduct,{fromRouter:false,listingPayload:payload});
+    if(!ok){openMarketWatch();var input=document.getElementById('mw-search-input');if(input){input.value=q;onTrackerInput(q);}}
   }finally{
     buttons.forEach(function(b){b.disabled=false;b.textContent=b.dataset.oldText||'View Market';});
   }
