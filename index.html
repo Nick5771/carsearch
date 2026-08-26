@@ -21,7 +21,8 @@
     var phone=/iphone|ipod|android[^;]*;[^)]*mobile|android.*mobile|windows phone|opera mini|opera mobi/i.test(ua);
     var compactTouch=(navigator.maxTouchPoints||0)>0 && window.matchMedia && window.matchMedia('(max-width: 700px)').matches;
     var alreadyApp=/\/findai-app(?:\.html)?\/?$/i.test(location.pathname);
-    if(!bot && !alreadyApp && params.get('desktop')!=='1' && (phone||compactTouch)){
+    var priceRoute=/^\/price\//i.test(location.pathname);
+    if(!bot && !alreadyApp && !priceRoute && params.get('desktop')!=='1' && (phone||compactTouch)){
       params.delete('desktop');
       params.set('mobile_web','1');
       location.replace('/findai-app.html?'+params.toString());
@@ -1576,6 +1577,7 @@ function closeMarketWatch(){
   document.body.style.overflow='';
   hideSuggestList();
   stopAmbientRotation();
+  try{if(/^\/price\//i.test(location.pathname))history.replaceState({},'', '/');}catch(_){}
 }
 // Back arrow from the detail page returns to the hero search, not out of
 // Market Watch entirely - matches "clicked item -> different page" while
@@ -2902,7 +2904,7 @@ function findaiMarketItemPayload(item, query, country, imageOverride){
     image:String(imageOverride||item.stockxImage||item.image||''),
     stockx:!!(item.stockx||item._stockx),
     query:String(query||item.searchQ||item.title||''),
-    country:String(country||findaiRegionPreference()||'AU')
+    country:String(findaiRegionPreference()||country||'AU')
   };
 }
 function findaiMarketPayloadAttr(item, query, country, imageOverride){
@@ -2916,6 +2918,51 @@ function marketCardButtonsHtml(item, query, country, imageOverride){
   var verify='<button class="card-btn findai-verify-btn" data-buy="'+escapeHtml(item.url||'')+'" data-img="'+escapeHtml(item.image||imageOverride||'')+'" onclick="event.preventDefault();event.stopPropagation();runVerify(this,\''+String(item.itemId||'').replace(/'/g,'')+'\')">'+faVerifyShield()+'FindAI Verify</button>';
   return '<div class="card-btns">'+market+verify+'</div>';
 }
+function findaiMarketSetNumber(payload){
+  payload=payload||{};
+  var hay=String(payload.title||'')+' '+String(payload.styleId||'')+' '+String(payload.sku||'')+' '+String(payload.mpn||'');
+  if(!/\blego\b/i.test(hay+' '+String(payload.brand||'')))return '';
+  var explicit=String(payload.styleId||'').match(/\b(\d{3,6})\b/);
+  if(explicit)return explicit[1];
+  var all=hay.match(/\b\d{3,6}\b/g)||[];
+  // LEGO set numbers are much stronger than seller prose. Prefer the final
+  // plausible set number, but ignore obvious calendar years.
+  for(var i=all.length-1;i>=0;i--){
+    var n=Number(all[i]);
+    if(n>=1900&&n<=2099)continue;
+    return all[i];
+  }
+  return '';
+}
+function findaiMarketTrackerQuery(payload){
+  payload=payload||{};
+  var setNo=findaiMarketSetNumber(payload);
+  if(setNo)return 'LEGO '+setNo;
+  var brand=String(payload.brand||'').trim();
+  var style=String(payload.styleId||payload.mpn||'').trim();
+  if(style&&brand)return (brand+' '+style).trim();
+  return String(payload.title||payload.query||'').replace(/\s+/g,' ').trim();
+}
+function findaiMarketTrackerProduct(payload){
+  payload=payload||{};
+  var setNo=findaiMarketSetNumber(payload);
+  var canonical=String(payload.canonicalKey||'').trim();
+  var fpid=String(payload.fpid||'').trim();
+  var productId=Number(payload.productId)||null;
+  var style=String(payload.styleId||payload.mpn||'').trim();
+  var brand=String(payload.brand||'').trim();
+  if(setNo){brand='LEGO';style=setNo;canonical=canonical||('lego:'+setNo);}
+  // Only pass an explicit product object when the card carries a stable identity.
+  // Otherwise /tracker/search gets the title and uses its existing smart resolver.
+  if(!productId&&!fpid&&!canonical&&!style)return null;
+  return {
+    pid:fpid||canonical||(brand==='LEGO'&&style?('lego:'+style):String(productId||style)),
+    productId:productId,canonicalKey:canonical,title:String(payload.title||payload.query||''),
+    styleId:style,colorway:String(payload.colorway||''),brand:brand,
+    productType:String(payload.productType||''),image:String(payload.image||''),
+    defaultCondition:/used|pre[-\s]?owned/i.test(String(payload.condition||''))?'used':'new'
+  };
+}
 async function openMarketFromElement(el){
   var card=el&&el.closest?el.closest('.chat-card'):null;
   if(!card)return;
@@ -2923,27 +2970,49 @@ async function openMarketFromElement(el){
   var payload=null;
   try{payload=JSON.parse(raw);}catch(_){payload=null;}
   if(!payload||!payload.title)return;
+
+  // Always use the shopper's active market. A US eBay listing found while an
+  // Australian shopper is searching must not turn the market page into US mode.
+  payload.country=findaiRegionPreference()||payload.country||'AU';
+  var q=findaiMarketTrackerQuery(payload);
+  var directProduct=findaiMarketTrackerProduct(payload);
   var buttons=card.querySelectorAll('.findai-market-btn');
-  buttons.forEach(function(b){b.disabled=true;b.dataset.oldText=b.textContent;b.textContent='Opening Market…';});
+  buttons.forEach(function(b){b.disabled=true;b.dataset.oldText=b.textContent;b.textContent='Loading Market…';});
+
+  // IMPORTANT: do not wait for /market/resolve. Open the exact same blue Price
+  // Tracker experience immediately, then canonicalise the URL in parallel.
+  var trackerPromise;
   try{
-    var r=await fetch(WORKER+'/market/resolve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-    var d=await r.json();
-    if(!r.ok||!d||!d.url)throw new Error((d&&d.error)||'Could not open market');
-    location.href=d.url;
-  }catch(e){
-    // Never strand the shopper. If canonical page creation has a transient DB
-    // problem, fall back to the existing interactive Price Tracker with the
-    // product/search wording instead of opening the retailer or showing an error.
+    ensureMarketWatchOpen();
+    var inp=document.getElementById('mw-search-input'); if(inp)inp.value=q;
+    trackerPromise=submitTrackerQuery(q,directProduct,{fromRouter:false});
+  }catch(e){trackerPromise=Promise.resolve(false);}
+
+  (async function(){
     try{
-      var q=String(payload.query||payload.title||'').trim();
-      showMarketWatch();
-      var inp=document.getElementById('mw-search-input'); if(inp)inp.value=q;
-      await submitTrackerQuery(q,null,{fromRouter:false});
+      var r=await fetch(WORKER+'/market/resolve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      var d=await r.json();
+      if(!r.ok||!d||!d.url)return;
+      try{
+        sessionStorage.setItem('findai_market_last:'+String(d.slug||''),JSON.stringify({payload:payload,product:directProduct,query:q,market:payload.country}));
+      }catch(_){ }
+      // renderMarketWatch creates the detail history entry. Replacing that entry
+      // gives the page its permanent SEO URL without adding another Back click.
+      try{history.replaceState({mwDetail:1,findaiMarket:true},'',d.url);}catch(_){ }
     }catch(_){ }
+  })();
+
+  try{
+    var ok=await trackerPromise;
+    if(!ok){
+      openMarketWatch();
+      var input=document.getElementById('mw-search-input');if(input){input.value=q;onTrackerInput(q);}
+    }
   }finally{
     buttons.forEach(function(b){b.disabled=false;b.textContent=b.dataset.oldText||'View Market';});
   }
 }
+
 // Ensure the Verify modal element exists once.
 function ensureVerifyModal(){
   if(document.getElementById('fa-modal-bg')) return;
@@ -7004,6 +7073,39 @@ window.addEventListener('load',function(){
 })();
 </script>
   <script src="https://api.carsearchapi.workers.dev/search/progress-ui.js?v=81" defer></script>
+
+<script>
+(function(){
+  var started=false;
+  async function bootFindAIPriceRoute(){
+    if(started)return;
+    var path=String(location.pathname||'');
+    if(!/^\/price\/[a-z0-9-]+\/?$/i.test(path))return;
+    started=true;
+    var boot=window.__FINDAI_PRICE_BOOT__||{};
+    var product=boot.product||null;
+    var q=String(boot.query||(product&&product.title)||'').trim();
+    if(!q){
+      var slug=decodeURIComponent(path.split('/').filter(Boolean).pop()||'');
+      q=slug.replace(/-/g,' ').replace(/\s+/g,' ').trim();
+    }
+    var market=String(boot.market||new URLSearchParams(location.search).get('market')||'').toUpperCase();
+    if(market==='GB')market='UK';
+    if(market){try{localStorage.setItem('findai_region',market);}catch(_){};try{country=market;}catch(_){} }
+    try{
+      ensureMarketWatchOpen();
+      var inp=document.getElementById('mw-search-input');if(inp)inp.value=q;
+      await submitTrackerQuery(q,product,{fromRouter:false});
+    }catch(e){
+      console.error('[FindAI] price route boot failed:',e);
+      openMarketWatch();
+      var i=document.getElementById('mw-search-input');if(i){i.value=q;onTrackerInput(q);}
+    }
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',function(){setTimeout(bootFindAIPriceRoute,0);},{once:true});
+  else setTimeout(bootFindAIPriceRoute,0);
+})();
+</script>
 </body>
 </html>
 
