@@ -1104,6 +1104,38 @@ body.findai-light .fa-plan-cta.free{background:transparent!important;color:#f1f0
 @media(max-width:760px){.fa-reel{padding:58px 8px 10px}.fa-reel-inner{width:min(100%,560px);height:min(83vh,720px)}.fa-reel-actions{right:10px;bottom:14px;gap:14px}.fa-reel-card{border-radius:17px}.fa-reel-action .bubble{width:44px;height:44px}.fa-reel-copy{padding:50px 88px 16px 16px}.fa-reel-title{font-size:17px}.fa-reel-price{font-size:23px}.fa-reels-top{padding:0 13px}.fa-reel-source>*{transform:scale(1.14)}.fa-reel-source img,.fa-reel-source svg{max-height:18px}}
 </style>
 
+
+<style id="findai-v97-resolver-feed-loading-ui">
+/* Tracker loading: real source plan + smooth visual handoff */
+.mw-loading-intel{width:min(700px,calc(100vw - 32px));margin:0 auto;text-align:center}
+.mw-loading-stage{position:relative;width:min(460px,82vw);height:246px;margin:8px auto 8px}
+.mw-loading-links{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.mw-loading-links line{stroke:rgba(110,167,220,.18);stroke-width:1.2;stroke-linecap:round;stroke-dasharray:5 7;animation:mwLinkDash 2.2s linear infinite}
+.mw-loading-links line.active{stroke:rgba(77,159,230,.72);stroke-width:1.5}
+.mw-loading-links line.done{stroke:rgba(96,203,122,.48);stroke-dasharray:none}
+@keyframes mwLinkDash{to{stroke-dashoffset:-24}}
+.mw-loading-core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:126px;height:126px;border:1px solid #2c333b;border-radius:28px;background:#0d1014;display:grid;place-items:center;overflow:hidden;z-index:3;box-shadow:0 20px 70px rgba(0,0,0,.38),0 0 0 10px rgba(77,159,230,.025)}
+.mw-loading-core img{width:100%;height:100%;object-fit:contain;background:#fff}
+.mw-loading-core b{font-size:17px;letter-spacing:-.3px}
+.mw-loading-sources{position:absolute;inset:0}
+.mw-loading-source{--x:0px;--y:0px;position:absolute;left:50%;top:50%;transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y)));width:88px;height:46px;border:1px solid #2b3138;border-radius:13px;background:#101318;display:grid;place-items:center;padding:6px 8px;z-index:4;opacity:.82;transition:opacity .2s,border-color .2s,transform .2s,box-shadow .2s}
+.mw-loading-source.active{opacity:1;border-color:rgba(77,159,230,.8);box-shadow:0 0 0 3px rgba(77,159,230,.09),0 10px 30px rgba(0,0,0,.3);transform:translate(calc(-50% + var(--x)),calc(-50% + var(--y))) scale(1.04)}
+.mw-loading-source.done{opacity:1;border-color:rgba(94,202,119,.45)}
+.mw-loading-source-logo{width:100%;height:24px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.mw-loading-source-logo img{display:block;max-width:70px;max-height:23px;object-fit:contain}
+.mw-loading-source-logo svg{display:block;max-width:70px;max-height:23px}
+.mw-loading-source-text{font-size:9.5px;font-weight:800;color:#f2f4f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:72px}
+.mw-loading-source.done:after{content:"✓";position:absolute;right:-5px;top:-6px;width:16px;height:16px;border-radius:50%;background:#50bd68;color:#08110a;display:grid;place-items:center;font-size:9px;font-weight:900;border:2px solid #090b0e}
+.mw-loading-status{min-height:20px;margin-top:2px;color:#979ea7;font-size:12px;transition:opacity .16s}
+.mw-loading-bar{max-width:448px;margin:4px auto 0!important}
+.mw-loading-pct{margin-top:8px}
+body.findai-light .mw-loading-source{background:#fff;border-color:#d8dde2}
+body.findai-light .mw-loading-source-text{color:#1b1e22}
+body.findai-light .mw-loading-core{background:#fff;border-color:#d9dde2}
+body.findai-light .mw-loading-links line{stroke:rgba(37,112,181,.19)}
+@media(max-width:620px){.mw-loading-stage{height:224px;width:min(390px,94vw)}.mw-loading-source{width:76px;height:42px}.mw-loading-core{width:112px;height:112px}.mw-loading-source-logo img,.mw-loading-source-logo svg{max-width:60px}}
+</style>
+
 </head>
 <body class="findai-signed-out">
 <nav>
@@ -1273,11 +1305,8 @@ body.findai-light .fa-plan-cta.free{background:transparent!important;color:#f1f0
       <div class="mw-loading-intel">
         <div class="mw-loading-title">Tracking price</div>
         <div class="mw-loading-stage" aria-hidden="true">
-          <div class="mw-loading-ring"></div>
-          <div class="mw-loading-market m1">eBay</div>
-          <div class="mw-loading-market m2 stockx">StockX</div>
-          <div class="mw-loading-market m3 bricklink">BrickLink</div>
-          <div class="mw-loading-market m4">Amazon</div>
+          <svg class="mw-loading-links" id="mw-loading-links" viewBox="0 0 460 246" preserveAspectRatio="none"></svg>
+          <div class="mw-loading-sources" id="mw-loading-sources"></div>
           <div class="mw-loading-core" id="mw-loading-core"><b>FindAI</b></div>
         </div>
         <div class="mw-loading-status" id="mw-loading-status">Checking live listings</div>
@@ -1872,6 +1901,65 @@ document.addEventListener('click', function(e){
 });
 
 
+function mwLoadingBrandKey(src){
+  var h=String(src&&src.host||'').toLowerCase(),n=String(src&&src.name||'').toLowerCase();
+  if(h.includes('ebay.')||n==='ebay')return 'ebay';
+  if(h.includes('amazon.')||n==='amazon')return 'amazon';
+  if(h.includes('walmart.')||n.includes('walmart'))return 'walmart';
+  if(h.includes('target.')||n==='target')return 'target';
+  if(h.includes('bestbuy.')||n.includes('best buy'))return 'bestbuy';
+  if(h.includes('stockx.')||n==='stockx')return 'stockx';
+  if(h.includes('lego.')||n==='lego')return 'lego';
+  if(h.includes('aliexpress.')||n.includes('aliexpress'))return 'aliexpress';
+  return '';
+}
+function mwLoadingSourceLogo(src){
+  var key=mwLoadingBrandKey(src),url='';
+  try{if(key&&typeof FINDAI_REAL_LOGOS==='object'&&FINDAI_REAL_LOGOS[key])url=FINDAI_REAL_LOGOS[key];}catch(_){}
+  if(url)return '<img src="'+escapeHtml(url)+'" alt="'+escapeHtml(String(src&&src.name||''))+'">';
+  if(/bricklink/i.test(String(src&&src.name||''))){try{return bricklinkLogoHtml();}catch(_){}}
+  if(src&&src.logo)return '<img src="'+escapeHtml(String(src.logo))+'" alt="'+escapeHtml(String(src.name||''))+'">';
+  return '<span class="mw-loading-source-text">'+escapeHtml(String(src&&src.name||'Store'))+'</span>';
+}
+function mwLoadingLayout(count){
+  var sets={
+    1:[[0,-91]],
+    2:[[-145,0],[145,0]],
+    3:[[-150,-68],[150,-68],[0,94]],
+    4:[[-155,-70],[155,-70],[-155,72],[155,72]],
+    5:[[-160,-72],[160,-72],[-170,68],[170,68],[0,102]],
+    6:[[-165,-76],[0,-104],[165,-76],[-165,76],[0,104],[165,76]]
+  };
+  return sets[Math.max(1,Math.min(6,count))]||sets[4];
+}
+function mwRenderLoadingSources(sources){
+  var holder=document.getElementById('mw-loading-sources'),svg=document.getElementById('mw-loading-links');
+  if(!holder||!svg)return;
+  var list=(Array.isArray(sources)?sources:[]).filter(Boolean).slice(0,6);
+  if(!list.length)list=[{name:'eBay',host:'ebay.com',kind:'marketplace'}];
+  window.mwLoadingSources=list;window.mwLoadingSourceIndex=0;
+  var pos=mwLoadingLayout(list.length),W=460,H=246,cx=W/2,cy=H/2;
+  holder.innerHTML=list.map(function(src,i){
+    var p=pos[i]||[0,0];
+    return '<div class="mw-loading-source'+(i===0?' active':'')+'" data-source-index="'+i+'" style="--x:'+p[0]+'px;--y:'+p[1]+'px"><div class="mw-loading-source-logo">'+mwLoadingSourceLogo(src)+'</div></div>';
+  }).join('');
+  svg.innerHTML=list.map(function(src,i){
+    var p=pos[i]||[0,0],x=cx+p[0],y=cy+p[1];
+    return '<line data-line-index="'+i+'" class="'+(i===0?'active':'')+'" x1="'+cx+'" y1="'+cy+'" x2="'+x+'" y2="'+y+'"></line>';
+  }).join('');
+}
+async function mwLoadSourcePlan(query){
+  try{
+    var r=await fetch(WORKER+'/search/source-plan?q='+encodeURIComponent(String(query||''))+'&country='+encodeURIComponent(findaiRegionPreference()),{cache:'no-store'});
+    if(!r.ok)return;
+    var d=await r.json();
+    if(d&&Array.isArray(d.sources)&&d.sources.length){
+      mwRenderLoadingSources(d.sources);
+      var st=document.getElementById('mw-loading-status');
+      if(st&&d.identity&&d.identity.productFamily)st.textContent='Identifying '+String(d.identity.productFamily);
+    }
+  }catch(_){}
+}
 function mwPrepareLoadingIntel(query, product){
   var core=document.getElementById('mw-loading-core');
   if(core){
@@ -1879,14 +1967,46 @@ function mwPrepareLoadingIntel(query, product){
     core.innerHTML=img?'<img src="'+mwProxyImg(img)+'" alt="">':'<b>FindAI</b>';
   }
   var status=document.getElementById('mw-loading-status');
-  if(status)status.textContent='Checking live listings';
+  if(status)status.textContent='Understanding the exact product';
   window.mwLoadingStatusIndex=0;
+  mwRenderLoadingSources([{name:'eBay',host:'ebay.com',kind:'marketplace'}]);
+  mwLoadSourcePlan(query);
 }
 function mwLoadingStatusTick(){
   var status=document.getElementById('mw-loading-status'); if(!status)return;
-  var steps=['Checking live listings','Comparing marketplaces','Verifying exact matches','Building market history','Finding the best live offers'];
-  window.mwLoadingStatusIndex=((window.mwLoadingStatusIndex||0)+1)%steps.length;
-  status.textContent=steps[window.mwLoadingStatusIndex];
+  var sources=window.mwLoadingSources||[],idx=window.mwLoadingSourceIndex||0;
+  if(sources.length){
+    document.querySelectorAll('#mw-loading-sources .mw-loading-source').forEach(function(el,i){el.classList.toggle('active',i===idx);});
+    document.querySelectorAll('#mw-loading-links line').forEach(function(el,i){el.classList.toggle('active',i===idx);});
+    var src=sources[idx];status.textContent='Checking '+String(src&&src.name||'live marketplaces');
+    window.mwLoadingSourceIndex=(idx+1)%sources.length;
+  }else{
+    var steps=['Understanding the exact product','Checking live listings','Verifying exact matches','Building market history'];
+    window.mwLoadingStatusIndex=((window.mwLoadingStatusIndex||0)+1)%steps.length;
+    status.textContent=steps[window.mwLoadingStatusIndex];
+  }
+}
+function mwFinishLoadingIntel(data){
+  if(window.mwLoadTimer){clearInterval(window.mwLoadTimer);window.mwLoadTimer=null;}
+  var pct=document.getElementById('mw-loading-pct');if(pct)pct.textContent='100%';
+  var status=document.getElementById('mw-loading-status');
+  var act=(data&&Array.isArray(data.sourceActivity))?data.sourceActivity:[];
+  if(act.length){
+    var names=new Set(act.filter(function(x){return x&&x.status==='returned'&&Number(x.count)>=0;}).map(function(x){return String(x.name||'').toLowerCase();}));
+    document.querySelectorAll('#mw-loading-sources .mw-loading-source').forEach(function(el,i){
+      var s=(window.mwLoadingSources||[])[i],hit=s&&names.has(String(s.name||'').toLowerCase());
+      el.classList.remove('active');if(hit)el.classList.add('done');
+    });
+    document.querySelectorAll('#mw-loading-links line').forEach(function(el,i){
+      var s=(window.mwLoadingSources||[])[i],hit=s&&names.has(String(s.name||'').toLowerCase());
+      el.classList.remove('active');if(hit)el.classList.add('done');
+    });
+  }
+  if(status){
+    var n=Number(data&&data.stats&&data.stats.count)||Number(data&&data.listings&&data.listings.length)||0;
+    status.textContent=n?('Matched '+n+' live offer'+(n===1?'':'s')):'Finishing product match';
+  }
+  return new Promise(function(resolve){setTimeout(resolve,170);});
 }
 async function submitTrackerQuery(directQuery, directProduct, options){
   options = options || {};
@@ -1909,22 +2029,11 @@ async function submitTrackerQuery(directQuery, directProduct, options){
   } else {
     q = (input.value || '').trim();
     if(!q) return false;
-    // Track/Enter may beat the typeahead by a few milliseconds. Wait for the
-    // current lookup (or start one immediately) instead of incorrectly saying the
-    // product does not exist.
-    if(!mwSelectedProduct && (!mwLastSuggestions || !mwLastSuggestions.length)){
-      var found = await fetchSuggestions(q, true);
-      if(found && found.length) mwLastSuggestions = found;
-    }
-    if(!mwSelectedProduct && (!mwLastSuggestions || !mwLastSuggestions.length)){
-      mwSearchHint('No matching item found — try a more specific name.');
-      return false;
-    }
-    // Enter/Track without clicking uses the top visible catalogue suggestion.
-    if(!mwSelectedProduct){
-      mwSelectedProduct = mwLastSuggestions[0];
-      if(mwSelectedProduct && mwSelectedProduct.title){ input.value = mwSelectedProduct.title; q = mwSelectedProduct.title; }
-    }
+    // Enter/Track now trusts the Product Resolver rather than silently choosing the
+    // first typeahead result. Clicking a suggestion still supplies an exact catalogue
+    // identity; typing a phrase sends that phrase intact so similarly named products
+    // cannot hijack the tracker page.
+    if(!mwSelectedProduct)hideSuggestList();
     ensureMarketWatchOpen();
   }
   mwCurrentQuery = q;
@@ -1942,18 +2051,15 @@ async function submitTrackerQuery(directQuery, directProduct, options){
     var _fill=document.querySelector('#mw-loading .mw-loading-bar-fill');
     if(_fill){ _fill.style.animation='none'; void _fill.offsetWidth; _fill.style.animation=''; }
     if(window.mwLoadTimer){ clearInterval(window.mwLoadTimer); }
-    var _pct=document.getElementById('mw-loading-pct'), _p=0;
-    if((Date.now()-_loadStarted)%1600<90)mwLoadingStatusTick();
-      if(_pct){ _pct.textContent='0%'; }
-    var _loadStarted=Date.now();
+    var _pct=document.getElementById('mw-loading-pct'), _p=0, _loadStarted=Date.now(), _lastSourceTick=0;
+    if(_pct){ _pct.textContent='0%'; }
+    mwLoadingStatusTick();
     window.mwLoadTimer=setInterval(function(){
       _p += Math.max(1, Math.round((92-_p)*0.09));
       if(_p>92) _p=92;
-      if(_pct){
-        _pct.textContent = (Date.now()-_loadStarted>7000 && _p>=90)
-          ? 'Checking final marketplace…'
-          : (_p+'%');
-      }
+      var elapsed=Date.now()-_loadStarted;
+      if(elapsed-_lastSourceTick>1250){_lastSourceTick=elapsed;mwLoadingStatusTick();}
+      if(_pct)_pct.textContent=_p+'%';
     }, 80);
   }
   try{
@@ -1977,6 +2083,7 @@ async function submitTrackerQuery(directQuery, directProduct, options){
       throw new Error((data && data.error) || ('Tracker request failed ('+res.status+')'));
     }
     if(data.fx){ mwFx = { cur:data.fx.currency||'USD', sym:data.fx.symbol||'$', rate:Number(data.fx.rate)||1 }; }
+    if(!preserveDetail)await mwFinishLoadingIntel(data);
     renderMarketWatch(q, data, mwSelectedProduct);
     // The Worker is the source of truth for product identity. Once it resolves the item,
     // keep the frontend on that one canonical product and put the permanent SEO URL in the
@@ -2137,6 +2244,8 @@ function renderMarketWatch(query, data, pickedProduct){
       rows.push(['Condition', 'New / Sealed']);
     } else {
       if(d.brand) rows.push(['Brand', d.brand]);
+      var resolvedCategory=String(data&&data.productIdentity&&data.productIdentity.category||'').trim();
+      if(resolvedCategory && resolvedCategory!=='other') rows.push(['Category', resolvedCategory.replace(/(^|[-\s])\w/g,function(m){return m.toUpperCase();})]);
       if(mwIsPublicStyleCode(d.styleId)) rows.push(['Style Code', d.styleId]);
       if(d.colorway) rows.push(['Colorway', mwCleanColorway(d.colorway)]);
       if(mwSelectedSizeLabel) rows.push(['Size', mwSelectedSizeLabel]);
@@ -5262,11 +5371,11 @@ async function websiteTasteSyncFromServer(force){
 }
 
 // ── Website Reels feed: one product per screen ─────────────────────────────
-var websiteReels={items:[],seen:new Set(),rendered:0,loading:false,observer:null};
+var websiteReels={items:[],seen:new Set(),rendered:0,loading:false,observer:null,viewObserver:null,sessionId:'',historySeen:{},freshened:false};
 function websiteReelKey(i){return String(i&&i.url||i&&i.itemId||i&&i.title||'').toLowerCase();}
 function websiteReelMoney(i){var c=String(i&&i.currency||findaiRegionCurrency(findaiRegionPreference())||'USD').toUpperCase(),p=Number(i&&i.price),s={AUD:'A$',USD:'$',GBP:'£',EUR:'€',CAD:'C$',CHF:'CHF ',SGD:'S$',HKD:'HK$'};return p>0?(s[c]||c+' ')+p.toLocaleString(undefined,{maximumFractionDigits:p>=100?0:2}):'See price';}
 function websiteReelSource(i){try{return listingSourceHtml(i,false);}catch(_){return '<span style="font-size:12px;font-weight:850;color:#fff">'+escapeHtml(String(i&&i.retailer||i&&i.source||'Marketplace'))+'</span>';}}
-function websiteReelReason(i){var q=String(i&&i.searchQ||'').trim();return q?'Because you searched '+q:(i&&i._savedSeed?'Liked by you':i&&i._clickedSeed?'Based on an item you opened':'Picked for you');}
+function websiteReelReason(i){if(i&&i._feedReason)return String(i._feedReason);var q=String(i&&i.searchQ||'').trim();return q?'Because you searched '+q:(i&&i._savedSeed?'Liked by you':i&&i._clickedSeed?'Based on an item you opened':'Picked for you');}
 function websiteReelUpgradeImageUrl(u){
   u=String(u||'').trim();if(!u)return '';
   // eBay Browse often returns a thumbnail-sized rendition of the original.
@@ -5318,14 +5427,147 @@ function websiteReelItem(b){var c=b&&b.closest('.fa-reel')&&b.closest('.fa-reel'
 function websiteReelLike(e,b){e.preventDefault();e.stopPropagation();if(!findaiSession()){openAuth('Sign in to like items');return;}var x=websiteReelItem(b),add=!findaiIsSaved(x),a=findaiSavedItems(),k=findaiSavedKey(x),j=a.findIndex(function(v){return findaiSavedKey(v)===k;}),snap=findaiSaveSnapshot(x);if(add)a.unshift(snap);else if(j>=0)a.splice(j,1);findaiStoreSavedItems(a);b.classList.toggle('saved',add);var svg=b.querySelector('svg');if(svg)svg.setAttribute('fill',add?'currentColor':'none');try{websiteTasteEvent(x.searchQ||x.title,add?'like':'unlike');findaiSavedRemoteSet(snap,add).catch(function(){});}catch(_){}}
 function websiteReelOpen(e,enc){e.preventDefault();e.stopPropagation();var x={};try{x=JSON.parse(decodeURIComponent(enc));}catch(_){}if(!x.url)return;try{saveClickedItem(x);}catch(_){}window.open(x.url,'_blank','noopener');}
 function websiteReelMarket(e,b){e.preventDefault();e.stopPropagation();var x=websiteReelItem(b);if(!x.title)return;closeWebsiteFeed();ensureMarketWatchOpen();mwSelectedProduct=null;submitTrackerQuery(x.searchQ||x.title,null,{listingPayload:x});}
-function websiteReelsPush(list,flag){(Array.isArray(list)?list:[]).forEach(function(raw){if(!raw||!raw.image||!raw.url||!(Number(raw.price)>0))return;var x=Object.assign({},raw);if(flag)x[flag]=true;var k=websiteReelKey(x);if(!k||websiteReels.seen.has(k))return;websiteReels.seen.add(k);websiteReels.items.push(x);});}
-function websiteReelsSeed(){var a=[],b=[],c=[];try{a=JSON.parse(localStorage.getItem('findai_clicked')||'[]')||[];}catch(_){}try{b=JSON.parse(localStorage.getItem('findai_searched')||'[]')||[];}catch(_){}try{c=findaiSavedItems()||[];}catch(_){}websiteReelsPush(b,'');websiteReelsPush(a,'_clickedSeed');websiteReelsPush(c,'_savedSeed');}
-function websiteReelsMix(){var g=new Map(),rest=[];websiteReels.items.forEach(function(x){var q=String(x.searchQ||'').toLowerCase();if(!q)return rest.push(x);if(!g.has(q))g.set(q,[]);g.get(q).push(x);});if(g.size<2)return;var keys=[...g.keys()],out=[],i=0,go=true;while(go){go=false;keys.forEach(function(k){var a=g.get(k);if(a[i]){out.push(a[i]);go=true;}});i++;}websiteReels.items=out.concat(rest);}
-function websiteReelsRender(){var s=document.getElementById('fa-reels-stream');if(!s)return;var a=websiteReels.rendered,z=Math.min(a+8,websiteReels.items.length);if(a===0)s.innerHTML='';for(var i=a;i<z;i++)s.insertAdjacentHTML('beforeend',websiteReelCard(websiteReels.items[i],i));websiteReels.rendered=z;var old=document.getElementById('fa-reels-sentinel');if(old)old.remove();var q=document.createElement('div');q.id='fa-reels-sentinel';q.className='fa-feed-sentinel';s.appendChild(q);if(websiteReels.observer)websiteReels.observer.disconnect();websiteReels.observer=new IntersectionObserver(function(en){if(en.some(function(v){return v.isIntersecting;})){if(websiteReels.rendered<websiteReels.items.length)websiteReelsRender();else websiteReelsDiscovery();}},{root:document.getElementById('findai-feed-page'),rootMargin:'700px'});websiteReels.observer.observe(q);}
-async function websiteReelsDiscovery(){if(websiteReels.loading)return;websiteReels.loading=true;try{var r=await fetch(WORKER+'/?previews=1'+findaiRegionPreferenceParam(),{cache:'default'}),d=await r.json();websiteReelsPush(d.items||[],'');websiteReelsRender();}catch(_){}websiteReels.loading=false;}
-async function websiteReelsReload(){var s=document.getElementById('fa-reels-stream');websiteReels={items:[],seen:new Set(),rendered:0,loading:false,observer:websiteReels.observer};websiteReelsSeed();websiteReelsMix();if(websiteReels.items.length){websiteReelsRender();websiteReelsDiscovery();}else{s.innerHTML='<div class="fa-reels-loading"><div><div class="fa-reel-spinner"></div>Finding products for you…</div></div>';await websiteReelsDiscovery();if(!websiteReels.items.length)s.innerHTML='<div class="fa-reels-end">Search or scan a few products and FindAI will learn what you like.</div>';}}
-function openWebsiteFeed(){try{closeMarketWatch();}catch(_){}var p=document.getElementById('findai-feed-page');if(!p)return;p.classList.add('open');p.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';websiteCloseUserMenu();p.scrollTop=0;websiteReelsReload();}
-function closeWebsiteFeed(){var p=document.getElementById('findai-feed-page');if(!p)return;p.classList.remove('open');p.setAttribute('aria-hidden','true');document.body.style.overflow='';if(websiteReels.observer)websiteReels.observer.disconnect();}
+function websiteReelsHistoryLoad(){
+  var x={};try{x=JSON.parse(localStorage.getItem('findai_reels_seen_v1')||'{}')||{};}catch(_){}
+  var cutoff=Date.now()-30*864e5;Object.keys(x).forEach(function(k){if(Number(x[k])<cutoff)delete x[k];});
+  return x;
+}
+function websiteReelsHistorySave(){try{localStorage.setItem('findai_reels_seen_v1',JSON.stringify(websiteReels.historySeen||{}));}catch(_){}}
+function websiteReelsMarkSeen(item){
+  var k=websiteReelKey(item);if(!k)return;websiteReels.historySeen[k]=Date.now();websiteReelsHistorySave();
+}
+function websiteReelsSeenPenalty(item){
+  var t=Number((websiteReels.historySeen||{})[websiteReelKey(item)]||0);if(!t)return 0;
+  var age=(Date.now()-t)/864e5;if(age<2)return 100;if(age<7)return 30;if(age<21)return 8;return 1;
+}
+function websiteReelsShuffle(arr){
+  var a=(arr||[]).slice();for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1)),t=a[i];a[i]=a[j];a[j]=t;}return a;
+}
+function websiteReelsPush(list,flag){
+  (Array.isArray(list)?list:[]).forEach(function(raw){
+    if(!raw||!raw.image||!raw.url||!(Number(raw.price)>0))return;
+    var x=Object.assign({},raw);if(flag)x[flag]=true;
+    var k=websiteReelKey(x);if(!k||websiteReels.seen.has(k))return;
+    websiteReels.seen.add(k);websiteReels.items.push(x);
+  });
+}
+function websiteReelsSeed(){
+  var clicked=[],searched=[],saved=[];
+  try{clicked=JSON.parse(localStorage.getItem('findai_clicked')||'[]')||[];}catch(_){}
+  try{searched=JSON.parse(localStorage.getItem('findai_searched')||'[]')||[];}catch(_){}
+  try{saved=findaiSavedItems()||[];}catch(_){}
+  // Shuffle within each relevance source on every Feed open. Persistent "seen" history
+  // then pushes yesterday's exact listings backwards without losing the user's interests.
+  websiteReelsPush(websiteReelsShuffle(searched),'');
+  websiteReelsPush(websiteReelsShuffle(clicked),'_clickedSeed');
+  websiteReelsPush(websiteReelsShuffle(saved),'_savedSeed');
+}
+function websiteReelsMix(){
+  var groups=new Map(),rest=[];
+  websiteReels.items.forEach(function(x){var q=String(x.searchQ||'').toLowerCase().trim();if(!q)return rest.push(x);if(!groups.has(q))groups.set(q,[]);groups.get(q).push(x);});
+  var keys=websiteReelsShuffle([...groups.keys()]);
+  keys.forEach(function(k){groups.set(k,websiteReelsShuffle(groups.get(k)));});
+  var out=[],i=0,go=true;while(go){go=false;keys.forEach(function(k){var a=groups.get(k);if(a[i]){out.push(a[i]);go=true;}});i++;}
+  out=out.concat(websiteReelsShuffle(rest));
+  // Controlled novelty: unseen items lead; recently seen exact listings remain available
+  // later so a small interest pool never becomes empty.
+  out.sort(function(a,b){
+    var pa=websiteReelsSeenPenalty(a),pb=websiteReelsSeenPenalty(b);
+    if(pa!==pb)return pa-pb;
+    return Math.random()-.5;
+  });
+  websiteReels.items=out;
+}
+function websiteReelsRecentQueries(){
+  var out=[],seen=new Set(),list=[];
+  try{list=JSON.parse(localStorage.getItem('findai_searched')||'[]')||[];}catch(_){}
+  list.forEach(function(x){var q=String(x&&x.searchQ||'').trim(),k=q.toLowerCase();if(q&& !seen.has(k)){seen.add(k);out.push(q);}});
+  try{(findaiSavedItems()||[]).forEach(function(x){var q=String(x&&x.searchQ||x&&x.title||'').trim(),k=q.toLowerCase();if(q&&!seen.has(k)){seen.add(k);out.push(q);}});}catch(_){}
+  return out.slice(0,5);
+}
+async function websiteReelsFreshen(){
+  if(websiteReels.freshened)return;websiteReels.freshened=true;
+  var recentTop=websiteReelsRecentQueries().slice(0,2),exactRecent=new Set(recentTop.map(function(q){return String(q||'').trim().toLowerCase();}));
+  var qs=[],seenQ=new Set(),addQ=function(q){q=String(q||'').trim();var k=q.toLowerCase();if(q.length>=2&&!seenQ.has(k)){seenQ.add(k);qs.push(q);}};
+  // Strongest signal: exact recent searches, but never let them consume the entire feed.
+  recentTop.forEach(addQ);
+  // Shared taste supplies adjacent discoveryQuery values, so a Juggernog search can branch
+  // into gaming memorabilia / related collectibles instead of recycling the identical listing.
+  try{
+    var taste=await Promise.race([websiteTasteSyncFromServer(false),new Promise(function(r){setTimeout(function(){r([]);},260);})]);
+    (Array.isArray(taste)?taste:[]).slice(0,6).forEach(function(x){addQ(x&&x.discoveryQuery||x&&x.query);});
+  }catch(_){}
+  // Local taste is instant and fills any remaining slots while preserving personal relevance.
+  try{websiteLocalTasteSeed().slice(0,8).forEach(function(x){addQ(x&&x.query);});}catch(_){}
+  if(!qs.length)return;
+  var jobs=qs.slice(0,5).map(function(q){
+    return fetch(WORKER+'/?q='+encodeURIComponent(q)+findaiSearchPreferenceParams()+'&passive=1&feed_session='+encodeURIComponent(websiteReels.sessionId),{cache:'no-store'})
+      .then(function(r){return r.ok?r.json():{items:[]};})
+      .then(function(d){var a=(d.items||[]).filter(function(i){return i&&i.image&&i.url&&Number(i.price)>0&&!i._retailerLinkOnly;});var reason=exactRecent.has(String(q).toLowerCase())?('Because you searched '+q):'Recommended from your interests';return websiteReelsShuffle(a).slice(0,8).map(function(i){return Object.assign({},i,{searchQ:q,_feedReason:reason,_freshFeed:true});});})
+      .catch(function(){return [];});
+  });
+  var rs=await Promise.allSettled(jobs);
+  rs.forEach(function(r){if(r.status==='fulfilled')websiteReelsPush(r.value,'');});
+}
+function websiteReelsBindSeenObserver(){
+  var root=document.getElementById('findai-feed-page');if(!root)return;
+  if(websiteReels.viewObserver)websiteReels.viewObserver.disconnect();
+  websiteReels.viewObserver=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(!e.isIntersecting||e.intersectionRatio<.62)return;
+      var c=e.target.querySelector('.fa-reel-card'),x={};try{x=JSON.parse(c&&c.getAttribute('data-item')||'{}');}catch(_){}
+      if(x&&x.url)websiteReelsMarkSeen(x);
+    });
+  },{root:root,threshold:[.62]});
+  root.querySelectorAll('.fa-reel').forEach(function(el){websiteReels.viewObserver.observe(el);});
+}
+function websiteReelsRender(){
+  var s=document.getElementById('fa-reels-stream');if(!s)return;
+  var a=websiteReels.rendered,z=Math.min(a+8,websiteReels.items.length);if(a===0)s.innerHTML='';
+  for(var i=a;i<z;i++)s.insertAdjacentHTML('beforeend',websiteReelCard(websiteReels.items[i],i));
+  websiteReels.rendered=z;
+  var old=document.getElementById('fa-reels-sentinel');if(old)old.remove();
+  var q=document.createElement('div');q.id='fa-reels-sentinel';q.className='fa-feed-sentinel';s.appendChild(q);
+  if(websiteReels.observer)websiteReels.observer.disconnect();
+  websiteReels.observer=new IntersectionObserver(function(en){if(en.some(function(v){return v.isIntersecting;})){if(websiteReels.rendered<websiteReels.items.length)websiteReelsRender();else websiteReelsDiscovery();}},{root:document.getElementById('findai-feed-page'),rootMargin:'700px'});
+  websiteReels.observer.observe(q);websiteReelsBindSeenObserver();
+}
+async function websiteReelsDiscovery(){
+  if(websiteReels.loading)return;websiteReels.loading=true;
+  try{
+    if(!websiteReels.freshened)await websiteReelsFreshen();
+    var frozen=websiteReels.items.slice(0,websiteReels.rendered),frozenKeys=new Set(frozen.map(websiteReelKey));
+    var r=await fetch(WORKER+'/?previews=1'+findaiRegionPreferenceParam()+'&feed_session='+encodeURIComponent(websiteReels.sessionId),{cache:'no-store'}),d=await r.json();
+    websiteReelsPush(websiteReelsShuffle(d.items||[]),'');
+    websiteReelsMix();
+    if(frozen.length){
+      var tail=websiteReels.items.filter(function(x){return !frozenKeys.has(websiteReelKey(x));});
+      websiteReels.items=frozen.concat(tail);
+    }
+    websiteReelsRender();
+  }catch(_){}
+  websiteReels.loading=false;
+}
+async function websiteReelsReload(){
+  var s=document.getElementById('fa-reels-stream');
+  if(websiteReels.observer)websiteReels.observer.disconnect();if(websiteReels.viewObserver)websiteReels.viewObserver.disconnect();
+  websiteReels={items:[],seen:new Set(),rendered:0,loading:false,observer:null,viewObserver:null,sessionId:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),historySeen:websiteReelsHistoryLoad(),freshened:false};
+  websiteReelsSeed();
+  // Give fresh versions of recent interests a short head-start, then mix with the deep
+  // local pool. This changes every session without making the feed random/unpersonalised.
+  try{await Promise.race([websiteReelsFreshen(),new Promise(function(r){setTimeout(r,700);})]);}catch(_){}
+  websiteReelsMix();
+  if(websiteReels.items.length){websiteReelsRender();websiteReelsDiscovery();}
+  else{s.innerHTML='<div class="fa-reels-loading"><div><div class="fa-reel-spinner"></div>Finding products for you…</div></div>';await websiteReelsDiscovery();if(!websiteReels.items.length)s.innerHTML='<div class="fa-reels-end">Search or scan a few products and FindAI will learn what you like.</div>';}
+}
+function openWebsiteFeed(){
+  try{closeMarketWatch();}catch(_){}
+  var p=document.getElementById('findai-feed-page');if(!p)return;p.classList.add('open');p.setAttribute('aria-hidden','false');document.body.style.overflow='hidden';websiteCloseUserMenu();p.scrollTop=0;websiteReelsReload();
+}
+function closeWebsiteFeed(){
+  var p=document.getElementById('findai-feed-page');if(!p)return;p.classList.remove('open');p.setAttribute('aria-hidden','true');document.body.style.overflow='';
+  if(websiteReels.observer)websiteReels.observer.disconnect();if(websiteReels.viewObserver)websiteReels.viewObserver.disconnect();
+}
 
 // Store the EXACT items the user clicked, so they always reappear on the homepage.
 function saveClickedItem(item){
