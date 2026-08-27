@@ -2079,6 +2079,27 @@ async function submitTrackerQuery(directQuery, directProduct, options){
     } finally { clearTimeout(timeout); }
     var data = null;
     try{ data = await res.json(); }catch(_){ data = null; }
+    if(data && data.needsVariant){
+      if(window.mwLoadTimer){clearInterval(window.mwLoadTimer);window.mwLoadTimer=null;}
+      document.getElementById('mw-loading').style.display='none';
+      document.getElementById('mw-content').style.display='none';
+      document.getElementById('mw-hero').style.display='flex';
+      if(input){input.value=data.originalQuery||q;input.focus();}
+      mwSelectedProduct=null;
+      var choices=Array.isArray(data.suggestions)?data.suggestions:[];
+      if(choices.length){
+        renderSuggestions(choices, mwSuggestKey(data.originalQuery||q));
+        var box=document.getElementById('mw-suggest-list');
+        if(box){
+          box.insertAdjacentHTML('afterbegin','<div style="padding:11px 15px 7px;color:#8f969f;font-size:11px;font-weight:700">Choose the exact variation to track</div>');
+          box.style.display='block';
+        }
+      }else{
+        mwSearchHint('Choose a specific colourway or variation first.');
+        try{onTrackerInput(data.originalQuery||q);}catch(_){}
+      }
+      return false;
+    }
     if(!res.ok || !data || data.error){
       throw new Error((data && data.error) || ('Tracker request failed ('+res.status+')'));
     }
@@ -2246,7 +2267,9 @@ function renderMarketWatch(query, data, pickedProduct){
       if(d.brand) rows.push(['Brand', d.brand]);
       var resolvedCategory=String(data&&data.productIdentity&&data.productIdentity.category||'').trim();
       if(resolvedCategory && resolvedCategory!=='other') rows.push(['Category', resolvedCategory.replace(/(^|[-\s])\w/g,function(m){return m.toUpperCase();})]);
-      if(mwIsPublicStyleCode(d.styleId)) rows.push(['Style Code', d.styleId]);
+      var sneakerDetails=!!(mwSneakerMarket&&mwSneakerMarket.enabled);
+      var looksInternalSneakerId=sneakerDetails&&/^\d{6,}$/.test(String(d.styleId||''));
+      if(mwIsPublicStyleCode(d.styleId)&&!looksInternalSneakerId) rows.push(['Style Code', d.styleId]);
       if(d.colorway) rows.push(['Colorway', mwCleanColorway(d.colorway)]);
       if(mwSelectedSizeLabel) rows.push(['Size', mwSelectedSizeLabel]);
       else if(mwSneakerMarket && mwSneakerMarket.enabled) rows.push(['Size', 'All sizes']);
@@ -2341,9 +2364,9 @@ function mwStat(label, val, sub, sym){
   return '<div class="mw-stat"><div class="mw-stat-label">'+label+'</div><div class="mw-stat-value">'+(val?mwMoney(val):'&mdash;')+'</div>'+(sub?'<div style="font-size:11px;color:#666;margin-top:2px">'+sub+'</div>':'')+'</div>';
 }
 
-function mwStatBig(label, val, sym, arrow){
+function mwStatBig(label, val, sym, note){
   var num = val ? mwMoney(val) : '&mdash;';
-  return '<div class="mw-stat"><div class="mw-stat-label">'+label+'</div><div class="mw-stat-value-big">'+num+(arrow||'')+'</div></div>';
+  return '<div class="mw-stat"><div class="mw-stat-label">'+label+'</div><div class="mw-stat-value-big">'+num+'</div></div>';
 }
 
 function setChartRange(days){
@@ -2853,7 +2876,7 @@ function renderTrackerListings(listings){
       thumb +
       '<div class="mw-listing-src" style="text-transform:none">'+mwSourceBadge(l)+'</div>' +
       '<div class="mw-listing-bottom"><div class="mw-listing-price">'+(l.price?((l.source==='bricklink'?'from ':'')+mwPriceFor(l)):'See listing')+'</div>' +
-      '<div class="mw-listing-shipping'+shippingCls+'">'+shippingText+'</div><div class="mw-listing-verified">Exact product match</div></div>' +
+      '<div class="mw-listing-shipping'+shippingCls+'">'+shippingText+'</div></div>' +
       (isBest?'<div class="mw-best-badge">&#128081; Best Price</div>':'') +
       '</a>';
   }).join('');
@@ -5372,7 +5395,21 @@ async function websiteTasteSyncFromServer(force){
 
 // ── Website Reels feed: one product per screen ─────────────────────────────
 var websiteReels={items:[],seen:new Set(),rendered:0,loading:false,observer:null,viewObserver:null,sessionId:'',historySeen:{},freshened:false};
-function websiteReelKey(i){return String(i&&i.url||i&&i.itemId||i&&i.title||'').toLowerCase();}
+function websiteReelProductKey(i){
+  i=i||{};
+  var strong=String(i.canonicalKey||i.fpid||i.productId||i.styleId||i.pid||'').trim().toLowerCase();
+  if(strong)return 'id:'+strong;
+  var q=String(i.searchQ||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  var browse=/\b(cheap|cheapest|best|deals?|under|sale|trending|popular|shoes?|sneakers?|lego sets?|electronics?|watches?|collectibles?)\b/i.test(q);
+  if(q && !browse && q.split(/\s+/).filter(Boolean).length>=2)return 'q:'+q;
+  var t=String(i.title||'').toLowerCase()
+    .replace(/\b(brand new|new|sealed|unused|unopened|used|pre owned|pre-owned|excellent condition|great condition|good condition|authentic|genuine|official|original|cib|complete in box|free shipping|fast shipping)\b/g,' ')
+    .replace(/\b(size|sz)\s*[a-z0-9.\/-]+\b/g,' ')
+    .replace(/\b\d+(?:\.\d+)?\s*(aud|usd|gbp|eur)\b/g,' ')
+    .replace(/[^a-z0-9]+/g,' ').replace(/\s+/g,' ').trim();
+  return 't:'+t.split(' ').slice(0,12).join(' ');
+}
+function websiteReelKey(i){return websiteReelProductKey(i);}
 function websiteReelMoney(i){var c=String(i&&i.currency||findaiRegionCurrency(findaiRegionPreference())||'USD').toUpperCase(),p=Number(i&&i.price),s={AUD:'A$',USD:'$',GBP:'£',EUR:'€',CAD:'C$',CHF:'CHF ',SGD:'S$',HKD:'HK$'};return p>0?(s[c]||c+' ')+p.toLocaleString(undefined,{maximumFractionDigits:p>=100?0:2}):'See price';}
 function websiteReelSource(i){try{return listingSourceHtml(i,false);}catch(_){return '<span style="font-size:12px;font-weight:850;color:#fff">'+escapeHtml(String(i&&i.retailer||i&&i.source||'Marketplace'))+'</span>';}}
 function websiteReelReason(i){if(i&&i._feedReason)return String(i._feedReason);var q=String(i&&i.searchQ||'').trim();return q?'Because you searched '+q:(i&&i._savedSeed?'Liked by you':i&&i._clickedSeed?'Based on an item you opened':'Picked for you');}
@@ -5408,7 +5445,7 @@ function websiteReelSafe(i){
   var imgs=[];
   if(i&&Array.isArray(i.images))imgs=i.images.slice(0,8);
   var best=websiteReelBestImage(i);
-  return {title:i.title||'',image:best||i.image||i.stockxImage||'',images:imgs,price:i.price||'',currency:i.currency||'',url:i.url||'',itemId:i.itemId||i.id||'',source:i.source||'',retailer:i.retailer||'',retailerHost:i.retailerHost||'',retailerLogo:i.retailerLogo||'',country:i.country||'',searchQ:i.searchQ||'',_webDiscovery:!!i._webDiscovery,_webIndex:!!i._webIndex};
+  return {title:i.title||'',image:best||i.image||i.stockxImage||'',images:imgs,price:i.price||'',currency:i.currency||'',url:i.url||'',itemId:i.itemId||i.id||'',source:i.source||'',retailer:i.retailer||'',retailerHost:i.retailerHost||'',retailerLogo:i.retailerLogo||'',country:i.country||'',searchQ:i.searchQ||'',canonicalKey:i.canonicalKey||'',fpid:i.fpid||'',productId:i.productId||'',styleId:i.styleId||'',pid:i.pid||'',_webDiscovery:!!i._webDiscovery,_webIndex:!!i._webIndex};
 }
 function websiteReelImageFallback(el){
   var raw=el.getAttribute('data-fallbacks')||'[]',list=[];try{list=JSON.parse(decodeURIComponent(raw));}catch(_){}
@@ -5602,7 +5639,7 @@ function saveSearchedItems(items, q){
   if(!Array.isArray(items)||!items.length) return;
   let list=[]; try{ list=JSON.parse(localStorage.getItem('findai_searched')||'[]'); }catch(_){}
   const picks=items.filter(i=>i&&i.url&&i.image&&Number(i.price)>0&&!i._retailerLinkOnly)
-    .slice(0,30).map(i=>({title:i.title,image:i.image,images:Array.isArray(i.images)?i.images.slice(0,8):[],price:i.price,currency:i.currency,url:i.url,itemId:i.itemId,source:i.source,retailer:i.retailer,retailerHost:i.retailerHost,retailerLogo:i.retailerLogo,retailerRole:i.retailerRole,retailerTier:i.retailerTier,country:i.country||i.location||country,_webDiscovery:!!i._webDiscovery,_webIndex:!!i._webIndex,searchQ:q||''}));
+    .slice(0,30).map(i=>({title:i.title,image:i.image,images:Array.isArray(i.images)?i.images.slice(0,8):[],price:i.price,currency:i.currency,url:i.url,itemId:i.itemId,source:i.source,retailer:i.retailer,retailerHost:i.retailerHost,retailerLogo:i.retailerLogo,retailerRole:i.retailerRole,retailerTier:i.retailerTier,country:i.country||i.location||country,canonicalKey:i.canonicalKey||'',fpid:i.fpid||'',productId:i.productId||'',styleId:i.styleId||'',pid:i.pid||'',_webDiscovery:!!i._webDiscovery,_webIndex:!!i._webIndex,searchQ:q||''}));
   if(!picks.length) return;
   const urls=new Set(picks.map(p=>p.url));
   list=list.filter(x=>x&&!urls.has(x.url));
