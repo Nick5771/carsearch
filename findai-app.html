@@ -2461,11 +2461,83 @@ html.findai-light .app-chat-shop-query,html.findai-light .app-chat-shop-cycle{co
 .nav{grid-template-columns:repeat(2,1fr)!important}
 </style>
 <script>window.FINDAI_LAUNCH_FREE=true;window.FINDAI_PUBLIC_SCAN=false;</script>
+
+<style id="findai-social-tabs-v1">
+/* Feed-first social shopping navigation */
+:root{--nav-h:66px}
+
+.nav{
+  position:absolute!important;left:0!important;right:0!important;bottom:0!important;
+  height:calc(var(--nav-h) + var(--safe-bottom))!important;
+  padding:0 17px var(--safe-bottom)!important;
+  display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  align-items:center!important;border-top:1px solid rgba(255,255,255,.075)!important;
+  background:rgba(7,8,10,.92)!important;backdrop-filter:blur(24px) saturate(1.15)!important;
+  z-index:40!important
+}
+.nav button{
+  width:100%!important;height:var(--nav-h)!important;min-width:0!important;padding:0!important;
+  border:0!important;background:transparent!important;color:#a5a9b0!important;
+  display:grid!important;place-items:center!important;font-size:0!important;line-height:0!important;
+  overflow:visible!important
+}
+.nav button:after{display:none!important}
+.nav-icon-shell{
+  width:45px;height:45px;border-radius:50%;display:grid;place-items:center;
+  transition:background .16s ease,transform .14s ease,color .16s ease
+}
+.nav button:active .nav-icon-shell{transform:scale(.93)}
+.nav button.active{color:#fff!important}
+.nav button.active .nav-icon-shell{background:rgba(255,255,255,.14)}
+.nav button svg{width:25px!important;height:25px!important;display:block}
+.nav button.active[data-tab="discover"] .nav-home-icon{fill:currentColor}
+.nav button.active[data-tab="tracker"] .nav-saved-icon{fill:currentColor}
+.nav-profile-avatar{
+  width:27px;height:27px;border-radius:50%;overflow:hidden;display:grid;place-items:center;
+  border:1.5px solid currentColor;background:#202226;color:#f6f6f5;
+  font-size:10px!important;line-height:1!important;font-weight:760
+}
+.nav-profile-avatar img{width:100%;height:100%;object-fit:cover;display:none}
+.nav-profile-avatar.has-image img{display:block}
+.nav-profile-avatar.has-image>span{display:none}
+.nav button.active[data-tab="profile"] .nav-profile-avatar{border-color:#fff}
+#discover.screen,#tracker.screen,#profile.screen{padding-bottom:calc(var(--nav-h) + var(--safe-bottom))}
+
+/* Profile is now a normal app tab rather than a full-screen modal. */
+#profile.profile-screen{
+  position:relative!important;inset:auto!important;z-index:1!important;height:100%!important;
+  background:linear-gradient(180deg,#0b0e13,#050607 48%)!important
+}
+#profile .profile-header{flex:0 0 auto}
+#profile .profile-header button:first-child{visibility:hidden;pointer-events:none}
+#profile .profile-scroll{padding-bottom:22px}
+
+/* The Saved tab keeps the existing price intelligence but reads as a library. */
+#tracker .tracker-header h1{font-size:29px}
+#tracker .tracker-header p{max-width:330px}
+#tracker .tracker-content{padding-bottom:28px}
+
+/* Light-mode equivalent of the Instagram-style selected halo. */
+html.findai-light .nav{
+  border-top-color:rgba(17,18,20,.09)!important;background:rgba(250,250,249,.94)!important
+}
+html.findai-light .nav button{color:#696b70!important}
+html.findai-light .nav button.active{color:#111214!important}
+html.findai-light .nav button.active .nav-icon-shell{background:rgba(0,0,0,.075)}
+html.findai-light .nav-profile-avatar{background:#e8e9e8;color:#151615;border-color:#8c8e92}
+html.findai-light .nav button.active[data-tab="profile"] .nav-profile-avatar{border-color:#111214}
+
+@media (max-height:700px){
+  :root{--nav-h:60px}
+  .nav-icon-shell{width:42px;height:42px}
+  .nav button svg{width:24px!important;height:24px!important}
+}
+</style>
 </head>
 <body>
 <div class="app">
   <!-- Search: conversational FindAI shopping assistant -->
-  <section id="search" class="screen active app-chat-screen">
+  <section id="search" class="screen app-chat-screen">
     <header class="app-chat-header">
       <button class="app-chat-menu-btn" type="button" onclick="openAppChatDrawer()" aria-label="Open recent chats and settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round"><path d="M5 7h14M5 12h11M5 17h8"/></svg>
@@ -2514,7 +2586,7 @@ html.findai-light .app-chat-shop-query,html.findai-light .app-chat-shop-cycle{co
   </div>
 
   <!-- Feed: personalised discovery reel, loaded only when the user opens it -->
-  <section id="discover" class="screen">
+  <section id="discover" class="screen active">
     <div class="feed-wrap discover-feed-wrap">
       <div class="reel-feed" id="personalFeed" aria-live="polite">
         <div class="reel-loading-splash plain-feed-loading" aria-label="Feed ready"><div class="feed-more-spinner"></div></div>
@@ -2610,8 +2682,8 @@ html.findai-light .app-chat-shop-query,html.findai-light .app-chat-shop-cycle{co
   <section id="tracker" class="screen">
     <header class="sub-header tracker-header">
       <div>
-        <h1>Price Tracker</h1>
-        <p>Search an exact product, view its live market price and build a price history.</p>
+        <h1>Saved</h1>
+        <p>Your saved products, live prices and price alerts in one place.</p>
       </div>
       <button class="icon-btn" aria-label="Return to shopping search" onclick="go('search')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7.5"/><path d="M20 20l-3.5-3.5"/></svg>
@@ -2620,7 +2692,7 @@ html.findai-light .app-chat-shop-query,html.findai-light .app-chat-shop-cycle{co
     <div class="tracker-content">
       <form class="tracker-search-form" onsubmit="return trackerLookup(event)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7.5"/><path d="M20 20l-3.5-3.5"/></svg>
-        <input id="trackerQuery" type="search" placeholder="Track a product or model…" enterkeyhint="search" autocomplete="off">
+        <input id="trackerQuery" type="search" placeholder="Find or track a product…" enterkeyhint="search" autocomplete="off">
         <button type="submit">Check price</button>
       </form>
 
@@ -2637,22 +2709,29 @@ html.findai-light .app-chat-shop-query,html.findai-light .app-chat-shop-cycle{co
     </div>
   </section>
 
-  <!-- Bottom navigation -->
+  <!-- Bottom navigation — feed-first, Instagram-style icon tabs -->
   <nav class="nav" aria-label="Main navigation">
-    <button class="active" data-tab="search" onclick="openSearchHome()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="11" cy="11" r="7.5"/><path d="M20 20l-3.5-3.5"/></svg>
-      Search
+    <button class="active" data-tab="discover" onclick="openForYou()" aria-label="Home">
+      <span class="nav-icon-shell">
+        <svg class="nav-home-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M3.5 10.7 12 3.8l8.5 6.9v8.1a1.7 1.7 0 0 1-1.7 1.7h-4.6v-6.1H9.8v6.1H5.2a1.7 1.7 0 0 1-1.7-1.7z"/></svg>
+      </span>
     </button>
-    <button data-tab="discover" onclick="openForYou()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 6.5h16M4 12h16M4 17.5h16"/><circle cx="8" cy="6.5" r="1.5" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.5" fill="currentColor" stroke="none"/><circle cx="11" cy="17.5" r="1.5" fill="currentColor" stroke="none"/></svg>
-      Feed
+    <button data-tab="search" onclick="openSearchHome(false)" aria-label="Search">
+      <span class="nav-icon-shell">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>
+      </span>
     </button>
-    <button data-tab="scan" onclick="go('scan')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/><circle cx="12" cy="12" r="3.5"/></svg>
-      Scan
+    <button data-tab="tracker" onclick="go('tracker')" aria-label="Saved">
+      <span class="nav-icon-shell">
+        <svg class="nav-saved-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M20.6 5.8c-1.8-2.1-5.1-2.2-7-.3L12 7.1l-1.6-1.6c-1.9-1.9-5.2-1.8-7 .3-1.7 2-1.5 5 .4 6.9L12 20.3l8.2-7.6c1.9-1.9 2.1-4.9.4-6.9z"/></svg>
+      </span>
+    </button>
+    <button data-tab="profile" onclick="openProfile()" aria-label="Profile">
+      <span class="nav-icon-shell">
+        <span class="nav-profile-avatar" id="navProfileAvatar"><img alt=""><span>F</span></span>
+      </span>
     </button>
   </nav>
-
 
 
   <!-- Account interface. Authentication is deliberately isolated from the shopping and scanner code. -->
@@ -2740,7 +2819,7 @@ html.findai-light .app-chat-shop-query,html.findai-light .app-chat-shop-cycle{co
     </div>
   </div>
 
-  <section class="profile-screen" id="profileScreen" aria-label="FindAI profile">
+  <section class="screen profile-screen" id="profile" aria-label="FindAI profile">
     <header class="profile-header"><button onclick="closeProfile()" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><button onclick="toast('Profile settings are coming next')" aria-label="Profile settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.87l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.25.37.6.7 1 .9.34.17.72.25 1.1.25H21v4h-.1a1.7 1.7 0 0 0-1.5.85z"/></svg></button></header>
     <div class="profile-scroll">
       <div class="profile-identity"><button class="profile-avatar" id="profileAvatar" onclick="document.getElementById('accountAvatarInput').click()" aria-label="Change profile photo"><img alt=""><span>F</span></button><h2 id="profileName">FindAI user</h2><p id="profileEmail"></p></div>
@@ -2988,12 +3067,22 @@ function updateAccountHeader(){
   const actions=$('#headerAccountActions');
   const login=$('#loginPill');
   const avatar=$('#accountAvatar');
+  const navAvatar=$('#navProfileAvatar');
   const createListing=$('#createListingPill');
   if(login) login.hidden=!!profile;
   if(createListing) createListing.hidden=true;
   if(avatar) avatar.hidden=!profile;
   if(actions) actions.classList.toggle('account-logged-in',!!profile);
-  if(profile) paintAccountAvatar(avatar,profile);
+  if(profile){
+    paintAccountAvatar(avatar,profile);
+    paintAccountAvatar(navAvatar,profile);
+  }else if(navAvatar){
+    const img=navAvatar.querySelector('img');
+    const initial=navAvatar.querySelector('span');
+    if(img) img.removeAttribute('src');
+    if(initial) initial.textContent='F';
+    navAvatar.classList.remove('has-image');
+  }
 }
 function openLogin(){
   const profile=getAccountProfile();
@@ -3066,11 +3155,16 @@ function signOutAccount(){
 }
 function openProfile(){
   closeAccountMenu();
+  const profile=getAccountProfile();
+  if(!profile){ openLogin(); return; }
   renderAccountProfile();
-  $('#profileScreen').classList.add('show');
+  go('profile');
   appGetProStatus(true).catch(()=>{});
 }
-function closeProfile(){ $('#profileScreen').classList.remove('show'); }
+function closeProfile(){
+  const profileScreen=$('#profile');
+  if(profileScreen&&profileScreen.classList.contains('active')) openForYou();
+}
 function renderAccountProfile(){
   const profile=getAccountProfile();
   if(!profile) return;
@@ -6664,8 +6758,8 @@ async function lookupTrackerProduct(query){
 function renderTracker(){
   trackerDisplayItems=trackerItems();
   const isDemo=!getTracked().length;
-  $('#watchlistKicker').textContent=isDemo?'Example watchlist':'Watchlist';
-  $('#watchlistTitle').textContent=isDemo?'Popular products':'Tracked products';
+  $('#watchlistKicker').textContent=isDemo?'Start saving':'Saved';
+  $('#watchlistTitle').textContent=isDemo?'Products you save will appear here':'Saved products';
   const list=$('#trackerList');
   list.innerHTML=trackerDisplayItems.map((item,index)=>renderTrackerRow(item,index,isDemo)).join('');
   if(!activeTrackerItem || (!activeTrackerItem.lookup && !trackerDisplayItems.some(x=>x.key===activeTrackerItem.key))){
@@ -7301,24 +7395,20 @@ function doSearch(event){
   input.value='';input.style.height='auto';try{input.blur();}catch(_){}document.body.classList.remove('keyboard-open');findaiSyncVisualViewport();setTimeout(findaiSyncVisualViewport,160);appChatSubmit(value);return false;
 }
 
-/* Boot — Search stays instant, while the passive discovery feed warms quietly
-   behind it so tapping Feed does not start from an empty network request. */
+/* Boot — FindAI opens directly into the personalised shopping reels.
+   Search remains one tap away in the second tab. */
 (function boot(){
   bootstrapInterestProfile();
   updateAccountHeader();
-  document.body.dataset.activeTab='search';
+  document.body.dataset.activeTab='discover';
   renderAppChatDrawerRecents();
-  openSearchHome(true);
+  openForYou();
 
-  // Deep links should still open promptly, but hidden tracker/account work should
-  // not compete with the first feed request or first paint. go('tracker') already
-  // renders the tracker lazily when the user actually opens it.
   setTimeout(()=>appHandleLaunchDeepLink().catch(()=>{}),90);
   const later=(fn,delay)=>{
     if('requestIdleCallback' in window){requestIdleCallback(()=>{try{fn();}catch(_){}},{timeout:delay+900});}
     else setTimeout(()=>{try{fn();}catch(_){}},delay);
   };
-  later(()=>warmPersonalisedFeedCache(),260);
   later(()=>appGetProStatus(true).catch(()=>{}),650);
   later(appStartMarketplaceSync,850);
   later(()=>appSavedSyncFromServer(false).catch(()=>{}),1050);
