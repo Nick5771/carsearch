@@ -2457,8 +2457,120 @@ html.findai-light .liked-empty-icon,html.findai-light .liked-search-toggle{backg
 html.findai-light .profile-secondary-auth{background:#fff;color:#111214;border-color:rgba(17,18,20,.1)}
 html.findai-light .profile-menu-icon{background:#f0f1f2}
 
+
+/* ============================================================
+   FindAI v88 — 5-icon marketplace nav + Instagram-style profile
+   ============================================================ */
+
+/* The old launch-mode stylesheet hid these. v88 makes Create + Scan public. */
+#createListingScreen{display:none!important}
+#createListingScreen.show{display:flex!important}
+.nav button[data-tab="scan"]{display:grid!important}
+.findai-five-nav{grid-template-columns:repeat(5,minmax(0,1fr))!important;padding-left:10px!important;padding-right:10px!important}
+.findai-five-nav .nav-icon-shell{width:43px;height:43px}
+.findai-five-nav .nav-create-action{display:grid!important;place-items:center!important;overflow:visible!important}
+.findai-five-nav .nav-create-shell{
+  width:50px;height:50px;border-radius:50%;background:#f6f7f8;color:#08090a;
+  display:grid;place-items:center;box-shadow:0 8px 24px rgba(0,0,0,.28);
+  transform:translateY(-2px);transition:transform .14s ease,opacity .14s ease
+}
+.findai-five-nav .nav-create-action:active .nav-create-shell{transform:translateY(-2px) scale(.92)}
+.findai-five-nav .nav-create-shell svg{width:25px!important;height:25px!important}
+.findai-five-nav button.active[data-tab="scan"] .nav-icon-shell{background:rgba(255,255,255,.13)}
+.findai-five-nav button.active[data-tab="profile"] .nav-icon-shell{background:transparent!important}
+
+/* Signed-in profile */
+.social-profile{padding:0 0 20px}
+.social-profile-topbar{display:flex;align-items:center;justify-content:space-between;padding:3px 1px 15px}
+.social-profile-handle{font-size:19px;font-weight:800;letter-spacing:-.45px;color:#f6f7f8;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.social-profile-account-note{margin-top:2px;color:#777f89;font-size:9px}
+.social-settings-button{width:38px;height:38px;border:0;border-radius:50%;background:transparent;color:#f2f3f4;display:grid;place-items:center}
+.social-settings-button svg{width:22px;height:22px}
+
+.social-profile-hero{display:grid;grid-template-columns:94px minmax(0,1fr);align-items:center;gap:14px;padding:3px 1px 11px}
+.social-profile-avatar{
+  width:88px;height:88px;border-radius:50%;overflow:hidden;border:1px solid rgba(255,255,255,.18);
+  background:#181b20;color:#fff;display:grid;place-items:center;font-size:26px;font-weight:800;padding:0
+}
+.social-profile-avatar img{width:100%;height:100%;object-fit:cover;display:none}
+.social-profile-avatar.has-image img{display:block}.social-profile-avatar.has-image>span{display:none}
+.social-profile-stats{display:grid;grid-template-columns:repeat(3,1fr);align-items:center}
+.social-profile-stats button{min-width:0;border:0;background:transparent;color:#fff;text-align:center;padding:6px 2px}
+.social-profile-stats b{display:block;font-size:18px;line-height:1;font-weight:790;letter-spacing:-.35px}
+.social-profile-stats span{display:block;margin-top:6px;color:#c2c6cc;font-size:10px}
+.social-profile-copy{padding:0 1px 14px}
+.social-profile-copy h2{margin:0;color:#f6f7f8;font-size:14px;font-weight:770}
+.social-profile-bio{margin:5px 0 0;color:#d3d6db;font-size:11.5px;line-height:1.45;white-space:pre-line}
+.social-profile-bio:empty{display:none}
+.social-profile-meta{margin-top:5px;color:#7f8791;font-size:9.5px;line-height:1.4}
+.social-profile-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px;padding:0 0 12px}
+.social-profile-actions button{
+  height:36px;border:1px solid rgba(255,255,255,.095);border-radius:10px;background:#171a1f;color:#f4f5f6;
+  font-size:11px;font-weight:700
+}
+.social-profile-utility-row{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px}
+.social-profile-utility-row button{
+  min-width:0;height:43px;padding:0 12px;border:1px solid rgba(255,255,255,.075);border-radius:12px;background:#0f1216;color:#fff;
+  display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10.5px
+}
+.social-profile-utility-row button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.social-profile-utility-row button b{font-size:9px;color:#b7bdc5}
+.social-profile-tabs{
+  height:45px;margin:0 -18px;border-top:1px solid rgba(255,255,255,.075);border-bottom:1px solid rgba(255,255,255,.075);
+  display:grid;grid-template-columns:repeat(4,1fr);background:#050607
+}
+.social-profile-tabs button{position:relative;border:0;background:transparent;color:#777e88;display:grid;place-items:center;padding:0}
+.social-profile-tabs button svg{width:21px;height:21px}
+.social-profile-tabs button.active{color:#f5f6f7}
+.social-profile-tabs button.active:after{content:"";position:absolute;left:20%;right:20%;bottom:-1px;height:1.5px;background:#fff}
+.social-profile-content{margin:0 -18px;min-height:260px}
+.social-profile-loading,.social-profile-empty{padding:72px 26px;text-align:center;color:#7c838d;font-size:11.5px;line-height:1.5}
+.social-profile-empty b{display:block;color:#f2f3f4;font-size:15px;margin-bottom:6px}
+.social-profile-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;background:#050607}
+.social-profile-tile{position:relative;aspect-ratio:1;border:0;background:#101318;overflow:hidden;padding:0;color:#fff}
+.social-profile-tile img{width:100%;height:100%;object-fit:cover;display:block}
+.social-profile-tile-placeholder{width:100%;height:100%;display:grid;place-items:center;background:linear-gradient(135deg,#171b20,#0c0f13);color:#6f7781}
+.social-profile-tile-placeholder svg{width:30px;height:30px}
+.social-profile-tile-price{position:absolute;left:6px;bottom:6px;padding:4px 6px;border-radius:7px;background:rgba(5,6,7,.72);backdrop-filter:blur(8px);font-size:8.5px;font-weight:760}
+.social-profile-sold-badge{position:absolute;right:6px;top:6px;padding:4px 6px;border-radius:7px;background:rgba(5,6,7,.78);font-size:7.5px;font-weight:820;letter-spacing:.05em;text-transform:uppercase}
+.social-profile-reviews{padding:14px 18px 30px;display:flex;flex-direction:column;gap:9px}
+.social-profile-review{padding:13px;border:1px solid rgba(255,255,255,.075);border-radius:15px;background:#0e1115}
+.social-profile-review-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.social-profile-review-head b{font-size:11px}.social-profile-review-stars{font-size:11px;letter-spacing:1px;color:#f1f2f4}
+.social-profile-review p{margin:8px 0 0;color:#a5abb4;font-size:10.5px;line-height:1.45}
+.social-profile-review small{color:#69717b;font-size:8.5px}
+.social-profile-create-first{margin-top:14px;height:38px;padding:0 15px;border:0;border-radius:11px;background:#f3f4f5;color:#090a0b;font-size:10.5px;font-weight:760}
+
+/* Edit profile sheet */
+.profile-edit-form{display:flex;flex-direction:column;gap:12px}
+.profile-edit-avatar-row{display:flex;align-items:center;gap:12px;margin-bottom:3px}
+.profile-edit-avatar{width:58px;height:58px;border-radius:50%;overflow:hidden;background:#181b20;border:1px solid rgba(255,255,255,.1);display:grid;place-items:center;font-size:18px;font-weight:800}
+.profile-edit-avatar img{width:100%;height:100%;object-fit:cover;display:none}.profile-edit-avatar.has-image img{display:block}.profile-edit-avatar.has-image span{display:none}
+.profile-edit-change-photo{border:0;background:transparent;color:#d8dce2;font-size:10.5px;text-decoration:underline}
+.profile-edit-field{display:flex;flex-direction:column;gap:6px;color:#8f969f;font-size:9px;font-weight:700}
+.profile-edit-field input,.profile-edit-field textarea{
+  width:100%;box-sizing:border-box;border:1px solid rgba(255,255,255,.09);border-radius:12px;background:#111419;color:#fff;
+  padding:11px 12px;font:500 12px/1.35 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;outline:0
+}
+.profile-edit-field textarea{min-height:82px;resize:none}
+.profile-edit-submit{height:44px;border:0;border-radius:13px;background:#f4f5f6;color:#08090a;font-size:11px;font-weight:800}
+
+/* Light */
+html.findai-light .findai-five-nav .nav-create-shell{background:#17191c;color:#fff}
+html.findai-light .social-profile-handle,html.findai-light .social-profile-copy h2{color:#111214}
+html.findai-light .social-profile-stats button{color:#111214}
+html.findai-light .social-profile-stats span{color:#6f747b}
+html.findai-light .social-profile-bio{color:#2b2d31}
+html.findai-light .social-profile-actions button,html.findai-light .social-profile-utility-row button{background:#fff;color:#111214;border-color:rgba(17,18,20,.09)}
+html.findai-light .social-profile-tabs{background:#f6f7f9;border-color:rgba(17,18,20,.08)}
+html.findai-light .social-profile-tabs button.active{color:#111214}
+html.findai-light .social-profile-tabs button.active:after{background:#111214}
+html.findai-light .social-profile-grid{background:#f6f7f9}
+html.findai-light .social-profile-review{background:#fff;color:#111214;border-color:rgba(17,18,20,.08)}
+html.findai-light .profile-edit-field input,html.findai-light .profile-edit-field textarea{background:#fff;color:#111214;border-color:rgba(17,18,20,.1)}
+
 </style>
-  <meta name="findai-build" content="v87-mobile-search-liked-scan-apple">
+  <meta name="findai-build" content="v88-marketplace-nav-instagram-profile">
 
 <style id="findai-v60-focus-overrides">
 .account-menu-item[onclick*="openPurchases"],
@@ -2536,7 +2648,7 @@ html.findai-light .profile-menu-icon{background:#f0f1f2}
 .app-pro-menu-item,.app-pro-profile-card,#appProOverlay,.nav button[data-tab="scan"],.app-chat-plus{display:none!important}
 .nav{grid-template-columns:repeat(2,1fr)!important}
 </style>
-<script>window.FINDAI_LAUNCH_FREE=true;window.FINDAI_PUBLIC_SCAN=false;</script>
+<script>window.FINDAI_LAUNCH_FREE=true;window.FINDAI_PUBLIC_SCAN=true;</script>
 
 <style id="findai-social-tabs-v1">
 /* Feed-first social shopping navigation */
@@ -2830,30 +2942,38 @@ html.findai-light .nav button.active[data-tab="profile"] .nav-profile-avatar{bor
     </div>
   </section>
 
-  <!-- Bottom navigation — feed-first, Instagram-style icon tabs -->
-  <nav class="nav" aria-label="Main navigation">
+  <!-- Bottom navigation — Home / Search / Create / Scan / Profile -->
+  <nav class="nav findai-five-nav" aria-label="Main navigation">
     <button class="active" data-tab="discover" onclick="openForYou()" aria-label="Home">
       <span class="nav-icon-shell">
         <svg class="nav-home-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M3.5 10.7 12 3.8l8.5 6.9v8.1a1.7 1.7 0 0 1-1.7 1.7h-4.6v-6.1H9.8v6.1H5.2a1.7 1.7 0 0 1-1.7-1.7z"/></svg>
       </span>
     </button>
+
     <button data-tab="search" onclick="openSearchHome(false)" aria-label="Search">
       <span class="nav-icon-shell">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>
+        <svg class="nav-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>
       </span>
     </button>
-    <button data-tab="liked" onclick="go('liked')" aria-label="Liked items">
+
+    <button class="nav-create-action" type="button" onclick="openCreateListing()" aria-label="Create listing">
+      <span class="nav-create-shell">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </span>
+    </button>
+
+    <button data-tab="scan" onclick="go('scan')" aria-label="Scan">
       <span class="nav-icon-shell">
-        <svg class="nav-saved-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M20.6 5.8c-1.8-2.1-5.1-2.2-7-.3L12 7.1l-1.6-1.6c-1.9-1.9-5.2-1.8-7 .3-1.7 2-1.5 5 .4 6.9L12 20.3l8.2-7.6c1.9-1.9 2.1-4.9.4-6.9z"/></svg>
+        <svg class="nav-scan-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><circle cx="12" cy="12" r="3.25"/></svg>
       </span>
     </button>
+
     <button data-tab="profile" onclick="openProfile()" aria-label="Profile">
       <span class="nav-icon-shell">
         <span class="nav-profile-avatar" id="navProfileAvatar"><img alt=""><span>F</span></span>
       </span>
     </button>
   </nav>
-
 
   <!-- Account interface. Authentication is deliberately isolated from the shopping and scanner code. -->
   <div class="account-overlay centered" id="loginOverlay" role="dialog" aria-modal="true" aria-labelledby="loginTitle" onclick="if(event.target===this)closeLogin()">
@@ -2976,13 +3096,60 @@ html.findai-light .nav button.active[data-tab="profile"] .nav-profile-avatar{bor
         <button class="profile-menu-row" type="button" onclick="go('scan')"><span class="profile-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/><circle cx="12" cy="12" r="3.4"/></svg></span><span><b>Scan</b><small>Identify products with your camera</small></span><i>›</i></button>
       </div>
 
-      <div id="profileSignedIn" hidden>
-        <div class="profile-identity"><button class="profile-avatar" id="profileAvatar" onclick="document.getElementById('accountAvatarInput').click()" aria-label="Change profile photo"><img alt=""><span>F</span></button><h2 id="profileName">FindAI user</h2><p id="profileEmail"></p></div>
-        <div class="profile-stats"><div class="profile-stat"><b id="profileSavedCount">0</b><span>Liked</span></div><div class="profile-stat"><b id="profileTrackedCount">0</b><span>Tracked</span></div></div>
-        <button type="button" class="profile-card app-pro-profile-card" onclick="appOpenPro()"><div class="app-pro-profile-top"><div class="app-pro-profile-copy"><b id="appProProfileTitle">FindAI Pro</b><span id="appProProfileCopy">Unlimited search, scans and price intelligence</span></div><span class="app-pro-profile-chip" id="appProProfileChip">Upgrade</span></div></button>
-        <div class="profile-card"><div class="profile-card-head"><h3>Interests</h3><span>Personalised</span></div><div class="interest-chips" id="profileInterests"></div></div>
-        <div class="profile-card"><div class="profile-card-head"><h3>Recent searches</h3><span>See all</span></div><div class="recent-search-list" id="profileRecentSearches"></div></div>
-        <button class="profile-signout-row" type="button" onclick="signOutAccount()">Log out</button>
+      <div id="profileSignedIn" class="social-profile" hidden>
+        <div class="social-profile-topbar">
+          <div>
+            <div class="social-profile-handle" id="socialProfileHandle">@findai</div>
+            <div class="social-profile-account-note">FindAI profile</div>
+          </div>
+          <button class="social-settings-button" type="button" onclick="openAppSettings()" aria-label="Settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.87l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.25.37.6.7 1 .9.34.17.72.25 1.1.25H21v4h-.1a1.7 1.7 0 0 0-1.5.85z"/></svg>
+          </button>
+        </div>
+
+        <div class="social-profile-hero">
+          <button class="social-profile-avatar" id="profileAvatar" onclick="document.getElementById('accountAvatarInput').click()" aria-label="Change profile photo"><img alt=""><span>F</span></button>
+          <div class="social-profile-stats">
+            <button type="button" onclick="setProfileTab('listings')"><b id="socialListingsCount">0</b><span>Listings</span></button>
+            <button type="button" onclick="setProfileTab('sold')"><b id="socialSoldCount">0</b><span>Sold</span></button>
+            <button type="button" onclick="setProfileTab('reviews')"><b id="socialRatingValue">—</b><span>Rating</span></button>
+          </div>
+        </div>
+
+        <div class="social-profile-copy">
+          <h2 id="profileName">FindAI user</h2>
+          <p class="social-profile-bio" id="socialProfileBio"></p>
+          <div class="social-profile-meta" id="socialProfileMeta"></div>
+        </div>
+
+        <div class="social-profile-actions">
+          <button type="button" onclick="openProfileEdit()">Edit profile</button>
+          <button type="button" onclick="shareFindAIProfile()">Share profile</button>
+        </div>
+
+        <div class="social-profile-utility-row">
+          <button type="button" onclick="go('tracker')"><span>Price alerts</span><b id="profileTrackedCount">0</b></button>
+          <button type="button" onclick="appOpenPro()"><span id="appProProfileTitle">FindAI Pro</span><b id="appProProfileChip">Upgrade</b></button>
+        </div>
+
+        <div class="social-profile-tabs" role="tablist" aria-label="Profile sections">
+          <button class="active" type="button" data-profile-tab="listings" onclick="setProfileTab('listings')" role="tab" aria-label="Listings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg>
+          </button>
+          <button type="button" data-profile-tab="sold" onclick="setProfileTab('sold')" role="tab" aria-label="Sold">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16v13H4z"/><path d="M7 7V5h10v2M9 11h6"/><path d="m9.2 15 1.8 1.8 4-4"/></svg>
+          </button>
+          <button type="button" data-profile-tab="liked" onclick="setProfileTab('liked')" role="tab" aria-label="Liked">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85"><path d="M20.6 5.8c-1.8-2.1-5.1-2.2-7-.3L12 7.1l-1.6-1.6c-1.9-1.9-5.2-1.8-7 .3-1.7 2-1.5 5 .4 6.9L12 20.3l8.2-7.6c1.9-1.9 2.1-4.9.4-6.9z"/></svg>
+          </button>
+          <button type="button" data-profile-tab="reviews" onclick="setProfileTab('reviews')" role="tab" aria-label="Reviews">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 4h16v12H8l-4 4z"/><path d="m8.5 10 2 2 4.5-4.5"/></svg>
+          </button>
+        </div>
+
+        <div class="social-profile-content" id="socialProfileContent">
+          <div class="social-profile-loading">Loading profile…</div>
+        </div>
       </div>
     </div>
   </section>
@@ -3529,7 +3696,7 @@ async function submitCreateListing(event){
     if(submit) submit.textContent='Publishing…';
     const created=await marketplaceFetch('/marketplace/listings',{method:'POST',body:JSON.stringify({title:name,description,condition,itemPrice:Number(price.toFixed(2)),currency:'AUD',imageUrls:uploaded.imageUrls||[],displayName:profile.name||'FindAI seller',publish:true})});
     const current=getMarketplaceListings();if(created.listing)saveMarketplaceListings([created.listing,...current.filter(item=>item.itemId!==created.listing.itemId)]);
-    closeCreateListing();resetCreateListingForm();await openMyListings();toast('Listing is live across FindAI');
+    closeCreateListing();resetCreateListingForm();go('profile');await loadProfileMarketplaceData(true);setProfileTab('listings');toast('Listing is live across FindAI');
     try{renderAccountProfile();}catch(_){}
   }catch(error){toast(String(error&&error.message||'Could not publish listing'));if(submit){submit.disabled=false;submit.textContent='Publish Listing';}}
   return false;
@@ -5045,7 +5212,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 
 function go(tab){
-  if(tab==='scan'&&!appProScanUnlocked){appEnterProScan();return;}
+  if(tab==='scan'&&!window.FINDAI_PUBLIC_SCAN&&!appProScanUnlocked){appEnterProScan();return;}
   if(tab!=='search'){const q=$('#q');if(q)try{q.blur();}catch(_){} document.body.classList.remove('keyboard-open');}
   closeAppChatDrawer();
   $$('.screen').forEach(screen=>screen.classList.toggle('active',screen.id===tab));
@@ -7553,6 +7720,165 @@ function doSearch(event){
 }
 
 
+
+/* ============================================================
+   v88 Instagram-style marketplace profile
+   ============================================================ */
+let socialProfileTab='listings';
+let socialProfileListings=[];
+let socialProfileSeller={rating:0,reviewCount:0,soldCount:0,recentReviews:[],joinedAt:''};
+
+function findaiProfileUsername(profile){
+  const raw=String(profile&&profile.username||profile&&profile.email&&profile.email.split('@')[0]||profile&&profile.name||'findai')
+    .toLowerCase().replace(/[^a-z0-9._]/g,'').replace(/^[._]+|[._]+$/g,'');
+  return (raw||'findai').slice(0,24);
+}
+function findaiProfileJoined(profile){
+  const value=socialProfileSeller.joinedAt||(profile&&profile.createdAt);
+  if(!value)return '';
+  try{return 'Joined '+new Intl.DateTimeFormat(undefined,{month:'short',year:'numeric'}).format(new Date(value));}catch(_){return '';}
+}
+async function loadProfileMarketplaceData(force=false){
+  const profile=getAccountProfile();
+  if(!profile)return;
+  try{
+    socialProfileListings=await loadMarketplaceListings();
+  }catch(_){
+    socialProfileListings=getMarketplaceListings();
+  }
+  socialProfileSeller={rating:0,reviewCount:0,soldCount:socialProfileListings.filter(x=>String(x.status||'').toLowerCase()==='sold').length,recentReviews:[],joinedAt:''};
+  const candidate=socialProfileListings.find(Boolean);
+  if(candidate&&marketplaceSession()){
+    try{
+      const id=appMpId(candidate);
+      if(id){
+        const detail=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id),{method:'GET'});
+        const seller=detail&&detail.seller||{};
+        socialProfileSeller={
+          rating:Number(seller.rating)||0,
+          reviewCount:Number(seller.reviewCount)||0,
+          soldCount:Number(seller.soldCount)||socialProfileSeller.soldCount,
+          recentReviews:Array.isArray(seller.recentReviews)?seller.recentReviews:[],
+          joinedAt:seller.joinedAt||''
+        };
+      }
+    }catch(_){}
+  }
+  paintSocialProfileHeader();
+  renderSocialProfileContent();
+}
+function paintSocialProfileHeader(){
+  const profile=getAccountProfile();if(!profile)return;
+  const handle='@'+findaiProfileUsername(profile);
+  const handleEl=$('#socialProfileHandle');if(handleEl)handleEl.textContent=handle;
+  const nameEl=$('#profileName');if(nameEl)nameEl.textContent=profile.name||'FindAI user';
+  const bio=$('#socialProfileBio');if(bio)bio.textContent=String(profile.bio||'').trim();
+  const meta=[];
+  if(profile.location)meta.push(profile.location);
+  const joined=findaiProfileJoined(profile);if(joined)meta.push(joined);
+  const metaEl=$('#socialProfileMeta');if(metaEl)metaEl.textContent=meta.join(' · ');
+  paintAccountAvatar($('#profileAvatar'),profile);
+  const listings=socialProfileListings.filter(x=>String(x.status||'active').toLowerCase()!=='sold');
+  const sold=Math.max(socialProfileSeller.soldCount||0,socialProfileListings.filter(x=>String(x.status||'').toLowerCase()==='sold').length);
+  const listingCount=$('#socialListingsCount');if(listingCount)listingCount.textContent=String(listings.length);
+  const soldCount=$('#socialSoldCount');if(soldCount)soldCount.textContent=String(sold);
+  const rating=$('#socialRatingValue');if(rating)rating.textContent=socialProfileSeller.reviewCount?Number(socialProfileSeller.rating||0).toFixed(1):'—';
+  const tracked=$('#profileTrackedCount');if(tracked)tracked.textContent=String(getTracked().length);
+}
+function setProfileTab(tab){
+  const allowed=['listings','sold','liked','reviews'];
+  socialProfileTab=allowed.includes(tab)?tab:'listings';
+  $$('.social-profile-tabs [data-profile-tab]').forEach(button=>button.classList.toggle('active',button.dataset.profileTab===socialProfileTab));
+  renderSocialProfileContent();
+}
+function socialProfileTile(item,index,source){
+  const img=item.image||(Array.isArray(item.images)&&item.images[0])||item.fallbackImage||getImage(item)||'';
+  const price=Number(item.price)||Number(item.itemPrice)||0;
+  const currency=item.currency||'AUD';
+  const sold=String(item.status||'').toLowerCase()==='sold';
+  const click=source==='liked'?`openProfileLikedItem(${index})`:`openProfileListingItem(${index},'${source}')`;
+  return `<button class="social-profile-tile" type="button" onclick="${click}">
+    ${img?`<img src="${escapeAttr(img)}" alt="${escapeAttr(item.title||'FindAI item')}" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:`<span class="social-profile-tile-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5L5 20"/></svg></span>`}
+    ${price?`<span class="social-profile-tile-price">${escapeHTML(appMpMoney(price,currency))}</span>`:''}
+    ${sold?`<span class="social-profile-sold-badge">Sold</span>`:''}
+  </button>`;
+}
+function renderSocialProfileContent(){
+  const root=$('#socialProfileContent');if(!root)return;
+  if(socialProfileTab==='listings'){
+    const items=socialProfileListings.filter(x=>String(x.status||'active').toLowerCase()!=='sold');
+    root.innerHTML=items.length?`<div class="social-profile-grid">${items.map((x,i)=>socialProfileTile(x,i,'listings')).join('')}</div>`:
+      `<div class="social-profile-empty"><b>No listings yet</b>Your active listings will appear here.<br><button class="social-profile-create-first" type="button" onclick="openCreateListing()">Create your first listing</button></div>`;
+    return;
+  }
+  if(socialProfileTab==='sold'){
+    const items=socialProfileListings.filter(x=>String(x.status||'').toLowerCase()==='sold');
+    root.innerHTML=items.length?`<div class="social-profile-grid">${items.map((x,i)=>socialProfileTile(x,i,'sold')).join('')}</div>`:
+      '<div class="social-profile-empty"><b>Nothing sold yet</b>Completed marketplace sales will appear here.</div>';
+    return;
+  }
+  if(socialProfileTab==='liked'){
+    const items=getTracked();
+    root.innerHTML=items.length?`<div class="social-profile-grid">${items.map((x,i)=>socialProfileTile(x,i,'liked')).join('')}</div>`:
+      '<div class="social-profile-empty"><b>No liked items yet</b>Heart products around FindAI and they will appear here.</div>';
+    return;
+  }
+  const reviews=Array.isArray(socialProfileSeller.recentReviews)?socialProfileSeller.recentReviews:[];
+  root.innerHTML=reviews.length?`<div class="social-profile-reviews">${reviews.map(review=>`<article class="social-profile-review"><div class="social-profile-review-head"><b>Verified purchase</b><span class="social-profile-review-stars">${escapeHTML(appStars(review.rating))}</span></div>${review.comment?`<p>${escapeHTML(review.comment)}</p>`:''}<small>Buyer feedback</small></article>`).join('')}</div>`:
+    '<div class="social-profile-empty"><b>No reviews yet</b>Verified buyer feedback will appear here after completed sales.</div>';
+}
+function openProfileListingItem(index,source){
+  const list=source==='sold'?socialProfileListings.filter(x=>String(x.status||'').toLowerCase()==='sold'):socialProfileListings.filter(x=>String(x.status||'active').toLowerCase()!=='sold');
+  const item=list[index];if(item)openAppMarketplaceListing(item);
+}
+function openProfileLikedItem(index){
+  const item=getTracked()[index];if(!item)return;
+  if(getSource(item)==='findai'){openAppMarketplaceListing(item);return;}
+  const url=getListingUrl(item)||item.url;if(url)window.open(url,'_blank','noopener,noreferrer');
+}
+function openProfileEdit(){
+  const profile=getAccountProfile();if(!profile)return;
+  const avatar=safeUrl(profile.avatar)||String(profile.avatar||'');
+  const avatarHTML=avatar&&/^(data:image\/|https?:\/\/)/.test(avatar)?`<img src="${escapeAttr(avatar)}" alt="">`:'';
+  openAppMpSheet('Edit profile',`<form class="profile-edit-form" onsubmit="return saveFindAIProfileEdit(event)">
+    <div class="profile-edit-avatar-row"><div class="profile-edit-avatar ${avatarHTML?'has-image':''}" id="profileEditAvatar">${avatarHTML}<span>${escapeHTML(accountInitials(profile.name,profile.email))}</span></div><button class="profile-edit-change-photo" type="button" onclick="document.getElementById('accountAvatarInput').click()">Change photo</button></div>
+    <label class="profile-edit-field">Display name<input id="profileEditName" maxlength="60" value="${escapeAttr(profile.name||'')}"></label>
+    <label class="profile-edit-field">Username<input id="profileEditUsername" maxlength="24" autocapitalize="none" spellcheck="false" value="${escapeAttr(findaiProfileUsername(profile))}"></label>
+    <label class="profile-edit-field">Bio<textarea id="profileEditBio" maxlength="160" placeholder="Tell people a little about you">${escapeHTML(profile.bio||'')}</textarea></label>
+    <label class="profile-edit-field">Location<input id="profileEditLocation" maxlength="60" value="${escapeAttr(profile.location||'')}" placeholder="e.g. Sydney, Australia"></label>
+    <button class="profile-edit-submit" type="submit">Save profile</button>
+  </form>`);
+}
+function saveFindAIProfileEdit(event){
+  event.preventDefault();
+  const profile=getAccountProfile();if(!profile)return false;
+  const name=String($('#profileEditName')&&$('#profileEditName').value||'').trim()||profile.name||'FindAI user';
+  const username=String($('#profileEditUsername')&&$('#profileEditUsername').value||'').toLowerCase().replace(/[^a-z0-9._]/g,'').replace(/^[._]+|[._]+$/g,'').slice(0,24);
+  const bio=String($('#profileEditBio')&&$('#profileEditBio').value||'').trim().slice(0,160);
+  const location=String($('#profileEditLocation')&&$('#profileEditLocation').value||'').trim().slice(0,60);
+  saveAccountProfile({...profile,name,username:username||findaiProfileUsername(profile),bio,location,updatedAt:Date.now()});
+  updateAccountHeader();closeAppMpSheet();paintSocialProfileHeader();renderSocialProfileContent();toast('Profile updated');
+  return false;
+}
+async function shareFindAIProfile(){
+  const profile=getAccountProfile();if(!profile)return;
+  const username=findaiProfileUsername(profile);
+  const url='https://findai.ai/findai-app.html';
+  const share={title:(profile.name||'FindAI profile')+' on FindAI',text:`Find me on FindAI as @${username}`,url};
+  try{
+    if(navigator.share)await navigator.share(share);
+    else{await navigator.clipboard.writeText(`${share.text} — ${url}`);toast('Profile link copied');}
+  }catch(_){}
+}
+
+/* v88 overrides profile rendering with the social marketplace profile. */
+function renderAccountProfile(){
+  const profile=getAccountProfile();if(!profile)return;
+  paintSocialProfileHeader();
+  appPaintProUI(appProState);
+  loadProfileMarketplaceData(false).catch(()=>{});
+}
+
 /* ============================================================
    v87 mobile Search / Liked / Profile behaviour
    ============================================================ */
@@ -7713,6 +8039,7 @@ async function removeLikedItem(index,event){
   items.splice(index,1);setTracked(items);appSavedRemoteSet(item,false).catch(()=>{});renderLikedItems();
 }
 function renderLikedItems(){
+  if(socialProfileTab==='liked'&&document.body.dataset.activeTab==='profile')renderSocialProfileContent();
   const root=$('#likedItemsContent');if(!root)return;
   const filter=normaliseQueryText($('#likedFilter')&&$('#likedFilter').value||'');
   const all=getTracked(),items=filter?all.filter(item=>normaliseQueryText([item.title,item.source,item.query].join(' ')).includes(filter)):all;
@@ -7732,7 +8059,7 @@ function focusLikedSearch(){const q=$('#likedFilter');if(q){q.focus();q.scrollIn
 function renderProfileTab(){
   const profile=getAccountProfile(),signedOut=$('#profileSignedOut'),signedIn=$('#profileSignedIn');
   if(signedOut)signedOut.hidden=!!profile;if(signedIn)signedIn.hidden=!profile;
-  if(profile)renderAccountProfile();
+  if(profile){renderAccountProfile();loadProfileMarketplaceData(false).catch(()=>{});}
 }
 function openProfile(){
   closeAccountMenu();go('profile');renderProfileTab();if(getAccountProfile())appGetProStatus(true).catch(()=>{});
