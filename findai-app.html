@@ -2952,6 +2952,84 @@ html.findai-light .nav button.active[data-tab="profile"] .nav-profile-avatar{bor
   .nav-icon-shell{width:42px;height:42px}
   .nav button svg{width:24px!important;height:24px!important}
 }
+
+
+/* ============================================================
+   FindAI v91 — restore 5-tab nav + original Home labels only
+   Everything else from v90 remains unchanged.
+   ============================================================ */
+:root{--premium-nav-h:64px}
+
+/* Restore the five-item bottom bar. A later four-column override was making
+   the fifth item spill/crop; keep all five evenly inside the viewport. */
+.nav.findai-five-nav.premium-bottom-nav{
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  align-items:center!important;
+  height:calc(var(--premium-nav-h) + var(--safe-bottom))!important;
+  padding:0 6px var(--safe-bottom)!important;
+  column-gap:0!important;
+}
+.nav.findai-five-nav.premium-bottom-nav button{
+  min-width:0!important;
+  width:100%!important;
+  height:var(--premium-nav-h)!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:0!important;
+}
+.nav.findai-five-nav.premium-bottom-nav .nav-icon-shell{
+  width:40px!important;height:40px!important;border-radius:50%!important;
+}
+.nav.findai-five-nav.premium-bottom-nav button.active .nav-icon-shell{
+  background:rgba(255,255,255,.12)!important;
+}
+.nav.findai-five-nav.premium-bottom-nav button svg{width:24px!important;height:24px!important}
+.nav.findai-five-nav.premium-bottom-nav .nav-create-shell{
+  width:42px!important;height:42px!important;border-radius:50%!important;
+  background:#292a2d!important;color:#fff!important;box-shadow:none!important;transform:none!important;
+}
+.nav.findai-five-nav.premium-bottom-nav .nav-create-shell svg{width:23px!important;height:23px!important}
+.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar{width:27px!important;height:27px!important}
+
+/* Bring back the simple FindAI + For You treatment on the reel home. */
+#discover .discover-social-topbar{
+  position:absolute;top:0;left:0;right:0;z-index:35;
+  height:calc(var(--safe-top) + 52px);
+  padding:var(--safe-top) 15px 0;
+  display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
+  color:#fff;pointer-events:none;
+  background:linear-gradient(180deg,rgba(0,0,0,.62) 0%,rgba(0,0,0,.24) 68%,rgba(0,0,0,0) 100%);
+  text-shadow:0 1px 12px rgba(0,0,0,.55);
+}
+#discover .discover-social-brand{
+  justify-self:start;font-size:21px;line-height:1;font-weight:760;letter-spacing:-.65px;
+}
+#discover .discover-social-title{
+  justify-self:center;font-size:15px;line-height:1;font-weight:720;letter-spacing:-.2px;
+}
+#discover .discover-social-balance{justify-self:end;width:44px;height:1px}
+
+/* The feed stays full-bleed underneath the restored top labels. */
+#discover .discover-feed-wrap{top:0!important}
+#discover.screen,#search.screen,#searchResults.screen,#liked.screen,#tracker.screen,#profile.screen{
+  padding-bottom:calc(var(--premium-nav-h) + var(--safe-bottom))!important;
+}
+html.findai-light #discover .discover-social-topbar{
+  color:#111214;
+  background:linear-gradient(180deg,rgba(246,247,249,.78) 0%,rgba(246,247,249,.26) 68%,rgba(246,247,249,0) 100%);
+  text-shadow:none;
+}
+html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-icon-shell{
+  background:rgba(0,0,0,.075)!important;
+}
+@media(max-height:700px){
+  :root{--premium-nav-h:60px}
+  .nav.findai-five-nav.premium-bottom-nav .nav-icon-shell{width:38px!important;height:38px!important}
+  .nav.findai-five-nav.premium-bottom-nav .nav-create-shell{width:40px!important;height:40px!important}
+  #discover .discover-social-topbar{height:calc(var(--safe-top) + 48px)}
+}
+
 </style>
 </head>
 <body>
@@ -3020,6 +3098,11 @@ html.findai-light .nav button.active[data-tab="profile"] .nav-profile-avatar{bor
 
   <!-- Feed: personalised discovery reel, loaded only when the user opens it -->
   <section id="discover" class="screen active">
+    <header class="discover-social-topbar" aria-label="FindAI home">
+      <div class="discover-social-brand">FindAI</div>
+      <div class="discover-social-title">For You</div>
+      <div class="discover-social-balance" aria-hidden="true"></div>
+    </header>
     <div class="feed-wrap discover-feed-wrap">
       <div class="reel-feed" id="personalFeed" aria-live="polite">
         <div class="reel-loading-splash plain-feed-loading" aria-label="Feed ready"><div class="feed-more-spinner"></div></div>
