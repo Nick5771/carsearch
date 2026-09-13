@@ -2725,8 +2725,84 @@ html.findai-light .premium-bottom-nav .nav-create-shell{background:#dedfe1!impor
 html.findai-light .social-profile-actions button{background:#e8e8ea!important;color:#111214!important}
 html.findai-light .social-profile-tabs{background:#f8f8f8!important}
 
+
+/* ============================================================
+   FindAI v90 — richer live discovery + guest social profile
+   ============================================================ */
+
+/* Search discovery is now an endless-feeling stack of real live sections. */
+.premium-discovery-stack{display:flex;flex-direction:column;gap:30px;padding:10px 0 30px}
+.premium-market-section{min-width:0}
+.premium-market-section.is-loading{opacity:.9}
+.premium-market-section .premium-section-title{align-items:center;margin:0 1px 13px}
+.premium-market-section .premium-section-title h2{font-size:21px;letter-spacing:-.55px}
+.premium-market-section .premium-section-title span{font-size:9px;color:#747c86}
+.premium-market-brand{
+  height:27px;min-width:56px;max-width:96px;display:flex;align-items:center;justify-content:flex-end;
+}
+.premium-market-brand img{display:block;max-width:92px;max-height:25px;object-fit:contain}
+.premium-market-brand .app-ebay-wordmark{font-size:25px;line-height:1}
+.premium-market-row{
+  display:grid;grid-auto-flow:column;grid-auto-columns:45%;gap:9px;overflow-x:auto;
+  padding:0 0 3px;scroll-snap-type:x proximity;scrollbar-width:none
+}
+.premium-market-row::-webkit-scrollbar{display:none}
+.premium-market-row .premium-ebay-card{scroll-snap-align:start;min-height:232px}
+.premium-market-row .premium-ebay-media{aspect-ratio:1.04}
+.premium-market-row .premium-product-skeleton{width:auto;min-width:0;aspect-ratio:.72}
+.premium-market-section-error{padding:30px 4px;color:#717983;font-size:10px}
+
+/* Only the official retailer mark is shown on cards — never logo + retailer name twice. */
+.premium-card-source-logo{display:flex;align-items:center;height:20px}
+.premium-card-source-logo img{display:block;max-width:74px;max-height:18px;object-fit:contain;object-position:left center}
+.premium-card-source-logo .app-ebay-wordmark{font-size:20px;line-height:1}
+.premium-card-source-text{color:#858d97;font-size:9px;font-weight:650}
+
+/* Signed-out Profile now looks like a real profile, not a login/settings page. */
+#profile .social-profile-guest{padding:0!important}
+.guest-profile-avatar{display:grid!important;place-items:center!important}
+.guest-profile-actions button{color:#eceef1!important}
+.guest-profile-tabs{pointer-events:none}
+.guest-profile-posts{margin:0 -18px;min-height:245px;border-top:0;background:#050607}
+.guest-profile-signin{
+  min-height:235px;padding:48px 26px 55px;display:flex;flex-direction:column;align-items:center;text-align:center;
+}
+.guest-profile-signin>svg{width:41px;height:41px;color:#dfe2e6;margin-bottom:15px}
+.guest-profile-signin>b{color:#f5f6f7;font-size:15px;letter-spacing:-.2px}
+.guest-profile-signin>span{max-width:275px;margin-top:7px;color:#7b838e;font-size:10.5px;line-height:1.5}
+.guest-profile-signin>button{
+  min-width:132px;height:36px;margin-top:18px;border:0;border-radius:9px;background:#f5f6f7;color:#090a0b;
+  font-size:10.5px;font-weight:800
+}
+
+/* Login: Apple, Google and Email are identical premium white actions. */
+.auth-login-body{display:flex!important;flex-direction:column!important;gap:9px!important}
+.auth-login-body .apple-signin-btn,
+.auth-login-body .google-signin-btn,
+.auth-login-body .email-signin-btn{
+  width:100%!important;height:52px!important;margin:0!important;border:0!important;border-radius:15px!important;
+  background:#f7f7f7!important;color:#090a0b!important;box-shadow:none!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;gap:11px!important;
+  font-size:13px!important;font-weight:780!important
+}
+.auth-login-body .apple-signin-btn svg,
+.auth-login-body .google-signin-btn svg,
+.auth-login-body .email-signin-btn svg{width:20px!important;height:20px!important;flex:0 0 auto}
+.auth-login-body .email-signin-btn svg{stroke:#090a0b!important}
+.auth-method-divider{display:none!important}
+
+/* Keep Instagram-like signed-in Profile clean. */
+.social-profile-account-note{display:none!important}
+.social-profile-utility-row{display:none!important}
+
+/* Light */
+html.findai-light .guest-profile-posts{background:#f8f8f8}
+html.findai-light .guest-profile-signin>b{color:#111214}
+html.findai-light .guest-profile-signin>span{color:#747980}
+html.findai-light .premium-card-source-text{color:#777d84}
+
 </style>
-  <meta name="findai-build" content="v90-marketplace-rails-home-character">
+  <meta name="findai-build" content="v90-premium-marketplace-discovery-profile">
 
 <style id="findai-v60-focus-overrides">
 .account-menu-item[onclick*="openPurchases"],
@@ -2877,142 +2953,10 @@ html.findai-light .nav button.active[data-tab="profile"] .nav-profile-avatar{bor
   .nav button svg{width:24px!important;height:24px!important}
 }
 </style>
-
-<style id="findai-v90-final-overrides">
-/* ============================================================
-   FindAI v90 FINAL overrides — intentionally last in <head>
-   ============================================================ */
-
-/* Fix old launch/social styles that were forcing 2/4 columns.
-   The fifth Profile icon now always remains visible and centered. */
-.nav.findai-five-nav.premium-bottom-nav{
-  position:absolute!important;left:0!important;right:0!important;bottom:0!important;
-  width:100%!important;max-width:none!important;box-sizing:border-box!important;
-  display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;
-  align-items:center!important;column-gap:0!important;
-  height:calc(68px + var(--safe-bottom))!important;
-  padding:0 8px var(--safe-bottom)!important;
-  background:rgba(5,6,7,.97)!important;border-top:1px solid rgba(255,255,255,.07)!important;
-  backdrop-filter:blur(24px) saturate(1.08)!important;overflow:visible!important;z-index:80!important;
-}
-.nav.findai-five-nav.premium-bottom-nav button{
-  display:grid!important;width:100%!important;min-width:0!important;max-width:none!important;
-  height:68px!important;margin:0!important;padding:0!important;place-items:center!important;
-  overflow:visible!important;background:transparent!important;border:0!important;
-}
-.nav.findai-five-nav.premium-bottom-nav .nav-icon-shell{width:42px!important;height:42px!important}
-.nav.findai-five-nav.premium-bottom-nav .nav-create-shell{
-  width:45px!important;height:45px!important;background:#292a2d!important;color:#fff!important;
-  border-radius:50%!important;box-shadow:none!important;transform:none!important
-}
-.nav.findai-five-nav.premium-bottom-nav .nav-create-shell svg{width:25px!important;height:25px!important}
-.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar{width:29px!important;height:29px!important}
-#profile .profile-scroll{
-  overflow-y:auto!important;overflow-x:hidden!important;
-  padding-bottom:calc(68px + var(--safe-bottom) + 28px)!important;
-}
-#profile{overflow:hidden!important}
-
-/* Search home: premium marketplace rails, not a giant tile grid. */
-.premium-search-home-scroll{padding:4px 0 28px!important}
-.premium-marketplace-sections{display:flex;flex-direction:column;gap:29px;padding:8px 0 14px}
-.premium-marketplace-rail[hidden]{display:none!important}
-.premium-rail-head{
-  display:flex;align-items:flex-end;justify-content:space-between;gap:12px;
-  padding:0 16px 11px
-}
-.premium-rail-head h2{margin:0;color:#f8f9fa;font-size:21px;line-height:1;font-weight:770;letter-spacing:-.55px}
-.premium-rail-head span{display:block;margin-top:5px;color:#737b84;font-size:9px}
-.premium-rail-logo{display:flex;align-items:center;justify-content:flex-end;min-width:50px;min-height:23px}
-.premium-rail-logo .app-source-logo{width:auto!important;max-width:58px!important;height:20px!important;object-fit:contain}
-.premium-horizontal-row{
-  display:grid;grid-auto-flow:column;grid-auto-columns:minmax(146px,39vw);
-  gap:9px;overflow-x:auto;padding:0 16px 3px;scroll-snap-type:x proximity;
-  scrollbar-width:none;overscroll-behavior-x:contain
-}
-.premium-horizontal-row::-webkit-scrollbar{display:none}
-.premium-rail-card{
-  position:relative;min-width:0;border:0;border-radius:15px;background:#0e1115;color:#fff;
-  overflow:hidden;text-align:left;padding:0;scroll-snap-align:start
-}
-.premium-rail-media{
-  position:relative;aspect-ratio:1.16;background:#f4f4f4;overflow:hidden
-}
-.premium-rail-media img{
-  width:100%;height:100%;object-fit:contain;display:block;
-  transform:scale(.90);transform-origin:center
-}
-.premium-rail-card .premium-card-like{
-  right:7px!important;top:7px!important;width:29px!important;height:29px!important
-}
-.premium-rail-copy{padding:8px 9px 10px}
-.premium-rail-copy .source{height:15px;display:flex;align-items:center;color:#89919b;font-size:8px}
-.premium-rail-copy .source .app-source-logo{height:14px!important;max-width:47px!important}
-.premium-rail-copy h3{
-  margin:5px 0 0;min-height:27px;color:#e9ebee;font-size:9.8px;line-height:1.35;font-weight:620;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden
-}
-.premium-rail-copy strong{display:block;margin-top:6px;color:#fff;font-size:14px;line-height:1;font-weight:790;letter-spacing:-.25px}
-.premium-rail-copy small{
-  display:block;margin-top:6px;color:#747c86;font-size:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
-}
-.premium-rail-skeleton{
-  width:min(154px,39vw);aspect-ratio:.76;border-radius:15px;
-  background:linear-gradient(100deg,#101318 18%,#1b1f25 38%,#101318 58%);
-  background-size:220% 100%;animation:premiumSkeleton 1.15s linear infinite
-}
-
-/* Search results: shipping replaces seller username. */
-.premium-result-copy small{color:#838b95!important;font-size:9px!important}
-
-/* Home feed character: small FindAI header, centered For you, Search action. */
-#discover{position:relative!important}
-.discover-premium-topfade{
-  position:absolute;z-index:31;left:0;right:0;top:0;height:116px;pointer-events:none;
-  background:linear-gradient(180deg,rgba(3,4,5,.82),rgba(3,4,5,.36) 58%,rgba(3,4,5,0))
-}
-.discover-premium-header{
-  position:absolute;z-index:36;left:15px;right:15px;top:calc(var(--safe-top) + 9px);
-  height:40px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;
-  pointer-events:none;color:#fff
-}
-.discover-premium-header>*{pointer-events:auto}
-.discover-premium-wordmark{
-  justify-self:start;font-size:18px;line-height:1;font-weight:800;letter-spacing:-.55px;
-  text-shadow:0 2px 13px rgba(0,0,0,.55)
-}
-.discover-premium-mode{
-  justify-self:center;align-self:stretch;display:flex;align-items:center;position:relative;
-  font-size:11.5px;font-weight:700;text-shadow:0 2px 12px rgba(0,0,0,.6)
-}
-.discover-premium-mode:after{
-  content:"";position:absolute;left:7px;right:7px;bottom:2px;height:1.5px;border-radius:99px;background:#fff
-}
-.discover-premium-search{
-  justify-self:end;width:37px;height:37px;border:0;border-radius:50%;
-  background:rgba(13,15,18,.38);color:#fff;display:grid;place-items:center;backdrop-filter:blur(8px)
-}
-.discover-premium-search svg{width:21px;height:21px}
-
-/* Keep reel content under the premium home chrome without adding layout height. */
-#discover .discover-feed-wrap{height:100%!important}
-
-/* Signed-out/signed-in profile both remain fully scrollable above nav. */
-#profile.profile-screen{padding-bottom:calc(68px + var(--safe-bottom))!important}
-#profile .profile-signed-out{padding-bottom:30px!important}
-#profile .social-profile-content{padding-bottom:8px}
-
-/* Light mode parity. */
-html.findai-light .nav.findai-five-nav.premium-bottom-nav{background:rgba(249,249,250,.97)!important;border-top-color:rgba(0,0,0,.08)!important}
-html.findai-light .premium-rail-head h2{color:#111214}
-html.findai-light .premium-rail-card{background:#fff;color:#111214}
-html.findai-light .premium-rail-copy h3,html.findai-light .premium-rail-copy strong{color:#111214}
-</style>
-
 </head>
 <body>
 <div class="app">
-  <!-- Search: premium discovery with live marketplace rails -->
+  <!-- Search: clean premium discovery surface -->
   <section id="search" class="screen premium-search-home" aria-label="Search">
     <header class="premium-search-home-header">
       <form class="premium-search-bar" onsubmit="return submitPremiumSearch(event,'home')">
@@ -3025,18 +2969,10 @@ html.findai-light .premium-rail-copy h3,html.findai-light .premium-rail-copy str
     </header>
 
     <div class="premium-search-home-scroll">
-      <div id="premiumMarketplaceSections" class="premium-marketplace-sections" aria-live="polite">
-        <section class="premium-marketplace-rail" id="premiumRailEbay">
-          <div class="premium-rail-head"><div><h2>Popular on eBay</h2><span>Live listings from popular searches</span></div><div class="premium-rail-logo" id="premiumRailLogoEbay"></div></div>
-          <div class="premium-horizontal-row" id="premiumRowEbay"><div class="premium-rail-skeleton"></div><div class="premium-rail-skeleton"></div><div class="premium-rail-skeleton"></div></div>
-        </section>
-        <section class="premium-marketplace-rail" id="premiumRailStockx" hidden>
-          <div class="premium-rail-head"><div><h2>Popular on StockX</h2><span>Live marketplace listings</span></div><div class="premium-rail-logo" id="premiumRailLogoStockx"></div></div>
-          <div class="premium-horizontal-row" id="premiumRowStockx"></div>
-        </section>
-        <section class="premium-marketplace-rail" id="premiumRailAmazon" hidden>
-          <div class="premium-rail-head"><div><h2>Popular on Amazon</h2><span>Live marketplace listings</span></div><div class="premium-rail-logo" id="premiumRailLogoAmazon"></div></div>
-          <div class="premium-horizontal-row" id="premiumRowAmazon"></div>
+      <div class="premium-discovery-stack" id="premiumDiscoverySections" aria-live="polite">
+        <section class="premium-market-section is-loading">
+          <div class="premium-section-title"><div><h2>Loading live products</h2><span>Building your FindAI discovery feed</span></div></div>
+          <div class="premium-market-row"><div class="premium-product-skeleton"></div><div class="premium-product-skeleton"></div><div class="premium-product-skeleton"></div></div>
         </section>
       </div>
       <div id="feed" hidden></div>
@@ -3084,14 +3020,6 @@ html.findai-light .premium-rail-copy h3,html.findai-light .premium-rail-copy str
 
   <!-- Feed: personalised discovery reel, loaded only when the user opens it -->
   <section id="discover" class="screen active">
-    <div class="discover-premium-header" aria-label="FindAI home">
-      <div class="discover-premium-wordmark">FindAI</div>
-      <div class="discover-premium-mode"><span>For you</span></div>
-      <button class="discover-premium-search" type="button" onclick="openSearchHome(true)" aria-label="Search">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>
-      </button>
-    </div>
-    <div class="discover-premium-topfade" aria-hidden="true"></div>
     <div class="feed-wrap discover-feed-wrap">
       <div class="reel-feed" id="personalFeed" aria-live="polite">
         <div class="reel-loading-splash plain-feed-loading" aria-label="Feed ready"><div class="feed-more-spinner"></div></div>
@@ -3280,8 +3208,7 @@ html.findai-light .premium-rail-copy h3,html.findai-light .premium-rail-copy str
           Continue with Apple
         </button>
         <button type="button" class="google-signin-btn" onclick="startGoogleAuth()"><svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>Continue with Google</button>
-        <div class="auth-method-divider">or</div>
-        <button type="button" class="email-signin-btn" onclick="openAppEmailAuth()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4.5 7 7.5 6 7.5-6"/></svg>Continue with email</button>
+        <button type="button" class="email-signin-btn" onclick="openAppEmailAuth()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4.5 7 7.5 6 7.5-6"/></svg>Continue with Email</button>
         <div id="googleAuthError" class="google-auth-error" role="alert"></div>
       </div>
       <div class="email-auth-panel" id="emailAuthPanel">
@@ -3360,28 +3287,57 @@ html.findai-light .premium-rail-copy h3,html.findai-light .premium-rail-copy str
 
 
     <div class="profile-scroll">
-      <div class="profile-signed-out" id="profileSignedOut">
-        <h1>Profile</h1>
-        <p>Sign in to sync your likes, price alerts and settings.</p>
+      <div class="profile-signed-out social-profile social-profile-guest" id="profileSignedOut">
+        <div class="social-profile-topbar">
+          <div><div class="social-profile-handle">@yourprofile</div></div>
+          <button class="social-settings-button" type="button" onclick="openAppSettings()" aria-label="Settings">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.87l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.25.37.6.7 1 .9.34.17.72.25 1.1.25H21v4h-.1a1.7 1.7 0 0 0-1.5.85z"/></svg>
+          </button>
+        </div>
 
-        <button type="button" class="profile-apple-button" id="profileAppleButton" onclick="startAppleAuth()">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.79 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.09ZM12.03 7.25C11.88 5.02 13.69 3.18 15.77 3c.29 2.58-2.34 4.5-3.74 4.25Z"/></svg>
-          <span>Continue with Apple</span>
-        </button>
-        <button type="button" class="profile-secondary-auth" onclick="startGoogleAuth()">
-          <svg width="19" height="19" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/></svg>
-          <span>Continue with Google</span>
-        </button>
-        <button type="button" class="profile-secondary-auth" onclick="openLogin();openAppEmailAuth()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4.5 7 7.5 6 7.5-6"/></svg>
-          <span>Continue with Email</span>
-        </button>
+        <div class="social-profile-hero">
+          <div class="social-profile-avatar guest-profile-avatar" aria-hidden="true"><span>F</span></div>
+          <div class="social-profile-stats">
+            <button type="button" tabindex="-1"><b>0</b><span>Listings</span></button>
+            <button type="button" tabindex="-1"><b>0</b><span>Sold</span></button>
+            <button type="button" tabindex="-1"><b>—</b><span>Rating</span></button>
+          </div>
+        </div>
+
+        <div class="social-profile-copy">
+          <h2>Your FindAI profile</h2>
+          <p class="social-profile-bio">Buy, sell and save products in one place.</p>
+        </div>
+
+        <div class="social-profile-actions guest-profile-actions">
+          <button type="button" onclick="openLogin()">Edit profile</button>
+          <button type="button" onclick="openLogin()">Share profile</button>
+        </div>
+
+        <div class="social-profile-tabs guest-profile-tabs" aria-hidden="true">
+          <button class="active" type="button" tabindex="-1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg>
+          </button>
+          <button type="button" tabindex="-1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16v13H4z"/><path d="M7 7V5h10v2M9 11h6"/><path d="m9.2 15 1.8 1.8 4-4"/></svg>
+          </button>
+          <button type="button" tabindex="-1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85"><path d="M20.6 5.8c-1.8-2.1-5.1-2.2-7-.3L12 7.1l-1.6-1.6c-1.9-1.9-5.2-1.8-7 .3-1.7 2-1.5 5 .4 6.9L12 20.3l8.2-7.6c1.9-1.9 2.1-4.9.4-6.9z"/></svg>
+          </button>
+          <button type="button" tabindex="-1">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M4 4h16v12H8l-4 4z"/><path d="m8.5 10 2 2 4.5-4.5"/></svg>
+          </button>
+        </div>
+
+        <div class="guest-profile-posts">
+          <div class="guest-profile-signin">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.5"/><path d="M5 21a7 7 0 0 1 14 0"/></svg>
+            <b>Sign in to edit your profile</b>
+            <span>Create listings, keep your likes and build your seller profile.</span>
+            <button type="button" onclick="openLogin()">Sign in</button>
+          </div>
+        </div>
         <div class="profile-auth-feedback" id="profileAppleFeedback"></div>
-
-        <div class="profile-menu-title">Account</div>
-        <button class="profile-menu-row" type="button" onclick="go('liked')"><span class="profile-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20.6 5.8c-1.8-2.1-5.1-2.2-7-.3L12 7.1l-1.6-1.6c-1.9-1.9-5.2-1.8-7 .3-1.7 2-1.5 5 .4 6.9L12 20.3l8.2-7.6c1.9-1.9 2.1-4.9.4-6.9z"/></svg></span><span><b>Liked items</b><small>Products you have hearted</small></span><i>›</i></button>
-        <button class="profile-menu-row" type="button" onclick="go('tracker')"><span class="profile-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 17l5-5 3.5 3.5L20 8"/><path d="M16 8h4v4"/></svg></span><span><b>Price alerts</b><small>Track price changes</small></span><i>›</i></button>
-        <button class="profile-menu-row" type="button" onclick="go('scan')"><span class="profile-menu-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/><circle cx="12" cy="12" r="3.4"/></svg></span><span><b>Scan</b><small>Identify products with your camera</small></span><i>›</i></button>
       </div>
 
       <div id="profileSignedIn" class="social-profile" hidden>
@@ -8006,6 +7962,200 @@ function doSearchLegacyV87(event){
 
 
 
+
+/* ============================================================
+   v90 multi-market premium discovery
+   ============================================================ */
+const PREMIUM_DISCOVERY_RETAILERS=[
+  {
+    id:'ebay',title:'Popular on eBay',brand:'ebay',source:'ebay',
+    queries:['pokemon cards','lego sets','playstation 5','nike sneakers','apple iphone','watches']
+  },
+  {
+    id:'stockx',title:'Popular on StockX',brand:'stockx',source:'stockx',
+    queries:['nike dunk','air jordan 1','new balance 9060','adidas samba','supreme']
+  },
+  {
+    id:'aliexpress',title:'Popular on AliExpress',brand:'aliexpress',source:'aliexpress',
+    queries:['tech accessories','phone accessories','gaming accessories','collectibles','led lights']
+  }
+];
+
+const PREMIUM_DISCOVERY_CATEGORIES=[
+  {id:'lego',title:'Popular LEGO',brand:'lego',queries:['lego star wars','lego icons','lego technic','lego ideas']},
+  {id:'ps5',title:'Popular PS5',queries:['playstation 5 console','ps5 games','ps5 controller']},
+  {id:'gucci',title:'Popular Gucci',queries:['gucci bag','gucci wallet','gucci sneakers']},
+  {id:'pokemon',title:'Popular Pokémon',queries:['pokemon cards','pokemon booster box','pokemon elite trainer box']},
+  {id:'watches',title:'Popular Watches',queries:['seiko watch','tissot watch','automatic watch']},
+  {id:'sneakers',title:'Popular Sneakers',queries:['nike dunk','air jordan','new balance sneakers']},
+  {id:'apple',title:'Popular Apple',brand:'apple',queries:['iphone','airpods','apple watch','macbook']},
+  {id:'streetwear',title:'Popular Streetwear',queries:['supreme streetwear','stussy','carhartt wip']},
+  {id:'gaming',title:'Popular Gaming',queries:['nintendo switch','gaming console','gaming headset']},
+  {id:'cameras',title:'Popular Cameras',queries:['sony camera','canon camera','camera lens']},
+  {id:'handbags',title:'Popular Handbags',queries:['designer handbag','coach bag','prada bag']},
+  {id:'collectibles',title:'Popular Collectibles',queries:['collectible figures','funko pop','trading cards']},
+  {id:'tennis',title:'Popular Tennis',queries:['tennis racquet','babolat racquet','wilson tennis']},
+  {id:'audio',title:'Popular Audio',queries:['sony headphones','bose headphones','wireless earbuds']},
+  {id:'retro',title:'Popular Retro Gaming',queries:['retro games','gameboy','playstation 2 games']},
+  {id:'luxury',title:'Popular Luxury',queries:['designer wallet','luxury watch','designer sneakers']},
+  {id:'cards',title:'Popular Trading Cards',queries:['sports cards','one piece cards','pokemon cards']},
+  {id:'tech',title:'Popular Tech',queries:['tablet','smartwatch','wireless headphones','portable console']}
+];
+
+let premiumDiscoverySections=[];
+
+function premiumDiscoveryHash(){
+  return Math.floor(Date.now()/(6*60*60*1000));
+}
+function premiumRotateArray(array,seed){
+  const copy=array.slice();
+  let x=(seed||1)>>>0;
+  for(let i=copy.length-1;i>0;i--){
+    x=(x*1664525+1013904223)>>>0;
+    const j=x%(i+1);
+    [copy[i],copy[j]]=[copy[j],copy[i]];
+  }
+  return copy;
+}
+function premiumDiscoveryConfig(){
+  const seed=premiumDiscoveryHash();
+  const retailer=premiumRotateArray(PREMIUM_DISCOVERY_RETAILERS,seed);
+  const category=premiumRotateArray(PREMIUM_DISCOVERY_CATEGORIES,seed*17+11).slice(0,7);
+  const fixed=[retailer[0],category[0],retailer[1],category[1],category[2],retailer[2],...category.slice(3)];
+  return fixed.slice(0,10);
+}
+function premiumBrandMarkup(config){
+  const key=String(config&&config.brand||'').toLowerCase();
+  if(key==='ebay')return '<div class="premium-market-brand">'+EBAY_LOGO_SVG+'</div>';
+  if(key&&FINDAI_APP_REAL_LOGOS[key])return '<div class="premium-market-brand">'+appRealLogoImg(key,'premium-section-brand-logo',sourceLabel(key))+'</div>';
+  return '';
+}
+function premiumCardSourceMarkup(item){
+  const source=getSource(item),key=appKnownBrandForItem(item,source);
+  if(key==='ebay')return '<span class="premium-card-source-logo">'+EBAY_LOGO_SVG+'</span>';
+  if(key&&FINDAI_APP_REAL_LOGOS[key])return '<span class="premium-card-source-logo">'+appRealLogoImg(key,'premium-card-source-logo-img',sourceLabel(key))+'</span>';
+  return '<span class="premium-card-source-text">'+escapeHTML(sourceLabel(source||'listing'))+'</span>';
+}
+function premiumSectionSkeleton(config){
+  return `<section class="premium-market-section" id="premium-section-${escapeAttr(config.id)}">
+    <div class="premium-section-title">
+      <div><h2>${escapeHTML(config.title)}</h2><span>Live marketplace listings</span></div>
+      ${premiumBrandMarkup(config)}
+    </div>
+    <div class="premium-market-row" data-section-row="${escapeAttr(config.id)}">
+      <div class="premium-product-skeleton"></div><div class="premium-product-skeleton"></div><div class="premium-product-skeleton"></div>
+    </div>
+  </section>`;
+}
+function premiumSectionCard(item,index,sectionId){
+  const img=premiumProductImage(item),active=isTracked(item);
+  return `<article class="premium-ebay-card" onclick="openPremiumDiscoveryItem('${escapeAttr(sectionId)}',${index})">
+    <div class="premium-ebay-media">
+      ${img?`<img src="${escapeAttr(img)}" alt="${escapeAttr(item.title||'Product')}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">`:''}
+      <button class="premium-card-like ${active?'active':''}" type="button" onclick="togglePremiumDiscoveryLike('${escapeAttr(sectionId)}',${index},event)" aria-label="${active?'Unlike':'Like'}">
+        <svg viewBox="0 0 24 24" fill="${active?'currentColor':'none'}" stroke="currentColor" stroke-width="1.9"><path d="M20.6 5.8c-1.8-2.1-5.1-2.2-7-.3L12 7.1l-1.6-1.6c-1.9-1.9-5.2-1.8-7 .3-1.7 2-1.5 5 .4 6.9L12 20.3l8.2-7.6c1.9-1.9 2.1-4.9.4-6.9z"/></svg>
+      </button>
+    </div>
+    <div class="premium-ebay-copy">
+      <div class="source">${premiumCardSourceMarkup(item)}</div>
+      <h3>${escapeHTML(item.title||'Product')}</h3>
+      <strong>${escapeHTML(money(Number(item.price)||0,currencyOf(item,null)||'AUD'))}</strong>
+      <small>${escapeHTML(premiumItemMeta(item)||'Live listing')}</small>
+    </div>
+  </article>`;
+}
+function premiumFilterForSection(item,config){
+  if(!item||Number(item.price)<=0||!premiumProductImage(item))return false;
+  if(!config.source)return true;
+  const source=getSource(item),key=appKnownBrandForItem(item,source);
+  return String(source||'').toLowerCase()===config.source||key===config.source;
+}
+async function premiumLoadSection(config){
+  const seen=new Set(),items=[];
+  const queries=premiumRotateArray(config.queries||[config.title],premiumDiscoveryHash()+config.id.length).slice(0,3);
+  for(const query of queries){
+    if(items.length>=9)break;
+    try{
+      const result=await fetchProductResults(query,{page:1,limit:14,preserveExact:true,skipResolve:true,passive:true});
+      const list=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings:[];
+      list.filter(item=>premiumFilterForSection(item,config)).forEach(item=>{
+        const key=listingKey(item)||trackedKey(item)||String(item.itemId||item.url||item.title||'');
+        if(!seen.has(key)){seen.add(key);items.push(item);}
+      });
+    }catch(_){}
+  }
+  return items.slice(0,9);
+}
+async function premiumRunPool(tasks,limit=3){
+  let cursor=0;
+  async function worker(){
+    while(cursor<tasks.length){
+      const index=cursor++;
+      await tasks[index]();
+    }
+  }
+  await Promise.all(Array.from({length:Math.min(limit,tasks.length)},worker));
+}
+async function renderPremiumDiscoverySections(force=false){
+  const root=$('#premiumDiscoverySections');if(!root)return;
+  const configs=premiumDiscoveryConfig();
+  premiumDiscoverySections=configs.map(config=>({config,items:[]}));
+  root.innerHTML=configs.map(premiumSectionSkeleton).join('');
+
+  const tasks=configs.map((config,sectionIndex)=>async()=>{
+    const items=await premiumLoadSection(config);
+    premiumDiscoverySections[sectionIndex].items=items;
+    const row=root.querySelector(`[data-section-row="${CSS.escape(config.id)}"]`);
+    const section=$(`#premium-section-${config.id}`);
+    if(!row)return;
+    if(items.length>=2){
+      row.innerHTML=items.map((item,index)=>premiumSectionCard(item,index,config.id)).join('');
+    }else if(section){
+      section.remove();
+    }
+  });
+  await premiumRunPool(tasks,3);
+}
+function premiumDiscoverySectionById(id){
+  return premiumDiscoverySections.find(section=>section.config.id===id)||null;
+}
+function openPremiumDiscoveryItem(sectionId,index){
+  const section=premiumDiscoverySectionById(sectionId),item=section&&section.items[index];if(!item)return;
+  currentFeedItems=section.items;currentFeedData=null;
+  openSearchResultDetail(index);
+}
+async function togglePremiumDiscoveryLike(sectionId,index,event){
+  if(event){event.preventDefault();event.stopPropagation();}
+  const section=premiumDiscoverySectionById(sectionId),item=section&&section.items[index];if(!item)return;
+  await toggleGenericLikeItem(item);
+  const row=document.querySelector(`[data-section-row="${CSS.escape(sectionId)}"]`);
+  if(row)row.innerHTML=section.items.map((x,i)=>premiumSectionCard(x,i,sectionId)).join('');
+  renderLikedItems();
+}
+
+/* v90 replaces the old one-section eBay home. */
+function renderPremiumSearchHome(){renderPremiumDiscoverySections(false);}
+function refreshPremiumEbayDiscovery(force=false){return renderPremiumDiscoverySections(force);}
+
+/* Results-page cards use the same logo-only treatment. */
+function premiumCardLegacyV89(item,index,kind){
+  const img=premiumProductImage(item),active=isTracked(item);
+  return `<article class="${kind==='ebay'?'premium-ebay-card':'premium-result-card'}" onclick="${kind==='ebay'?'openPremiumEbayItem':'openPremiumResultItem'}(${index})">
+    <div class="${kind==='ebay'?'premium-ebay-media':'premium-result-media'}">
+      ${img?`<img src="${escapeAttr(img)}" alt="${escapeAttr(item.title||'Product')}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">`:''}
+      <button class="premium-card-like ${active?'active':''}" type="button" onclick="togglePremiumLike('${kind}',${index},event)" aria-label="${active?'Unlike':'Like'}">
+        <svg viewBox="0 0 24 24" fill="${active?'currentColor':'none'}" stroke="currentColor" stroke-width="1.9"><path d="M20.6 5.8c-1.8-2.1-5.1-2.2-7-.3L12 7.1l-1.6-1.6c-1.9-1.9-5.2-1.8-7 .3-1.7 2-1.5 5 .4 6.9L12 20.3l8.2-7.6c1.9-1.9 2.1-4.9.4-6.9z"/></svg>
+      </button>
+    </div>
+    <div class="${kind==='ebay'?'premium-ebay-copy':'premium-result-copy'}">
+      <div class="source">${premiumCardSourceMarkup(item)}</div>
+      <h3>${escapeHTML(item.title||'Product')}</h3>
+      <strong>${escapeHTML(money(Number(item.price)||0,currencyOf(item,kind==='result'?premiumResultData:null)||'AUD'))}</strong>
+      <small>${escapeHTML(premiumItemMeta(item)||'Live listing')}</small>
+    </div>
+  </article>`;
+}
+
 /* ============================================================
    v89 premium search + live eBay discovery
    ============================================================ */
@@ -8078,7 +8228,7 @@ function paintPremiumEbay(){
   }
   grid.innerHTML=premiumEbayItems.map((item,i)=>premiumCard(item,i,'ebay')).join('');
 }
-async function refreshPremiumEbayDiscovery(force=false){
+async function refreshPremiumEbayDiscoveryLegacyV89(force=false){
   const cached=!force?premiumCacheRead():[];
   if(cached.length>=6){
     premiumEbayItems=cached.slice(0,12);paintPremiumEbay();return;
@@ -8102,7 +8252,7 @@ async function refreshPremiumEbayDiscovery(force=false){
   if(premiumEbayItems.length)premiumCacheWrite(premiumEbayItems);
   paintPremiumEbay();
 }
-function renderPremiumSearchHome(){refreshPremiumEbayDiscovery(false);}
+function renderPremiumSearchHomeLegacyV89(){refreshPremiumEbayDiscoveryLegacyV89(false);}
 function openPremiumEbayItem(index){
   const item=premiumEbayItems[index];if(!item)return;
   currentFeedItems=premiumEbayItems;currentFeedData=null;
@@ -8552,6 +8702,11 @@ go=function(tab){
 };
 
 
+
+/* v90 final discovery authority */
+function renderPremiumSearchHome(){renderPremiumDiscoverySections(false);}
+function refreshPremiumEbayDiscovery(force=false){return renderPremiumDiscoverySections(force);}
+
 /* v89 final search authority — defined last so legacy v87 helpers cannot override it. */
 function renderAppSearchHome(){renderPremiumSearchHome();}
 function openSearchHome(focus=true){
@@ -8562,160 +8717,6 @@ function doSearch(event){return submitPremiumSearch(event,'home');}
 function runMobileSearch(query){launchPremiumSearch(query);}
 function runMobileCategory(query){const q=$('#q');if(q)q.value=query;launchPremiumSearch(query);}
 function clearMobileSearchResults(){backToPremiumSearch();}
-
-
-/* ============================================================
-   v90 multi-marketplace discovery rails + shipping presentation
-   ============================================================ */
-const V90_MARKET_CACHE_KEY='fa_marketplace_rails_v90';
-const V90_MARKET_CACHE_TTL=12*60*1000;
-const V90_MARKET_SOURCES=['ebay','stockx','amazon'];
-const V90_MARKET_SEEDS={
-  ebay:['pokemon cards','lego sets','apple iphone','watches','camera lenses','retro games'],
-  stockx:['air jordan 1','nike dunk','new balance 9060','adidas samba','yeezy'],
-  amazon:['airpods','gaming headset','portable speaker','kindle','laptop']
-};
-let v90MarketplaceItems={ebay:[],stockx:[],amazon:[]};
-
-function v90ShippingCost(item){
-  if(!item)return null;
-  const direct=[item.shippingCost,item.deliveryCost,item.postageCost,item.shippingPrice,item.deliveryPrice];
-  for(const value of direct){
-    const n=Number(value);
-    if(Number.isFinite(n))return n;
-  }
-  const nested=[item.shipping,item.delivery,item.postage];
-  for(const value of nested){
-    if(value&&typeof value==='object'){
-      for(const key of ['cost','price','amount','value']){
-        const n=Number(value[key]);
-        if(Number.isFinite(n))return n;
-      }
-    }
-  }
-  return null;
-}
-function v90MoneyShort(value,currency='AUD'){
-  const n=Number(value);if(!Number.isFinite(n))return '';
-  const code=String(currency||'AUD').toUpperCase();
-  const symbols={AUD:'A$',USD:'$',NZD:'NZ$',CAD:'C$',GBP:'£',EUR:'€',JPY:'¥',CNY:'¥',HKD:'HK$',SGD:'S$'};
-  const symbol=symbols[code]||'$';
-  return symbol+n.toLocaleString(undefined,{maximumFractionDigits:n%1?2:0});
-}
-function v90ShippingLine(item){
-  if(!item)return 'Shipping at checkout';
-  const rawValues=[item.shippingText,item.shippingDisplay,item.deliveryDisplay,item.postageText];
-  for(const raw of rawValues){
-    if(typeof raw==='string'&&raw.trim()){
-      const s=raw.trim();
-      if(/\bfree\b/i.test(s))return 'Free shipping';
-      if(/shipping|delivery|postage/i.test(s))return s.replace(/\s+/g,' ');
-    }
-  }
-  if(item.freeShipping===true)return 'Free shipping';
-  const cost=v90ShippingCost(item);
-  if(Number.isFinite(cost)){
-    if(cost<=0)return 'Free shipping';
-    return '+ '+v90MoneyShort(cost,currencyOf(item,null)||'AUD')+' shipping';
-  }
-  return 'Shipping at checkout';
-}
-
-/* Upgrade the global helper too, so detail/feed cards stop saying generic "Shipping extra". */
-function getShippingText(item){return v90ShippingLine(item);}
-
-/* v90 search/result card metadata never exposes the seller username. */
-function premiumItemMeta(item){return v90ShippingLine(item);}
-
-function v90CacheRead(){
-  try{
-    const parsed=JSON.parse(localStorage.getItem(V90_MARKET_CACHE_KEY)||'null');
-    if(parsed&&parsed.savedAt&&Date.now()-parsed.savedAt<V90_MARKET_CACHE_TTL&&parsed.items)return parsed.items;
-  }catch(_){}
-  return null;
-}
-function v90CacheWrite(items){
-  try{localStorage.setItem(V90_MARKET_CACHE_KEY,JSON.stringify({savedAt:Date.now(),items}));}catch(_){}
-}
-function v90SourceMatches(item,source){return getSource(item)===source;}
-function v90RailElements(source){
-  const cap=source==='stockx'?'Stockx':source.charAt(0).toUpperCase()+source.slice(1);
-  return {section:$('#premiumRail'+cap),row:$('#premiumRow'+cap),logo:$('#premiumRailLogo'+cap)};
-}
-function v90PaintRail(source){
-  const {section,row,logo}=v90RailElements(source);if(!section||!row)return;
-  const items=v90MarketplaceItems[source]||[];
-  if(logo)logo.innerHTML=appRealLogoImg(source,'app-source-logo',sourceLabel(source));
-  section.hidden=!items.length;
-  if(!items.length){row.innerHTML='';return;}
-  row.innerHTML=items.map((item,index)=>v90RailCard(item,index,source)).join('');
-}
-function v90RailCard(item,index,source){
-  const image=premiumProductImage(item),active=isTracked(item);
-  return `<article class="premium-rail-card" onclick="openV90MarketplaceItem('${source}',${index})">
-    <div class="premium-rail-media">
-      ${image?`<img src="${escapeAttr(image)}" alt="${escapeAttr(item.title||'Product')}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">`:''}
-      <button class="premium-card-like ${active?'active':''}" type="button" onclick="toggleV90MarketplaceLike('${source}',${index},event)" aria-label="${active?'Unlike':'Like'}">
-        <svg viewBox="0 0 24 24" fill="${active?'currentColor':'none'}" stroke="currentColor" stroke-width="1.9"><path d="M20.6 5.8c-1.8-2.1-5.1-2.2-7-.3L12 7.1l-1.6-1.6c-1.9-1.9-5.2-1.8-7 .3-1.7 2-1.5 5 .4 6.9L12 20.3l8.2-7.6c1.9-1.9 2.1-4.9.4-6.9z"/></svg>
-      </button>
-    </div>
-    <div class="premium-rail-copy">
-      <div class="source">${sourceMarkup(source,item)}</div>
-      <h3>${escapeHTML(item.title||'Product')}</h3>
-      <strong>${escapeHTML(money(Number(item.price)||0,currencyOf(item,null)||'AUD'))}</strong>
-      <small>${escapeHTML(v90ShippingLine(item))}</small>
-    </div>
-  </article>`;
-}
-function openV90MarketplaceItem(source,index){
-  const list=v90MarketplaceItems[source]||[],item=list[index];if(!item)return;
-  currentFeedItems=list;currentFeedData=null;openSearchResultDetail(index);
-}
-async function toggleV90MarketplaceLike(source,index,event){
-  if(event){event.preventDefault();event.stopPropagation();}
-  const item=(v90MarketplaceItems[source]||[])[index];if(!item)return;
-  await toggleGenericLikeItem(item);v90PaintRail(source);renderLikedItems();
-}
-async function v90FetchSource(source){
-  const seeds=V90_MARKET_SEEDS[source]||[];
-  const seen=new Set(),items=[];
-  for(let batch=0;batch<seeds.length&&items.length<9;batch+=2){
-    try{
-      const results=await Promise.all(seeds.slice(batch,batch+2).map(q=>fetchProductResults(q,{page:1,limit:12,preserveExact:true,skipResolve:true,passive:true})));
-      results.forEach(result=>{
-        const list=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings:[];
-        list.filter(item=>v90SourceMatches(item,source)).forEach(item=>{
-          const key=listingKey(item)||trackedKey(item)||String(item.itemId||item.url||item.title||'');
-          if(!seen.has(key)&&Number(item.price)>0&&premiumProductImage(item)){seen.add(key);items.push(item);}
-        });
-      });
-    }catch(_){}
-  }
-  return items.slice(0,9);
-}
-async function refreshPremiumMarketplaceRails(force=false){
-  if(!force){
-    const cached=v90CacheRead();
-    if(cached){
-      V90_MARKET_SOURCES.forEach(source=>{v90MarketplaceItems[source]=Array.isArray(cached[source])?cached[source]:[];v90PaintRail(source);});
-      if(v90MarketplaceItems.ebay.length)return;
-    }
-  }
-  const ebayEls=v90RailElements('ebay');
-  if(ebayEls.section)ebayEls.section.hidden=false;
-  if(ebayEls.row)ebayEls.row.innerHTML='<div class="premium-rail-skeleton"></div><div class="premium-rail-skeleton"></div><div class="premium-rail-skeleton"></div>';
-  const settled=await Promise.all(V90_MARKET_SOURCES.map(async source=>[source,await v90FetchSource(source)]));
-  settled.forEach(([source,items])=>{v90MarketplaceItems[source]=items;v90PaintRail(source);});
-  v90CacheWrite(v90MarketplaceItems);
-}
-function renderPremiumSearchHome(){refreshPremiumMarketplaceRails(false);}
-
-/* Final v90 search authority. */
-function renderAppSearchHome(){renderPremiumSearchHome();}
-function openSearchHome(focus=true){
-  finaliseReelTracking();go('search');renderPremiumSearchHome();
-  if(focus)setTimeout(()=>{const q=$('#q');if(q)q.focus({preventScroll:true});},90);
-}
 
 /* Boot — FindAI opens directly into the personalised shopping reels.
    Search remains one tap away in the second tab. */
