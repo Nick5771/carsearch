@@ -2569,8 +2569,164 @@ html.findai-light .social-profile-grid{background:#f6f7f9}
 html.findai-light .social-profile-review{background:#fff;color:#111214;border-color:rgba(17,18,20,.08)}
 html.findai-light .profile-edit-field input,html.findai-light .profile-edit-field textarea{background:#fff;color:#111214;border-color:rgba(17,18,20,.1)}
 
+
+/* ============================================================
+   FindAI v89 — premium Search + restrained nav + clean profile
+   ============================================================ */
+:root{--premium-nav-h:68px}
+
+/* Bottom navigation: 5 evenly spaced icons, YouTube-like centre action. */
+.premium-bottom-nav{
+  height:calc(var(--premium-nav-h) + var(--safe-bottom))!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  padding:0 9px var(--safe-bottom)!important;
+  background:rgba(5,6,7,.96)!important;
+  border-top:1px solid rgba(255,255,255,.075)!important;
+}
+.premium-bottom-nav button{height:var(--premium-nav-h)!important}
+.premium-bottom-nav .nav-icon-shell{width:42px!important;height:42px!important;background:transparent!important}
+.premium-bottom-nav button.active .nav-icon-shell{background:transparent!important}
+.premium-bottom-nav button svg{width:27px!important;height:27px!important}
+.premium-bottom-nav button.active[data-tab="discover"] .nav-home-icon{fill:currentColor}
+.premium-bottom-nav button.active[data-tab="liked"] .nav-liked-icon{fill:currentColor}
+.premium-bottom-nav .nav-create-action{display:grid!important;place-items:center!important}
+.premium-bottom-nav .nav-create-shell{
+  width:46px!important;height:46px!important;border-radius:50%!important;
+  background:#292a2d!important;color:#fff!important;box-shadow:none!important;transform:none!important;
+  display:grid!important;place-items:center!important
+}
+.premium-bottom-nav .nav-create-shell svg{width:26px!important;height:26px!important}
+.premium-bottom-nav .nav-create-action:active .nav-create-shell{transform:scale(.92)!important}
+.premium-bottom-nav .nav-profile-avatar{width:29px!important;height:29px!important}
+#discover.screen,#search.screen,#searchResults.screen,#liked.screen,#tracker.screen,#profile.screen{
+  padding-bottom:calc(var(--premium-nav-h) + var(--safe-bottom))!important
+}
+
+/* Search home: literally a search bar at top, then real live eBay listings. */
+#search.premium-search-home{background:#050607!important;overflow:hidden}
+.premium-search-home-header{
+  flex:0 0 auto;padding:calc(var(--safe-top) + 15px) 16px 12px;background:#050607
+}
+.premium-search-bar{
+  height:52px;display:flex;align-items:center;gap:10px;padding:0 7px 0 15px;
+  border:1px solid rgba(255,255,255,.12);border-radius:18px;background:#12151a
+}
+.premium-search-glass{width:21px;height:21px;flex:0 0 auto;color:#a6adb6}
+.premium-search-bar input{
+  min-width:0;flex:1;border:0;outline:0;background:transparent;color:#f6f7f8;
+  font:500 15px/1.2 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif
+}
+.premium-search-bar input::placeholder{color:#777e88}
+.premium-search-scan{
+  width:40px;height:40px;border:0;border-radius:13px;background:#20242a;color:#f5f6f7;display:grid;place-items:center
+}
+.premium-search-scan svg{width:21px;height:21px}
+.premium-search-home-scroll{flex:1;min-height:0;overflow:auto;padding:4px 16px 30px;scrollbar-width:none}
+.premium-search-home-scroll::-webkit-scrollbar{display:none}
+.premium-ebay-section{padding-top:14px}
+.premium-section-title{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:0 1px 14px}
+.premium-section-title h2{margin:0;color:#f8f9fa;font-size:22px;line-height:1.05;font-weight:780;letter-spacing:-.6px}
+.premium-section-title span{display:block;margin-top:4px;color:#737b85;font-size:9.5px}
+.premium-ebay-mark{flex:0 0 auto;padding-bottom:1px}
+.premium-ebay-word{font:900 22px/1 Arial,sans-serif;letter-spacing:-1.3px}
+.premium-ebay-word i{font-style:normal;color:#E53238}.premium-ebay-word b{color:#0064D2}.premium-ebay-word em{font-style:normal;color:#F5AF02}.premium-ebay-word strong{color:#86B817}
+.premium-ebay-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.premium-ebay-card,.premium-result-card{
+  position:relative;min-width:0;border:0;border-radius:16px;background:#0e1115;color:#fff;overflow:hidden;text-align:left;padding:0
+}
+.premium-ebay-media,.premium-result-media{position:relative;aspect-ratio:1;background:#f7f7f7;overflow:hidden}
+.premium-ebay-media img,.premium-result-media img{width:100%;height:100%;object-fit:contain;display:block}
+.premium-card-like{
+  position:absolute;right:8px;top:8px;width:31px;height:31px;border:0;border-radius:50%;
+  background:rgba(4,5,7,.72);color:#fff;display:grid;place-items:center;backdrop-filter:blur(10px);z-index:2
+}
+.premium-card-like svg{width:17px;height:17px}.premium-card-like.active svg{fill:currentColor}
+.premium-ebay-copy,.premium-result-copy{padding:10px 10px 12px}
+.premium-ebay-copy .source,.premium-result-copy .source{height:16px;display:flex;align-items:center;color:#8c939c;font-size:9px}
+.premium-ebay-copy .source .app-ebay-wordmark,.premium-result-copy .source .app-ebay-wordmark{font-size:16px}
+.premium-ebay-copy h3,.premium-result-copy h3{
+  margin:6px 0 0;min-height:31px;color:#e8eaed;font-size:11px;line-height:1.38;font-weight:610;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden
+}
+.premium-ebay-copy strong,.premium-result-copy strong{display:block;margin-top:7px;color:#fff;font-size:16px;line-height:1;font-weight:800;letter-spacing:-.35px}
+.premium-ebay-copy small,.premium-result-copy small{display:block;margin-top:6px;color:#6f7781;font-size:8.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.premium-product-skeleton{aspect-ratio:.78;border-radius:16px;background:linear-gradient(100deg,#101318 18%,#1a1e24 38%,#101318 58%);background-size:220% 100%;animation:premiumSkeleton 1.15s linear infinite}
+@keyframes premiumSkeleton{to{background-position:-220% 0}}
+.premium-ebay-empty{grid-column:1/-1;padding:58px 20px;text-align:center;color:#747c86;font-size:11px;line-height:1.5}
+
+/* Separate results page */
+#searchResults.premium-results-screen{background:#050607;overflow:hidden}
+.premium-results-header{
+  flex:0 0 auto;padding:calc(var(--safe-top) + 11px) 12px 10px;display:grid;grid-template-columns:38px minmax(0,1fr) 38px;
+  gap:7px;align-items:center;background:#050607;border-bottom:1px solid rgba(255,255,255,.055)
+}
+.premium-results-back,.premium-results-scan{
+  width:38px;height:38px;border:0;border-radius:50%;background:transparent;color:#f5f6f7;display:grid;place-items:center
+}
+.premium-results-back svg,.premium-results-scan svg{width:22px;height:22px}
+.premium-results-search{
+  height:42px;border:1px solid rgba(255,255,255,.1);border-radius:14px;background:#15181d;padding:0 12px;display:flex;align-items:center;gap:8px
+}
+.premium-results-search svg{width:18px;height:18px;color:#8d949d;flex:0 0 auto}
+.premium-results-search input{min-width:0;flex:1;border:0;outline:0;background:transparent;color:#f5f6f7;font-size:13px}
+.premium-results-scroll{flex:1;min-height:0;overflow:auto;padding:12px 12px 30px;scrollbar-width:none}
+.premium-results-scroll::-webkit-scrollbar{display:none}
+.premium-results-meta{min-height:24px;padding:0 3px 9px;color:#7f8791;font-size:10px}
+.premium-results-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.premium-result-card{border-radius:14px}.premium-result-copy{padding:9px 9px 11px}.premium-result-copy h3{font-size:10.5px}.premium-result-copy strong{font-size:15px}
+.premium-results-loading{grid-column:1/-1;padding:70px 0;text-align:center;color:#737b84;font-size:11px}.premium-results-loading .feed-more-spinner{margin:0 auto 11px}
+.premium-results-empty{grid-column:1/-1;padding:70px 20px;text-align:center;color:#79818b;font-size:11px;line-height:1.5}
+.premium-load-more{display:block;width:100%;height:43px;margin:14px 0 0;border:1px solid rgba(255,255,255,.09);border-radius:13px;background:#111419;color:#f2f3f5;font-size:11px;font-weight:720}
+.premium-load-more[hidden]{display:none!important}
+
+/* Profile: remove duplicate app-title chrome and make it feel like Instagram. */
+#profile.profile-screen{background:#050607!important}
+#profile .profile-scroll{padding:calc(var(--safe-top) + 13px) 18px 22px!important}
+#profile .social-profile{padding:0!important}
+.social-profile-topbar{height:42px;padding:0 0 13px!important;display:flex;align-items:center;justify-content:space-between}
+.social-profile-topbar>div{min-width:0}
+.social-profile-handle{font-size:17px!important;font-weight:780!important;letter-spacing:-.35px!important}
+.social-profile-account-note{display:none!important}
+.social-settings-button{width:34px!important;height:34px!important;background:transparent!important;border-radius:0!important}
+.social-settings-button svg{width:23px!important;height:23px!important}
+.social-profile-hero{grid-template-columns:86px minmax(0,1fr)!important;gap:15px!important;padding:1px 0 10px!important}
+.social-profile-avatar{width:82px!important;height:82px!important;border:1px solid rgba(255,255,255,.2)!important;background:#15181c!important}
+.social-profile-stats b{font-size:17px!important}.social-profile-stats span{margin-top:5px!important;font-size:9.5px!important;color:#b9bec5!important}
+.social-profile-copy{padding:0 0 12px!important}
+.social-profile-copy h2{font-size:12.5px!important;font-weight:760!important}
+.social-profile-bio{font-size:10.5px!important;line-height:1.42!important;margin-top:4px!important}
+.social-profile-meta{font-size:8.7px!important;color:#777f89!important;margin-top:4px!important}
+.social-profile-actions{gap:6px!important;padding:0 0 13px!important}
+.social-profile-actions button{height:32px!important;border:0!important;border-radius:8px!important;background:#1a1d22!important;font-size:10px!important;font-weight:720!important}
+.social-profile-utility-row{display:none!important}
+.social-profile-tabs{height:43px!important;margin:0 -18px!important;background:#050607!important;border-color:rgba(255,255,255,.07)!important}
+.social-profile-tabs button svg{width:20px!important;height:20px!important}
+.social-profile-tabs button.active:after{left:18%!important;right:18%!important;height:1px!important}
+.social-profile-content{margin:0 -18px!important;min-height:220px!important}
+.social-profile-grid{gap:1.5px!important;background:#050607!important}
+.social-profile-empty{padding:64px 24px!important;font-size:10.5px!important}.social-profile-empty b{font-size:14px!important}
+.social-profile-create-first{height:34px!important;border-radius:8px!important;font-size:10px!important}
+.profile-signed-out{padding-top:6px!important}
+
+/* Heart page also pure, quiet and stock-like. */
+#liked{background:#050607!important}
+
+/* Light */
+html.findai-light #search.premium-search-home,html.findai-light #searchResults.premium-results-screen,html.findai-light #profile.profile-screen{background:#f8f8f8!important}
+html.findai-light .premium-search-home-header,html.findai-light .premium-results-header{background:#f8f8f8}
+html.findai-light .premium-search-bar,html.findai-light .premium-results-search{background:#fff;border-color:rgba(0,0,0,.09)}
+html.findai-light .premium-search-bar input,html.findai-light .premium-results-search input{color:#111214}
+html.findai-light .premium-section-title h2{color:#111214}
+html.findai-light .premium-ebay-card,html.findai-light .premium-result-card{background:#fff;color:#111214}
+html.findai-light .premium-ebay-copy h3,html.findai-light .premium-result-copy h3{color:#27292d}
+html.findai-light .premium-ebay-copy strong,html.findai-light .premium-result-copy strong{color:#111214}
+html.findai-light .premium-bottom-nav{background:rgba(250,250,250,.97)!important;border-color:rgba(0,0,0,.08)!important}
+html.findai-light .premium-bottom-nav .nav-create-shell{background:#dedfe1!important;color:#111214!important}
+html.findai-light .social-profile-actions button{background:#e8e8ea!important;color:#111214!important}
+html.findai-light .social-profile-tabs{background:#f8f8f8!important}
+
 </style>
-  <meta name="findai-build" content="v88-marketplace-nav-instagram-profile">
+  <meta name="findai-build" content="v89-premium-search-instagram-profile">
 
 <style id="findai-v60-focus-overrides">
 .account-menu-item[onclick*="openPurchases"],
@@ -2724,59 +2880,54 @@ html.findai-light .nav button.active[data-tab="profile"] .nav-profile-avatar{bor
 </head>
 <body>
 <div class="app">
-  <!-- Search: standard shopping discovery + live product search -->
-  <section id="search" class="screen findai-search-tab">
-    <header class="mobile-search-header">
-      <div class="mobile-search-top">
-        <button class="app-chat-menu-btn" type="button" onclick="openAppChatDrawer()" aria-label="Open menu">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round"><path d="M5 7h14M5 12h11M5 17h8"/></svg>
-        </button>
-        <div class="header-actions app-chat-account" id="headerAccountActions">
-          <button class="login-pill" id="loginPill" type="button" onclick="openLogin()">Log in</button>
-          <button class="account-avatar" id="accountAvatar" type="button" aria-label="Open account" onclick="openAccountMenu()" hidden>
-            <img id="headerAvatarImage" alt=""><span id="headerAvatarInitials">F</span>
-            <span class="app-avatar-unread" id="appMpAvatarBadge" aria-label="Unread messages">0</span>
-          </button>
-        </div>
-      </div>
-      <div class="mobile-search-title">
-        <h1>Search</h1>
-        <p>Find products, compare live prices and discover what is trending.</p>
-      </div>
-      <form class="mobile-search-form" onsubmit="return doSearch(event)">
-        <svg class="mobile-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>
-        <input id="q" type="search" placeholder="Search products, brands or deals" enterkeyhint="search" autocomplete="off" autocapitalize="sentences">
-        <button class="mobile-scan-button" type="button" onclick="go('scan')" aria-label="Scan a product">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 7V5a1 1 0 0 1 1-1h2M17 4h2a1 1 0 0 1 1 1v2M20 17v2a1 1 0 0 1-1 1h-2M7 20H5a1 1 0 0 1-1-1v-2"/><circle cx="12" cy="12" r="3.4"/></svg>
+  <!-- Search: clean premium discovery surface -->
+  <section id="search" class="screen premium-search-home" aria-label="Search">
+    <header class="premium-search-home-header">
+      <form class="premium-search-bar" onsubmit="return submitPremiumSearch(event,'home')">
+        <svg class="premium-search-glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>
+        <input id="q" type="search" placeholder="Search FindAI" enterkeyhint="search" autocomplete="off" autocapitalize="sentences">
+        <button class="premium-search-scan" type="button" onclick="go('scan')" aria-label="Scan a product">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 8V5.8A.8.8 0 0 1 5.8 5H8M16 5h2.2a.8.8 0 0 1 .8.8V8M19 16v2.2a.8.8 0 0 1-.8.8H16M8 19H5.8a.8.8 0 0 1-.8-.8V16"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       </form>
     </header>
 
-    <div class="mobile-search-scroll">
-      <section class="mobile-discovery-section">
-        <div class="mobile-section-head"><h2>Trending now</h2><span id="mobileTrendingStamp">Updated now</span></div>
-        <div class="mobile-category-grid" id="mobileCategoryGrid"></div>
-      </section>
-
-      <section class="mobile-discovery-section">
-        <div class="mobile-section-head"><div><h2>Trending products</h2><p>Live listings from top retailers</p></div><button type="button" onclick="refreshMobileDiscovery(true)">Refresh</button></div>
-        <div class="mobile-product-row" id="mobileTrendingProducts">
-          <div class="mobile-search-skeleton-card"></div><div class="mobile-search-skeleton-card"></div><div class="mobile-search-skeleton-card"></div>
+    <div class="premium-search-home-scroll">
+      <section class="premium-ebay-section">
+        <div class="premium-section-title">
+          <div>
+            <h2>Popular on eBay</h2>
+            <span>Live listings · refreshed automatically</span>
+          </div>
+          <div class="premium-ebay-mark" aria-label="eBay"><span class="premium-ebay-word"><i>e</i><b>b</b><em>a</em><strong>y</strong></span></div>
+        </div>
+        <div class="premium-ebay-grid" id="premiumEbayGrid" aria-live="polite">
+          <div class="premium-product-skeleton"></div><div class="premium-product-skeleton"></div>
+          <div class="premium-product-skeleton"></div><div class="premium-product-skeleton"></div>
         </div>
       </section>
-
-      <section class="mobile-discovery-section">
-        <div class="mobile-section-head"><div><h2>Popular right now</h2><p>Fresh categories rotate throughout the day</p></div></div>
-        <div class="mobile-popular-chips" id="mobilePopularChips"></div>
-      </section>
-
-      <section class="mobile-search-results-section" id="mobileSearchResultsSection" hidden>
-        <div class="mobile-section-head"><div><h2 id="mobileSearchResultsTitle">Search results</h2><p id="mobileSearchResultsMeta">Live prices</p></div><button type="button" onclick="clearMobileSearchResults()">Clear</button></div>
-        <div class="mobile-search-results-grid" id="mobileSearchResults"></div>
-      </section>
-
-      <!-- Compatibility target for older feed helpers. The new Search tab renders into the containers above. -->
       <div id="feed" hidden></div>
+    </div>
+  </section>
+
+  <!-- Search results: separate page after Enter/search -->
+  <section id="searchResults" class="screen premium-results-screen" aria-label="Search results">
+    <header class="premium-results-header">
+      <button class="premium-results-back" type="button" onclick="backToPremiumSearch()" aria-label="Back to search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <form class="premium-results-search" onsubmit="return submitPremiumSearch(event,'results')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>
+        <input id="premiumResultQuery" type="search" placeholder="Search FindAI" enterkeyhint="search" autocomplete="off">
+      </form>
+      <button class="premium-results-scan" type="button" onclick="go('scan')" aria-label="Scan">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M5 8V5.8A.8.8 0 0 1 5.8 5H8M16 5h2.2a.8.8 0 0 1 .8.8V8M19 16v2.2a.8.8 0 0 1-.8.8H16M8 19H5.8a.8.8 0 0 1-.8-.8V16"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </header>
+    <div class="premium-results-scroll">
+      <div class="premium-results-meta"><span id="premiumResultsMeta">Searching live listings…</span></div>
+      <div class="premium-results-grid" id="premiumResultsGrid" aria-live="polite"></div>
+      <button class="premium-load-more" id="premiumLoadMore" type="button" onclick="loadMorePremiumResults()" hidden>Load more</button>
     </div>
   </section>
 
@@ -2942,8 +3093,8 @@ html.findai-light .nav button.active[data-tab="profile"] .nav-profile-avatar{bor
     </div>
   </section>
 
-  <!-- Bottom navigation — Home / Search / Create / Scan / Profile -->
-  <nav class="nav findai-five-nav" aria-label="Main navigation">
+  <!-- Bottom navigation — Home / Search / Create / Liked / Profile -->
+  <nav class="nav findai-five-nav premium-bottom-nav" aria-label="Main navigation">
     <button class="active" data-tab="discover" onclick="openForYou()" aria-label="Home">
       <span class="nav-icon-shell">
         <svg class="nav-home-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M3.5 10.7 12 3.8l8.5 6.9v8.1a1.7 1.7 0 0 1-1.7 1.7h-4.6v-6.1H9.8v6.1H5.2a1.7 1.7 0 0 1-1.7-1.7z"/></svg>
@@ -2958,13 +3109,13 @@ html.findai-light .nav button.active[data-tab="profile"] .nav-profile-avatar{bor
 
     <button class="nav-create-action" type="button" onclick="openCreateListing()" aria-label="Create listing">
       <span class="nav-create-shell">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
       </span>
     </button>
 
-    <button data-tab="scan" onclick="go('scan')" aria-label="Scan">
+    <button data-tab="liked" onclick="go('liked')" aria-label="Liked items">
       <span class="nav-icon-shell">
-        <svg class="nav-scan-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><circle cx="12" cy="12" r="3.25"/></svg>
+        <svg class="nav-liked-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linejoin="round"><path d="M20.6 5.8c-1.8-2.1-5.1-2.2-7-.3L12 7.1l-1.6-1.6c-1.9-1.9-5.2-1.8-7 .3-1.7 2-1.5 5 .4 6.9L12 20.3l8.2-7.6c1.9-1.9 2.1-4.9.4-6.9z"/></svg>
       </span>
     </button>
 
@@ -3065,11 +3216,7 @@ html.findai-light .nav button.active[data-tab="profile"] .nav-profile-avatar{bor
   </div>
 
   <section class="screen profile-screen" id="profile" aria-label="FindAI profile">
-    <header class="profile-header app-profile-tab-header">
-      <button type="button" aria-hidden="true" tabindex="-1"></button>
-      <div class="profile-tab-title">Profile</div>
-      <button onclick="openAppSettings()" aria-label="Profile settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.87l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.25.37.6.7 1 .9.34.17.72.25 1.1.25H21v4h-.1a1.7 1.7 0 0 0-1.5.85z"/></svg></button>
-    </header>
+
 
     <div class="profile-scroll">
       <div class="profile-signed-out" id="profileSignedOut">
@@ -3100,7 +3247,7 @@ html.findai-light .nav button.active[data-tab="profile"] .nav-profile-avatar{bor
         <div class="social-profile-topbar">
           <div>
             <div class="social-profile-handle" id="socialProfileHandle">@findai</div>
-            <div class="social-profile-account-note">FindAI profile</div>
+            
           </div>
           <button class="social-settings-button" type="button" onclick="openAppSettings()" aria-label="Settings">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.87l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.25.37.6.7 1 .9.34.17.72.25 1.1.25H21v4h-.1a1.7 1.7 0 0 0-1.5.85z"/></svg>
@@ -3127,10 +3274,6 @@ html.findai-light .nav button.active[data-tab="profile"] .nav-profile-avatar{bor
           <button type="button" onclick="shareFindAIProfile()">Share profile</button>
         </div>
 
-        <div class="social-profile-utility-row">
-          <button type="button" onclick="go('tracker')"><span>Price alerts</span><b id="profileTrackedCount">0</b></button>
-          <button type="button" onclick="appOpenPro()"><span id="appProProfileTitle">FindAI Pro</span><b id="appProProfileChip">Upgrade</b></button>
-        </div>
 
         <div class="social-profile-tabs" role="tablist" aria-label="Profile sections">
           <button class="active" type="button" data-profile-tab="listings" onclick="setProfileTab('listings')" role="tab" aria-label="Listings">
@@ -7712,7 +7855,7 @@ async function appChatSubmit(text){
     appChatBusy=false;appChatController=null;if(send)send.disabled=false;const q=$('#q');if(q)appChatAutoGrow(q);findaiSyncVisualViewport();if(typeof findaiHandlePostSearchLimit==='function')findaiHandlePostSearchLimit();
   }
 }
-function doSearch(event){
+function doSearchLegacyV87(event){
   if(event&&event.preventDefault)event.preventDefault();
   const input=$('#q');const value=String(input&&input.value||'').trim();if(!value||appChatBusy)return false;
   appVoiceStop(true);
@@ -7720,6 +7863,197 @@ function doSearch(event){
 }
 
 
+
+
+/* ============================================================
+   v89 premium search + live eBay discovery
+   ============================================================ */
+const PREMIUM_EBAY_CACHE_KEY='fa_premium_ebay_discovery_v1';
+const PREMIUM_EBAY_CACHE_TTL=12*60*1000;
+const PREMIUM_EBAY_SEEDS=[
+  'pokemon cards','lego sets','nike sneakers','apple iphone','playstation 5',
+  'nintendo switch','airpods','watches','camera lenses','trading cards',
+  'gaming console','collectible figures','sony headphones','retro games'
+];
+let premiumEbayItems=[];
+let premiumResultItems=[];
+let premiumResultData=null;
+let premiumResultQuery='';
+let premiumResultPage=1;
+let premiumResultCursor=null;
+let premiumResultHasMore=false;
+let premiumSearchController=null;
+
+function premiumSeedQueries(){
+  const bucket=Math.floor(Date.now()/(6*60*60*1000));
+  const offset=(bucket*3)%PREMIUM_EBAY_SEEDS.length;
+  const out=[];
+  for(let i=0;i<7;i++)out.push(PREMIUM_EBAY_SEEDS[(offset+i*2)%PREMIUM_EBAY_SEEDS.length]);
+  return out;
+}
+function premiumIsEbay(item){
+  const source=getSource(item);
+  return source==='ebay'||appKnownBrandForItem(item,source)==='ebay'||/ebay\./i.test(appRetailerHost(item)||'');
+}
+function premiumCacheRead(){
+  try{
+    const parsed=JSON.parse(localStorage.getItem(PREMIUM_EBAY_CACHE_KEY)||'null');
+    if(parsed&&Array.isArray(parsed.items)&&Date.now()-Number(parsed.savedAt||0)<PREMIUM_EBAY_CACHE_TTL)return parsed.items;
+  }catch(_){}
+  return [];
+}
+function premiumCacheWrite(items){
+  try{localStorage.setItem(PREMIUM_EBAY_CACHE_KEY,JSON.stringify({savedAt:Date.now(),items:items.slice(0,14)}));}catch(_){}
+}
+function premiumProductImage(item){return getImage(item)||getImageFallback(item)||'';}
+function premiumItemMeta(item){
+  const condition=conditionText(item);
+  const seller=String(item&& (item.sellerName||item.seller||item.storeName)||'').trim();
+  return [condition,seller].filter(Boolean).slice(0,2).join(' · ');
+}
+function premiumCard(item,index,kind){
+  const img=premiumProductImage(item),active=isTracked(item),source=getSource(item);
+  const isEbay=premiumIsEbay(item);
+  return `<article class="${kind==='ebay'?'premium-ebay-card':'premium-result-card'}" onclick="${kind==='ebay'?'openPremiumEbayItem':'openPremiumResultItem'}(${index})">
+    <div class="${kind==='ebay'?'premium-ebay-media':'premium-result-media'}">
+      ${img?`<img src="${escapeAttr(img)}" alt="${escapeAttr(item.title||'Product')}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">`:''}
+      <button class="premium-card-like ${active?'active':''}" type="button" onclick="togglePremiumLike('${kind}',${index},event)" aria-label="${active?'Unlike':'Like'}">
+        <svg viewBox="0 0 24 24" fill="${active?'currentColor':'none'}" stroke="currentColor" stroke-width="1.9"><path d="M20.6 5.8c-1.8-2.1-5.1-2.2-7-.3L12 7.1l-1.6-1.6c-1.9-1.9-5.2-1.8-7 .3-1.7 2-1.5 5 .4 6.9L12 20.3l8.2-7.6c1.9-1.9 2.1-4.9.4-6.9z"/></svg>
+      </button>
+    </div>
+    <div class="${kind==='ebay'?'premium-ebay-copy':'premium-result-copy'}">
+      <div class="source">${sourceMarkup(isEbay?'ebay':source,item)}</div>
+      <h3>${escapeHTML(item.title||'Product')}</h3>
+      <strong>${escapeHTML(money(Number(item.price)||0,currencyOf(item,kind==='result'?premiumResultData:null)||'AUD'))}</strong>
+      <small>${escapeHTML(premiumItemMeta(item)||'Live listing')}</small>
+    </div>
+  </article>`;
+}
+function paintPremiumEbay(){
+  const grid=$('#premiumEbayGrid');if(!grid)return;
+  if(!premiumEbayItems.length){
+    grid.innerHTML='<div class="premium-ebay-empty">Live eBay listings are temporarily unavailable. Pull back into Search in a moment and FindAI will retry.</div>';
+    return;
+  }
+  grid.innerHTML=premiumEbayItems.map((item,i)=>premiumCard(item,i,'ebay')).join('');
+}
+async function refreshPremiumEbayDiscovery(force=false){
+  const cached=!force?premiumCacheRead():[];
+  if(cached.length>=6){
+    premiumEbayItems=cached.slice(0,12);paintPremiumEbay();return;
+  }
+  const grid=$('#premiumEbayGrid');
+  if(grid)grid.innerHTML='<div class="premium-product-skeleton"></div><div class="premium-product-skeleton"></div><div class="premium-product-skeleton"></div><div class="premium-product-skeleton"></div>';
+  const queries=premiumSeedQueries(),seen=new Set(),items=[];
+  for(let batch=0;batch<queries.length&&items.length<12;batch+=3){
+    try{
+      const results=await Promise.all(queries.slice(batch,batch+3).map(q=>fetchProductResults(q,{page:1,limit:10,preserveExact:true,skipResolve:true,passive:true})));
+      results.forEach(result=>{
+        const list=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings:[];
+        list.filter(premiumIsEbay).forEach(item=>{
+          const key=listingKey(item)||trackedKey(item)||String(item.itemId||item.url||item.title||'');
+          if(!seen.has(key)&&Number(item.price)>0&&premiumProductImage(item)){seen.add(key);items.push(item);}
+        });
+      });
+    }catch(_){}
+  }
+  premiumEbayItems=items.slice(0,12);
+  if(premiumEbayItems.length)premiumCacheWrite(premiumEbayItems);
+  paintPremiumEbay();
+}
+function renderPremiumSearchHome(){refreshPremiumEbayDiscovery(false);}
+function openPremiumEbayItem(index){
+  const item=premiumEbayItems[index];if(!item)return;
+  currentFeedItems=premiumEbayItems;currentFeedData=null;
+  openSearchResultDetail(index);
+}
+function openPremiumResultItem(index){
+  const item=premiumResultItems[index];if(!item)return;
+  currentFeedItems=premiumResultItems;currentFeedData=premiumResultData;
+  openSearchResultDetail(index);
+}
+async function togglePremiumLike(kind,index,event){
+  if(event){event.preventDefault();event.stopPropagation();}
+  const list=kind==='ebay'?premiumEbayItems:premiumResultItems,item=list[index];if(!item)return;
+  await toggleGenericLikeItem(item);
+  if(kind==='ebay')paintPremiumEbay();else paintPremiumResults(false);
+  renderLikedItems();
+}
+function setSearchNavActive(){
+  $$('.nav button').forEach(button=>button.classList.toggle('active',button.dataset.tab==='search'));
+}
+function submitPremiumSearch(event,origin){
+  if(event&&event.preventDefault)event.preventDefault();
+  const input=origin==='results'?$('#premiumResultQuery'):$('#q');
+  const query=String(input&&input.value||'').trim();
+  if(!query)return false;
+  launchPremiumSearch(query);
+  return false;
+}
+async function launchPremiumSearch(query){
+  const q=String(query||'').trim();if(!q)return;
+  if(premiumSearchController)premiumSearchController.abort();
+  premiumSearchController=new AbortController();
+  premiumResultQuery=q;premiumResultPage=1;premiumResultCursor=null;premiumResultHasMore=false;premiumResultItems=[];premiumResultData=null;
+  setLastSearch(q);recordInterest(q,'search');
+  const home=$('#q');if(home)home.value=q;
+  const resultInput=$('#premiumResultQuery');if(resultInput)resultInput.value=q;
+  go('searchResults');setSearchNavActive();
+  const meta=$('#premiumResultsMeta'),grid=$('#premiumResultsGrid'),more=$('#premiumLoadMore');
+  if(meta)meta.textContent='Searching live listings…';
+  if(grid)grid.innerHTML='<div class="premium-results-loading"><div class="feed-more-spinner"></div>Finding the best current listings…</div>';
+  if(more)more.hidden=true;
+  try{
+    const result=await fetchProductResults(q,{page:1,limit:24,preserveExact:false,signal:premiumSearchController.signal});
+    premiumResultData=result.data||{};
+    premiumResultItems=(Array.isArray(premiumResultData.listings)?premiumResultData.listings:[]).filter(item=>Number(item.price)>0);
+    premiumResultCursor=result.nextCursor||null;premiumResultHasMore=!!result.hasMore;
+    paintPremiumResults(false);
+  }catch(error){
+    if(error&&error.name==='AbortError')return;
+    if(meta)meta.textContent='Search unavailable';
+    if(grid)grid.innerHTML='<div class="premium-results-empty">FindAI could not load these listings right now. Try the search again in a moment.</div>';
+  }
+}
+function paintPremiumResults(append){
+  const grid=$('#premiumResultsGrid'),meta=$('#premiumResultsMeta'),more=$('#premiumLoadMore');if(!grid)return;
+  if(!premiumResultItems.length){
+    grid.innerHTML='<div class="premium-results-empty">No close live matches yet. Try the exact product, model, card number or set name.</div>';
+    if(meta)meta.textContent='No close live matches';if(more)more.hidden=true;return;
+  }
+  grid.innerHTML=premiumResultItems.map((item,i)=>premiumCard(item,i,'result')).join('');
+  if(meta)meta.textContent=`${premiumResultItems.length} current listings for “${premiumResultQuery}”`;
+  if(more)more.hidden=!premiumResultHasMore;
+}
+async function loadMorePremiumResults(){
+  if(!premiumResultQuery||!premiumResultHasMore)return;
+  const more=$('#premiumLoadMore');if(more){more.disabled=true;more.textContent='Loading…';}
+  try{
+    const page=premiumResultPage+1;
+    const result=await fetchProductResults(premiumResultQuery,{page,cursor:premiumResultCursor,limit:24,preserveExact:true,skipResolve:true});
+    const incoming=(Array.isArray(result.data&&result.data.listings)?result.data.listings:[]).filter(item=>Number(item.price)>0);
+    const seen=new Set(premiumResultItems.map(item=>listingKey(item)||trackedKey(item)));
+    incoming.forEach(item=>{const key=listingKey(item)||trackedKey(item);if(!seen.has(key)){seen.add(key);premiumResultItems.push(item);}});
+    premiumResultPage=page;premiumResultCursor=result.nextCursor||null;premiumResultHasMore=!!result.hasMore;paintPremiumResults(true);
+  }catch(_){}
+  if(more){more.disabled=false;more.textContent='Load more';}
+}
+function backToPremiumSearch(){
+  go('search');
+  setTimeout(()=>{const q=$('#q');if(q)try{q.blur();}catch(_){}},30);
+  renderPremiumSearchHome();
+}
+
+/* v89 replaces the v87 in-page results flow. */
+function doSearch(event){return submitPremiumSearch(event,'home');}
+function runMobileSearch(query){launchPremiumSearch(query);}
+function runMobileCategoryLegacyV87(query){const q=$('#q');if(q)q.value=query;launchPremiumSearch(query);}
+function clearMobileSearchResultsLegacyV87(){backToPremiumSearch();}
+function renderAppSearchHome(){renderPremiumSearchHome();}
+function openSearchHome(focus=true){
+  finaliseReelTracking();go('search');renderPremiumSearchHome();
+  if(focus)setTimeout(()=>{const q=$('#q');if(q)q.focus({preventScroll:true});},90);
+}
 
 /* ============================================================
    v88 Instagram-style marketplace profile
@@ -7954,7 +8288,7 @@ function paintMobileTrending(){
   const row=$('#mobileTrendingProducts');if(!row)return;
   row.innerHTML=mobileTrendingItems.length?mobileTrendingItems.map((item,i)=>mobileProductCard(item,i,'trending')).join(''):'<div class="mobile-search-empty">Live trending products will appear here when current listings are available.</div>';
 }
-function renderAppSearchHome(){
+function renderAppSearchHomeLegacyV87(){
   renderMobileCategoryTiles();
   refreshMobileDiscovery(false);
 }
@@ -7962,7 +8296,7 @@ function runMobileCategory(query){
   const input=$('#q');if(input)input.value=query;
   runMobileSearch(query);
 }
-async function runMobileSearch(query){
+async function runMobileSearchLegacyV87(query){
   const q=String(query||'').trim();if(!q)return;
   const section=$('#mobileSearchResultsSection'),root=$('#mobileSearchResults'),title=$('#mobileSearchResultsTitle'),meta=$('#mobileSearchResultsMeta');
   if(section)section.hidden=false;if(title)title.textContent=q;if(meta)meta.textContent='Searching live listings…';
@@ -8020,8 +8354,8 @@ function doSearch(event){
   try{input.blur();}catch(_){}
   runMobileSearch(value);return false;
 }
-function openSearchHome(focus=true){
-  finaliseReelTracking();go('search');renderAppSearchHome();
+function openSearchHomeLegacyV87(focus=true){
+  finaliseReelTracking();go('search');renderAppSearchHomeLegacyV87();
   if(focus)setTimeout(()=>{const q=$('#q');if(q)q.focus({preventScroll:true});},90);
 }
 
@@ -8070,10 +8404,23 @@ function closeProfile(){openForYou();}
 const findaiGoV86=go;
 go=function(tab){
   findaiGoV86(tab);
-  if(tab==='search')renderAppSearchHome();
+  if(tab==='search')renderPremiumSearchHome();
+  if(tab==='searchResults')setSearchNavActive();
   if(tab==='liked')renderLikedItems();
   if(tab==='profile')renderProfileTab();
 };
+
+
+/* v89 final search authority — defined last so legacy v87 helpers cannot override it. */
+function renderAppSearchHome(){renderPremiumSearchHome();}
+function openSearchHome(focus=true){
+  finaliseReelTracking();go('search');renderPremiumSearchHome();
+  if(focus)setTimeout(()=>{const q=$('#q');if(q)q.focus({preventScroll:true});},90);
+}
+function doSearch(event){return submitPremiumSearch(event,'home');}
+function runMobileSearch(query){launchPremiumSearch(query);}
+function runMobileCategory(query){const q=$('#q');if(q)q.value=query;launchPremiumSearch(query);}
+function clearMobileSearchResults(){backToPremiumSearch();}
 
 /* Boot — FindAI opens directly into the personalised shopping reels.
    Search remains one tap away in the second tab. */
