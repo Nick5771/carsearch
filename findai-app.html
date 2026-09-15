@@ -3583,6 +3583,14 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
 <script>
 const FIND_AI_BUILD='v41-findai-pro';
 const WORKER = 'https://api.carsearchapi.workers.dev';
+async function appFetchJsonTimed(url,options={},timeoutMs=7000){
+  const ctrl=(typeof AbortController!=='undefined')?new AbortController():null,outer=options&&options.signal;let bridge=null,timer=null;
+  if(ctrl&&outer){if(outer.aborted)ctrl.abort();else{bridge=()=>{try{ctrl.abort();}catch(_){}};try{outer.addEventListener('abort',bridge,{once:true});}catch(_){}}}
+  if(ctrl)timer=setTimeout(()=>{try{ctrl.abort();}catch(_){}},Math.max(500,Number(timeoutMs)||7000));
+  try{const r=await fetch(url,{...options,signal:ctrl?ctrl.signal:outer});let d={};try{d=await r.json();}catch(_){throw new Error('invalid_response');}if(!r.ok)throw new Error(d.error||'search_failed');return d;}
+  finally{if(timer)clearTimeout(timer);if(outer&&bridge)try{outer.removeEventListener('abort',bridge);}catch(_){}}
+}
+
 
 let stream = null;
 let scanFacingMode='environment';
@@ -5847,9 +5855,16 @@ async function fetchProductResults(query,{
   if(cursor)payload.cursor=cursor;
   if(passive)payload.passive=true;
   const endpoint=useTracker?'/tracker/search':'/search';
-  const response=await fetch(WORKER+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal});
-  if(!response.ok)throw new Error('Search failed');
-  const data=await response.json();
+  let data;
+  try{
+    data=await appFetchJsonTimed(WORKER+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal},passive?4500:7000);
+  }catch(error){
+    if(signal&&signal.aborted)throw error;
+    if(useTracker)throw error;
+    const market=(document.documentElement&&document.documentElement.dataset&&document.documentElement.dataset.region)||'AU';
+    const owned=await appFetchJsonTimed(WORKER+'/api/owned-search?q='+encodeURIComponent(resolvedQuery)+'&country='+encodeURIComponent(market)+'&limit='+encodeURIComponent(limit),{signal,cache:'no-store'},2200).catch(()=>({items:[]}));
+    data={listings:Array.isArray(owned&&owned.items)?owned.items:[],total:Number(owned&&owned.total||0),country:owned&&owned.market||market,_ownedFallback:true};
+  }
   const raw=Array.isArray(data && data.listings)?data.listings:[];
   const pagination=extractPagination(data,raw.length,limit);
   return {data,resolvedQuery,...pagination};
@@ -8163,9 +8178,7 @@ async function v116GetPreviewPool(force=false){
   const key='findai_app_preview_pool_v116';
   if(!force){try{const c=JSON.parse(sessionStorage.getItem(key)||'null');if(c&&Array.isArray(c.items)&&Date.now()-Number(c.savedAt||0)<600000)return c.items;}catch(_){}}
   try{
-    const response=await fetch(WORKER+'/?previews=1',{headers:{'Accept':'application/json'},cache:force?'reload':'default'});
-    if(!response.ok)throw new Error('preview_unavailable');
-    const data=await response.json(),items=Array.isArray(data&&data.items)?data.items:[];
+    const data=await appFetchJsonTimed(WORKER+'/?previews=1',{headers:{'Accept':'application/json'},cache:force?'reload':'default'},4500),items=Array.isArray(data&&data.items)?data.items:[];
     if(items.length)try{sessionStorage.setItem(key,JSON.stringify({savedAt:Date.now(),items:items.slice(0,120)}));}catch(_){}
     return items;
   }catch(_){try{const c=JSON.parse(sessionStorage.getItem(key)||'null');if(c&&Array.isArray(c.items))return c.items;}catch(_){}return [];}
