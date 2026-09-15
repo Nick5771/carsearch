@@ -16,6 +16,7 @@
 <link rel="preconnect" href="https://api.carsearchapi.workers.dev" crossorigin>
 <link rel="dns-prefetch" href="//api.carsearchapi.workers.dev">
 <title>FindAI</title>
+<meta name="findai-build" content="v91-ebay-resilient-discovery">
 <script>
 (function(){
   try{
@@ -5259,6 +5260,9 @@ function renderPersonalisedFeed(items,{writeCache=true}={}){
   /* Never auto-fetch merely because a marketplace returned a short page.
      More listings are fetched only when the user actually scrolls near the end. */
 }
+async function v116RenderPersonalisedPreviewFallback(){
+  try{const pool=await v116GetPreviewPool(false),seen=new Set(),items=[];for(const item of pool){if(!item||Number(item.price)<=0||!premiumProductImage(item))continue;const k=listingKey(item)||trackedKey(item)||String(item.itemId||item.url||item.title||'');if(!k||seen.has(k))continue;seen.add(k);items.push({...item,_interestQuery:item.searchQ||item.query||item.title||'Popular',_interestCluster:interestClusterKey(item.searchQ||item.query||item.title||'popular'),_interestCategory:interestCategory(item.searchQ||item.query||item.title||'popular')});if(items.length>=18)break;}if(!items.length)return false;renderPersonalisedFeed(items,{writeCache:false});return true;}catch(_){return false;}
+}
 async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
   if(feedRequestController) feedRequestController.abort();
   feedRequestController=new AbortController();
@@ -5328,7 +5332,8 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     }
     if(feedState.source!=='personalised')return;
     if(!early.length){
-      $('#personalFeed').innerHTML='<div class="feed-status"><div><b>Couldn\'t build your feed</b>Check your connection and try again.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
+      if(await v116RenderPersonalisedPreviewFallback()){feedState.loading=false;return;}
+      $('#personalFeed').innerHTML='<div class="feed-status"><div><b>Fresh listings are temporarily unavailable</b>Try again in a moment.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
       feedState.loading=false;return;
     }
     const earlyMixed=sequencePersonalisedBatch(interleavePersonalised(early,24),[],24);
@@ -5352,7 +5357,8 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     })().catch(()=>{});
   }catch(error){
     if(error&&error.name==='AbortError') return;
-    $('#personalFeed').innerHTML='<div class="feed-status"><div><b>Couldn\'t build your feed</b>Check your connection and try again.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
+    if(await v116RenderPersonalisedPreviewFallback()){if(feedState.source==='personalised')feedState.loading=false;return;}
+    $('#personalFeed').innerHTML='<div class="feed-status"><div><b>Fresh listings are temporarily unavailable</b>Try again in a moment.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
     if(feedState.source==='personalised')feedState.loading=false;
   }
 }
@@ -8153,51 +8159,56 @@ function premiumFilterForSection(item,config){
   const source=getSource(item),key=appKnownBrandForItem(item,source);
   return String(source||'').toLowerCase()===config.source||key===config.source;
 }
-async function premiumLoadSection(config){
-  const seen=new Set(),items=[];
-  const queries=premiumRotateArray(config.queries||[config.title],premiumDiscoveryHash()+config.id.length).slice(0,3);
-  for(const query of queries){
-    if(items.length>=9)break;
-    try{
-      const result=await fetchProductResults(query,{page:1,limit:14,preserveExact:true,skipResolve:true,passive:true});
-      const list=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings:[];
-      list.filter(item=>premiumFilterForSection(item,config)).forEach(item=>{
-        const key=listingKey(item)||trackedKey(item)||String(item.itemId||item.url||item.title||'');
-        if(!seen.has(key)){seen.add(key);items.push(item);}
-      });
-    }catch(_){}
+async function v116GetPreviewPool(force=false){
+  const key='findai_app_preview_pool_v116';
+  if(!force){try{const c=JSON.parse(sessionStorage.getItem(key)||'null');if(c&&Array.isArray(c.items)&&Date.now()-Number(c.savedAt||0)<600000)return c.items;}catch(_){}}
+  try{
+    const response=await fetch(WORKER+'/?previews=1',{headers:{'Accept':'application/json'},cache:force?'reload':'default'});
+    if(!response.ok)throw new Error('preview_unavailable');
+    const data=await response.json(),items=Array.isArray(data&&data.items)?data.items:[];
+    if(items.length)try{sessionStorage.setItem(key,JSON.stringify({savedAt:Date.now(),items:items.slice(0,120)}));}catch(_){}
+    return items;
+  }catch(_){try{const c=JSON.parse(sessionStorage.getItem(key)||'null');if(c&&Array.isArray(c.items))return c.items;}catch(_){}return [];}
+}
+function v116DiscoveryTokens(config){
+  const stop=new Set(['popular','live','marketplace','listing','listings','console','games','game','designer','luxury','collectible','collectibles','wireless','automatic']);
+  const raw=[config&&config.id,...((config&&config.queries)||[])].join(' ').toLowerCase().replace(/[^a-z0-9]+/g,' ');
+  return [...new Set(raw.split(/\s+/).filter(t=>t.length>=3&&!stop.has(t)))];
+}
+function v116PreviewItemsForConfig(config,pool){
+  const seen=new Set(),ranked=[],sourceWanted=String(config&&config.source||'').toLowerCase(),tokens=v116DiscoveryTokens(config);
+  for(const item of (Array.isArray(pool)?pool:[])){
+    if(!item||Number(item.price)<=0||!premiumProductImage(item))continue;
+    const source=String(getSource(item)||'').toLowerCase(),key=appKnownBrandForItem(item,source);
+    if(sourceWanted){if(sourceWanted==='ebay'&&!premiumIsEbay(item))continue;if(sourceWanted!=='ebay'&&source!==sourceWanted&&key!==sourceWanted)continue;ranked.push({item,score:10});continue;}
+    const hay=normaliseQueryText([item.title,item.query,item.source,item.retailer].filter(Boolean).join(' '));let score=0;for(const t of tokens)if(hay.includes(t))score++;
+    if(config&&config.id==='ps5'&&/\bps5|playstation 5\b/i.test(String(item.title||'')))score+=4;
+    if(config&&config.id==='lego'&&/\blego\b/i.test(String(item.title||'')))score+=3;
+    if(config&&config.id==='pokemon'&&/\bpokemon|pokémon\b/i.test(String(item.title||'')))score+=3;
+    if(score>0)ranked.push({item,score});
   }
+  ranked.sort((a,b)=>b.score-a.score);const out=[];
+  for(const row of ranked){const k=listingKey(row.item)||trackedKey(row.item)||String(row.item.itemId||row.item.url||row.item.title||'');if(!k||seen.has(k))continue;seen.add(k);out.push(row.item);if(out.length>=9)break;}
+  return out;
+}
+async function premiumLoadSection(config,previewPool=[]){
+  let items=v116PreviewItemsForConfig(config,previewPool);if(items.length>=2)return items.slice(0,9);
+  if(!config.source)return items.slice(0,9);
+  const q=(premiumRotateArray(config.queries||[config.title],premiumDiscoveryHash()+config.id.length)[0]||config.title||'').trim();if(!q)return items.slice(0,9);
+  try{
+    const result=await fetchProductResults(q,{page:1,limit:12,preserveExact:true,skipResolve:true,passive:true});
+    const list=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings:[],seen=new Set(items.map(x=>listingKey(x)||trackedKey(x)||String(x.itemId||x.url||x.title||'')));
+    for(const item of list.filter(item=>premiumFilterForSection(item,config))){const k=listingKey(item)||trackedKey(item)||String(item.itemId||item.url||item.title||'');if(k&&!seen.has(k)){seen.add(k);items.push(item);}if(items.length>=9)break;}
+  }catch(_){}
   return items.slice(0,9);
 }
-async function premiumRunPool(tasks,limit=3){
-  let cursor=0;
-  async function worker(){
-    while(cursor<tasks.length){
-      const index=cursor++;
-      await tasks[index]();
-    }
-  }
-  await Promise.all(Array.from({length:Math.min(limit,tasks.length)},worker));
-}
+async function premiumRunPool(tasks,limit=3){let cursor=0;async function worker(){while(cursor<tasks.length){const index=cursor++;await tasks[index]();}}await Promise.all(Array.from({length:Math.min(limit,tasks.length)},worker));}
 async function renderPremiumDiscoverySections(force=false){
-  const root=$('#premiumDiscoverySections');if(!root)return;
-  const configs=premiumDiscoveryConfig();
-  premiumDiscoverySections=configs.map(config=>({config,items:[]}));
-  root.innerHTML=configs.map(premiumSectionSkeleton).join('');
-
-  const tasks=configs.map((config,sectionIndex)=>async()=>{
-    const items=await premiumLoadSection(config);
-    premiumDiscoverySections[sectionIndex].items=items;
-    const row=root.querySelector(`[data-section-row="${CSS.escape(config.id)}"]`);
-    const section=$(`#premium-section-${config.id}`);
-    if(!row)return;
-    if(items.length>=2){
-      row.innerHTML=items.map((item,index)=>premiumSectionCard(item,index,config.id)).join('');
-    }else if(section){
-      section.remove();
-    }
-  });
-  await premiumRunPool(tasks,3);
+  const root=$('#premiumDiscoverySections');if(!root)return;const configs=premiumDiscoveryConfig();premiumDiscoverySections=configs.map(config=>({config,items:[]}));root.innerHTML=configs.map(premiumSectionSkeleton).join('');
+  const previewPool=await v116GetPreviewPool(force);
+  const tasks=configs.map((config,sectionIndex)=>async()=>{const items=await premiumLoadSection(config,previewPool);premiumDiscoverySections[sectionIndex].items=items;const row=root.querySelector(`[data-section-row="${CSS.escape(config.id)}"]`),section=$(`#premium-section-${config.id}`);if(!row)return;if(items.length>=2)row.innerHTML=items.map((item,index)=>premiumSectionCard(item,index,config.id)).join('');else if(section)section.remove();});
+  await premiumRunPool(tasks,2);
+  if(!root.querySelector('.premium-market-section'))root.innerHTML='<div class="premium-market-section-error">Popular listings are refreshing. Search any product above and FindAI will load the strongest available sources.</div>';
 }
 function premiumDiscoverySectionById(id){
   return premiumDiscoverySections.find(section=>section.config.id===id)||null;
@@ -8786,6 +8797,7 @@ go=function(tab){
 
 
 
+/* FindAI app v91 — quota-safe discovery + resilient feed */
 /* v90 final discovery authority */
 function renderPremiumSearchHome(){renderPremiumDiscoverySections(false);}
 function refreshPremiumEbayDiscovery(force=false){return renderPremiumDiscoverySections(force);}
