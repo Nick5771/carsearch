@@ -38,6 +38,7 @@
   gtag('js', new Date());
   gtag('config', 'G-SRSCS0W200');
 </script>
+<!-- FindAI v120 search UX restore: source bubbles, auto-follow, search evidence -->
 <title>FindAI - The Search Engine for Shopping</title>
 <script>
 (function(){
@@ -1532,6 +1533,12 @@ body.findai-results-mode .assistant-copy-line,
 body.findai-results-mode .search-summary-line,
 body.findai-results-mode .search-results-heading{color:#24211d!important;opacity:1!important}
 body.findai-results-mode .messages{color:#24211d!important}
+</style>
+
+<style id="findai-v120-search-ux">
+#messages-inner .msg.user{scroll-margin-top:118px}
+.search-source-evidence{margin-top:8px;font-size:12px;color:#777;line-height:1.45}
+body.findai-light .search-source-evidence{color:#64686d}
 </style>
 </head>
 <body class="findai-signed-out findai-home-mode">
@@ -4170,10 +4177,9 @@ function scrollToLastUser(){
   if(!inner)return;
   const u=inner.querySelectorAll('.msg.user');
   if(!u.length)return;
-  // First search: nothing above to scroll past — keep it in place (block:'start' would
-  // yank the lone message to the top and leave a big empty gap below). Follow-up searches:
-  // anchor the new question at the top so the view follows DOWN to it.
-  u[u.length-1].scrollIntoView({behavior:'smooth',block: u.length<=1 ? 'nearest' : 'start'});
+  // v120: always follow the newest search. The user should land on the query they just
+  // submitted instead of remaining at the top of the page after the results render.
+  u[u.length-1].scrollIntoView({behavior:'smooth',block:'start'});
 }
 function togglePlusMenu(e){if(e)e.stopPropagation();const m=document.getElementById('plus-menu');if(m)m.classList.toggle('open');}
 function pickImageFromMenu(){const m=document.getElementById('plus-menu');if(m)m.classList.remove('open');document.getElementById('img-input').click();}
@@ -4687,7 +4693,10 @@ function renderSearchAnswer(query,kw,items,data,parsed,c){
   const n=(data&&data.searchNarrative)||findaiFallbackSearchNarrative(query,presentation,data,parsed,c,featured);
   const fkey=String(featured.itemId||featured.url||featured.title||'');
   const others=presentation.filter(function(it){return String(it&&it.itemId||it&&it.url||it&&it.title||'')!==fkey;});
-  let html=`<section class="deal-answer search-answer"><div class="deal-copy"><div class="deal-headline">${dealTextHtml(n.headline||'Here is what I found.')}</div><p class="deal-explanation">${dealTextHtml(n.explanation||'')}</p>${n.workLine?`<div class="search-workline">${dealTextHtml(n.workLine)}</div>`:''}</div>${searchFeaturedCardHtml(featured,c,presentation)}</section>`;
+  const activity=Array.isArray(data&&data.sourceActivity)?data.sourceActivity:[];
+  const sourceNames=[];activity.forEach(function(row){var nm=String(row&&row.name||'').trim();if(nm&&(row.status==='returned'||row.status==='checked')&&!sourceNames.some(function(x){return x.toLowerCase()===nm.toLowerCase();}))sourceNames.push(nm);});
+  const evidence=n.workLine||((sourceNames.length?('Checked '+sourceNames.slice(0,5).join(' • ')):'')+(data&&data.meta&&data.meta.serverElapsedMs?(' · '+(Number(data.meta.serverElapsedMs)/1000).toFixed(1)+'s'):''));
+  let html=`<section class="deal-answer search-answer"><div class="deal-copy"><div class="deal-headline">${dealTextHtml(n.headline||'Here is what I found.')}</div><p class="deal-explanation">${dealTextHtml(n.explanation||'')}</p>${evidence?`<div class="search-workline search-source-evidence">${dealTextHtml(evidence)}</div>`:''}</div>${searchFeaturedCardHtml(featured,c,presentation)}</section>`;
   if(others.length){const resultLabel=String(n.resultLabel||((n.queryScope||featured&&featured._findaiQueryScope)==='exact'?'Compare offers':'Top matches'));html+=`<div class="search-results-heading">${escapeHtml(resultLabel)}</div><div class="deal-comparables">${renderCards(others,kw,'',parsed&&parsed.maxPrice||'',c,data&&data.ebayCount||0,0,true,presentation)}</div>`;}
   return {html,plain:[n.headline,n.explanation].filter(Boolean).join(' ')};
 }
@@ -8113,7 +8122,7 @@ window.addEventListener('load',function(){
   }catch(_){}
 })();
 </script>
-  <script src="https://api.carsearchapi.workers.dev/search/progress-ui.js?v=81" defer></script>
+  <script src="https://api.carsearchapi.workers.dev/search/progress-ui.js?v=120" defer></script>
 
 <script>
 (function(){
