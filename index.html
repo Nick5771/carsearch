@@ -148,7 +148,7 @@ nav{padding:0 16px;display:flex;align-items:center;justify-content:space-between
 .notification-icon{width:36px;height:36px;border:1px solid #2d333c;border-radius:11px;background:#111419;color:#dce0e5;display:grid;place-items:center}.notification-icon svg{width:18px;height:18px}.notification-copy{min-width:0}.notification-copy b{display:block;font-size:12px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.notification-copy span{display:-webkit-box;margin-top:4px;color:#989fa9;font-size:10.5px;line-height:1.35;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.notification-time{padding-top:1px;color:#6f7680;font-size:9px;white-space:nowrap}.notification-unread-dot{display:inline-block;width:6px;height:6px;margin-left:5px;border-radius:50%;background:#111111;vertical-align:1px}.notification-empty{padding:48px 24px;text-align:center;color:#858b94;font-size:12px}.notification-empty b{display:block;margin-bottom:6px;color:#f2f3f5;font-size:15px}
 
 /* Refined search reveal: one quiet inline status, then summary and cards in sequence. */
-.msg.search-loading{gap:0}.msg.search-loading .msg-av{display:none}.search-status{display:flex;align-items:center;gap:12px;padding:4px 2px;color:#a1a7af;font-size:13px;min-height:48px;min-width:0}.search-status-text{display:inline-block;flex:0 1 auto;min-width:0;max-width:min(520px,62vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:1;transform:none}.search-status-text.changing{opacity:1;transform:none}.search-status-text:after{content:none}@keyframes findaiStatusSweep{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.msg.search-loading{gap:0}.msg.search-loading .msg-av{display:none}.search-status{display:flex;align-items:center;gap:14px;padding:6px 2px;color:#666761;font-size:18px;font-weight:650;letter-spacing:-.25px;min-height:52px;min-width:0}.search-status-text{display:inline-block;flex:0 1 auto;min-width:0;max-width:min(620px,68vw);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:1;transform:none}.search-status-text.changing{opacity:1;transform:none}.search-status-text:after{content:none}.search-source-logo-wrap{display:inline-flex;align-items:center;justify-content:flex-start;width:84px;height:30px;flex:0 0 84px;overflow:visible}.search-source-logo{display:flex;align-items:center;justify-content:flex-start;width:100%;height:100%;opacity:0;transform:translateY(4px) scale(.965);transition:opacity .24s ease,transform .24s ease}.search-source-logo.visible{opacity:1;transform:translateY(0) scale(1)}.search-source-logo img{display:block;max-width:80px;max-height:27px;object-fit:contain;object-position:left center}.search-source-logo .ebay-logo{font-size:24px;line-height:1}.search-source-findai{width:28px;height:28px;border-radius:50%;background:#151515;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:850;letter-spacing:-.3px}@keyframes findaiStatusSweep{0%{background-position:200% 0}100%{background-position:-200% 0}}
 .assistant-copy-line{display:block;opacity:0;transform:translateY(5px);transition:opacity .28s ease,transform .28s ease}.assistant-copy-line.visible{opacity:1;transform:none}
 .search-summary-line{font-size:14px;color:#f3f4f6;line-height:1.5;margin-bottom:12px;padding:4px 2px;min-height:30px;display:block;opacity:0;transform:translateY(5px);transition:opacity .3s ease,transform .3s ease}.search-summary-line.visible{opacity:1;transform:none}.search-summary-line strong{font-weight:750}
 .search-card-enter{opacity:0;transform:translateY(11px);transition:opacity .34s ease,transform .34s cubic-bezier(.22,.75,.25,1)}.search-card-enter.visible{opacity:1;transform:none}.search-more-enter{opacity:0;transform:translateY(6px);transition:opacity .25s ease,transform .25s ease}.search-more-enter.visible{opacity:1;transform:none}
@@ -4157,17 +4157,47 @@ function findaiThinkingStages(mode,queryText){
   }
   return [];
 }
+function findaiSearchLoadingLogoHtml(key){
+  key=String(key||'').toLowerCase();
+  if(key==='ebay')return ebayLogoHtml();
+  if(key==='findai')return '<span class="search-source-findai">F</span>';
+  const src=FINDAI_REAL_LOGOS&&FINDAI_REAL_LOGOS[key];
+  if(src)return '<img src="'+escapeHtml(src)+'" alt="'+escapeHtml(key)+'">';
+  return '';
+}
+function findaiStartSearchLogoCycle(){
+  const box=document.getElementById('search-source-logo');
+  if(!box)return;
+  // v121: intentionally simple, fixed search copy. Only the marketplace mark changes.
+  // The sequence mirrors the shopping surfaces FindAI is designed around.
+  const sequence=['ebay','amazon','stockx','aliexpress','findai'];
+  let index=0;
+  function show(){
+    if(!document.body.contains(box))return;
+    box.classList.remove('visible');
+    const swap=setTimeout(function(){
+      if(!document.body.contains(box))return;
+      box.innerHTML=findaiSearchLoadingLogoHtml(sequence[index%sequence.length]);
+      index++;
+      requestAnimationFrame(function(){if(document.body.contains(box))box.classList.add('visible');});
+      const fade=setTimeout(function(){if(document.body.contains(box))box.classList.remove('visible');},460);
+      const next=setTimeout(show,650);
+      findaiThinkingTimers.push(fade,next);
+    },90);
+    findaiThinkingTimers.push(swap);
+  }
+  show();
+}
 function addThinking(label,mode,queryText){
   findaiThinkingTimers.forEach(clearTimeout);findaiThinkingTimers=[];
   const inner=document.getElementById('messages-inner');
   const d=document.createElement('div');d.className='msg assistant search-loading';d.id='thinking';
   const subject=mode==='search'?searchStatusSubject(queryText):'';
-  const first=subject?`Searching for “${subject}”`:(label||'Searching live marketplaces');
-  d.innerHTML=`<div class="search-status ai-thinking-row"><span class="search-status-text" id="search-status-text">${escapeHtml(first)}</span></div>`;
+  const first=subject?`Searching ${subject}`:(label||'Searching');
+  d.innerHTML=`<div class="search-status ai-thinking-row"><span class="search-status-text" id="search-status-text">${escapeHtml(first)}</span>${mode==='search'?'<span class="search-source-logo-wrap"><span class="search-source-logo" id="search-source-logo" aria-hidden="true"></span></span>':''}</div>`;
   inner.appendChild(d);
-  // Keep the product-search label fixed so the loading UI never shifts horizontally.
-  // The live source icon beside it is the only element that changes while FindAI searches.
-  if(mode!=='search')findaiThinkingStages(mode,queryText).forEach(function(stage,index){findaiThinkingTimers.push(setTimeout(function(){setThinkingStage(stage);},650+index*820));});
+  if(mode==='search')findaiStartSearchLogoCycle();
+  else findaiThinkingStages(mode,queryText).forEach(function(stage,index){findaiThinkingTimers.push(setTimeout(function(){setThinkingStage(stage);},650+index*820));});
 }
 function removeThinking(){findaiThinkingTimers.forEach(clearTimeout);findaiThinkingTimers=[];const t=document.getElementById('thinking');if(t)t.remove();}
 // Scroll so the latest user message sits at the top — called the INSTANT a search is
@@ -8122,7 +8152,6 @@ window.addEventListener('load',function(){
   }catch(_){}
 })();
 </script>
-  <script src="https://api.carsearchapi.workers.dev/search/progress-ui.js?v=120" defer></script>
 
 <script>
 (function(){
@@ -8254,6 +8283,7 @@ window.addEventListener('load',function(){
 })();
 </script>
 
+  <!-- FindAI v121: fixed search label + fading marketplace logo cycle -->
 </body>
 </html>
 
