@@ -7986,7 +7986,14 @@ function findaiSyncVisualViewport(){
   document.documentElement.style.setProperty('--findai-visual-vh',visualH+'px');
   document.documentElement.style.setProperty('--findai-visual-top',visualTop+'px');
   const creating=!!($('#createListingScreen')&&$('#createListingScreen').classList.contains('show'));
-  document.documentElement.style.setProperty('--findai-vh',(creating?findaiStableViewportHeight:visualH)+'px');
+  if(creating){
+    document.documentElement.style.setProperty('--findai-vh',findaiStableViewportHeight+'px');
+  }else{
+    // Let .app fall back to its CSS default (100dvh), which the browser updates
+    // natively and instantly - same mechanism the fixed nav bar uses - instead of
+    // a JS-computed value that can lag a frame behind during toolbar animations.
+    document.documentElement.style.removeProperty('--findai-vh');
+  }
   document.body.classList.toggle('keyboard-open',keyboard);
   if(!keyboard){try{window.scrollTo(0,0);}catch(_){}}
 }
