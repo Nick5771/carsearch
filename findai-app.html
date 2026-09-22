@@ -5407,8 +5407,28 @@ function warmPersonalisedFeedCache(){
   })();
   return personalisedWarmPromise;
 }
+function surfaceOwnedListingInFeed(items){
+  const base=Array.isArray(items)?items.filter(Boolean):[];
+  if(!marketplaceSession()) return base;
+  let owned=[];
+  try{
+    const profileItems=Array.isArray(socialProfileListings)?socialProfileListings:[];
+    const localItems=typeof getMarketplaceListings==='function'?getMarketplaceListings():[];
+    owned=[...profileItems,...localItems].filter(item=>item&&String(item.status||'active').toLowerCase()==='active');
+  }catch(_){ owned=[]; }
+  if(!owned.length) return base;
+  const seenOwned=new Set();
+  owned=owned.filter(item=>{const id=String(appMpId(item)||listingKey(item)||'');if(!id||seenOwned.has(id))return false;seenOwned.add(id);return true;});
+  owned.sort((a,b)=>Date.parse(b.publishedAt||b.createdAt||b.updatedAt||0)-Date.parse(a.publishedAt||a.createdAt||a.updatedAt||0));
+  const mine=owned[0];if(!mine)return base;
+  const mineId=String(appMpId(mine)||listingKey(mine)||'');
+  if(base.some(item=>String(appMpId(item)||listingKey(item)||'')===mineId)) return base;
+  const reelItem={...mine,_findaiMarketplace:true,source:'findai',marketplace:'FindAI Marketplace',platform:'FindAI Marketplace',_interestQuery:mine.title||'Your listing',_interestCluster:'your-listing',_interestCategory:'marketplace'};
+  const at=Math.min(base.length,2);
+  return [...base.slice(0,at),reelItem,...base.slice(at)];
+}
 function renderPersonalisedFeed(items,{writeCache=true}={}){
-  items=surfaceLikedListingInFeed(items);
+  items=surfaceOwnedListingInFeed(surfaceLikedListingInFeed(items));
   currentFeedItems=items;
   currentFeedData={personalised:true};
   activeReelIndex=0;
@@ -6208,7 +6228,7 @@ function appRetailerImgError(img,source,logo,cls){
 
 function renderSearchGridCard(item,index,data){
   const title=String(item.title||(data&&data.productDetails&&data.productDetails.name)||'Product listing'),plan=appImagePlan(item,index,data),image=plan.src,source=getSource(item),condition=conditionText(item),country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item);
-  return `<article class="search-grid-card" data-grid-index="${index}" onclick="openSearchResultDetail(${index})" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSearchResultDetail(${index})}"><div class="search-grid-image-wrap">${image?`<img class="search-grid-image" src="${escapeAttr(image)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" loading="${index<6?'eager':'lazy'}" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,'${escapeAttr(item&& (item.retailer||item.source) || 'Retailer')}','${escapeAttr(item&&item.retailerLogo||'')}','search-grid-image-empty')">`:appRetailerProductPlaceholder(item,'search-grid-image-empty')}${condition?`<span class="search-grid-condition">${escapeHTML(condition)}</span>`:''}</div><div class="search-grid-body"><div class="search-grid-source">${sourceMarkup(source,item)}</div><div class="search-grid-title">${escapeHTML(title)}</div><div class="search-grid-price">${escapeHTML(appListingPriceText(item,data))}</div><div class="search-grid-meta">${country?`<span>${escapeHTML(country)}</span>`:''}<span class="shipping">${escapeHTML(shipping)}</span></div></div></article>`;
+  return `<article class="search-grid-card" data-grid-index="${index}" onclick="openSearchResultDetail(${index})" role="button" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSearchResultDetail(${index})}"><div class="search-grid-image-wrap">${image?`<img class="search-grid-image" src="${escapeAttr(image)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" loading="${index<6?'eager':'lazy'}" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,'${escapeAttr(item&& (item.retailer||item.source) || 'Retailer')}','${escapeAttr(item&&item.retailerLogo||'')}','search-grid-image-empty')">`:appRetailerProductPlaceholder(item,'search-grid-image-empty')}${condition?`<span class="search-grid-condition">${escapeHTML(condition)}</span>`:''}</div><div class="search-grid-body"><div class="search-grid-source">${sourceMarkup(source,item)}</div><div class="search-grid-title">${escapeHTML(title)}</div><div class="search-grid-price">${escapeHTML(appListingPriceText(item,data))}</div><div class="search-grid-meta">${country?`<span>${escapeHTML(country)}</span>`:''}<span class="shipping ${/^free\s+shipping$/i.test(shipping)?'findai-free-shipping':''}">${escapeHTML(shipping)}</span></div></div></article>`;
 }
 
 function appSearchFeaturedIndex(items,data){
@@ -6246,7 +6266,7 @@ function renderSearchGridPages(items,data){
 }
 function renderSearchDetailCard(item,index){
   const title=String(item.title||'Product listing'),plan=appImagePlan(item,index,currentFeedData),image=plan.src,source=getSource(item),country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item),condition=conditionText(item);
-  return `<article class="search-detail-card" data-detail-index="${index}"><div class="search-detail-media">${image?`<img src="${escapeAttr(image)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,'${escapeAttr(item&& (item.retailer||item.source) || 'Retailer')}','${escapeAttr(item&&item.retailerLogo||'')}','image-fallback')">`:appRetailerProductPlaceholder(item,'image-fallback')}</div><div class="search-detail-content"><div class="search-detail-source">${sourceMarkup(source,item)}</div><h2 class="search-detail-title">${escapeHTML(title)}</h2><div class="search-detail-price">${escapeHTML(appListingPriceText(item,currentFeedData))}</div><div class="search-detail-meta">${condition?`<div><b>Condition</b> · ${escapeHTML(condition)}</div>`:''}${country?`<div><b>${escapeHTML(country)}</b></div>`:''}${shipping?`<div>${escapeHTML(shipping)}</div>`:''}</div><div class="search-detail-actions"><button class="search-detail-view" onclick="openDeal(${index},event)">${item&&item._retailerLinkOnly?'View retailer':'View Deal'}</button><button class="search-detail-icon ${isTracked(item)?'active':''}" onclick="toggleLike(${index},event)" aria-label="Save"><svg viewBox="0 0 24 24" fill="${isTracked(item)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></button><button class="search-detail-icon" onclick="shareItem(${index},event)" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 13v6h14v-6"/></svg></button></div></div></article>`;
+  return `<article class="search-detail-card" data-detail-index="${index}"><div class="search-detail-media">${image?`<img src="${escapeAttr(image)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,'${escapeAttr(item&& (item.retailer||item.source) || 'Retailer')}','${escapeAttr(item&&item.retailerLogo||'')}','image-fallback')">`:appRetailerProductPlaceholder(item,'image-fallback')}</div><div class="search-detail-content"><div class="search-detail-source">${sourceMarkup(source,item)}</div><h2 class="search-detail-title">${escapeHTML(title)}</h2><div class="search-detail-price">${escapeHTML(appListingPriceText(item,currentFeedData))}</div><div class="search-detail-meta">${condition?`<div><b>Condition</b> · ${escapeHTML(condition)}</div>`:''}${country?`<div><b>${escapeHTML(country)}</b></div>`:''}${shipping?`<div class="${/^free\s+shipping$/i.test(shipping)?'findai-free-shipping':''}">${escapeHTML(shipping)}</div>`:''}</div><div class="search-detail-actions"><button class="search-detail-view" onclick="openDeal(${index},event)">${item&&item._retailerLinkOnly?'View retailer':'View Deal'}</button><button class="search-detail-icon ${isTracked(item)?'active':''}" onclick="toggleLike(${index},event)" aria-label="Save"><svg viewBox="0 0 24 24" fill="${isTracked(item)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></button><button class="search-detail-icon" onclick="shareItem(${index},event)" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 13v6h14v-6"/></svg></button></div></div></article>`;
 }
 function openSearchResultDetail(index){
   if(feedState.source==='personalised')return;
@@ -6388,7 +6408,7 @@ function renderReelCard(item,index,data){
             <span class="price">${escapeHTML(money(price,currency))}</span>
             ${condition?`<span class="condition-badge">${escapeHTML(condition)}</span>`:''}
           </div>
-          ${shipping?`<div class="listing-meta">${escapeHTML(shipping)}</div>`:''}
+          ${shipping?`<div class="listing-meta ${/^free\s+shipping$/i.test(shipping)?'findai-free-shipping':''}">${escapeHTML(shipping)}</div>`:''}
         </div>
       </div>
       ${index===0 && feedState.source!=='personalised' ? renderFirstListingMarketStrip(currentFeedItems,data) : ''}
@@ -12307,6 +12327,89 @@ window.addEventListener('load', function(){
     }
     return false;
   };
+})();
+</script>
+
+
+<style id="findai-v107-reel-profile-polish">
+  /* Profile tiles: no price box. Price left, quiet engagement right. */
+  .social-profile-tile-footer{
+    left:7px!important;right:7px!important;bottom:7px!important;
+    min-height:22px!important;padding:0!important;border:0!important;border-radius:0!important;
+    background:transparent!important;box-shadow:none!important;
+    backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+    display:flex!important;align-items:center!important;justify-content:space-between!important;gap:7px!important;
+  }
+  .social-profile-tile-footer .social-profile-tile-price{
+    position:static!important;display:block!important;flex:1 1 auto!important;min-width:0!important;
+    max-width:none!important;width:auto!important;overflow:visible!important;text-overflow:clip!important;
+    white-space:nowrap!important;padding:0!important;margin:0!important;border:0!important;border-radius:0!important;
+    background:transparent!important;box-shadow:none!important;color:#fff!important;
+    font-size:11.5px!important;line-height:1!important;font-weight:820!important;letter-spacing:-.25px!important;
+    text-shadow:0 1px 4px rgba(0,0,0,.85),0 2px 10px rgba(0,0,0,.55)!important;
+  }
+  .social-profile-tile-stats{
+    flex:0 0 auto!important;margin-left:auto!important;gap:7px!important;padding:0!important;
+    text-shadow:0 1px 4px rgba(0,0,0,.9),0 2px 9px rgba(0,0,0,.55)!important;
+  }
+  .social-profile-tile-stat{
+    height:auto!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;
+    color:#fff!important;font-size:10px!important;font-weight:760!important;gap:3px!important;
+  }
+  .social-profile-tile-stat svg{width:13px!important;height:13px!important;filter:drop-shadow(0 1px 3px rgba(0,0,0,.75))!important}
+
+  /* Push the permanent nav visibly lower: 50px shell, 10px below viewport = 40px visible bar. */
+  :root{--fa-nav-row:40px!important;--fa-nav-safe:0px!important;--fa-nav-total:40px!important}
+  body>.nav.findai-five-nav.premium-bottom-nav{
+    bottom:-10px!important;height:50px!important;min-height:50px!important;max-height:50px!important;
+    padding:0 6px 10px!important;align-items:start!important;box-sizing:border-box!important;
+  }
+  body>.nav.findai-five-nav.premium-bottom-nav button{
+    height:40px!important;min-height:40px!important;max-height:40px!important;align-self:start!important;
+  }
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-icon-shell,
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-create-shell,
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar{transform:translateY(1px)!important}
+  .screen,#profile.profile-screen{padding-bottom:40px!important}
+  #discover .discover-feed-wrap{height:auto!important;top:0!important;bottom:40px!important}
+  #discover #personalFeed{height:100%!important}
+  #discover #personalFeed .reel-card{height:100%!important;min-height:100%!important}
+  #discover #personalFeed .product-panel{bottom:0!important;padding-bottom:9px!important}
+  #search .premium-search-scroll,#searchResults .premium-results-scroll,#profile .profile-scroll{padding-bottom:46px!important}
+  #appMpInbox.show{bottom:40px!important}
+
+  /* Shipping promise is positive information, so make free shipping consistently green. */
+  .findai-free-shipping{color:#34c759!important;font-weight:700!important}
+  html.findai-light .findai-free-shipping{color:#16883f!important}
+</style>
+<script id="findai-v107-reel-profile-polish-script">
+(function(){
+  function markFreeShipping(root){
+    const scope=root&&root.querySelectorAll?root:document;
+    const selectors='.listing-meta,.shipping,.search-detail-meta div,.app-search-evidence-meta,.app-chat-grid-meta,.scan-grid-meta,.premium-card-meta,.premium-result-meta';
+    scope.querySelectorAll(selectors).forEach(el=>{
+      const text=String(el.textContent||'').trim();
+      if(/^free\s+shipping$/i.test(text))el.classList.add('findai-free-shipping');
+      else if(/free\s+shipping/i.test(text)&&el.children.length===0)el.classList.add('findai-free-shipping');
+    });
+  }
+  markFreeShipping(document);
+  const observer=new MutationObserver(records=>{
+    for(const record of records){for(const node of record.addedNodes){if(node.nodeType===1)markFreeShipping(node);}}
+  });
+  observer.observe(document.body,{childList:true,subtree:true});
+
+  /* Re-apply the reel inset as an inline authority after viewport/orientation changes. */
+  function syncTrueBottom(){
+    const feed=document.querySelector('#discover .discover-feed-wrap');
+    if(feed){feed.style.setProperty('bottom','40px','important');feed.style.setProperty('height','auto','important');}
+    const nav=document.querySelector('body>.nav.findai-five-nav.premium-bottom-nav');
+    if(nav){nav.style.setProperty('bottom','-10px','important');}
+  }
+  syncTrueBottom();
+  window.addEventListener('resize',syncTrueBottom,{passive:true});
+  window.addEventListener('orientationchange',()=>setTimeout(syncTrueBottom,80),{passive:true});
+  window.addEventListener('pageshow',syncTrueBottom,{passive:true});
 })();
 </script>
 
