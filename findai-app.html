@@ -913,7 +913,7 @@
 /* Instagram-style action rail. The heart is a real preference signal,
    Compare opens matching listings, and Share uses the native share sheet. */
 .reel-actions-rail{
-  position:absolute;right:10px;bottom:142px;z-index:12;display:flex;flex-direction:column;align-items:center;gap:13px
+  position:absolute;right:10px;bottom:82px;z-index:12;display:flex;flex-direction:column;align-items:center;gap:13px
 }
 .reel-social-action{
   width:50px;min-height:53px;padding:0;border:0;background:transparent;color:#fff;
@@ -927,7 +927,7 @@
 }
 .reel-social-action:active .reel-social-icon{transform:scale(.9)}
 .reel-social-action svg{width:23px;height:23px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.3))}
-.reel-social-label{font-size:9px;font-weight:650;line-height:1;color:#f5f6f8}
+.reel-social-label{font-size:9px;font-weight:700;line-height:1;color:#f5f6f8}
 .reel-social-action.like.active{color:#ff3045}
 .reel-social-action.like.active .reel-social-icon{background:rgba(255,48,64,.14);border-color:rgba(255,75,88,.34)}
 .reel-social-action.like.active .reel-social-label{color:#ff3045}
@@ -935,7 +935,7 @@
 #search .view-deal{margin-right:1px}
 
 @media (max-height:740px){
-  .reel-actions-rail{right:8px;bottom:126px;gap:9px}
+  .reel-actions-rail{right:8px;bottom:72px;gap:9px}
   .reel-social-action{width:46px;min-height:48px;gap:2px}
   .reel-social-icon{width:36px;height:36px}
   .reel-social-action svg{width:21px;height:21px}
@@ -3269,7 +3269,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
 
     <button data-tab="messages" onclick="openMessagesTab()" aria-label="Messages">
       <span class="nav-icon-shell">
-        <svg class="nav-messages-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4 3 11.5l7 2.5L21 4Z"/><path d="m10 14 3 7 2-6 6-11-11 10Z"/></svg>
+        <svg class="nav-messages-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.35" stroke-linecap="round" stroke-linejoin="round"><path d="M21.4 4.6 14.1 20a1 1 0 0 1-1.85-.12l-2.26-6.1a1 1 0 0 0-.59-.59L3.3 10.93a1 1 0 0 1-.1-1.84L19.95 2.5a1 1 0 0 1 1.45 1.1Z"/><path d="M9.65 13.42 21 3"/></svg>
       </span>
     </button>
 
@@ -6173,6 +6173,22 @@ function strictPeerImage(item,index){
   }
   return best;
 }
+function itemSourceLikeCount(item){
+  if(!item) return 0;
+  const ebayLikes=Number(item.watchCount);
+  if(Number.isFinite(ebayLikes) && ebayLikes>0) return Math.max(0,Math.round(ebayLikes));
+  const genericLikes=Number(item.likeCount);
+  if(Number.isFinite(genericLikes) && genericLikes>0) return Math.max(0,Math.round(genericLikes));
+  return 0;
+}
+function itemDisplayedLikeCount(item){
+  const base=itemSourceLikeCount(item);
+  return Math.max(0,base + (isTracked(item)?1:0));
+}
+function itemLikeLabel(item){
+  return String(itemDisplayedLikeCount(item));
+}
+
 function renderReelCard(item,index,data){
   const title=String(item.title || (data && data.productDetails && data.productDetails.name) || 'Product listing');
   // Display-only image recovery: try every image the retailer already supplied,
@@ -6195,9 +6211,9 @@ function renderReelCard(item,index,data){
       <div class="image-fallback" style="${image?'':'display:grid'}">${reelImagePlaceholder(item)}</div>
     </div>
     <div class="reel-actions-rail" aria-label="Listing actions">
-      <button class="reel-social-action like ${isTracked(item)?'active':''}" data-like-key="${escapeAttr(trackedKey(item))}" onclick="toggleLike(${index},event)" aria-label="${isTracked(item)?'Unlike':'Like'} this listing">
+      <button class="reel-social-action like ${isTracked(item)?'active':''}" data-like-key="${escapeAttr(trackedKey(item))}" data-like-base="${itemSourceLikeCount(item)}" onclick="toggleLike(${index},event)" aria-label="${isTracked(item)?'Unlike':'Like'} this listing">
         <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="${isTracked(item)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></span>
-        <span class="reel-social-label">Like</span>
+        <span class="reel-social-label reel-like-count">${itemLikeLabel(item)}</span>
       </button>
       <button class="reel-social-action compare" onclick="compareItem(${index},event)" aria-label="Compare prices for this product">
         <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h13l-3-3M20 7l-3 3M17 17H4l3 3M4 17l3-3"/></svg></span>
@@ -6339,6 +6355,11 @@ function refreshTrackedHeartUI(){
     button.classList.toggle('active',active);
     const svg=button.querySelector('svg');if(svg)svg.setAttribute('fill',active?'currentColor':'none');
     button.setAttribute('aria-label',active?'Unlike this listing':'Like this listing');
+    const label=button.querySelector('.reel-like-count');
+    if(label){
+      const base=Math.max(0,Math.round(Number(button.getAttribute('data-like-base')||0)||0));
+      label.textContent=String(base + (active?1:0));
+    }
   });
 }
 function setTracked(items){
@@ -6478,6 +6499,8 @@ async function toggleLike(index,event){
       url:getListingUrl(item),
       itemId:item.itemId||'',
       marketplaceListingId:item.marketplaceListingId||'',
+      watchCount:Number(item.watchCount)||0,
+      likeCount:Number(item.likeCount)||0,
       _findaiMarketplace:!!item._findaiMarketplace,
       country:item.country||item.location||'',
       shippingCost:item.shippingCost==null?null:item.shippingCost,
@@ -6496,7 +6519,7 @@ async function toggleLike(index,event){
   }
   setTracked(liked);
   const nowLiked=existing<0;
-  const remoteItem=liked.find(entry=>entry.key===key)||{key:key,title:item.title||'Saved listing',url:getListingUrl(item),source:getSource(item),itemId:item.itemId||'',marketplaceListingId:item.marketplaceListingId||''};
+  const remoteItem=liked.find(entry=>entry.key===key)||{key:key,title:item.title||'Saved listing',url:getListingUrl(item),source:getSource(item),itemId:item.itemId||'',marketplaceListingId:item.marketplaceListingId||'',watchCount:Number(item.watchCount)||0,likeCount:Number(item.likeCount)||0};
   appSavedRemoteSet(remoteItem,nowLiked).catch(()=>{});
   $$(`[data-like-key="${CSS.escape(key)}"]`).forEach(button=>{
     button.classList.toggle('active',nowLiked);
