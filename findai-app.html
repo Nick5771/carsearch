@@ -10773,5 +10773,498 @@ window.addEventListener('load', function(){
 })();
 </script>
 
+
+<style id="findai-v101-structural-fixes">
+  :root{
+    --fa-nav-content:52px;
+    --fa-nav-safe:env(safe-area-inset-bottom,0px);
+    --fa-nav-total:calc(var(--fa-nav-content) + var(--fa-nav-safe));
+  }
+  html,body{width:100%!important;height:100%!important;min-height:100dvh!important;overflow:hidden!important}
+  body{margin:0!important}
+  .app{
+    position:fixed!important;inset:0!important;
+    width:min(100%,520px)!important;max-width:520px!important;
+    height:100dvh!important;min-height:100dvh!important;max-height:100dvh!important;
+    margin:0 auto!important;overflow:hidden!important;
+  }
+
+  /* The permanent app nav owns the physical bottom edge, including the iOS safe area. */
+  .nav.findai-five-nav.premium-bottom-nav{
+    position:fixed!important;left:50%!important;right:auto!important;bottom:0!important;top:auto!important;
+    transform:translateX(-50%)!important;width:min(100%,520px)!important;
+    height:var(--fa-nav-total)!important;min-height:var(--fa-nav-total)!important;
+    padding:0 7px var(--fa-nav-safe)!important;margin:0!important;
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;align-items:end!important;
+    background:#000!important;border-top:1px solid rgba(255,255,255,.08)!important;
+    z-index:360!important;box-sizing:border-box!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav button{
+    height:var(--fa-nav-content)!important;min-height:var(--fa-nav-content)!important;
+    padding:0!important;margin:0!important;align-self:end!important;display:grid!important;place-items:center!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav .nav-icon-shell{
+    width:36px!important;height:36px!important;transform:translateY(5px)!important;background:transparent!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav .nav-create-shell{
+    width:40px!important;height:40px!important;transform:translateY(5px)!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar{
+    transform:translateY(5px)!important;margin:0!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav::before{display:none!important}
+  .screen,#profile.profile-screen{padding-bottom:var(--fa-nav-total)!important;box-sizing:border-box!important}
+  #discover .discover-feed-wrap{bottom:var(--fa-nav-total)!important}
+  #search .premium-search-scroll,#searchResults .premium-results-scroll,#profile .profile-scroll{padding-bottom:calc(var(--fa-nav-total) + 12px)!important}
+  html.findai-light .nav.findai-five-nav.premium-bottom-nav{background:#000!important;border-top-color:#1f1f20!important}
+
+  /* Messages are a normal FindAI tab, not a separate app. */
+  #appMpInbox.show{
+    display:flex!important;position:fixed!important;left:50%!important;right:auto!important;top:0!important;
+    bottom:var(--fa-nav-total)!important;transform:translateX(-50%)!important;width:min(100%,520px)!important;height:auto!important;
+    z-index:330!important;background:#000!important;flex-direction:column!important;
+  }
+  #appMpInbox .app-mp-header{flex:0 0 auto!important;background:#000!important}
+  #appMpInbox:not(.chat-open) .app-mp-header>button:first-child{visibility:hidden!important;pointer-events:none!important}
+  #appMpInbox.chat-open .app-mp-header>button:first-child{visibility:visible!important;pointer-events:auto!important}
+  #appMpInbox .app-mp-inbox-body{flex:1!important;min-height:0!important;background:#000!important}
+  #appMpInbox .app-mp-chat{height:100%!important;min-height:0!important;background:#000!important}
+  #appMpInbox .app-mp-compose{
+    margin:0!important;padding:8px 11px max(8px,env(safe-area-inset-bottom,0px))!important;
+    border-radius:0!important;border:0!important;border-top:1px solid rgba(255,255,255,.08)!important;background:#000!important;
+  }
+  #appMpInbox .app-mp-bubble.mine{background:#25262a!important;border-color:#303136!important}
+  #appMpInbox .app-mp-compose-send,#appMpInbox .app-mp-compose-plus{background:#242529!important;color:#fff!important}
+
+  /* Settings gets its own Instagram-style full screen; the bottom nav is hidden while settings is open. */
+  body.findai-settings-open .nav.findai-five-nav.premium-bottom-nav{display:none!important}
+  #appThemeOverlay.findai-settings-full{
+    display:none;position:fixed!important;inset:0!important;z-index:520!important;background:#000!important;
+    width:100%!important;height:100dvh!important;padding:0!important;align-items:stretch!important;justify-content:center!important;
+  }
+  #appThemeOverlay.findai-settings-full.show{display:flex!important}
+  #appThemeOverlay.findai-settings-full .app-theme-sheet{
+    width:min(100%,520px)!important;max-width:520px!important;height:100dvh!important;max-height:none!important;
+    border:0!important;border-radius:0!important;background:#000!important;padding:0!important;margin:0!important;overflow:auto!important;
+  }
+  .findai-settings-page{min-height:100%;background:#000;color:#fff;padding:calc(var(--safe-top) + 4px) 0 28px;box-sizing:border-box}
+  .findai-settings-head{height:54px;padding:0 15px;display:grid;grid-template-columns:40px 1fr 40px;align-items:center;border-bottom:1px solid rgba(255,255,255,.08)}
+  .findai-settings-head h2{margin:0;text-align:center;font-size:18px;font-weight:720;letter-spacing:-.35px}
+  .findai-settings-back{width:38px;height:38px;border:0;background:transparent;color:#fff;display:grid;place-items:center;border-radius:50%}
+  .findai-settings-back svg{width:23px;height:23px}
+  .findai-settings-search{margin:14px 14px 18px;height:42px;border-radius:12px;background:#18181b;display:flex;align-items:center;gap:9px;padding:0 12px;color:#8e8e93}
+  .findai-settings-search svg{width:18px;height:18px}.findai-settings-search input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#fff;font-size:14px}
+  .findai-settings-section{padding:5px 0 12px;border-bottom:1px solid rgba(255,255,255,.08)}
+  .findai-settings-section-title{padding:10px 17px 7px;color:#8e8e93;font-size:12px;font-weight:700;text-transform:none}
+  .findai-settings-row{width:100%;min-height:51px;border:0;background:transparent;color:#fff;padding:8px 17px;display:grid;grid-template-columns:29px minmax(0,1fr) auto;gap:10px;align-items:center;text-align:left}
+  .findai-settings-row svg{width:22px;height:22px}.findai-settings-row b{font-size:14px;font-weight:550}.findai-settings-row small{display:block;margin-top:2px;color:#8e8e93;font-size:11px}.findai-settings-row .chev{width:16px;height:16px;color:#6f7075}
+  .findai-settings-row.danger{color:#ff453a}.findai-settings-row[hidden]{display:none!important}
+  .findai-settings-appearance{padding:8px 17px 12px}.findai-settings-appearance .app-theme-segment{height:44px}
+  html.findai-light #appThemeOverlay.findai-settings-full,
+  html.findai-light #appThemeOverlay.findai-settings-full .app-theme-sheet,
+  html.findai-light .findai-settings-page{background:#fff!important;color:#111!important}
+  html.findai-light .findai-settings-head{border-bottom-color:#e8e8ea!important}
+  html.findai-light .findai-settings-back,html.findai-light .findai-settings-row{color:#111!important}
+  html.findai-light .findai-settings-search{background:#f1f1f3!important}.findai-light .findai-settings-search input{color:#111!important}
+  html.findai-light .findai-settings-section{border-bottom-color:#ececef!important}
+
+  /* Brand marks: only source-provided/official image assets, never imitation wordmarks. */
+  .findai-exact-brand{display:inline-flex!important;align-items:center!important;gap:8px!important;min-width:0!important;white-space:nowrap!important}
+  .findai-exact-brand img{display:block!important;width:auto!important;height:30px!important;max-width:148px!important;object-fit:contain!important;opacity:1!important;filter:none!important;mix-blend-mode:normal!important}
+  .findai-exact-brand .findai-brand-label{font-size:22px!important;font-weight:700!important;line-height:1!important;color:currentColor!important;letter-spacing:-.45px!important}
+  .premium-section-heading{display:flex!important;align-items:center!important;gap:10px!important;white-space:nowrap!important;overflow:visible!important;color:#fff!important;opacity:1!important}
+  .premium-section-heading .findai-exact-brand img{height:32px!important;max-width:158px!important}
+  .premium-section-heading .findai-exact-brand[data-brand="lego"] img{height:36px!important;width:36px!important}
+  .premium-section-heading .findai-exact-brand[data-brand="ebay"] img{height:32px!important;min-width:80px!important;max-width:100px!important}
+  .premium-card-source-logo.findai-exact-brand img,.premium-ebay-copy .findai-exact-brand img,.premium-result-copy .findai-exact-brand img{height:20px!important;max-width:92px!important}
+  .source-chip .findai-exact-brand img{height:27px!important;max-width:118px!important}.source-chip .findai-exact-brand[data-brand="ebay"] img{height:28px!important;min-width:70px!important;max-width:86px!important}.source-chip .findai-brand-label{font-size:16px!important}
+  .premium-ebay-copy .findai-exact-brand[data-brand="ebay"] img,.premium-result-copy .findai-exact-brand[data-brand="ebay"] img{height:21px!important;min-width:53px!important;max-width:66px!important}
+  .premium-ebay-copy .findai-exact-brand .findai-brand-label,.premium-result-copy .findai-exact-brand .findai-brand-label{font-size:13px!important;font-weight:650!important}
+  html.findai-light .premium-section-heading{color:#111!important}
+  .premium-inline-brand,.premium-market-brand,.app-brand-wordmark{opacity:1!important;filter:none!important}
+
+  /* Zero must never reappear under a heart. */
+  .reel-like-count:empty{display:none!important}
+</style>
+
+
+<script id="findai-v101-structural-fixes-script">
+(function(){
+  const exactBrandFallbackDomains={
+    apple:'https://www.apple.com/favicon.ico',
+    jbhifi:'https://www.jbhifi.com.au/favicon.ico',
+    costco:'https://www.costco.com/favicon.ico',
+    homedepot:'https://www.homedepot.com/favicon.ico',
+    lowes:'https://www.lowes.com/favicon.ico',
+    macys:'https://www.macys.com/favicon.ico',
+    nordstrom:'https://www.nordstrom.com/favicon.ico',
+    newegg:'https://www.newegg.com/favicon.ico',
+    bh:'https://www.bhphotovideo.com/favicon.ico',
+    goat:'https://www.goat.com/favicon.ico',
+    grailed:'https://www.grailed.com/favicon.ico',
+    therealreal:'https://www.therealreal.com/favicon.ico',
+    vestiaire:'https://www.vestiairecollective.com/favicon.ico',
+    reverb:'https://reverb.com/favicon.ico',
+    discogs:'https://www.discogs.com/favicon.ico',
+    chrono24:'https://www.chrono24.com/favicon.ico',
+    gucci:'https://www.gucci.com/favicon.ico',
+    nike:'https://www.nike.com/favicon.ico',
+    adidas:'https://www.adidas.com/favicon.ico',
+    samsung:'https://www.samsung.com/favicon.ico',
+    playstation:'https://www.playstation.com/favicon.ico',
+    davidjones:'https://www.davidjones.com/favicon.ico',
+    chemistwarehouse:'https://www.chemistwarehouse.com.au/favicon.ico',
+    sephora:'https://www.sephora.com/favicon.ico',
+    mecca:'https://www.mecca.com/favicon.ico'
+  };
+  function exactBrandSource(key,item){
+    key=String(key||'').toLowerCase();
+    if(key&&typeof FINDAI_APP_REAL_LOGOS!=='undefined'&&FINDAI_APP_REAL_LOGOS[key])return FINDAI_APP_REAL_LOGOS[key];
+    const candidate=String(item&&item.retailerLogo||'').trim();
+    if(/^https:\/\//i.test(candidate))return candidate;
+    return exactBrandFallbackDomains[key]||'';
+  }
+  function exactBrandLabel(key,item){
+    const fromItem=String(item&&(item.retailerName||item.retailer)||'').trim();
+    if(fromItem&&appBrandKey(fromItem)===key)return fromItem;
+    return sourceLabel(key||fromItem||'');
+  }
+  function exactBrandMarkup(key,item,context){
+    key=String(key||'').toLowerCase();
+    const src=exactBrandSource(key,item),label=exactBrandLabel(key,item)||key;
+    if(!src)return '<span class="findai-brand-label">'+escapeHTML(label)+'</span>';
+    const hasExactMap=(typeof FINDAI_APP_REAL_LOGOS!=='undefined'&&!!FINDAI_APP_REAL_LOGOS[key]);
+    const showLabel=!hasExactMap && !['lego','ebay','stockx','amazon','walmart','target','bestbuy','myer','aliexpress'].includes(key);
+    return '<span class="findai-exact-brand '+escapeAttr(context||'')+'" data-brand="'+escapeAttr(key)+'">'
+      +'<img src="'+escapeAttr(src)+'" alt="'+escapeAttr(label)+'" referrerpolicy="no-referrer" onerror="this.style.display=\'none\';this.nextElementSibling&&(this.nextElementSibling.style.display=\'inline\')">'
+      +(showLabel?'<span class="findai-brand-label">'+escapeHTML(label)+'</span>':'')+'</span>';
+  }
+  function directRetailerBrandKey(item){
+    const fields=[appRetailerHost(item),item&&item.retailerHost,item&&item.retailer,item&&item.retailerName,getSource(item),item&&item.source];
+    for(const value of fields){const key=appBrandKey(value);if(key)return key;}
+    return '';
+  }
+  function strictBrandSourceMatches(item,key){
+    key=String(key||'').toLowerCase();
+    if(!key||!item)return false;
+    return directRetailerBrandKey(item)===key;
+  }
+  function discoveryItemsForConfig(config){
+    try{
+      const section=(premiumDiscoverySections||[]).find(s=>s&&s.config&&s.config.id===config.id);
+      return section&&Array.isArray(section.items)?section.items:[];
+    }catch(_){return [];}
+  }
+
+  window.premiumInlineBrandMarkup=function(config){
+    let key=String(config&&config.brand||'').toLowerCase();
+    if(!key){const title=String(config&&config.title||'').replace(/^Popular(?: on)?\s+/i,'').trim();key=appBrandKey(title);}
+    if(!key)return '';
+    const items=discoveryItemsForConfig(config);
+    const exactItem=items.find(item=>strictBrandSourceMatches(item,key))||items.find(Boolean)||null;
+    return exactBrandMarkup(key,exactItem,'premium-inline-exact');
+  };
+  window.premiumCardSourceMarkup=function(item){
+    const key=directRetailerBrandKey(item),label=sourceLabel(getSource(item)||'listing');
+    if(key)return '<span class="premium-card-source-logo">'+exactBrandMarkup(key,item,'premium-card-exact')+'</span>';
+    return '<span class="premium-card-source-text">'+escapeHTML(label)+'</span>';
+  };
+  window.sourceMarkup=function(source,item){
+    const raw=String(source||'listing').trim(),normalized=raw.toLowerCase();
+    if(normalized==='findai')return '<span class="source-brand findai-source-brand">Find<span class="findai-source-ai">AI</span></span>';
+    const key=directRetailerBrandKey(item)||appBrandKey(raw),label=String((item&&(item.retailerName||item.retailer))||sourceLabel(raw)||raw).trim();
+    if(key)return '<span class="retailer-source app-source-real">'+exactBrandMarkup(key,item,'reel-source-exact')+'</span>';
+    return '<span class="source-brand retailer-source-name retailer-source-name-premium">'+escapeHTML(label)+'</span>';
+  };
+  window.premiumSectionHeadingMarkup=function(config){
+    const title=String(config&&config.title||'Popular').trim(),brand=premiumInlineBrandMarkup(config);
+    if(!brand)return escapeHTML(title);
+    return (/^Popular on /i.test(title)?'Popular on ':'Popular ')+brand;
+  };
+  window.premiumFilterForSection=function(item,config){
+    if(!item||Number(item.price)<=0||!premiumProductImage(item))return false;
+    if(config&&config.strictBrandSource)return strictBrandSourceMatches(item,config.brand);
+    if(config&&config.source)return strictBrandSourceMatches(item,config.source);
+    return true;
+  };
+  window.v116PreviewItemsForConfig=function(config,pool){
+    const seen=new Set(),ranked=[],sourceWanted=String(config&&config.source||'').toLowerCase(),strict=String(config&&config.strictBrandSource&&config.brand||'').toLowerCase(),tokens=v116DiscoveryTokens(config);
+    for(const item of (Array.isArray(pool)?pool:[])){
+      if(!item||Number(item.price)<=0||!premiumProductImage(item))continue;
+      if(strict&&!strictBrandSourceMatches(item,strict))continue;
+      if(sourceWanted&&!strictBrandSourceMatches(item,sourceWanted))continue;
+      if(strict||sourceWanted){ranked.push({item,score:20});continue;}
+      const hay=normaliseQueryText([item.title,item.query,item.source,item.retailer].filter(Boolean).join(' '));let score=0;
+      for(const t of tokens)if(hay.includes(t))score++;
+      if(config&&config.id==='ps5'&&/\bps5|playstation 5\b/i.test(String(item.title||'')))score+=4;
+      if(config&&config.id==='lego'&&/\blego\b/i.test(String(item.title||'')))score+=3;
+      if(config&&config.id==='pokemon'&&/\bpokemon|pokémon\b/i.test(String(item.title||'')))score+=3;
+      if(score>0)ranked.push({item,score});
+    }
+    ranked.sort((a,b)=>b.score-a.score);const out=[];
+    for(const row of ranked){const k=listingKey(row.item)||trackedKey(row.item)||String(row.item.itemId||row.item.url||row.item.title||'');if(!k||seen.has(k))continue;seen.add(k);out.push(row.item);if(out.length>=9)break;}
+    return out;
+  };
+
+  /* eBay/watch counts: source count if present; never print zero. */
+  window.itemSourceLikeCount=function(item){
+    if(!item)return 0;
+    const values=[item.watchCount,item.watcherCount,item.watchers,item.watch_count,item.likeCount,item.likes,item.engagement&&item.engagement.watchCount,item.engagement&&item.engagement.likeCount];
+    for(const value of values){
+      if(value==null||value==='')continue;
+      const n=Number(String(value).replace(/[^0-9.]/g,''));
+      if(Number.isFinite(n)&&n>0)return Math.max(0,Math.round(n));
+    }
+    return 0;
+  };
+  window.itemDisplayedLikeCount=function(item){const base=itemSourceLikeCount(item);return Math.max(0,base+(isTracked(item)?1:0));};
+  window.itemLikeLabel=function(item){const count=itemDisplayedLikeCount(item);return count>0?String(count):'';};
+  window.refreshTrackedHeartUI=function(){
+    document.querySelectorAll('[data-like-key]').forEach(button=>{
+      const key=button.getAttribute('data-like-key')||'';
+      const active=getTracked().some(item=>String(item.key||trackedKey(item))===key);
+      button.classList.toggle('active',active);
+      const svg=button.querySelector('svg');if(svg)svg.setAttribute('fill',active?'currentColor':'none');
+      const label=button.querySelector('.reel-like-count');
+      if(label){const base=Math.max(0,Math.round(Number(button.getAttribute('data-like-base')||0)||0));const count=base+(active?1:0);label.textContent=count>0?String(count):'';}
+    });
+  };
+
+  /* Messages live inside the main five-tab shell. */
+  function stopMessagePolling(){try{clearInterval(appMpMessageTimer);clearInterval(appMpTypingTimer);clearTimeout(appMpTypingClearTimer);}catch(_){}}
+  function closeMessagesTabVisual(){
+    stopMessagePolling();
+    const inbox=document.getElementById('appMpInbox');if(inbox){inbox.classList.remove('show','chat-open');}
+    try{appMpConversation='';appMpCurrentConversation=null;appMpCurrentOffers=[];}catch(_){}
+  }
+  window.openMessagesTab=async function(){
+    if(!appMpRequireLogin())return;
+    closeAccountMenu();
+    document.body.dataset.activeTab='messages';setMainNavActive('messages');
+    const inbox=document.getElementById('appMpInbox');
+    if(inbox){inbox.classList.add('show');inbox.classList.remove('chat-open');}
+    const title=document.getElementById('appMpInboxTitle');if(title)title.textContent='Messages';
+    const body=document.getElementById('appMpInboxBody');if(body)body.innerHTML='<div class="app-mp-loading"><div><div class="app-mp-spinner"></div>Loading inbox</div></div>';
+    appMpInboxMode='global';appMpConversation='';appMpCurrentConversation=null;
+    try{const data=await marketplaceFetch('/marketplace/conversations',{method:'GET'});renderAppMpConversationList(data,false,'');if(typeof appRefreshMarketplaceBadge==='function')appRefreshMarketplaceBadge();}
+    catch(error){if(body)body.innerHTML='<div class="app-mp-empty">'+escapeHTML(error.message||'Messages could not be loaded')+'</div>';}
+  };
+  const goBeforeV101=window.go;
+  window.go=function(tab){if(tab!=='messages')closeMessagesTabVisual();return goBeforeV101(tab);};
+  const listBeforeV101=window.renderAppMpConversationList;
+  window.renderAppMpConversationList=function(data,listingScoped,preselect){
+    const inbox=document.getElementById('appMpInbox');if(inbox)inbox.classList.remove('chat-open');
+    const title=document.getElementById('appMpInboxTitle');if(title)title.textContent='Messages';
+    return listBeforeV101(data,listingScoped,preselect);
+  };
+  const openConversationBeforeV101=window.appMpOpenConversation;
+  window.appMpOpenConversation=async function(id){
+    const inbox=document.getElementById('appMpInbox');if(inbox)inbox.classList.add('chat-open');
+    return openConversationBeforeV101(id);
+  };
+  window.appMpInboxBack=function(){
+    const inbox=document.getElementById('appMpInbox');
+    if(inbox&&inbox.classList.contains('chat-open')){
+      stopMessagePolling();try{appMpSetTyping(false);}catch(_){}
+      try{appMpConversation='';appMpCurrentConversation=null;appMpCurrentOffers=[];}catch(_){}
+      inbox.classList.remove('chat-open');
+      renderAppMpConversationList({conversations:appMpConversationList||[]},appMpInboxMode==='listing','');
+      const title=document.getElementById('appMpInboxTitle');if(title)title.textContent='Messages';
+      setMainNavActive('messages');document.body.dataset.activeTab='messages';return;
+    }
+    setMainNavActive('messages');document.body.dataset.activeTab='messages';
+  };
+
+  /* Profile is owned by FindAI after the user customises it, not by Google. */
+  function mergeRemoteProfile(remote){
+    if(!remote)return null;
+    const local=getAccountProfile()||{};
+    const merged={...local,
+      name:remote.displayName||local.name||'FindAI user',
+      username:remote.username||local.username||'',
+      avatar:remote.avatarUrl||local.avatar||'',
+      bio:remote.bio!=null?remote.bio:(local.bio||''),
+      location:remote.location!=null?remote.location:(local.location||''),
+      profileCustomised:true,updatedAt:Date.now()
+    };
+    saveAccountProfile(merged);updateAccountHeader();renderProfileTab();paintSocialProfileHeader();
+    return merged;
+  }
+  window.findaiLoadRemoteProfile=async function(){
+    if(!marketplaceSession())return getAccountProfile();
+    const local=getAccountProfile();
+    try{
+      const data=await marketplaceFetch('/profile/me',{method:'GET'});
+      if(data&&data.profile)return mergeRemoteProfile(data.profile);
+      const hasLocalCustom=!!(local&&(local.profileCustomised||local.username||local.bio||local.location||(local.avatar&&/^data:image\//i.test(String(local.avatar)))));
+      if(local&&hasLocalCustom){
+        let avatarUrl=/^https:\/\//i.test(String(local.avatar||''))?local.avatar:undefined;
+        let saved=await marketplaceFetch('/profile/me',{method:'PATCH',body:JSON.stringify({displayName:local.name||'',username:local.username||findaiProfileUsername(local),bio:local.bio||'',location:local.location||'',avatarUrl})});
+        if(saved&&saved.profile)mergeRemoteProfile(saved.profile);
+        if(/^data:image\/(?:jpeg|png|webp);base64,/i.test(String(local.avatar||''))){
+          const uploaded=await marketplaceFetch('/profile/avatar',{method:'POST',body:JSON.stringify({dataUrl:local.avatar})});
+          if(uploaded&&uploaded.profile)return mergeRemoteProfile(uploaded.profile);
+        }
+      }
+    }catch(_){}
+    return getAccountProfile();
+  };
+  window.saveFindAIProfileEdit=async function(event){
+    event.preventDefault();const profile=getAccountProfile();if(!profile)return false;
+    const name=String(document.getElementById('profileEditName')&&document.getElementById('profileEditName').value||'').trim()||profile.name||'FindAI user';
+    const username=String(document.getElementById('profileEditUsername')&&document.getElementById('profileEditUsername').value||'').toLowerCase().replace(/[^a-z0-9._]/g,'').replace(/^[._]+|[._]+$/g,'').slice(0,24);
+    const bio=String(document.getElementById('profileEditBio')&&document.getElementById('profileEditBio').value||'').trim().slice(0,160);
+    const location=String(document.getElementById('profileEditLocation')&&document.getElementById('profileEditLocation').value||'').trim().slice(0,60);
+    const next={...profile,name,username:username||findaiProfileUsername(profile),bio,location,profileCustomised:true,updatedAt:Date.now()};
+    saveAccountProfile(next);updateAccountHeader();paintSocialProfileHeader();renderSocialProfileContent();
+    const submit=event.target&&event.target.querySelector('.profile-edit-submit');if(submit){submit.disabled=true;submit.textContent='Saving…';}
+    try{
+      if(marketplaceSession()){
+        const data=await marketplaceFetch('/profile/me',{method:'PATCH',body:JSON.stringify({displayName:name,username:next.username,bio,location,avatarUrl:/^https:\/\//i.test(String(next.avatar||''))?next.avatar:undefined})});
+        if(data&&data.profile)mergeRemoteProfile(data.profile);
+      }
+      closeAppMpSheet();toast('Profile saved');
+    }catch(error){toast(error.message||'Profile saved on this device');if(submit){submit.disabled=false;submit.textContent='Save profile';}}
+    return false;
+  };
+  window.accountAvatarPicked=function(event){
+    const file=event.target.files&&event.target.files[0];event.target.value='';if(!file||!file.type.startsWith('image/'))return;
+    const reader=new FileReader();
+    reader.onload=()=>{
+      const original=String(reader.result||''),image=new Image();
+      image.onload=async()=>{
+        let avatar=original;
+        const serverSafeType=/^image\/(?:jpeg|png|webp)$/i.test(String(file.type||''));
+        if(!serverSafeType||file.size>1.6*1024*1024||image.naturalWidth>1800||image.naturalHeight>1800){
+          const size=1600,canvas=document.createElement('canvas');canvas.width=size;canvas.height=size;const ctx=canvas.getContext('2d',{alpha:false});
+          const scale=Math.max(size/image.naturalWidth,size/image.naturalHeight),w=image.naturalWidth*scale,h=image.naturalHeight*scale;
+          if(ctx){ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';ctx.drawImage(image,(size-w)/2,(size-h)/2,w,h);avatar=canvas.toDataURL('image/jpeg',.96);}
+        }
+        pendingAccountAvatar=avatar;const profile=getAccountProfile();
+        if(profile){const next={...profile,avatar,profileCustomised:true,updatedAt:Date.now()};saveAccountProfile(next);updateAccountHeader();renderAccountProfile();paintSocialProfileHeader();}
+        const picker=document.getElementById('authAvatarPicker'),preview=document.getElementById('authAvatarPreview');if(preview)preview.src=avatar;if(picker)picker.classList.add('has-image');
+        const editAvatar=document.getElementById('profileEditAvatar');if(editAvatar){let editImg=editAvatar.querySelector('img');if(!editImg){editImg=document.createElement('img');editAvatar.prepend(editImg);}editImg.src=avatar;editAvatar.classList.add('has-image');}
+        try{
+          if(profile&&marketplaceSession()){
+            const data=await marketplaceFetch('/profile/avatar',{method:'POST',body:JSON.stringify({dataUrl:avatar})});
+            if(data&&data.profile)mergeRemoteProfile(data.profile);else if(data&&data.avatarUrl){const current=getAccountProfile()||profile;saveAccountProfile({...current,avatar:data.avatarUrl,profileCustomised:true,updatedAt:Date.now()});updateAccountHeader();paintSocialProfileHeader();}
+          }
+        }catch(error){toast('Photo updated on this device');}
+      };
+      image.src=original;
+    };
+    reader.readAsDataURL(file);
+  };
+  window.applyFindaiUser=function(data,provider){
+    try{localStorage.setItem('findai_user',JSON.stringify(data));}catch(_){}
+    const existing=getAccountProfile()||{};
+    const custom=!!(existing.profileCustomised||existing.username||existing.bio||existing.location||(existing.avatar&&String(existing.avatar)!==String(data.picture||''))||(existing.name&&String(existing.name)!==String(data.name||'')));
+    const profile={...existing,
+      name:custom&&existing.name?existing.name:(data.name||existing.name||(data.email||'').split('@')[0]),
+      email:data.email,
+      avatar:custom&&existing.avatar?existing.avatar:(data.picture||existing.avatar||''),
+      provider:provider||data.provider||existing.provider||'google',
+      google:(provider||data.provider||existing.provider||'google')==='google',
+      createdAt:existing.createdAt||Date.now(),updatedAt:Date.now()
+    };
+    saveAccountProfile(profile);updateAccountHeader();renderProfileTab();closeLogin();
+    setTimeout(()=>findaiLoadRemoteProfile().catch(()=>{}),0);
+    setTimeout(appStartMarketplaceSync,0);
+    if(typeof appSavedSyncFromServer==='function')setTimeout(()=>appSavedSyncFromServer(false).catch(()=>{}),0);
+    if(typeof appTasteSyncFromServer==='function')setTimeout(()=>appTasteSyncFromServer(true).catch(()=>{}),30);
+    if(typeof appGetProStatus==='function')setTimeout(()=>appGetProStatus(true).catch(()=>{}),0);
+  };
+  const localLoginBeforeV101=window.completeLocalLogin;
+  if(typeof localLoginBeforeV101==='function')window.completeLocalLogin=function(event){const result=localLoginBeforeV101(event);const p=getAccountProfile();if(p){p.profileCustomised=true;saveAccountProfile(p);}renderProfileTab();setTimeout(()=>findaiLoadRemoteProfile().catch(()=>{}),0);return result;};
+
+  /* Proper Settings & activity screen. */
+  function settingsRow(id,icon,title,sub,onclick,danger){
+    return '<button class="findai-settings-row'+(danger?' danger':'')+'" type="button" data-settings-search="'+escapeAttr((title+' '+(sub||'')).toLowerCase())+'" onclick="'+escapeAttr(onclick)+'">'+icon+'<span><b>'+escapeHTML(title)+'</b>'+(sub?'<small>'+escapeHTML(sub)+'</small>':'')+'</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></button>';
+  }
+  window.filterFindAISettings=function(value){const q=String(value||'').toLowerCase().trim();document.querySelectorAll('#appThemeOverlay [data-settings-search]').forEach(row=>row.hidden=!!q&&!String(row.dataset.settingsSearch||'').includes(q));};
+  window.openAppSettings=function(){
+    closeAccountMenu();applyAppTheme();const overlay=document.getElementById('appThemeOverlay');if(!overlay)return;
+    const sheet=overlay.querySelector('.app-theme-sheet');if(!sheet)return;
+    const profile=getAccountProfile();
+    const profileIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>';
+    const heartIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.6 5.8c-1.8-2.1-5.1-2.2-7-.3L12 7.1l-1.6-1.6c-1.9-1.9-5.2-1.8-7 .3-1.7 2-1.5 5 .4 6.9L12 20.3l8.2-7.6c1.9-1.9 2.1-4.9.4-6.9z"/></svg>';
+    const msgIcon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 4 3.8 10.8c-.9.35-.9 1.62.02 1.94l6.45 2.2 2.2 6.45c.32.92 1.59.93 1.94.02L21 4Z"/><path d="m10.3 14.8 10-10"/></svg>';
+    const bell='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>';
+    const logout='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 17l5-5-5-5M15 12H3M14 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5"/></svg>';
+    sheet.innerHTML='<div class="findai-settings-page">'
+      +'<div class="findai-settings-head"><button class="findai-settings-back" type="button" onclick="closeAppSettings()" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg></button><h2>Settings and activity</h2><span></span></div>'
+      +'<label class="findai-settings-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="7"/><path d="m16 16 4.3 4.3"/></svg><input type="search" placeholder="Search settings" oninput="filterFindAISettings(this.value)"></label>'
+      +(profile?'<section class="findai-settings-section"><div class="findai-settings-section-title">Your account</div>'+settingsRow('edit',profileIcon,'Edit profile','Name, username, photo and bio',"closeAppSettings();openProfileEdit()")+settingsRow('saved',heartIcon,'Liked items','Products you have saved',"closeAppSettings();openProfile();setTimeout(()=>setProfileTab('liked'),80)")+'</section>':'')
+      +'<section class="findai-settings-section"><div class="findai-settings-section-title">How you use FindAI</div>'+settingsRow('messages',msgIcon,'Messages','Marketplace conversations',"closeAppSettings();openMessagesTab()")+settingsRow('notifications',bell,'Notifications','Price drops, messages and saved items',"closeAppSettings();appEnableNotifications()")+'</section>'
+      +'<section class="findai-settings-section"><div class="findai-settings-section-title">Appearance</div><div class="findai-settings-appearance" data-settings-search="appearance system light dark"><div class="app-theme-segment"><button class="app-theme-choice" type="button" data-app-theme-choice="system" onclick="setAppTheme(\'system\')">System</button><button class="app-theme-choice" type="button" data-app-theme-choice="light" onclick="setAppTheme(\'light\')">Light</button><button class="app-theme-choice" type="button" data-app-theme-choice="dark" onclick="setAppTheme(\'dark\')">Dark</button></div></div></section>'
+      +(profile?'<section class="findai-settings-section">'+settingsRow('logout',logout,'Log out',profile.email||'',"closeAppSettings();signOutAccount()",true)+'</section>':'')
+      +'</div>';
+    overlay.classList.add('findai-settings-full','show');document.body.classList.add('findai-settings-open');applyAppTheme();
+  };
+  window.closeAppSettings=function(){const overlay=document.getElementById('appThemeOverlay');if(overlay)overlay.classList.remove('show');document.body.classList.remove('findai-settings-open');};
+
+  /* On every signed-in boot, pull the FindAI profile after identity is ready. */
+  setTimeout(()=>{if(marketplaceSession()&&getAccountProfile())findaiLoadRemoteProfile().catch(()=>{});},450);
+})();
+</script>
+
+
+<style id="findai-v101-theme-corrections">
+  /* Final theme authority: legacy dark-only overrides must not make light mode unreadable. */
+  html.findai-light body,html.findai-light .app{background:#f7f7f8!important;color:#111!important}
+  html.findai-light #profile.profile-screen,
+  html.findai-light #profile .profile-scroll,
+  html.findai-light #profileSignedIn,
+  html.findai-light #profileSignedOut,
+  html.findai-light #profile .social-profile,
+  html.findai-light #profile .social-profile-content,
+  html.findai-light #profile .guest-profile-posts,
+  html.findai-light #profile .guest-profile-signin{background:#f7f7f8!important;color:#111!important}
+  html.findai-light #profile .social-profile-handle,
+  html.findai-light #profile .social-profile-stats b,
+  html.findai-light #profile .social-profile-copy h2,
+  html.findai-light #profile .social-profile-bio,
+  html.findai-light #profile .social-settings-button,
+  html.findai-light #profile .social-profile-tabs button.active,
+  html.findai-light #profile .social-profile-empty b{color:#111!important}
+  html.findai-light #profile .social-profile-stats span,
+  html.findai-light #profile .social-profile-meta,
+  html.findai-light #profile .social-profile-empty,
+  html.findai-light #profile .guest-profile-signin span{color:#6f7177!important}
+  html.findai-light #profile .social-profile-actions button{background:#e9e9ec!important;color:#111!important}
+  html.findai-light #profile .social-profile-tabs{border-top-color:#e5e5e7!important;border-bottom-color:#e5e5e7!important;background:#f7f7f8!important}
+  html.findai-light #profile .social-profile-tabs button{color:#7a7d84!important}
+  html.findai-light #profileSignedIn .social-profile-tabs::after{background:#111!important}
+  html.findai-light #profile .social-profile-avatar{background:#ececef!important;border-color:#d4d4d8!important;color:#111!important}
+  html.findai-light #profile .social-profile-tile{background:#ececef!important}
+  html.findai-light #profile .social-profile-create-first{background:#111!important;color:#fff!important}
+
+  html.findai-light #createListingScreen.marketplace-screen,
+  html.findai-light #myListingsScreen.marketplace-screen,
+  html.findai-light #purchasesScreen.marketplace-screen{
+    background:#f7f7f8!important;color:#111!important;
+  }
+  html.findai-light .marketplace-header{background:rgba(247,247,248,.97)!important;border-bottom-color:#e4e4e7!important;color:#111!important}
+  html.findai-light .marketplace-header button{background:#ededf0!important;border-color:#dedee2!important;color:#111!important}
+  html.findai-light .create-listing-intro h1,
+  html.findai-light .marketplace-field>span,
+  html.findai-light .marketplace-field legend{color:#111!important}
+  html.findai-light .create-listing-intro p{color:#6f7177!important}
+  html.findai-light .marketplace-field input,
+  html.findai-light .marketplace-field textarea{
+    background:#fff!important;color:#111!important;border-color:#d4d5da!important;
+  }
+  html.findai-light .marketplace-field input::placeholder,
+  html.findai-light .marketplace-field textarea::placeholder{color:#8a8c92!important}
+  html.findai-light .marketplace-field input:focus,
+  html.findai-light .marketplace-field textarea:focus{background:#fff!important;border-color:#999ca3!important}
+  html.findai-light .condition-option{background:#ececef!important;color:#5f6167!important;border-color:#d9d9dd!important}
+  html.findai-light .condition-option.active{background:#111!important;color:#fff!important;border-color:#111!important}
+  html.findai-light .price-input-wrap:before{color:#111!important}
+  html.findai-light .listing-image-picker{background:#fff!important;color:#111!important;border-color:#cfd0d5!important}
+  html.findai-light .listing-image-picker svg{color:#333!important}.findai-light .listing-image-picker span{color:#73757b!important}
+  html.findai-light .create-listing-submit{background:#111!important;color:#fff!important;box-shadow:none!important}
+</style>
+
 </body>
 </html>
