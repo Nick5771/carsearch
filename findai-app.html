@@ -3247,7 +3247,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
     </div>
   </section>
 
-  <!-- Bottom navigation — Home / Search / Create / Liked / Profile -->
+  <!-- Bottom navigation — Home / Search / Create / Messages / Profile -->
   <nav class="nav findai-five-nav premium-bottom-nav" aria-label="Main navigation">
     <button class="active" data-tab="discover" onclick="openForYou()" aria-label="Home">
       <span class="nav-icon-shell">
@@ -3267,9 +3267,9 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
       </span>
     </button>
 
-    <button data-tab="liked" onclick="go('liked')" aria-label="Liked items">
+    <button data-tab="messages" onclick="openMessagesTab()" aria-label="Messages">
       <span class="nav-icon-shell">
-        <svg class="nav-liked-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linejoin="round"><path d="M20.6 5.8c-1.8-2.1-5.1-2.2-7-.3L12 7.1l-1.6-1.6c-1.9-1.9-5.2-1.8-7 .3-1.7 2-1.5 5 .4 6.9L12 20.3l8.2-7.6c1.9-1.9 2.1-4.9.4-6.9z"/></svg>
+        <svg class="nav-messages-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 4 3 11.5l7 2.5L21 4Z"/><path d="m10 14 3 7 2-6 6-11-11 10Z"/></svg>
       </span>
     </button>
 
@@ -3772,13 +3772,15 @@ function accountAvatarPicked(event){
   reader.onload=()=>{
     const image=new Image();
     image.onload=()=>{
-      const size=180,canvas=document.createElement('canvas');
+      const size=512,canvas=document.createElement('canvas');
       canvas.width=size;canvas.height=size;
       const ctx=canvas.getContext('2d');
+      if(ctx&&'imageSmoothingEnabled' in ctx) ctx.imageSmoothingEnabled=true;
+      if(ctx&&'imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality='high';
       const scale=Math.max(size/image.naturalWidth,size/image.naturalHeight);
       const width=image.naturalWidth*scale,height=image.naturalHeight*scale;
       ctx.drawImage(image,(size-width)/2,(size-height)/2,width,height);
-      const avatar=canvas.toDataURL('image/jpeg',.82);
+      const avatar=canvas.toDataURL('image/jpeg',.92);
       pendingAccountAvatar=avatar;
       const profile=getAccountProfile();
       if(profile){ profile.avatar=avatar;profile.updatedAt=Date.now();saveAccountProfile(profile);updateAccountHeader();renderAccountProfile(); }
@@ -4028,9 +4030,19 @@ async function submitCreateListing(event){
     const uploaded=await marketplaceFetch('/marketplace/images',{method:'POST',body:JSON.stringify({images:pendingListingImages,displayName:profile.name||'FindAI seller',country:'AU'})});
     if(submit) submit.textContent='Publishing…';
     const created=await marketplaceFetch('/marketplace/listings',{method:'POST',body:JSON.stringify({title:name,description,condition,itemPrice:Number(price.toFixed(2)),currency:'AUD',imageUrls:uploaded.imageUrls||[],displayName:profile.name||'FindAI seller',publish:true})});
-    const current=getMarketplaceListings();if(created.listing)saveMarketplaceListings([created.listing,...current.filter(item=>item.itemId!==created.listing.itemId)]);
-    closeCreateListing();resetCreateListingForm();go('profile');await loadProfileMarketplaceData(true);setProfileTab('listings');toast('Listing is live across FindAI');
+    const current=getMarketplaceListings();
+    const createdId=created&&created.listing&&(created.listing.marketplaceListingId||created.listing.itemId||created.listing.id);
+    const nextListings=created&&created.listing?[created.listing,...current.filter(item=>(item.marketplaceListingId||item.itemId||item.id)!==createdId)]:current.slice();
+    if(created&&created.listing)saveMarketplaceListings(nextListings);
+    if(created&&created.listing){socialProfileListings=nextListings;}
+    closeCreateListing();
+    resetCreateListingForm();
+    go('profile');
+    setProfileTab('listings');
+    try{paintSocialProfileHeader();renderSocialProfileContent();}catch(_){ }
+    toast('Listing is live across FindAI');
     try{renderAccountProfile();}catch(_){}
+    setTimeout(()=>{loadProfileMarketplaceData(true).catch(()=>{});},900);
   }catch(error){toast(String(error&&error.message||'Could not publish listing'));if(submit){submit.disabled=false;submit.textContent='Publish Listing';}}
   return false;
 }
@@ -5508,6 +5520,21 @@ function bindFeedHeaderAutoHide(){
   },{passive:true});
 }
 
+function setMainNavActive(tab){
+  $$('.nav button').forEach(button=>button.classList.toggle('active',button.dataset.tab===tab));
+}
+function syncMainNavActive(){
+  setMainNavActive(document.body.dataset.activeTab||'discover');
+}
+async function openMessagesTab(){
+  const previous=document.body.dataset.activeTab||'discover';
+  setMainNavActive('messages');
+  try{
+    await openAppMarketplaceInbox();
+  }catch(_){ }
+  setTimeout(()=>{ if(!$('#appMpInbox')||!$('#appMpInbox').classList.contains('show')) setMainNavActive(previous); },50);
+}
+
 function openForYou(){
   go('discover');
   if(feedState.source==='personalised' && currentFeedItems.length && $('#personalFeed') && $('#personalFeed').querySelector('.reel-card')){
@@ -5554,7 +5581,7 @@ function go(tab){
   if(tab!=='search'){const q=$('#q');if(q)try{q.blur();}catch(_){} document.body.classList.remove('keyboard-open');}
   closeAppChatDrawer();
   $$('.screen').forEach(screen=>screen.classList.toggle('active',screen.id===tab));
-  $$('.nav button').forEach(button=>button.classList.toggle('active',button.dataset.tab===tab));
+  setMainNavActive(tab);
   document.body.dataset.activeTab=tab;
   document.body.classList.toggle('scanning-fs',tab==='scan');
   document.body.classList.toggle('scan-results-open',tab==='scanResults');
@@ -6162,7 +6189,7 @@ function renderReelCard(item,index,data){
   const condition=conditionText(item);
   const seller=String(item.sellerName || item.seller || item.storeName || '').trim();
   const sellerLabel=item.topRatedSeller ? 'Top-rated seller' : (seller || 'Live listing');
-  return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}">
+  return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}" role="button" tabindex="0" onclick="openDeal(${index},event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDeal(${index},event);}">
     <div class="hero-stage${image?' fill-solid':''}"${image?` style="--hero-fill:#0a0b0d"`:''}>
       ${image ? `<img class="hero-image fit-contain" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
       <div class="image-fallback" style="${image?'':'display:grid'}">${reelImagePlaceholder(item)}</div>
@@ -6192,7 +6219,6 @@ function renderReelCard(item,index,data){
           </div>
           ${shipping?`<div class="listing-meta">${escapeHTML(shipping)}</div>`:''}
         </div>
-        <button class="view-deal" onclick="openDeal(${index},event)" ${url?'':'disabled'}>View Deal<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 5h5v5M10 14L19 5M19 14v5H5V5h5"/></svg></button>
       </div>
       ${index===0 && feedState.source!=='personalised' ? renderFirstListingMarketStrip(currentFeedItems,data) : ''}
     </div>
@@ -7651,8 +7677,36 @@ function renderAppMarketplaceListing(){
 function appMpSelectImage(index){const images=Array.isArray(appMpListing&&appMpListing.images)?appMpListing.images:[],img=images[index];if(img)$('#appMpMainImage').src=img;$$('.app-mp-thumb').forEach((el,i)=>el.classList.toggle('active',i===index));appMpSelectedImage=index;}
 async function appMpShareListing(){if(!appMpListing)return;const url='https://findai.ai/findai-app.html?listing='+encodeURIComponent(appMpId(appMpListing));try{if(navigator.share)await navigator.share({title:appMpListing.title||'FindAI listing',url});else{await navigator.clipboard.writeText(url);toast('Listing link copied');}}catch(_){}}
 async function appMpBuy(offerId){if(!appMpListing||!appMpRequireLogin())return;try{const data=await marketplaceFetch('/marketplace/checkout',{method:'POST',body:JSON.stringify({listingId:appMpId(appMpListing),offerId:offerId||''})});if(data.checkoutUrl)location.href=data.checkoutUrl;else throw new Error('Checkout is not available yet');}catch(error){toast(error.message||'Checkout could not be opened');}}
-function openAppMpSheet(title,html){$('#appMpSheetTitle').textContent=title;$('#appMpSheetBody').innerHTML=html||'';$('#appMpSheetBg').classList.add('show');}
-function closeAppMpSheet(){clearInterval(appMpMessageTimer);appMpMessageTimer=null;$('#appMpSheetBg').classList.remove('show');}
+function openAppMpSheet(title,html){$('#appMpSheetTitle').textContent=title;$('#appMpSheetBody').innerHTML=html||'';$('#appMpSheetBg').classList.add('show');setTimeout(syncAppMpSheetViewport,30);}
+function closeAppMpSheet(){clearInterval(appMpMessageTimer);appMpMessageTimer=null;const bg=$('#appMpSheetBg');if(bg)bg.classList.remove('show');document.documentElement.style.setProperty('--app-mp-keyboard-pad','0px');}
+function syncAppMpSheetViewport(){
+  const bg=$('#appMpSheetBg');
+  if(!bg||!bg.classList.contains('show')) return;
+  const body=$('#appMpSheetBody');
+  const sheet=bg.querySelector('.app-mp-sheet');
+  const vv=window.visualViewport;
+  const viewportHeight=Math.max(320,Math.round(vv?vv.height:window.innerHeight));
+  const keyboardPad=Math.max(0,Math.round((window.innerHeight||viewportHeight)-viewportHeight));
+  document.documentElement.style.setProperty('--app-mp-keyboard-pad',keyboardPad+'px');
+  if(sheet) sheet.style.maxHeight='calc('+viewportHeight+'px - 10px)';
+  const active=document.activeElement;
+  if(body&&active&&active.closest&&active.closest('#appMpSheetBody')){
+    setTimeout(()=>{
+      try{active.scrollIntoView({block:'center',inline:'nearest',behavior:'smooth'});}catch(_){ }
+      const box=active.getBoundingClientRect(),wrap=body.getBoundingClientRect();
+      if(box.bottom>wrap.bottom-22) body.scrollTop+=box.bottom-(wrap.bottom-22);
+      if(box.top<wrap.top+22) body.scrollTop-= (wrap.top+22)-box.top;
+    },60);
+  }
+}
+document.addEventListener('focusin',event=>{
+  if(event.target&&event.target.closest&&event.target.closest('#appMpSheetBody')) setTimeout(syncAppMpSheetViewport,120);
+});
+if(window.visualViewport){
+  visualViewport.addEventListener('resize',syncAppMpSheetViewport);
+  visualViewport.addEventListener('scroll',syncAppMpSheetViewport);
+}
+
 function appMpOfferForm(){const price=Number(appMpListing&&appMpListing.price)||0;return `<form onsubmit="return appMpSubmitOffer(event)"><p class="app-mp-muted">An accepted offer reserves the item for 24 hours while you pay.</p><label class="app-mp-field">Your offer (${escapeHTML(String(appMpListing.currency||'AUD'))})<input id="appMpOfferAmount" type="number" min="0.01" max="${Math.max(.01,price-.01)}" step="0.01" required placeholder="0.00"></label><label class="app-mp-field">Message (optional)<textarea id="appMpOfferMessage" maxlength="500"></textarea></label><button class="app-mp-submit" type="submit">Send offer</button><div class="app-mp-muted" id="appMpOfferStatus" style="text-align:center;margin-top:9px"></div></form>`;}
 async function openAppMarketplaceOffers(){if(!appMpListing||!appMpRequireLogin())return;openAppMpSheet('Offers','<div class="app-mp-loading"><div><div class="app-mp-spinner"></div>Loading offers</div></div>');try{const data=await marketplaceFetch('/marketplace/offers?listingId='+encodeURIComponent(appMpId(appMpListing)),{method:'GET'});renderAppMarketplaceOffers(data);}catch(error){$('#appMpSheetBody').innerHTML='<p class="app-mp-muted">'+escapeHTML(error.message||'Offers could not be loaded')+'</p>';}}
 function renderAppMarketplaceOffers(data){const offers=Array.isArray(data.offers)?data.offers:[];if(!data.isSeller&&!offers.length){$('#appMpSheetBody').innerHTML=String(appMpListing.status)==='reserved'?'<p class="app-mp-muted">This item is currently reserved.</p>':appMpOfferForm();return;}let html=data.isSeller?'<p class="app-mp-muted">Accepting an offer reserves the listing for that buyer for 24 hours.</p>':'';if(data.isSeller&&!offers.length)html+='<p class="app-mp-muted">No offers yet.</p>';offers.forEach(o=>{html+=`<div class="app-mp-offer"><div class="app-mp-offer-top"><div><div class="app-mp-offer-amount">${escapeHTML(appMpMoney(o.amount,o.currency))}</div><div class="app-mp-offer-copy">${escapeHTML(o.buyerLabel||'Buyer')}</div></div><span class="app-mp-pill ${escapeAttr(o.status)}">${escapeHTML(o.status)}</span></div>${o.message?`<div class="app-mp-offer-copy">“${escapeHTML(o.message)}”</div>`:''}<div class="app-mp-inline">`;if(o.status==='accepted'&&o.viewerRole==='buyer')html+=`<button class="app-mp-mini good" onclick="appMpBuy('${escapeAttr(o.id)}')">Pay now</button>`;if(o.canRespond)html+=`<button class="app-mp-mini good" onclick="appMpOfferAction('${escapeAttr(o.id)}','accept')">Accept</button><button class="app-mp-mini" onclick="appMpCounterForm('${escapeAttr(o.id)}',${Number(o.amount)})">Counter</button><button class="app-mp-mini danger" onclick="appMpOfferAction('${escapeAttr(o.id)}','decline')">Decline</button>`;if(o.canWithdraw)html+=`<button class="app-mp-mini danger" onclick="appMpOfferAction('${escapeAttr(o.id)}','withdraw')">Withdraw</button>`;html+='</div></div>';});$('#appMpSheetBody').innerHTML=html;}
@@ -7690,7 +7744,7 @@ function appMpOpenMessageOffer(mode,offerId,current){const c=appMpCurrentConvers
 async function appMpSubmitMessageOffer(event,mode,offerId){event.preventDefault();const amount=Number($('#appMpMessageOfferAmount').value),note=$('#appMpMessageOfferNote').value,error=$('#appMpMessageOfferError'),button=$('#appMpMessageOfferSubmit');button.disabled=true;try{if(mode==='counter')await marketplaceFetch('/marketplace/offers/'+encodeURIComponent(offerId),{method:'PATCH',body:JSON.stringify({action:'counter',amount,message:note})});else{const id=await appMpEnsureConversation();await marketplaceFetch('/marketplace/offers',{method:'POST',body:JSON.stringify({listingId:(appMpCurrentConversation&&appMpCurrentConversation.listingId)||appMpId(appMpListing),amount,message:note})});appMpConversation=id;}appMpCloseMessageOffer();await appMpLoadMessages();}catch(err){error.textContent=err.message||'Offer could not be sent';button.disabled=false;}return false;}
 async function appMpMessageOfferAction(id,action){try{await marketplaceFetch('/marketplace/offers/'+encodeURIComponent(id),{method:'PATCH',body:JSON.stringify({action})});await appMpLoadMessages();}catch(error){toast(error.message||'Offer could not be updated');}}
 async function appMpMessagePay(offerId,listingId){try{const data=await marketplaceFetch('/marketplace/checkout',{method:'POST',body:JSON.stringify({listingId,offerId})});if(data.checkoutUrl)location.href=data.checkoutUrl;else throw new Error('Checkout is not available yet');}catch(error){toast(error.message||'Checkout could not be opened');}}
-function appMpInboxBack(){clearInterval(appMpMessageTimer);clearInterval(appMpTypingTimer);clearTimeout(appMpTypingClearTimer);appMpMessageTimer=null;appMpTypingTimer=null;appMpTypingClearTimer=null;appMpSetTyping(false);appMpCloseMessageOffer();if(appMpConversation&&appMpConversationList.length){appMpConversation='';appMpCurrentConversation=null;appMpCurrentOffers=[];renderAppMpConversationList({conversations:appMpConversationList},appMpInboxMode==='listing','');return;}$('#appMpInbox').classList.remove('show');appMpConversation='';appMpCurrentConversation=null;appMpCurrentOffers=[];}
+function appMpInboxBack(){clearInterval(appMpMessageTimer);clearInterval(appMpTypingTimer);clearTimeout(appMpTypingClearTimer);appMpMessageTimer=null;appMpTypingTimer=null;appMpTypingClearTimer=null;appMpSetTyping(false);appMpCloseMessageOffer();if(appMpConversation&&appMpConversationList.length){appMpConversation='';appMpCurrentConversation=null;appMpCurrentOffers=[];renderAppMpConversationList({conversations:appMpConversationList},appMpInboxMode==='listing','');return;}$('#appMpInbox').classList.remove('show');appMpConversation='';appMpCurrentConversation=null;appMpCurrentOffers=[];syncMainNavActive();}
 
 async function appRefreshMarketplaceBadge(){if(!marketplaceSession()){['#appMpUnreadBadge','#appMpAvatarBadge'].forEach(selector=>{const badge=$(selector);if(badge)badge.classList.remove('show');});return;}try{const data=await marketplaceFetch('/marketplace/conversations',{method:'GET'}),count=Number(data.unreadCount||0),label=count>99?'99+':String(count);['#appMpUnreadBadge','#appMpAvatarBadge'].forEach(selector=>{const badge=$(selector);if(badge){badge.textContent=label;badge.classList.toggle('show',count>0);}});const avatar=$('#accountAvatar');if(avatar)avatar.setAttribute('aria-label',count>0?`Open account — ${count} unread message${count===1?'':'s'}`:'Open account and messages');if(navigator.setAppBadge){if(count>0)navigator.setAppBadge(count);else navigator.clearAppBadge&&navigator.clearAppBadge();}}catch(_){}}
 function appStartMarketplaceSync(){clearInterval(appMpBadgeTimer);if(!marketplaceSession())return;appRefreshMarketplaceBadge();appMpBadgeTimer=setInterval(appRefreshMarketplaceBadge,30000);if(appPushSupported()&&Notification.permission==='granted')appSyncPush(false,false).catch(()=>{});else appSetPushState(appPushSupported()&&Notification.permission==='denied'?'Blocked':'Off');}
@@ -8379,7 +8433,7 @@ async function togglePremiumLike(kind,index,event){
   renderLikedItems();
 }
 function setSearchNavActive(){
-  $$('.nav button').forEach(button=>button.classList.toggle('active',button.dataset.tab==='search'));
+  setMainNavActive('search');
 }
 function submitPremiumSearch(event,origin){
   if(event&&event.preventDefault)event.preventDefault();
@@ -8508,7 +8562,6 @@ function paintSocialProfileHeader(){
   const bio=$('#socialProfileBio');if(bio)bio.textContent=String(profile.bio||'').trim();
   const meta=[];
   if(profile.location)meta.push(profile.location);
-  const joined=findaiProfileJoined(profile);if(joined)meta.push(joined);
   const metaEl=$('#socialProfileMeta');if(metaEl)metaEl.textContent=meta.join(' · ');
   paintAccountAvatar($('#profileAvatar'),profile);
   const listings=socialProfileListings.filter(x=>String(x.status||'active').toLowerCase()!=='sold');
@@ -9168,5 +9221,26 @@ window.addEventListener('load', function(){
 
 </script>
 
+
+<style id="findai-v90-ui-tweaks">
+  .app-mp-sheet-bg{position:fixed!important;}
+  .app-mp-sheet{max-height:calc(var(--findai-vh,100vh) - 10px)!important;}
+  .app-mp-sheet-body{padding-bottom:calc(28px + var(--safe-bottom) + var(--app-mp-keyboard-pad,0px))!important;scroll-padding:24px 0 160px!important;}
+  .profile-edit-field input,.profile-edit-field textarea{font-size:16px!important;line-height:1.45!important;}
+  #profileSignedIn .social-profile-topbar{height:auto!important;padding:0 0 14px!important;}
+  #profileSignedIn .social-profile-handle{font-size:22px!important;font-weight:820!important;letter-spacing:-.5px!important;}
+  #profileSignedIn .social-profile-hero{grid-template-columns:100px minmax(0,1fr)!important;gap:16px!important;padding:3px 0 13px!important;}
+  #profileSignedIn .social-profile-avatar{width:96px!important;height:96px!important;font-size:28px!important;border-color:rgba(255,255,255,.18)!important;background:#15191e!important;}
+  #profileSignedIn .social-profile-stats b{font-size:20px!important;letter-spacing:-.35px!important;}
+  #profileSignedIn .social-profile-stats span{margin-top:6px!important;font-size:11px!important;color:#c4c9d0!important;}
+  #profileSignedIn .social-profile-copy{padding:0 0 15px!important;}
+  #profileSignedIn .social-profile-copy h2{font-size:16px!important;font-weight:800!important;letter-spacing:-.24px!important;}
+  #profileSignedIn .social-profile-bio{font-size:13px!important;line-height:1.5!important;margin-top:6px!important;color:#dde1e6!important;}
+  #profileSignedIn .social-profile-meta{font-size:11px!important;color:#939aa4!important;margin-top:5px!important;}
+  #profileSignedIn .social-profile-actions{gap:8px!important;padding:0 0 15px!important;}
+  #profileSignedIn .social-profile-actions button{height:38px!important;border-radius:11px!important;font-size:12px!important;font-weight:760!important;background:#171b20!important;}
+  .reel-card{cursor:pointer;}
+  .reel-actions-rail,.reel-social-action,.nav button,.social-profile-tabs button,.social-profile-actions button,.social-profile-avatar,.social-settings-button{cursor:pointer;}
+</style>
 </body>
 </html>
