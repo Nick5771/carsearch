@@ -8342,13 +8342,13 @@ const PREMIUM_DISCOVERY_RETAILERS=[
 ];
 
 const PREMIUM_DISCOVERY_CATEGORIES=[
-  {id:'lego',title:'Popular LEGO',brand:'lego',queries:['lego star wars','lego icons','lego technic','lego ideas']},
+  {id:'lego',title:'Popular LEGO',brand:'lego',strictBrandSource:true,queries:['lego star wars','lego icons','lego technic','lego ideas']},
   {id:'ps5',title:'Popular PlayStation',brand:'playstation',queries:['playstation 5 console','ps5 games','ps5 controller']},
   {id:'gucci',title:'Popular Gucci',brand:'gucci',queries:['gucci bag','gucci wallet','gucci sneakers']},
   {id:'pokemon',title:'Popular Pokémon',queries:['pokemon cards','pokemon booster box','pokemon elite trainer box']},
   {id:'watches',title:'Popular Watches',queries:['seiko watch','tissot watch','automatic watch']},
   {id:'sneakers',title:'Popular Sneakers',queries:['nike dunk','air jordan','new balance sneakers']},
-  {id:'apple',title:'Popular Apple',brand:'apple',queries:['iphone','airpods','apple watch','macbook']},
+  {id:'apple',title:'Popular Apple',brand:'apple',strictBrandSource:true,queries:['iphone','airpods','apple watch','macbook']},
   {id:'streetwear',title:'Popular Streetwear',queries:['supreme streetwear','stussy','carhartt wip']},
   {id:'gaming',title:'Popular Gaming',queries:['nintendo switch','gaming console','gaming headset']},
   {id:'cameras',title:'Popular Cameras',queries:['sony camera','canon camera','camera lens']},
@@ -10190,6 +10190,588 @@ window.addEventListener('load', function(){
   }
   .nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar{margin:auto!important;align-self:center!important;justify-self:center!important}
 </style>
+
+
+<style id="findai-v99-requested-fixes">
+  /* Bottom nav: sit lower and tighter to the bottom edge. */
+  .nav.findai-five-nav.premium-bottom-nav{
+    bottom:0!important;
+    background:#000!important;
+    border-top:1px solid rgba(255,255,255,.08)!important;
+    min-height:58px!important;
+    padding-top:2px!important;
+    padding-bottom:max(2px,calc(var(--safe-bottom) - 9px))!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav .nav-item{
+    align-self:end!important;
+    justify-content:flex-end!important;
+    padding-top:5px!important;
+    padding-bottom:3px!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav .nav-item>span,
+  .nav.findai-five-nav.premium-bottom-nav .nav-item>svg,
+  .nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar,
+  .nav.findai-five-nav.premium-bottom-nav .nav-plus-wrap{
+    transform:translateY(3px)!important;
+  }
+
+  /* Guest profile should be one uniform black surface. */
+  #profile,#profileSignedOut,#profileSignedOut .social-profile,#profileSignedIn,
+  #profile .guest-profile-posts,#profile .guest-profile-signin,#profile .profile-auth-feedback,
+  #profile .social-profile-tabs,#profile .social-profile-topbar,#profile .social-profile-hero,
+  #profile .social-profile-content{
+    background:#000!important;
+  }
+  #profile .guest-profile-signin{box-shadow:none!important}
+  #profile .guest-profile-posts{border-top:1px solid rgba(255,255,255,.08)!important}
+  #profile .guest-profile-signin b{color:#fff!important}
+  #profile .guest-profile-signin span,
+  #profile .profile-auth-feedback{color:#8e8e93!important}
+  #profile .guest-profile-signin button{background:#f3f3f3!important;color:#121212!important;box-shadow:none!important}
+
+  /* Like counts: never show a stray zero, and keep retailer counts visible when present. */
+  .reel-like-count:empty,.reel-social-label:empty{display:none!important}
+
+  /* Make section/retailer logos brighter and closer to their real appearance. */
+  .premium-market-section .premium-section-heading{color:#fff!important;opacity:1!important}
+  .premium-inline-brand,.premium-card-source-logo,.premium-card-source-text{opacity:1!important}
+  .premium-inline-brand-logo,.premium-section-brand-logo,.premium-card-source-logo-img,
+  .app-source-logo,.app-source-logo-wrap img{
+    opacity:1!important;filter:none!important;mix-blend-mode:normal!important;
+    image-rendering:auto!important;transform:none!important;
+  }
+  .premium-section-heading .premium-inline-brand-logo{height:28px!important;max-width:146px!important}
+  .premium-section-heading .app-ebay-wordmark,
+  .premium-section-heading .premium-inline-ebay .app-ebay-wordmark{font-size:30px!important;letter-spacing:-1.8px!important}
+  .premium-ebay-copy .source .app-ebay-wordmark,
+  .premium-result-copy .source .app-ebay-wordmark{font-size:19px!important;letter-spacing:-1.1px!important}
+  .premium-card-source-logo .app-ebay-wordmark{font-size:17px!important;letter-spacing:-.9px!important}
+  .premium-market-section .premium-inline-brand .app-brand-wordmark,
+  .premium-market-section .premium-card-source-logo .app-brand-wordmark{opacity:1!important;filter:none!important}
+  .premium-market-section .premium-inline-brand img,
+  .premium-market-section .premium-card-source-logo img{background:transparent!important;border-radius:0!important;padding:0!important}
+
+  /* Messages: simpler Instagram-like chat, black only, flush to the bottom. */
+  #appMpInbox,#appMpInbox .app-mp-inbox-body,#appMpInbox .app-mp-chat,
+  #appMpInbox .app-mp-chat-head,#appMpInbox .app-mp-messages,
+  #appMpInbox .app-mp-typing,#appMpInbox .app-mp-instagram-search,
+  #appMpInbox .app-mp-conversation-list{background:#000!important}
+  #appMpInbox .app-mp-chat{grid-template-rows:auto minmax(0,1fr) auto auto!important}
+  #appMpInbox .app-mp-chat-head{padding:10px 14px!important;border-bottom:1px solid rgba(255,255,255,.08)!important}
+  #appMpInbox .app-mp-chat-listing{background:#111214!important;border:1px solid rgba(255,255,255,.08)!important}
+  #appMpInbox .app-mp-bubble{background:#1b1c1f!important;border:1px solid rgba(255,255,255,.06)!important;color:#fff!important;border-radius:20px!important}
+  #appMpInbox .app-mp-bubble.mine{background:#24262b!important}
+  #appMpInbox .app-mp-time{color:rgba(255,255,255,.56)!important}
+  #appMpInbox .app-mp-message-offer-layer,
+  #appMpInbox .app-mp-message-offer-card,
+  #appMpInbox .app-mp-message-offer-panel,
+  #appMpInbox .app-mp-compose-offer,
+  #appMpInbox .app-mp-message-offer{
+    display:none!important;
+  }
+  #appMpInbox .app-mp-compose{
+    margin:0!important;
+    padding:8px 12px calc(8px + var(--safe-bottom))!important;
+    border:0!important;
+    border-top:1px solid rgba(255,255,255,.08)!important;
+    border-radius:0!important;
+    background:#000!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:10px!important;
+  }
+  #appMpInbox .app-mp-message-field{
+    flex:1!important;min-width:0!important;display:flex!important;align-items:center!important;gap:8px!important;
+    border:1px solid rgba(255,255,255,.14)!important;border-radius:22px!important;background:#0f1012!important;
+    padding:8px 12px!important;
+  }
+  #appMpInbox .app-mp-compose-plus,
+  #appMpInbox .app-mp-compose-send{
+    width:34px!important;height:34px!important;border:0!important;border-radius:50%!important;
+    background:#202124!important;color:#fff!important;display:grid!important;place-items:center!important;flex:0 0 auto!important;
+  }
+  #appMpInbox .app-mp-compose-plus{font-size:22px!important;line-height:1!important}
+  #appMpInbox .app-mp-compose-send{font-size:18px!important}
+  #appMpInbox .app-mp-compose textarea{
+    flex:1!important;min-height:22px!important;max-height:92px!important;padding:0!important;border:0!important;outline:0!important;
+    background:transparent!important;color:#fff!important;font-size:14px!important;resize:none!important;
+  }
+  #appMpInbox .app-mp-attachment-tray{
+    display:flex!important;flex-wrap:wrap!important;gap:6px!important;padding:6px 12px 8px!important;
+    border-top:1px solid rgba(255,255,255,.05)!important;background:#000!important;
+  }
+  #appMpInbox .app-mp-attachment-chip{
+    display:inline-flex!important;align-items:center!important;gap:8px!important;max-width:100%!important;
+    padding:7px 10px!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:999px!important;
+    background:#111214!important;color:#fff!important;font-size:12px!important;
+  }
+  #appMpInbox .app-mp-attachment-chip .close{font-size:14px!important;opacity:.72!important}
+  #appMpInbox .app-mp-conversation-card{background:#000!important}
+  #appMpInbox .app-mp-conversation-card:active{background:#101012!important}
+</style>
+
+<script id="findai-v99-requested-fixes-script">
+(function(){
+  function refreshSignedInProfileNow(){
+    try{ if(typeof updateAccountHeader==='function') updateAccountHeader(); }catch(_){ }
+    try{ if(typeof renderProfileTab==='function') renderProfileTab(); }catch(_){ }
+    try{
+      var profileScreen=document.getElementById('profile');
+      if(profileScreen&&profileScreen.classList.contains('active')&&typeof loadProfileMarketplaceData==='function'&&typeof getAccountProfile==='function'&&getAccountProfile()){
+        loadProfileMarketplaceData(true).catch(function(){});
+      }
+    }catch(_){ }
+  }
+
+  var oldCompleteLocalLogin=window.completeLocalLogin;
+  if(typeof oldCompleteLocalLogin==='function'){
+    window.completeLocalLogin=function(event){
+      var result=oldCompleteLocalLogin(event);
+      setTimeout(refreshSignedInProfileNow,0);
+      return result;
+    };
+  }
+
+  var oldApplyFindaiUser=window.applyFindaiUser;
+  if(typeof oldApplyFindaiUser==='function'){
+    window.applyFindaiUser=function(data,provider){
+      oldApplyFindaiUser(data,provider);
+      setTimeout(refreshSignedInProfileNow,0);
+    };
+  }
+
+  window.itemSourceLikeCount=function(item){
+    if(!item) return 0;
+    var candidates=[
+      item.watchCount,item.watchers,item.watcherCount,item.watch_count,item.likes,item.likeCount,
+      item.popularity,item.engagement&&item.engagement.watchCount,item.engagement&&item.engagement.likeCount
+    ];
+    for(var i=0;i<candidates.length;i++){
+      var raw=candidates[i];
+      if(raw==null||raw==='') continue;
+      var n=Number(String(raw).replace(/[^0-9.]/g,''));
+      if(Number.isFinite(n)&&n>0) return Math.max(0,Math.round(n));
+    }
+    return 0;
+  };
+  window.itemDisplayedLikeCount=function(item){
+    var base=window.itemSourceLikeCount(item);
+    if(base>0) return base;
+    return (typeof isTracked==='function'&&isTracked(item))?1:0;
+  };
+  window.itemLikeLabel=function(item){
+    var count=window.itemDisplayedLikeCount(item);
+    return count>0?String(count):'';
+  };
+
+  window.appMpPendingFiles=[];
+  window.appMpClearPendingFiles=function(){
+    window.appMpPendingFiles=[];
+    var input=document.getElementById('appMpAttachmentInput');
+    if(input) input.value='';
+    window.appMpRenderPendingFiles();
+  };
+  window.appMpPickAttachments=function(){
+    var input=document.getElementById('appMpAttachmentInput');
+    if(input) input.click();
+  };
+  window.appMpHandleAttachmentPick=function(event){
+    var files=Array.prototype.slice.call((event&&event.target&&event.target.files)||[],0,5);
+    window.appMpPendingFiles=files;
+    window.appMpRenderPendingFiles();
+  };
+  window.appMpRemovePendingFile=function(index){
+    if(!Array.isArray(window.appMpPendingFiles)) window.appMpPendingFiles=[];
+    window.appMpPendingFiles.splice(index,1);
+    var input=document.getElementById('appMpAttachmentInput');
+    if(input&&!window.appMpPendingFiles.length) input.value='';
+    window.appMpRenderPendingFiles();
+  };
+  window.appMpRenderPendingFiles=function(){
+    var tray=document.getElementById('appMpAttachmentTray');
+    if(!tray) return;
+    var files=Array.isArray(window.appMpPendingFiles)?window.appMpPendingFiles:[];
+    tray.hidden=!files.length;
+    tray.innerHTML=files.map(function(file,index){
+      return '<button class="app-mp-attachment-chip" type="button" onclick="appMpRemovePendingFile('+index+')"><span>'+escapeHTML(file.name||('File '+(index+1)))+'</span><span class="close">×</span></button>';
+    }).join('');
+  };
+
+  window.renderAppMpChat=function(id,newBuyer){
+    appMpConversation=id||'';
+    var title=newBuyer?'Message seller':'Conversation';
+    var copy=newBuyer?'Ask the seller about condition, delivery or anything else you need to know.':'Loading messages…';
+    document.getElementById('appMpInboxBody').innerHTML=''
+      + '<div class="app-mp-chat">'
+      +   '<div class="app-mp-chat-head" id="appMpChatHead">'
+      +     '<div class="app-mp-chat-person"><div class="app-mp-chat-avatar">F<span class="app-mp-presence-dot"></span></div><div class="app-mp-chat-person-copy"><b>'+escapeHTML(title)+'</b><span class="app-mp-chat-presence">Private FindAI messages</span></div></div>'
+      +   '</div>'
+      +   '<div class="app-mp-messages" id="appMpMessages"><div class="app-mp-empty">'+escapeHTML(copy)+'</div></div>'
+      +   '<div class="app-mp-attachment-tray" id="appMpAttachmentTray" hidden></div>'
+      +   '<div class="app-mp-typing" id="appMpTyping" aria-live="polite"></div>'
+      +   '<form class="app-mp-compose" onsubmit="return appMpSendMessage(event)">'
+      +     '<button class="app-mp-compose-plus" type="button" aria-label="Add file" onclick="appMpPickAttachments()">+</button>'
+      +     '<div class="app-mp-message-field">'
+      +       '<textarea id="appMpMessageInput" maxlength="2000" placeholder="Write a message" oninput="appMpTypingInput()" onkeydown="appMpMessageInputKeydown(event)"></textarea>'
+      +     '</div>'
+      +     '<button class="app-mp-compose-send" id="appMpMessageSend" type="submit" aria-label="Send">➤</button>'
+      +     '<input id="appMpAttachmentInput" type="file" hidden multiple onchange="appMpHandleAttachmentPick(event)">'
+      +   '</form>'
+      + '</div>';
+    window.appMpRenderPendingFiles();
+  };
+
+  window.appMpMessageTimeline=function(messages){
+    var lastMine=-1;
+    (messages||[]).forEach(function(m,i){ if(m&&m.mine) lastMine=i; });
+    var day='';
+    var html='';
+    (messages||[]).forEach(function(m,i){
+      if(!m) return;
+      var next=appMpMessageDay(m.createdAt);
+      if(next&&next!==day){ day=next; html+='<div class="app-mp-date-divider">'+escapeHTML(next)+'</div>'; }
+      var meta=appMpMessageTime(m.createdAt);
+      if(m.mine&&i===lastMine) meta+=(m.readAt?' · Read '+appMpMessageTime(m.readAt):' · Sent');
+      html+='<div class="app-mp-bubble '+(m.mine?'mine':'')+'">'+escapeHTML(m.body||'')+'<span class="app-mp-time '+(m.mine&&i===lastMine?'app-mp-receipt':'')+'">'+escapeHTML(meta)+'</span></div>';
+    });
+    return html;
+  };
+
+  window.appMpAppendOptimisticMessage=function(body){
+    var root=document.getElementById('appMpMessages');
+    if(!root) return null;
+    var empty=root.querySelector('.app-mp-empty');
+    if(empty) root.innerHTML='';
+    var bubble=document.createElement('div');
+    bubble.className='app-mp-bubble mine pending';
+    bubble.innerHTML=escapeHTML(body)+'<span class="app-mp-time app-mp-receipt">'+escapeHTML(appMpMessageTime(new Date().toISOString())+' · Sending…')+'</span>';
+    root.appendChild(bubble);
+    root.scrollTop=root.scrollHeight;
+    return bubble;
+  };
+
+  window.appMpLoadMessages=async function(){
+    if(!appMpConversation) return;
+    var root=document.getElementById('appMpMessages');
+    if(!root) return;
+    var near=root.scrollHeight-root.scrollTop-root.clientHeight<90;
+    var wasEmpty=!root.dataset.loaded;
+    try{
+      var data=await marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(appMpConversation)+'/messages',{method:'GET'});
+      var messages=Array.isArray(data&&data.messages)?data.messages:[];
+      appMpCurrentOffers=[];
+      appMpCurrentConversation=(data&&data.conversation)||appMpCurrentConversation;
+      appMpRenderMessageHeader(appMpCurrentConversation,data&&data.presence);
+      root.innerHTML=messages.length?appMpMessageTimeline(messages):'<div class="app-mp-empty">No messages yet. Say hello.</div>';
+      root.dataset.loaded='1';
+      if(near||wasEmpty) root.scrollTop=root.scrollHeight;
+      if(typeof appRefreshMarketplaceBadge==='function') appRefreshMarketplaceBadge();
+    }catch(error){
+      if(!root.dataset.loaded) root.innerHTML='<div class="app-mp-empty">'+escapeHTML((error&&error.message)||'Messages could not be loaded')+'<br><button class="app-mp-mini" onclick="appMpLoadMessages()">Try again</button></div>';
+    }
+  };
+
+  window.appMpSendMessage=async function(event){
+    if(event&&event.preventDefault) event.preventDefault();
+    var input=document.getElementById('appMpMessageInput');
+    var button=document.getElementById('appMpMessageSend');
+    var typed=String(input&&input.value||'').trim();
+    var files=Array.isArray(window.appMpPendingFiles)?window.appMpPendingFiles.slice():[];
+    if(!typed&&!files.length) return false;
+    var attachmentLine=files.length?('Attachments: '+files.map(function(file){return file.name||'file';}).join(', ')):'';
+    var body=typed&&attachmentLine?(typed+'\n'+attachmentLine):(typed||attachmentLine);
+    if(input){input.value='';input.style.height='';}
+    if(button) button.disabled=true;
+    clearTimeout(appMpTypingClearTimer);appMpTypingLastSent=0;
+    var optimistic=appMpAppendOptimisticMessage(body);
+    window.appMpClearPendingFiles();
+    try{
+      var id=await appMpEnsureConversation();
+      await marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(id)+'/messages',{method:'POST',body:JSON.stringify({body:body})});
+      appMpSetTyping(false);
+      await appMpLoadMessages();
+    }catch(error){
+      appMpSetTyping(false);
+      if(optimistic&&optimistic.isConnected){
+        optimistic.classList.remove('pending');
+        optimistic.classList.add('failed');
+        var meta=optimistic.querySelector('.app-mp-time');
+        if(meta) meta.textContent=appMpMessageTime(new Date().toISOString())+' · Not sent';
+      }
+      if(input&&!input.value) input.value=typed;
+      window.appMpPendingFiles=files;
+      window.appMpRenderPendingFiles();
+      toast((error&&error.message)||'Message could not be sent');
+    }finally{
+      if(button) button.disabled=false;
+    }
+    return false;
+  };
+
+  window.appMpTypingInput=function(){
+    var input=document.getElementById('appMpMessageInput');
+    if(!input||!String(input.value||'').trim()){
+      appMpSetTyping(false);
+      return;
+    }
+    var now=Date.now();
+    if(now-appMpTypingLastSent>3500){ appMpTypingLastSent=now; appMpSetTyping(true); }
+    clearTimeout(appMpTypingClearTimer);
+    appMpTypingClearTimer=setTimeout(function(){appMpSetTyping(false);},6000);
+  };
+})();
+</script>
+
+
+<style id="findai-v100-brand-chat-polish">
+  /* Brand headings: one calm line, equal visual weight, no cramped logo/text stack. */
+  .premium-market-section .premium-section-title{margin-bottom:12px!important;align-items:flex-start!important}
+  .premium-market-section .premium-section-title>div{min-width:0!important;width:100%!important}
+  .premium-section-heading{
+    display:flex!important;align-items:center!important;gap:10px!important;min-height:34px!important;
+    white-space:nowrap!important;overflow:visible!important;line-height:1!important;
+  }
+  .premium-section-heading .premium-heading-copy{
+    display:inline-flex!important;align-items:center!important;color:#fff!important;font-size:22px!important;
+    line-height:1!important;font-weight:790!important;letter-spacing:-.65px!important;flex:0 0 auto!important;
+  }
+  .premium-section-heading .premium-inline-brand{
+    display:inline-flex!important;align-items:center!important;justify-content:flex-start!important;
+    height:32px!important;max-width:160px!important;margin:0!important;opacity:1!important;flex:0 0 auto!important;
+  }
+  .premium-section-heading .premium-inline-brand-logo{height:28px!important;max-width:150px!important;opacity:1!important;filter:none!important}
+  .premium-section-heading .premium-inline-ebay .app-ebay-wordmark{font-size:29px!important;letter-spacing:-1.8px!important}
+  .premium-section-heading .app-brand-apple{color:#fff!important;font-size:24px!important;gap:6px!important;font-weight:650!important}
+  .premium-section-heading .app-apple-symbol{color:#fff!important;font-size:28px!important}
+  .premium-section-heading .app-brand-lego{
+    display:inline-flex!important;align-items:center!important;justify-content:center!important;
+    height:30px!important;padding:0 7px!important;border-radius:3px!important;background:#d71920!important;
+    color:#ffe500!important;border:2px solid #fff!important;box-shadow:inset 0 0 0 1px #111!important;
+    font:900 17px/1 Arial,sans-serif!important;letter-spacing:-1px!important;text-shadow:-1px -1px 0 #111,1px 1px 0 #111!important;
+  }
+  .premium-section-heading .app-brand-stockx{font-size:27px!important;color:#00a36c!important}
+  .premium-section-heading .app-brand-walmart{font-size:22px!important}
+  .premium-section-heading .app-brand-bestbuy{font-size:16px!important;padding:6px 10px!important}
+  .premium-section-heading .app-brand-jbhifi{font-size:17px!important;padding:6px 10px!important}
+  .premium-section-title span{margin-top:5px!important;color:#717780!important;font-size:9.5px!important}
+
+  /* Cards use bright, recognisable brand marks instead of low-contrast grey marks. */
+  .premium-ebay-copy .source,.premium-result-copy .source{height:21px!important;color:#fff!important;opacity:1!important}
+  .premium-card-source-logo,.premium-card-source-text{height:21px!important;display:flex!important;align-items:center!important;opacity:1!important}
+  .premium-card-source-logo-img{max-height:21px!important;max-width:92px!important;opacity:1!important;filter:none!important}
+  .premium-card-source-logo .app-ebay-wordmark{font-size:20px!important;letter-spacing:-1.1px!important}
+  .premium-card-source-logo .app-brand-apple{color:#fff!important;font-size:18px!important;gap:4px!important}
+  .premium-card-source-logo .app-apple-symbol{color:#fff!important;font-size:21px!important}
+  .premium-card-source-logo .app-brand-lego{height:21px!important;padding:0 5px!important;border-radius:2px!important;background:#d71920!important;color:#ffe500!important;border:1.5px solid #fff!important;font:900 12px/1 Arial,sans-serif!important;text-shadow:-1px -1px 0 #111,1px 1px 0 #111!important}
+
+  /* Instagram-like inbox: people first, listing thumbnails are no longer used as profile avatars. */
+  #appMpInbox .app-mp-header{
+    height:calc(var(--safe-top) + 50px)!important;padding:var(--safe-top) 12px 0!important;
+    grid-template-columns:42px minmax(0,1fr) 42px!important;background:#000!important;border-bottom:0!important;
+  }
+  #appMpInbox .app-mp-header h2{font-size:20px!important;font-weight:760!important;letter-spacing:-.4px!important;text-align:center!important}
+  #appMpInbox .app-mp-header button{width:42px!important;height:42px!important;color:#fff!important}
+  #appMpInbox .app-mp-instagram-search{margin:10px 14px 8px!important;background:#191919!important;border-radius:11px!important}
+  #appMpInbox .app-mp-conversation-list{padding:3px 10px 20px!important}
+  #appMpInbox .app-mp-conversation-card{
+    grid-template-columns:56px minmax(0,1fr) auto!important;min-height:72px!important;gap:12px!important;
+    padding:8px 4px!important;border:0!important;background:#000!important;color:#fff!important;
+  }
+  #appMpInbox .app-mp-conversation-avatar{
+    width:56px!important;height:56px!important;border-radius:50%!important;background:#1b1b1d!important;
+    border:1px solid rgba(255,255,255,.12)!important;color:#fff!important;font-size:17px!important;font-weight:650!important;
+  }
+  #appMpInbox .app-mp-conversation-copy b{font-size:14px!important;font-weight:650!important;color:#fff!important}
+  #appMpInbox .app-mp-conversation-preview{font-size:13px!important;color:#8e8e93!important;line-height:1.2!important;margin-top:4px!important}
+  #appMpInbox .app-mp-conversation-time{font-size:11px!important;color:#6f7278!important}
+
+  /* Chat itself: top title is the person, one slim item context, monochrome bubbles, composer on the bottom edge. */
+  #appMpInbox.chat-open .app-mp-header{border-bottom:1px solid rgba(255,255,255,.08)!important}
+  #appMpInbox .app-mp-chat{display:grid!important;grid-template-rows:auto minmax(0,1fr) auto auto!important;background:#000!important;height:100%!important}
+  #appMpInbox .app-mp-chat-head{
+    min-height:0!important;padding:7px 12px!important;border-bottom:1px solid rgba(255,255,255,.055)!important;
+    background:#000!important;display:flex!important;justify-content:center!important;
+  }
+  #appMpInbox .app-mp-chat-context{
+    max-width:min(88%,420px)!important;width:auto!important;min-height:42px!important;padding:5px 9px!important;
+    border:0!important;border-radius:10px!important;background:#111113!important;color:#fff!important;
+    display:flex!important;align-items:center!important;gap:8px!important;text-align:left!important;
+  }
+  #appMpInbox .app-mp-chat-context img{width:34px!important;height:34px!important;border-radius:7px!important;object-fit:cover!important;flex:0 0 auto!important}
+  #appMpInbox .app-mp-chat-context-copy{min-width:0!important;display:block!important}
+  #appMpInbox .app-mp-chat-context-copy b{display:block!important;max-width:240px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;font-size:11px!important;font-weight:620!important}
+  #appMpInbox .app-mp-chat-context-copy span{display:block!important;margin-top:2px!important;color:#8e8e93!important;font-size:10px!important}
+  #appMpInbox .app-mp-messages{padding:12px 13px 16px!important;background:#000!important}
+  #appMpInbox .app-mp-bubble{max-width:76%!important;border:0!important;background:#202124!important;padding:9px 12px!important;border-radius:20px!important;color:#fff!important;font-size:14px!important;line-height:1.35!important}
+  #appMpInbox .app-mp-bubble.mine{margin-left:auto!important;background:#303033!important}
+  #appMpInbox .app-mp-bubble:not(.mine){margin-right:auto!important}
+  #appMpInbox .app-mp-date-divider{color:#72757b!important;font-size:10px!important;letter-spacing:1.2px!important;font-weight:650!important}
+  #appMpInbox .app-mp-compose{
+    margin:0!important;padding:7px 10px max(3px,calc(var(--safe-bottom) - 9px))!important;
+    border-top:1px solid rgba(255,255,255,.08)!important;background:#000!important;border-radius:0!important;
+    align-items:center!important;gap:8px!important;
+  }
+  #appMpInbox .app-mp-message-field{background:#111113!important;border:1px solid rgba(255,255,255,.14)!important;border-radius:22px!important;padding:7px 11px!important}
+  #appMpInbox .app-mp-compose-plus,#appMpInbox .app-mp-compose-send{background:transparent!important;color:#fff!important;width:34px!important;height:34px!important;border:0!important}
+  #appMpInbox .app-mp-compose-plus{font-size:26px!important;font-weight:300!important}
+  #appMpInbox .app-mp-compose-send{font-size:17px!important;opacity:.95!important}
+  #appMpInbox .app-mp-compose textarea{font-size:14px!important;color:#fff!important}
+  #appMpInbox .app-mp-typing{min-height:0!important;padding:0 14px 4px!important;background:#000!important;color:#777!important;font-size:10px!important}
+</style>
+
+<script id="findai-v100-brand-chat-polish-script">
+(function(){
+  function directBrandSourceKey(config){
+    return config&&config.strictBrandSource?String(config.brand||'').toLowerCase():'';
+  }
+  window.premiumFilterForSection=function(item,config){
+    if(!item||Number(item.price)<=0||!premiumProductImage(item)) return false;
+    var source=String(getSource(item)||'').toLowerCase();
+    var key=appKnownBrandForItem(item,source);
+    var strict=directBrandSourceKey(config);
+    if(strict) return source===strict||key===strict;
+    if(!config.source) return true;
+    return source===String(config.source||'').toLowerCase()||key===String(config.source||'').toLowerCase();
+  };
+
+  window.v116PreviewItemsForConfig=function(config,pool){
+    var seen=new Set(),ranked=[],sourceWanted=String(config&&config.source||'').toLowerCase(),strict=directBrandSourceKey(config),tokens=v116DiscoveryTokens(config);
+    for(const item of (Array.isArray(pool)?pool:[])){
+      if(!item||Number(item.price)<=0||!premiumProductImage(item)) continue;
+      var source=String(getSource(item)||'').toLowerCase(),key=appKnownBrandForItem(item,source);
+      if(strict){
+        if(source!==strict&&key!==strict) continue;
+        ranked.push({item:item,score:20});
+        continue;
+      }
+      if(sourceWanted){
+        if(sourceWanted==='ebay'&&!premiumIsEbay(item)) continue;
+        if(sourceWanted!=='ebay'&&source!==sourceWanted&&key!==sourceWanted) continue;
+        ranked.push({item:item,score:10});
+        continue;
+      }
+      var hay=normaliseQueryText([item.title,item.query,item.source,item.retailer].filter(Boolean).join(' ')),score=0;
+      tokens.forEach(function(t){if(hay.includes(t))score++;});
+      if(config&&config.id==='ps5'&&/\bps5|playstation 5\b/i.test(String(item.title||'')))score+=4;
+      if(config&&config.id==='pokemon'&&/\bpokemon|pokémon\b/i.test(String(item.title||'')))score+=3;
+      if(score>0)ranked.push({item:item,score:score});
+    }
+    ranked.sort(function(a,b){return b.score-a.score;});
+    var out=[];
+    for(const row of ranked){
+      var k=listingKey(row.item)||trackedKey(row.item)||String(row.item.itemId||row.item.url||row.item.title||'');
+      if(!k||seen.has(k))continue;seen.add(k);out.push(row.item);if(out.length>=9)break;
+    }
+    return out;
+  };
+
+  var priorStyledBrandMark=window.appStyledBrandMark;
+  window.appStyledBrandMark=function(key,label){
+    var k=String(key||'').toLowerCase();
+    if(k==='lego') return '<span class="app-brand-wordmark app-brand-lego">LEGO</span>';
+    return priorStyledBrandMark?priorStyledBrandMark(key,label):escapeHTML(label||key||'');
+  };
+
+  window.premiumInlineBrandMarkup=function(config){
+    var key=String(config&&config.brand||'').toLowerCase();
+    if(!key){
+      var title=String(config&&config.title||'').replace(/^Popular(?: on)?\s+/i,'').trim();
+      key=appBrandKey(title);
+    }
+    if(key==='ebay')return '<span class="premium-inline-brand premium-inline-ebay">'+EBAY_LOGO_SVG+'</span>';
+    if(key==='apple'||key==='lego'||key==='walmart'||key==='bestbuy'||key==='jbhifi'||key==='stockx'||key==='amazon'||key==='target'||key==='myer'){
+      return '<span class="premium-inline-brand premium-inline-styled">'+appStyledBrandMark(key,sourceLabel(key))+'</span>';
+    }
+    if(key&&FINDAI_APP_REAL_LOGOS[key])return '<span class="premium-inline-brand">'+appRealLogoImg(key,'premium-inline-brand-logo',sourceLabel(key))+'</span>';
+    if(key)return '<span class="premium-inline-brand premium-inline-styled">'+appStyledBrandMark(key,sourceLabel(key))+'</span>';
+    return '';
+  };
+
+  window.premiumCardSourceMarkup=function(item){
+    var source=getSource(item),key=appKnownBrandForItem(item,source);
+    if(key==='ebay')return '<span class="premium-card-source-logo">'+EBAY_LOGO_SVG+'</span>';
+    if(key==='apple'||key==='lego'||key==='walmart'||key==='bestbuy'||key==='jbhifi'||key==='stockx'||key==='amazon'||key==='target'||key==='myer'){
+      return '<span class="premium-card-source-logo premium-card-source-styled">'+appStyledBrandMark(key,sourceLabel(key))+'</span>';
+    }
+    if(key&&FINDAI_APP_REAL_LOGOS[key])return '<span class="premium-card-source-logo">'+appRealLogoImg(key,'premium-card-source-logo-img',sourceLabel(key))+'</span>';
+    if(key)return '<span class="premium-card-source-logo premium-card-source-styled">'+appStyledBrandMark(key,sourceLabel(key))+'</span>';
+    var label=sourceLabel(source||'listing'),fallbackKey=appBrandKey(label);
+    return '<span class="premium-card-source-text">'+(fallbackKey?appStyledBrandMark(fallbackKey,label):escapeHTML(label))+'</span>';
+  };
+
+  window.premiumSectionHeadingMarkup=function(config){
+    var title=String(config&&config.title||'Popular').trim(),brand=premiumInlineBrandMarkup(config);
+    if(!brand)return '<span class="premium-heading-copy">'+escapeHTML(title)+'</span>';
+    var prefix=/^Popular on /i.test(title)?'Popular on':'Popular';
+    return '<span class="premium-heading-copy">'+prefix+'</span>'+brand;
+  };
+
+  window.renderAppMpConversationList=function(data,listingScoped,preselect){
+    appMpConversationList=Array.isArray(data.conversations)?data.conversations:[];
+    appMpCurrentConversation=null;
+    var inbox=document.getElementById('appMpInbox');if(inbox)inbox.classList.remove('chat-open');
+    var title=document.getElementById('appMpInboxTitle');if(title)title.textContent='Messages';
+    var isSeller=!!data.isSeller;
+    if(!appMpConversationList.length&&listingScoped&&!isSeller){
+      appMpCurrentConversation={id:'',listingId:appMpId(appMpListing),listingTitle:appMpListing.title||'FindAI listing',listingImage:(appMpListing.images||[])[0]||appMpListing.image||'',listingPrice:Number(appMpListing.price)||0,currency:appMpListing.currency||'AUD',otherParty:(appMpContext&&appMpContext.seller&&appMpContext.seller.displayName)||appMpListing.sellerName||'FindAI seller',viewerRole:'buyer'};
+      renderAppMpChat('',true);appMpRenderMessageHeader(appMpCurrentConversation,null);return;
+    }
+    var search='<div class="app-mp-instagram-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="7"/><path d="m16 16 4.3 4.3"/></svg><input type="search" placeholder="Search" oninput="appMpFilterConversationCards(this.value)"></div>';
+    if(!appMpConversationList.length){
+      document.getElementById('appMpInboxBody').innerHTML=search+'<div class="app-mp-instagram-empty"><div class="app-mp-instagram-empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M21 4 3.8 10.8c-.9.35-.9 1.62.02 1.94l6.45 2.2 2.2 6.45c.32.92 1.59.93 1.94.02L21 4Z"/><path d="m10.3 14.8 10-10"/></svg></div><b>Your messages</b><span>Messages about listings and purchases will appear here.</span></div>';
+      return;
+    }
+    document.getElementById('appMpInboxBody').innerHTML=search+'<div class="app-mp-conversation-list">'+appMpConversationList.map(function(c){
+      var avatar=String(c.otherPartyAvatar||c.avatar||'').trim();
+      var image=avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':escapeHTML(appMpInitial(c.otherParty));
+      return '<button class="app-mp-conversation-card" type="button" onclick="appMpOpenConversation(\''+escapeAttr(c.id)+'\')"><span class="app-mp-conversation-avatar">'+image+'</span><span class="app-mp-conversation-copy"><b>'+escapeHTML(c.otherParty||'FindAI member')+'</b><span class="app-mp-conversation-preview">'+escapeHTML(c.lastMessage||'Message')+'</span></span><span class="app-mp-conversation-side"><span class="app-mp-conversation-time">'+escapeHTML(appMpConversationTime(c.lastMessageAt))+'</span>'+(Number(c.unreadCount)>0?'<span class="app-mp-unread">'+(Number(c.unreadCount)>99?'99+':Number(c.unreadCount))+'</span>':'')+'</span></button>';
+    }).join('')+'</div>';
+    if(preselect)appMpOpenConversation(preselect);
+  };
+
+  window.renderAppMpChat=function(id,newBuyer){
+    appMpConversation=id||'';
+    var inbox=document.getElementById('appMpInbox');if(inbox)inbox.classList.add('chat-open');
+    document.getElementById('appMpInboxBody').innerHTML=''
+      +'<div class="app-mp-chat">'
+      +'<div class="app-mp-chat-head" id="appMpChatHead"></div>'
+      +'<div class="app-mp-messages" id="appMpMessages"><div class="app-mp-empty">'+(newBuyer?'Say hello.':'Loading messages…')+'</div></div>'
+      +'<div class="app-mp-attachment-tray" id="appMpAttachmentTray" hidden></div>'
+      +'<div class="app-mp-typing" id="appMpTyping" aria-live="polite"></div>'
+      +'<form class="app-mp-compose" onsubmit="return appMpSendMessage(event)">'
+      +'<button class="app-mp-compose-plus" type="button" aria-label="Add file" onclick="appMpPickAttachments()">+</button>'
+      +'<div class="app-mp-message-field"><textarea id="appMpMessageInput" maxlength="2000" placeholder="Message..." oninput="appMpTypingInput()" onkeydown="appMpMessageInputKeydown(event)"></textarea></div>'
+      +'<button class="app-mp-compose-send" id="appMpMessageSend" type="submit" aria-label="Send">➤</button>'
+      +'<input id="appMpAttachmentInput" type="file" hidden multiple onchange="appMpHandleAttachmentPick(event)">'
+      +'</form></div>';
+    if(typeof appMpRenderPendingFiles==='function')appMpRenderPendingFiles();
+  };
+
+  window.appMpRenderMessageHeader=function(c,presence){
+    appMpCurrentConversation=c||appMpCurrentConversation;if(!appMpCurrentConversation)return;
+    var x=appMpCurrentConversation,title=document.getElementById('appMpInboxTitle');if(title)title.textContent=x.otherParty||'Messages';
+    var h=document.getElementById('appMpChatHead');if(!h)return;
+    var image=x.listingImage?'<img src="'+escapeAttr(x.listingImage)+'" alt="">':'<span class="app-mp-chat-listing-placeholder">◇</span>';
+    h.innerHTML='<button class="app-mp-chat-context" type="button" onclick="appMpOpenConversationListing()">'+image+'<span class="app-mp-chat-context-copy"><b>'+escapeHTML(x.listingTitle||'FindAI listing')+'</b><span>'+escapeHTML(appMpMoney(x.listingPrice,x.currency))+' · '+escapeHTML(appMpPresenceText(presence))+'</span></span></button>';
+  };
+
+  var originalOpenConversation=window.appMpOpenConversation;
+  window.appMpOpenConversation=async function(id){
+    var inbox=document.getElementById('appMpInbox');if(inbox)inbox.classList.add('chat-open');
+    return originalOpenConversation(id);
+  };
+
+  var originalInboxBack=window.appMpInboxBack;
+  window.appMpInboxBack=function(){
+    var wasConversation=!!appMpConversation;
+    originalInboxBack();
+    var inbox=document.getElementById('appMpInbox');
+    if(inbox&&wasConversation&&inbox.classList.contains('show'))inbox.classList.remove('chat-open');
+    var title=document.getElementById('appMpInboxTitle');
+    if(title&&(!appMpConversation))title.textContent='Messages';
+  };
+})();
+</script>
 
 </body>
 </html>
