@@ -3334,7 +3334,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
 
     <button data-tab="profile" onclick="openProfile()" aria-label="Profile">
       <span class="nav-icon-shell">
-        <span class="nav-profile-avatar" id="navProfileAvatar"><img alt=""><span>F</span></span>
+        <span class="nav-profile-avatar" id="navProfileAvatar"><img alt=""><span><svg class="guest-profile-person-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg></span></span>
       </span>
     </button>
   </nav>
@@ -3440,7 +3440,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
         </div>
 
         <div class="social-profile-hero">
-          <div class="social-profile-avatar guest-profile-avatar" aria-hidden="true"><span>F</span></div>
+          <div class="social-profile-avatar guest-profile-avatar" aria-hidden="true"><span><svg class="guest-profile-person-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg></span></div>
           <div class="social-profile-stats">
             <button type="button" tabindex="-1"><b>0</b><span>Listings</span></button>
             <button type="button" tabindex="-1"><b>0</b><span>Sold</span></button>
@@ -3795,7 +3795,7 @@ function updateAccountHeader(){
     const img=navAvatar.querySelector('img');
     const initial=navAvatar.querySelector('span');
     if(img) img.removeAttribute('src');
-    if(initial) initial.textContent='F';
+    if(initial) initial.innerHTML='<svg class="guest-profile-person-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>';
     navAvatar.classList.remove('has-image');
   }
 }
@@ -3826,31 +3826,33 @@ function completeLocalLogin(event){
 function accountAvatarPicked(event){
   const file=event.target.files&&event.target.files[0];
   event.target.value='';
-  if(!file||!file.type.startsWith('image/')) return;
+  if(!file||!file.type.startsWith('image/'))return;
+  const applyAvatar=avatar=>{
+    if(!avatar)return;
+    pendingAccountAvatar=avatar;
+    const profile=getAccountProfile();
+    if(profile){profile.avatar=avatar;profile.updatedAt=Date.now();saveAccountProfile(profile);updateAccountHeader();renderAccountProfile();}
+    const picker=$('#authAvatarPicker'),preview=$('#authAvatarPreview');
+    if(preview)preview.src=avatar;if(picker)picker.classList.add('has-image');
+  };
   const reader=new FileReader();
   reader.onload=()=>{
+    const original=String(reader.result||'');
     const image=new Image();
     image.onload=()=>{
-      const size=1024,canvas=document.createElement('canvas');
-      canvas.width=size;canvas.height=size;
-      const ctx=canvas.getContext('2d');
-      if(ctx&&'imageSmoothingEnabled' in ctx) ctx.imageSmoothingEnabled=true;
-      if(ctx&&'imageSmoothingQuality' in ctx) ctx.imageSmoothingQuality='high';
+      // Keep the original bytes when practical so logos/photos are never softened by an unnecessary re-encode.
+      if(file.size<=1800000&&image.naturalWidth>=300&&image.naturalHeight>=300){applyAvatar(original);return;}
+      const size=1400,canvas=document.createElement('canvas');canvas.width=size;canvas.height=size;
+      const ctx=canvas.getContext('2d',{alpha:false});
+      if(ctx){ctx.imageSmoothingEnabled=true;ctx.imageSmoothingQuality='high';}
       const scale=Math.max(size/image.naturalWidth,size/image.naturalHeight);
       const width=image.naturalWidth*scale,height=image.naturalHeight*scale;
       ctx.drawImage(image,(size-width)/2,(size-height)/2,width,height);
-      const lossless=String(file.type||'').toLowerCase()==='image/png';
-      let avatar;
-      try{avatar=lossless?canvas.toDataURL('image/png'):canvas.toDataURL('image/webp',.96);}catch(_){avatar=canvas.toDataURL('image/jpeg',.96);}
-      pendingAccountAvatar=avatar;
-      const profile=getAccountProfile();
-      if(profile){ profile.avatar=avatar;profile.updatedAt=Date.now();saveAccountProfile(profile);updateAccountHeader();renderAccountProfile(); }
-      const picker=$('#authAvatarPicker');
-      const preview=$('#authAvatarPreview');
-      if(preview) preview.src=avatar;
-      if(picker) picker.classList.add('has-image');
+      let avatar='';
+      try{avatar=canvas.toDataURL('image/webp',.995);}catch(_){avatar=canvas.toDataURL('image/jpeg',.995);}
+      applyAvatar(avatar);
     };
-    image.src=String(reader.result||'');
+    image.src=original;
   };
   reader.readAsDataURL(file);
 }
@@ -7867,7 +7869,7 @@ function appMpFilterConversationCards(value){
     card.hidden=!!query&&!hay.includes(query);
   });
 }
-async function openAppMarketplaceInbox(preselect){if(!appMpRequireLogin())return;closeAccountMenu();appMpInboxMode='global';appMpConversation='';appMpCurrentConversation=null;$('#appMpInbox').classList.add('show');$('#appMpInboxTitle').textContent='Messages';$('#appMpInboxBody').innerHTML='<div class="app-mp-loading"><div><div class="app-mp-spinner"></div>Loading inbox</div></div>';try{const data=await marketplaceFetch('/marketplace/conversations',{method:'GET'});renderAppMpConversationList(data,false,String(preselect||''));appRefreshMarketplaceBadge();}catch(error){$('#appMpInboxBody').innerHTML='<div class="app-mp-empty">'+escapeHTML(error.message||'Messages could not be loaded')+'</div>';}}
+async function openAppMarketplaceInbox(preselect){if(!appMpRequireLogin())return;closeAccountMenu();appMpInboxMode='global';appMpConversation='';appMpCurrentConversation=null;$('#appMpInbox').classList.add('show');$('#appMpInboxTitle').textContent='Messages';$('#appMpInboxBody').innerHTML='<div class="app-mp-loading"><div><div class="app-mp-spinner"></div>Loading inbox</div></div>';try{const data=await marketplaceFetch('/marketplace/conversations',{method:'GET'});renderAppMpConversationList(data,false,String(preselect||''));if(typeof appRefreshMarketplaceBadge==='function')if(typeof appRefreshMarketplaceBadge==='function')appRefreshMarketplaceBadge();}catch(error){$('#appMpInboxBody').innerHTML='<div class="app-mp-empty">'+escapeHTML(error.message||'Messages could not be loaded')+'</div>';}}
 function appMpConversationTime(value){if(!value)return '';try{const d=new Date(value),n=new Date(),same=d.toDateString()===n.toDateString();return new Intl.DateTimeFormat(undefined,same?{hour:'numeric',minute:'2-digit'}:{day:'numeric',month:'short'}).format(d)}catch(_){return ''}}
 function renderAppMpConversationList(data,listingScoped,preselect){
   appMpConversationList=Array.isArray(data.conversations)?data.conversations:[];
@@ -8812,16 +8814,37 @@ function profileReplaceListing(updated){
   saveMarketplaceListings(getMarketplaceListings().map(item=>String(appMpId(item)||'')===id?updated:item));
   paintSocialProfileHeader();renderSocialProfileContent();
 }
+function closeProfileListingDropdown(){
+  const menu=$('#profileListingDropdown');if(!menu)return;
+  menu.classList.remove('show');
+  setTimeout(()=>{if(menu&&menu.parentNode)menu.remove();},180);
+}
 function openProfileListingMenu(event,id){
   if(event){event.preventDefault();event.stopPropagation();}
+  closeProfileListingDropdown();
   const item=profileOwnedListingById(id);if(!item)return;
   const sold=String(item.status||'').toLowerCase()==='sold';
-  openAppMpSheet('Manage listing',`
-    <div class="profile-listing-menu">
-      <button type="button" onclick="openProfileListingEdit('${escapeAttr(id)}')"><span>Edit listing</span><small>Change the title, description, condition or price</small></button>
-      <button type="button" onclick="profileSetListingStatus('${escapeAttr(id)}','${sold?'active':'sold'}')"><span>${sold?'Relist item':'Mark as sold'}</span><small>${sold?'Put this listing back on your profile':'Move it to your Sold tab'}</small></button>
-      <button class="danger" type="button" onclick="profileDeleteListing('${escapeAttr(id)}')"><span>Delete listing</span><small>Remove this listing from FindAI</small></button>
-    </div>`);
+  const anchor=event&&event.currentTarget;
+  const rect=anchor&&anchor.getBoundingClientRect?anchor.getBoundingClientRect():{right:window.innerWidth-16,bottom:180};
+  const menu=document.createElement('div');
+  menu.id='profileListingDropdown';
+  menu.className='profile-listing-dropdown';
+  menu.innerHTML=`
+    <button type="button" onclick="closeProfileListingDropdown();openProfileListingEdit('${escapeAttr(id)}')"><span>Edit listing</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 16-.7 4.7L8 20l11-11-4-4L4 16Z"/><path d="m13.5 6.5 4 4"/></svg></button>
+    <button type="button" onclick="closeProfileListingDropdown();profileSetListingStatus('${escapeAttr(id)}','${sold?'active':'sold'}')"><span>${sold?'Relist item':'Mark as sold'}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16v13H4z"/><path d="M7 7V5h10v2M8.5 13l2.2 2.2 4.8-4.8"/></svg></button>
+    <button class="danger" type="button" onclick="closeProfileListingDropdown();profileDeleteListing('${escapeAttr(id)}')"><span>Delete listing</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button>`;
+  document.body.appendChild(menu);
+  const width=208;
+  const left=Math.max(10,Math.min(window.innerWidth-width-10,rect.right-width));
+  const top=Math.max(80,Math.min(window.innerHeight-190,rect.bottom+7));
+  menu.style.left=left+'px';menu.style.top=top+'px';
+  requestAnimationFrame(()=>menu.classList.add('show'));
+  setTimeout(()=>document.addEventListener('pointerdown',profileListingDropdownOutside,{capture:true,once:true}),0);
+}
+function profileListingDropdownOutside(event){
+  const menu=$('#profileListingDropdown');
+  if(menu&&menu.contains(event.target))return;
+  closeProfileListingDropdown();
 }
 function openProfileListingEdit(id){
   const item=profileOwnedListingById(id);if(!item)return;
@@ -9957,6 +9980,68 @@ window.addEventListener('load', function(){
 .source-chip .app-source-styled{display:inline-flex!important;align-items:center!important;min-height:28px!important}
 
 @media(max-height:700px){:root{--findai-nav-height:46px;--findai-nav-bottom:4px}}
+</style>
+
+
+<style id="findai-v97-profile-polish">
+  /* Physical-bottom nav: fixed to the viewport, compact, no elevated dead zone. */
+  .nav.findai-five-nav.premium-bottom-nav{
+    position:fixed!important;left:50%!important;right:auto!important;bottom:0!important;
+    transform:translateX(-50%)!important;width:min(100%,520px)!important;
+    height:50px!important;padding:0 5px 2px!important;background:#050607!important;
+    border-top:1px solid rgba(255,255,255,.065)!important;z-index:210!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav button{height:48px!important;align-self:end!important}
+  .nav.findai-five-nav.premium-bottom-nav .nav-icon-shell{width:35px!important;height:35px!important}
+  .nav.findai-five-nav.premium-bottom-nav .nav-create-shell{width:38px!important;height:38px!important}
+  #discover.screen,#search.screen,#searchResults.screen,#liked.screen,#tracker.screen,#profile.screen{padding-bottom:50px!important}
+  #discover .discover-feed-wrap{bottom:50px!important}
+  #profile .profile-scroll,#search .premium-search-scroll,#searchResults .premium-results-scroll{padding-bottom:58px!important}
+
+  /* TikTok-style signed-out profile silhouette. */
+  .guest-profile-person-icon{width:100%;height:100%;display:block}
+  .nav-profile-avatar>span{width:19px;height:19px;display:grid;place-items:center;color:currentColor}
+  .nav-profile-avatar>span .guest-profile-person-icon{width:19px;height:19px}
+  .guest-profile-avatar>span{width:48px;height:48px;display:grid;place-items:center;color:#eef0f3}
+  .guest-profile-avatar>span .guest-profile-person-icon{width:48px;height:48px}
+
+  /* Do not force avatars onto a composited raster layer; iOS can make that look soft. */
+  .social-profile-avatar img,.nav-profile-avatar img,.account-avatar img,.account-menu-avatar img{
+    image-rendering:auto!important;backface-visibility:visible!important;transform:none!important;
+    -webkit-transform:none!important;filter:none!important;
+  }
+  #profileSignedIn .social-profile-avatar{width:92px!important;height:92px!important}
+  #profileSignedIn .social-profile-avatar img{width:100%!important;height:100%!important;object-fit:cover!important}
+
+  /* Lightweight Instagram-like listing menu that remains over the profile grid. */
+  .profile-listing-dropdown{
+    position:fixed;z-index:340;width:208px;padding:6px;border:1px solid rgba(255,255,255,.09);
+    border-radius:15px;background:rgba(24,25,27,.98);box-shadow:0 18px 55px rgba(0,0,0,.48);
+    backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+    opacity:0;transform:translateY(-5px) scale(.965);transform-origin:top right;
+    transition:opacity .16s ease,transform .2s cubic-bezier(.2,.8,.2,1);
+  }
+  .profile-listing-dropdown.show{opacity:1;transform:translateY(0) scale(1)}
+  .profile-listing-dropdown button{
+    width:100%;height:44px;padding:0 10px;border:0;border-radius:10px;background:transparent;color:#f5f5f7;
+    display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;
+    font:600 13px/1.2 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif;
+    transition:background .14s ease,transform .12s ease;
+  }
+  .profile-listing-dropdown button:active{background:rgba(255,255,255,.08);transform:scale(.985)}
+  .profile-listing-dropdown button svg{width:18px;height:18px;color:#c9ccd1;flex:0 0 auto}
+  .profile-listing-dropdown button.danger{color:#ff5a5f}
+  .profile-listing-dropdown button.danger svg{color:#ff5a5f}
+
+  /* Messages should never surface a raw JS error as an empty-state message. */
+  #appMpInbox .app-mp-empty{color:#8e8e93!important;font-size:13px!important}
+
+  @media(max-height:700px){
+    .nav.findai-five-nav.premium-bottom-nav{height:46px!important;padding-bottom:1px!important}
+    .nav.findai-five-nav.premium-bottom-nav button{height:45px!important}
+    #discover.screen,#search.screen,#searchResults.screen,#liked.screen,#tracker.screen,#profile.screen{padding-bottom:46px!important}
+    #discover .discover-feed-wrap{bottom:46px!important}
+  }
 </style>
 
 </body>
