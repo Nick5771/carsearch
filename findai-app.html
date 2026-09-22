@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#000000">
 <meta name="robots" content="noindex, follow">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="FindAI">
 <link rel="manifest" href="/app.webmanifest?v=15">
 <link rel="apple-touch-icon" sizes="180x180" href="/findai-search-touch-icon.png?v=15">
@@ -29,7 +29,7 @@
     var meta=document.querySelector('meta[name="theme-color"]');
     if(meta)meta.setAttribute('content',resolved==='light'?'#f6f7f9':'#050607');
     var statusMeta=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-    if(statusMeta)statusMeta.setAttribute('content',resolved==='light'?'default':'black');
+    if(statusMeta)statusMeta.setAttribute('content',resolved==='light'?'default':'black-translucent');
   }catch(_){}
 })();
 </script>
@@ -3772,7 +3772,7 @@ function accountAvatarPicked(event){
   reader.onload=()=>{
     const image=new Image();
     image.onload=()=>{
-      const size=512,canvas=document.createElement('canvas');
+      const size=1024,canvas=document.createElement('canvas');
       canvas.width=size;canvas.height=size;
       const ctx=canvas.getContext('2d');
       if(ctx&&'imageSmoothingEnabled' in ctx) ctx.imageSmoothingEnabled=true;
@@ -3780,7 +3780,9 @@ function accountAvatarPicked(event){
       const scale=Math.max(size/image.naturalWidth,size/image.naturalHeight);
       const width=image.naturalWidth*scale,height=image.naturalHeight*scale;
       ctx.drawImage(image,(size-width)/2,(size-height)/2,width,height);
-      const avatar=canvas.toDataURL('image/jpeg',.92);
+      const lossless=String(file.type||'').toLowerCase()==='image/png';
+      let avatar;
+      try{avatar=lossless?canvas.toDataURL('image/png'):canvas.toDataURL('image/webp',.96);}catch(_){avatar=canvas.toDataURL('image/jpeg',.96);}
       pendingAccountAvatar=avatar;
       const profile=getAccountProfile();
       if(profile){ profile.avatar=avatar;profile.updatedAt=Date.now();saveAccountProfile(profile);updateAccountHeader();renderAccountProfile(); }
@@ -3986,8 +3988,17 @@ function saveMarketplaceListings(listings){
 }
 async function loadMarketplaceListings(){
   if(!marketplaceSession()) return getMarketplaceListings();
+  const local=getMarketplaceListings();
   const data=await marketplaceFetch('/marketplace/me/listings',{method:'GET'});
-  const listings=Array.isArray(data.listings)?data.listings:[];
+  const remote=Array.isArray(data.listings)?data.listings:[];
+  const remoteIds=new Set(remote.map(item=>String(item.marketplaceListingId||item.itemId||item.id||'')));
+  const recentLocal=local.filter(item=>{
+    const id=String(item.marketplaceListingId||item.itemId||item.id||'');
+    if(!id||remoteIds.has(id))return false;
+    const created=Date.parse(item.createdAt||item.publishedAt||0);
+    return Number.isFinite(created)&&Date.now()-created<120000&&String(item.status||'active').toLowerCase()!=='removed';
+  });
+  const listings=[...recentLocal,...remote];
   saveMarketplaceListings(listings);
   return listings;
 }
@@ -4029,7 +4040,7 @@ async function submitCreateListing(event){
   try{
     const uploaded=await marketplaceFetch('/marketplace/images',{method:'POST',body:JSON.stringify({images:pendingListingImages,displayName:profile.name||'FindAI seller',country:'AU'})});
     if(submit) submit.textContent='Publishing…';
-    const created=await marketplaceFetch('/marketplace/listings',{method:'POST',body:JSON.stringify({title:name,description,condition,itemPrice:Number(price.toFixed(2)),currency:'AUD',imageUrls:uploaded.imageUrls||[],displayName:profile.name||'FindAI seller',publish:true})});
+    const created=await marketplaceFetch('/marketplace/listings',{method:'POST',body:JSON.stringify({title:name,description,condition,itemPrice:Number(price.toFixed(2)),currency:'AUD',shippingMode:'free',shippingMinor:0,imageUrls:uploaded.imageUrls||[],displayName:profile.name||'FindAI seller',publish:true})});
     const current=getMarketplaceListings();
     const createdId=created&&created.listing&&(created.listing.marketplaceListingId||created.listing.itemId||created.listing.id);
     const nextListings=created&&created.listing?[created.listing,...current.filter(item=>(item.marketplaceListingId||item.itemId||item.id)!==createdId)]:current.slice();
@@ -4038,11 +4049,12 @@ async function submitCreateListing(event){
     closeCreateListing();
     resetCreateListingForm();
     go('profile');
-    setProfileTab('listings');
+    socialProfileTab='listings';
+    $$('.social-profile-tabs [data-profile-tab]').forEach(button=>button.classList.toggle('active',button.dataset.profileTab==='listings'));
     try{paintSocialProfileHeader();renderSocialProfileContent();}catch(_){ }
-    toast('Listing is live across FindAI');
+    toast('Listing published');
     try{renderAccountProfile();}catch(_){}
-    setTimeout(()=>{loadProfileMarketplaceData(true).catch(()=>{});},900);
+    setTimeout(async()=>{try{await loadProfileMarketplaceData(true);}catch(_){ }},1800);
   }catch(error){toast(String(error&&error.message||'Could not publish listing'));if(submit){submit.disabled=false;submit.textContent='Publish Listing';}}
   return false;
 }
@@ -8597,9 +8609,23 @@ function paintSocialProfileHeader(){
 }
 function setProfileTab(tab){
   const allowed=['listings','sold','liked','reviews'];
-  socialProfileTab=allowed.includes(tab)?tab:'listings';
+  const next=allowed.includes(tab)?tab:'listings';
+  const previous=socialProfileTab;
+  if(next===previous){
+    $$('.social-profile-tabs [data-profile-tab]').forEach(button=>button.classList.toggle('active',button.dataset.profileTab===next));
+    return;
+  }
+  const fromIndex=Math.max(0,allowed.indexOf(previous));
+  const toIndex=Math.max(0,allowed.indexOf(next));
+  socialProfileTab=next;
   $$('.social-profile-tabs [data-profile-tab]').forEach(button=>button.classList.toggle('active',button.dataset.profileTab===socialProfileTab));
+  const root=$('#socialProfileContent');
+  if(root){
+    root.classList.remove('profile-tab-in-left','profile-tab-in-right');
+    root.classList.add(toIndex>fromIndex?'profile-tab-in-right':'profile-tab-in-left');
+  }
   renderSocialProfileContent();
+  if(root)setTimeout(()=>root.classList.remove('profile-tab-in-left','profile-tab-in-right'),260);
 }
 function socialProfileTile(item,index,source){
   const img=item.image||(Array.isArray(item.images)&&item.images[0])||item.fallbackImage||getImage(item)||'';
@@ -9137,7 +9163,7 @@ function applyAppTheme(pref){
   root.setAttribute('data-findai-theme',resolved);
   root.style.colorScheme=resolved;
   var meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.setAttribute('content',resolved==='light'?'#f6f7f9':'#050607');
-  var statusMeta=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');if(statusMeta)statusMeta.setAttribute('content',resolved==='light'?'default':'black');
+  var statusMeta=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');if(statusMeta)statusMeta.setAttribute('content',resolved==='light'?'default':'black-translucent');
   document.querySelectorAll('[data-app-theme-choice]').forEach(function(button){button.classList.toggle('active',button.getAttribute('data-app-theme-choice')===p);});
 }
 function setAppTheme(pref){
@@ -9246,7 +9272,7 @@ window.addEventListener('load', function(){
 </script>
 
 
-<style id="findai-v91-ui-tweaks">
+<style id="findai-v92-ui-tweaks">
   .app-mp-sheet-bg{position:fixed!important;}
   .app-mp-sheet{max-height:calc(var(--findai-vh,100vh) - 10px)!important;}
   .app-mp-sheet-body{padding-bottom:calc(28px + var(--safe-bottom) + var(--app-mp-keyboard-pad,0px))!important;scroll-padding:24px 0 160px!important;}
@@ -9397,6 +9423,40 @@ window.addEventListener('load', function(){
   .reel-like-count:empty{display:none!important;}
   .reel-card{cursor:pointer;}
   .reel-actions-rail,.reel-social-action,.nav button,.social-profile-tabs button,.social-profile-actions button,.social-profile-avatar,.social-settings-button{cursor:pointer;}
+
+
+  /* Premium motion system: quick, restrained, native-feeling transitions. */
+  .screen.active{animation:findaiScreenIn .20s cubic-bezier(.22,.72,.25,1) both;}
+  @keyframes findaiScreenIn{from{opacity:.72;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .social-profile-tabs button{transition:color .18s ease,transform .18s ease,opacity .18s ease!important;}
+  .social-profile-tabs button:active{transform:scale(.92)!important;}
+  .social-profile-tabs button:after{transition:left .22s cubic-bezier(.22,.72,.25,1),right .22s cubic-bezier(.22,.72,.25,1),opacity .18s ease!important;}
+  .social-profile-content{will-change:transform,opacity;}
+  .social-profile-content.profile-tab-in-right{animation:profileTabRight .22s cubic-bezier(.22,.72,.25,1) both;}
+  .social-profile-content.profile-tab-in-left{animation:profileTabLeft .22s cubic-bezier(.22,.72,.25,1) both;}
+  @keyframes profileTabRight{from{opacity:.35;transform:translateX(14px)}to{opacity:1;transform:none}}
+  @keyframes profileTabLeft{from{opacity:.35;transform:translateX(-14px)}to{opacity:1;transform:none}}
+  .nav button,.social-profile-actions button,.social-profile-tile,.premium-product-card,.mobile-product-card,.reel-social-action,.icon-btn{transition:transform .16s ease,opacity .16s ease,background-color .18s ease,color .18s ease!important;}
+  .nav button:active,.social-profile-actions button:active,.social-profile-tile:active,.premium-product-card:active,.mobile-product-card:active{transform:scale(.96)!important;}
+  .account-overlay.show .account-sheet,.app-theme-overlay.show .app-theme-sheet,.app-pro-overlay.show .app-pro-sheet{animation:findaiSheetIn .22s cubic-bezier(.22,.72,.25,1) both;}
+  @keyframes findaiSheetIn{from{opacity:.6;transform:translateY(18px)}to{opacity:1;transform:none}}
+
+  /* Scanner must be truly full-screen: the five-tab nav was overriding the older hide rule. */
+  body.scanning-fs .nav.findai-five-nav.premium-bottom-nav,
+  body.scan-results-open .nav.findai-five-nav.premium-bottom-nav{display:none!important;}
+
+  /* Remove the visible dark header band; use one continuous app surface. */
+  html,body,.app,#profile.profile-screen{background:#050607!important;}
+  #profile.profile-screen{background-image:none!important;}
+  #profile .profile-scroll{background:#050607!important;}
+
+  /* Keep avatars crisp at their display size. */
+  .social-profile-avatar img,.nav-profile-avatar img,.account-avatar img,.account-menu-avatar img{image-rendering:auto!important;backface-visibility:hidden;transform:translateZ(0);}
+
+  @media (prefers-reduced-motion:reduce){
+    .screen.active,.social-profile-content.profile-tab-in-right,.social-profile-content.profile-tab-in-left,.account-overlay.show .account-sheet,.app-theme-overlay.show .app-theme-sheet,.app-pro-overlay.show .app-pro-sheet{animation:none!important;}
+    *{scroll-behavior:auto!important;}
+  }
 </style>
 </body>
 </html>
