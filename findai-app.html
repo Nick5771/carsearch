@@ -3417,8 +3417,8 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
         <div class="guest-profile-posts">
           <div class="guest-profile-signin">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="8" r="3.5"/><path d="M5 21a7 7 0 0 1 14 0"/></svg>
-            <b>Sign in to edit your profile</b>
-            <span>Create listings, keep your likes and build your seller profile.</span>
+            <b>Sign in to your profile</b>
+            <span>View your listings, likes, messages and seller activity.</span>
             <button type="button" onclick="openLogin()">Sign in</button>
           </div>
         </div>
@@ -6186,7 +6186,8 @@ function itemDisplayedLikeCount(item){
   return Math.max(0,base + (isTracked(item)?1:0));
 }
 function itemLikeLabel(item){
-  return String(itemDisplayedLikeCount(item));
+  const count=itemDisplayedLikeCount(item);
+  return count>0?String(count):'';
 }
 
 function renderReelCard(item,index,data){
@@ -9245,23 +9246,155 @@ window.addEventListener('load', function(){
 </script>
 
 
-<style id="findai-v90-ui-tweaks">
+<style id="findai-v91-ui-tweaks">
   .app-mp-sheet-bg{position:fixed!important;}
   .app-mp-sheet{max-height:calc(var(--findai-vh,100vh) - 10px)!important;}
   .app-mp-sheet-body{padding-bottom:calc(28px + var(--safe-bottom) + var(--app-mp-keyboard-pad,0px))!important;scroll-padding:24px 0 160px!important;}
   .profile-edit-field input,.profile-edit-field textarea{font-size:16px!important;line-height:1.45!important;}
-  #profileSignedIn .social-profile-topbar{height:auto!important;padding:0 0 14px!important;}
-  #profileSignedIn .social-profile-handle{font-size:22px!important;font-weight:820!important;letter-spacing:-.5px!important;}
-  #profileSignedIn .social-profile-hero{grid-template-columns:100px minmax(0,1fr)!important;gap:16px!important;padding:3px 0 13px!important;}
-  #profileSignedIn .social-profile-avatar{width:96px!important;height:96px!important;font-size:28px!important;border-color:rgba(255,255,255,.18)!important;background:#15191e!important;}
-  #profileSignedIn .social-profile-stats b{font-size:20px!important;letter-spacing:-.35px!important;}
-  #profileSignedIn .social-profile-stats span{margin-top:6px!important;font-size:11px!important;color:#c4c9d0!important;}
-  #profileSignedIn .social-profile-copy{padding:0 0 15px!important;}
-  #profileSignedIn .social-profile-copy h2{font-size:16px!important;font-weight:800!important;letter-spacing:-.24px!important;}
-  #profileSignedIn .social-profile-bio{font-size:13px!important;line-height:1.5!important;margin-top:6px!important;color:#dde1e6!important;}
-  #profileSignedIn .social-profile-meta{font-size:11px!important;color:#939aa4!important;margin-top:5px!important;}
-  #profileSignedIn .social-profile-actions{gap:8px!important;padding:0 0 15px!important;}
-  #profileSignedIn .social-profile-actions button{height:38px!important;border-radius:11px!important;font-size:12px!important;font-weight:760!important;background:#171b20!important;}
+
+  #profile.profile-screen,
+  #profile.profile-screen button,
+  #profile.profile-screen input,
+  #profile.profile-screen textarea{
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Helvetica Neue",Arial,sans-serif!important;
+  }
+
+  #profile .social-profile-topbar{
+    height:auto!important;
+    padding:7px 0 15px!important;
+  }
+  #profile .social-profile-handle{
+    font-size:20px!important;
+    line-height:24px!important;
+    font-weight:650!important;
+    letter-spacing:-.25px!important;
+  }
+  #profile .social-settings-button{
+    width:34px!important;height:34px!important;
+  }
+  #profile .social-settings-button svg{
+    width:24px!important;height:24px!important;
+  }
+
+  #profile .social-profile-hero{
+    grid-template-columns:92px minmax(0,1fr)!important;
+    gap:16px!important;
+    padding:2px 0 14px!important;
+  }
+  #profile .social-profile-avatar{
+    width:88px!important;height:88px!important;
+    font-size:27px!important;
+    border:1px solid rgba(255,255,255,.2)!important;
+    background:#15181c!important;
+  }
+  #profile .social-profile-stats button{
+    padding:7px 2px!important;
+  }
+  #profile .social-profile-stats b{
+    font-size:17px!important;
+    line-height:20px!important;
+    font-weight:650!important;
+    letter-spacing:-.15px!important;
+  }
+  #profile .social-profile-stats span{
+    margin-top:4px!important;
+    font-size:13px!important;
+    line-height:16px!important;
+    font-weight:400!important;
+    color:#d2d5da!important;
+  }
+
+  #profile .social-profile-copy{
+    padding:0 0 13px!important;
+  }
+  #profile .social-profile-copy h2{
+    font-size:14px!important;
+    line-height:18px!important;
+    font-weight:600!important;
+    letter-spacing:0!important;
+  }
+  #profile .social-profile-bio{
+    margin-top:2px!important;
+    font-size:14px!important;
+    line-height:18px!important;
+    font-weight:400!important;
+    color:#f1f2f3!important;
+  }
+  #profile .social-profile-meta{
+    margin-top:3px!important;
+    font-size:13px!important;
+    line-height:17px!important;
+    color:#9aa0a8!important;
+  }
+
+  #profile .social-profile-actions{
+    gap:7px!important;
+    padding:0 0 13px!important;
+  }
+  #profile .social-profile-actions button{
+    height:34px!important;
+    border:0!important;
+    border-radius:8px!important;
+    background:#1b1e22!important;
+    font-size:13px!important;
+    line-height:16px!important;
+    font-weight:600!important;
+  }
+
+  #profile .social-profile-tabs{
+    height:52px!important;
+    margin:0 -18px!important;
+    background:#050607!important;
+    border-top:1px solid rgba(255,255,255,.08)!important;
+    border-bottom:1px solid rgba(255,255,255,.08)!important;
+  }
+  #profile .social-profile-tabs button svg{
+    width:26px!important;
+    height:26px!important;
+  }
+  #profile .social-profile-tabs button.active:after{
+    left:13%!important;
+    right:13%!important;
+    bottom:-1px!important;
+    height:2px!important;
+  }
+
+  #profileSignedOut .social-profile-copy,
+  #profileSignedOut .guest-profile-actions{
+    display:none!important;
+  }
+  #profileSignedOut .guest-profile-posts{
+    min-height:260px!important;
+  }
+  #profileSignedOut .guest-profile-signin{
+    padding:62px 28px 76px!important;
+  }
+  #profileSignedOut .guest-profile-signin>svg{
+    display:none!important;
+  }
+  #profileSignedOut .guest-profile-signin>b{
+    font-size:16px!important;
+    line-height:20px!important;
+    font-weight:650!important;
+    letter-spacing:-.1px!important;
+  }
+  #profileSignedOut .guest-profile-signin>span{
+    max-width:270px!important;
+    margin-top:7px!important;
+    font-size:13px!important;
+    line-height:18px!important;
+    color:#8d939b!important;
+  }
+  #profileSignedOut .guest-profile-signin>button{
+    height:40px!important;
+    min-width:160px!important;
+    margin-top:18px!important;
+    border-radius:8px!important;
+    font-size:14px!important;
+    font-weight:650!important;
+  }
+
+  .reel-like-count:empty{display:none!important;}
   .reel-card{cursor:pointer;}
   .reel-actions-rail,.reel-social-action,.nav button,.social-profile-tabs button,.social-profile-actions button,.social-profile-avatar,.social-settings-button{cursor:pointer;}
 </style>
