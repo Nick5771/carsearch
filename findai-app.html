@@ -11556,5 +11556,107 @@ window.addEventListener('load', function(){
 })();
 </script>
 
+
+<style id="findai-v104-tiktok-bottom-nav">
+  /*
+    TikTok-style bottom structure:
+    - the black bar itself reaches the physical bottom of the viewport
+    - the five controls occupy a compact 52px row
+    - iPhone safe-area space lives BELOW that row, inside the same black bar
+  */
+  :root{
+    --fa-nav-row:52px!important;
+    --fa-nav-safe:env(safe-area-inset-bottom,0px)!important;
+    --fa-nav-total:calc(var(--fa-nav-row) + var(--fa-nav-safe))!important;
+  }
+
+  body>.nav.findai-five-nav.premium-bottom-nav{
+    position:fixed!important;
+    left:50%!important;
+    right:auto!important;
+    top:auto!important;
+    bottom:0!important;
+    width:min(100vw,520px)!important;
+    height:var(--fa-nav-total)!important;
+    min-height:var(--fa-nav-total)!important;
+    max-height:var(--fa-nav-total)!important;
+    padding:0 6px var(--fa-nav-safe)!important;
+    margin:0!important;
+    transform:translateX(-50%)!important;
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+    align-items:start!important;
+    background:#000!important;
+    border-top:1px solid rgba(255,255,255,.08)!important;
+    box-sizing:border-box!important;
+    z-index:1000!important;
+  }
+
+  body>.nav.findai-five-nav.premium-bottom-nav button{
+    width:100%!important;
+    height:var(--fa-nav-row)!important;
+    min-height:var(--fa-nav-row)!important;
+    max-height:var(--fa-nav-row)!important;
+    padding:0!important;
+    margin:0!important;
+    display:grid!important;
+    place-items:center!important;
+    align-self:start!important;
+    transform:none!important;
+  }
+
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-icon-shell,
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-create-shell,
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar,
+  body>.nav.findai-five-nav.premium-bottom-nav button.active .nav-icon-shell,
+  body>.nav.findai-five-nav.premium-bottom-nav button:active .nav-icon-shell{
+    transform:none!important;
+    scale:1!important;
+  }
+
+  /* The feed ends at the TOP of the bottom bar, like TikTok. */
+  .screen,#profile.profile-screen{
+    padding-bottom:var(--fa-nav-total)!important;
+  }
+  #discover .discover-feed-wrap{
+    bottom:var(--fa-nav-total)!important;
+  }
+  #search .premium-search-scroll,
+  #searchResults .premium-results-scroll,
+  #profile .profile-scroll{
+    padding-bottom:calc(var(--fa-nav-total) + 8px)!important;
+  }
+  #appMpInbox.show{
+    bottom:var(--fa-nav-total)!important;
+  }
+
+  /* Keep the whole safe-area strip black in light mode too, exactly like TikTok. */
+  html.findai-light body>.nav.findai-five-nav.premium-bottom-nav{
+    background:#000!important;
+    border-top-color:#1b1b1c!important;
+  }
+</style>
+
+
+<script id="findai-v104-tiktok-bottom-nav-script">
+(function(){
+  function mountNavToViewport(){
+    const nav=document.querySelector('.nav.findai-five-nav.premium-bottom-nav');
+    if(!nav)return;
+    /*
+      Moving the permanent nav outside .app removes any app-container viewport
+      calculations from its positioning. Its bottom:0 is now the real browser/
+      standalone-app viewport bottom.
+    */
+    if(nav.parentElement!==document.body)document.body.appendChild(nav);
+  }
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',mountNavToViewport,{once:true});
+  }else{
+    mountNavToViewport();
+  }
+  window.addEventListener('pageshow',mountNavToViewport,{passive:true});
+})();
+</script>
+
 </body>
 </html>
