@@ -3162,7 +3162,13 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
     <header class="discover-social-topbar" aria-label="FindAI home">
       <div class="discover-social-brand">FindAI</div>
       <div class="discover-social-title">For You</div>
-      <div class="discover-social-balance" aria-hidden="true"></div>
+      <button class="discover-notification-button" id="homeNotificationButton" type="button" onclick="openHomeNotifications()" aria-label="Notifications">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M18 8a6 6 0 0 0-12 0c0 6.7-2.7 7-3 9h18c-.3-2-3-2.3-3-9"/>
+          <path d="M10 21h4"/>
+        </svg>
+        <span class="discover-notification-dot" id="homeNotificationDot" aria-hidden="true"></span>
+      </button>
     </header>
     <div class="feed-wrap discover-feed-wrap">
       <div class="reel-feed" id="personalFeed" aria-live="polite">
@@ -11265,6 +11271,290 @@ window.addEventListener('load', function(){
   html.findai-light .listing-image-picker svg{color:#333!important}.findai-light .listing-image-picker span{color:#73757b!important}
   html.findai-light .create-listing-submit{background:#111!important;color:#fff!important;box-shadow:none!important}
 </style>
+
+
+<style id="findai-v102-bottom-nav-final">
+  /* Final viewport authority: use the full iPhone screen height, not the reduced visual viewport. */
+  html,body{
+    height:100vh!important;
+    min-height:100vh!important;
+    max-height:100vh!important;
+  }
+  @supports (height:100lvh){
+    html,body{
+      height:100lvh!important;
+      min-height:100lvh!important;
+      max-height:100lvh!important;
+    }
+  }
+  .app{
+    inset:0!important;
+    top:0!important;
+    bottom:0!important;
+    height:100vh!important;
+    min-height:100vh!important;
+    max-height:100vh!important;
+  }
+  @supports (height:100lvh){
+    .app{
+      height:100lvh!important;
+      min-height:100lvh!important;
+      max-height:100lvh!important;
+    }
+  }
+
+  /* The five main controls now sit directly on the physical bottom edge. */
+  :root{
+    --fa-nav-safe:0px!important;
+    --fa-nav-content:54px!important;
+    --fa-nav-total:54px!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav{
+    position:fixed!important;
+    left:50%!important;
+    right:auto!important;
+    top:auto!important;
+    bottom:0!important;
+    width:min(100%,520px)!important;
+    height:54px!important;
+    min-height:54px!important;
+    max-height:54px!important;
+    padding:0 6px!important;
+    margin:0!important;
+    transform:translateX(-50%)!important;
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+    align-items:center!important;
+    background:#000!important;
+    box-sizing:border-box!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav button{
+    width:100%!important;
+    height:54px!important;
+    min-height:54px!important;
+    padding:0!important;
+    margin:0!important;
+    display:grid!important;
+    place-items:center!important;
+    align-self:center!important;
+    transform:none!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav .nav-icon-shell,
+  .nav.findai-five-nav.premium-bottom-nav .nav-create-shell,
+  .nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar{
+    transform:none!important;
+  }
+
+  /* No tab grows, pops or shifts when selected. Only the icon state/color changes. */
+  .nav.findai-five-nav.premium-bottom-nav button,
+  .nav.findai-five-nav.premium-bottom-nav button.active,
+  .nav.findai-five-nav.premium-bottom-nav button:active{
+    transform:none!important;
+    scale:1!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav .nav-icon-shell,
+  .nav.findai-five-nav.premium-bottom-nav button.active .nav-icon-shell,
+  .nav.findai-five-nav.premium-bottom-nav button:active .nav-icon-shell,
+  .nav.findai-five-nav.premium-bottom-nav .nav-create-shell,
+  .nav.findai-five-nav.premium-bottom-nav button.active .nav-create-shell,
+  .nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar,
+  .nav.findai-five-nav.premium-bottom-nav button.active .nav-profile-avatar,
+  .nav.findai-five-nav.premium-bottom-nav svg{
+    transform:none!important;
+    scale:1!important;
+    transition:color .16s ease,opacity .16s ease,fill .16s ease!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav::before,
+  .nav.findai-five-nav.premium-bottom-nav button.active .nav-icon-shell::before{
+    display:none!important;
+  }
+
+  /* Keep the signed-out person glyph visually centred with breathing room inside its circle. */
+  .nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar{
+    display:grid!important;
+    place-items:center!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar>span{
+    width:100%!important;
+    height:100%!important;
+    display:grid!important;
+    place-items:center!important;
+    line-height:0!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar>span .guest-profile-person-icon{
+    width:17px!important;
+    height:17px!important;
+    display:block!important;
+    margin:0!important;
+    transform:translateY(-1px)!important;
+    transform-origin:center!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar img{
+    width:100%!important;
+    height:100%!important;
+    object-fit:cover!important;
+    object-position:50% 50%!important;
+    margin:0!important;
+    transform:none!important;
+  }
+
+  /* All app surfaces reserve only the actual 54px bar now. */
+  .screen,#profile.profile-screen{
+    padding-bottom:54px!important;
+  }
+  #discover .discover-feed-wrap{
+    bottom:54px!important;
+  }
+  #search .premium-search-scroll,
+  #searchResults .premium-results-scroll,
+  #profile .profile-scroll{
+    padding-bottom:62px!important;
+  }
+  #appMpInbox.show{
+    bottom:54px!important;
+  }
+
+  html.findai-light .nav.findai-five-nav.premium-bottom-nav{
+    background:#000!important;
+  }
+</style>
+
+
+<style id="findai-v103-notification-bell">
+  #discover .discover-social-topbar{
+    grid-template-columns:1fr auto 1fr!important;
+    pointer-events:none!important;
+  }
+  #discover .discover-notification-button{
+    justify-self:end!important;
+    align-self:center!important;
+    position:relative!important;
+    width:38px!important;
+    height:38px!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:50%!important;
+    background:transparent!important;
+    color:#fff!important;
+    display:grid!important;
+    place-items:center!important;
+    pointer-events:auto!important;
+    cursor:pointer!important;
+    -webkit-tap-highlight-color:transparent!important;
+    transition:color .16s ease,opacity .16s ease!important;
+  }
+  #discover .discover-notification-button svg{
+    width:25px!important;
+    height:25px!important;
+    display:block!important;
+    transform:none!important;
+    filter:drop-shadow(0 1px 5px rgba(0,0,0,.35));
+  }
+  #discover .discover-notification-button:active{
+    opacity:.72!important;
+    transform:none!important;
+  }
+  #discover .discover-notification-dot{
+    position:absolute!important;
+    top:5px!important;
+    right:5px!important;
+    width:8px!important;
+    height:8px!important;
+    min-width:8px!important;
+    min-height:8px!important;
+    border-radius:50%!important;
+    background:#ff3045!important;
+    border:1.5px solid #050607!important;
+    opacity:0!important;
+    transform:scale(.55)!important;
+    pointer-events:none!important;
+    transition:opacity .16s ease,transform .18s cubic-bezier(.2,.8,.2,1)!important;
+  }
+  #discover .discover-notification-button.has-notification{
+    color:#ff3045!important;
+  }
+  #discover .discover-notification-button.has-notification .discover-notification-dot{
+    opacity:1!important;
+    transform:scale(1)!important;
+  }
+  html.findai-light #discover .discover-notification-button{
+    color:#111214!important;
+  }
+  html.findai-light #discover .discover-notification-button.has-notification{
+    color:#e61f38!important;
+  }
+  html.findai-light #discover .discover-notification-dot{
+    background:#e61f38!important;
+    border-color:#f6f7f9!important;
+  }
+</style>
+
+
+<script id="findai-v103-notification-bell-script">
+(function(){
+  window.setHomeNotificationState=function(count){
+    const button=document.getElementById('homeNotificationButton');
+    const dot=document.getElementById('homeNotificationDot');
+    const unread=Math.max(0,Number(count)||0);
+    if(button){
+      button.classList.toggle('has-notification',unread>0);
+      button.setAttribute('aria-label',unread>0
+        ? `Notifications — ${unread} unread`
+        : 'Notifications');
+    }
+    if(dot)dot.setAttribute('aria-hidden','true');
+  };
+
+  window.openHomeNotifications=function(){
+    if(typeof openMessagesTab==='function'){
+      openMessagesTab();
+      return;
+    }
+    if(typeof openAppMarketplaceInbox==='function')openAppMarketplaceInbox();
+  };
+
+  const originalRefresh=window.appRefreshMarketplaceBadge;
+  if(typeof originalRefresh==='function'){
+    window.appRefreshMarketplaceBadge=async function(){
+      if(!marketplaceSession()){
+        setHomeNotificationState(0);
+        return originalRefresh.apply(this,arguments);
+      }
+      try{
+        const data=await marketplaceFetch('/marketplace/conversations',{method:'GET'});
+        const count=Number(data&&data.unreadCount||0);
+        setHomeNotificationState(count);
+
+        const label=count>99?'99+':String(count);
+        ['#appMpUnreadBadge','#appMpAvatarBadge'].forEach(selector=>{
+          const badge=$(selector);
+          if(badge){
+            badge.textContent=label;
+            badge.classList.toggle('show',count>0);
+          }
+        });
+        const avatar=$('#accountAvatar');
+        if(avatar)avatar.setAttribute('aria-label',count>0
+          ? `Open account — ${count} unread message${count===1?'':'s'}`
+          : 'Open account and messages');
+        if(navigator.setAppBadge){
+          if(count>0)navigator.setAppBadge(count);
+          else if(navigator.clearAppBadge)navigator.clearAppBadge();
+        }
+      }catch(_){
+        return originalRefresh.apply(this,arguments);
+      }
+    };
+  }
+
+  setHomeNotificationState(0);
+  setTimeout(()=>{
+    try{
+      if(typeof appRefreshMarketplaceBadge==='function')appRefreshMarketplaceBadge();
+    }catch(_){}
+  },250);
+})();
+</script>
 
 </body>
 </html>
