@@ -2634,7 +2634,7 @@ html.findai-light .profile-edit-field input,html.findai-light .profile-edit-fiel
 /* ============================================================
    FindAI v89 — premium Search + restrained nav + clean profile
    ============================================================ */
-:root{--premium-nav-h:68px}
+:root{--premium-nav-h:54px}
 
 /* Bottom navigation: 5 evenly spaced icons, YouTube-like centre action. */
 .premium-bottom-nav{
@@ -3040,14 +3040,14 @@ html.findai-light .nav button.active[data-tab="profile"] .nav-profile-avatar{bor
   padding:0!important;
 }
 .nav.findai-five-nav.premium-bottom-nav .nav-icon-shell{
-  width:40px!important;height:40px!important;border-radius:50%!important;
+  width:38px!important;height:38px!important;border-radius:50%!important;
 }
 .nav.findai-five-nav.premium-bottom-nav button.active .nav-icon-shell{
   background:rgba(255,255,255,.12)!important;
 }
 .nav.findai-five-nav.premium-bottom-nav button svg{width:24px!important;height:24px!important}
 .nav.findai-five-nav.premium-bottom-nav .nav-create-shell{
-  width:42px!important;height:42px!important;border-radius:50%!important;
+  width:40px!important;height:40px!important;border-radius:50%!important;
   background:#292a2d!important;color:#fff!important;box-shadow:none!important;transform:none!important;
 }
 .nav.findai-five-nav.premium-bottom-nav .nav-create-shell svg{width:23px!important;height:23px!important}
@@ -3085,7 +3085,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
   background:rgba(0,0,0,.075)!important;
 }
 @media(max-height:700px){
-  :root{--premium-nav-h:60px}
+  :root{--premium-nav-h:50px}
   .nav.findai-five-nav.premium-bottom-nav .nav-icon-shell{width:38px!important;height:38px!important}
   .nav.findai-five-nav.premium-bottom-nav .nav-create-shell{width:40px!important;height:40px!important}
   #discover .discover-social-topbar{height:calc(var(--safe-top) + 48px)}
@@ -5600,7 +5600,16 @@ function bindFeedHeaderAutoHide(){
 }
 
 function setMainNavActive(tab){
-  $$('.nav button').forEach(button=>button.classList.toggle('active',button.dataset.tab===tab));
+  const nav=$('.nav.findai-five-nav');
+  const buttons=nav?Array.from(nav.querySelectorAll(':scope > button')):[];
+  buttons.forEach(button=>button.classList.toggle('active',button.dataset.tab===tab));
+  if(nav){
+    const active=buttons.find(button=>button.dataset.tab===tab);
+    const index=Math.max(0,buttons.indexOf(active));
+    const positions=['10%','30%','50%','70%','90%'];
+    nav.style.setProperty('--nav-active-x',positions[index]||'10%');
+    nav.dataset.activeTab=String(tab||'');
+  }
 }
 function syncMainNavActive(){
   setMainNavActive(document.body.dataset.activeTab||'discover');
@@ -8313,11 +8322,21 @@ function premiumCardSourceMarkup(item){
   if(key&&FINDAI_APP_REAL_LOGOS[key])return '<span class="premium-card-source-logo">'+appRealLogoImg(key,'premium-card-source-logo-img',sourceLabel(key))+'</span>';
   return '<span class="premium-card-source-text">'+escapeHTML(sourceLabel(source||'listing'))+'</span>';
 }
+function premiumInlineBrandMarkup(config){
+  const key=String(config&&config.brand||'').toLowerCase();
+  if(key==='ebay')return '<span class="premium-inline-brand premium-inline-ebay">'+EBAY_LOGO_SVG+'</span>';
+  if(key&&FINDAI_APP_REAL_LOGOS[key])return '<span class="premium-inline-brand">'+appRealLogoImg(key,'premium-inline-brand-logo',sourceLabel(key))+'</span>';
+  return '';
+}
+function premiumSectionHeadingMarkup(config){
+  const brand=premiumInlineBrandMarkup(config);
+  if(brand&&/^Popular on /i.test(String(config&&config.title||'')))return 'Popular on '+brand;
+  return escapeHTML(config&&config.title||'Popular');
+}
 function premiumSectionSkeleton(config){
   return `<section class="premium-market-section" id="premium-section-${escapeAttr(config.id)}">
     <div class="premium-section-title">
-      <div><h2>${escapeHTML(config.title)}</h2><span>Live marketplace listings</span></div>
-      ${premiumBrandMarkup(config)}
+      <div><h2 class="premium-section-heading">${premiumSectionHeadingMarkup(config)}</h2><span>Live marketplace listings</span></div>
     </div>
     <div class="premium-market-row" data-section-row="${escapeAttr(config.id)}">
       <div class="premium-product-skeleton"></div><div class="premium-product-skeleton"></div><div class="premium-product-skeleton"></div>
@@ -8688,26 +8707,30 @@ function paintSocialProfileHeader(){
   const soldCount=$('#socialSoldCount');if(soldCount)soldCount.textContent=String(sold);
   const rating=$('#socialRatingValue');if(rating)rating.textContent=socialProfileSeller.reviewCount?Number(socialProfileSeller.rating||0).toFixed(1):'—';
   const tracked=$('#profileTrackedCount');if(tracked)tracked.textContent=String(getTracked().length);
+  const tabs=$('.social-profile-tabs');if(tabs){const order=['listings','sold','liked','reviews'];tabs.style.setProperty('--profile-tab-index',String(Math.max(0,order.indexOf(socialProfileTab))));}
 }
 function setProfileTab(tab){
   const allowed=['listings','sold','liked','reviews'];
   const next=allowed.includes(tab)?tab:'listings';
   const previous=socialProfileTab;
-  if(next===previous){
-    $$('.social-profile-tabs [data-profile-tab]').forEach(button=>button.classList.toggle('active',button.dataset.profileTab===next));
-    return;
-  }
   const fromIndex=Math.max(0,allowed.indexOf(previous));
   const toIndex=Math.max(0,allowed.indexOf(next));
   socialProfileTab=next;
+  const tabs=$('.social-profile-tabs');
+  if(tabs){
+    tabs.style.setProperty('--profile-tab-index',String(toIndex));
+    tabs.dataset.activeIndex=String(toIndex);
+  }
   $$('.social-profile-tabs [data-profile-tab]').forEach(button=>button.classList.toggle('active',button.dataset.profileTab===socialProfileTab));
+  if(next===previous)return;
   const root=$('#socialProfileContent');
   if(root){
     root.classList.remove('profile-tab-in-left','profile-tab-in-right');
+    void root.offsetWidth;
     root.classList.add(toIndex>fromIndex?'profile-tab-in-right':'profile-tab-in-left');
   }
   renderSocialProfileContent();
-  if(root)setTimeout(()=>root.classList.remove('profile-tab-in-left','profile-tab-in-right'),260);
+  if(root)setTimeout(()=>root.classList.remove('profile-tab-in-left','profile-tab-in-right'),340);
 }
 function socialProfilePriceText(value,currency='AUD'){
   const amount=Number(value);if(!Number.isFinite(amount)||amount<=0)return '';
@@ -9663,6 +9686,148 @@ window.addEventListener('load', function(){
   .profile-listing-menu button small{display:block;margin-top:4px;color:#8d949e;font-size:11px;line-height:1.35;}
   .profile-listing-menu button.danger span{color:#ff7370;}
   .profile-listing-edit{display:flex;flex-direction:column;gap:12px;}
+</style>
+
+
+<style id="findai-v95-balance-motion-brand">
+  /* Bottom navigation: Instagram/TikTok-like physical height and spacing. */
+  :root{--premium-nav-h:54px!important;}
+  .nav.findai-five-nav.premium-bottom-nav{
+    height:calc(var(--premium-nav-h) + var(--safe-bottom))!important;
+    padding:0 8px var(--safe-bottom)!important;
+    background:rgba(3,4,5,.98)!important;
+    overflow:visible!important;
+    isolation:isolate!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav button{
+    height:var(--premium-nav-h)!important;
+    position:relative!important;
+    z-index:2!important;
+    transition:color .26s cubic-bezier(.2,.75,.25,1),transform .18s ease,opacity .22s ease!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav .nav-icon-shell{
+    width:38px!important;height:38px!important;
+    background:transparent!important;
+    transition:transform .25s cubic-bezier(.2,.75,.25,1),opacity .22s ease!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav button.active .nav-icon-shell{
+    background:transparent!important;
+    transform:scale(1.035)!important;
+  }
+  .nav.findai-five-nav.premium-bottom-nav::before{
+    content:"";
+    position:absolute;
+    z-index:1;
+    top:calc((var(--premium-nav-h) - 40px)/2);
+    left:var(--nav-active-x,10%);
+    width:40px;height:40px;
+    border-radius:50%;
+    background:rgba(255,255,255,.12);
+    transform:translateX(-50%);
+    transition:left .30s cubic-bezier(.22,.78,.24,1),background-color .22s ease,opacity .22s ease;
+    pointer-events:none;
+  }
+  .nav.findai-five-nav.premium-bottom-nav .nav-create-action .nav-create-shell{
+    width:40px!important;height:40px!important;
+  }
+  #discover.screen,#search.screen,#searchResults.screen,#liked.screen,#tracker.screen,#profile.screen{
+    padding-bottom:calc(var(--premium-nav-h) + var(--safe-bottom))!important;
+  }
+
+  /* Branded discovery headings: "Popular on" + the actual retailer mark inline. */
+  .premium-market-section .premium-section-title{
+    justify-content:flex-start!important;
+  }
+  .premium-section-heading{
+    display:flex!important;
+    align-items:center!important;
+    flex-wrap:nowrap!important;
+    gap:7px!important;
+    white-space:nowrap!important;
+  }
+  .premium-inline-brand{
+    display:inline-flex!important;
+    align-items:center!important;
+    height:24px!important;
+    max-width:116px!important;
+    vertical-align:middle!important;
+    flex:0 0 auto!important;
+  }
+  .premium-inline-brand .app-ebay-wordmark{
+    display:inline-flex!important;
+    align-items:baseline!important;
+    gap:0!important;
+    font-family:Arial,Helvetica,sans-serif!important;
+    font-size:25px!important;
+    line-height:1!important;
+    font-weight:700!important;
+    letter-spacing:-1.8px!important;
+    white-space:nowrap!important;
+  }
+  .premium-inline-brand-logo{
+    display:block!important;
+    width:auto!important;
+    height:23px!important;
+    max-width:112px!important;
+    object-fit:contain!important;
+    object-position:left center!important;
+  }
+  .premium-market-brand{display:none!important;}
+
+  /* One underline that physically slides between profile tabs. */
+  #profile .social-profile-tabs{
+    position:relative!important;
+    overflow:hidden!important;
+    --profile-tab-index:0;
+  }
+  #profile .social-profile-tabs button:after{display:none!important;}
+  #profile .social-profile-tabs::after{
+    content:"";
+    position:absolute;
+    left:0;
+    bottom:0;
+    width:25%;
+    height:2px;
+    background:#fff;
+    transform:translateX(calc(var(--profile-tab-index) * 100%));
+    transition:transform .30s cubic-bezier(.22,.78,.24,1);
+    pointer-events:none;
+    will-change:transform;
+  }
+  #profile .social-profile-tabs button{
+    transition:color .24s ease,opacity .24s ease,transform .18s ease!important;
+  }
+  #profile .social-profile-content.profile-tab-in-right{
+    animation:profileTabRightV95 .30s cubic-bezier(.22,.78,.24,1) both!important;
+  }
+  #profile .social-profile-content.profile-tab-in-left{
+    animation:profileTabLeftV95 .30s cubic-bezier(.22,.78,.24,1) both!important;
+  }
+  @keyframes profileTabRightV95{
+    from{opacity:.25;transform:translate3d(26px,0,0)}
+    to{opacity:1;transform:translate3d(0,0,0)}
+  }
+  @keyframes profileTabLeftV95{
+    from{opacity:.25;transform:translate3d(-26px,0,0)}
+    to{opacity:1;transform:translate3d(0,0,0)}
+  }
+
+  /* Screen changes should feel like a native tab switch, not a page reload. */
+  .screen.active{
+    animation:findaiTabScreenV95 .26s cubic-bezier(.22,.78,.24,1) both!important;
+  }
+  @keyframes findaiTabScreenV95{
+    from{opacity:.45;transform:scale(.995)}
+    to{opacity:1;transform:scale(1)}
+  }
+
+  @media(max-height:700px){
+    :root{--premium-nav-h:50px!important;}
+    .nav.findai-five-nav.premium-bottom-nav::before{
+      top:calc((var(--premium-nav-h) - 38px)/2);
+      width:38px;height:38px;
+    }
+  }
 </style>
 
 </body>
