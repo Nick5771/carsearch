@@ -6513,7 +6513,7 @@ function refreshTrackedHeartUI(){
     const label=button.querySelector('.reel-like-count');
     if(label){
       const base=Math.max(0,Math.round(Number(button.getAttribute('data-like-base')||0)||0));
-      label.textContent=String(base + (active?1:0));
+      const total=base+(active?1:0);label.textContent=total>0?String(total):'';
     }
   });
 }
@@ -8843,6 +8843,40 @@ function socialProfilePriceText(value,currency='AUD'){
   if(code==='AUD')return '$'+amount.toLocaleString('en-AU',{minimumFractionDigits:amount%1?2:0,maximumFractionDigits:2});
   try{return new Intl.NumberFormat(undefined,{style:'currency',currency:code,minimumFractionDigits:amount%1?2:0,maximumFractionDigits:2}).format(amount);}catch(_){return money(amount,code);}
 }
+function profileListingMetricNumber(value){
+  const n=Number(String(value==null?'':value).replace(/[^0-9.]/g,''));
+  return Number.isFinite(n)&&n>0?Math.round(n):0;
+}
+function profileListingViewCount(item){
+  if(!item)return 0;
+  const values=[
+    item.viewCount,item.views,item.view_count,item.impressions,item.impressionCount,
+    item.stats&&item.stats.views,item.analytics&&item.analytics.views
+  ];
+  for(const value of values){
+    const n=profileListingMetricNumber(value);
+    if(n>0)return n;
+  }
+  return 0;
+}
+function profileListingLikeCount(item){
+  if(!item)return 0;
+  const values=[
+    item.likeCount,item.likes,item.likesCount,item.savedCount,item.favoriteCount,item.favouriteCount,
+    item.stats&&item.stats.likes,item.analytics&&item.analytics.likes,item.watchCount
+  ];
+  for(const value of values){
+    const n=profileListingMetricNumber(value);
+    if(n>0)return n;
+  }
+  return 0;
+}
+function profileMetricCompact(value){
+  const n=Math.max(0,Number(value)||0);
+  if(n>=1000000)return (n/1000000).toFixed(n>=10000000?0:1).replace(/\.0$/,'')+'M';
+  if(n>=1000)return (n/1000).toFixed(n>=10000?0:1).replace(/\.0$/,'')+'K';
+  return String(Math.round(n));
+}
 function socialProfileTile(item,index,source){
   const img=item.image||(Array.isArray(item.images)&&item.images[0])||item.fallbackImage||getImage(item)||'';
   const price=Number(item.price)||Number(item.itemPrice)||0;
@@ -8851,9 +8885,18 @@ function socialProfileTile(item,index,source){
   const click=source==='liked'?`openProfileLikedItem(${index})`:`openProfileListingItem(${index},'${source}')`;
   const id=String(appMpId(item)||'');
   const owned=source==='listings'||source==='sold';
+  const views=owned?profileListingViewCount(item):0;
+  const likes=owned?profileListingLikeCount(item):0;
+  const stats=owned?`<span class="social-profile-tile-stats">
+    <span class="social-profile-tile-stat" title="${views} views"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.7"/></svg>${escapeHTML(profileMetricCompact(views))}</span>
+    ${likes>0?`<span class="social-profile-tile-stat" title="${likes} likes"><svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="M20.8 4.7a5.6 5.6 0 0 0-7.9 0L12 5.6l-.9-.9a5.6 5.6 0 0 0-7.9 7.9L12 21l8.8-8.4a5.6 5.6 0 0 0 0-7.9Z"/></svg>${escapeHTML(profileMetricCompact(likes))}</span>`:''}
+  </span>`:'';
   return `<article class="social-profile-tile" role="button" tabindex="0" onclick="${click}" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${click}}">
     ${img?`<img src="${escapeAttr(img)}" alt="${escapeAttr(item.title||'FindAI item')}" referrerpolicy="no-referrer" onerror="this.style.display='none'">`:`<span class="social-profile-tile-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5L5 20"/></svg></span>`}
-    ${price?`<span class="social-profile-tile-price">${escapeHTML(socialProfilePriceText(price,currency))}</span>`:''}
+    <span class="social-profile-tile-footer">
+      ${price?`<span class="social-profile-tile-price">${escapeHTML(socialProfilePriceText(price,currency))}</span>`:''}
+      ${stats}
+    </span>
     ${sold?`<span class="social-profile-sold-badge">Sold</span>`:''}
     ${owned&&id?`<button class="social-profile-tile-menu" type="button" onclick="openProfileListingMenu(event,'${escapeAttr(id)}')" aria-label="Manage listing"><span></span><span></span><span></span></button>`:''}
   </article>`;
@@ -11662,6 +11705,436 @@ window.addEventListener('load', function(){
     mountNavToViewport();
   }
   window.addEventListener('pageshow',mountNavToViewport,{passive:true});
+})();
+</script>
+
+
+<style id="findai-v105-final-bottom-stats-notifications">
+  /* The permanent 5-icon bar is exactly one compact row at the physical bottom. */
+  :root{
+    --fa-nav-row:50px!important;
+    --fa-nav-safe:0px!important;
+    --fa-nav-total:50px!important;
+  }
+  body>.nav.findai-five-nav.premium-bottom-nav{
+    position:fixed!important;
+    left:50%!important;
+    right:auto!important;
+    top:auto!important;
+    bottom:0!important;
+    width:min(100vw,520px)!important;
+    height:50px!important;
+    min-height:50px!important;
+    max-height:50px!important;
+    padding:0 6px!important;
+    margin:0!important;
+    transform:translateX(-50%)!important;
+    align-items:center!important;
+    background:#000!important;
+    border-top:1px solid rgba(255,255,255,.08)!important;
+    box-sizing:border-box!important;
+    z-index:5000!important;
+  }
+  body>.nav.findai-five-nav.premium-bottom-nav button{
+    height:50px!important;
+    min-height:50px!important;
+    max-height:50px!important;
+    align-self:center!important;
+    padding:0!important;
+    margin:0!important;
+    transform:none!important;
+  }
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-icon-shell,
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-create-shell,
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar,
+  body>.nav.findai-five-nav.premium-bottom-nav button.active .nav-icon-shell,
+  body>.nav.findai-five-nav.premium-bottom-nav button:active .nav-icon-shell{
+    transform:none!important;
+    scale:1!important;
+  }
+  .screen,#profile.profile-screen{padding-bottom:50px!important}
+  #discover .discover-feed-wrap{bottom:50px!important}
+  #search .premium-search-scroll,
+  #searchResults .premium-results-scroll,
+  #profile .profile-scroll{padding-bottom:56px!important}
+  #appMpInbox.show{bottom:50px!important}
+
+  /* Profile listing tile: price left, engagement right, menu remains top-right. */
+  .social-profile-tile-footer{
+    position:absolute!important;
+    left:7px!important;
+    right:7px!important;
+    bottom:7px!important;
+    z-index:4!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:6px!important;
+    pointer-events:none!important;
+  }
+  .social-profile-tile-footer .social-profile-tile-price{
+    position:static!important;
+    left:auto!important;right:auto!important;bottom:auto!important;
+    flex:0 1 auto!important;
+    max-width:58%!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
+  }
+  .social-profile-tile-stats{
+    margin-left:auto!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    gap:4px!important;
+    min-width:0!important;
+  }
+  .social-profile-tile-stat{
+    height:25px!important;
+    padding:0 7px!important;
+    border-radius:999px!important;
+    display:inline-flex!important;
+    align-items:center!important;
+    gap:4px!important;
+    background:rgba(0,0,0,.68)!important;
+    border:1px solid rgba(255,255,255,.12)!important;
+    backdrop-filter:blur(10px)!important;
+    color:#fff!important;
+    font-size:10px!important;
+    line-height:1!important;
+    font-weight:750!important;
+    letter-spacing:-.1px!important;
+  }
+  .social-profile-tile-stat svg{width:12px!important;height:12px!important;flex:0 0 auto!important}
+
+  /* Bell opens a small Instagram-style notification surface instead of Messages. */
+  .findai-notification-backdrop{
+    position:absolute!important;
+    inset:0!important;
+    z-index:1750!important;
+    display:none!important;
+    background:transparent!important;
+  }
+  .findai-notification-backdrop.show{display:block!important}
+  .findai-notification-panel{
+    position:absolute!important;
+    top:calc(var(--safe-top) + 62px)!important;
+    right:10px!important;
+    z-index:1760!important;
+    width:min(342px,calc(100% - 20px))!important;
+    max-height:min(62dvh,540px)!important;
+    overflow:hidden!important;
+    display:none!important;
+    flex-direction:column!important;
+    border:1px solid rgba(255,255,255,.11)!important;
+    border-radius:18px!important;
+    background:rgba(12,13,15,.98)!important;
+    box-shadow:0 18px 55px rgba(0,0,0,.46)!important;
+    backdrop-filter:blur(28px)!important;
+    transform:translateY(-7px) scale(.985)!important;
+    opacity:0!important;
+    transform-origin:top right!important;
+    transition:opacity .18s ease,transform .2s cubic-bezier(.2,.8,.2,1)!important;
+  }
+  .findai-notification-panel.show{
+    display:flex!important;
+    opacity:1!important;
+    transform:translateY(0) scale(1)!important;
+  }
+  .findai-notification-panel-head{
+    min-height:54px!important;
+    padding:0 15px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:space-between!important;
+    gap:12px!important;
+    border-bottom:1px solid rgba(255,255,255,.07)!important;
+  }
+  .findai-notification-panel-head b{font-size:17px!important;font-weight:750!important;letter-spacing:-.35px!important}
+  .findai-notification-panel-head button{
+    border:0!important;background:transparent!important;color:#9aa0aa!important;
+    padding:7px!important;font-size:11px!important;font-weight:650!important;
+  }
+  .findai-notification-list{overflow:auto!important;padding:6px!important}
+  .findai-notification-item{
+    width:100%!important;min-height:64px!important;padding:9px 8px!important;
+    border:0!important;border-radius:13px!important;background:transparent!important;color:#fff!important;
+    display:grid!important;grid-template-columns:42px minmax(0,1fr) auto!important;align-items:center!important;gap:10px!important;
+    text-align:left!important;
+  }
+  .findai-notification-item:active{background:#17191d!important}
+  .findai-notification-icon{
+    width:42px!important;height:42px!important;border-radius:50%!important;background:#1d2025!important;
+    display:grid!important;place-items:center!important;color:#fff!important;
+  }
+  .findai-notification-icon svg{width:20px!important;height:20px!important}
+  .findai-notification-copy{min-width:0!important}
+  .findai-notification-copy b{
+    display:block!important;font-size:13px!important;line-height:1.25!important;font-weight:700!important;
+    white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+  }
+  .findai-notification-copy span{
+    display:block!important;margin-top:3px!important;color:#9298a2!important;font-size:11px!important;line-height:1.3!important;
+    overflow:hidden!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;
+  }
+  .findai-notification-time{align-self:start!important;padding-top:3px!important;color:#777e89!important;font-size:9px!important;white-space:nowrap!important}
+  .findai-notification-unread{
+    display:inline-block!important;width:6px!important;height:6px!important;border-radius:50%!important;background:#ff3045!important;margin-left:5px!important;vertical-align:2px!important;
+  }
+  .findai-notification-empty{
+    padding:36px 22px 40px!important;text-align:center!important;color:#8f959f!important;font-size:12px!important;line-height:1.45!important;
+  }
+  .findai-notification-empty b{display:block!important;color:#fff!important;font-size:15px!important;margin-bottom:5px!important}
+  html.findai-light .findai-notification-panel{background:rgba(255,255,255,.98)!important;border-color:rgba(0,0,0,.1)!important}
+  html.findai-light .findai-notification-panel-head{border-bottom-color:rgba(0,0,0,.08)!important}
+  html.findai-light .findai-notification-panel-head b,
+  html.findai-light .findai-notification-item{color:#111214!important}
+  html.findai-light .findai-notification-icon{background:#f0f1f3!important;color:#111214!important}
+  html.findai-light .findai-notification-item:active{background:#f1f2f4!important}
+  html.findai-light .findai-notification-empty b{color:#111214!important}
+</style>
+
+
+<script id="findai-v105-final-bottom-stats-notifications-script">
+(function(){
+  const VIEW_MILESTONES=[100,500,1000,5000,10000,50000,100000];
+  const LOCAL_NOTICE_READ_KEY='fa_local_notice_read_v1';
+  let appNotificationCache=[];
+  let appNotificationUnread=0;
+
+  function readLocalNoticeState(){
+    try{return JSON.parse(localStorage.getItem(LOCAL_NOTICE_READ_KEY)||'{}')||{};}catch(_){return {};}
+  }
+  function writeLocalNoticeState(value){
+    try{localStorage.setItem(LOCAL_NOTICE_READ_KEY,JSON.stringify(value||{}));}catch(_){}
+  }
+  function notificationTime(value){
+    if(!value)return '';
+    try{
+      const d=new Date(value),now=new Date(),diff=Math.max(0,now-d);
+      if(diff<60000)return 'now';
+      if(diff<3600000)return Math.floor(diff/60000)+'m';
+      if(diff<86400000)return Math.floor(diff/3600000)+'h';
+      return new Intl.DateTimeFormat(undefined,{day:'numeric',month:'short'}).format(d);
+    }catch(_){return ''}
+  }
+  function notificationIcon(type){
+    const t=String(type||'').toLowerCase();
+    if(t.includes('message'))return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v12H8l-4 4V5Z"/></svg>';
+    if(t.includes('view'))return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.6"/></svg>';
+    if(t.includes('like'))return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.8 4.7a5.6 5.6 0 0 0-7.9 0L12 5.6l-.9-.9a5.6 5.6 0 0 0-7.9 7.9L12 21l8.8-8.4a5.6 5.6 0 0 0 0-7.9Z"/></svg>';
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 6-3 7-3 9h18c0-2-3-3-3-9Z"/><path d="M10 21h4"/></svg>';
+  }
+  function ensureNotificationUI(){
+    const host=document.getElementById('discover');
+    if(!host||document.getElementById('findaiNotificationPanel'))return;
+    host.insertAdjacentHTML('beforeend',
+      '<div class="findai-notification-backdrop" id="findaiNotificationBackdrop" onclick="closeHomeNotifications()"></div>'+
+      '<section class="findai-notification-panel" id="findaiNotificationPanel" aria-label="Notifications">'+
+        '<div class="findai-notification-panel-head"><b>Notifications</b><button type="button" onclick="markAllHomeNotificationsRead(event)">Mark all read</button></div>'+
+        '<div class="findai-notification-list" id="findaiNotificationList"></div>'+
+      '</section>'
+    );
+  }
+  function listingMilestoneNotifications(){
+    const listings=Array.isArray(window.socialProfileListings)?window.socialProfileListings:[];
+    const read=readLocalNoticeState();
+    const out=[];
+    listings.forEach(item=>{
+      const id=typeof appMpId==='function'?String(appMpId(item)||''):'';
+      const views=typeof profileListingViewCount==='function'?profileListingViewCount(item):0;
+      if(!id||views<100)return;
+      let milestone=0;
+      VIEW_MILESTONES.forEach(value=>{if(views>=value)milestone=value;});
+      if(!milestone)return;
+      const key='views:'+id+':'+milestone;
+      out.push({
+        id:key,
+        notification_type:'view_milestone',
+        title:'Your listing hit '+profileMetricCompact(milestone)+' views',
+        body:String(item.title||'Your FindAI listing')+' is getting seen.',
+        created_at:item.updatedAt||item.updated_at||item.publishedAt||item.createdAt||new Date().toISOString(),
+        listing_id:id,
+        local:true,
+        read_at:read[key]?new Date(read[key]).toISOString():''
+      });
+    });
+    return out;
+  }
+  function messageFallbackNotifications(conversations){
+    const list=Array.isArray(conversations&&conversations.conversations)?conversations.conversations:[];
+    return list.filter(c=>Number(c.unreadCount||0)>0).slice(0,4).map(c=>({
+      id:'message:'+String(c.id||''),
+      notification_type:'message',
+      title:String(c.otherParty||'Someone')+' sent you a message',
+      body:String(c.lastMessage||c.listingTitle||'Open Messages to reply.'),
+      created_at:c.lastMessageAt||new Date().toISOString(),
+      conversation_id:String(c.id||''),
+      local:true,
+      read_at:''
+    }));
+  }
+  function renderHomeNotifications(){
+    ensureNotificationUI();
+    const root=document.getElementById('findaiNotificationList');
+    if(!root)return;
+    if(!appNotificationCache.length){
+      root.innerHTML='<div class="findai-notification-empty"><b>Nothing new</b>Listing milestones, likes and new messages will appear here.</div>';
+      return;
+    }
+    root.innerHTML=appNotificationCache.map((n,index)=>{
+      const unread=!n.read_at;
+      return '<button class="findai-notification-item" type="button" onclick="openFindAINotification('+index+')">'+
+        '<span class="findai-notification-icon">'+notificationIcon(n.notification_type)+'</span>'+
+        '<span class="findai-notification-copy"><b>'+escapeHTML(n.title||'FindAI notification')+(unread?'<i class="findai-notification-unread"></i>':'')+'</b><span>'+escapeHTML(n.body||'')+'</span></span>'+
+        '<span class="findai-notification-time">'+escapeHTML(notificationTime(n.created_at))+'</span>'+
+      '</button>';
+    }).join('');
+  }
+  async function loadHomeNotifications(){
+    ensureNotificationUI();
+    let server={unreadCount:0,notifications:[]};
+    let conversations={unreadCount:0,conversations:[]};
+    if(marketplaceSession()){
+      try{server=await marketplaceFetch('/marketplace/notifications/summary',{method:'GET'});}catch(_){}
+      try{conversations=await marketplaceFetch('/marketplace/conversations',{method:'GET'});}catch(_){}
+    }
+    const remote=Array.isArray(server&&server.notifications)?server.notifications:[];
+    const milestones=listingMilestoneNotifications();
+    const hasMessageNotice=remote.some(n=>String(n.notification_type||'').toLowerCase().includes('message'));
+    const messageNotices=hasMessageNotice?[]:messageFallbackNotifications(conversations);
+    const seen=new Set();
+    appNotificationCache=[...remote,...messageNotices,...milestones].filter(n=>{
+      const key=String(n.id||n.title||'')+'|'+String(n.created_at||'');
+      if(seen.has(key))return false;
+      seen.add(key);return true;
+    }).sort((a,b)=>Date.parse(b.created_at||0)-Date.parse(a.created_at||0)).slice(0,40);
+    appNotificationUnread=appNotificationCache.reduce((sum,n)=>sum+(!n.read_at?1:0),0);
+    if(typeof setHomeNotificationState==='function')setHomeNotificationState(appNotificationUnread);
+    renderHomeNotifications();
+    return appNotificationCache;
+  }
+  window.openHomeNotifications=async function(event){
+    if(event){event.preventDefault();event.stopPropagation();}
+    ensureNotificationUI();
+    const panel=document.getElementById('findaiNotificationPanel');
+    const backdrop=document.getElementById('findaiNotificationBackdrop');
+    if(!panel)return;
+    const opening=!panel.classList.contains('show');
+    if(!opening){closeHomeNotifications();return;}
+    panel.classList.add('show');if(backdrop)backdrop.classList.add('show');
+    panel.querySelector('#findaiNotificationList');
+    const list=document.getElementById('findaiNotificationList');
+    if(list)list.innerHTML='<div class="findai-notification-empty">Loading notifications…</div>';
+    await loadHomeNotifications();
+  };
+  window.closeHomeNotifications=function(){
+    const panel=document.getElementById('findaiNotificationPanel');
+    const backdrop=document.getElementById('findaiNotificationBackdrop');
+    if(panel)panel.classList.remove('show');if(backdrop)backdrop.classList.remove('show');
+  };
+  window.markAllHomeNotificationsRead=async function(event){
+    if(event){event.preventDefault();event.stopPropagation();}
+    try{if(marketplaceSession())await marketplaceFetch('/marketplace/notifications/read',{method:'POST',body:JSON.stringify({})});}catch(_){}
+    const state=readLocalNoticeState(),now=Date.now();
+    appNotificationCache.forEach(n=>{if(n.local&&n.id)state[n.id]=now;n.read_at=n.read_at||new Date(now).toISOString();});
+    writeLocalNoticeState(state);
+    appNotificationUnread=0;
+    if(typeof setHomeNotificationState==='function')setHomeNotificationState(0);
+    renderHomeNotifications();
+  };
+  window.openFindAINotification=async function(index){
+    const n=appNotificationCache[Number(index)];
+    if(!n)return;
+    try{
+      if(!n.local&&n.id&&marketplaceSession())await marketplaceFetch('/marketplace/notifications/read',{method:'POST',body:JSON.stringify({id:n.id})});
+    }catch(_){}
+    if(n.local&&n.id){const state=readLocalNoticeState();state[n.id]=Date.now();writeLocalNoticeState(state);}
+    n.read_at=n.read_at||new Date().toISOString();
+    closeHomeNotifications();
+    const conversationId=String(n.conversation_id||n.conversationId||'');
+    const listingId=String(n.listing_id||n.listingId||'');
+    if(conversationId){
+      if(typeof setMainNavActive==='function')setMainNavActive('messages');
+      try{await openAppMarketplaceInbox(conversationId);}catch(_){}
+    }else if(listingId){
+      try{openAppMarketplaceListing({marketplaceListingId:listingId});}catch(_){}
+    }else{
+      const target=String(n.target_url||n.targetUrl||'');
+      if(target){
+        try{
+          const u=new URL(target,location.href);
+          const c=u.searchParams.get('conversation'),l=u.searchParams.get('listing');
+          if(c){if(typeof setMainNavActive==='function')setMainNavActive('messages');await openAppMarketplaceInbox(c);}
+          else if(l)openAppMarketplaceListing({marketplaceListingId:l});
+        }catch(_){}
+      }
+    }
+    loadHomeNotifications().catch(()=>{});
+  };
+
+  /* Enrich profile tiles with server-side stats when the listing-detail response contains them. */
+  const originalProfileLoader=window.loadProfileMarketplaceData;
+  if(typeof originalProfileLoader==='function'){
+    window.loadProfileMarketplaceData=async function(force){
+      const result=await originalProfileLoader(force);
+      try{
+        if(marketplaceSession()&&Array.isArray(socialProfileListings)&&socialProfileListings.length){
+          const enriched=await Promise.all(socialProfileListings.slice(0,18).map(async item=>{
+            const id=String(appMpId(item)||'');if(!id)return item;
+            try{
+              const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id),{method:'GET'});
+              const listing=data&&data.listing||{};
+              return Object.assign({},item,listing,{
+                viewCount:listing.viewCount??listing.views??listing.view_count??item.viewCount??item.views,
+                likeCount:listing.likeCount??listing.likes??listing.likesCount??listing.savedCount??item.likeCount??item.likes
+              });
+            }catch(_){return item;}
+          }));
+          socialProfileListings=[...enriched,...socialProfileListings.slice(enriched.length)];
+          saveMarketplaceListings(socialProfileListings);
+          renderSocialProfileContent();
+        }
+      }catch(_){}
+      loadHomeNotifications().catch(()=>{});
+      return result;
+    };
+  }
+
+  /* If the backend exposes a listing-view endpoint, record reel impressions there.
+     Errors are ignored so older Workers continue to work normally. */
+  const originalNoteImpression=window.notePersonalisedImpression;
+  if(typeof originalNoteImpression==='function'){
+    window.notePersonalisedImpression=function(item){
+      originalNoteImpression(item);
+      try{
+        if(!item||!isFindAIListing(item))return;
+        const id=String(appMpId(item)||'');if(!id)return;
+        const sessionKey='fa_viewed_listing_session:'+id;
+        if(sessionStorage.getItem(sessionKey))return;
+        sessionStorage.setItem(sessionKey,'1');
+        marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id)+'/view',{method:'POST',body:JSON.stringify({surface:'reels'})}).catch(()=>{});
+      }catch(_){}
+    };
+  }
+
+  /* Existing heart labels must never render a literal 0. */
+  const originalRefreshHearts=window.refreshTrackedHeartUI;
+  if(typeof originalRefreshHearts==='function'){
+    window.refreshTrackedHeartUI=function(){
+      originalRefreshHearts();
+      document.querySelectorAll('.reel-like-count').forEach(label=>{
+        if(String(label.textContent||'').trim()==='0')label.textContent='';
+      });
+    };
+  }
+
+  document.addEventListener('click',event=>{
+    const panel=document.getElementById('findaiNotificationPanel');
+    const bell=document.getElementById('homeNotificationButton');
+    if(panel&&panel.classList.contains('show')&&!panel.contains(event.target)&&!(bell&&bell.contains(event.target)))closeHomeNotifications();
+  },true);
+
+  setTimeout(()=>{loadHomeNotifications().catch(()=>{});},650);
 })();
 </script>
 
