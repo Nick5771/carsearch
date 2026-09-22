@@ -12413,5 +12413,173 @@ window.addEventListener('load', function(){
 })();
 </script>
 
+
+<style id="findai-v108-pwa-bottom-nav-fix">
+  /*
+    Standalone iPhone/PWA fix.
+    Do not push the nav outside the viewport. Instead:
+    - pin the bar to the true viewport bottom
+    - bottom-align the controls inside it
+    - let the reel itself extend behind the bar, TikTok-style
+    - reserve space only for the text/actions, not the whole reel
+  */
+  :root{
+    --fa-pwa-nav-h:64px!important;
+    --fa-pwa-control-h:48px!important;
+  }
+
+  body>.nav.findai-five-nav.premium-bottom-nav{
+    position:fixed!important;
+    left:50%!important;
+    right:auto!important;
+    top:auto!important;
+    bottom:0!important;
+    width:min(100vw,520px)!important;
+    height:var(--fa-pwa-nav-h)!important;
+    min-height:var(--fa-pwa-nav-h)!important;
+    max-height:var(--fa-pwa-nav-h)!important;
+    padding:0 6px 2px!important;
+    margin:0!important;
+    transform:translateX(-50%)!important;
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+    align-items:end!important;
+    overflow:visible!important;
+    box-sizing:border-box!important;
+    background:#000!important;
+    border-top:1px solid rgba(255,255,255,.08)!important;
+    z-index:5000!important;
+  }
+
+  body>.nav.findai-five-nav.premium-bottom-nav button{
+    width:100%!important;
+    height:var(--fa-pwa-control-h)!important;
+    min-height:var(--fa-pwa-control-h)!important;
+    max-height:var(--fa-pwa-control-h)!important;
+    align-self:end!important;
+    padding:0!important;
+    margin:0!important;
+    display:grid!important;
+    place-items:center!important;
+    overflow:visible!important;
+    transform:none!important;
+    scale:1!important;
+  }
+
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-icon-shell{
+    width:36px!important;
+    height:36px!important;
+    transform:none!important;
+    scale:1!important;
+  }
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-create-shell{
+    width:42px!important;
+    height:42px!important;
+    transform:none!important;
+    scale:1!important;
+  }
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar{
+    transform:none!important;
+    scale:1!important;
+    margin:0!important;
+  }
+  body>.nav.findai-five-nav.premium-bottom-nav button.active .nav-icon-shell,
+  body>.nav.findai-five-nav.premium-bottom-nav button:active .nav-icon-shell,
+  body>.nav.findai-five-nav.premium-bottom-nav button.active .nav-create-shell,
+  body>.nav.findai-five-nav.premium-bottom-nav button:active .nav-create-shell{
+    transform:none!important;
+    scale:1!important;
+  }
+
+  /* Reels fill the full screen behind the bottom bar, like TikTok. */
+  #discover .discover-feed-wrap{
+    top:0!important;
+    bottom:0!important;
+    height:auto!important;
+  }
+  #discover #personalFeed{
+    height:100%!important;
+    min-height:100%!important;
+  }
+  #discover #personalFeed .reel-card{
+    height:100%!important;
+    min-height:100%!important;
+  }
+
+  /*
+    Keep the important listing copy ABOVE the bar, while the image can continue behind it.
+    This is what stops price / condition / shipping getting cut off.
+  */
+  #discover #personalFeed .product-panel{
+    bottom:0!important;
+    padding-bottom:calc(var(--fa-pwa-nav-h) + 10px)!important;
+    box-sizing:border-box!important;
+  }
+  #discover .reel-actions,
+  #discover .reel-action-rail{
+    bottom:calc(var(--fa-pwa-nav-h) + 12px)!important;
+  }
+
+  /* Normal scrolling screens still reserve the nav height. */
+  #search .premium-search-scroll,
+  #searchResults .premium-results-scroll,
+  #profile .profile-scroll{
+    padding-bottom:calc(var(--fa-pwa-nav-h) + 8px)!important;
+  }
+  #appMpInbox.show{
+    bottom:var(--fa-pwa-nav-h)!important;
+  }
+
+  html.findai-light body>.nav.findai-five-nav.premium-bottom-nav{
+    background:#000!important;
+  }
+
+  /* Explicit standalone mode authority for Add-to-Home-Screen on iOS. */
+  @media (display-mode: standalone){
+    body>.nav.findai-five-nav.premium-bottom-nav{
+      bottom:0!important;
+      padding-bottom:2px!important;
+    }
+  }
+</style>
+
+
+<script id="findai-v108-pwa-bottom-nav-fix-script">
+(function(){
+  function enforceStandaloneBottom(){
+    const nav=document.querySelector('.nav.findai-five-nav.premium-bottom-nav');
+    if(nav){
+      if(nav.parentElement!==document.body)document.body.appendChild(nav);
+      nav.style.setProperty('bottom','0px','important');
+      nav.style.setProperty('height','64px','important');
+      nav.style.setProperty('min-height','64px','important');
+      nav.style.setProperty('max-height','64px','important');
+    }
+
+    const feed=document.querySelector('#discover .discover-feed-wrap');
+    if(feed){
+      feed.style.setProperty('bottom','0px','important');
+      feed.style.setProperty('height','auto','important');
+    }
+
+    const panel=document.querySelector('#discover #personalFeed .product-panel');
+    if(panel){
+      panel.style.setProperty('padding-bottom','74px','important');
+      panel.style.setProperty('bottom','0px','important');
+    }
+  }
+
+  enforceStandaloneBottom();
+  window.addEventListener('pageshow',enforceStandaloneBottom,{passive:true});
+  window.addEventListener('resize',enforceStandaloneBottom,{passive:true});
+  window.addEventListener('orientationchange',function(){
+    setTimeout(enforceStandaloneBottom,80);
+  },{passive:true});
+
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize',enforceStandaloneBottom,{passive:true});
+  }
+})();
+</script>
+
 </body>
 </html>
