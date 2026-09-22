@@ -8961,7 +8961,6 @@ function openProfileListingMenu(event,id){
   menu.className='profile-listing-dropdown';
   menu.innerHTML=`
     <button type="button" onclick="closeProfileListingDropdown();openProfileListingEdit('${escapeAttr(id)}')"><span>Edit listing</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m4 16-.7 4.7L8 20l11-11-4-4L4 16Z"/><path d="m13.5 6.5 4 4"/></svg></button>
-    <button type="button" onclick="closeProfileListingDropdown();profileSetListingStatus('${escapeAttr(id)}','${sold?'active':'sold'}')"><span>${sold?'Relist item':'Mark as sold'}</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16v13H4z"/><path d="M7 7V5h10v2M8.5 13l2.2 2.2 4.8-4.8"/></svg></button>
     <button class="danger" type="button" onclick="closeProfileListingDropdown();profileDeleteListing('${escapeAttr(id)}')"><span>Delete listing</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg></button>`;
   document.body.appendChild(menu);
   const width=208;
@@ -9032,7 +9031,7 @@ function openProfileEdit(){
   openAppMpSheet('Edit profile',`<form class="profile-edit-form" onsubmit="return saveFindAIProfileEdit(event)">
     <div class="profile-edit-avatar-row"><div class="profile-edit-avatar ${avatarHTML?'has-image':''}" id="profileEditAvatar">${avatarHTML}<span>${escapeHTML(accountInitials(profile.name,profile.email))}</span></div><button class="profile-edit-change-photo" type="button" onclick="document.getElementById('accountAvatarInput').click()">Change photo</button></div>
     <label class="profile-edit-field">Display name<input id="profileEditName" maxlength="60" value="${escapeAttr(profile.name||'')}"></label>
-    <label class="profile-edit-field">Username<input id="profileEditUsername" maxlength="24" autocapitalize="none" spellcheck="false" value="${escapeAttr(findaiProfileUsername(profile))}"></label>
+    <label class="profile-edit-field">Username<input id="profileEditUsername" maxlength="30" autocapitalize="none" autocomplete="off" spellcheck="false" value="${escapeAttr(findaiProfileUsername(profile))}" oninput="findaiUsernameInputChanged(this)"><small class="profile-username-help" id="profileUsernameHelp">Letters, numbers, periods and underscores. Usernames are unique.</small></label>
     <label class="profile-edit-field">Bio<textarea id="profileEditBio" maxlength="160" placeholder="Tell people a little about you">${escapeHTML(profile.bio||'')}</textarea></label>
     <label class="profile-edit-field">Location<input id="profileEditLocation" maxlength="60" value="${escapeAttr(profile.location||'')}" placeholder="e.g. Sydney, Australia"></label>
     <button class="profile-edit-submit" type="submit">Save profile</button>
@@ -12135,6 +12134,179 @@ window.addEventListener('load', function(){
   },true);
 
   setTimeout(()=>{loadHomeNotifications().catch(()=>{});},650);
+})();
+</script>
+
+
+<style id="findai-v106-profile-polish">
+  /* Exact retailer presentation: no favicon boxes, no broken-image placeholders. */
+  .findai-exact-brand[data-brand="jbhifi"] img{height:23px!important;max-width:126px!important;width:auto!important;object-fit:contain!important;background:transparent!important;border-radius:0!important;padding:0!important}
+  .premium-card-source-logo .findai-exact-brand[data-brand="jbhifi"] img{height:19px!important;max-width:104px!important}
+  .premium-inline-exact[data-brand="jbhifi"] img{height:29px!important;max-width:148px!important}
+  .reel-source-exact[data-brand="jbhifi"] img{height:25px!important;max-width:132px!important}
+  .findai-exact-brand img{image-rendering:auto!important;filter:none!important;opacity:1!important}
+
+  /* Notification dropdown: lighter footprint, closer to Instagram. */
+  .findai-notification-panel{
+    top:calc(var(--safe-top) + 57px)!important;
+    right:12px!important;
+    width:min(304px,calc(100% - 24px))!important;
+    max-height:min(48dvh,405px)!important;
+    border-radius:15px!important;
+  }
+  .findai-notification-panel-head{min-height:46px!important;padding:0 12px!important}
+  .findai-notification-panel-head b{font-size:15px!important;letter-spacing:-.25px!important}
+  .findai-notification-panel-head button{font-size:10px!important;padding:5px!important}
+  .findai-notification-list{padding:4px!important}
+  .findai-notification-item{
+    min-height:54px!important;padding:6px!important;border-radius:11px!important;
+    grid-template-columns:36px minmax(0,1fr) auto!important;gap:8px!important;
+  }
+  .findai-notification-icon{width:36px!important;height:36px!important}
+  .findai-notification-icon svg{width:17px!important;height:17px!important}
+  .findai-notification-copy b{font-size:12px!important}
+  .findai-notification-copy span{font-size:10px!important;margin-top:2px!important;-webkit-line-clamp:1!important}
+  .findai-notification-time{font-size:8px!important;padding-top:2px!important}
+  .findai-notification-empty{padding:27px 18px 30px!important;font-size:11px!important}
+  .findai-notification-empty b{font-size:14px!important}
+
+  /* One clean engagement strip rather than separate price/eye bubbles. */
+  .social-profile-tile-footer{
+    left:6px!important;right:6px!important;bottom:6px!important;
+    min-height:30px!important;padding:5px 8px!important;border-radius:11px!important;
+    background:rgba(7,8,10,.72)!important;
+    border:1px solid rgba(255,255,255,.10)!important;
+    backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important;
+  }
+  .social-profile-tile-footer .social-profile-tile-price{
+    position:static!important;background:transparent!important;border:0!important;box-shadow:none!important;
+    padding:0!important;border-radius:0!important;font-size:12px!important;font-weight:800!important;line-height:1!important;
+    max-width:55%!important;color:#fff!important;
+  }
+  .social-profile-tile-stats{gap:7px!important}
+  .social-profile-tile-stat{
+    height:auto!important;padding:0!important;border:0!important;border-radius:0!important;
+    background:transparent!important;backdrop-filter:none!important;color:#fff!important;
+    font-size:10px!important;font-weight:720!important;gap:3px!important;
+  }
+  .social-profile-tile-stat svg{width:13px!important;height:13px!important}
+  .social-profile-tile-menu{top:7px!important;right:7px!important}
+
+  .profile-username-help{display:block!important;margin-top:5px!important;color:#8d929b!important;font-size:10px!important;line-height:1.35!important;font-weight:500!important}
+  .profile-username-help.checking{color:#a8adb5!important}
+  .profile-username-help.available{color:#35c86f!important}
+  .profile-username-help.unavailable,.profile-username-help.invalid{color:#ff5b68!important}
+</style>
+
+
+<script id="findai-v106-profile-polish-script">
+(function(){
+  /* Reliable brand assets. Existing bundled real SVGs remain first choice. */
+  try{
+    if(typeof FINDAI_APP_REAL_LOGOS!=='undefined'){
+      FINDAI_APP_REAL_LOGOS.jbhifi='https://images.seeklogo.com/logo-png/35/1/jb-hi-fi-logo-png_seeklogo-356847.png';
+      FINDAI_APP_REAL_LOGOS.nike='https://cdn.simpleicons.org/nike/FFFFFF';
+      FINDAI_APP_REAL_LOGOS.adidas='https://cdn.simpleicons.org/adidas/FFFFFF';
+      FINDAI_APP_REAL_LOGOS.samsung='https://cdn.simpleicons.org/samsung/1428A0';
+      FINDAI_APP_REAL_LOGOS.playstation='https://cdn.simpleicons.org/playstation/FFFFFF';
+      FINDAI_APP_REAL_LOGOS.gucci='https://cdn.simpleicons.org/gucci/FFFFFF';
+      FINDAI_APP_REAL_LOGOS.costco='https://cdn.simpleicons.org/costco/E31837';
+      FINDAI_APP_REAL_LOGOS.sephora='https://cdn.simpleicons.org/sephora/FFFFFF';
+      FINDAI_APP_REAL_LOGOS.discogs='https://cdn.simpleicons.org/discogs/FFFFFF';
+      FINDAI_APP_REAL_LOGOS.reverb='https://cdn.simpleicons.org/reverb/FF5500';
+    }
+  }catch(_){ }
+
+  /* A broken retailer asset now becomes clean retailer text instead of a blue ? icon/favicon. */
+  document.addEventListener('error',function(event){
+    const img=event.target;if(!(img instanceof HTMLImageElement))return;
+    const brand=img.closest&&img.closest('.findai-exact-brand');if(!brand)return;
+    const key=brand.getAttribute('data-brand')||'';
+    img.style.display='none';
+    let fallback=brand.querySelector('.findai-brand-label');
+    if(!fallback){
+      fallback=document.createElement('span');fallback.className='findai-brand-label';
+      const labels={jbhifi:'JB Hi-Fi',apple:'Apple',nike:'Nike',adidas:'adidas',samsung:'Samsung',playstation:'PlayStation',costco:'Costco',sephora:'SEPHORA',discogs:'Discogs',reverb:'Reverb'};
+      fallback.textContent=labels[key]||key;
+      brand.appendChild(fallback);
+    }
+    fallback.style.display='inline';
+  },true);
+
+  const RESERVED_USERNAMES=new Set(['findai','admin','administrator','support','help','security','staff','moderator','notifications','notification','messages','message','search','explore','marketplace','shop','about','privacy','terms','login','signup','api']);
+  let usernameCheckTimer=null,usernameCheckSequence=0;
+  function normalizeUsername(value){return String(value||'').trim().toLowerCase();}
+  function validateUsername(value){
+    const username=normalizeUsername(value);
+    if(username.length<1||username.length>30)return {ok:false,username,message:'Username must be 1–30 characters.'};
+    if(!/^[a-z0-9._]+$/.test(username))return {ok:false,username,message:'Use only letters, numbers, periods and underscores.'};
+    if(username.startsWith('.')||username.endsWith('.'))return {ok:false,username,message:'A username cannot start or end with a period.'};
+    if(/\.\./.test(username))return {ok:false,username,message:'A username cannot contain consecutive periods.'};
+    if(RESERVED_USERNAMES.has(username))return {ok:false,username,message:'That username is reserved.'};
+    return {ok:true,username,message:''};
+  }
+  function setUsernameHelp(message,state){
+    const el=document.getElementById('profileUsernameHelp');if(!el)return;
+    el.textContent=message;el.className='profile-username-help'+(state?' '+state:'');
+  }
+  window.findaiUsernameInputChanged=function(input){
+    const check=validateUsername(input&&input.value);
+    if(input&&input.value!==check.username)input.value=check.username;
+    clearTimeout(usernameCheckTimer);
+    if(!check.ok){setUsernameHelp(check.message,'invalid');return;}
+    const current=getAccountProfile();
+    if(current&&normalizeUsername(findaiProfileUsername(current))===check.username){setUsernameHelp('This is your current username.','available');return;}
+    setUsernameHelp('Checking availability…','checking');
+    const seq=++usernameCheckSequence;
+    usernameCheckTimer=setTimeout(async()=>{
+      try{
+        if(!marketplaceSession()){setUsernameHelp('Sign in to claim a unique username.','invalid');return;}
+        const data=await marketplaceFetch('/profile/username/check?username='+encodeURIComponent(check.username),{method:'GET'});
+        if(seq!==usernameCheckSequence)return;
+        setUsernameHelp(data&&data.available?'Username is available.':'That username is already taken.',data&&data.available?'available':'unavailable');
+      }catch(error){if(seq===usernameCheckSequence)setUsernameHelp(error.message||'Could not check username.','invalid');}
+    },320);
+  };
+
+  /* Replace profile editor with Instagram-style username rules. */
+  window.openProfileEdit=function(){
+    const profile=getAccountProfile();if(!profile)return;
+    const avatar=safeUrl(profile.avatar)||String(profile.avatar||'');
+    const avatarHTML=avatar&&/^(data:image\/|https?:\/\/)/.test(avatar)?`<img src="${escapeAttr(avatar)}" alt="">`:'';
+    openAppMpSheet('Edit profile',`<form class="profile-edit-form" onsubmit="return saveFindAIProfileEdit(event)">
+      <div class="profile-edit-avatar-row"><div class="profile-edit-avatar ${avatarHTML?'has-image':''}" id="profileEditAvatar">${avatarHTML}<span>${escapeHTML(accountInitials(profile.name,profile.email))}</span></div><button class="profile-edit-change-photo" type="button" onclick="document.getElementById('accountAvatarInput').click()">Change photo</button></div>
+      <label class="profile-edit-field">Name<input id="profileEditName" maxlength="60" value="${escapeAttr(profile.name||'')}"></label>
+      <label class="profile-edit-field">Username<input id="profileEditUsername" maxlength="30" autocapitalize="none" autocomplete="off" spellcheck="false" value="${escapeAttr(findaiProfileUsername(profile))}" oninput="findaiUsernameInputChanged(this)"><small class="profile-username-help" id="profileUsernameHelp">Letters, numbers, periods and underscores. Usernames are unique.</small></label>
+      <label class="profile-edit-field">Bio<textarea id="profileEditBio" maxlength="160" placeholder="Tell people a little about you">${escapeHTML(profile.bio||'')}</textarea></label>
+      <label class="profile-edit-field">Location<input id="profileEditLocation" maxlength="60" value="${escapeAttr(profile.location||'')}" placeholder="e.g. Sydney, Australia"></label>
+      <button class="profile-edit-submit" type="submit">Save profile</button>
+    </form>`);
+  };
+
+  window.saveFindAIProfileEdit=async function(event){
+    event.preventDefault();
+    const profile=getAccountProfile();if(!profile)return false;
+    const name=String(document.getElementById('profileEditName')&&document.getElementById('profileEditName').value||'').trim()||profile.name||'FindAI user';
+    const validation=validateUsername(document.getElementById('profileEditUsername')&&document.getElementById('profileEditUsername').value);
+    if(!validation.ok){setUsernameHelp(validation.message,'invalid');return false;}
+    const bio=String(document.getElementById('profileEditBio')&&document.getElementById('profileEditBio').value||'').trim().slice(0,160);
+    const location=String(document.getElementById('profileEditLocation')&&document.getElementById('profileEditLocation').value||'').trim().slice(0,60);
+    const submit=event.target&&event.target.querySelector('.profile-edit-submit');if(submit){submit.disabled=true;submit.textContent='Saving…';}
+    try{
+      let next={...profile,name,username:validation.username,bio,location,profileCustomised:true,updatedAt:Date.now()};
+      if(marketplaceSession()){
+        const data=await marketplaceFetch('/profile/me',{method:'PATCH',body:JSON.stringify({displayName:name,username:validation.username,bio,location,avatarUrl:/^https:\/\//i.test(String(next.avatar||''))?next.avatar:undefined})});
+        if(data&&data.profile){mergeRemoteProfile(data.profile);next=getAccountProfile()||next;}
+      }else saveAccountProfile(next);
+      updateAccountHeader();paintSocialProfileHeader();renderSocialProfileContent();closeAppMpSheet();toast('Profile saved');
+    }catch(error){
+      const message=String(error&&error.message||'Could not save profile');
+      if(/taken|username/i.test(message))setUsernameHelp(message,'unavailable');else toast(message);
+      if(submit){submit.disabled=false;submit.textContent='Save profile';}
+      return false;
+    }
+    return false;
+  };
 })();
 </script>
 
