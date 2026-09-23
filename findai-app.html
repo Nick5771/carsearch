@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v116-wishwave-social-reels-comments">
+<meta name="findai-build" content="v117-wishwave-reel-info-stack">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -6563,7 +6563,7 @@ function wishwaveReelSellerMarkup(item,index){
   const meta=wishwaveSellerMeta(item);
   return `<button class="reel-seller-row" type="button" onclick="openWishWaveSellerProfile(${index},event)" aria-label="View ${escapeAttr(meta.handle)} profile">
     ${wishwaveAvatarMarkup(meta)}
-    <span class="reel-seller-copy"><b>${escapeHTML(meta.handle)}</b><small>WishWave seller</small></span>
+    <span class="reel-seller-copy"><b>${escapeHTML(meta.handle)}</b></span>
   </button>`;
 }
 
@@ -6609,7 +6609,7 @@ function renderReelCard(item,index,data){
       </button>
     </div>
     <div class="product-panel">
-      ${wishwave?wishwaveReelSellerMarkup(item,index):`<div class="source-chip" data-source="${escapeAttr(source)}">${sourceMarkup(source,item)}</div>`}
+      ${wishwave?`<div class="wishwave-reel-brand">WishWave</div>${wishwaveReelSellerMarkup(item,index)}`:`<div class="source-chip" data-source="${escapeAttr(source)}">${sourceMarkup(source,item)}</div>`}
       <h2 class="title">${escapeHTML(title)}</h2>
       <div class="price-action-row">
         <div class="listing-price-copy">
@@ -13465,6 +13465,72 @@ if(typeof v116RenderMarketplaceListing==='function'){
   };
 }
 </script>
+
+
+<style id="wishwave-v117-reel-stack-style">
+  /* WishWave marketplace reels use a clean Instagram-like left-aligned stack:
+     Your listing -> WishWave -> seller -> title -> price -> shipping. */
+  #discover .reel-card .product-panel .wishwave-reel-brand{
+    display:block!important;
+    width:max-content!important;
+    margin:0 0 6px!important;
+    padding:0!important;
+    color:#fff!important;
+    font-size:18px!important;
+    line-height:1.02!important;
+    font-weight:850!important;
+    letter-spacing:-.55px!important;
+    text-align:left!important;
+    text-shadow:0 1px 3px rgba(0,0,0,.76)!important;
+  }
+
+  #discover .reel-card .product-panel .reel-seller-row{
+    display:flex!important;
+    width:max-content!important;
+    max-width:78%!important;
+    align-items:center!important;
+    justify-content:flex-start!important;
+    gap:8px!important;
+    margin:0 0 8px!important;
+    padding:0!important;
+    text-align:left!important;
+    transform:none!important;
+  }
+
+  #discover .reel-card .product-panel .reel-seller-avatar{
+    width:27px!important;
+    height:27px!important;
+    flex:0 0 27px!important;
+  }
+
+  #discover .reel-card .product-panel .reel-seller-copy{
+    display:block!important;
+    min-width:0!important;
+    text-align:left!important;
+  }
+
+  #discover .reel-card .product-panel .reel-seller-copy b{
+    display:block!important;
+    max-width:170px!important;
+    color:#fff!important;
+    font-size:13px!important;
+    line-height:1.05!important;
+    font-weight:800!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    text-shadow:0 1px 3px rgba(0,0,0,.76)!important;
+  }
+
+  /* v117 deliberately removes the extra "WishWave seller" caption. */
+  #discover .reel-card .product-panel .reel-seller-copy small{
+    display:none!important;
+  }
+
+  #discover .reel-card[data-owned-listing="true"] .product-panel:before{
+    margin-bottom:7px!important;
+  }
+</style>
 
 </body>
 </html>
