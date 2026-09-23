@@ -4053,6 +4053,26 @@ function saveMarketplaceListings(listings){
   try{ localStorage.setItem(MARKETPLACE_LISTINGS_KEY,JSON.stringify(marketplaceListingsCache)); }catch(_){}
   return true;
 }
+const OWNED_REEL_PIN_KEY='fa_latest_owned_reel_listing_v1';
+function rememberOwnedListingForFeed(item){
+  if(!item)return;
+  const status=String(item.status||'active').toLowerCase();
+  if(status!=='active')return;
+  try{localStorage.setItem(OWNED_REEL_PIN_KEY,JSON.stringify({...item,_ownedPinnedAt:Date.now()}));}catch(_){}
+}
+function readOwnedListingForFeed(){
+  try{
+    const item=JSON.parse(localStorage.getItem(OWNED_REEL_PIN_KEY)||'null');
+    if(!item||String(item.status||'active').toLowerCase()!=='active')return null;
+    return item;
+  }catch(_){return null;}
+}
+function forgetOwnedListingForFeed(id){
+  try{
+    const item=readOwnedListingForFeed();
+    if(!item||String(item.marketplaceListingId||item.itemId||item.id||'')===String(id||''))localStorage.removeItem(OWNED_REEL_PIN_KEY);
+  }catch(_){}
+}
 async function loadMarketplaceListings(){
   if(!marketplaceSession()) return getMarketplaceListings();
   const local=getMarketplaceListings();
@@ -4067,6 +4087,10 @@ async function loadMarketplaceListings(){
   });
   const listings=[...recentLocal,...remote];
   saveMarketplaceListings(listings);
+  const newestActive=[...listings]
+    .filter(item=>String(item.status||'active').toLowerCase()==='active')
+    .sort((a,b)=>Date.parse(b.publishedAt||b.createdAt||b.updatedAt||0)-Date.parse(a.publishedAt||a.createdAt||a.updatedAt||0))[0];
+  if(newestActive)rememberOwnedListingForFeed(newestActive);
   return listings;
 }
 function resetCreateListingForm(){
@@ -4120,7 +4144,7 @@ async function submitCreateListing(event){
     const createdId=created&&created.listing&&(created.listing.marketplaceListingId||created.listing.itemId||created.listing.id);
     const nextListings=created&&created.listing?[created.listing,...current.filter(item=>(item.marketplaceListingId||item.itemId||item.id)!==createdId)]:current.slice();
     if(created&&created.listing)saveMarketplaceListings(nextListings);
-    if(created&&created.listing){socialProfileListings=nextListings;}
+    if(created&&created.listing){rememberOwnedListingForFeed(created.listing);socialProfileListings=nextListings;}
     closeCreateListing();
     resetCreateListingForm();
     go('profile');
@@ -4194,8 +4218,8 @@ async function renderMyListings(refresh=false){
   if(refresh){try{const listings=await loadMarketplaceListings();renderMyListingsCards(listings);}catch(error){if(!cached.length)$('#myListingsList').innerHTML=`<div class="my-listings-empty"><b>Could not load listings</b>${escapeHTML(error.message||'Try again.')}</div>`;}}
 }
 async function deleteMarketplaceListing(id){
-  if(!confirm('Delete this listing from FindAI?'))return;
-  try{await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id),{method:'DELETE'});const listings=getMarketplaceListings().filter(item=>(item.marketplaceListingId||item.itemId||item.id)!==id);saveMarketplaceListings(listings);renderMyListingsCards(listings);try{renderAccountProfile();}catch(_){}toast('Listing deleted');}catch(error){toast(error.message||'Could not delete listing');}
+  if(!confirm('Delete this listing from WishWave?'))return;
+  try{await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id),{method:'DELETE'});const listings=getMarketplaceListings().filter(item=>(item.marketplaceListingId||item.itemId||item.id)!==id);saveMarketplaceListings(listings);forgetOwnedListingForFeed(id);renderMyListingsCards(listings);try{renderAccountProfile();}catch(_){}toast('Listing deleted');}catch(error){toast(error.message||'Could not delete listing');}
 }
 
 function adaptListingImage(img){
@@ -4482,7 +4506,7 @@ function sourceLabel(source){
 function sourceMarkup(source,item=null){
   const raw=String(source||'listing').trim();
   const normalized=raw.toLowerCase();
-  if(normalized==='findai') return '<span class="source-brand findai-source-brand">Find<span class="findai-source-ai">AI</span></span>';
+  if(normalized==='findai') return '<span class="source-brand findai-source-brand">WishWave</span>';
   const label=String((item && (item.retailerName || item.retailer || item.source)) || sourceLabel(raw) || raw).trim();
   const key=appKnownBrandForItem(item,raw);
   if(normalized==='ebay'||key==='ebay')return EBAY_LOGO_SVG;
@@ -5407,25 +5431,68 @@ function warmPersonalisedFeedCache(){
   })();
   return personalisedWarmPromise;
 }
+function normaliseOwnedListingForFeed(item){
+  if(!item)return null;
+  const id=String(appMpId(item)||'').trim();
+  const imagePool=[];
+  const add=value=>{const v=String(value||'').trim();if(v&&!imagePool.includes(v))imagePool.push(v);};
+  add(item.image);
+  [item.images,item.imageUrls,item.galleryImages,item.photos].forEach(group=>{if(Array.isArray(group))group.forEach(add);});
+  const price=Number(item.price)||Number(item.itemPrice)||0;
+  return {
+    ...item,
+    itemId:item.itemId||id,
+    marketplaceListingId:item.marketplaceListingId||id,
+    price,
+    currency:String(item.currency||'AUD').toUpperCase(),
+    image:imagePool[0]||'',
+    images:imagePool,
+    sellerName:item.sellerName||item.displayName||'WishWave seller',
+    source:'findai',
+    marketplace:'WishWave Marketplace',
+    platform:'WishWave Marketplace',
+    _findaiMarketplace:true,
+    _ownedListingInjection:true,
+    _interestQuery:item.title||'Your listing',
+    _interestCluster:'your-listing',
+    _interestCategory:'marketplace'
+  };
+}
 function surfaceOwnedListingInFeed(items){
-  const base=Array.isArray(items)?items.filter(Boolean):[];
-  if(!marketplaceSession()) return base;
+  const original=Array.isArray(items)?items.filter(Boolean):[];
+  if(!marketplaceSession()) return original;
   let owned=[];
   try{
+    const pinned=readOwnedListingForFeed();
     const profileItems=Array.isArray(socialProfileListings)?socialProfileListings:[];
     const localItems=typeof getMarketplaceListings==='function'?getMarketplaceListings():[];
-    owned=[...profileItems,...localItems].filter(item=>item&&String(item.status||'active').toLowerCase()==='active');
-  }catch(_){ owned=[]; }
-  if(!owned.length) return base;
+    owned=[pinned,...profileItems,...localItems]
+      .filter(Boolean)
+      .filter(item=>String(item.status||'active').toLowerCase()==='active');
+  }catch(_){owned=[];}
+  if(!owned.length)return original;
+
   const seenOwned=new Set();
-  owned=owned.filter(item=>{const id=String(appMpId(item)||listingKey(item)||'');if(!id||seenOwned.has(id))return false;seenOwned.add(id);return true;});
+  owned=owned.filter(item=>{
+    const id=String(appMpId(item)||listingKey(item)||'');
+    if(!id||seenOwned.has(id))return false;
+    seenOwned.add(id);return true;
+  });
   owned.sort((a,b)=>Date.parse(b.publishedAt||b.createdAt||b.updatedAt||0)-Date.parse(a.publishedAt||a.createdAt||a.updatedAt||0));
-  const mine=owned[0];if(!mine)return base;
+
+  const mine=normaliseOwnedListingForFeed(owned[0]);
+  if(!mine||!(Number(mine.price)>0))return original;
   const mineId=String(appMpId(mine)||listingKey(mine)||'');
-  if(base.some(item=>String(appMpId(item)||listingKey(item)||'')===mineId)) return base;
-  const reelItem={...mine,_findaiMarketplace:true,source:'findai',marketplace:'WishWave Marketplace',platform:'WishWave Marketplace',_interestQuery:mine.title||'Your listing',_interestCluster:'your-listing',_interestCategory:'marketplace'};
-  const at=Math.min(base.length,2);
-  return [...base.slice(0,at),reelItem,...base.slice(at)];
+
+  // Remove an older injected copy or the same marketplace listing if it is already
+  // present elsewhere, then guarantee the newest active listing as reel #2.
+  const base=original.filter(item=>{
+    if(item&&item._ownedListingInjection)return false;
+    const id=String(appMpId(item)||listingKey(item)||'');
+    return !mineId||id!==mineId;
+  });
+  const at=Math.min(base.length,1);
+  return [...base.slice(0,at),mine,...base.slice(at)];
 }
 function renderPersonalisedFeed(items,{writeCache=true}={}){
   items=surfaceOwnedListingInFeed(surfaceLikedListingInFeed(items));
@@ -7869,7 +7936,7 @@ function renderAppMarketplaceListing(){
   const sellerName=appMpPublicName(seller.displayName||listing.sellerName||'WishWave seller'),sold=Number(seller.soldCount||0),rating=Number(seller.rating)||0,reviewCount=Number(seller.reviewCount)||0,joined=seller.joinedAt?'Member since '+appMpMonthYear(seller.joinedAt):'WishWave seller',available=String(listing.status||'active')==='active',offers=['active','reserved'].includes(String(listing.status||'active')),recentReviews=Array.isArray(seller.recentReviews)?seller.recentReviews:[];
   const thumbs=images.map((src,index)=>`<button class="app-mp-thumb ${index===0?'active':''}" onclick="appMpSelectImage(${index})"><img src="${escapeAttr(src)}" alt="Product image"></button>`).join('');
   $('#appMpProductContent').innerHTML=`<div class="app-mp-gallery">${images[0]?`<img class="app-mp-main-image" id="appMpMainImage" src="${escapeAttr(images[0])}" alt="${escapeAttr(listing.title||'WishWave listing')}">`:'<div class="app-mp-loading">No image supplied</div>'}<div class="app-mp-image-price">${escapeHTML(appMpMoney(listing.price,listing.currency))}</div></div>${images.length>1?`<div class="app-mp-thumbs">${thumbs}</div>`:''}
-    <div class="app-mp-source"><span class="app-mp-wordmark">Find<i>AI</i></span><span>Marketplace listing</span></div><h1 class="app-mp-title">${escapeHTML(listing.title||'WishWave listing')}</h1>
+    <div class="app-mp-source"><span class="app-mp-wordmark">WishWave</span><span>Marketplace listing</span></div><h1 class="app-mp-title">${escapeHTML(listing.title||'WishWave listing')}</h1>
     <div class="app-mp-seller"><div class="app-mp-avatar">${escapeHTML(appMpInitial(sellerName))}</div><div class="app-mp-seller-copy"><b>${escapeHTML(sellerName)}</b>${reviewCount?`<span class="app-mp-seller-rating">★ ${rating.toFixed(1)} (${reviewCount})${sold?` · ${sold} sold`:``}</span>`:(sold?`<span>${sold} sold</span>`:``)}<span class="app-mp-seller-member">${escapeHTML(joined)}</span></div><button class="app-mp-message-pill" onclick="openAppMarketplaceMessages()">${viewer.isSeller?'Messages':'Message'}</button></div>
     <div class="app-mp-price">${escapeHTML(appMpMoney(listing.price,listing.currency))}</div><div class="app-mp-price-note">Secure checkout and tracked delivery through FindAI</div>
     <div class="app-mp-facts"><div class="app-mp-fact"><span>Condition</span><b>${escapeHTML(listing.condition||'Not specified')}</b></div><div class="app-mp-fact"><span>Delivery</span><b>${Number(listing.shippingCost)>0?escapeHTML(appMpMoney(listing.shippingCost,listing.currency)+' tracked shipping'):'Delivery details at checkout'}</b></div><div class="app-mp-fact"><span>Availability</span><b>${escapeHTML(appMpStatus(listing.status))}</b></div></div>
@@ -8962,6 +9029,7 @@ function profileReplaceListing(updated){
   const id=String(appMpId(updated)||'');
   socialProfileListings=socialProfileListings.map(item=>String(appMpId(item)||'')===id?updated:item);
   saveMarketplaceListings(getMarketplaceListings().map(item=>String(appMpId(item)||'')===id?updated:item));
+  if(String(updated.status||'active').toLowerCase()==='active')rememberOwnedListingForFeed(updated);else forgetOwnedListingForFeed(id);
   paintSocialProfileHeader();renderSocialProfileContent();
 }
 function closeProfileListingDropdown(){
@@ -9035,11 +9103,12 @@ async function profileSetListingStatus(id,status){
   }catch(error){toast(error.message||'Could not update listing');}
 }
 async function profileDeleteListing(id){
-  if(!confirm('Delete this listing from FindAI?'))return;
+  if(!confirm('Delete this listing from WishWave?'))return;
   try{
     await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id),{method:'DELETE'});
     socialProfileListings=socialProfileListings.filter(item=>String(appMpId(item)||'')!==String(id));
     saveMarketplaceListings(getMarketplaceListings().filter(item=>String(appMpId(item)||'')!==String(id)));
+    forgetOwnedListingForFeed(id);
     closeAppMpSheet();paintSocialProfileHeader();renderSocialProfileContent();toast('Listing deleted');
   }catch(error){toast(error.message||'Could not delete listing');}
 }
@@ -11046,7 +11115,7 @@ window.addEventListener('load', function(){
   };
   window.sourceMarkup=function(source,item){
     const raw=String(source||'listing').trim(),normalized=raw.toLowerCase();
-    if(normalized==='findai')return '<span class="source-brand findai-source-brand">Find<span class="findai-source-ai">AI</span></span>';
+    if(normalized==='findai')return '<span class="source-brand findai-source-brand">WishWave</span>';
     const key=directRetailerBrandKey(item)||appBrandKey(raw),label=String((item&&(item.retailerName||item.retailer))||sourceLabel(raw)||raw).trim();
     if(key)return '<span class="retailer-source app-source-real">'+exactBrandMarkup(key,item,'reel-source-exact')+'</span>';
     return '<span class="source-brand retailer-source-name retailer-source-name-premium">'+escapeHTML(label)+'</span>';
