@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v117-wishwave-reel-info-stack">
+<meta name="findai-build" content="v118-wishwave-premium-social-interactions">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -13374,6 +13374,7 @@ async function openWishWaveComments(index,event){
   wishwaveCommentsItem=item;
   const id=String(appMpId(item)||'');if(!id)return;
   openAppMpSheet('Comments','<div class="app-mp-loading"><div><div class="app-mp-spinner"></div><b>Loading comments</b></div></div>');
+  const commentsBg=document.getElementById('appMpSheetBg');if(commentsBg)commentsBg.classList.add('wishwave-comments-mode');
   try{
     const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id)+'/comments',{method:'GET'});
     wishwaveUpdateCommentMetric(id,data.commentCount);
@@ -13387,6 +13388,7 @@ async function openWishWaveListingComments(){
   wishwaveCommentsItem=appMpListing;
   const id=String(appMpId(appMpListing)||'');if(!id)return;
   openAppMpSheet('Comments','<div class="app-mp-loading"><div><div class="app-mp-spinner"></div><b>Loading comments</b></div></div>');
+  const commentsBg=document.getElementById('appMpSheetBg');if(commentsBg)commentsBg.classList.add('wishwave-comments-mode');
   try{
     const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id)+'/comments',{method:'GET'});
     wishwaveUpdateCommentMetric(id,data.commentCount);
@@ -13421,30 +13423,201 @@ function wishwavePublicAvatar(seller){
   if(src&&/^https?:\/\//i.test(src))return '<div class="wishwave-public-avatar"><img src="'+escapeAttr(src)+'" alt=""></div>';
   return '<div class="wishwave-public-avatar">'+escapeHTML(label.charAt(0).toUpperCase()||'W')+'</div>';
 }
+let wishwavePublicSellerData=null;
+let wishwavePublicSellerTab='listings';
+
+function ensureWishWavePublicProfilePage(){
+  let page=document.getElementById('wishwavePublicProfilePage');
+  if(page)return page;
+  page=document.createElement('section');
+  page.id='wishwavePublicProfilePage';
+  page.className='wishwave-public-profile-page';
+  page.setAttribute('aria-label','Seller profile');
+  page.innerHTML=
+    '<div class="wishwave-public-profile-scroll">'+
+      '<div class="wishwave-public-profile-topbar">'+
+        '<button type="button" class="wishwave-public-profile-back" onclick="closeWishWavePublicProfile()" aria-label="Back">'+
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>'+
+        '</button>'+
+        '<div class="social-profile-handle" id="wishwavePublicHandle">@seller</div>'+
+        '<div class="wishwave-public-profile-top-spacer"></div>'+
+      '</div>'+
+      '<div id="wishwavePublicProfileBody"><div class="social-profile-loading">Loading profile…</div></div>'+
+    '</div>';
+  document.getElementById('search').appendChild(page);
+  return page;
+}
+function wishwavePublicProfileImage(item){
+  return item&&(
+    item.image||
+    (Array.isArray(item.images)&&item.images[0])||
+    (Array.isArray(item.imageUrls)&&item.imageUrls[0])||
+    item.fallbackImage||
+    getImage(item)
+  )||'';
+}
+function wishwavePublicProfilePrice(item){
+  return socialProfilePriceText(Number(item&&item.price)||Number(item&&item.itemPrice)||0,item&&item.currency||'AUD');
+}
+function wishwavePublicProfileTile(item,index,kind){
+  const img=wishwavePublicProfileImage(item);
+  const price=wishwavePublicProfilePrice(item);
+  const views=profileListingViewCount(item);
+  const likes=profileListingLikeCount(item);
+  const list=kind==='sold'
+    ?wishwavePublicSellerData.listings.filter(x=>String(x.status||'').toLowerCase()==='sold')
+    :wishwavePublicSellerData.listings.filter(x=>String(x.status||'active').toLowerCase()!=='sold');
+  return '<article class="social-profile-tile" role="button" tabindex="0" onclick="openWishWavePublicListing('+index+',\''+kind+'\')">'+
+    (img?'<img src="'+escapeAttr(img)+'" alt="'+escapeAttr(item.title||'WishWave listing')+'" referrerpolicy="no-referrer" onerror="this.style.display=\'none\'">':
+      '<span class="social-profile-tile-placeholder"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5L5 20"/></svg></span>')+
+    '<span class="social-profile-tile-footer">'+
+      (price?'<span class="social-profile-tile-price">'+escapeHTML(price)+'</span>':'')+
+      '<span class="social-profile-tile-stats">'+
+        '<span class="social-profile-tile-stat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6Z"/><circle cx="12" cy="12" r="2.7"/></svg>'+escapeHTML(profileMetricCompact(views))+'</span>'+
+        (likes>0?'<span class="social-profile-tile-stat"><svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="M20.8 4.7a5.6 5.6 0 0 0-7.9 0L12 5.6l-.9-.9a5.6 5.6 0 0 0-7.9 7.9L12 21l8.8-8.4a5.6 5.6 0 0 0 0-7.9Z"/></svg>'+escapeHTML(profileMetricCompact(likes))+'</span>':'')+
+      '</span>'+
+    '</span>'+
+  '</article>';
+}
+function renderWishWavePublicProfileContent(){
+  const data=wishwavePublicSellerData;
+  const root=document.getElementById('wishwavePublicProfileContent');
+  if(!root||!data)return;
+  const listings=Array.isArray(data.listings)?data.listings:[];
+  if(wishwavePublicSellerTab==='sold'){
+    const items=listings.filter(x=>String(x.status||'').toLowerCase()==='sold');
+    root.innerHTML=items.length
+      ?'<div class="social-profile-grid">'+items.map((item,i)=>wishwavePublicProfileTile(item,i,'sold')).join('')+'</div>'
+      :'<div class="social-profile-empty"><b>Nothing sold yet</b>Completed sales will appear here.</div>';
+    return;
+  }
+  if(wishwavePublicSellerTab==='reviews'){
+    const reviews=Array.isArray(data.seller&&data.seller.recentReviews)?data.seller.recentReviews:[];
+    root.innerHTML=reviews.length
+      ?'<div class="social-profile-reviews">'+reviews.map(review=>
+        '<article class="social-profile-review"><div class="social-profile-review-head"><b>Verified purchase</b><span class="social-profile-review-stars">'+
+        escapeHTML(appStars(review.rating))+'</span></div>'+(review.comment?'<p>'+escapeHTML(review.comment)+'</p>':'')+'<small>Buyer feedback</small></article>'
+      ).join('')+'</div>'
+      :'<div class="social-profile-empty"><b>No reviews yet</b>Verified buyer feedback will appear here.</div>';
+    return;
+  }
+  const items=listings.filter(x=>String(x.status||'active').toLowerCase()!=='sold');
+  root.innerHTML=items.length
+    ?'<div class="social-profile-grid">'+items.map((item,i)=>wishwavePublicProfileTile(item,i,'listings')).join('')+'</div>'
+    :'<div class="social-profile-empty"><b>No active listings</b>This seller has no live listings right now.</div>';
+}
+function setWishWavePublicSellerTab(tab){
+  wishwavePublicSellerTab=['listings','sold','reviews'].includes(tab)?tab:'listings';
+  document.querySelectorAll('#wishwavePublicProfilePage [data-public-profile-tab]').forEach(button=>{
+    button.classList.toggle('active',button.dataset.publicProfileTab===wishwavePublicSellerTab);
+  });
+  renderWishWavePublicProfileContent();
+}
+function renderWishWavePublicProfile(){
+  const data=wishwavePublicSellerData;if(!data)return;
+  const seller=data.seller||{},viewer=data.viewer||{};
+  const listings=Array.isArray(data.listings)?data.listings:[];
+  const username=String(seller.username||'').replace(/^@/,'');
+  const handle=username?'@'+username:String(seller.displayName||'WishWave seller');
+  const avatar=String(seller.avatarUrl||'');
+  const root=document.getElementById('wishwavePublicProfileBody');
+  const handleEl=document.getElementById('wishwavePublicHandle');
+  if(handleEl)handleEl.textContent=handle;
+  if(!root)return;
+  root.innerHTML=
+    '<div class="social-profile wishwave-public-social-profile">'+
+      '<div class="social-profile-hero">'+
+        '<div class="social-profile-avatar '+(avatar?'has-image':'')+'">'+
+          (avatar?'<img src="'+escapeAttr(avatar)+'" alt="" style="display:block">':'')+
+          '<span>'+escapeHTML(String(seller.displayName||handle).charAt(0).toUpperCase()||'W')+'</span>'+
+        '</div>'+
+        '<div class="social-profile-stats">'+
+          '<button type="button"><b>'+escapeHTML(String(Number(seller.activeCount)||0))+'</b><span>Listings</span></button>'+
+          '<button type="button"><b>'+escapeHTML(String(Number(seller.soldCount)||0))+'</b><span>Sold</span></button>'+
+          '<button type="button"><b>'+(Number(seller.reviewCount)?escapeHTML(Number(seller.rating||0).toFixed(1)):'—')+'</b><span>Rating</span></button>'+
+        '</div>'+
+      '</div>'+
+      '<div class="social-profile-copy">'+
+        '<h2>'+escapeHTML(seller.displayName||handle)+'</h2>'+
+        '<p class="social-profile-bio">'+escapeHTML(seller.bio||'')+'</p>'+
+        '<div class="social-profile-meta">'+escapeHTML(seller.location||'')+'</div>'+
+      '</div>'+
+      '<div class="social-profile-actions">'+
+        '<button type="button" '+(viewer.isSeller?'disabled':'')+' onclick="messageWishWavePublicSeller()">'+(viewer.isSeller?'Your profile':'Message')+'</button>'+
+        '<button type="button" onclick="shareWishWavePublicProfile()">Share profile</button>'+
+      '</div>'+
+      '<div class="social-profile-tabs wishwave-public-profile-tabs" role="tablist">'+
+        '<button class="active" type="button" data-public-profile-tab="listings" onclick="setWishWavePublicSellerTab(\'listings\')" aria-label="Listings">'+
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>'+
+        '</button>'+
+        '<button type="button" data-public-profile-tab="sold" onclick="setWishWavePublicSellerTab(\'sold\')" aria-label="Sold">'+
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 3h12v4H6z"/><path d="M5 7h14v14H5z"/><path d="m9 14 2 2 4-5"/></svg>'+
+        '</button>'+
+        '<button type="button" data-public-profile-tab="reviews" onclick="setWishWavePublicSellerTab(\'reviews\')" aria-label="Reviews">'+
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v12H8l-4 4V5Z"/><path d="m9 11 2 2 4-4"/></svg>'+
+        '</button>'+
+      '</div>'+
+      '<div class="social-profile-content" id="wishwavePublicProfileContent"></div>'+
+    '</div>';
+  wishwavePublicSellerTab='listings';
+  renderWishWavePublicProfileContent();
+}
+function closeWishWavePublicProfile(){
+  const page=document.getElementById('wishwavePublicProfilePage');
+  if(page)page.classList.remove('show');
+  wishwavePublicSellerData=null;
+}
+function openWishWavePublicListing(index,kind){
+  if(!wishwavePublicSellerData)return;
+  const list=kind==='sold'
+    ?wishwavePublicSellerData.listings.filter(x=>String(x.status||'').toLowerCase()==='sold')
+    :wishwavePublicSellerData.listings.filter(x=>String(x.status||'active').toLowerCase()!=='sold');
+  const item=list[Number(index)||0];
+  if(item)openAppMarketplaceListing(item);
+}
+function messageWishWavePublicSeller(){
+  if(!wishwavePublicSellerData)return;
+  const viewer=wishwavePublicSellerData.viewer||{};
+  if(viewer.isSeller){closeWishWavePublicProfile();openProfile();return;}
+  const listing=(wishwavePublicSellerData.listings||[]).find(x=>String(x.status||'active').toLowerCase()==='active');
+  if(!listing){toast('This seller has no active listing to message from');return;}
+  appMpListing=listing;appMpContext={listing,seller:wishwavePublicSellerData.seller,viewer};
+  openAppMarketplaceMessages();
+}
+async function shareWishWavePublicProfile(){
+  if(!wishwavePublicSellerData)return;
+  const seller=wishwavePublicSellerData.seller||{};
+  const handle=String(seller.username||seller.displayName||'WishWave seller').replace(/^@/,'');
+  const url='https://findai.ai/findai-app.html?profile='+encodeURIComponent(handle);
+  try{
+    if(navigator.share)await navigator.share({title:'@'+handle+' on WishWave',url});
+    else{await navigator.clipboard.writeText(url);toast('Profile link copied');}
+  }catch(_){}
+}
 async function openWishWaveSellerProfile(index,event){
   if(event){event.preventDefault();event.stopPropagation();}
   const item=currentFeedItems[Number(index)||0];if(!item||!isFindAIListing(item))return;
-  const id=String(appMpId(item)||'');if(!id)return;
-  openAppMpSheet('Seller','<div class="app-mp-loading"><div><div class="app-mp-spinner"></div><b>Loading profile</b></div></div>');
+  const listingId=String(appMpId(item)||'');if(!listingId)return;
+
+  go('search');
+  setMainNavActive('search');
+  const page=ensureWishWavePublicProfilePage();
+  const body=document.getElementById('wishwavePublicProfileBody');
+  if(body)body.innerHTML='<div class="social-profile-loading"><div class="feed-more-spinner"></div><br>Loading profile…</div>';
+  page.classList.remove('show');
+  requestAnimationFrame(()=>requestAnimationFrame(()=>page.classList.add('show')));
+
   try{
-    const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id),{method:'GET'});
-    appMpListing=data.listing;appMpContext=data;
-    const seller=data.seller||{},viewer=data.viewer||{};
-    const username=String(seller.username||'').replace(/^@/,'');
-    const handle=username?'@'+username:String(seller.displayName||'WishWave seller');
-    const rating=Number(seller.rating)||0,reviews=Number(seller.reviewCount)||0;
-    document.getElementById('appMpSheetBody').innerHTML=
-      '<div class="wishwave-public-profile">'+wishwavePublicAvatar(seller)+
-      '<h3>'+escapeHTML(seller.displayName||handle)+'</h3><div class="handle">'+escapeHTML(handle)+'</div>'+
-      (seller.bio?'<div class="bio">'+escapeHTML(seller.bio)+'</div>':'')+
-      (seller.location?'<div class="location">'+escapeHTML(seller.location)+'</div>':'')+
-      '<div class="wishwave-public-stats"><div><b>'+escapeHTML(String(Number(seller.activeCount)||0))+'</b><span>Listings</span></div>'+
-      '<div><b>'+escapeHTML(String(Number(seller.soldCount)||0))+'</b><span>Sold</span></div>'+
-      '<div><b>'+(reviews?escapeHTML(rating.toFixed(1)):'—')+'</b><span>Rating</span></div></div>'+
-      '<div class="wishwave-public-profile-actions"><button type="button" onclick="closeAppMpSheet();openAppMarketplaceListing(appMpListing)">View listing</button>'+
-      '<button type="button" '+(viewer.isSeller?'disabled':'')+' onclick="closeAppMpSheet();openAppMarketplaceMessages()">'+(viewer.isSeller?'Your profile':'Message')+'</button></div></div>';
+    let sellerId=String(item.sellerId||'');
+    if(!sellerId){
+      const detail=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(listingId),{method:'GET'});
+      sellerId=String(detail&&detail.listing&&detail.listing.sellerId||'');
+    }
+    if(!sellerId)throw new Error('Seller profile unavailable');
+    wishwavePublicSellerData=await marketplaceFetch('/marketplace/sellers/'+encodeURIComponent(sellerId)+'/profile',{method:'GET'});
+    renderWishWavePublicProfile();
   }catch(error){
-    document.getElementById('appMpSheetBody').innerHTML='<div class="wishwave-comments-empty"><b>Profile unavailable</b>'+escapeHTML(error.message||'Try again')+'</div>';
+    if(body)body.innerHTML='<div class="social-profile-empty"><b>Profile unavailable</b>'+escapeHTML(error.message||'Try again')+'</div>';
   }
 }
 
@@ -13531,6 +13704,315 @@ if(typeof v116RenderMarketplaceListing==='function'){
     margin-bottom:7px!important;
   }
 </style>
+
+
+<style id="wishwave-v118-premium-social-style">
+  /* Reel seller portrait closer to Instagram Reels scale. */
+  #discover .reel-card .product-panel .reel-seller-avatar{
+    width:38px!important;
+    height:38px!important;
+    flex:0 0 38px!important;
+    border-width:1.5px!important;
+    box-shadow:0 2px 12px rgba(0,0,0,.34)!important;
+  }
+  #discover .reel-card .product-panel .reel-seller-row{
+    gap:9px!important;
+    margin-bottom:9px!important;
+  }
+  #discover .reel-card .product-panel .reel-seller-copy b{
+    font-size:14px!important;
+    font-weight:780!important;
+  }
+
+  /* Public seller profile is a full page inside Search, while the Search icon
+     stays selected in the permanent bottom navigation. */
+  #search{position:relative!important;overflow:hidden!important}
+  .wishwave-public-profile-page{
+    position:absolute!important;
+    inset:0!important;
+    z-index:1200!important;
+    background:#000!important;
+    color:#fff!important;
+    opacity:0!important;
+    transform:translateX(18px)!important;
+    pointer-events:none!important;
+    transition:opacity .22s ease,transform .28s cubic-bezier(.2,.82,.22,1)!important;
+  }
+  .wishwave-public-profile-page.show{
+    opacity:1!important;
+    transform:translateX(0)!important;
+    pointer-events:auto!important;
+  }
+  .wishwave-public-profile-scroll{
+    height:100%!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    -webkit-overflow-scrolling:touch!important;
+    padding:calc(var(--safe-top) + 12px) 18px calc(74px + var(--safe-bottom))!important;
+    box-sizing:border-box!important;
+  }
+  .wishwave-public-profile-topbar{
+    height:44px!important;
+    display:grid!important;
+    grid-template-columns:36px minmax(0,1fr) 36px!important;
+    align-items:center!important;
+    margin-bottom:12px!important;
+  }
+  .wishwave-public-profile-back{
+    width:36px!important;height:36px!important;border:0!important;background:transparent!important;
+    color:#fff!important;padding:6px!important;border-radius:50%!important;
+    display:grid!important;place-items:center!important
+  }
+  .wishwave-public-profile-back:active{background:rgba(255,255,255,.09)!important;transform:scale(.94)!important}
+  .wishwave-public-profile-back svg{width:24px!important;height:24px!important}
+  .wishwave-public-profile-topbar .social-profile-handle{
+    text-align:left!important;
+    padding-left:3px!important;
+  }
+  .wishwave-public-profile-top-spacer{width:36px;height:36px}
+  .wishwave-public-social-profile{padding:0!important}
+  .wishwave-public-profile-tabs{
+    grid-template-columns:repeat(3,1fr)!important;
+    margin-left:-18px!important;
+    margin-right:-18px!important;
+  }
+  .wishwave-public-profile-tabs button.active:after{left:24%!important;right:24%!important}
+  html.findai-light .wishwave-public-profile-page{background:#fff!important;color:#111!important}
+  html.findai-light .wishwave-public-profile-back{color:#111!important}
+
+  /* Premium bottom sheet: it remains mounted for smooth enter/exit transitions. */
+  .app-mp-sheet-bg{
+    display:flex!important;
+    visibility:hidden!important;
+    opacity:0!important;
+    pointer-events:none!important;
+    background:rgba(0,0,0,0)!important;
+    backdrop-filter:blur(0px)!important;
+    -webkit-backdrop-filter:blur(0px)!important;
+    transition:opacity .22s ease,background .22s ease,backdrop-filter .24s ease!important;
+  }
+  .app-mp-sheet-bg.show{
+    visibility:visible!important;
+    opacity:1!important;
+    pointer-events:auto!important;
+    background:rgba(0,0,0,.58)!important;
+    backdrop-filter:blur(12px)!important;
+    -webkit-backdrop-filter:blur(12px)!important;
+  }
+  .app-mp-sheet{
+    transform:translateY(104%) scale(.985)!important;
+    opacity:.92!important;
+    transition:transform .34s cubic-bezier(.18,.82,.2,1),opacity .22s ease!important;
+    will-change:transform,opacity!important;
+  }
+  .app-mp-sheet-bg.show .app-mp-sheet{
+    transform:translateY(0) scale(1)!important;
+    opacity:1!important;
+  }
+
+  /* Comments: fixed premium sheet height, with the composer always above nav. */
+  .app-mp-sheet-bg.wishwave-comments-mode{
+    bottom:var(--wishwave-sheet-nav-clearance,56px)!important;
+    align-items:flex-end!important;
+  }
+  .app-mp-sheet-bg.wishwave-comments-mode .app-mp-sheet{
+    height:min(68dvh,720px)!important;
+    max-height:min(68dvh,720px)!important;
+    border-radius:28px 28px 0 0!important;
+    overflow:hidden!important;
+    box-shadow:0 -18px 55px rgba(0,0,0,.42)!important;
+  }
+  .app-mp-sheet-bg.wishwave-comments-mode .app-mp-sheet-head{
+    flex:0 0 auto!important;
+    min-height:66px!important;
+    padding:14px 18px!important;
+  }
+  .app-mp-sheet-bg.wishwave-comments-mode .app-mp-sheet-head h3{
+    font-size:21px!important;
+    font-weight:820!important;
+    letter-spacing:-.5px!important;
+  }
+  .app-mp-sheet-bg.wishwave-comments-mode .app-mp-sheet-body{
+    flex:1!important;
+    min-height:0!important;
+    overflow:hidden!important;
+    padding:0 16px 12px!important;
+  }
+  .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comments-shell{
+    min-height:0!important;
+    height:100%!important;
+    max-height:none!important;
+    display:flex!important;
+    flex-direction:column!important;
+  }
+  .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comments-list{
+    flex:1 1 auto!important;
+    min-height:0!important;
+    overflow-y:auto!important;
+    padding:8px 0 12px!important;
+    -webkit-overflow-scrolling:touch!important;
+  }
+  .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comments-empty{
+    min-height:100%!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:center!important;
+    justify-content:center!important;
+    padding:24px 18px!important;
+    box-sizing:border-box!important;
+  }
+  .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-form{
+    flex:0 0 auto!important;
+    margin:0!important;
+    padding:10px 0 max(4px,var(--app-mp-keyboard-pad,0px))!important;
+    background:#101318!important;
+  }
+  html.findai-light .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-form{background:#fff!important}
+
+  /* Premium comment button touch. */
+  .reel-social-action.comment .reel-social-icon{
+    transition:transform .16s cubic-bezier(.2,.75,.3,1.4),background .18s ease!important;
+  }
+  .reel-social-action.comment:active .reel-social-icon{
+    transform:scale(.84)!important;
+  }
+
+  /* More tactile, layered like animation. */
+  .reel-social-action.like .reel-social-icon{
+    position:relative!important;
+    overflow:visible!important;
+    isolation:isolate!important;
+  }
+  .reel-social-action.like.just-liked .reel-social-icon{
+    animation:wishwaveHeartShell .68s cubic-bezier(.16,.88,.26,1.18) both!important;
+  }
+  .reel-social-action.like.just-liked .reel-social-icon svg{
+    animation:wishwaveHeartGlyph .68s cubic-bezier(.16,.88,.26,1.2) both!important;
+  }
+  .reel-social-action.like.just-liked .reel-social-icon:before{
+    content:""!important;
+    position:absolute!important;
+    left:50%!important;top:50%!important;
+    width:76px!important;height:76px!important;
+    transform:translate(-50%,-50%) scale(.25)!important;
+    border-radius:50%!important;
+    opacity:0!important;
+    pointer-events:none!important;
+    z-index:-1!important;
+    background:
+      radial-gradient(circle at 50% 4%,#ff375f 0 3px,transparent 4px),
+      radial-gradient(circle at 88% 25%,#ff8b9d 0 2.5px,transparent 3.5px),
+      radial-gradient(circle at 96% 62%,#ff375f 0 3px,transparent 4px),
+      radial-gradient(circle at 71% 91%,#ff8b9d 0 2.5px,transparent 3.5px),
+      radial-gradient(circle at 27% 92%,#ff375f 0 3px,transparent 4px),
+      radial-gradient(circle at 4% 62%,#ff8b9d 0 2.5px,transparent 3.5px),
+      radial-gradient(circle at 12% 24%,#ff375f 0 3px,transparent 4px)!important;
+    animation:wishwaveHeartBurst .62s ease-out both!important;
+  }
+  .reel-social-action.like.just-liked .reel-like-count{
+    animation:wishwaveLikeCount .46s cubic-bezier(.18,.84,.28,1.2) both!important;
+  }
+  @keyframes wishwaveHeartShell{
+    0%{transform:scale(1)}
+    34%{transform:scale(1.22)}
+    56%{transform:scale(.94)}
+    78%{transform:scale(1.06)}
+    100%{transform:scale(1)}
+  }
+  @keyframes wishwaveHeartGlyph{
+    0%{transform:scale(.72) rotate(-7deg)}
+    40%{transform:scale(1.42) rotate(5deg)}
+    65%{transform:scale(.92) rotate(-2deg)}
+    100%{transform:scale(1) rotate(0)}
+  }
+  @keyframes wishwaveHeartBurst{
+    0%{opacity:0;transform:translate(-50%,-50%) scale(.25) rotate(-8deg)}
+    24%{opacity:1}
+    100%{opacity:0;transform:translate(-50%,-50%) scale(1.35) rotate(10deg)}
+  }
+  @keyframes wishwaveLikeCount{
+    0%{transform:translateY(4px) scale(.72);opacity:.45}
+    55%{transform:translateY(-2px) scale(1.16);opacity:1}
+    100%{transform:translateY(0) scale(1);opacity:1}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .app-mp-sheet-bg,.app-mp-sheet,.wishwave-public-profile-page,
+    .reel-social-action.like.just-liked .reel-social-icon,
+    .reel-social-action.like.just-liked .reel-social-icon svg,
+    .reel-social-action.like.just-liked .reel-social-icon:before,
+    .reel-social-action.like.just-liked .reel-like-count{animation:none!important;transition:none!important}
+  }
+</style>
+
+<script id="wishwave-v118-premium-social-script">
+(function(){
+  function syncWishWaveSheetClearance(){
+    const nav=document.querySelector('body>.nav.findai-five-nav.premium-bottom-nav,.app>.nav.findai-five-nav.premium-bottom-nav');
+    let clearance=56;
+    if(nav){
+      const box=nav.getBoundingClientRect();
+      const viewport=window.visualViewport?window.visualViewport.height:window.innerHeight;
+      const visibleBottom=(window.visualViewport?window.visualViewport.offsetTop:0)+viewport;
+      const measured=Math.max(0,visibleBottom-box.top);
+      if(Number.isFinite(measured)&&measured>0)clearance=Math.max(50,Math.min(180,Math.round(measured)));
+    }
+    document.documentElement.style.setProperty('--wishwave-sheet-nav-clearance',clearance+'px');
+  }
+  syncWishWaveSheetClearance();
+  window.addEventListener('resize',syncWishWaveSheetClearance,{passive:true});
+  if(window.visualViewport){
+    visualViewport.addEventListener('resize',syncWishWaveSheetClearance,{passive:true});
+    visualViewport.addEventListener('scroll',syncWishWaveSheetClearance,{passive:true});
+  }
+
+  /* Remove Comments mode only after the premium sheet has started closing. */
+  const originalCloseSheet=window.closeAppMpSheet;
+  window.closeAppMpSheet=function(){
+    const bg=document.getElementById('appMpSheetBg');
+    if(bg)bg.classList.remove('show');
+    clearInterval(appMpMessageTimer);appMpMessageTimer=null;
+    document.documentElement.style.setProperty('--app-mp-keyboard-pad','0px');
+    setTimeout(()=>{if(bg)bg.classList.remove('wishwave-comments-mode');},360);
+  };
+
+  /* Better tactile feedback where supported. iOS simply ignores vibration. */
+  window.haptic=function(){
+    try{
+      if(navigator.vibrate)navigator.vibrate([8,14,11]);
+    }catch(_){}
+  };
+
+  /* Make the count change at the same moment as the heart animation. */
+  const oldToggleLike=window.toggleLike;
+  if(typeof oldToggleLike==='function'){
+    window.toggleLike=async function(index,event){
+      const item=currentFeedItems[Number(index)||0];
+      const wasLiked=item?isTracked(item):false;
+      const before=item?itemDisplayedLikeCount(item):0;
+      await oldToggleLike(index,event);
+      const nowLiked=item?isTracked(item):false;
+      const optimistic=Math.max(0,before+(nowLiked&&!wasLiked?1:(!nowLiked&&wasLiked?-1:0)));
+      if(item&&nowLiked&&!wasLiked){
+        document.querySelectorAll('[data-like-key="'+CSS.escape(trackedKey(item))+'"]').forEach(button=>{
+          const label=button.querySelector('.reel-like-count');
+          if(label)label.textContent=optimistic>0?String(optimistic):'';
+          button.classList.remove('just-liked');void button.offsetWidth;button.classList.add('just-liked');
+          setTimeout(()=>button.classList.remove('just-liked'),760);
+        });
+      }
+    };
+  }
+
+  /* Closing Search while a public profile is open first closes the profile page. */
+  const previousOpenSearchHome=window.openSearchHome;
+  if(typeof previousOpenSearchHome==='function'){
+    window.openSearchHome=function(focus=true){
+      closeWishWavePublicProfile();
+      return previousOpenSearchHome(focus);
+    };
+  }
+})();
+</script>
 
 </body>
 </html>
