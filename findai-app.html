@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v119-ebay-affiliate-header-fix">
+<meta name="findai-build" content="v115-wishwave-profile-social-ui-fixes">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -3754,6 +3754,8 @@ function safeUrl(value){
 
 
 const ACCOUNT_PROFILE_KEY='fa_account_profile_v1';
+const ACCOUNT_PROFILE_ARCHIVE_KEY='fa_account_profiles_by_email_v1';
+const ACCOUNT_TRACKED_ARCHIVE_KEY='fa_account_likes_by_email_v1';
 let pendingAccountAvatar='';
 function getAccountProfile(){
   try{
@@ -3761,8 +3763,47 @@ function getAccountProfile(){
     return profile&&profile.email?profile:null;
   }catch(_){ return null; }
 }
+function readAccountProfileArchive(){
+  try{
+    const value=JSON.parse(localStorage.getItem(ACCOUNT_PROFILE_ARCHIVE_KEY)||'{}');
+    return value&&typeof value==='object'&&!Array.isArray(value)?value:{};
+  }catch(_){return {};}
+}
+function getArchivedAccountProfile(email){
+  const key=String(email||'').trim().toLowerCase();
+  if(!key)return null;
+  const archive=readAccountProfileArchive();
+  const profile=archive[key];
+  return profile&&String(profile.email||'').trim().toLowerCase()===key?profile:null;
+}
 function saveAccountProfile(profile){
-  try{ localStorage.setItem(ACCOUNT_PROFILE_KEY,JSON.stringify(profile)); }catch(_){}
+  try{
+    if(!profile||!profile.email)return;
+    localStorage.setItem(ACCOUNT_PROFILE_KEY,JSON.stringify(profile));
+    const archive=readAccountProfileArchive();
+    archive[String(profile.email).trim().toLowerCase()]={...profile};
+    const keys=Object.keys(archive);
+    if(keys.length>8){
+      keys.sort((a,b)=>Number(archive[b]&&archive[b].updatedAt||0)-Number(archive[a]&&archive[a].updatedAt||0))
+        .slice(8).forEach(key=>delete archive[key]);
+    }
+    localStorage.setItem(ACCOUNT_PROFILE_ARCHIVE_KEY,JSON.stringify(archive));
+  }catch(_){}
+}
+function archiveTrackedForAccount(email){
+  const key=String(email||'').trim().toLowerCase();if(!key)return;
+  try{
+    const archive=JSON.parse(localStorage.getItem(ACCOUNT_TRACKED_ARCHIVE_KEY)||'{}')||{};
+    archive[key]=getTracked();
+    localStorage.setItem(ACCOUNT_TRACKED_ARCHIVE_KEY,JSON.stringify(archive));
+  }catch(_){}
+}
+function restoreTrackedForAccount(email){
+  const key=String(email||'').trim().toLowerCase();if(!key)return;
+  try{
+    const archive=JSON.parse(localStorage.getItem(ACCOUNT_TRACKED_ARCHIVE_KEY)||'{}')||{};
+    setTracked(Array.isArray(archive[key])?archive[key]:[]);
+  }catch(_){try{setTracked([]);}catch(__){}}
 }
 function accountInitials(name,email){
   const parts=String(name||'').trim().split(/\s+/).filter(Boolean);
@@ -6767,7 +6808,35 @@ async function toggleLike(index,event){
   setTracked(liked);
   const nowLiked=existing<0;
   const remoteItem=liked.find(entry=>entry.key===key)||{key:key,title:item.title||'Saved listing',url:getListingUrl(item),source:getSource(item),itemId:item.itemId||'',marketplaceListingId:item.marketplaceListingId||'',watchCount:Number(item.watchCount)||0,likeCount:Number(item.likeCount)||0};
-  appSavedRemoteSet(remoteItem,nowLiked).catch(()=>{});
+  if(isFindAIListing(item)){
+    try{
+      const id=String(appMpId(item)||'');
+      const currentServer=Math.max(0,Number(item.likeCount||item.likes||0)||0);
+      const optimistic=Math.max(0,currentServer+(nowLiked?1:-1));
+      item.likeCount=optimistic;item.likes=optimistic;
+      if(id&&Array.isArray(socialProfileListings)){
+        socialProfileListings=socialProfileListings.map(listing=>String(appMpId(listing)||'')===id?{...listing,likeCount:optimistic,likes:optimistic}:listing);
+      }
+      if(id&&typeof getMarketplaceListings==='function'&&typeof saveMarketplaceListings==='function'){
+        saveMarketplaceListings(getMarketplaceListings().map(listing=>String(appMpId(listing)||'')===id?{...listing,likeCount:optimistic,likes:optimistic}:listing));
+      }
+      if(document.getElementById('profile')&&document.getElementById('profile').classList.contains('active'))renderSocialProfileContent();
+    }catch(_){}
+  }
+  appSavedRemoteSet(remoteItem,nowLiked).then(data=>{
+    try{
+      if(!isFindAIListing(item)||data==null||data.likeCount==null)return;
+      const exact=Math.max(0,Number(data.likeCount)||0),id=String(appMpId(item)||'');
+      item.likeCount=exact;item.likes=exact;
+      if(id&&Array.isArray(socialProfileListings)){
+        socialProfileListings=socialProfileListings.map(listing=>String(appMpId(listing)||'')===id?{...listing,likeCount:exact,likes:exact}:listing);
+      }
+      if(id&&typeof getMarketplaceListings==='function'&&typeof saveMarketplaceListings==='function'){
+        saveMarketplaceListings(getMarketplaceListings().map(listing=>String(appMpId(listing)||'')===id?{...listing,likeCount:exact,likes:exact}:listing));
+      }
+      if(document.getElementById('profile')&&document.getElementById('profile').classList.contains('active'))renderSocialProfileContent();
+    }catch(_){}
+  }).catch(()=>{});
   $$(`[data-like-key="${CSS.escape(key)}"]`).forEach(button=>{
     button.classList.toggle('active',nowLiked);
     const svg=button.querySelector('svg');
@@ -8961,6 +9030,7 @@ function profileListingLikeCount(item){
     const n=profileListingMetricNumber(value);
     if(n>0)return n;
   }
+  try{if(isTracked(item))return 1;}catch(_){}
   return 0;
 }
 function profileMetricCompact(value){
@@ -12714,6 +12784,369 @@ window.addEventListener('load', function(){
       return html;
     };
   }
+})();
+</script>
+
+
+<style id="wishwave-v115-profile-social-ui">
+  /* Profile tile prices are plain text — no translucent strip/pill behind $179 etc. */
+  #profile .social-profile-tile-footer,
+  #profile .social-profile-tile-footer::before,
+  #profile .social-profile-tile-footer::after{
+    background:none!important;
+    background-image:none!important;
+    border:0!important;
+    box-shadow:none!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+  }
+  #profile .social-profile-tile-footer{
+    left:7px!important;
+    right:7px!important;
+    bottom:7px!important;
+    min-height:0!important;
+    padding:0!important;
+    border-radius:0!important;
+    align-items:flex-end!important;
+  }
+  #profile .social-profile-tile-price{
+    position:static!important;
+    flex:0 0 auto!important;
+    width:max-content!important;
+    max-width:72%!important;
+    min-width:0!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    background:none!important;
+    background-image:none!important;
+    box-shadow:none!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+    color:#fff!important;
+    font-size:12px!important;
+    line-height:1!important;
+    font-weight:820!important;
+    letter-spacing:-.25px!important;
+    text-shadow:0 1px 3px rgba(0,0,0,.8)!important;
+  }
+  #profile .social-profile-tile-stats,
+  #profile .social-profile-tile-stat{
+    background:none!important;
+    background-image:none!important;
+    border:0!important;
+    box-shadow:none!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+    padding:0!important;
+  }
+
+  /* The profile itself always scrolls. Short profiles still have enough travel for
+     the native-feeling pull-to-refresh interaction. */
+  #profile .profile-scroll{
+    overflow-y:scroll!important;
+    overflow-x:hidden!important;
+    -webkit-overflow-scrolling:touch!important;
+    touch-action:pan-y!important;
+    overscroll-behavior-y:auto!important;
+    min-height:0!important;
+    height:100%!important;
+    position:relative!important;
+  }
+  #profileSignedIn,
+  #profileSignedOut{
+    min-height:calc(100% + 58px)!important;
+  }
+
+  .wishwave-profile-refresh{
+    position:absolute;
+    z-index:120;
+    top:calc(var(--safe-top) + 4px);
+    left:50%;
+    width:30px;height:30px;
+    margin-left:-15px;
+    border-radius:50%;
+    display:grid;
+    place-items:center;
+    opacity:0;
+    transform:translateY(-34px) scale(.8);
+    pointer-events:none;
+    transition:opacity .16s ease,transform .16s ease;
+    background:rgba(20,20,22,.92);
+    box-shadow:0 4px 16px rgba(0,0,0,.28);
+  }
+  .wishwave-profile-refresh svg{
+    width:18px;height:18px;
+    fill:none;stroke:#fff;stroke-width:2;
+    stroke-linecap:round;
+  }
+  .wishwave-profile-refresh.show{
+    opacity:1;
+  }
+  .wishwave-profile-refresh.refreshing svg{
+    animation:wishwaveProfileSpin .72s linear infinite;
+  }
+  @keyframes wishwaveProfileSpin{to{transform:rotate(360deg)}}
+  html.findai-light .wishwave-profile-refresh{
+    background:rgba(255,255,255,.98);
+    box-shadow:0 4px 16px rgba(0,0,0,.14);
+  }
+  html.findai-light .wishwave-profile-refresh svg{stroke:#111}
+
+  /* Optical centering of the generic person inside the circular profile nav icon. */
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar,
+  .app>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar{
+    display:grid!important;
+    place-items:center!important;
+    padding:0!important;
+    overflow:hidden!important;
+  }
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar>span,
+  .app>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar>span{
+    width:100%!important;height:100%!important;
+    display:grid!important;
+    place-items:center!important;
+    padding:0!important;margin:0!important;
+    line-height:0!important;
+  }
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar .guest-profile-person-icon,
+  .app>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar .guest-profile-person-icon{
+    width:18px!important;height:18px!important;
+    margin:0!important;
+    transform:translateY(-1px)!important;
+    transform-origin:center!important;
+    overflow:visible!important;
+  }
+
+  /* In installed iPhone mode, use the dynamic viewport, not the older 100vh rule.
+     Keep the outer/root canvas black so iOS cannot expose a white gutter under
+     the black tab bar when the app itself is in Light appearance. */
+  @media (display-mode: standalone){
+    html,body{
+      width:100%!important;
+      height:100dvh!important;
+      min-height:100dvh!important;
+      max-height:100dvh!important;
+      margin:0!important;
+      padding:0!important;
+      overflow:hidden!important;
+      background:#000!important;
+    }
+    .app{
+      position:fixed!important;
+      inset:0!important;
+      width:min(100%,520px)!important;
+      max-width:520px!important;
+      height:100dvh!important;
+      min-height:100dvh!important;
+      max-height:100dvh!important;
+      margin:0 auto!important;
+      overflow:hidden!important;
+    }
+  }
+
+  /* Even in Light appearance, the OS gutter outside .app remains black because
+     the bottom navigation is intentionally black. */
+  html.findai-light,
+  html.findai-light body{
+    background:#000!important;
+  }
+  html.findai-light .app,
+  html.findai-light .screen,
+  html.findai-light #discover,
+  html.findai-light #search,
+  html.findai-light #searchResults,
+  html.findai-light #profile{
+    background:#fff!important;
+  }
+
+  /* Place the five controls lower inside the safe-area bar while retaining a
+     protected gesture area. */
+  body>.nav.findai-five-nav.premium-bottom-nav,
+  .app>.nav.findai-five-nav.premium-bottom-nav{
+    bottom:0!important;
+    padding-top:0!important;
+    padding-bottom:0!important;
+    background:#000!important;
+  }
+  body>.nav.findai-five-nav.premium-bottom-nav button,
+  .app>.nav.findai-five-nav.premium-bottom-nav button{
+    transform:translateY(5px)!important;
+  }
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-create-shell,
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-icon-shell,
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar,
+  .app>.nav.findai-five-nav.premium-bottom-nav .nav-create-shell,
+  .app>.nav.findai-five-nav.premium-bottom-nav .nav-icon-shell,
+  .app>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar{
+    margin:auto!important;
+  }
+</style>
+
+<script id="wishwave-v115-profile-social-ui-script">
+(function(){
+  function forceBlackInstalledGutter(){
+    try{
+      const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
+      if(!standalone)return;
+      const meta=document.querySelector('meta[name="theme-color"]');
+      if(meta)meta.setAttribute('content','#000000');
+      document.documentElement.style.backgroundColor='#000';
+      document.body.style.backgroundColor='#000';
+    }catch(_){}
+  }
+  forceBlackInstalledGutter();
+  window.addEventListener('pageshow',forceBlackInstalledGutter,{passive:true});
+  window.addEventListener('resize',forceBlackInstalledGutter,{passive:true});
+
+  /* Multiple-account safe sign-in. Never copy one account's custom avatar/name
+     into a different Google account. */
+  window.applyFindaiUser=function(data,provider){
+    const incomingEmail=String(data&&data.email||'').trim().toLowerCase();
+    if(!incomingEmail)return;
+    try{
+      const current=getAccountProfile();
+      if(current&&current.email){
+        saveAccountProfile(current);
+        archiveTrackedForAccount(current.email);
+      }
+    }catch(_){}
+    try{localStorage.setItem('findai_user',JSON.stringify(data));}catch(_){}
+
+    const current=getAccountProfile();
+    const sameCurrent=current&&String(current.email||'').trim().toLowerCase()===incomingEmail?current:null;
+    const archived=getArchivedAccountProfile(incomingEmail);
+    const existing=archived||sameCurrent||{};
+    const hasCustom=!!(existing.profileCustomised||existing.username||existing.bio||existing.location||existing.avatar);
+
+    const profile={
+      ...existing,
+      email:data.email,
+      name:hasCustom&&existing.name?existing.name:(data.name||existing.name||(data.email||'').split('@')[0]),
+      avatar:hasCustom&&existing.avatar?existing.avatar:(data.picture||existing.avatar||''),
+      provider:provider||data.provider||existing.provider||'google',
+      google:(provider||data.provider||existing.provider||'google')==='google',
+      createdAt:existing.createdAt||Date.now(),
+      updatedAt:Date.now()
+    };
+    saveAccountProfile(profile);
+    restoreTrackedForAccount(incomingEmail);
+    updateAccountHeader();
+    renderProfileTab();
+    closeLogin();
+
+    setTimeout(()=>findaiLoadRemoteProfile().catch(()=>{}),0);
+    setTimeout(appStartMarketplaceSync,0);
+    if(typeof appSavedSyncFromServer==='function')setTimeout(()=>appSavedSyncFromServer(false).catch(()=>{}),20);
+    if(typeof appTasteSyncFromServer==='function')setTimeout(()=>appTasteSyncFromServer(true).catch(()=>{}),40);
+    if(typeof appGetProStatus==='function')setTimeout(()=>appGetProStatus(true).catch(()=>{}),0);
+    setTimeout(()=>loadProfileMarketplaceData(true).catch(()=>{}),120);
+  };
+
+  /* Logout only removes the active session. The profile itself is archived per
+     email first, so signing back into that exact account restores it. */
+  window.signOutAccount=function(){
+    const current=getAccountProfile();
+    try{
+      if(current&&current.email){
+        saveAccountProfile(current);
+        archiveTrackedForAccount(current.email);
+      }
+    }catch(_){}
+    try{if(typeof appRemovePush==='function')appRemovePush().catch(()=>{});}catch(_){}
+    try{
+      [
+        'fa_account_profile_v1','findai_user','fa_marketplace_listings_v2',
+        'fa_latest_owned_reel_listing_v1','fa_tracked_v2','fa_local_notice_read_v1'
+      ].forEach(key=>localStorage.removeItem(key));
+    }catch(_){}
+    try{
+      marketplaceListingsCache=[];
+      socialProfileListings=[];
+      appNotificationCache=[];
+      appProState=null;appProScanUnlocked=false;
+    }catch(_){}
+    try{if(window.google&&google.accounts&&google.accounts.id)google.accounts.id.disableAutoSelect();}catch(_){}
+    try{closeAccountMenu();closeAppSettings();closeCreateListing();closeMyListings();closePurchases();closeSearchResultDetail();}catch(_){}
+    try{updateAccountHeader();renderProfileTab();setHomeNotificationState(0);}catch(_){}
+    try{setMainNavActive('discover');openForYou();}catch(_){try{go('discover');}catch(__){}}
+  };
+
+  /* Instagram-style pull to refresh on Profile. */
+  function mountProfileRefresh(){
+    const profile=document.getElementById('profile');
+    const scroller=profile&&profile.querySelector('.profile-scroll');
+    if(!profile||!scroller||scroller.dataset.pullRefreshBound==='1')return;
+    scroller.dataset.pullRefreshBound='1';
+
+    let indicator=profile.querySelector('.wishwave-profile-refresh');
+    if(!indicator){
+      indicator=document.createElement('div');
+      indicator.className='wishwave-profile-refresh';
+      indicator.setAttribute('aria-hidden','true');
+      indicator.innerHTML='<svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 1-2.3-5.7"/><path d="M20 4v7h-7"/></svg>';
+      profile.appendChild(indicator);
+    }
+
+    let startY=0,pull=0,tracking=false,refreshing=false;
+    function paint(distance){
+      const shown=Math.max(0,Math.min(1,distance/34));
+      const y=Math.max(-34,Math.min(48,-34+distance*.72));
+      indicator.style.opacity=String(shown);
+      indicator.style.transform='translateY('+y+'px) scale('+(0.8+shown*.2)+')';
+      indicator.classList.toggle('show',distance>4);
+    }
+    async function refresh(){
+      if(refreshing)return;
+      refreshing=true;
+      indicator.classList.add('show','refreshing');
+      indicator.style.opacity='1';
+      indicator.style.transform='translateY(16px) scale(1)';
+      const started=Date.now();
+      try{
+        if(typeof findaiLoadRemoteProfile==='function')await findaiLoadRemoteProfile();
+        if(typeof appSavedSyncFromServer==='function')await appSavedSyncFromServer(true).catch(()=>{});
+        if(typeof loadProfileMarketplaceData==='function')await loadProfileMarketplaceData(true);
+        if(typeof loadHomeNotifications==='function')await loadHomeNotifications().catch(()=>{});
+      }catch(_){}
+      const wait=Math.max(0,520-(Date.now()-started));
+      setTimeout(()=>{
+        refreshing=false;
+        indicator.classList.remove('refreshing');
+        indicator.style.opacity='0';
+        indicator.style.transform='translateY(-34px) scale(.8)';
+        setTimeout(()=>indicator.classList.remove('show'),170);
+      },wait);
+    }
+
+    scroller.addEventListener('touchstart',event=>{
+      if(refreshing)return;
+      if(scroller.scrollTop<=1&&event.touches&&event.touches[0]){
+        startY=event.touches[0].clientY;pull=0;tracking=true;
+      }
+    },{passive:true});
+    scroller.addEventListener('touchmove',event=>{
+      if(!tracking||refreshing||!event.touches||!event.touches[0])return;
+      const dy=event.touches[0].clientY-startY;
+      if(dy<=0){pull=0;paint(0);return;}
+      pull=Math.min(95,dy*.72);
+      paint(pull);
+    },{passive:true});
+    scroller.addEventListener('touchend',()=>{
+      if(!tracking||refreshing)return;
+      tracking=false;
+      if(pull>=48)refresh();
+      else paint(0);
+      pull=0;
+    },{passive:true});
+    scroller.addEventListener('touchcancel',()=>{tracking=false;pull=0;if(!refreshing)paint(0);},{passive:true});
+    window.refreshWishWaveProfile=refresh;
+  }
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mountProfileRefresh,{once:true});
+  else mountProfileRefresh();
+  window.addEventListener('pageshow',mountProfileRefresh,{passive:true});
 })();
 </script>
 
