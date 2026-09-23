@@ -3416,7 +3416,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
   <div class="app-theme-overlay" id="appThemeOverlay" role="dialog" aria-modal="true" aria-label="Appearance settings" onclick="if(event.target===this)closeAppSettings()">
     <div class="app-theme-sheet" onclick="event.stopPropagation()">
       <div class="app-theme-grabber"></div>
-      <div class="app-theme-head"><div><h2>Settings</h2><p>Choose how FindAI looks on this device.</p></div><button class="app-theme-close" type="button" onclick="closeAppSettings()" aria-label="Close">&times;</button></div>
+      <div class="app-theme-head"><div><h2>Settings</h2><p>Choose how WishWave looks on this device.</p></div><button class="app-theme-close" type="button" onclick="closeAppSettings()" aria-label="Close">&times;</button></div>
       <div class="app-theme-row"><span class="app-theme-label">Appearance</span><div class="app-theme-segment">
         <button class="app-theme-choice" type="button" data-app-theme-choice="system" onclick="setAppTheme('system')">System</button>
         <button class="app-theme-choice" type="button" data-app-theme-choice="light" onclick="setAppTheme('light')">Light</button>
@@ -4144,7 +4144,12 @@ async function submitCreateListing(event){
     const createdId=created&&created.listing&&(created.listing.marketplaceListingId||created.listing.itemId||created.listing.id);
     const nextListings=created&&created.listing?[created.listing,...current.filter(item=>(item.marketplaceListingId||item.itemId||item.id)!==createdId)]:current.slice();
     if(created&&created.listing)saveMarketplaceListings(nextListings);
-    if(created&&created.listing){rememberOwnedListingForFeed(created.listing);socialProfileListings=nextListings;}
+    if(created&&created.listing){
+      rememberOwnedListingForFeed(created.listing);
+      socialProfileListings=nextListings;
+      try{localStorage.removeItem(PERSONALISED_CACHE_KEY);}catch(_){}
+      try{if(feedState&&feedState.seen)feedState.seen.delete(listingKey(created.listing));}catch(_){}
+    }
     closeCreateListing();
     resetCreateListingForm();
     go('profile');
@@ -5460,7 +5465,7 @@ function normaliseOwnedListingForFeed(item){
 }
 function surfaceOwnedListingInFeed(items){
   const original=Array.isArray(items)?items.filter(Boolean):[];
-  if(!marketplaceSession()) return original;
+  if(!getAccountProfile()&&!readOwnedListingForFeed()) return original;
   let owned=[];
   try{
     const pinned=readOwnedListingForFeed();
@@ -5485,14 +5490,14 @@ function surfaceOwnedListingInFeed(items){
   const mineId=String(appMpId(mine)||listingKey(mine)||'');
 
   // Remove an older injected copy or the same marketplace listing if it is already
-  // present elsewhere, then guarantee the newest active listing as reel #2.
+  // present elsewhere, then guarantee the newest active listing as reel #1.
   const base=original.filter(item=>{
     if(item&&item._ownedListingInjection)return false;
     const id=String(appMpId(item)||listingKey(item)||'');
     return !mineId||id!==mineId;
   });
-  const at=Math.min(base.length,1);
-  return [...base.slice(0,at),mine,...base.slice(at)];
+  const at=0;
+  return [mine,...base];
 }
 function renderPersonalisedFeed(items,{writeCache=true}={}){
   items=surfaceOwnedListingInFeed(surfaceLikedListingInFeed(items));
@@ -11339,7 +11344,7 @@ window.addEventListener('load', function(){
       +'<div class="findai-settings-head"><button class="findai-settings-back" type="button" onclick="closeAppSettings()" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg></button><h2>Settings and activity</h2><span></span></div>'
       +'<label class="findai-settings-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="7"/><path d="m16 16 4.3 4.3"/></svg><input type="search" placeholder="Search settings" oninput="filterFindAISettings(this.value)"></label>'
       +(profile?'<section class="findai-settings-section"><div class="findai-settings-section-title">Your account</div>'+settingsRow('edit',profileIcon,'Edit profile','Name, username, photo and bio',"closeAppSettings();openProfileEdit()")+settingsRow('saved',heartIcon,'Liked items','Products you have saved',"closeAppSettings();openProfile();setTimeout(()=>setProfileTab('liked'),80)")+'</section>':'')
-      +'<section class="findai-settings-section"><div class="findai-settings-section-title">How you use FindAI</div>'+settingsRow('messages',msgIcon,'Messages','Marketplace conversations',"closeAppSettings();openMessagesTab()")+settingsRow('notifications',bell,'Notifications','Price drops, messages and saved items',"closeAppSettings();appEnableNotifications()")+'</section>'
+      +'<section class="findai-settings-section"><div class="findai-settings-section-title">How you use WishWave</div>'+settingsRow('messages',msgIcon,'Messages','Marketplace conversations',"closeAppSettings();openMessagesTab()")+settingsRow('notifications',bell,'Notifications','Price drops, messages and saved items',"closeAppSettings();appEnableNotifications()")+'</section>'
       +'<section class="findai-settings-section"><div class="findai-settings-section-title">Appearance</div><div class="findai-settings-appearance" data-settings-search="appearance system light dark"><div class="app-theme-segment"><button class="app-theme-choice" type="button" data-app-theme-choice="system" onclick="setAppTheme(\'system\')">System</button><button class="app-theme-choice" type="button" data-app-theme-choice="light" onclick="setAppTheme(\'light\')">Light</button><button class="app-theme-choice" type="button" data-app-theme-choice="dark" onclick="setAppTheme(\'dark\')">Dark</button></div></div></section>'
       +(profile?'<section class="findai-settings-section">'+settingsRow('logout',logout,'Log out',profile.email||'',"closeAppSettings();signOutAccount()",true)+'</section>':'')
       +'</div>';
@@ -11732,7 +11737,7 @@ window.addEventListener('load', function(){
 
 <script id="findai-v105-final-bottom-stats-notifications-script">
 (function(){
-  const VIEW_MILESTONES=[100,500,1000,5000,10000,50000,100000];
+  const VIEW_MILESTONES=[10,100,500,1000,5000,10000,50000,100000];
   const LOCAL_NOTICE_READ_KEY='fa_local_notice_read_v1';
   let appNotificationCache=[];
   let appNotificationUnread=0;
@@ -11778,7 +11783,7 @@ window.addEventListener('load', function(){
     listings.forEach(item=>{
       const id=typeof appMpId==='function'?String(appMpId(item)||''):'';
       const views=typeof profileListingViewCount==='function'?profileListingViewCount(item):0;
-      if(!id||views<100)return;
+      if(!id||views<10)return;
       let milestone=0;
       VIEW_MILESTONES.forEach(value=>{if(views>=value)milestone=value;});
       if(!milestone)return;
@@ -11786,8 +11791,8 @@ window.addEventListener('load', function(){
       out.push({
         id:key,
         notification_type:'view_milestone',
-        title:'Your listing hit '+profileMetricCompact(milestone)+' views',
-        body:String(item.title||'Your WishWave listing')+' is getting seen.',
+        title:milestone===10?'Your Listing has reached 10 Views!':'Your listing hit '+profileMetricCompact(milestone)+' views',
+        body:milestone===10?String(item.title||'Your WishWave listing')+' has reached its first 10 views.':String(item.title||'Your WishWave listing')+' is getting seen.',
         created_at:item.updatedAt||item.updated_at||item.publishedAt||item.createdAt||new Date().toISOString(),
         listing_id:id,
         local:true,
@@ -11835,7 +11840,10 @@ window.addEventListener('load', function(){
       try{conversations=await marketplaceFetch('/marketplace/conversations',{method:'GET'});}catch(_){}
     }
     const remote=Array.isArray(server&&server.notifications)?server.notifications:[];
-    const milestones=listingMilestoneNotifications();
+    const milestones=listingMilestoneNotifications().filter(localNotice=>!remote.some(remoteNotice=>{
+      const remoteType=String(remoteNotice.notification_type||'').toLowerCase();
+      return remoteType.includes('view')&&String(remoteNotice.title||'').trim()===String(localNotice.title||'').trim();
+    }));
     const hasMessageNotice=remote.some(n=>String(n.notification_type||'').toLowerCase().includes('message'));
     const messageNotices=hasMessageNotice?[]:messageFallbackNotifications(conversations);
     const seen=new Set();
@@ -11971,6 +11979,12 @@ window.addEventListener('load', function(){
   },true);
 
   setTimeout(()=>{loadHomeNotifications().catch(()=>{});},650);
+  setInterval(()=>{
+    if(document.visibilityState==='visible'&&marketplaceSession())loadHomeNotifications().catch(()=>{});
+  },20000);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'&&marketplaceSession())loadHomeNotifications().catch(()=>{});
+  });
 })();
 </script>
 
@@ -12459,6 +12473,247 @@ window.addEventListener('load', function(){
   window.addEventListener('pageshow',mountStandaloneNav,{passive:true});
   window.addEventListener('resize',mountStandaloneNav,{passive:true});
   window.addEventListener('orientationchange',()=>setTimeout(mountStandaloneNav,80),{passive:true});
+})();
+</script>
+
+
+<style id="wishwave-v114-critical-ui-fixes">
+  /* Exact dark canvas: no charcoal strip beside a one-column profile listing. */
+  html:not(.findai-light),
+  html:not(.findai-light) body,
+  html:not(.findai-light) .app,
+  html:not(.findai-light) #profile,
+  html:not(.findai-light) #profile .profile-scroll,
+  html:not(.findai-light) #profileSignedIn,
+  html:not(.findai-light) #profileSignedOut,
+  html:not(.findai-light) #profile .social-profile,
+  html:not(.findai-light) #profile .social-profile-content,
+  html:not(.findai-light) #profile .social-profile-grid{
+    background:#000!important;
+  }
+  html:not(.findai-light) #profile .social-profile-tile{
+    background:#000!important;
+  }
+
+  /* Light mode has one clean white canvas instead of mixed greys. */
+  html.findai-light,
+  html.findai-light body,
+  html.findai-light .app,
+  html.findai-light .screen,
+  html.findai-light .feed-wrap,
+  html.findai-light #discover,
+  html.findai-light #search,
+  html.findai-light #searchResults,
+  html.findai-light #profile,
+  html.findai-light #profile .profile-scroll,
+  html.findai-light #profileSignedIn,
+  html.findai-light #profileSignedOut,
+  html.findai-light #profile .social-profile,
+  html.findai-light #profile .social-profile-content,
+  html.findai-light #profile .social-profile-grid{
+    background:#fff!important;
+  }
+  html.findai-light #profile .social-profile-tabs{
+    background:#fff!important;
+    border-color:#e7e7e9!important;
+  }
+  html.findai-light #profile .social-profile-actions button{
+    background:#ededf0!important;
+    border-color:#dedee2!important;
+  }
+  html.findai-light #profile .social-profile-tile{background:#f2f2f4!important}
+
+  /* The 3 appearance choices fit their segmented box exactly. */
+  #appThemeOverlay .app-theme-segment{
+    width:100%!important;
+    height:46px!important;
+    min-height:46px!important;
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    align-items:stretch!important;
+    gap:3px!important;
+    padding:3px!important;
+    border-radius:13px!important;
+    box-sizing:border-box!important;
+    overflow:hidden!important;
+  }
+  #appThemeOverlay .app-theme-choice{
+    width:100%!important;
+    min-width:0!important;
+    height:100%!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:0 6px!important;
+    border-radius:9px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    line-height:1!important;
+    box-sizing:border-box!important;
+  }
+
+  /* Centre the generic profile silhouette optically in every avatar. */
+  .guest-profile-avatar,
+  .nav-profile-avatar,
+  .guest-profile-avatar>span,
+  .nav-profile-avatar>span{
+    display:grid!important;
+    place-items:center!important;
+  }
+  .guest-profile-person-icon{
+    display:block!important;
+    margin:0!important;
+    transform:translate(0,1px)!important;
+    transform-origin:center!important;
+  }
+  .guest-profile-avatar>span,
+  .nav-profile-avatar>span{
+    line-height:0!important;
+    padding:0!important;
+  }
+
+  /* Profile content always fills to the nav so a short listing grid never reveals
+     an unrelated grey/charcoal band underneath it. */
+  #profile .profile-scroll{
+    min-height:0!important;
+    background:inherit!important;
+  }
+  #profile .social-profile-content{
+    min-height:calc(100dvh - 500px)!important;
+  }
+
+  /* One native-style bottom bar including the iPhone bottom safe area. */
+  :root{--wishwave-tab-h:56px}
+  body>.nav.findai-five-nav.premium-bottom-nav,
+  .app>.nav.findai-five-nav.premium-bottom-nav{
+    position:fixed!important;
+    left:50%!important;
+    right:auto!important;
+    top:auto!important;
+    bottom:0!important;
+    width:min(100%,520px)!important;
+    height:calc(var(--wishwave-tab-h) + env(safe-area-inset-bottom,0px))!important;
+    min-height:calc(var(--wishwave-tab-h) + env(safe-area-inset-bottom,0px))!important;
+    max-height:none!important;
+    padding:0 6px env(safe-area-inset-bottom,0px)!important;
+    margin:0!important;
+    transform:translateX(-50%)!important;
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+    align-items:start!important;
+    background:#000!important;
+    border-top:1px solid rgba(255,255,255,.08)!important;
+    box-sizing:border-box!important;
+    z-index:9999!important;
+  }
+  body>.nav.findai-five-nav.premium-bottom-nav button,
+  .app>.nav.findai-five-nav.premium-bottom-nav button{
+    height:var(--wishwave-tab-h)!important;
+    min-height:var(--wishwave-tab-h)!important;
+    max-height:var(--wishwave-tab-h)!important;
+    align-self:start!important;
+    padding:0!important;
+    margin:0!important;
+  }
+  /* Black underlay prevents a white/grey strip showing beneath the tab bar on iOS. */
+  .wishwave-bottom-underlay{
+    position:fixed!important;
+    left:0!important;right:0!important;bottom:0!important;
+    height:calc(var(--wishwave-tab-h) + env(safe-area-inset-bottom,0px) + 8px)!important;
+    background:#000!important;
+    pointer-events:none!important;
+    z-index:9997!important;
+  }
+  #profile .profile-scroll,
+  #search .premium-search-scroll,
+  #searchResults .premium-results-scroll{
+    padding-bottom:calc(var(--wishwave-tab-h) + env(safe-area-inset-bottom,0px) + 8px)!important;
+  }
+  #discover #personalFeed .product-panel{
+    padding-bottom:calc(var(--wishwave-tab-h) + env(safe-area-inset-bottom,0px) + 10px)!important;
+  }
+  #discover .reel-actions,
+  #discover .reel-action-rail{
+    bottom:calc(var(--wishwave-tab-h) + env(safe-area-inset-bottom,0px) + 8px)!important;
+  }
+
+  /* The seller's freshly-created reel is obviously their own listing. */
+  .reel-card[data-owned-listing="true"] .product-panel:before{
+    content:"Your listing";
+    display:inline-flex;
+    align-items:center;
+    width:max-content;
+    margin:0 0 7px;
+    padding:4px 8px;
+    border-radius:999px;
+    background:rgba(0,0,0,.72);
+    color:#fff;
+    font-size:10px;
+    font-weight:750;
+    letter-spacing:.01em;
+  }
+</style>
+
+<script id="wishwave-v114-critical-ui-fixes-script">
+(function(){
+  /* Keep nav mounted once at body level and paint the OS-safe bottom behind it. */
+  function wishwaveLockBottomNav(){
+    const nav=document.querySelector('.nav.findai-five-nav.premium-bottom-nav');
+    if(nav&&nav.parentElement!==document.body)document.body.appendChild(nav);
+    let underlay=document.querySelector('.wishwave-bottom-underlay');
+    if(!underlay){
+      underlay=document.createElement('div');
+      underlay.className='wishwave-bottom-underlay';
+      underlay.setAttribute('aria-hidden','true');
+      document.body.appendChild(underlay);
+    }
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',wishwaveLockBottomNav,{once:true});
+  else wishwaveLockBottomNav();
+  window.addEventListener('pageshow',wishwaveLockBottomNav,{passive:true});
+  window.addEventListener('orientationchange',()=>setTimeout(wishwaveLockBottomNav,80),{passive:true});
+
+  /* Guarantee logout visibly completes instead of leaving the old profile painted. */
+  window.signOutAccount=function(){
+    try{if(typeof appRemovePush==='function')appRemovePush().catch(()=>{});}catch(_){}
+    const keepTheme=(()=>{try{return localStorage.getItem('findai_theme');}catch(_){return null;}})();
+    try{
+      [
+        'fa_account_profile_v1','findai_user','fa_marketplace_listings_v2',
+        'fa_latest_owned_reel_listing_v1','fa_tracked_v2',
+        'fa_local_notice_read_v1'
+      ].forEach(key=>localStorage.removeItem(key));
+      if(keepTheme)localStorage.setItem('findai_theme',keepTheme);
+    }catch(_){}
+    try{
+      marketplaceListingsCache=[];
+      if(typeof socialProfileListings!=='undefined')socialProfileListings=[];
+      if(typeof appNotificationCache!=='undefined')appNotificationCache=[];
+      appProState=null;appProScanUnlocked=false;
+    }catch(_){}
+    try{if(window.google&&google.accounts&&google.accounts.id)google.accounts.id.disableAutoSelect();}catch(_){}
+    try{closeAccountMenu();}catch(_){}
+    try{closeAppSettings();}catch(_){}
+    try{closeCreateListing();closeMyListings();closePurchases();closeSearchResultDetail();}catch(_){}
+    try{updateAccountHeader();}catch(_){}
+    try{if(typeof renderProfileTab==='function')renderProfileTab();}catch(_){}
+    try{if(typeof setHomeNotificationState==='function')setHomeNotificationState(0);}catch(_){}
+    try{setMainNavActive('discover');}catch(_){}
+    try{openForYou();}catch(_){try{go('discover');}catch(__){}}
+    setTimeout(()=>{try{window.location.reload();}catch(_){}},80);
+  };
+
+  /* Add a data marker to the user's injected reel so the small "Your listing"
+     confirmation label is only shown on their own newly listed item. */
+  const originalRenderReelCard=window.renderReelCard;
+  if(typeof originalRenderReelCard==='function'){
+    window.renderReelCard=function(item,index,data){
+      let html=originalRenderReelCard(item,index,data);
+      if(item&&item._ownedListingInjection){
+        html=String(html).replace(/class="reel-card([^"]*)"/,'class="reel-card$1" data-owned-listing="true"');
+      }
+      return html;
+    };
+  }
 })();
 </script>
 
