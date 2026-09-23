@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#000000">
 <meta name="robots" content="noindex, follow">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="FindAI">
 <link rel="manifest" href="/app.webmanifest?v=15">
 <link rel="apple-touch-icon" sizes="180x180" href="/findai-search-touch-icon.png?v=15">
@@ -12239,6 +12239,157 @@ window.addEventListener('load', function(){
   }
   lockNavToCanvas();
   window.addEventListener('pageshow',lockNavToCanvas,{passive:true});
+})();
+</script>
+
+
+<style id="findai-v111-ios-standalone-bottom-fix">
+  /*
+    iOS installed-web-app workaround:
+    WebKit has documented bottom-positioning bugs with
+    viewport-fit=cover + black-translucent + absolute positioning.
+    In standalone mode use 100vh and a FIXED nav attached to body.
+  */
+  @media (display-mode: standalone){
+    html,body{
+      width:100%!important;
+      height:100vh!important;
+      min-height:100vh!important;
+      max-height:100vh!important;
+      margin:0!important;
+      padding:0!important;
+      overflow:hidden!important;
+      background:#000!important;
+    }
+
+    .app{
+      position:relative!important;
+      inset:auto!important;
+      top:auto!important;
+      right:auto!important;
+      bottom:auto!important;
+      left:auto!important;
+      width:min(100%,520px)!important;
+      max-width:520px!important;
+      height:100vh!important;
+      min-height:100vh!important;
+      max-height:100vh!important;
+      margin:0 auto!important;
+      overflow:hidden!important;
+      background:#000!important;
+    }
+
+    body>.nav.findai-five-nav.premium-bottom-nav{
+      position:fixed!important;
+      left:50%!important;
+      right:auto!important;
+      top:auto!important;
+      bottom:0!important;
+      width:min(100%,520px)!important;
+      height:54px!important;
+      min-height:54px!important;
+      max-height:54px!important;
+      margin:0!important;
+      padding:0 6px!important;
+      transform:translateX(-50%)!important;
+      display:grid!important;
+      grid-template-columns:repeat(5,minmax(0,1fr))!important;
+      align-items:end!important;
+      overflow:visible!important;
+      background:#000!important;
+      border-top:1px solid rgba(255,255,255,.08)!important;
+      box-sizing:border-box!important;
+      z-index:9999!important;
+    }
+
+    body>.nav.findai-five-nav.premium-bottom-nav button{
+      width:100%!important;
+      height:50px!important;
+      min-height:50px!important;
+      max-height:50px!important;
+      padding:0 0 1px!important;
+      margin:0!important;
+      align-self:end!important;
+      display:grid!important;
+      place-items:center!important;
+      overflow:visible!important;
+      transform:none!important;
+      scale:1!important;
+    }
+
+    body>.nav.findai-five-nav.premium-bottom-nav .nav-icon-shell,
+    body>.nav.findai-five-nav.premium-bottom-nav .nav-create-shell,
+    body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar,
+    body>.nav.findai-five-nav.premium-bottom-nav button.active .nav-icon-shell,
+    body>.nav.findai-five-nav.premium-bottom-nav button.active .nav-create-shell{
+      transform:none!important;
+      scale:1!important;
+    }
+
+    /* Reel occupies the full standalone viewport behind the fixed nav. */
+    #discover .discover-feed-wrap{
+      top:0!important;
+      bottom:0!important;
+      height:auto!important;
+    }
+    #discover #personalFeed,
+    #discover #personalFeed .reel-card{
+      height:100%!important;
+      min-height:100%!important;
+    }
+    #discover #personalFeed .product-panel{
+      bottom:0!important;
+      padding-bottom:64px!important;
+      box-sizing:border-box!important;
+    }
+    #discover .reel-actions,
+    #discover .reel-action-rail{
+      bottom:68px!important;
+    }
+
+    #search .premium-search-scroll,
+    #searchResults .premium-results-scroll,
+    #profile .profile-scroll{
+      padding-bottom:62px!important;
+    }
+    #appMpInbox.show{
+      bottom:54px!important;
+    }
+  }
+</style>
+
+
+<script id="findai-v111-ios-standalone-bottom-fix-script">
+(function(){
+  function isStandalone(){
+    return window.matchMedia('(display-mode: standalone)').matches ||
+      window.navigator.standalone === true;
+  }
+
+  function mountStandaloneNav(){
+    if(!isStandalone()) return;
+    const nav=document.querySelector('.nav.findai-five-nav.premium-bottom-nav');
+    if(!nav) return;
+
+    /* Important: body is the containing block for a fixed element.
+       Do not leave this inside .app where older absolute-position rules interfere. */
+    if(nav.parentElement!==document.body) document.body.appendChild(nav);
+
+    nav.style.setProperty('position','fixed','important');
+    nav.style.setProperty('bottom','0px','important');
+    nav.style.setProperty('top','auto','important');
+    nav.style.setProperty('transform','translateX(-50%)','important');
+  }
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',mountStandaloneNav,{once:true});
+  }else{
+    mountStandaloneNav();
+  }
+
+  window.addEventListener('pageshow',mountStandaloneNav,{passive:true});
+  window.addEventListener('resize',mountStandaloneNav,{passive:true});
+  window.addEventListener('orientationchange',()=>setTimeout(mountStandaloneNav,80),{passive:true});
 })();
 </script>
 
