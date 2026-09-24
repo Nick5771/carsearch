@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v124-people-search-native-reels-comment-actions">
+<meta name="findai-build" content="v125-adaptive-reels-following-ranking">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -3092,6 +3092,47 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
 }
 
 </style>
+
+<style id="findai-v125-adaptive-reels-style">
+  /* v125: a liked heart is only a red glyph. Never animate or paint its container. */
+  #discover .reel-social-action.like .reel-social-icon,
+  #discover .reel-social-action.like.active .reel-social-icon,
+  #discover .reel-social-action.like.just-liked .reel-social-icon,
+  #search .reel-social-action.like .reel-social-icon,
+  #search .reel-social-action.like.active .reel-social-icon,
+  #search .reel-social-action.like.just-liked .reel-social-icon{
+    width:auto!important;height:auto!important;min-width:0!important;min-height:0!important;
+    border:0!important;border-radius:0!important;background:transparent!important;
+    box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+    outline:0!important;animation:none!important;transform:none!important;isolation:auto!important;
+    overflow:visible!important;
+  }
+  #discover .reel-social-action.like .reel-social-icon:before,
+  #discover .reel-social-action.like .reel-social-icon:after,
+  #search .reel-social-action.like .reel-social-icon:before,
+  #search .reel-social-action.like .reel-social-icon:after{content:none!important;display:none!important;background:none!important}
+  #discover .reel-social-action.like.just-liked .reel-social-icon svg,
+  #search .reel-social-action.like.just-liked .reel-social-icon svg{
+    animation:findaiHeartPop .46s cubic-bezier(.18,.86,.28,1.16)!important;
+  }
+
+  /* Follow is the primary social action. Following/own-profile remains neutral. */
+  #wishwavePublicFollowButton:not(.following):not(:disabled),
+  .premium-seller-action:not(.following):not(:disabled){
+    background:#4d8cff!important;color:#fff!important;border-color:#4d8cff!important;
+  }
+  #wishwavePublicFollowButton:not(.following):not(:disabled):active,
+  .premium-seller-action:not(.following):not(:disabled):active{background:#3f7de7!important}
+  #wishwavePublicFollowButton.following,
+  .premium-seller-action.following{
+    background:#1a1d22!important;color:#f3f4f6!important;border:1px solid rgba(255,255,255,.13)!important;
+  }
+  html.findai-light #wishwavePublicFollowButton.following,
+  html.findai-light .premium-seller-action.following{
+    background:#eceef1!important;color:#15171a!important;border-color:#d7d9dd!important;
+  }
+</style>
+
 </head>
 <body>
 <div class="app">
@@ -15116,5 +15157,413 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
   };
 })();
 </script>
+
+<style id="findai-v125-final-heart-follow-override">
+/* Must remain after all legacy social styles: iOS must never composite a square around the liked heart. */
+#discover .reel-social-action.like .reel-social-icon,#discover .reel-social-action.like.active .reel-social-icon,#discover .reel-social-action.like.just-liked .reel-social-icon,#search .reel-social-action.like .reel-social-icon,#search .reel-social-action.like.active .reel-social-icon,#search .reel-social-action.like.just-liked .reel-social-icon{width:auto!important;height:auto!important;min-width:0!important;min-height:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;outline:0!important;animation:none!important;transform:none!important;isolation:auto!important;overflow:visible!important}
+#discover .reel-social-action.like .reel-social-icon:before,#discover .reel-social-action.like .reel-social-icon:after,#search .reel-social-action.like .reel-social-icon:before,#search .reel-social-action.like .reel-social-icon:after{content:none!important;display:none!important;background:none!important;animation:none!important}
+#discover .reel-social-action.like.just-liked .reel-social-icon svg,#search .reel-social-action.like.just-liked .reel-social-icon svg{animation:findaiHeartPop .46s cubic-bezier(.18,.86,.28,1.16)!important}
+#wishwavePublicFollowButton:not(.following):not(:disabled),.premium-seller-action:not(.following):not(:disabled){background:#4d8cff!important;color:#fff!important;border-color:#4d8cff!important}
+#wishwavePublicFollowButton.following,.premium-seller-action.following{background:#1a1d22!important;color:#f3f4f6!important;border:1px solid rgba(255,255,255,.13)!important}
+</style>
+<script id="findai-v125-adaptive-reels-script">
+/* =========================================================
+   FindAI v125 — adaptive Reels recommendation engine
+   ---------------------------------------------------------
+   Signals used in real time:
+   - dwell relative to the shopper's own normal dwell time
+   - fast skips, revisits, likes/unlikes, compare, retailer click
+   - search/scan intent, shares, comments, seller-profile opens, follows
+   - category, source, price-band and seller affinities
+   - current-session taste (fast) + persistent taste (slow)
+   - followed-seller inventory injected into For You
+   The next unseen tail is re-ranked without moving the current/next reel.
+   ========================================================= */
+(function(){
+  'use strict';
+
+  const V125_SESSION_TASTE_KEY='fa_session_taste_v125';
+  const V125_BEHAVIOR_KEY='fa_behavior_profile_v125';
+  const V125_DWELL_KEY='fa_dwell_history_v125';
+  const V125_EVENT_WEIGHTS=Object.freeze({
+    search:10,scan:13,click:7,buy:12,like:15,unlike:-8,compare:10,track:13,tracker:6,
+    dwell:2,quickSkip:-.45,revisit:7,share:8,comment:10,sellerProfile:5,followSeller:18,unfollowSeller:-7,legacy:2.5
+  });
+  const V125_REBALANCE_EVENTS=new Set(['search','scan','like','unlike','click','buy','compare','dwell','quickSkip','revisit','track','tracker','share','comment','sellerProfile','followSeller','unfollowSeller']);
+  let v125ActiveVisibleStartedAt=0;
+  let v125ActiveMaxRatio=0;
+  let v125AdaptiveRerankTimer=null;
+  let v125FollowingFetchAt=0;
+  let v125FollowingCache=[];
+  const v125VisitCounts=new Map();
+
+  function v125SafeJson(storage,key,fallback){
+    try{const parsed=JSON.parse(storage.getItem(key)||'null');return parsed&&typeof parsed==='object'?parsed:fallback;}catch(_){return fallback;}
+  }
+  function v125SaveJson(storage,key,value){try{storage.setItem(key,JSON.stringify(value));}catch(_){}}
+  function v125Median(values){
+    const a=(Array.isArray(values)?values:[]).map(Number).filter(Number.isFinite).sort((x,y)=>x-y);
+    if(!a.length)return 2400;const m=Math.floor(a.length/2);return a.length%2?a[m]:(a[m-1]+a[m])/2;
+  }
+  function v125DwellHistory(){
+    const raw=v125SafeJson(localStorage,V125_DWELL_KEY,[]);
+    const now=Date.now();return (Array.isArray(raw)?raw:[]).filter(x=>x&&Number(x.ms)>=250&&now-Number(x.at||0)<30*86400000).slice(-40);
+  }
+  function v125DwellBaseline(){
+    const values=v125DwellHistory().map(x=>Math.max(350,Math.min(20000,Number(x.ms)||0)));
+    return Math.max(1200,Math.min(6500,v125Median(values.slice(-30))||2400));
+  }
+  function v125RememberDwell(ms){
+    if(!Number.isFinite(ms)||ms<250)return;
+    const h=v125DwellHistory();h.push({ms:Math.round(Math.min(ms,30000)),at:Date.now()});
+    v125SaveJson(localStorage,V125_DWELL_KEY,h.slice(-40));
+  }
+
+  function v125SessionTaste(){
+    const raw=v125SafeJson(sessionStorage,V125_SESSION_TASTE_KEY,{});
+    return raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
+  }
+  function v125RecordSessionTaste(query,delta){
+    const clean=String(query||'').trim();if(clean.length<2||!Number.isFinite(delta)||delta===0)return;
+    const category=interestCategory(clean),discoveryQuery=deriveDiscoveryQuery(clean)||clean,cluster=interestClusterKey(clean,category);
+    const profile=v125SessionTaste(),now=Date.now();
+    const current=profile[cluster]||{query:clean,discoveryQuery,category,cluster,weight:0,lastAt:now};
+    const age=Math.max(0,now-Number(current.lastAt||now));
+    const carry=(Number(current.weight)||0)*Math.pow(.5,age/(20*60*1000));
+    current.query=clean;current.discoveryQuery=discoveryQuery;current.category=category;current.cluster=cluster;
+    current.weight=Math.max(-18,Math.min(65,carry+delta));current.lastAt=now;profile[cluster]=current;
+    const trimmed=Object.entries(profile).sort((a,b)=>Number(b[1].lastAt||0)-Number(a[1].lastAt||0)).slice(0,28);
+    v125SaveJson(sessionStorage,V125_SESSION_TASTE_KEY,Object.fromEntries(trimmed));
+  }
+  function v125SessionInterests(){
+    const now=Date.now();return Object.values(v125SessionTaste()).map(item=>{
+      const age=Math.max(0,now-Number(item.lastAt||now));
+      const score=(Number(item.weight)||0)*Math.pow(.5,age/(28*60*1000));
+      return {...item,score};
+    }).filter(x=>x.score>.2).sort((a,b)=>b.score-a.score);
+  }
+
+  function v125BehaviorProfile(){
+    const p=v125SafeJson(localStorage,V125_BEHAVIOR_KEY,{});
+    return {categories:p.categories||{},sources:p.sources||{},prices:p.prices||{},sellers:p.sellers||{}};
+  }
+  function v125PriceBucket(value){
+    const p=Number(value)||0;if(p<=0)return '';
+    if(p<50)return 'under50';if(p<150)return '50-150';if(p<400)return '150-400';if(p<1000)return '400-1000';
+    if(p<3000)return '1000-3000';if(p<10000)return '3000-10000';return '10000plus';
+  }
+  function v125BehaviorEntryScore(entry,halfLifeDays=35){
+    if(!entry)return 0;const age=Math.max(0,Date.now()-Number(entry.lastAt||Date.now()));
+    return (Number(entry.score)||0)*Math.pow(.5,age/(halfLifeDays*86400000));
+  }
+  function v125UpdateBehaviorMap(map,key,delta){
+    key=String(key||'').trim().toLowerCase();if(!key||!Number.isFinite(delta)||delta===0)return;
+    const now=Date.now(),old=map[key]||{score:0,lastAt:now,count:0};
+    const carry=v125BehaviorEntryScore(old,45);
+    map[key]={score:Math.max(-40,Math.min(80,carry+delta)),lastAt:now,count:Math.min(9999,(Number(old.count)||0)+1)};
+  }
+  function v125ContextFromItem(item){
+    if(!item)return null;
+    return {
+      item,
+      category:interestCategory(item._interestQuery||item.searchQ||item.query||item.title||''),
+      source:String(getSource(item)||'').toLowerCase(),priceBucket:v125PriceBucket(item.price),
+      sellerId:String(item.sellerId||''),price:Number(item.price)||0
+    };
+  }
+  function v125RecordBehavior(context,event,delta){
+    if(!context||!Number.isFinite(delta)||delta===0)return;
+    const p=v125BehaviorProfile();
+    const category=String(context.category||'').toLowerCase(),source=String(context.source||'').toLowerCase();
+    const priceBucket=String(context.priceBucket||'').toLowerCase(),sellerId=String(context.sellerId||'').toLowerCase();
+    v125UpdateBehaviorMap(p.categories,category,delta*.52);
+    v125UpdateBehaviorMap(p.sources,source,delta*.20);
+    v125UpdateBehaviorMap(p.prices,priceBucket,delta*.28);
+    if(sellerId)v125UpdateBehaviorMap(p.sellers,sellerId,delta*(event==='followSeller'?1.35:event==='unfollowSeller'?1.1:.42));
+    v125SaveJson(localStorage,V125_BEHAVIOR_KEY,p);
+  }
+  function v125InferContext(query,event,explicit){
+    if(explicit&&explicit.item)return explicit;
+    if(!['dwell','quickSkip','revisit','like','unlike','click','buy','compare','share','comment','sellerProfile','followSeller','unfollowSeller','track'].includes(String(event||'')))return explicit||null;
+    try{
+      const item=currentFeedItems&&currentFeedItems[activeReelIndex];
+      if(!item)return explicit||null;
+      const q=String(query||''),candidate=String(item._interestQuery||item.title||'');
+      if(q&&candidate&&interestTokenSimilarity(q,candidate)<.1&&interestCategory(q)!==interestCategory(candidate))return explicit||null;
+      return v125ContextFromItem(item);
+    }catch(_){return explicit||null;}
+  }
+
+  const v124RecordInterest=recordInterest;
+  recordInterest=function(query,event='search',customBoost=null,context=null){
+    const name=String(event||'search');
+    const boost=Number.isFinite(customBoost)?Number(customBoost):(V125_EVENT_WEIGHTS[name]??1);
+    v124RecordInterest(query,name,boost);
+    const sessionMultiplier=name==='search'?1.65:name==='scan'?1.8:name==='followSeller'?1.5:name==='dwell'?1.2:1;
+    v125RecordSessionTaste(query,boost*sessionMultiplier);
+    const resolved=v125InferContext(query,name,context);
+    if(resolved)v125RecordBehavior(resolved,name,boost);
+    if(V125_REBALANCE_EVENTS.has(name))v125ScheduleAdaptiveRerank(name);
+  };
+
+  const v124ScoredInterests=scoredInterests;
+  scoredInterests=function(limit=PERSONALISED_INTEREST_LIMIT){
+    const base=v124ScoredInterests(Math.max(limit,PERSONALISED_INTEREST_LIMIT));
+    const session=v125SessionInterests().slice(0,5).map((x,i)=>({...x,id:x.id||('session_'+x.cluster),featured:false,score:Math.max(.25,x.score*2.25-i*.02)}));
+    if(!session.length)return base.slice(0,limit);
+    const merged=new Map();
+    for(const item of base){if(item&&item.cluster)merged.set(item.cluster,{...item});}
+    for(const item of session){
+      if(!item||!item.cluster)continue;const old=merged.get(item.cluster);
+      merged.set(item.cluster,old?{...old,query:item.query||old.query,discoveryQuery:item.discoveryQuery||old.discoveryQuery,category:item.category||old.category,score:(Number(old.score)||0)+(Number(item.score)||0)}:item);
+    }
+    let ranked=[...merged.values()].sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0));
+    const exploration=base.find(x=>x&&x.featured&&!ranked.slice(0,limit).some(y=>y.cluster===x.cluster));
+    ranked=ranked.slice(0,limit);
+    if(exploration&&ranked.length>=limit)ranked[ranked.length-1]=exploration;
+    else if(exploration)ranked.push(exploration);
+    return ranked.slice(0,limit);
+  };
+
+  function v125AdaptiveBoost(item){
+    if(!item)return 0;const p=v125BehaviorProfile();
+    const ctx=v125ContextFromItem(item)||{};let boost=0;
+    boost+=Math.max(-12,Math.min(18,v125BehaviorEntryScore(p.categories[String(ctx.category||'').toLowerCase()],28)*.85));
+    boost+=Math.max(-7,Math.min(9,v125BehaviorEntryScore(p.sources[String(ctx.source||'').toLowerCase()],35)*.55));
+    boost+=Math.max(-7,Math.min(10,v125BehaviorEntryScore(p.prices[String(ctx.priceBucket||'').toLowerCase()],42)*.60));
+    if(ctx.sellerId)boost+=Math.max(-12,Math.min(24,v125BehaviorEntryScore(p.sellers[String(ctx.sellerId).toLowerCase()],60)*.95));
+    const title=String(item._interestQuery||item.title||'');const category=ctx.category||interestCategory(title);
+    for(const interest of v125SessionInterests().slice(0,6)){
+      const sim=Math.max(interestTokenSimilarity(interest.discoveryQuery||interest.query,title),interestTokenSimilarity(interest.query,title));
+      const categoryMatch=String(interest.category||'')===String(category||'');
+      boost+=Math.min(18,(Number(interest.score)||0)*(sim*1.65+(categoryMatch?.20:0)));
+    }
+    if(item._followedSeller||item.followedSeller)boost+=46;
+    if(isFindAIListing(item)){
+      const created=Date.parse(item.publishedAt||item.createdAt||'');const age=Date.now()-created;
+      if(Number.isFinite(age)&&age>=0){if(age<86400000)boost+=12;else if(age<3*86400000)boost+=7;else if(age<7*86400000)boost+=3;}
+    }
+    return Math.max(-25,Math.min(68,boost));
+  }
+  const v124PersonalisedItemScore=personalisedItemScore;
+  personalisedItemScore=function(item,query,scope=''){
+    return v124PersonalisedItemScore(item,query,scope)+v125AdaptiveBoost(item);
+  };
+
+  function v125RerenderTail(start){
+    if(feedState.source!=='personalised')return;const feed=appActiveFeedElement();if(!feed)return;
+    const cards=Array.from(feed.querySelectorAll('.reel-card'));
+    cards.forEach(card=>{if(Number(card.dataset.index)>=start)card.remove();});
+    const html=currentFeedItems.slice(start).map((item,offset)=>renderReelCard(item,start+offset,currentFeedData)).join('');
+    if(html)feed.insertAdjacentHTML('beforeend',html);
+    attachReelObserver();preloadPersonalisedImages(start,12);
+  }
+  function v125AdaptiveRerankTail(){
+    if(feedState.source!=='personalised'||!currentFeedItems||currentFeedItems.length<5||!document.getElementById('discover')?.classList.contains('active'))return;
+    const start=Math.min(currentFeedItems.length,Math.max(0,Number(activeReelIndex)||0)+2);
+    if(start>=currentFeedItems.length-1)return;
+    const head=currentFeedItems.slice(0,start),tail=currentFeedItems.slice(start);
+    const ordered=[...tail].sort((a,b)=>{
+      const aq=a._interestQuery||a.title||'',bq=b._interestQuery||b.title||'';
+      return personalisedItemScore(b,bq,b._interestCluster||'tail')-personalisedItemScore(a,aq,a._interestCluster||'tail');
+    });
+    const sequenced=sequencePersonalisedBatch(ordered,head,ordered.length);
+    currentFeedItems=head.concat(sequenced);
+    v125RerenderTail(start);
+  }
+  function v125ScheduleAdaptiveRerank(event){
+    if(feedState.source!=='personalised')return;
+    clearTimeout(v125AdaptiveRerankTimer);
+    const delay=['like','compare','followSeller','search','revisit','buy'].includes(String(event||''))?90:220;
+    v125AdaptiveRerankTimer=setTimeout(v125AdaptiveRerankTail,delay);
+  }
+
+  const v124SchedulePersonalisedLaneRebalance=schedulePersonalisedLaneRebalance;
+  schedulePersonalisedLaneRebalance=function(event){
+    const name=String(event||'');
+    if(!V125_REBALANCE_EVENTS.has(name)){return v124SchedulePersonalisedLaneRebalance(event);}
+    if(!feedState||feedState.source!=='personalised')return;
+    clearTimeout(personalisedLaneRebalanceTimer);
+    personalisedLaneRebalanceTimer=setTimeout(()=>{
+      if(!feedState||feedState.source!=='personalised')return;
+      const existing=new Map((feedState.interests||[]).map(lane=>[lane.cluster,lane]));
+      const fresh=scoredInterests().map(newPersonalisedLane).map(lane=>{
+        const old=existing.get(lane.cluster);
+        return old?{...lane,page:old.page,cursor:old.cursor,hasMore:old.hasMore,noNewPages:old.noNewPages,variantIndex:old.variantIndex,query:old.query}:lane;
+      });
+      feedState.interests=fresh;feedState.laneCursor=0;feedState.cacheSignature=personalisedProfileSignature(fresh);
+    },80);
+    v125ScheduleAdaptiveRerank(name);
+  };
+
+  function v125DwellSignal(ms){
+    const baseline=v125DwellBaseline(),ratio=ms/Math.max(1,baseline);
+    if(ms<450)return {event:'quickSkip',boost:-1.05,ratio,baseline};
+    if(ms<900&&ratio<.5)return {event:'quickSkip',boost:-.45,ratio,baseline};
+    if(ms>=12000||ratio>=4)return {event:'dwell',boost:8.5,ratio,baseline};
+    if(ms>=8000||ratio>=2.8)return {event:'dwell',boost:6.5,ratio,baseline};
+    if(ms>=5200||ratio>=1.9)return {event:'dwell',boost:4.5,ratio,baseline};
+    if(ms>=3200||ratio>=1.3)return {event:'dwell',boost:2.5,ratio,baseline};
+    if(ms>=1800)return {event:'dwell',boost:.85,ratio,baseline};
+    return {event:'view',boost:0,ratio,baseline};
+  }
+
+  finaliseReelTracking=function(){
+    if(!activeReelTrackingKey||!currentFeedItems.length)return;
+    const item=currentFeedItems[activeReelIndex];if(!item)return;
+    if(v125ActiveMaxRatio<.68)return;
+    const started=v125ActiveVisibleStartedAt||activeReelStartedAt;
+    const elapsed=Math.max(0,Date.now()-started);
+    const onceKey=`v125:${activeReelTrackingKey}:${Math.floor(started/500)}`;
+    if(sessionDwellRecorded.has(onceKey))return;sessionDwellRecorded.add(onceKey);
+    if(elapsed>=250)v125RememberDwell(elapsed);
+    const signal=v125DwellSignal(elapsed),query=item._interestQuery||feedState.query||item.title;
+    if(signal.boost!==0){
+      const context=v125ContextFromItem(item);recordInterest(query,signal.event,signal.boost,context);
+      if(signal.boost>1&&normaliseQueryText(query)!==normaliseQueryText(item.title))recordInterest(item.title,'dwell',Math.min(4.5,signal.boost*.58),context);
+    }
+  };
+
+  beginReelTracking=function(index,ratio=1){
+    const previousKey=activeReelTrackingKey;
+    activeReelIndex=Number(index)||0;activeReelStartedAt=Date.now();
+    const item=currentFeedItems[activeReelIndex];const key=item?listingKey(item):'';
+    activeReelTrackingKey=key;v125ActiveMaxRatio=Math.max(0,Number(ratio)||0);
+    v125ActiveVisibleStartedAt=v125ActiveMaxRatio>=.68?Date.now():0;
+    if(item){
+      notePersonalisedImpression(item);recordWishWaveListingView(item,'reels',false);
+      if(key&&key!==previousKey){
+        const visits=Number(v125VisitCounts.get(key)||0);v125VisitCounts.set(key,visits+1);
+        if(visits>0){
+          const q=item._interestQuery||feedState.query||item.title;
+          recordInterest(q,'revisit',Math.min(10,6+visits*1.25),v125ContextFromItem(item));
+        }
+      }
+    }
+  };
+
+  attachReelObserver=function(){
+    if(reelObserver)reelObserver.disconnect();const feed=appActiveFeedElement();if(!feed)return;
+    reelObserver=new IntersectionObserver(entries=>{
+      const visible=entries.filter(entry=>entry.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];if(!visible)return;
+      const index=Number(visible.target.dataset.index||0),ratio=Number(visible.intersectionRatio)||0;
+      if(index!==activeReelIndex){finaliseReelTracking();beginReelTracking(index,ratio);try{haptic();}catch(_){}}
+      else{
+        v125ActiveMaxRatio=Math.max(v125ActiveMaxRatio,ratio);
+        if(!v125ActiveVisibleStartedAt&&ratio>=.68)v125ActiveVisibleStartedAt=Date.now();
+      }
+      const preloadDistance=(feedState&&feedState.source==='personalised')?12:5;
+      if(index>=currentFeedItems.length-preloadDistance)loadMoreListings();
+      if(feedState&&feedState.source==='personalised')preloadPersonalisedImages(index+1,10);
+    },{root:feed,threshold:[.35,.52,.68,.78,.88,.96]});
+    $$('.reel-card',feed).forEach(card=>reelObserver.observe(card));
+  };
+
+  /* Extra explicit engagement signals. */
+  const v124OpenDeal=openDeal;
+  openDeal=function(index,event){
+    const item=currentFeedItems[Number(index)||0];if(item)recordInterest(item._interestQuery||feedState.query||item.title,'buy',null,v125ContextFromItem(item));
+    return v124OpenDeal(index,event);
+  };
+  const v124ShareItem=shareItem;
+  shareItem=async function(index,event){
+    const item=currentFeedItems[Number(index)||0];if(item)recordInterest(item._interestQuery||item.title,'share',null,v125ContextFromItem(item));
+    return v124ShareItem(index,event);
+  };
+  const v124SubmitWishWaveComment=submitWishWaveComment;
+  submitWishWaveComment=async function(event){
+    const item=wishwaveCommentsItem;if(item)recordInterest(item._interestQuery||item.title,'comment',null,v125ContextFromItem(item));
+    return v124SubmitWishWaveComment(event);
+  };
+  const v124OpenWishWaveSellerProfile=openWishWaveSellerProfile;
+  openWishWaveSellerProfile=async function(index,event){
+    const item=currentFeedItems[Number(index)||0];if(item)recordInterest(item._interestQuery||item.title,'sellerProfile',null,v125ContextFromItem(item));
+    return v124OpenWishWaveSellerProfile(index,event);
+  };
+
+  function v125InvalidatePersonalisedCache(){
+    try{localStorage.removeItem(PERSONALISED_CACHE_KEY);localStorage.removeItem(PERSONALISED_LAST_REFRESH_KEY);}catch(_){}
+    v125FollowingFetchAt=0;v125FollowingCache=[];
+  }
+  function v125RecordSellerFollow(data,before){
+    if(!data||!data.seller)return;const after=!!(data.viewer&&data.viewer.isFollowing);if(after===before)return;
+    const seller=data.seller||{},listing=(Array.isArray(data.listings)?data.listings:[]).find(x=>String(x.status||'active').toLowerCase()==='active');
+    const context=listing?v125ContextFromItem(listing):{category:'',source:'findai',priceBucket:'',sellerId:String(seller.id||'')};
+    if(after){
+      if(listing)recordInterest(listing.title||seller.displayName,'followSeller',18,{...context,sellerId:String(seller.id||'')});
+      else v125RecordBehavior({...context,sellerId:String(seller.id||'')},'followSeller',18);
+    }else{
+      if(listing)recordInterest(listing.title||seller.displayName,'unfollowSeller',-7,{...context,sellerId:String(seller.id||'')});
+      else v125RecordBehavior({...context,sellerId:String(seller.id||'')},'unfollowSeller',-7);
+    }
+    v125InvalidatePersonalisedCache();
+  }
+  const v124TogglePublicFollow=toggleWishWavePublicSellerFollow;
+  toggleWishWavePublicSellerFollow=async function(){
+    const data=wishwavePublicSellerData,before=!!(data&&data.viewer&&data.viewer.isFollowing);
+    const result=await v124TogglePublicFollow();v125RecordSellerFollow(data,before);return result;
+  };
+
+  async function v125FetchFollowingListings(){
+    if(!marketplaceSession())return [];
+    if(v125FollowingCache.length&&Date.now()-v125FollowingFetchAt<45000)return v125FollowingCache;
+    try{
+      const data=await marketplaceFetch('/marketplace/following/feed?limit=24',{method:'GET'});
+      const items=(Array.isArray(data&&data.items)?data.items:[]).filter(item=>item&&Number(item.price)>0).map(item=>{
+        const q=String(item.title||'').trim();return {...item,_followedSeller:true,followedSeller:true,_interestQuery:q,_interestCategory:interestCategory(q),_interestCluster:'following:'+interestClusterKey(q),_recommendationFamily:recommendationFamilyKey(item)};
+      });
+      v125FollowingCache=items;v125FollowingFetchAt=Date.now();return items;
+    }catch(_){return [];}
+  }
+  function v125MergeFollowingIntoFeed(items){
+    if(feedState.source!=='personalised'||!Array.isArray(items)||!items.length)return;
+    const existing=new Map(currentFeedItems.map((item,index)=>[listingKey(item),index]));
+    const incoming=[];
+    for(const item of items){
+      const key=listingKey(item);if(!key)continue;
+      if(existing.has(key)){const idx=existing.get(key);currentFeedItems[idx]={...currentFeedItems[idx],_followedSeller:true,followedSeller:true};continue;}
+      incoming.push(item);
+    }
+    if(!incoming.length){v125ScheduleAdaptiveRerank('followSeller');return;}
+    const start=Math.min(currentFeedItems.length,Math.max(2,(Number(activeReelIndex)||0)+2));
+    const head=currentFeedItems.slice(0,start),tail=currentFeedItems.slice(start);
+    const mixed=[...tail];
+    incoming.slice(0,8).forEach((item,i)=>mixed.splice(Math.min(mixed.length,i*6),0,item));
+    currentFeedItems=head.concat(sequencePersonalisedBatch(mixed,head,mixed.length));
+    v125RerenderTail(start);
+    writePersonalisedCache();
+  }
+  function v125RefreshFollowingInventory(){
+    if(feedState.source!=='personalised')return;
+    v125FetchFollowingListings().then(v125MergeFollowingIntoFeed).catch(()=>{});
+  }
+  const v124RenderPersonalisedFeed=renderPersonalisedFeed;
+  renderPersonalisedFeed=function(items,opts){
+    const out=v124RenderPersonalisedFeed(items,opts);setTimeout(v125RefreshFollowingInventory,40);return out;
+  };
+
+  /* Wrap People-tab Follow too when that handler exists. */
+  if(typeof window.togglePremiumSellerFollowCollection==='function'){
+    const v124PeopleFollow=window.togglePremiumSellerFollowCollection;
+    window.togglePremiumSellerFollowCollection=async function(collection,index,button){
+      let seller=null,before=false;
+      try{const c=window[collection]||globalThis[collection];seller=Array.isArray(c)?c[index]:null;before=!!(seller&&seller.isFollowing);}catch(_){}
+      const result=await v124PeopleFollow(collection,index,button);
+      try{
+        if(seller&&!!seller.isFollowing!==before){
+          const ctx={category:'',source:'findai',priceBucket:'',sellerId:String(seller.id||'')};
+          v125RecordBehavior(ctx,seller.isFollowing?'followSeller':'unfollowSeller',seller.isFollowing?18:-7);v125InvalidatePersonalisedCache();
+        }
+      }catch(_){}
+      return result;
+    };
+  }
+
+  /* One quiet warm-up so a signed-in user's followed sellers can influence the
+     first For You session without blocking initial paint. */
+  if(marketplaceSession())setTimeout(()=>v125FetchFollowingListings().catch(()=>{}),900);
+})();
+</script>
+
 </body>
 </html>
