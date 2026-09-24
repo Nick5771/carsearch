@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v125-adaptive-reels-following-ranking">
+<meta name="findai-build" content="v126-social-search-feedback-personalised-explore">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -13626,8 +13626,8 @@ function renderWishWavePublicProfile(){
         '<p class="social-profile-bio">'+escapeHTML(seller.bio||'')+'</p>'+
         '<div class="social-profile-meta">'+escapeHTML(seller.location||'')+'</div>'+
       '</div>'+
-      '<div class="social-profile-actions">'+
-        '<button type="button" id="wishwavePublicFollowButton" class="'+(viewer.isFollowing?'following':'')+'" '+(viewer.isSeller?'disabled':'')+' onclick="toggleWishWavePublicSellerFollow()">'+(viewer.isSeller?'Your profile':(viewer.isFollowing?'Following':'Follow'))+'</button>'+
+      '<div class="social-profile-actions '+(viewer.isSeller?'self-profile-actions':'')+'">'+
+        (viewer.isSeller?'':'<button type="button" id="wishwavePublicFollowButton" class="'+(viewer.isFollowing?'following':'')+'" onclick="toggleWishWavePublicSellerFollow()">'+(viewer.isFollowing?'Following':'Follow')+'</button>')+
         '<button type="button" onclick="messageWishWavePublicSeller()">'+(viewer.isSeller?'Messages':'Message')+'</button>'+
       '</div>'+
       '<div class="social-profile-tabs wishwave-public-profile-tabs" role="tablist">'+
@@ -13660,11 +13660,17 @@ function openWishWavePublicListing(index,kind){
 function messageWishWavePublicSeller(){
   if(!wishwavePublicSellerData)return;
   const viewer=wishwavePublicSellerData.viewer||{};
-  if(viewer.isSeller){closeWishWavePublicProfile();openProfile();return;}
+  if(viewer.isSeller){closeWishWavePublicProfile();openAppMarketplaceInbox();return;}
+  if(!viewer.signedIn){openLogin();return;}
   const listing=(wishwavePublicSellerData.listings||[]).find(x=>String(x.status||'active').toLowerCase()==='active');
-  if(!listing){toast('This seller has no active listing to message from');return;}
+  if(!listing){toast('This seller has no active listing to start a conversation from yet');return;}
   appMpListing=listing;appMpContext={listing,seller:wishwavePublicSellerData.seller,viewer};
-  openAppMarketplaceMessages();
+  appMpInboxMode='listing';appMpConversation='';appMpCurrentConversation=null;appMpCurrentOffers=[];
+  closeWishWavePublicProfile();closeAccountMenu();
+  const inbox=document.getElementById('appMpInbox'),title=document.getElementById('appMpInboxTitle');
+  if(inbox)inbox.classList.add('show');if(title)title.textContent='Messages';
+  renderAppMpChat('',true);
+  setTimeout(()=>{const input=document.getElementById('appMpMessageInput');if(input)try{input.focus({preventScroll:true});}catch(_){input.focus();}},90);
 }
 
 async function toggleWishWavePublicSellerFollow(){
@@ -13674,23 +13680,31 @@ async function toggleWishWavePublicSellerFollow(){
   if(!viewer.signedIn){openLogin();return;}
   const sellerId=String(seller.id||'');if(!sellerId)return;
   const button=document.getElementById('wishwavePublicFollowButton');
-  if(button)button.disabled=true;
-  const wasFollowing=!!viewer.isFollowing;
+  const wasFollowing=!!viewer.isFollowing,next=!wasFollowing;
+  viewer.isFollowing=next;
+  seller.followerCount=Math.max(0,(Number(seller.followerCount)||0)+(next?1:-1));
+  const count=document.getElementById('wishwavePublicFollowerCount');
+  if(count)count.textContent=profileMetricCompact(seller.followerCount);
+  if(button){button.textContent=next?'Following':'Follow';button.classList.toggle('following',next);button.disabled=true;}
+  try{if(window.findaiFollowFeedback)window.findaiFollowFeedback(button);else haptic();}catch(_){}
   try{
     const data=await marketplaceFetch('/marketplace/sellers/'+encodeURIComponent(sellerId)+'/follow',{
       method:wasFollowing?'DELETE':'POST'
     });
     viewer.isFollowing=!!data.isFollowing;
     seller.followerCount=Math.max(0,Number(data.followerCount)||0);
-    const count=document.getElementById('wishwavePublicFollowerCount');
     if(count)count.textContent=profileMetricCompact(seller.followerCount);
     if(button){
       button.textContent=viewer.isFollowing?'Following':'Follow';
       button.classList.toggle('following',viewer.isFollowing);
     }
-    try{haptic();}catch(_){}
-  }catch(error){toast(error.message||'Could not update follow');}
-  finally{if(button)button.disabled=false;}
+  }catch(error){
+    viewer.isFollowing=wasFollowing;
+    seller.followerCount=Math.max(0,(Number(seller.followerCount)||0)+(wasFollowing?1:-1));
+    if(count)count.textContent=profileMetricCompact(seller.followerCount);
+    if(button){button.textContent=wasFollowing?'Following':'Follow';button.classList.toggle('following',wasFollowing);}
+    toast(error.message||'Could not update follow');
+  }finally{if(button)button.disabled=false;}
 }
 
 async function shareWishWavePublicProfile(){
@@ -14732,14 +14746,53 @@ if(typeof v116RenderMarketplaceListing==='function'){
   let exploreQueue=[];
   let exploreLoading=false;
   let exploreBound=false;
+  let exploreVisitSalt=0;
   const seenExplore=new Set();
 
   function configById(id){return PREMIUM_DISCOVERY_CATEGORIES.find(x=>x.id===id)||PREMIUM_DISCOVERY_RETAILERS.find(x=>x.id===id)||null;}
+  function exploreTasteConfigs(){
+    try{
+      const interests=(typeof scoredInterests==='function'?scoredInterests(10):[])
+        .filter(x=>x&&x.query&&!x.featured);
+      const out=[],seen=new Set();
+      for(const interest of interests){
+        const cluster=String(interest.cluster||interestClusterKey(interest.query)||'').trim();
+        if(!cluster||seen.has(cluster))continue;
+        seen.add(cluster);
+        const variants=(typeof interestQueryVariants==='function'?interestQueryVariants(interest):[interest.discoveryQuery,interest.query])
+          .map(x=>String(x||'').trim()).filter(Boolean);
+        if(!variants.length)continue;
+        out.push({
+          id:'taste_'+cluster.replace(/[^a-z0-9]+/gi,'_').slice(0,28),
+          title:'For You',
+          queries:[...new Set(variants)].slice(0,4),
+          _findaiTaste:true,
+          _findaiInterest:interest
+        });
+        if(out.length>=4)break;
+      }
+      return out;
+    }catch(_){return [];}
+  }
   function exploreConfigs(filter){
     const ids=(FILTERS[filter]||FILTERS['for-you']).slice();
-    let configs=ids.map(configById).filter(Boolean);
-    if(filter==='for-you')configs=[...premiumDiscoveryConfig(),...configs];
-    return premiumRotateArray(configs,premiumDiscoveryHash()+(filter.length*97));
+    const categoryConfigs=ids.map(configById).filter(Boolean);
+    if(filter!=='for-you')return premiumRotateArray(categoryConfigs,premiumDiscoveryHash()+(filter.length*97)+exploreVisitSalt*31);
+    const taste=exploreTasteConfigs();
+    const discovery=premiumRotateArray(
+      [...premiumDiscoveryConfig(),...categoryConfigs],
+      premiumDiscoveryHash()+exploreVisitSalt*131+17
+    );
+    const mixed=[],used=new Set();
+    const add=config=>{if(!config)return;const key=String(config.id||config.title||Math.random());if(used.has(key))return;used.add(key);mixed.push(config);};
+    // Keep taste strong but deliberately preserve broad exploration so Search never
+    // becomes trapped in only the last one or two Home/Reels interests.
+    add(taste[0]); add(discovery[0]); add(discovery[1]);
+    add(taste[1]); add(discovery[2]); add(discovery[3]);
+    add(taste[2]); add(discovery[4]); add(discovery[5]);
+    add(taste[3]);
+    discovery.slice(6).forEach(add);
+    return mixed.slice(0,14);
   }
   function exploreItemKey(item){return listingKey(item)||trackedKey(item)||String(item&&item.itemId||item&&item.url||item&&item.title||'');}
   function exploreSource(item){
@@ -14775,18 +14828,27 @@ if(typeof v116RenderMarketplaceListing==='function'){
     root.innerHTML='<div class="premium-explore-grid">'+items.map(exploreTile).join('')+'</div><div class="premium-explore-load-marker" id="premiumExploreLoadMarker">Loading more products…</div>';
   }
   async function loadExploreConfig(config,pool,generation){
+    const queryUsed=premiumRotateArray(config.queries||[config.title||'products'],premiumDiscoveryHash()+String(config.id||'x').length+exploreVisitSalt*19)[0]||config.title||'products';
     let items=v116PreviewItemsForConfig(config,pool);
     if(items.length<6){
-      const q=premiumRotateArray(config.queries||[config.title||'products'],premiumDiscoveryHash()+String(config.id||'x').length)[0];
-      if(q){
+      if(queryUsed){
         try{
-          const result=await fetchProductResults(q,{page:1,limit:18,preserveExact:true,skipResolve:true,passive:true});
+          const result=await fetchProductResults(queryUsed,{page:1,limit:18,preserveExact:true,skipResolve:true,passive:true});
           const live=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings:[];
           items=items.concat(live.filter(x=>Number(x&&x.price)>0&&premiumProductImage(x)));
         }catch(_){ }
       }
     }
     if(generation!==exploreGeneration)return;
+    items=items.map(item=>({
+      ...item,
+      _interestQuery:item._interestQuery||queryUsed,
+      _interestCategory:item._interestCategory||interestCategory(queryUsed),
+      _interestCluster:item._interestCluster||interestClusterKey(queryUsed)
+    }));
+    if(exploreFilter==='for-you'&&typeof personalisedItemScore==='function'){
+      items.sort((a,b)=>personalisedItemScore(b,b._interestQuery||queryUsed,'search-explore')-personalisedItemScore(a,a._interestQuery||queryUsed,'search-explore'));
+    }
     const target=premiumDiscoverySections[0].items;
     for(const item of items){
       const key=exploreItemKey(item);if(!key||seenExplore.has(key)||!premiumProductImage(item)||Number(item.price)<=0)continue;
@@ -14816,6 +14878,12 @@ if(typeof v116RenderMarketplaceListing==='function'){
   }
   function setExploreFilter(filter){
     if(filter==='people'){
+      // Invalidate any product loads already in flight before switching the shared
+      // result root to People. Without this, a late product response can overwrite
+      // the People list a moment after it renders.
+      exploreGeneration++;
+      exploreLoading=false;
+      exploreQueue=[];
       exploreFilter='people';
       document.querySelectorAll('#premiumExploreChips [data-explore-filter]').forEach(btn=>btn.classList.toggle('active',btn.dataset.exploreFilter===filter));
       const screen=document.getElementById('search'),input=document.getElementById('q');
@@ -14844,6 +14912,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     const root=document.getElementById('premiumDiscoverySections');if(!root)return;
     if(exploreFilter==='people'&&window.loadPremiumPeopleDiscovery)return window.loadPremiumPeopleDiscovery(document.getElementById('q')&&document.getElementById('q').value||'');
     const generation=++exploreGeneration;
+    if(exploreFilter==='for-you')exploreVisitSalt++;
     exploreLoading=false;
     seenExplore.clear();
     premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:[]}];
@@ -14967,8 +15036,12 @@ if(typeof v116RenderMarketplaceListing==='function'){
 .premium-seller-discovery-head{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 10px}
 .premium-seller-discovery-head b{font-size:14px;letter-spacing:-.22px}.premium-seller-discovery-head span{color:#747c86;font-size:9.5px}
 .premium-seller-list{display:flex;flex-direction:column}
-.premium-seller-row{width:100%;min-height:70px;padding:8px 2px;border:0;border-bottom:1px solid rgba(255,255,255,.055);background:transparent;color:#fff;display:grid;grid-template-columns:52px minmax(0,1fr) auto;align-items:center;gap:11px;text-align:left}
+.premium-seller-row{width:100%;min-height:70px;padding:8px 2px;border:0;border-bottom:1px solid rgba(255,255,255,.055);background:transparent;color:#fff;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:11px;text-align:left}
 .premium-seller-row:last-child{border-bottom:0}.premium-seller-row:active{background:rgba(255,255,255,.025)}
+.premium-seller-open{min-width:0;border:0;background:transparent;color:inherit;padding:0;display:grid;grid-template-columns:52px minmax(0,1fr);align-items:center;gap:11px;text-align:left;cursor:pointer}
+.premium-seller-open:active{opacity:.78}
+.premium-seller-action.follow-buzz,#wishwavePublicFollowButton.follow-buzz{animation:findaiFollowBuzz .28s cubic-bezier(.18,.86,.28,1.22)}
+@keyframes findaiFollowBuzz{0%{transform:scale(1)}38%{transform:scale(.91)}72%{transform:scale(1.045)}100%{transform:scale(1)}}
 .premium-seller-avatar{width:52px;height:52px;border-radius:50%;overflow:hidden;background:#171b20;display:grid;place-items:center;color:#d9dde2;font-size:17px;font-weight:820}
 .premium-seller-avatar img{width:100%;height:100%;display:block;object-fit:cover}
 .premium-seller-copy{min-width:0}.premium-seller-copy b{display:block;font-size:12.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -14982,7 +15055,8 @@ if(typeof v116RenderMarketplaceListing==='function'){
 #premiumProfileMatches:empty{display:none}
 .premium-profile-matches{padding:9px 12px 2px;border-bottom:1px solid rgba(255,255,255,.055)}
 .premium-profile-matches-label{padding:2px 2px 5px;color:#8b929c;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
-.premium-profile-matches .premium-seller-row{min-height:62px;grid-template-columns:46px minmax(0,1fr) auto}
+.premium-profile-matches .premium-seller-row{min-height:62px;grid-template-columns:minmax(0,1fr) auto}
+.premium-profile-matches .premium-seller-open{grid-template-columns:46px minmax(0,1fr)}
 .premium-profile-matches .premium-seller-avatar{width:46px;height:46px}
 
 /* Own comments reveal Edit/Delete with a horizontal swipe. */
@@ -15000,7 +15074,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
 
 html.findai-light .premium-seller-discovery{background:#f8f8f8}html.findai-light .premium-seller-row{color:#111;border-color:rgba(0,0,0,.07)}html.findai-light .premium-seller-row:active{background:rgba(0,0,0,.025)}html.findai-light .premium-seller-avatar{background:#e8eaed;color:#333}html.findai-light .premium-seller-name{color:#6f747b}html.findai-light .premium-seller-meta{color:#858a91}html.findai-light .premium-seller-action{background:#111;color:#fff}html.findai-light .premium-seller-action.following{background:#eceef0;color:#111;border-color:#d4d7db}
 html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wishwave-comment-edit-input{background:#f1f2f4;color:#111;border-color:#dddfe2}
-@media(max-width:380px){.premium-explore-price{font-size:11.5px!important}.premium-explore-tile.featured .premium-explore-price{font-size:13px!important}.premium-seller-row{grid-template-columns:48px minmax(0,1fr) auto}.premium-seller-avatar{width:48px;height:48px}}
+@media(max-width:380px){.premium-explore-price{font-size:11.5px!important}.premium-explore-tile.featured .premium-explore-price{font-size:13px!important}.premium-seller-row{grid-template-columns:minmax(0,1fr) auto}.premium-seller-open{grid-template-columns:48px minmax(0,1fr)}.premium-seller-avatar{width:48px;height:48px}}
 </style>
 <script id="findai-v124-people-native-reels-comments-script">
 (function(){
@@ -15024,9 +15098,10 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     const followers=Math.max(0,Number(seller.followerCount)||0),listings=Math.max(0,Number(seller.activeCount)||0);
     const meta=profileMetricCompact(followers)+' follower'+(followers===1?'':'s')+' · '+profileMetricCompact(listings)+' listing'+(listings===1?'':'s');
     const key=scope==='matches'?'profileMatchRows':'peopleRows';
-    return '<div class="premium-seller-row" role="button" tabindex="0" onclick="openPremiumSellerFromCollection(\''+key+'\','+index+',event)" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openPremiumSellerFromCollection(\''+key+'\','+index+',event)}">'+
-      avatarMarkup(seller)+'<span class="premium-seller-copy"><b>'+escapeHTML(primary)+'</b>'+(name?'<span class="premium-seller-name">'+escapeHTML(name)+'</span>':'')+'<span class="premium-seller-meta">'+escapeHTML(meta)+'</span></span>'+
-      '<button type="button" class="premium-seller-action'+(seller.isFollowing?' following':'')+'" onclick="event.preventDefault();event.stopPropagation();togglePremiumSellerFollowCollection(\''+key+'\','+index+',this)">'+(seller.isFollowing?'Following':'Follow')+'</button></div>';
+    const open='<button type="button" class="premium-seller-open" onclick="openPremiumSellerFromCollection(\''+key+'\','+index+',event)">'+
+      avatarMarkup(seller)+'<span class="premium-seller-copy"><b>'+escapeHTML(primary)+'</b>'+(name?'<span class="premium-seller-name">'+escapeHTML(name)+'</span>':'')+'<span class="premium-seller-meta">'+escapeHTML(meta)+'</span></span></button>';
+    const action=seller.isSelf?'':'<button type="button" class="premium-seller-action'+(seller.isFollowing?' following':'')+'" onclick="event.preventDefault();event.stopPropagation();togglePremiumSellerFollowCollection(\''+key+'\','+index+',this)">'+(seller.isFollowing?'Following':'Follow')+'</button>';
+    return '<div class="premium-seller-row">'+open+action+'</div>';
   }
   window.profileMatchRows=[];
   window.peopleRows=peopleRows;
@@ -15048,6 +15123,7 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     if(event){event.preventDefault();event.stopPropagation();}
     const rows=collection==='profileMatchRows'?window.profileMatchRows:window.peopleRows;
     const seller=rows&&rows[Number(index)||0];if(!seller||!seller.id)return;
+    if(seller.isSelf){try{closeWishWavePublicProfile();}catch(_){}openProfile();return;}
     const page=ensureWishWavePublicProfilePage(),body=document.getElementById('wishwavePublicProfileBody');
     if(body)body.innerHTML='<div class="social-profile-loading"><div class="feed-more-spinner"></div><br>Loading profile…</div>';
     page.classList.remove('show');requestAnimationFrame(()=>requestAnimationFrame(()=>page.classList.add('show')));
@@ -15061,10 +15137,20 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     try{wishwavePublicSellerData=await marketplaceFetch('/marketplace/sellers/'+encodeURIComponent(id)+'/profile',{method:'GET'});renderWishWavePublicProfile();}catch(error){if(body)body.innerHTML='<div class="social-profile-empty"><b>Profile unavailable</b>'+escapeHTML(error.message||'Try again')+'</div>';}
   };
   window.togglePremiumSellerFollowCollection=async function(collection,index,button){
-    const rows=collection==='profileMatchRows'?window.profileMatchRows:window.peopleRows,seller=rows&&rows[Number(index)||0];if(!seller||!seller.id)return;
-    if(!marketplaceSession()){openLogin();return;}const was=!!seller.isFollowing;if(button)button.disabled=true;
-    try{const data=await marketplaceFetch('/marketplace/sellers/'+encodeURIComponent(seller.id)+'/follow',{method:was?'DELETE':'POST'});seller.isFollowing=!!data.isFollowing;seller.followerCount=Math.max(0,Number(data.followerCount)||0);if(button){button.textContent=seller.isFollowing?'Following':'Follow';button.classList.toggle('following',seller.isFollowing);}try{haptic();}catch(_){}}
-    catch(error){toast(error.message||'Could not update follow');}finally{if(button)button.disabled=false;}
+    const rows=collection==='profileMatchRows'?window.profileMatchRows:window.peopleRows,seller=rows&&rows[Number(index)||0];if(!seller||!seller.id||seller.isSelf)return;
+    if(!marketplaceSession()){openLogin();return;}const was=!!seller.isFollowing,next=!was;
+    seller.isFollowing=next;seller.followerCount=Math.max(0,(Number(seller.followerCount)||0)+(next?1:-1));
+    if(button){button.textContent=next?'Following':'Follow';button.classList.toggle('following',next);button.disabled=true;}
+    try{if(window.findaiFollowFeedback)window.findaiFollowFeedback(button);else haptic();}catch(_){}
+    try{
+      const data=await marketplaceFetch('/marketplace/sellers/'+encodeURIComponent(seller.id)+'/follow',{method:was?'DELETE':'POST'});
+      seller.isFollowing=!!data.isFollowing;seller.followerCount=Math.max(0,Number(data.followerCount)||0);
+      if(button){button.textContent=seller.isFollowing?'Following':'Follow';button.classList.toggle('following',seller.isFollowing);}
+    }catch(error){
+      seller.isFollowing=was;seller.followerCount=Math.max(0,(Number(seller.followerCount)||0)+(was?1:-1));
+      if(button){button.textContent=was?'Following':'Follow';button.classList.toggle('following',was);}
+      toast(error.message||'Could not update follow');
+    }finally{if(button)button.disabled=false;}
   };
 
   /* Search is product-first, but matching people appear above product results. */
@@ -15166,6 +15252,32 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
 #wishwavePublicFollowButton:not(.following):not(:disabled),.premium-seller-action:not(.following):not(:disabled){background:#4d8cff!important;color:#fff!important;border-color:#4d8cff!important}
 #wishwavePublicFollowButton.following,.premium-seller-action.following{background:#1a1d22!important;color:#f3f4f6!important;border:1px solid rgba(255,255,255,.13)!important}
 </style>
+
+<style id="findai-v126-social-polish">
+/* Remove the remaining iOS/Safari active-state plate around the heart itself. */
+#discover button.reel-social-action.like,#search button.reel-social-action.like,
+#discover button.reel-social-action.like.active,#search button.reel-social-action.like.active,
+#discover button.reel-social-action.like.just-liked,#search button.reel-social-action.like.just-liked{
+  -webkit-appearance:none!important;appearance:none!important;-webkit-tap-highlight-color:transparent!important;
+  background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;outline:0!important;
+  filter:none!important;
+}
+#discover button.reel-social-action.like:before,#discover button.reel-social-action.like:after,
+#search button.reel-social-action.like:before,#search button.reel-social-action.like:after{
+  content:none!important;display:none!important;background:none!important;border:0!important;box-shadow:none!important;animation:none!important;
+}
+.social-profile-actions.self-profile-actions{grid-template-columns:1fr!important}
+</style>
+<script id="findai-v126-follow-feedback">
+(function(){
+  window.findaiFollowFeedback=function(button){
+    try{if(navigator.vibrate)navigator.vibrate(11);}catch(_){}
+    if(!button)return;
+    button.classList.remove('follow-buzz');void button.offsetWidth;button.classList.add('follow-buzz');
+    setTimeout(()=>button&&button.classList.remove('follow-buzz'),320);
+  };
+})();
+</script>
 <script id="findai-v125-adaptive-reels-script">
 /* =========================================================
    FindAI v125 — adaptive Reels recommendation engine
