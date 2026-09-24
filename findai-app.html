@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v131-swipe-search-follow-polish">
+<meta name="findai-build" content="v132-instagram-tab-filter-swipe">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -16405,72 +16405,109 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     setTimeout(()=>button&&button.classList.remove('findai-follow-crisp'),260);
   };
 
-  /* ---------- 4. Instagram-like direct swipe navigation ---------- */
+  /* ---------- 4. Instagram-like direct swipe navigation v132 ---------- */
   const tabs=['discover','search','messages','profile'];
-  let swipe=null,preview=null,swipeLocked=false;
+  let swipe=null,swipeLocked=false,raf=0;
   function activeTab(){return String(document.body.dataset.activeTab||'discover');}
   function idx(tab){return tabs.indexOf(tab);}
   function visual(tab){if(tab==='messages')return document.getElementById('appMpInbox');return document.getElementById(tab);}
   function openTab(tab){if(tab==='discover')return openForYou();if(tab==='search')return openSearchHome(false);if(tab==='messages')return openMessagesTab();if(tab==='profile')return openProfile();}
-  function blockedTarget(target){return !!(target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,button,a,[role="button"]'))}
+  function blockedTarget(target){return !!(target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,[data-horizontal-scroll]'));}
   function overlayOpen(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,#createListingScreen.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show');}
-  function makePreview(targetTab,direction){
-    const source=visual(targetTab),app=document.querySelector('.app');if(!source||!app)return null;
-    const clone=source.cloneNode(true);clone.removeAttribute('id');clone.querySelectorAll('[id]').forEach(n=>n.removeAttribute('id'));clone.classList.add('findai-swipe-preview','active');clone.setAttribute('aria-hidden','true');
-    app.insertBefore(clone,document.querySelector('.nav')||null);
-    const w=app.clientWidth||window.innerWidth;clone.style.transform='translate3d('+(direction>0?w:-w)+'px,0,0)';return clone;
+  function prepSurface(el,kind){if(!el)return;el.classList.add(kind,'findai-v132-swipe-surface');el.style.removeProperty('display');}
+  function clearSurface(el){if(!el)return;el.classList.remove('findai-v132-current','findai-v132-target','findai-v132-settle','findai-v132-swipe-surface');el.style.transform='';el.style.opacity='';el.style.pointerEvents='';}
+  function cleanup(state,activate){
+    cancelAnimationFrame(raf);raf=0;
+    const current=state&&state.current,target=state&&state.targetEl,targetTab=state&&state.targetTab;
+    if(activate&&targetTab){try{openTab(targetTab);}catch(_){}}
+    requestAnimationFrame(()=>{clearSurface(current);clearSurface(target);swipe=null;swipeLocked=false;});
   }
-  function cleanup(current){
-    if(current){current.classList.remove('findai-swipe-current','findai-swipe-animate');current.style.transform='';current.style.opacity='';}
-    if(preview){preview.remove();preview=null;}swipe=null;swipeLocked=false;
+  function drawSwipe(){
+    raf=0;if(!swipe||!swipe.active)return;
+    const state=swipe,w=state.width||1,dx=state.dx;
+    state.current.style.transform='translate3d('+dx+'px,0,0)';
+    state.current.style.opacity=String(1-Math.min(.045,Math.abs(dx)/w*.045));
+    const base=state.direction>0?w:-w;
+    state.targetEl.style.transform='translate3d('+(base+dx)+'px,0,0)';
   }
-  function cancelSwipe(){
-    if(!swipe)return;const current=swipe.current;if(current){current.classList.add('findai-swipe-animate');current.style.transform='translate3d(0,0,0)';current.style.opacity='1';}
-    if(preview){preview.classList.add('findai-swipe-animate');const w=(document.querySelector('.app')?.clientWidth||window.innerWidth);preview.style.transform='translate3d('+(swipe.direction>0?w:-w)+'px,0,0)';}
-    setTimeout(()=>cleanup(current),250);
-  }
-  function commitSwipe(){
-    if(!swipe)return;const state=swipe,current=state.current,target=state.target,direction=state.direction;const app=document.querySelector('.app'),w=app?.clientWidth||window.innerWidth;
-    swipeLocked=true;
-    current.classList.add('findai-swipe-animate');if(preview)preview.classList.add('findai-swipe-animate');
-    /* Switch the real tab immediately behind the two animated layers. */
-    try{openTab(target);}catch(_){}
-    requestAnimationFrame(()=>{
-      current.style.transform='translate3d('+(direction>0?-w:w)+'px,0,0)';current.style.opacity='.96';
-      if(preview)preview.style.transform='translate3d(0,0,0)';
-    });
-    setTimeout(()=>cleanup(current),250);
+  function settle(commit){
+    if(!swipe||!swipe.active)return;const state=swipe,w=state.width;swipeLocked=true;
+    state.current.classList.add('findai-v132-settle');state.targetEl.classList.add('findai-v132-settle');
+    if(commit){
+      state.current.style.transform='translate3d('+(state.direction>0?-w:w)+'px,0,0)';
+      state.current.style.opacity='.985';state.targetEl.style.transform='translate3d(0,0,0)';
+      setTimeout(()=>cleanup(state,true),285);
+    }else{
+      state.current.style.transform='translate3d(0,0,0)';state.current.style.opacity='1';
+      state.targetEl.style.transform='translate3d('+(state.direction>0?w:-w)+'px,0,0)';
+      setTimeout(()=>cleanup(state,false),285);
+    }
   }
   document.addEventListener('touchstart',function(event){
     if(swipeLocked||overlayOpen()||event.touches.length!==1||blockedTarget(event.target))return;
-    const currentTab=activeTab(),i=idx(currentTab);if(i<0)return;
-    const t=event.touches[0];
-    swipe={tab:currentTab,index:i,startX:t.clientX,startY:t.clientY,lastX:t.clientX,lastT:performance.now(),dx:0,current:visual(currentTab),target:null,direction:0,active:false,velocity:0};
-    if(!swipe.current)return;event.stopImmediatePropagation();
-  },true);
+    const currentTab=activeTab(),i=idx(currentTab);if(i<0)return;const current=visual(currentTab);if(!current)return;
+    const t=event.touches[0];swipe={tab:currentTab,index:i,startX:t.clientX,startY:t.clientY,lastX:t.clientX,lastT:performance.now(),dx:0,velocity:0,current,targetEl:null,targetTab:null,direction:0,active:false,width:(document.querySelector('.app')?.clientWidth||window.innerWidth)};
+  },{capture:true,passive:true});
   document.addEventListener('touchmove',function(event){
     if(!swipe||event.touches.length!==1)return;const t=event.touches[0],dx=t.clientX-swipe.startX,dy=t.clientY-swipe.startY,now=performance.now();
     if(!swipe.active){
-      if(Math.abs(dx)<10)return;
-      if(Math.abs(dy)>Math.abs(dx)*.72){swipe=null;return;}
+      if(Math.abs(dx)<8)return;
+      if(Math.abs(dy)>Math.abs(dx)*.78){swipe=null;return;}
       const direction=dx<0?1:-1,targetIndex=swipe.index+direction;if(targetIndex<0||targetIndex>=tabs.length){swipe=null;return;}
-      swipe.active=true;swipe.direction=direction;swipe.target=tabs[targetIndex];swipe.current.classList.add('findai-swipe-current');preview=makePreview(swipe.target,direction);
+      const targetTab=tabs[targetIndex],targetEl=visual(targetTab);if(!targetEl){swipe=null;return;}
+      swipe.active=true;swipe.direction=direction;swipe.targetTab=targetTab;swipe.targetEl=targetEl;
+      prepSurface(swipe.current,'findai-v132-current');prepSurface(targetEl,'findai-v132-target');
+      targetEl.style.transform='translate3d('+(direction>0?swipe.width:-swipe.width)+'px,0,0)';targetEl.style.pointerEvents='none';
     }
     event.preventDefault();event.stopImmediatePropagation();
-    const app=document.querySelector('.app'),w=app?.clientWidth||window.innerWidth;let drag=dx;
-    if((swipe.index===0&&drag>0)||(swipe.index===tabs.length-1&&drag<0))drag*=.28;
-    swipe.velocity=(t.clientX-swipe.lastX)/Math.max(1,now-swipe.lastT);swipe.lastX=t.clientX;swipe.lastT=now;swipe.dx=drag;
-    swipe.current.style.transform='translate3d('+drag+'px,0,0)';swipe.current.style.opacity=String(1-Math.min(.10,Math.abs(drag)/w*.10));
-    if(preview)preview.style.transform='translate3d('+((swipe.direction>0?w:-w)+drag)+'px,0,0)';
+    swipe.velocity=(t.clientX-swipe.lastX)/Math.max(1,now-swipe.lastT);swipe.lastX=t.clientX;swipe.lastT=now;swipe.dx=dx;
+    if(!raf)raf=requestAnimationFrame(drawSwipe);
   },{capture:true,passive:false});
   document.addEventListener('touchend',function(event){
     if(!swipe)return;if(swipe.active)event.stopImmediatePropagation();
-    const w=document.querySelector('.app')?.clientWidth||window.innerWidth,go=Math.abs(swipe.dx)>w*.18||Math.abs(swipe.velocity)>.55;
-    go?commitSwipe():cancelSwipe();
+    if(!swipe.active){swipe=null;return;}
+    const w=swipe.width,projected=swipe.dx+(swipe.velocity*145),commit=Math.abs(projected)>w*.22||Math.abs(swipe.velocity)>.62;
+    settle(commit);
   },true);
-  document.addEventListener('touchcancel',function(){if(swipe)cancelSwipe();},true);
+  document.addEventListener('touchcancel',function(){if(swipe&&swipe.active)settle(false);else swipe=null;},true);
 })();
 </script>
+
+
+<style id="findai-v132-instagram-nav-style">
+/* v132 — Instagram-inspired selected-tab halo and smoother swipe surfaces. */
+.premium-bottom-nav{
+  background:rgba(11,14,17,.92)!important;
+  -webkit-backdrop-filter:blur(24px) saturate(145%)!important;
+  backdrop-filter:blur(24px) saturate(145%)!important;
+}
+.premium-bottom-nav .nav-icon-shell{
+  width:46px!important;height:46px!important;border-radius:50%!important;
+  transition:background-color .22s cubic-bezier(.22,1,.36,1),transform .22s cubic-bezier(.22,1,.36,1),box-shadow .22s ease!important;
+}
+.premium-bottom-nav button.active .nav-icon-shell{
+  width:56px!important;height:56px!important;
+  background:rgba(83,90,96,.72)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.035),0 2px 12px rgba(0,0,0,.16)!important;
+  transform:translateZ(0)!important;
+}
+.premium-bottom-nav button.active[data-tab="profile"] .nav-icon-shell{background:rgba(83,90,96,.72)!important}
+.premium-bottom-nav .nav-create-action .nav-create-shell{width:50px!important;height:50px!important}
+html.findai-light .premium-bottom-nav{background:rgba(248,248,248,.92)!important}
+html.findai-light .premium-bottom-nav button.active .nav-icon-shell{background:rgba(0,0,0,.11)!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 2px 10px rgba(0,0,0,.06)!important}
+
+.findai-v132-swipe-surface{
+  display:flex!important;position:absolute!important;inset:0!important;
+  width:100%!important;height:100%!important;margin:0!important;
+  will-change:transform,opacity!important;backface-visibility:hidden!important;
+  -webkit-backface-visibility:hidden!important;contain:paint;
+}
+.findai-v132-current{z-index:35!important}
+.findai-v132-target{z-index:34!important;pointer-events:none!important}
+.findai-v132-settle{
+  transition:transform .275s cubic-bezier(.22,1,.36,1),opacity .24s ease!important;
+}
+</style>
 
 </body>
 </html>
