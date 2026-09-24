@@ -15088,7 +15088,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     });
     let marker=root.querySelector('#premiumExploreLoadMarker');
     if(!marker){marker=document.createElement('div');marker.className='premium-explore-load-marker';marker.id='premiumExploreLoadMarker';root.appendChild(marker);}
-    marker.textContent=(!exploreLiveSearchQuery&&exploreQueue.length)?'Scroll for more':'';
+    marker.textContent='';marker.setAttribute('aria-hidden','true');
     root.classList.remove('premium-explore-refreshing');
   }
   async function loadExploreConfig(config,pool,generation){
@@ -15110,7 +15110,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     if(exploreLoading||!exploreQueue.length||exploreLiveSearchQuery)return;
     exploreLoading=true;const generation=exploreGeneration;
     const pool=await v116GetPreviewPool(false);
-    const batch=exploreQueue.splice(0,Math.min(initial?6:3,exploreQueue.length));
+    const batch=exploreQueue.splice(0,Math.min(initial?10:5,exploreQueue.length));
     const groups=await Promise.all(batch.map(config=>loadExploreConfig(config,pool,generation)));
     if(generation!==exploreGeneration){exploreLoading=false;return;}
     const incoming=[];
@@ -15127,7 +15127,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     const scroll=document.querySelector('#search .premium-search-home-scroll');if(!scroll)return;
     scroll.addEventListener('scroll',()=>{
       if(exploreFilter==='people'||exploreLiveSearchQuery)return;
-      if(scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<150)loadExploreMore(false);
+      if(scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<scroll.clientHeight*2.4)loadExploreMore(false);
     },{passive:true});
   }
   function setExploreFilter(filter){
@@ -17033,6 +17033,440 @@ html.findai-light .premium-bottom-nav button.active .nav-icon-shell{background:r
     const next=String(document.body.dataset.activeTab||'discover');
     if(next!==lastTab){lastTab=next;dismissTransientUI();}
   }).observe(document.body,{attributes:true,attributeFilter:['data-active-tab']});
+})();
+</script>
+
+
+<style id="findai-v136-account-settings-polish">
+/* ============================================================
+   v136 — social account foundations + settings + final nav/like polish
+   ============================================================ */
+
+/* Final authority: the liked heart is ONLY the glyph. Safari/iOS must never
+   receive a composited background plate on the button or icon wrapper. */
+body #discover button.reel-social-action.like,
+body #search button.reel-social-action.like,
+body button.reel-social-action.like.active,
+body button.reel-social-action.like.just-liked,
+body .reel-social-action.like .reel-social-icon,
+body .reel-social-action.like.active .reel-social-icon,
+body .reel-social-action.like.just-liked .reel-social-icon{
+  -webkit-appearance:none!important;appearance:none!important;
+  -webkit-tap-highlight-color:transparent!important;
+  background:none!important;background-color:transparent!important;background-image:none!important;
+  border:0!important;border-color:transparent!important;border-radius:0!important;
+  box-shadow:none!important;outline:0!important;filter:none!important;
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+  clip-path:none!important;isolation:auto!important;
+}
+body button.reel-social-action.like::before,
+body button.reel-social-action.like::after,
+body .reel-social-action.like .reel-social-icon::before,
+body .reel-social-action.like .reel-social-icon::after{
+  content:none!important;display:none!important;background:none!important;border:0!important;
+  box-shadow:none!important;filter:none!important;animation:none!important;
+}
+body .reel-social-action.like.active svg{
+  color:#ff3045!important;fill:#ff3045!important;stroke:#ff3045!important;
+}
+body .reel-social-action.like.just-liked svg{
+  animation:findaiHeartPop .44s cubic-bezier(.18,.86,.28,1.16)!important;
+}
+
+/* Instagram-like active-tab halo is tied to the real page state, not a travelling
+   decoration. This keeps the selected tab obvious after overlays and swipes. */
+.premium-bottom-nav button[data-tab] .nav-icon-shell{
+  width:50px!important;height:50px!important;border-radius:20px!important;
+  transition:width .24s cubic-bezier(.18,.9,.24,1),height .24s cubic-bezier(.18,.9,.24,1),
+             border-radius .24s cubic-bezier(.18,.9,.24,1),background .2s ease,
+             transform .24s cubic-bezier(.18,.9,.24,1),box-shadow .2s ease!important;
+}
+body[data-active-tab="discover"] .premium-bottom-nav button[data-tab="discover"] .nav-icon-shell,
+body[data-active-tab="search"] .premium-bottom-nav button[data-tab="search"] .nav-icon-shell,
+body[data-active-tab="messages"] .premium-bottom-nav button[data-tab="messages"] .nav-icon-shell,
+body[data-active-tab="profile"] .premium-bottom-nav button[data-tab="profile"] .nav-icon-shell,
+.premium-bottom-nav button[data-tab].active .nav-icon-shell{
+  width:62px!important;height:62px!important;border-radius:23px!important;
+  background:rgba(82,87,93,.88)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.055),0 5px 18px rgba(0,0,0,.2)!important;
+  transform:scale(1)!important;
+}
+html.findai-light body[data-active-tab="discover"] .premium-bottom-nav button[data-tab="discover"] .nav-icon-shell,
+html.findai-light body[data-active-tab="search"] .premium-bottom-nav button[data-tab="search"] .nav-icon-shell,
+html.findai-light body[data-active-tab="messages"] .premium-bottom-nav button[data-tab="messages"] .nav-icon-shell,
+html.findai-light body[data-active-tab="profile"] .premium-bottom-nav button[data-tab="profile"] .nav-icon-shell,
+html.findai-light .premium-bottom-nav button[data-tab].active .nav-icon-shell{
+  background:rgba(0,0,0,.14)!important;
+}
+
+/* Infinite discovery never advertises a manual "load more" action. */
+#premiumLoadMore,.premium-explore-load-marker{display:none!important}
+
+/* Mandatory username onboarding */
+.findai-username-onboarding{
+  position:fixed;inset:0;z-index:10050;display:none;align-items:flex-end;justify-content:center;
+  background:#000;color:#fff;
+}
+.findai-username-onboarding.show{display:flex}
+.findai-username-card{
+  width:min(100%,520px);min-height:100dvh;padding:calc(var(--safe-top) + 38px) 24px calc(30px + var(--safe-bottom));
+  display:flex;flex-direction:column;background:#050607;
+}
+.findai-username-mark{width:58px;height:58px;margin:6px auto 22px;border-radius:18px;background:#15181d;display:grid;place-items:center;font-size:26px;font-weight:850}
+.findai-username-card h2{margin:0;text-align:center;font-size:28px;letter-spacing:-.75px}
+.findai-username-card>p{margin:10px auto 28px;max-width:330px;color:#9299a3;text-align:center;font-size:13px;line-height:1.5}
+.findai-onboard-field{margin-bottom:14px}
+.findai-onboard-field label{display:block;margin:0 0 7px;color:#a1a7af;font-size:11px;font-weight:700}
+.findai-onboard-input-wrap{height:52px;border:1px solid #2a2e34;border-radius:14px;background:#111419;display:flex;align-items:center;padding:0 14px}
+.findai-onboard-prefix{color:#767d86;font-size:16px}
+.findai-onboard-input-wrap input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:#fff;font-size:16px;padding:0}
+.findai-username-status{min-height:22px;margin:2px 2px 8px;color:#858c95;font-size:11px}
+.findai-username-status.good{color:#36c76d}.findai-username-status.bad{color:#ff6268}
+.findai-onboard-primary{height:50px;border:0;border-radius:13px;background:#4d8cff;color:#fff;font-size:14px;font-weight:800}
+.findai-onboard-primary:disabled{opacity:.38}
+.findai-onboard-signout{margin-top:auto;padding-top:22px;border:0;background:transparent;color:#8d949d;font-size:12px}
+html.findai-light .findai-username-onboarding{background:#f7f7f8;color:#111}
+html.findai-light .findai-username-card{background:#f7f7f8}
+html.findai-light .findai-username-mark{background:#e9eaed}
+html.findai-light .findai-onboard-input-wrap{background:#fff;border-color:#d8dbe0}
+html.findai-light .findai-onboard-input-wrap input{color:#111}
+
+/* Settings: one coherent Instagram-like settings stack with real toggles. */
+.findai-settings-page.v136-settings{padding-bottom:calc(36px + var(--safe-bottom))}
+.v136-settings .findai-settings-section-title{padding-top:16px}
+.findai-settings-row.no-chevron{grid-template-columns:29px minmax(0,1fr) auto}
+.findai-settings-row.no-chevron .chev{display:none}
+.findai-settings-switch{
+  width:46px;height:27px;padding:2px;border:0;border-radius:999px;background:#353940;display:flex;align-items:center;justify-content:flex-start;
+  transition:background .18s ease;
+}
+.findai-settings-switch::after{content:"";width:23px;height:23px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.28);transition:transform .2s cubic-bezier(.18,.86,.24,1.1)}
+.findai-settings-switch.on{background:#4d8cff}.findai-settings-switch.on::after{transform:translateX(19px)}
+.findai-settings-detail{
+  min-height:100%;background:#000;color:#fff;padding:calc(var(--safe-top) + 4px) 0 calc(30px + var(--safe-bottom));
+}
+.findai-settings-detail-copy{padding:18px 18px 5px;color:#8d949e;font-size:12px;line-height:1.5}
+.findai-settings-value{color:#8e959f;font-size:11px;white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis}
+.findai-settings-account-card{margin:12px 14px 8px;padding:14px;border:1px solid rgba(255,255,255,.08);border-radius:17px;background:#101318;display:flex;align-items:center;gap:12px}
+.findai-settings-account-avatar{width:48px;height:48px;border-radius:50%;overflow:hidden;background:#22262c;display:grid;place-items:center;font-weight:800}
+.findai-settings-account-avatar img{width:100%;height:100%;object-fit:cover}
+.findai-settings-account-copy{min-width:0;flex:1}.findai-settings-account-copy b{display:block;font-size:14px}.findai-settings-account-copy span{display:block;margin-top:3px;color:#858c95;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.findai-settings-help{padding:16px 18px;color:#858c95;font-size:11px;line-height:1.55}
+.findai-settings-select{
+  min-width:112px;height:34px;border:1px solid rgba(255,255,255,.11);border-radius:10px;background:#171a1f;color:#fff;padding:0 28px 0 10px;font:inherit;font-size:11px;
+}
+html.findai-light .findai-settings-detail{background:#fff;color:#111}
+html.findai-light .findai-settings-account-card{background:#f7f7f8;border-color:#e1e3e6}
+html.findai-light .findai-settings-select{background:#f2f3f5;color:#111;border-color:#d8dbe0}
+html.findai-light .findai-settings-switch{background:#d0d3d8}
+html.findai-light .findai-settings-switch.on{background:#4d8cff}
+</style>
+
+<div class="findai-username-onboarding" id="findaiUsernameOnboarding" role="dialog" aria-modal="true" aria-labelledby="findaiUsernameTitle">
+  <div class="findai-username-card">
+    <div class="findai-username-mark">F</div>
+    <h2 id="findaiUsernameTitle">Choose your username</h2>
+    <p>This is how people will find, follow and message you on FindAI. You can change it later in Edit profile.</p>
+    <div class="findai-onboard-field">
+      <label for="findaiOnboardName">Name</label>
+      <div class="findai-onboard-input-wrap"><input id="findaiOnboardName" maxlength="60" autocomplete="name" placeholder="Your name"></div>
+    </div>
+    <div class="findai-onboard-field">
+      <label for="findaiOnboardUsername">Username</label>
+      <div class="findai-onboard-input-wrap"><span class="findai-onboard-prefix">@</span><input id="findaiOnboardUsername" maxlength="30" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="username"></div>
+    </div>
+    <div class="findai-username-status" id="findaiUsernameStatus">3–30 characters · letters, numbers, periods and underscores</div>
+    <button class="findai-onboard-primary" id="findaiUsernameContinue" type="button" disabled>Continue</button>
+    <button class="findai-onboard-signout" type="button" onclick="signOutAccount()">Use another account</button>
+  </div>
+</div>
+
+<script id="findai-v136-account-settings-script">
+(function(){
+  'use strict';
+
+  const PREF_KEY='findai_app_preferences_v136';
+  const PREF_DEFAULTS={
+    personalized:true,
+    notifyFollows:true,
+    notifyLikes:true,
+    notifyComments:true,
+    notifyMessages:true,
+    notifyPriceDrops:true,
+    notifyFollowedSellers:true
+  };
+  let appPrefs={...PREF_DEFAULTS};
+  let usernameCheckTimer=null;
+  let usernameAvailable=false;
+  let onboardingBusy=false;
+
+  function readPrefs(){
+    try{const raw=JSON.parse(localStorage.getItem(PREF_KEY)||'null');appPrefs={...PREF_DEFAULTS,...(raw&&typeof raw==='object'?raw:{})};}
+    catch(_){appPrefs={...PREF_DEFAULTS};}
+    return appPrefs;
+  }
+  function writePrefs(next){
+    appPrefs={...PREF_DEFAULTS,...appPrefs,...next};
+    try{localStorage.setItem(PREF_KEY,JSON.stringify(appPrefs));}catch(_){}
+    if(typeof marketplaceSession==='function'&&marketplaceSession()&&typeof marketplaceFetch==='function'){
+      marketplaceFetch('/preferences/app',{method:'POST',body:JSON.stringify({settings:appPrefs})}).catch(()=>{});
+    }
+    return appPrefs;
+  }
+  async function syncPrefs(){
+    readPrefs();
+    if(!(typeof marketplaceSession==='function'&&marketplaceSession())||typeof marketplaceFetch!=='function')return appPrefs;
+    try{
+      const data=await marketplaceFetch('/preferences/app',{method:'GET'});
+      if(data&&data.settings){appPrefs={...PREF_DEFAULTS,...data.settings};try{localStorage.setItem(PREF_KEY,JSON.stringify(appPrefs));}catch(_){}}
+    }catch(_){}
+    return appPrefs;
+  }
+  window.findaiAppPreferences=function(){return {...readPrefs()}};
+
+  /* Recommendation privacy toggle really changes ranking behaviour. */
+  const priorRecordInterest=window.recordInterest;
+  if(typeof priorRecordInterest==='function')window.recordInterest=function(){
+    if(readPrefs().personalized===false)return;
+    return priorRecordInterest.apply(this,arguments);
+  };
+  const priorScoredInterests=window.scoredInterests;
+  if(typeof priorScoredInterests==='function')window.scoredInterests=function(){
+    if(readPrefs().personalized===false)return [];
+    return priorScoredInterests.apply(this,arguments);
+  };
+
+  function providerLabel(profile){
+    const p=String(profile&&profile.provider||'').toLowerCase();
+    if(p==='apple')return 'Apple';
+    if(p==='google')return 'Google';
+    return 'Email';
+  }
+  function icon(path){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">'+path+'</svg>'}
+  const icons={
+    profile:icon('<circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>'),
+    lock:icon('<rect x="4" y="10" width="16" height="10" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>'),
+    bell:icon('<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>'),
+    privacy:icon('<path d="M12 3 4.5 6v5.2c0 4.7 3.1 8.4 7.5 9.8 4.4-1.4 7.5-5.1 7.5-9.8V6L12 3Z"/><path d="m9.5 12 1.7 1.7 3.6-4"/>'),
+    heart:icon('<path d="M20.6 5.8c-1.8-2.1-5.1-2.2-7-.3L12 7.1l-1.6-1.6c-1.9-1.9-5.2-1.8-7 .3-1.7 2-1.5 5 .4 6.9L12 20.3l8.2-7.6c1.9-1.9 2.1-4.9.4-6.9z"/>'),
+    tag:icon('<path d="M20 13 13 20l-9-9V4h7l9 9Z"/><circle cx="8.5" cy="8.5" r="1.5"/>'),
+    palette:icon('<path d="M12 3a9 9 0 1 0 0 18h1.2a2 2 0 0 0 1.2-3.6 2 2 0 0 1 1.2-3.6H18A3 3 0 0 0 21 11 8 8 0 0 0 12 3Z"/><circle cx="7.5" cy="10" r=".7"/><circle cx="10" cy="6.7" r=".7"/><circle cx="14.5" cy="6.8" r=".7"/>'),
+    help:icon('<circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.3 2.3 0 1 1 3.6 1.9c-.9.6-1.4 1.1-1.4 2.1"/><path d="M12 17h.01"/>'),
+    logout:icon('<path d="M10 17l5-5-5-5M15 12H3M14 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5"/>')
+  };
+
+  function settingRow(title,sub,onclick,iconHtml,value,danger=false){
+    return '<button class="findai-settings-row'+(danger?' danger':'')+'" type="button" data-settings-search="'+escapeAttr((title+' '+(sub||'')).toLowerCase())+'" onclick="'+escapeAttr(onclick)+'">'+
+      iconHtml+'<span><b>'+escapeHTML(title)+'</b>'+(sub?'<small>'+escapeHTML(sub)+'</small>':'')+'</span>'+
+      (value?'<span class="findai-settings-value">'+escapeHTML(value)+'</span>':'<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>')+
+      '</button>';
+  }
+  function toggleRow(key,title,sub){
+    const on=readPrefs()[key]!==false;
+    return '<div class="findai-settings-row no-chevron" data-settings-search="'+escapeAttr((title+' '+sub).toLowerCase())+'">'+
+      icons.bell+'<span><b>'+escapeHTML(title)+'</b><small>'+escapeHTML(sub)+'</small></span>'+
+      '<button type="button" class="findai-settings-switch '+(on?'on':'')+'" aria-pressed="'+(on?'true':'false')+'" onclick="event.stopPropagation();findaiToggleAppPreference(\''+key+'\',this)" aria-label="'+escapeAttr(title)+'"></button></div>';
+  }
+  window.findaiToggleAppPreference=function(key,button){
+    const current=readPrefs()[key]!==false,next=!current;writePrefs({[key]:next});
+    if(button){button.classList.toggle('on',next);button.setAttribute('aria-pressed',next?'true':'false');}
+    try{if(typeof haptic==='function')haptic();}catch(_){}
+  };
+
+  function settingsHead(title,back){
+    return '<div class="findai-settings-head"><button class="findai-settings-back" type="button" onclick="'+(back?'findaiOpenSettingsHome()':'closeAppSettings()')+'" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg></button><h2>'+escapeHTML(title)+'</h2><span></span></div>';
+  }
+  function settingsSheet(){const overlay=document.getElementById('appThemeOverlay');return overlay&&overlay.querySelector('.app-theme-sheet');}
+  function ensureSettingsOpen(){
+    const overlay=document.getElementById('appThemeOverlay');if(!overlay)return false;
+    overlay.classList.add('findai-settings-full','show');document.body.classList.add('findai-settings-open');return true;
+  }
+
+  window.findaiOpenSettingsHome=function(){
+    const sheet=settingsSheet();if(!sheet)return;const profile=getAccountProfile();
+    sheet.innerHTML='<div class="findai-settings-page v136-settings">'+settingsHead('Settings and activity',false)+
+      '<label class="findai-settings-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="7"/><path d="m16 16 4.3 4.3"/></svg><input type="search" placeholder="Search settings" oninput="filterFindAISettings(this.value)"></label>'+
+      (profile?'<div class="findai-settings-account-card"><div class="findai-settings-account-avatar">'+(profile.avatar?'<img src="'+escapeAttr(profile.avatar)+'" alt="">':escapeHTML(String(profile.name||'F').slice(0,1).toUpperCase()))+'</div><div class="findai-settings-account-copy"><b>'+escapeHTML(profile.name||'FindAI user')+'</b><span>'+(profile.username?'@'+escapeHTML(profile.username)+' · ':'')+escapeHTML(profile.email||'')+'</span></div></div>':'')+
+      '<section class="findai-settings-section"><div class="findai-settings-section-title">Your account</div>'+
+        settingRow('Edit profile','Name, username, photo and bio',"closeAppSettings();openProfileEdit()",icons.profile)+
+        settingRow('Login & security','Apple, Google or email',"findaiOpenSettingsPane('security')",icons.lock,profile?providerLabel(profile):'')+
+        settingRow('Liked items','Products you have liked',"closeAppSettings();openProfile();setTimeout(()=>setProfileTab('liked'),80)",icons.heart)+
+      '</section>'+
+      '<section class="findai-settings-section"><div class="findai-settings-section-title">How you use FindAI</div>'+
+        settingRow('Notifications','Follows, comments, messages and price drops',"findaiOpenSettingsPane('notifications')",icons.bell)+
+        settingRow('Privacy & recommendations','Personalisation and recent searches',"findaiOpenSettingsPane('privacy')",icons.privacy)+
+        settingRow('Shopping & price alerts','Tracked products and price alerts',"findaiOpenSettingsPane('shopping')",icons.tag)+
+      '</section>'+
+      '<section class="findai-settings-section"><div class="findai-settings-section-title">Your app</div>'+
+        settingRow('Appearance','System, light or dark',"findaiOpenSettingsPane('appearance')",icons.palette)+
+        settingRow('Help & support','Help, report a problem, privacy and terms',"findaiOpenSettingsPane('support')",icons.help)+
+      '</section>'+
+      (profile?'<section class="findai-settings-section">'+settingRow('Log out',profile.email||'',"closeAppSettings();signOutAccount()",icons.logout,'',true)+'</section>':'')+
+      '</div>';
+    ensureSettingsOpen();applyAppTheme();
+  };
+
+  window.findaiOpenSettingsPane=function(name){
+    const sheet=settingsSheet();if(!sheet)return;const profile=getAccountProfile();readPrefs();
+    let html='';
+    if(name==='security'){
+      html='<div class="findai-settings-detail">'+settingsHead('Login & security',true)+
+        '<div class="findai-settings-detail-copy">Your username is public. Apple, Google or email is used only to securely sign you in — FindAI does not require another password.</div>'+
+        (profile?'<section class="findai-settings-section">'+
+          settingRow('Username',profile.username?'@'+profile.username:'Choose a username',"closeAppSettings();openProfileEdit()",icons.profile,profile.username?'@'+profile.username:'')+
+          settingRow('Signed in with',providerLabel(profile), "void(0)",icons.lock,providerLabel(profile))+
+          settingRow('Email',profile.email||'', "void(0)",icons.lock,profile.email||'')+
+        '</section>':'')+'</div>';
+    }else if(name==='notifications'){
+      html='<div class="findai-settings-detail">'+settingsHead('Notifications',true)+
+        '<div class="findai-settings-detail-copy">Choose which activity is important enough to notify you about. In-app activity remains available in Notifications.</div>'+
+        '<section class="findai-settings-section">'+
+          toggleRow('notifyFollows','New followers','When someone starts following you')+
+          toggleRow('notifyLikes','Likes','When someone likes your FindAI listing')+
+          toggleRow('notifyComments','Comments & replies','Comments and replies involving your listings')+
+          toggleRow('notifyMessages','Messages','New marketplace messages and offers')+
+          toggleRow('notifyPriceDrops','Price drops','Meaningful drops on tracked products')+
+          toggleRow('notifyFollowedSellers','Followed sellers','New listings from sellers you follow')+
+        '</section>'+
+        '<section class="findai-settings-section">'+settingRow('Enable device notifications','Allow FindAI notifications on this device',"appEnableNotifications()",icons.bell)+'</section>'+
+        '</div>';
+    }else if(name==='privacy'){
+      html='<div class="findai-settings-detail">'+settingsHead('Privacy & recommendations',true)+
+        '<section class="findai-settings-section">'+
+          '<div class="findai-settings-row no-chevron" data-settings-search="personalised recommendations"><span>'+icons.privacy+'</span><span><b>Personalised recommendations</b><small>Use searches, dwell time, likes and other activity to improve For You.</small></span><button type="button" class="findai-settings-switch '+(appPrefs.personalized!==false?'on':'')+'" onclick="event.stopPropagation();findaiToggleAppPreference(\'personalized\',this)"></button></div>'+
+          settingRow('Clear recent searches','Remove the Recent list from Search',"findaiClearRecentSearches()",icons.profile)+
+        '</section></div>';
+    }else if(name==='shopping'){
+      html='<div class="findai-settings-detail">'+settingsHead('Shopping & price alerts',true)+
+        '<section class="findai-settings-section">'+
+          settingRow('Tracked products','View products you are watching for price changes',"closeAppSettings();go('tracker')",icons.tag)+
+          settingRow('Liked items','Products you may want to return to',"closeAppSettings();openProfile();setTimeout(()=>setProfileTab('liked'),80)",icons.heart)+
+        '</section><div class="findai-settings-help">FindAI uses your current market and product currency from live listings. Region and currency controls can be expanded once additional marketplace regions are fully enabled.</div></div>';
+    }else if(name==='appearance'){
+      html='<div class="findai-settings-detail">'+settingsHead('Appearance',true)+
+        '<section class="findai-settings-section"><div class="findai-settings-appearance" data-settings-search="appearance system light dark"><div class="app-theme-segment"><button class="app-theme-choice" type="button" data-app-theme-choice="system" onclick="setAppTheme(\'system\')">System</button><button class="app-theme-choice" type="button" data-app-theme-choice="light" onclick="setAppTheme(\'light\')">Light</button><button class="app-theme-choice" type="button" data-app-theme-choice="dark" onclick="setAppTheme(\'dark\')">Dark</button></div></div></section></div>';
+    }else{
+      html='<div class="findai-settings-detail">'+settingsHead('Help & support',true)+
+        '<section class="findai-settings-section">'+
+          settingRow('Report a problem','Tell us what is not working',"location.href='mailto:hello@findai.ai?subject=FindAI%20App%20Feedback'",icons.help)+
+          settingRow('Privacy policy','How FindAI handles your information',"window.open('/privacy','_blank','noopener')",icons.privacy)+
+          settingRow('Terms','FindAI terms of use',"window.open('/terms','_blank','noopener')",icons.help)+
+        '</section></div>';
+    }
+    sheet.innerHTML=html;ensureSettingsOpen();applyAppTheme();
+  };
+
+  window.findaiClearRecentSearches=function(){
+    try{localStorage.removeItem('findai_recent_searches_v130');}catch(_){}
+    try{toast('Recent searches cleared');}catch(_){}
+  };
+
+  const previousOpenSettings=window.openAppSettings;
+  window.openAppSettings=function(){
+    try{closeAccountMenu()}catch(_){}
+    readPrefs();syncPrefs().catch(()=>{});
+    findaiOpenSettingsHome();
+  };
+
+  /* ---------- Mandatory unique username after any sign-in ---------- */
+  function cleanUsername(value){
+    return String(value||'').trim().toLowerCase().replace(/[^a-z0-9._]/g,'').replace(/^\.+|\.+$/g,'').slice(0,30);
+  }
+  function usernameSuggestion(profile){
+    let base=cleanUsername(profile&&profile.username||String(profile&&profile.email||'').split('@')[0]||profile&&profile.name||'');
+    if(base.length<3)base='user'+Math.random().toString(36).slice(2,7);
+    return base.slice(0,30);
+  }
+  function usernameLocalValid(value){
+    const u=cleanUsername(value);
+    if(u.length<3)return {ok:false,error:'Use at least 3 characters'};
+    if(u.length>30)return {ok:false,error:'Use no more than 30 characters'};
+    if(!/^[a-z0-9._]+$/.test(u))return {ok:false,error:'Use letters, numbers, periods and underscores only'};
+    if(u.startsWith('.')||u.endsWith('.')||u.includes('..'))return {ok:false,error:'Check the periods in that username'};
+    return {ok:true,username:u};
+  }
+  async function checkUsernameAvailability(){
+    const input=document.getElementById('findaiOnboardUsername'),status=document.getElementById('findaiUsernameStatus'),button=document.getElementById('findaiUsernameContinue');
+    if(!input||!status||!button)return;
+    input.value=cleanUsername(input.value);
+    const valid=usernameLocalValid(input.value);usernameAvailable=false;button.disabled=true;
+    status.className='findai-username-status';
+    if(!valid.ok){status.textContent=valid.error;status.classList.add('bad');return;}
+    status.textContent='Checking…';
+    try{
+      const data=await marketplaceFetch('/profile/username/check?username='+encodeURIComponent(valid.username),{method:'GET'});
+      usernameAvailable=!!(data&&data.available);
+      status.textContent=usernameAvailable?'Available':'That username is already taken';
+      status.classList.toggle('good',usernameAvailable);status.classList.toggle('bad',!usernameAvailable);button.disabled=!usernameAvailable;
+    }catch(_){status.textContent='Could not check that username yet';status.classList.add('bad');}
+  }
+  function bindOnboarding(){
+    const input=document.getElementById('findaiOnboardUsername'),button=document.getElementById('findaiUsernameContinue');
+    if(input&&!input.dataset.bound){
+      input.dataset.bound='1';
+      input.addEventListener('input',()=>{clearTimeout(usernameCheckTimer);usernameCheckTimer=setTimeout(checkUsernameAvailability,180);});
+    }
+    if(button&&!button.dataset.bound){button.dataset.bound='1';button.addEventListener('click',saveOnboarding);}
+  }
+  async function saveOnboarding(){
+    if(onboardingBusy||!usernameAvailable)return;
+    const button=document.getElementById('findaiUsernameContinue'),u=document.getElementById('findaiOnboardUsername'),n=document.getElementById('findaiOnboardName'),status=document.getElementById('findaiUsernameStatus');
+    const valid=usernameLocalValid(u&&u.value);if(!valid.ok)return;
+    onboardingBusy=true;if(button){button.disabled=true;button.textContent='Creating profile…';}
+    try{
+      const current=getAccountProfile()||{};
+      const displayName=String(n&&n.value||current.name||valid.username).trim().slice(0,60)||valid.username;
+      const data=await marketplaceFetch('/profile/me',{method:'PATCH',body:JSON.stringify({username:valid.username,displayName,bio:current.bio||'',location:current.location||'',avatarUrl:/^https:\/\//i.test(String(current.avatar||''))?current.avatar:undefined})});
+      if(!data||!data.profile)throw new Error('Could not create your profile');
+      const next={...current,name:data.profile.displayName||displayName,username:data.profile.username,avatar:data.profile.avatarUrl||current.avatar||'',bio:data.profile.bio||'',location:data.profile.location||'',profileCustomised:true,updatedAt:Date.now()};
+      saveAccountProfile(next);updateAccountHeader();renderProfileTab();paintSocialProfileHeader&&paintSocialProfileHeader();
+      document.getElementById('findaiUsernameOnboarding')?.classList.remove('show');
+      try{haptic()}catch(_){}
+    }catch(error){
+      usernameAvailable=false;if(status){status.textContent=error.message||'Could not save that username';status.className='findai-username-status bad';}
+    }finally{
+      onboardingBusy=false;if(button){button.textContent='Continue';button.disabled=!usernameAvailable;}
+    }
+  }
+  window.findaiEnsureUsernameOnboarding=async function(force=false){
+    if(!(typeof marketplaceSession==='function'&&marketplaceSession()))return false;
+    let profile=getAccountProfile()||{};
+    try{
+      const data=await marketplaceFetch('/profile/me',{method:'GET'});
+      if(data&&data.profile){
+        const remote=data.profile;
+        if(remote.username&&String(remote.username).length>=3){
+          const merged={...profile,name:remote.displayName||profile.name,username:remote.username,avatar:remote.avatarUrl||profile.avatar||'',bio:remote.bio||'',location:remote.location||'',profileCustomised:true,updatedAt:Date.now()};
+          saveAccountProfile(merged);updateAccountHeader();renderProfileTab();
+          return false;
+        }
+      }
+    }catch(_){}
+    profile=getAccountProfile()||profile;
+    const overlay=document.getElementById('findaiUsernameOnboarding'),name=document.getElementById('findaiOnboardName'),username=document.getElementById('findaiOnboardUsername');
+    if(!overlay)return false;
+    if(name)name.value=profile.name||String(profile.email||'').split('@')[0]||'';
+    if(username)username.value=usernameSuggestion(profile);
+    overlay.classList.add('show');bindOnboarding();setTimeout(()=>{username&&username.focus();checkUsernameAvailability();},80);return true;
+  };
+
+  const previousApplyFindaiUser=window.applyFindaiUser;
+  if(typeof previousApplyFindaiUser==='function')window.applyFindaiUser=function(data,provider){
+    const result=previousApplyFindaiUser.apply(this,arguments);
+    setTimeout(()=>window.findaiEnsureUsernameOnboarding(false).catch(()=>{}),220);
+    return result;
+  };
+
+  /* Login screen copy: modern auth + public username, no extra password. */
+  function decorateLogin(){
+    const subtitle=document.getElementById('loginSubtitle');
+    if(subtitle)subtitle.textContent='Continue with Apple, Google or email. You’ll choose a unique FindAI username after sign-in.';
+  }
+  const loginObserver=new MutationObserver(()=>{const overlay=document.getElementById('loginOverlay');if(overlay&&overlay.classList.contains('show'))decorateLogin();});
+  const login=document.getElementById('loginOverlay');if(login)loginObserver.observe(login,{attributes:true,attributeFilter:['class']});
+
+  readPrefs();
+  setTimeout(()=>{syncPrefs().catch(()=>{});if(marketplaceSession())window.findaiEnsureUsernameOnboarding(false).catch(()=>{});},900);
 })();
 </script>
 
