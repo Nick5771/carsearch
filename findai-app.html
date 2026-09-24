@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v127-live-search-comments-media-diversity">
+<meta name="findai-build" content="v128-stable-live-search-comment-media">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -3139,9 +3139,9 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
   <!-- Search: clean premium discovery surface -->
   <section id="search" class="screen premium-search-home" aria-label="Search">
     <header class="premium-search-home-header">
-      <form class="premium-search-bar" onsubmit="return submitPremiumSearchOrSeller(event,'home')">
+      <form class="premium-search-bar" onsubmit="return handlePremiumExploreSubmit(event)">
         <svg class="premium-search-glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>
-        <input id="q" type="search" placeholder="Search FindAI" enterkeyhint="search" autocomplete="off" autocapitalize="sentences">
+        <input id="q" type="search" placeholder="Search FindAI" enterkeyhint="search" autocomplete="off" autocapitalize="sentences" oninput="handlePremiumExploreInput(this.value)" onsearch="handlePremiumExploreInput(this.value)">
         <button class="premium-search-scan" type="button" onclick="go('scan')" aria-label="Scan a product">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 8V5.8A.8.8 0 0 1 5.8 5H8M16 5h2.2a.8.8 0 0 1 .8.8V8M19 16v2.2a.8.8 0 0 1-.8.8H16M8 19H5.8a.8.8 0 0 1-.8-.8V16"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
@@ -14899,23 +14899,42 @@ if(typeof v116RenderMarketplaceListing==='function'){
       exploreSource(item)+
       '<div class="premium-explore-price">'+escapeHTML(exploreCompactPrice(item))+'</div></article>';
   }
+  /* v128: Explore is now snapshot-stable. Once a set of tiles is painted we
+     never reshuffle or replace it merely because another background request
+     finishes. New browse inventory is appended only when the user reaches the
+     bottom; a typed query swaps the grid once after its own result is ready. */
+  let exploreLoadedFilter='';
+  let exploreInitialPromise=null;
+  let exploreInitialPromiseFilter='';
+  let exploreLiveController=null;
+  let exploreBrowseSnapshot=null;
+
+  function exploreFamilyKey(item){
+    const text=String(item&&item.title||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+    if(!text)return 'misc';
+    if(/\b(playstation\s*5|ps5)\b/.test(text)){
+      const variant=/\bpro\b/.test(text)?'pro':/\bslim\b/.test(text)?'slim':/\bdigital\b/.test(text)?'digital':'standard';
+      return 'ps5-'+variant;
+    }
+    if(/\blego\b/.test(text)){
+      const setNo=(text.match(/\b\d{4,6}\b/)||[])[0];
+      if(setNo)return 'lego-'+setNo;
+      const theme=/harry potter/.test(text)?'harry-potter':/star wars/.test(text)?'star-wars':/technic/.test(text)?'technic':/icons?/.test(text)?'icons':'other';
+      return 'lego-'+theme;
+    }
+    if(/\b(omega|speedmaster|seamaster)\b/.test(text))return 'watch-omega-'+(/speedmaster/.test(text)?'speedmaster':/seamaster/.test(text)?'seamaster':'other');
+    if(/\b(rolex|submariner|daytona|datejust)\b/.test(text))return 'watch-rolex-'+(/submariner/.test(text)?'submariner':/daytona/.test(text)?'daytona':/datejust/.test(text)?'datejust':'other');
+    if(/\b(iphone|airpods|macbook|ipad|apple watch)\b/.test(text))return 'apple-'+((text.match(/iphone\s*\d+|airpods?(?:\s+pro)?|macbook(?:\s+pro|\s+air)?|ipad(?:\s+pro|\s+air)?|apple watch/)||['apple'])[0].replace(/\s+/g,'-'));
+    if(/\b(nike|jordan|adidas|yeezy|sneaker)\b/.test(text))return 'sneakers-'+text.split(/\s+/).filter(w=>w.length>2).slice(0,4).join('-');
+    const stop=new Set(['new','used','brand','sealed','with','from','for','the','and','free','shipping','sale','authentic','genuine','official','black','white']);
+    return text.split(/\s+/).filter(w=>w.length>2&&!stop.has(w)).slice(0,5).join('-')||text.slice(0,36);
+  }
   function exploreDiversityKey(item){
     const tagged=String(item&&item._interestCluster||'').trim();
-    if(tagged)return tagged;
-    const text=String((item&&item.title)||'').toLowerCase();
-    if(/\b(playstation\s*5|ps5)\b/.test(text))return 'ps5';
-    if(/\blego\b/.test(text))return /\bharry potter\b/.test(text)?'lego-harry-potter':'lego';
-    if(/\b(omega|speedmaster|seamaster)\b/.test(text))return 'omega-watches';
-    if(/\b(rolex|submariner|daytona|datejust)\b/.test(text))return 'rolex-watches';
-    if(/\b(iphone|airpods|macbook|ipad|apple watch)\b/.test(text))return 'apple';
-    if(/\b(nike|jordan|adidas|yeezy|sneaker)\b/.test(text))return 'sneakers';
+    if(tagged&&!tagged.startsWith('live-'))return tagged;
     const category=String(item&&item._interestCategory||'').trim();
-    if(category)return category;
-    try{
-      const inferred=String(interestClusterKey(item&&item._interestQuery||item&&item.title||'')||'').trim();
-      if(inferred)return inferred;
-    }catch(_){}
-    return String(getSource(item)||'misc')+'-'+text.split(/\s+/).filter(Boolean).slice(0,2).join('-');
+    const family=exploreFamilyKey(item);
+    return family||category||String(getSource(item)||'misc');
   }
   function diversifyExploreItems(items){
     const list=Array.isArray(items)?items.filter(Boolean):[];
@@ -14936,235 +14955,173 @@ if(typeof v116RenderMarketplaceListing==='function'){
       for(let step=0;step<keys.length;step++){
         const idx=(cursor+step)%keys.length,key=keys[idx],bucket=buckets.get(key);
         if(!bucket||!bucket.length)continue;
-        const alternatives=keys.filter(k=>(buckets.get(k)||[]).length&&k!==previous&&k!==previous2);
-        if(alternatives.length&& (key===previous||key===previous2))continue;
-        out.push(bucket.shift());
-        previous2=previous;previous=key;cursor=(idx+1)%keys.length;picked=true;break;
+        const alternatives=keys.some(k=>(buckets.get(k)||[]).length&&k!==previous&&k!==previous2);
+        if(alternatives&&(key===previous||key===previous2))continue;
+        out.push(bucket.shift());previous2=previous;previous=key;cursor=(idx+1)%keys.length;picked=true;break;
       }
       if(!picked){
-        const key=keys.find(k=>(buckets.get(k)||[]).length);
-        if(!key)break;
+        const key=keys.find(k=>(buckets.get(k)||[]).length);if(!key)break;
         out.push(buckets.get(key).shift());previous2=previous;previous=key;
       }
     }
     return out;
   }
-  function renderExploreGrid(){
+  function capExploreFamilies(items,maxPerFamily=3){
+    const counts=new Map(),out=[];
+    for(const item of (Array.isArray(items)?items:[])){
+      const family=exploreFamilyKey(item)||exploreItemKey(item);
+      const count=counts.get(family)||0;if(count>=maxPerFamily)continue;
+      counts.set(family,count+1);out.push(item);
+    }
+    return out;
+  }
+  function renderExploreGrid(options={}){
     const root=document.getElementById('premiumDiscoverySections');if(!root)return;
     const section=premiumDiscoverySections[0],items=section&&section.items||[];
+    const replace=!!options.replace;
     if(!items.length){
-      if(!root.querySelector('.premium-explore-grid')){
-        root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
-      }
+      if(replace)root.innerHTML='<div class="premium-explore-empty"><b>No products found</b>Try another search.</div>';
+      else if(!root.querySelector('.premium-explore-grid'))root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
       return;
     }
-    const ordered=diversifyExploreItems(items);
-    section.items=ordered;
     let grid=root.querySelector('.premium-explore-grid');
-    if(!grid){
-      root.innerHTML='';
-      grid=document.createElement('div');
-      grid.className='premium-explore-grid';
-      root.appendChild(grid);
+    if(replace||!grid){
+      root.innerHTML='';grid=document.createElement('div');grid.className='premium-explore-grid';root.appendChild(grid);
     }
-    const existing=new Map();
-    [...grid.children].forEach(node=>{const key=node.dataset&&node.dataset.exploreKey;if(key)existing.set(key,node);});
-    ordered.forEach((item,index)=>{
-      const key=exploreItemKey(item)||('explore-'+index);
-      let node=existing.get(key);
-      if(!node){
-        const template=document.createElement('template');
-        template.innerHTML=exploreTile(item,index).trim();
-        node=template.content.firstElementChild;
-        if(!node)return;
-        node.dataset.exploreKey=key;
-      }else{
-        existing.delete(key);
-      }
-      node.classList.toggle('featured',index>0&&index%9===6);
-      node.setAttribute('onclick',"openPremiumDiscoveryItem('explore',"+index+")");
-      node.setAttribute('onkeydown',"if(event.key==='Enter'||event.key===' '){event.preventDefault();openPremiumDiscoveryItem('explore',"+index+")}");
-      grid.appendChild(node);
+    const existing=new Set([...grid.children].map(node=>node.dataset&&node.dataset.exploreKey).filter(Boolean));
+    items.forEach((item,index)=>{
+      const key=exploreItemKey(item)||('explore-'+index);if(existing.has(key))return;
+      const template=document.createElement('template');template.innerHTML=exploreTile(item,index).trim();
+      const node=template.content.firstElementChild;if(!node)return;node.dataset.exploreKey=key;grid.appendChild(node);existing.add(key);
     });
-    existing.forEach(node=>node.remove());
     let marker=root.querySelector('#premiumExploreLoadMarker');
-    if(!marker){
-      marker=document.createElement('div');marker.className='premium-explore-load-marker';marker.id='premiumExploreLoadMarker';root.appendChild(marker);
-    }else if(marker.previousElementSibling!==grid){root.appendChild(marker);}
-    marker.textContent=exploreQueue.length?'Loading more products…':'';
+    if(!marker){marker=document.createElement('div');marker.className='premium-explore-load-marker';marker.id='premiumExploreLoadMarker';root.appendChild(marker);}
+    marker.textContent=(!exploreLiveSearchQuery&&exploreQueue.length)?'Scroll for more':'';
     root.classList.remove('premium-explore-refreshing');
   }
   async function loadExploreConfig(config,pool,generation){
     const queryUsed=premiumRotateArray(config.queries||[config.title||'products'],premiumDiscoveryHash()+String(config.id||'x').length+exploreVisitSalt*19)[0]||config.title||'products';
     let items=v116PreviewItemsForConfig(config,pool);
-    if(items.length<6){
-      if(queryUsed){
-        try{
-          const result=await fetchProductResults(queryUsed,{page:1,limit:18,preserveExact:true,skipResolve:true,passive:true});
-          const live=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings:[];
-          items=items.concat(live.filter(x=>Number(x&&x.price)>0&&premiumProductImage(x)));
-        }catch(_){ }
-      }
+    if(items.length<6&&queryUsed){
+      try{
+        const result=await fetchProductResults(queryUsed,{page:1,limit:16,preserveExact:true,skipResolve:true,passive:true});
+        const live=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings:[];
+        items=items.concat(live.filter(x=>Number(x&&x.price)>0&&premiumProductImage(x)));
+      }catch(_){}
     }
-    if(generation!==exploreGeneration)return;
-    items=items.map(item=>({
-      ...item,
-      _interestQuery:item._interestQuery||queryUsed,
-      _interestCategory:item._interestCategory||interestCategory(queryUsed),
-      _interestCluster:item._interestCluster||interestClusterKey(queryUsed)
-    }));
-    if(exploreFilter==='for-you'&&typeof personalisedItemScore==='function'){
-      items.sort((a,b)=>personalisedItemScore(b,b._interestQuery||queryUsed,'search-explore')-personalisedItemScore(a,a._interestQuery||queryUsed,'search-explore'));
-    }
-    const target=premiumDiscoverySections[0].items;
-    for(const item of items){
-      const key=exploreItemKey(item);if(!key||seenExplore.has(key)||!premiumProductImage(item)||Number(item.price)<=0)continue;
-      seenExplore.add(key);target.push(item);
-      if(target.length>=90)break;
-    }
-    renderExploreGrid();
+    if(generation!==exploreGeneration)return [];
+    items=items.map(item=>({...item,_interestQuery:item._interestQuery||queryUsed,_interestCategory:item._interestCategory||interestCategory(queryUsed),_interestCluster:item._interestCluster||interestClusterKey(queryUsed)}));
+    if(exploreFilter==='for-you'&&typeof personalisedItemScore==='function')items.sort((a,b)=>personalisedItemScore(b,b._interestQuery||queryUsed,'search-explore')-personalisedItemScore(a,a._interestQuery||queryUsed,'search-explore'));
+    return capExploreFamilies(items,2).slice(0,8);
   }
-  async function loadExploreMore(){
-    if(exploreLoading||!exploreQueue.length)return;
-    exploreLoading=true;
-    const generation=exploreGeneration;
+  async function loadExploreMore(initial=false){
+    if(exploreLoading||!exploreQueue.length||exploreLiveSearchQuery)return;
+    exploreLoading=true;const generation=exploreGeneration;
     const pool=await v116GetPreviewPool(false);
-    const batch=exploreQueue.splice(0,Math.min(3,exploreQueue.length));
-    await Promise.all(batch.map(config=>loadExploreConfig(config,pool,generation)));
-    exploreLoading=false;
-    if(generation!==exploreGeneration)return;
-    const marker=document.getElementById('premiumExploreLoadMarker');
-    if(marker)marker.textContent=exploreQueue.length?'Loading more products…':'';
+    const batch=exploreQueue.splice(0,Math.min(initial?6:3,exploreQueue.length));
+    const groups=await Promise.all(batch.map(config=>loadExploreConfig(config,pool,generation)));
+    if(generation!==exploreGeneration){exploreLoading=false;return;}
+    const incoming=[];
+    for(const group of groups)for(const item of group||[]){
+      const key=exploreItemKey(item);if(!key||seenExplore.has(key)||!premiumProductImage(item)||Number(item.price)<=0)continue;
+      seenExplore.add(key);incoming.push(item);
+    }
+    const mixed=diversifyExploreItems(incoming);
+    const target=premiumDiscoverySections[0].items;target.push(...mixed);
+    exploreLoading=false;renderExploreGrid({replace:false});
   }
   function bindExploreScroll(){
     if(exploreBound)return;exploreBound=true;
     const scroll=document.querySelector('#search .premium-search-home-scroll');if(!scroll)return;
     scroll.addEventListener('scroll',()=>{
-      if(scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<620)loadExploreMore();
+      if(exploreFilter==='people'||exploreLiveSearchQuery)return;
+      if(scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<150)loadExploreMore(false);
     },{passive:true});
   }
   function setExploreFilter(filter){
+    clearTimeout(exploreLiveSearchTimer);exploreLiveSearchSeq++;exploreLiveSearchQuery='';exploreBrowseSnapshot=null;
+    if(exploreLiveController){try{exploreLiveController.abort();}catch(_){}exploreLiveController=null;}
     if(filter==='people'){
-      // Invalidate any product loads already in flight before switching the shared
-      // result root to People. Without this, a late product response can overwrite
-      // the People list a moment after it renders.
-      exploreGeneration++;
-      exploreLoading=false;
-      exploreQueue=[];
-      exploreFilter='people';
+      exploreGeneration++;exploreLoading=false;exploreQueue=[];exploreFilter='people';exploreLoadedFilter='';
       document.querySelectorAll('#premiumExploreChips [data-explore-filter]').forEach(btn=>btn.classList.toggle('active',btn.dataset.exploreFilter===filter));
-      const screen=document.getElementById('search'),input=document.getElementById('q');
-      if(screen)screen.classList.add('people-search-mode');
-      if(input){input.placeholder='Search people';input.value='';}
+      const screen=document.getElementById('search'),input=document.getElementById('q');if(screen)screen.classList.add('people-search-mode');if(input){input.placeholder='Search people';input.value='';}
       const scroll=document.querySelector('#search .premium-search-home-scroll');if(scroll)scroll.scrollTop=0;
-      if(window.loadPremiumPeopleDiscovery)window.loadPremiumPeopleDiscovery('');
-      return;
+      if(window.loadPremiumPeopleDiscovery)window.loadPremiumPeopleDiscovery('');return;
     }
     if(!FILTERS[filter])filter='for-you';
-    exploreFilter=filter;
-    const screen=document.getElementById('search'),input=document.getElementById('q');
-    if(screen)screen.classList.remove('people-search-mode');
-    if(input){input.placeholder='Search FindAI';input.value='';}
+    const changed=exploreFilter!==filter;exploreFilter=filter;
+    const screen=document.getElementById('search'),input=document.getElementById('q');if(screen)screen.classList.remove('people-search-mode');if(input){input.placeholder='Search FindAI';input.value='';}
     document.querySelectorAll('#premiumExploreChips [data-explore-filter]').forEach(btn=>btn.classList.toggle('active',btn.dataset.exploreFilter===filter));
     const scroll=document.querySelector('#search .premium-search-home-scroll');if(scroll)scroll.scrollTop=0;
-    renderPremiumDiscoverySections(false);
+    renderPremiumDiscoverySections(changed);
   }
-  document.addEventListener('click',event=>{
-    const button=event.target.closest&&event.target.closest('#premiumExploreChips [data-explore-filter]');
-    if(!button)return;
-    setExploreFilter(button.dataset.exploreFilter);
-  });
-
+  document.addEventListener('click',event=>{const button=event.target.closest&&event.target.closest('#premiumExploreChips [data-explore-filter]');if(button)setExploreFilter(button.dataset.exploreFilter);});
 
   let exploreLiveSearchTimer=null;
   let exploreLiveSearchSeq=0;
   let exploreLiveSearchQuery='';
+  function snapshotBrowseIfNeeded(){
+    if(exploreBrowseSnapshot||exploreLiveSearchQuery)return;
+    const section=premiumDiscoverySections[0];
+    exploreBrowseSnapshot={filter:exploreFilter,items:section&&Array.isArray(section.items)?section.items.slice():[],queue:exploreQueue.slice(),seen:[...seenExplore]};
+  }
+  function restoreBrowseSnapshot(){
+    if(!exploreBrowseSnapshot||exploreBrowseSnapshot.filter!==exploreFilter){exploreBrowseSnapshot=null;renderPremiumDiscoverySections(false);return;}
+    premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:exploreBrowseSnapshot.items.slice()}];
+    exploreQueue=exploreBrowseSnapshot.queue.slice();seenExplore.clear();exploreBrowseSnapshot.seen.forEach(k=>seenExplore.add(k));
+    exploreLiveSearchQuery='';renderExploreGrid({replace:true});exploreBrowseSnapshot=null;
+  }
   async function runExploreLiveSearch(query,immediate=false){
     const clean=String(query||'').trim();
-    if(exploreFilter==='people'){
-      if(window.loadPremiumPeopleDiscovery)window.loadPremiumPeopleDiscovery(clean);
-      return;
-    }
-    if(!clean){
-      exploreLiveSearchQuery='';
-      exploreLiveSearchSeq++;
-      renderPremiumDiscoverySections(false);
-      return;
-    }
-    if(clean.length<2&&!immediate)return;
-    const seq=++exploreLiveSearchSeq;
-    exploreLiveSearchQuery=clean;
-    const root=document.getElementById('premiumDiscoverySections');
-    if(root)root.classList.add('premium-explore-refreshing');
+    if(exploreFilter==='people'){if(window.loadPremiumPeopleDiscovery)window.loadPremiumPeopleDiscovery(clean);return;}
+    if(!clean){exploreLiveSearchSeq++;if(exploreLiveController){try{exploreLiveController.abort();}catch(_){}}restoreBrowseSnapshot();return;}
+    snapshotBrowseIfNeeded();
+    const seq=++exploreLiveSearchSeq;exploreLiveSearchQuery=clean;
+    if(exploreLiveController){try{exploreLiveController.abort();}catch(_){}}
+    exploreLiveController=new AbortController();
     try{
-      const result=await fetchProductResults(clean,{page:1,limit:54,preserveExact:true,skipResolve:true,passive:true});
+      const result=await fetchProductResults(clean,{page:1,limit:60,preserveExact:true,skipResolve:true,passive:false,signal:exploreLiveController.signal});
       if(seq!==exploreLiveSearchSeq||exploreFilter==='people')return;
-      const current=String(document.getElementById('q')&&document.getElementById('q').value||'').trim();
-      if(current!==clean)return;
+      const current=String(document.getElementById('q')&&document.getElementById('q').value||'').trim();if(current!==clean)return;
       let items=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings.slice():[];
-      items=items.filter(item=>item&&Number(item.price)>0&&premiumProductImage(item)).map(item=>({
-        ...item,
-        _interestQuery:clean,
-        _interestCategory:interestCategory(clean),
-        _interestCluster:'live-'+interestClusterKey(clean)
-      }));
-      const unique=[],seen=new Set();
-      for(const item of items){
-        const key=exploreItemKey(item);if(!key||seen.has(key))continue;
-        seen.add(key);unique.push(item);
-      }
-      if(typeof personalisedItemScore==='function'){
-        unique.sort((a,b)=>personalisedItemScore(b,clean,'search-live')-personalisedItemScore(a,clean,'search-live'));
-      }
-      premiumDiscoverySections=[{config:{id:'explore',title:'Search'},items:unique.slice(0,90)}];
-      exploreQueue=[];exploreLoading=false;seenExplore.clear();
-      premiumDiscoverySections[0].items.forEach(item=>{const key=exploreItemKey(item);if(key)seenExplore.add(key);});
-      if(unique.length){
-        renderExploreGrid();
-      }else if(root){
-        root.innerHTML='<div class="premium-explore-empty"><b>No products found</b>Try another search.</div>';
-        root.classList.remove('premium-explore-refreshing');
-      }
-    }catch(_){
-      if(seq!==exploreLiveSearchSeq)return;
-      if(root)root.classList.remove('premium-explore-refreshing');
-    }
+      items=items.filter(item=>item&&Number(item.price)>0&&premiumProductImage(item)).map(item=>({...item,_interestQuery:clean,_interestCategory:interestCategory(clean),_interestCluster:'live-'+interestClusterKey(clean)}));
+      const unique=[],seen=new Set();for(const item of items){const key=exploreItemKey(item);if(!key||seen.has(key))continue;seen.add(key);unique.push(item);}
+      if(typeof personalisedItemScore==='function')unique.sort((a,b)=>personalisedItemScore(b,clean,'search-live')-personalisedItemScore(a,clean,'search-live'));
+      const display=diversifyExploreItems(capExploreFamilies(unique,3)).slice(0,90);
+      premiumDiscoverySections=[{config:{id:'explore',title:'Search'},items:display}];exploreQueue=[];exploreLoading=false;seenExplore.clear();display.forEach(item=>{const key=exploreItemKey(item);if(key)seenExplore.add(key);});
+      renderExploreGrid({replace:true});
+    }catch(error){if(error&&error.name==='AbortError')return;}
   }
   window.runPremiumLiveSearch=runExploreLiveSearch;
-  const liveSearchInput=document.getElementById('q');
-  if(liveSearchInput){
-    liveSearchInput.addEventListener('input',()=>{
-      if(exploreFilter==='people')return;
-      clearTimeout(exploreLiveSearchTimer);
-      const value=String(liveSearchInput.value||'').trim();
-      if(!value){
-        exploreLiveSearchTimer=setTimeout(()=>runExploreLiveSearch('',true),80);
-        return;
-      }
-      exploreLiveSearchTimer=setTimeout(()=>runExploreLiveSearch(value,false),170);
-    });
-  }
+  window.handlePremiumExploreInput=function(value){
+    clearTimeout(exploreLiveSearchTimer);const clean=String(value||'').trim();
+    if(exploreFilter==='people'){exploreLiveSearchTimer=setTimeout(()=>{if(window.loadPremiumPeopleDiscovery)window.loadPremiumPeopleDiscovery(clean);},120);return;}
+    if(!clean){runExploreLiveSearch('',true);return;}
+    exploreLiveSearchTimer=setTimeout(()=>runExploreLiveSearch(clean,false),140);
+  };
+  window.handlePremiumExploreSubmit=function(event){
+    if(event&&event.preventDefault)event.preventDefault();
+    const input=document.getElementById('q'),clean=String(input&&input.value||'').trim();
+    clearTimeout(exploreLiveSearchTimer);
+    if(exploreFilter==='people'){if(window.loadPremiumPeopleDiscovery)window.loadPremiumPeopleDiscovery(clean);return false;}
+    if(clean)runExploreLiveSearch(clean,true);return false;
+  };
 
   renderPremiumDiscoverySections=async function(force=false){
     const root=document.getElementById('premiumDiscoverySections');if(!root)return;
     if(exploreFilter==='people'&&window.loadPremiumPeopleDiscovery)return window.loadPremiumPeopleDiscovery(document.getElementById('q')&&document.getElementById('q').value||'');
-    const generation=++exploreGeneration;
-    if(exploreFilter==='for-you')exploreVisitSalt++;
-    exploreLoading=false;
-    seenExplore.clear();
-    premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:[]}];
-    exploreQueue=exploreConfigs(exploreFilter);
-    if(!root.querySelector('.premium-explore-grid')&&!root.querySelector('.premium-seller-discovery')){
+    const typed=String(document.getElementById('q')&&document.getElementById('q').value||'').trim();if(typed){runExploreLiveSearch(typed,true);return;}
+    if(!force&&exploreLoadedFilter===exploreFilter&&premiumDiscoverySections[0]&&premiumDiscoverySections[0].items&&premiumDiscoverySections[0].items.length)return;
+    if(exploreInitialPromise&&exploreInitialPromiseFilter===exploreFilter&&!force)return exploreInitialPromise;
+    exploreInitialPromiseFilter=exploreFilter;
+    exploreInitialPromise=(async()=>{
+      const generation=++exploreGeneration;if(force||!exploreLoadedFilter)exploreVisitSalt++;
+      exploreLoading=false;seenExplore.clear();premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:[]}];exploreQueue=exploreConfigs(exploreFilter);
       root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
-    }else{
-      root.classList.add('premium-explore-refreshing');
-    }
-    bindExploreScroll();
-    await loadExploreMore();
-    if(generation!==exploreGeneration)return;
-    await loadExploreMore();
-    if(generation!==exploreGeneration)return;
-    if(!premiumDiscoverySections[0].items.length)root.innerHTML='<div class="premium-explore-empty"><b>Products are refreshing</b>Search for anything above while FindAI reloads discovery.</div>';
+      bindExploreScroll();await loadExploreMore(true);if(generation!==exploreGeneration)return;
+      exploreLoadedFilter=exploreFilter;if(!premiumDiscoverySections[0].items.length)root.innerHTML='<div class="premium-explore-empty"><b>Products are refreshing</b>Try again in a moment.</div>';
+    })();
+    try{return await exploreInitialPromise;}finally{exploreInitialPromise=null;exploreInitialPromiseFilter='';}
   };
   refreshPremiumEbayDiscovery=function(force=false){return renderPremiumDiscoverySections(force);};
   renderPremiumSearchHome=function(){return renderPremiumDiscoverySections(false);};
@@ -15984,10 +15941,10 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
 .wishwave-comment-form .wishwave-comment-send.empty-tap{animation:wishwaveEmptySend .2s ease}
 @keyframes wishwaveEmptySend{0%,100%{transform:none}50%{transform:translateY(-2px) scale(.9)}}
 .wishwave-comment-media-view{
-  display:block;width:min(230px,100%);max-height:280px;margin:7px 0 1px;padding:0;border:0;border-radius:11px;
+  display:block;width:min(168px,58vw);max-height:190px;margin:7px 0 1px;padding:0;border:0;border-radius:10px;
   overflow:hidden;background:#15181c;text-align:left;
 }
-.wishwave-comment-media-view img{display:block;width:100%;max-height:280px;object-fit:cover}
+.wishwave-comment-media-view img{display:block;width:100%;max-height:190px;object-fit:cover}
 .wishwave-comment-media-viewer{
   position:fixed;inset:0;z-index:260;display:none;align-items:center;justify-content:center;padding:28px 18px;
   background:rgba(0,0,0,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
@@ -16005,6 +15962,15 @@ html.findai-light .wishwave-comment-media-button,
 html.findai-light .wishwave-comment-form .wishwave-comment-send,
 html.findai-light .wishwave-comment-form .wishwave-comment-send:disabled{color:#111!important}
 html.findai-light .wishwave-comment-attachment-preview{background:#f0f1f3;border-color:#dde0e4}
+</style>
+
+
+<style id="findai-v128-stable-search-media-style">
+#premiumDiscoverySections .premium-explore-grid{opacity:1!important;visibility:visible!important;transition:none!important}
+#premiumDiscoverySections.premium-explore-refreshing .premium-explore-grid{opacity:1!important;filter:none!important;transform:none!important}
+.premium-explore-tile,.premium-explore-tile img{transition:none!important}
+.wishwave-comment-media-view{width:min(168px,58vw)!important;max-height:190px!important;border-radius:10px!important}
+.wishwave-comment-media-view img{width:100%!important;max-height:190px!important;object-fit:cover!important}
 </style>
 
 </body>
