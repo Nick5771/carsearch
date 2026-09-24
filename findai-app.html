@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v128-stable-live-search-comment-media">
+<meta name="findai-build" content="v129-universal-comments-live-search">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -6604,6 +6604,20 @@ function wishwaveCommentCount(item){
   for(const value of values){const n=Math.max(0,Number(value)||0);if(n>0)return Math.round(n);}
   return 0;
 }
+function wishwaveSocialThreadKey(item){
+  if(!item)return '';
+  const raw=String((typeof trackedKey==='function'&&trackedKey(item))||(typeof listingKey==='function'&&listingKey(item))||appMpId(item)||'').trim();
+  if(raw)return raw.slice(0,900);
+  return String(getSource(item)||'listing')+'|'+String(item.title||'')+'|'+String(item.price||'');
+}
+function wishwaveCommentMetricKey(item){
+  if(isFindAIListing(item)&&appMpId(item))return String(appMpId(item));
+  const key=wishwaveSocialThreadKey(item);return key?'social:'+key:'';
+}
+function wishwaveCommentEndpoint(item){
+  if(isFindAIListing(item)&&appMpId(item))return '/marketplace/listings/'+encodeURIComponent(String(appMpId(item)))+'/comments';
+  const key=wishwaveSocialThreadKey(item);return key?'/social/comments/'+encodeURIComponent(key):'';
+}
 function wishwaveReelSellerMarkup(item,index){
   const meta=wishwaveSellerMeta(item);
   return `<button class="reel-seller-row" type="button" onclick="openWishWaveSellerProfile(${index},event)" aria-label="View ${escapeAttr(meta.handle)} profile">
@@ -6629,7 +6643,7 @@ function renderReelCard(item,index,data){
   const seller=String(item.sellerName || item.seller || item.storeName || '').trim();
   const sellerLabel=item.topRatedSeller ? 'Top-rated seller' : (seller || 'Live listing');
   const wishwave=isFindAIListing(item);
-  const commentCount=wishwave?wishwaveCommentCount(item):0;
+  const commentCount=wishwaveCommentCount(item);
   return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}" role="button" tabindex="0" onclick="openDeal(${index},event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDeal(${index},event);}">
     <div class="hero-stage${image?' fill-solid':''}"${image?` style="--hero-fill:#0a0b0d"`:''}>
       ${image ? `<img class="hero-image fit-contain" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
@@ -6640,10 +6654,10 @@ function renderReelCard(item,index,data){
         <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="${isTracked(item)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></span>
         <span class="reel-social-label reel-like-count">${itemLikeLabel(item)}</span>
       </button>
-      ${wishwave?`<button class="reel-social-action comment" data-comment-listing="${escapeAttr(appMpId(item))}" onclick="openWishWaveComments(${index},event)" aria-label="Comments">
+      <button class="reel-social-action comment" data-comment-listing="${escapeAttr(wishwaveCommentMetricKey(item))}" onclick="openWishWaveComments(${index},event)" aria-label="Comments">
         <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.5 8.5 0 0 1-9 8.5 9.4 9.4 0 0 1-3.7-.8L3 21l1.7-5A8.2 8.2 0 0 1 3 11.5a8.5 8.5 0 1 1 18 0Z"/></svg></span>
         <span class="reel-social-label reel-comment-count">${commentCount>0?escapeHTML(String(commentCount)):''}</span>
-      </button>`:''}
+      </button>
       <button class="reel-social-action compare" onclick="compareItem(${index},event)" aria-label="Compare prices for this product">
         <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h13l-3-3M20 7l-3 3M17 17H4l3 3M4 17l3-3"/></svg></span>
         <span class="reel-social-label">Compare</span>
@@ -13437,7 +13451,7 @@ function renderWishWaveComments(data){
       '<form class="wishwave-comment-form" onsubmit="return submitWishWaveComment(event)">'+avatarHtml+
       '<button class="wishwave-comment-media-button" type="button" onclick="pickWishWaveCommentImage()" aria-label="Add photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5L5 20"/></svg></button>'+
       '<input id="wishwaveCommentInput" maxlength="300" autocomplete="off" placeholder="Add a comment…">'+
-      '<button class="wishwave-comment-send" type="submit" aria-label="Send comment"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m6.5 10.5 5.5-5.5 5.5 5.5"/></svg></button>'+
+      '<button class="wishwave-comment-send" type="submit" aria-label="Send comment"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m14 7 5 5-5 5"/></svg></button>'+
       '<input id="wishwaveCommentImageInput" type="file" accept="image/jpeg,image/png,image/webp" hidden onchange="wishwaveCommentImagePicked(event)"></form></div>';
   }else{
     composer='<div class="wishwave-comments-empty wishwave-comments-signin"><button type="button" onclick="closeAppMpSheet();openLogin()">Sign in to comment</button></div>';
@@ -13455,14 +13469,14 @@ function renderWishWaveComments(data){
 
 async function openWishWaveComments(index,event){
   if(event){event.preventDefault();event.stopPropagation();}
-  const item=currentFeedItems[Number(index)||0];if(!item||!isFindAIListing(item))return;
+  const item=currentFeedItems[Number(index)||0];if(!item)return;
   wishwaveCommentsItem=item;
   wishwavePendingCommentImage='';
-  const id=String(appMpId(item)||'');if(!id)return;
+  const id=wishwaveCommentMetricKey(item),endpoint=wishwaveCommentEndpoint(item);if(!id||!endpoint)return;
   openAppMpSheet('Comments','<div class="app-mp-loading"><div><div class="app-mp-spinner"></div><b>Loading comments</b></div></div>');
   const commentsBg=document.getElementById('appMpSheetBg');if(commentsBg)commentsBg.classList.add('wishwave-comments-mode');
   try{
-    const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id)+'/comments',{method:'GET'});
+    const data=await marketplaceFetch(endpoint,{method:'GET'});
     wishwaveUpdateCommentMetric(id,data.commentCount);
     renderWishWaveComments(data);
   }catch(error){
@@ -13493,7 +13507,7 @@ async function submitWishWaveComment(event){
     try{const button=event.submitter||event.target.querySelector('.wishwave-comment-send');if(button){button.classList.remove('empty-tap');void button.offsetWidth;button.classList.add('empty-tap');}}catch(_){}
     return false;
   }
-  const id=String(appMpId(wishwaveCommentsItem)||'');if(!id)return false;
+  const id=wishwaveCommentMetricKey(wishwaveCommentsItem),endpoint=wishwaveCommentEndpoint(wishwaveCommentsItem);if(!id||!endpoint)return false;
   const button=event.submitter||event.target.querySelector('.wishwave-comment-send');
   if(button&&button.dataset.busy==='1')return false;
   if(button){button.dataset.busy='1';button.disabled=true;}
@@ -13505,7 +13519,7 @@ async function submitWishWaveComment(event){
       });
       imageUrl=String(uploaded&&uploaded.imageUrl||'');
     }
-    const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id)+'/comments',{
+    const data=await marketplaceFetch(endpoint,{
       method:'POST',body:JSON.stringify({body,imageUrl})
     });
     wishwaveUpdateCommentMetric(id,data.commentCount);
@@ -14908,6 +14922,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
   let exploreInitialPromiseFilter='';
   let exploreLiveController=null;
   let exploreBrowseSnapshot=null;
+  const exploreBrowseCache=new Map();
 
   function exploreFamilyKey(item){
     const text=String(item&&item.title||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
@@ -15028,7 +15043,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     }
     const mixed=diversifyExploreItems(incoming);
     const target=premiumDiscoverySections[0].items;target.push(...mixed);
-    exploreLoading=false;renderExploreGrid({replace:false});
+    exploreLoading=false;renderExploreGrid({replace:false});cacheExploreBrowseState();
   }
   function bindExploreScroll(){
     if(exploreBound)return;exploreBound=true;
@@ -15060,22 +15075,33 @@ if(typeof v116RenderMarketplaceListing==='function'){
   let exploreLiveSearchTimer=null;
   let exploreLiveSearchSeq=0;
   let exploreLiveSearchQuery='';
+  function setExploreInterpreting(active){
+    const screen=document.getElementById('search');if(screen)screen.classList.toggle('live-search-interpreting',!!active);
+  }
+  function cacheExploreBrowseState(){
+    if(exploreFilter==='people'||exploreLiveSearchQuery)return;
+    const section=premiumDiscoverySections[0],items=section&&Array.isArray(section.items)?section.items:[];if(!items.length)return;
+    exploreBrowseCache.set(exploreFilter,{items:items.slice(),queue:exploreQueue.slice(),seen:[...seenExplore]});
+  }
   function snapshotBrowseIfNeeded(){
     if(exploreBrowseSnapshot||exploreLiveSearchQuery)return;
-    const section=premiumDiscoverySections[0];
-    exploreBrowseSnapshot={filter:exploreFilter,items:section&&Array.isArray(section.items)?section.items.slice():[],queue:exploreQueue.slice(),seen:[...seenExplore]};
+    const cached=exploreBrowseCache.get(exploreFilter),section=premiumDiscoverySections[0];
+    const source=cached||{items:section&&Array.isArray(section.items)?section.items.slice():[],queue:exploreQueue.slice(),seen:[...seenExplore]};
+    exploreBrowseSnapshot={filter:exploreFilter,items:(source.items||[]).slice(),queue:(source.queue||[]).slice(),seen:[...(source.seen||[])]};
   }
   function restoreBrowseSnapshot(){
-    if(!exploreBrowseSnapshot||exploreBrowseSnapshot.filter!==exploreFilter){exploreBrowseSnapshot=null;renderPremiumDiscoverySections(false);return;}
-    premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:exploreBrowseSnapshot.items.slice()}];
-    exploreQueue=exploreBrowseSnapshot.queue.slice();seenExplore.clear();exploreBrowseSnapshot.seen.forEach(k=>seenExplore.add(k));
-    exploreLiveSearchQuery='';renderExploreGrid({replace:true});exploreBrowseSnapshot=null;
+    const cached=(exploreBrowseSnapshot&&exploreBrowseSnapshot.filter===exploreFilter)?exploreBrowseSnapshot:exploreBrowseCache.get(exploreFilter);
+    exploreLiveSearchQuery='';setExploreInterpreting(false);
+    if(!cached||!Array.isArray(cached.items)||!cached.items.length){exploreBrowseSnapshot=null;exploreLoadedFilter='';renderPremiumDiscoverySections(true);return;}
+    premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:cached.items.slice()}];
+    exploreQueue=(cached.queue||[]).slice();seenExplore.clear();(cached.seen||[]).forEach(k=>seenExplore.add(k));
+    renderExploreGrid({replace:true});exploreBrowseSnapshot=null;
   }
   async function runExploreLiveSearch(query,immediate=false){
     const clean=String(query||'').trim();
     if(exploreFilter==='people'){if(window.loadPremiumPeopleDiscovery)window.loadPremiumPeopleDiscovery(clean);return;}
     if(!clean){exploreLiveSearchSeq++;if(exploreLiveController){try{exploreLiveController.abort();}catch(_){}}restoreBrowseSnapshot();return;}
-    snapshotBrowseIfNeeded();
+    setExploreInterpreting(true);snapshotBrowseIfNeeded();
     const seq=++exploreLiveSearchSeq;exploreLiveSearchQuery=clean;
     if(exploreLiveController){try{exploreLiveController.abort();}catch(_){}}
     exploreLiveController=new AbortController();
@@ -15090,21 +15116,23 @@ if(typeof v116RenderMarketplaceListing==='function'){
       const display=diversifyExploreItems(capExploreFamilies(unique,3)).slice(0,90);
       premiumDiscoverySections=[{config:{id:'explore',title:'Search'},items:display}];exploreQueue=[];exploreLoading=false;seenExplore.clear();display.forEach(item=>{const key=exploreItemKey(item);if(key)seenExplore.add(key);});
       renderExploreGrid({replace:true});
-    }catch(error){if(error&&error.name==='AbortError')return;}
+      if(seq===exploreLiveSearchSeq)setExploreInterpreting(false);
+    }catch(error){if(seq===exploreLiveSearchSeq)setExploreInterpreting(false);if(error&&error.name==='AbortError')return;}
   }
   window.runPremiumLiveSearch=runExploreLiveSearch;
   window.handlePremiumExploreInput=function(value){
     clearTimeout(exploreLiveSearchTimer);const clean=String(value||'').trim();
-    if(exploreFilter==='people'){exploreLiveSearchTimer=setTimeout(()=>{if(window.loadPremiumPeopleDiscovery)window.loadPremiumPeopleDiscovery(clean);},120);return;}
-    if(!clean){runExploreLiveSearch('',true);return;}
-    exploreLiveSearchTimer=setTimeout(()=>runExploreLiveSearch(clean,false),140);
+    if(exploreFilter==='people'){setExploreInterpreting(!!clean);exploreLiveSearchTimer=setTimeout(async()=>{try{if(window.loadPremiumPeopleDiscovery)await window.loadPremiumPeopleDiscovery(clean);}finally{setExploreInterpreting(false);}},70);return;}
+    if(!clean){setExploreInterpreting(false);runExploreLiveSearch('',true);return;}
+    setExploreInterpreting(true);
+    exploreLiveSearchTimer=setTimeout(()=>runExploreLiveSearch(clean,false),75);
   };
   window.handlePremiumExploreSubmit=function(event){
     if(event&&event.preventDefault)event.preventDefault();
     const input=document.getElementById('q'),clean=String(input&&input.value||'').trim();
     clearTimeout(exploreLiveSearchTimer);
-    if(exploreFilter==='people'){if(window.loadPremiumPeopleDiscovery)window.loadPremiumPeopleDiscovery(clean);return false;}
-    if(clean)runExploreLiveSearch(clean,true);return false;
+    if(exploreFilter==='people'){setExploreInterpreting(!!clean);Promise.resolve(window.loadPremiumPeopleDiscovery&&window.loadPremiumPeopleDiscovery(clean)).finally(()=>setExploreInterpreting(false));return false;}
+    if(clean){setExploreInterpreting(true);runExploreLiveSearch(clean,true);}else runExploreLiveSearch('',true);return false;
   };
 
   renderPremiumDiscoverySections=async function(force=false){
@@ -15119,7 +15147,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
       exploreLoading=false;seenExplore.clear();premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:[]}];exploreQueue=exploreConfigs(exploreFilter);
       root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
       bindExploreScroll();await loadExploreMore(true);if(generation!==exploreGeneration)return;
-      exploreLoadedFilter=exploreFilter;if(!premiumDiscoverySections[0].items.length)root.innerHTML='<div class="premium-explore-empty"><b>Products are refreshing</b>Try again in a moment.</div>';
+      cacheExploreBrowseState();exploreLoadedFilter=exploreFilter;if(!premiumDiscoverySections[0].items.length)root.innerHTML='<div class="premium-explore-empty"><b>Products are refreshing</b>Try again in a moment.</div>';
     })();
     try{return await exploreInitialPromise;}finally{exploreInitialPromise=null;exploreInitialPromiseFilter='';}
   };
@@ -15428,8 +15456,8 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
   document.addEventListener('touchend',finishSwipe,{passive:true});document.addEventListener('touchcancel',finishSwipe,{passive:true});
 
   async function reloadComments(){
-    if(!wishwaveCommentsItem)return;const id=String(appMpId(wishwaveCommentsItem)||'');if(!id)return;
-    const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id)+'/comments',{method:'GET'});wishwaveUpdateCommentMetric(id,data.commentCount);renderWishWaveComments(data);
+    if(!wishwaveCommentsItem)return;const id=wishwaveCommentMetricKey(wishwaveCommentsItem),endpoint=wishwaveCommentEndpoint(wishwaveCommentsItem);if(!id||!endpoint)return;
+    const data=await marketplaceFetch(endpoint,{method:'GET'});wishwaveUpdateCommentMetric(id,data.commentCount);renderWishWaveComments(data);
   }
   window.startWishWaveCommentEdit=function(commentId,event){
     if(event){event.preventDefault();event.stopPropagation();}const article=document.querySelector('.wishwave-comment[data-comment-id="'+CSS.escape(String(commentId))+'"]');if(!article)return;
@@ -15438,11 +15466,11 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     const row=document.createElement('div');row.className='wishwave-comment-edit-row';row.innerHTML='<input class="wishwave-comment-edit-input" maxlength="300"><button class="wishwave-comment-edit-save" type="button">Save</button><button class="wishwave-comment-edit-cancel" type="button">Cancel</button>';
     p.after(row);const input=row.querySelector('input');input.value=String(comment.body||'');input.focus();input.setSelectionRange(input.value.length,input.value.length);
     row.querySelector('.wishwave-comment-edit-cancel').onclick=()=>{row.remove();p.hidden=false;};
-    row.querySelector('.wishwave-comment-edit-save').onclick=async()=>{const body=String(input.value||'').trim();if(!body)return;const id=String(appMpId(wishwaveCommentsItem)||'');try{await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id)+'/comments/'+encodeURIComponent(commentId),{method:'PATCH',body:JSON.stringify({body})});await reloadComments();}catch(error){toast(error.message||'Comment could not be edited');}};
+    row.querySelector('.wishwave-comment-edit-save').onclick=async()=>{const body=String(input.value||'').trim();if(!body)return;const endpoint=wishwaveCommentEndpoint(wishwaveCommentsItem);try{await marketplaceFetch(endpoint+'/'+encodeURIComponent(commentId),{method:'PATCH',body:JSON.stringify({body})});await reloadComments();}catch(error){toast(error.message||'Comment could not be edited');}};
   };
   window.deleteWishWaveComment=async function(commentId,event){
-    if(event){event.preventDefault();event.stopPropagation();}if(!wishwaveCommentsItem)return;const id=String(appMpId(wishwaveCommentsItem)||'');
-    try{const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id)+'/comments/'+encodeURIComponent(commentId),{method:'DELETE'});wishwaveUpdateCommentMetric(id,data.commentCount);await reloadComments();try{haptic();}catch(_){}}catch(error){toast(error.message||'Comment could not be deleted');}
+    if(event){event.preventDefault();event.stopPropagation();}if(!wishwaveCommentsItem)return;const id=wishwaveCommentMetricKey(wishwaveCommentsItem),endpoint=wishwaveCommentEndpoint(wishwaveCommentsItem);
+    try{const data=await marketplaceFetch(endpoint+'/'+encodeURIComponent(commentId),{method:'DELETE'});wishwaveUpdateCommentMetric(id,data.commentCount);await reloadComments();try{haptic();}catch(_){}}catch(error){toast(error.message||'Comment could not be deleted');}
   };
 })();
 </script>
@@ -15973,5 +16001,17 @@ html.findai-light .wishwave-comment-attachment-preview{background:#f0f1f3;border
 .wishwave-comment-media-view img{width:100%!important;max-height:190px!important;object-fit:cover!important}
 </style>
 
+
+<style id="findai-v129-search-comments-style">
+#search .premium-search-bar{position:relative}
+#search.live-search-interpreting .premium-search-bar:after{
+  content:"";position:absolute;right:52px;top:50%;width:12px;height:12px;margin-top:-6px;border:1.7px solid rgba(255,255,255,.22);border-top-color:#f4f6f8;border-radius:50%;animation:findaiSearchInterpret .52s linear infinite;pointer-events:none
+}
+#search.live-search-interpreting .premium-search-bar input{padding-right:18px}
+#search.live-search-interpreting .premium-search-glass{color:#f1f3f6}
+@keyframes findaiSearchInterpret{to{transform:rotate(360deg)}}
+.wishwave-comment-form .wishwave-comment-send svg{width:22px!important;height:22px!important}
+html.findai-light #search.live-search-interpreting .premium-search-bar:after{border-color:rgba(0,0,0,.18);border-top-color:#111}
+</style>
 </body>
 </html>
