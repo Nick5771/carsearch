@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v132-instagram-tab-filter-swipe">
+<meta name="findai-build" content="v133-navigation-cache-context-reel">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -16509,5 +16509,250 @@ html.findai-light .premium-bottom-nav button.active .nav-icon-shell{background:r
 }
 </style>
 
+
+
+<style id="findai-v133-navigation-performance-style">
+/* v133 — clearer Instagram-like tab selection, smoother paging, instant-feeling cached surfaces. */
+.premium-bottom-nav{position:relative!important;isolation:isolate!important}
+.premium-bottom-nav .findai-v133-nav-indicator{
+  position:absolute;z-index:0;left:0;top:50%;width:58px;height:58px;border-radius:22px;
+  background:rgba(91,98,104,.74);box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 3px 16px rgba(0,0,0,.16);
+  transform:translate3d(0,-50%,0);will-change:transform,width,opacity;
+  transition:transform .30s cubic-bezier(.16,1,.3,1),width .24s cubic-bezier(.16,1,.3,1),opacity .18s ease;
+  pointer-events:none!important;
+}
+.premium-bottom-nav button{position:relative!important;z-index:2!important}
+.premium-bottom-nav .nav-icon-shell{background:transparent!important;box-shadow:none!important;transition:transform .22s cubic-bezier(.16,1,.3,1)!important}
+.premium-bottom-nav button.active .nav-icon-shell{background:transparent!important;box-shadow:none!important;width:50px!important;height:50px!important;transform:scale(1.035)!important}
+.premium-bottom-nav button.active svg{transform:scale(1.035);transition:transform .22s cubic-bezier(.16,1,.3,1)}
+.premium-bottom-nav button:not(.active) svg{opacity:.92;transition:opacity .18s ease,transform .22s cubic-bezier(.16,1,.3,1)}
+html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba(0,0,0,.12);box-shadow:inset 0 1px 0 rgba(255,255,255,.55),0 2px 10px rgba(0,0,0,.06)}
+.findai-v132-swipe-surface{opacity:1!important;filter:none!important}
+.findai-v132-settle{transition:transform .33s cubic-bezier(.16,1,.3,1)!important,opacity .20s ease!important}
+
+/* Search product reels remain visually above the originating Search page; dragging right reveals it underneath. */
+.search-detail-overlay.explore-reel-mode.findai-v133-context-reel{
+  will-change:transform;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  transition:transform .31s cubic-bezier(.16,1,.3,1)!important;
+  box-shadow:-18px 0 55px rgba(0,0,0,.20);
+}
+.search-detail-overlay.explore-reel-mode.findai-v133-context-reel.findai-v133-dragging{transition:none!important}
+.search-detail-overlay.explore-reel-mode.findai-v133-context-reel .search-detail-header{pointer-events:none!important}
+.search-detail-overlay.explore-reel-mode.findai-v133-context-reel .search-detail-header button{pointer-events:auto!important}
+
+/* Cached content is intentionally stable; no skeleton flash when a warm surface already exists. */
+#search.findai-v133-warm .premium-explore-skeleton-grid{display:none!important}
+#profile.findai-v133-warm .social-profile-grid:empty:before{content:"";display:block;min-height:1px}
+</style>
+<script id="findai-v133-navigation-performance-script">
+(function(){
+  const NAV_TABS=['discover','search','messages','profile'];
+  const SEARCH_CACHE_KEY='findai_v133_search_cache';
+  const PROFILE_CACHE_PREFIX='findai_v133_profile_cache:';
+  const now=()=>Date.now();
+  const safeJSON=(raw,fallback)=>{try{return JSON.parse(raw)}catch(_){return fallback}};
+  const activeTab=()=>String(document.body.dataset.activeTab||'discover');
+  const nav=()=>document.querySelector('.nav.findai-five-nav.premium-bottom-nav');
+  const navButton=tab=>nav()?.querySelector('button[data-tab="'+tab+'"]');
+
+  /* 1) A single, strong selected-tab lens that physically travels between tabs. */
+  function ensureIndicator(){
+    const n=nav();if(!n)return null;let el=n.querySelector('.findai-v133-nav-indicator');
+    if(!el){el=document.createElement('span');el.className='findai-v133-nav-indicator';el.setAttribute('aria-hidden','true');n.prepend(el);}
+    return el;
+  }
+  function buttonCenter(tab){
+    const n=nav(),b=navButton(tab);if(!n||!b)return null;const nr=n.getBoundingClientRect(),br=b.getBoundingClientRect();
+    return br.left-nr.left+br.width/2;
+  }
+  function setIndicatorX(x,instant){
+    const el=ensureIndicator();if(!el||!Number.isFinite(x))return;
+    if(instant)el.style.transition='none';else el.style.removeProperty('transition');
+    el.style.transform='translate3d('+(x-el.offsetWidth/2)+'px,-50%,0)';el.style.opacity='1';
+    if(instant)requestAnimationFrame(()=>el.style.removeProperty('transition'));
+  }
+  function syncIndicator(tab=activeTab(),instant=false){const c=buttonCenter(tab);if(c!=null)setIndicatorX(c,instant)}
+  requestAnimationFrame(()=>syncIndicator(activeTab(),true));
+  addEventListener('resize',()=>syncIndicator(activeTab(),true),{passive:true});
+  const n=nav();if(n)new MutationObserver(()=>syncIndicator(activeTab(),false)).observe(n,{subtree:true,attributes:true,attributeFilter:['class']});
+  new MutationObserver(()=>syncIndicator(activeTab(),false)).observe(document.body,{attributes:true,attributeFilter:['data-active-tab']});
+
+  /* Move the grey lens with the user's finger. Window capture runs before the document-level pager. */
+  let lensGesture=null;
+  function gestureBlocked(target){return !!(target&&target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,[data-horizontal-scroll]'))}
+  function anyOverlay(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,#createListingScreen.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show')}
+  addEventListener('touchstart',e=>{
+    if(e.touches.length!==1||anyOverlay()||gestureBlocked(e.target))return;
+    const tab=activeTab(),i=NAV_TABS.indexOf(tab);if(i<0)return;const t=e.touches[0];
+    lensGesture={tab,index:i,x:t.clientX,y:t.clientY,startCenter:buttonCenter(tab),targetCenter:null,targetTab:null,active:false};
+  },{capture:true,passive:true});
+  addEventListener('touchmove',e=>{
+    if(!lensGesture||e.touches.length!==1)return;const t=e.touches[0],dx=t.clientX-lensGesture.x,dy=t.clientY-lensGesture.y;
+    if(!lensGesture.active){
+      if(Math.abs(dx)<8)return;if(Math.abs(dy)>Math.abs(dx)*.78){lensGesture=null;return;}
+      const dir=dx<0?1:-1,ti=lensGesture.index+dir;if(ti<0||ti>=NAV_TABS.length){lensGesture=null;return;}
+      lensGesture.targetTab=NAV_TABS[ti];lensGesture.targetCenter=buttonCenter(lensGesture.targetTab);lensGesture.active=true;
+    }
+    if(lensGesture.active&&lensGesture.startCenter!=null&&lensGesture.targetCenter!=null){
+      const width=document.querySelector('.app')?.clientWidth||innerWidth||1,p=Math.min(1,Math.abs(dx)/Math.max(1,width));
+      const eased=1-Math.pow(1-p,1.08),x=lensGesture.startCenter+(lensGesture.targetCenter-lensGesture.startCenter)*eased;setIndicatorX(x,true);
+    }
+  },{capture:true,passive:true});
+  const endLens=()=>{if(!lensGesture)return;lensGesture=null;setTimeout(()=>syncIndicator(activeTab(),false),34)};
+  addEventListener('touchend',endLens,{capture:true,passive:true});addEventListener('touchcancel',endLens,{capture:true,passive:true});
+
+  /* 2) Warm Search before the user asks for it. Persist a compact last-good grid across launches. */
+  function usefulExploreItems(){
+    try{const s=premiumDiscoverySections&&premiumDiscoverySections[0];return s&&Array.isArray(s.items)?s.items.filter(Boolean):[]}catch(_){return []}
+  }
+  function cacheSearch(){
+    const items=usefulExploreItems();if(!items.length)return;
+    try{localStorage.setItem(SEARCH_CACHE_KEY,JSON.stringify({at:now(),items:items.slice(0,36)}));}catch(_){ }
+  }
+  function hydrateSearchCache(){
+    const root=document.getElementById('premiumDiscoverySections');if(!root)return false;
+    const data=safeJSON(localStorage.getItem(SEARCH_CACHE_KEY)||'',null);if(!data||!Array.isArray(data.items)||!data.items.length)return false;
+    try{
+      if(!usefulExploreItems().length){
+        premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:data.items.slice()}];
+        if(typeof renderExploreGrid==='function')renderExploreGrid({replace:true});
+        document.getElementById('search')?.classList.add('findai-v133-warm');return true;
+      }
+    }catch(_){ }
+    return false;
+  }
+  hydrateSearchCache();
+  const discoveryRoot=document.getElementById('premiumDiscoverySections');
+  if(discoveryRoot)new MutationObserver(()=>{clearTimeout(window.__findaiV133CacheTimer);window.__findaiV133CacheTimer=setTimeout(cacheSearch,180)}).observe(discoveryRoot,{childList:true,subtree:true});
+  function preloadSearchImages(){
+    try{usefulExploreItems().slice(0,18).forEach(item=>{const src=typeof premiumProductImage==='function'?premiumProductImage(item):(item.image||item.imageUrl);if(src){const img=new Image();img.decoding='async';img.src=src;}})}catch(_){ }
+  }
+  function warmSearch(){
+    if(activeTab()==='search')return;
+    try{
+      const existing=usefulExploreItems();if(existing.length){preloadSearchImages();cacheSearch();return;}
+      Promise.resolve(typeof renderPremiumDiscoverySections==='function'&&renderPremiumDiscoverySections(false)).then(()=>{cacheSearch();preloadSearchImages();document.getElementById('search')?.classList.add('findai-v133-warm')}).catch(()=>{});
+    }catch(_){ }
+  }
+
+  /* 3) Warm/cache the signed-in profile: cached counts paint instantly, network refresh follows quietly. */
+  function profileIdentity(){try{const p=getAccountProfile&&getAccountProfile();return p&&String(p.email||p.username||p.name||'').toLowerCase()}catch(_){return ''}}
+  function profileKey(){return PROFILE_CACHE_PREFIX+encodeURIComponent(profileIdentity()||'guest')}
+  function saveProfileWarmCache(){
+    if(!profileIdentity())return;
+    try{localStorage.setItem(profileKey(),JSON.stringify({at:now(),seller:socialProfileSeller||{},listings:(socialProfileListings||[]).slice(0,60)}));}catch(_){ }
+  }
+  function hydrateProfileWarmCache(){
+    if(!profileIdentity())return false;const data=safeJSON(localStorage.getItem(profileKey())||'',null);if(!data)return false;
+    try{
+      if((!Array.isArray(socialProfileListings)||!socialProfileListings.length)&&Array.isArray(data.listings))socialProfileListings=data.listings.slice();
+      if(data.seller&&typeof data.seller==='object')socialProfileSeller=Object.assign({},socialProfileSeller||{},data.seller);
+      paintSocialProfileHeader();renderSocialProfileContent();document.getElementById('profile')?.classList.add('findai-v133-warm');return true;
+    }catch(_){return false}
+  }
+  const profileLoaderBefore=window.loadProfileMarketplaceData;
+  if(typeof profileLoaderBefore==='function')window.loadProfileMarketplaceData=async function(force){
+    hydrateProfileWarmCache();const out=await profileLoaderBefore.call(this,force);saveProfileWarmCache();return out;
+  };
+  const openProfileBefore=window.openProfile;
+  if(typeof openProfileBefore==='function')window.openProfile=function(){hydrateProfileWarmCache();const out=openProfileBefore.apply(this,arguments);requestAnimationFrame(()=>{try{paintSocialProfileHeader();renderSocialProfileContent()}catch(_){}});return out};
+  function warmProfile(){if(!profileIdentity()||activeTab()==='profile')return;hydrateProfileWarmCache();try{Promise.resolve(window.loadProfileMarketplaceData&&window.loadProfileMarketplaceData(false)).catch(()=>{})}catch(_){}}
+
+  /* Start both warmers after first paint, not during startup-critical work. */
+  const idle=window.requestIdleCallback||function(fn){return setTimeout(fn,700)};
+  idle(()=>{warmSearch();setTimeout(warmProfile,180)}, {timeout:1500});
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){setTimeout(warmSearch,180);setTimeout(warmProfile,420)}});
+
+  /* 4) Search -> reel is a contextual push, not a tab switch. Browser/iOS back and edge swipe reveal Search exactly where it was. */
+  let contextReelOpen=false,contextScrollTop=0,handlingPop=false,edge=null;
+  const openItemBefore=window.openPremiumDiscoveryItem;
+  if(typeof openItemBefore==='function')window.openPremiumDiscoveryItem=function(sectionId,index){
+    const search=document.getElementById('search');const scroller=search&&search.querySelector('.premium-search-home-scroll');
+    contextScrollTop=scroller?scroller.scrollTop:0;
+    const out=openItemBefore.apply(this,arguments);
+    const overlay=document.getElementById('searchDetailOverlay');
+    if(search&&search.classList.contains('active')&&overlay){
+      contextReelOpen=true;overlay.classList.add('findai-v133-context-reel');overlay.style.transform='translate3d(0,0,0)';
+      try{history.pushState(Object.assign({},history.state||{},{findaiSearchReel:true}),'',location.href)}catch(_){ }
+    }
+    return out;
+  };
+  const closeBefore=window.closeSearchResultDetail;
+  function restoreSearchPosition(){const scroller=document.querySelector('#search .premium-search-home-scroll');if(scroller)requestAnimationFrame(()=>{scroller.scrollTop=contextScrollTop})}
+  function closeContextDirect(){
+    handlingPop=true;contextReelOpen=false;const overlay=document.getElementById('searchDetailOverlay');if(overlay){overlay.classList.remove('findai-v133-dragging','findai-v133-context-reel');overlay.style.transform='';}
+    try{closeBefore&&closeBefore()}finally{restoreSearchPosition();setTimeout(()=>handlingPop=false,80)}
+  }
+  if(typeof closeBefore==='function')window.closeSearchResultDetail=function(){
+    if(contextReelOpen&&!handlingPop&&history.state&&history.state.findaiSearchReel){try{history.back();return}catch(_){ }}
+    closeContextDirect();
+  };
+  addEventListener('popstate',()=>{if(contextReelOpen)closeContextDirect()});
+
+  addEventListener('touchstart',e=>{
+    if(!contextReelOpen||e.touches.length!==1)return;const overlay=document.getElementById('searchDetailOverlay');if(!overlay||!overlay.classList.contains('show'))return;
+    const t=e.touches[0];if(t.clientX>34)return;edge={x:t.clientX,y:t.clientY,lastX:t.clientX,lastT:performance.now(),dx:0,v:0,active:false,overlay};
+  },{capture:true,passive:true});
+  addEventListener('touchmove',e=>{
+    if(!edge||e.touches.length!==1)return;const t=e.touches[0],dx=Math.max(0,t.clientX-edge.x),dy=t.clientY-edge.y,ts=performance.now();
+    if(!edge.active){if(dx<7)return;if(Math.abs(dy)>dx*.82){edge=null;return;}edge.active=true;edge.overlay.classList.add('findai-v133-dragging')}
+    if(edge.active){edge.v=(t.clientX-edge.lastX)/Math.max(1,ts-edge.lastT);edge.lastX=t.clientX;edge.lastT=ts;edge.dx=dx;edge.overlay.style.transform='translate3d('+dx+'px,0,0)';e.preventDefault();e.stopImmediatePropagation()}
+  },{capture:true,passive:false});
+  function finishEdge(){
+    if(!edge)return;const state=edge;edge=null;if(!state.active)return;state.overlay.classList.remove('findai-v133-dragging');
+    const w=document.querySelector('.app')?.clientWidth||innerWidth||1,commit=state.dx>w*.22||state.v>.5;
+    if(commit){state.overlay.style.transform='translate3d('+w+'px,0,0)';setTimeout(()=>{if(history.state&&history.state.findaiSearchReel)history.back();else closeContextDirect()},235)}
+    else state.overlay.style.transform='translate3d(0,0,0)';
+  }
+  addEventListener('touchend',finishEdge,{capture:true,passive:true});addEventListener('touchcancel',finishEdge,{capture:true,passive:true});
+})();
+</script>
+
+<script id="findai-v134-js-measured-nav-position">
+/*
+  Every previous fix trusted CSS (100dvh, position:fixed;inset:0, safe-area
+  env()) to correctly compute the real bottom edge on this device, and each
+  time it measured correctly in this environment's testing but still left a
+  gap on the actual phone. Rather than guess at another CSS mechanism, this
+  measures the ACTUAL visible screen height in JS on-device and places the
+  nav at an exact pixel offset - no viewport unit involved at all, so there
+  is nothing left for any browser-chrome quirk to get wrong.
+*/
+(function(){
+  function placeNav(){
+    const nav=document.querySelector('.app>.nav.findai-five-nav.premium-bottom-nav')
+      || document.querySelector('.nav.findai-five-nav.premium-bottom-nav');
+    if(!nav)return;
+    const vv=window.visualViewport;
+    const realHeight=vv?Math.round(vv.height+vv.offsetTop):window.innerHeight;
+    const navHeight=nav.offsetHeight||56;
+    nav.style.setProperty('position','fixed','important');
+    nav.style.setProperty('left','0','important');
+    nav.style.setProperty('right','0','important');
+    nav.style.setProperty('margin','0','important');
+    nav.style.setProperty('transform','none','important');
+    nav.style.setProperty('bottom','auto','important');
+    nav.style.setProperty('top',(realHeight-navHeight)+'px','important');
+  }
+  placeNav();
+  // Re-measure on every event that could change the visible height, plus a
+  // short settle-down poll after load to catch Safari's chrome finishing
+  // its show/hide animation a frame or two after these events fire.
+  window.addEventListener('resize',placeNav);
+  window.addEventListener('orientationchange',placeNav);
+  window.addEventListener('pageshow',placeNav);
+  document.addEventListener('visibilitychange',placeNav);
+  if(window.visualViewport){
+    window.visualViewport.addEventListener('resize',placeNav);
+    window.visualViewport.addEventListener('scroll',placeNav);
+  }
+  let ticks=0;
+  const settle=setInterval(function(){
+    placeNav();
+    ticks++;
+    if(ticks>20)clearInterval(settle);
+  },100);
+})();
+</script>
 </body>
 </html>
