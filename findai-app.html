@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v123-seller-discovery-explore-polish">
+<meta name="findai-build" content="v124-people-search-native-reels-comment-actions">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -3105,12 +3105,9 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 8V5.8A.8.8 0 0 1 5.8 5H8M16 5h2.2a.8.8 0 0 1 .8.8V8M19 16v2.2a.8.8 0 0 1-.8.8H16M8 19H5.8a.8.8 0 0 1-.8-.8V16"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       </form>
-      <div class="premium-search-mode-tabs" id="premiumSearchModeTabs" role="tablist" aria-label="Search type">
-        <button type="button" class="active" data-search-mode="products">Products</button>
-        <button type="button" data-search-mode="sellers">Sellers</button>
-      </div>
-      <div class="premium-explore-chips" id="premiumExploreChips" role="tablist" aria-label="Product discovery categories">
+      <div class="premium-explore-chips" id="premiumExploreChips" role="tablist" aria-label="FindAI discovery">
         <button type="button" class="active" data-explore-filter="for-you">For You</button>
+        <button type="button" data-explore-filter="people">People</button>
         <button type="button" data-explore-filter="fashion">Fashion</button>
         <button type="button" data-explore-filter="watches">Watches</button>
         <button type="button" data-explore-filter="sneakers">Sneakers</button>
@@ -3136,7 +3133,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
       <button class="premium-results-back" type="button" onclick="backToPremiumSearch()" aria-label="Back to search">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
-      <form class="premium-results-search" onsubmit="return submitPremiumSearch(event,'results')">
+      <form class="premium-results-search" onsubmit="return submitPremiumSearchOrSeller(event,'results')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>
         <input id="premiumResultQuery" type="search" placeholder="Search FindAI" enterkeyhint="search" autocomplete="off">
       </form>
@@ -3145,6 +3142,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
       </button>
     </header>
     <div class="premium-results-scroll">
+      <div id="premiumProfileMatches" aria-live="polite"></div>
       <div class="premium-results-meta"><span id="premiumResultsMeta">Searching live listings…</span></div>
       <div class="premium-results-grid" id="premiumResultsGrid" aria-live="polite"></div>
       <button class="premium-load-more" id="premiumLoadMore" type="button" onclick="loadMorePremiumResults()" hidden>Load more</button>
@@ -8563,6 +8561,7 @@ async function appChatRunAssistant(displayText,thinking){
 }
 async function appChatSubmit(text){
   const displayText=String(text||'').trim();if(!displayText||appChatBusy)return;
+  if(window.findaiMaybeHandleProfileChat&&await window.findaiMaybeHandleProfileChat(displayText))return;
   const refinement=appChatIsRefinement(displayText);
   const searchText=refinement?(appChatLastProductQuery+' '+displayText).replace(/\s+/g,' ').trim():displayText;
   const productIntent=refinement||appChatIsProductSearch(displayText);
@@ -13331,6 +13330,7 @@ window.addEventListener('load', function(){
 
 <script id="wishwave-v116-social-reels-script">
 let wishwaveCommentsItem=null;
+let wishwaveCommentsData={comments:[],commentCount:0};
 
 function wishwaveUpdateCommentMetric(id,count){
   id=String(id||'');count=Math.max(0,Number(count)||0);if(!id)return;
@@ -13359,16 +13359,20 @@ function wishwaveCommentTime(value){
 }
 function renderWishWaveComments(data){
   const root=document.getElementById('appMpSheetBody');if(!root)return;
+  wishwaveCommentsData=data&&typeof data==='object'?data:{comments:[],commentCount:0};
   const comments=Array.isArray(data&&data.comments)?data.comments:[];
   const signedIn=!!marketplaceSession();
   const rows=comments.length?comments.map(comment=>{
     const username=String(comment.username||'').replace(/^@/,'');
     const label=username?username:String(comment.displayName||'WishWave user');
     const time=wishwaveCommentTime(comment.createdAt);
-    return '<article class="wishwave-comment">'+wishwaveCommentAvatar(comment)+
+    const mine=!!comment.isMine,id=String(comment.id||'');
+    return '<article class="wishwave-comment'+(mine?' is-mine':'')+'" data-comment-id="'+escapeAttr(id)+'">'+
+      (mine?'<div class="wishwave-comment-actions"><button type="button" class="wishwave-comment-edit-action" onclick="startWishWaveCommentEdit(\''+escapeAttr(id)+'\',event)">Edit</button><button type="button" class="wishwave-comment-delete-action" onclick="deleteWishWaveComment(\''+escapeAttr(id)+'\',event)">Delete</button></div>':'')+
+      '<div class="wishwave-comment-swipe-body">'+wishwaveCommentAvatar(comment)+
       '<div class="wishwave-comment-copy"><div class="wishwave-comment-head"><b>'+escapeHTML(label)+'</b>'+
       (time?'<time>'+escapeHTML(time)+'</time>':'')+
-      '</div><p>'+escapeHTML(comment.body||'')+'</p></div></article>';
+      '</div><p>'+escapeHTML(comment.body||'')+'</p></div></div></article>';
   }).join(''):'<div class="wishwave-comments-empty"><b>No comments yet</b>Start the conversation.</div>';
   let composer='';
   if(signedIn){
@@ -14770,8 +14774,21 @@ if(typeof v116RenderMarketplaceListing==='function'){
     },{passive:true});
   }
   function setExploreFilter(filter){
+    if(filter==='people'){
+      exploreFilter='people';
+      document.querySelectorAll('#premiumExploreChips [data-explore-filter]').forEach(btn=>btn.classList.toggle('active',btn.dataset.exploreFilter===filter));
+      const screen=document.getElementById('search'),input=document.getElementById('q');
+      if(screen)screen.classList.add('people-search-mode');
+      if(input){input.placeholder='Search people';input.value='';}
+      const scroll=document.querySelector('#search .premium-search-home-scroll');if(scroll)scroll.scrollTop=0;
+      if(window.loadPremiumPeopleDiscovery)window.loadPremiumPeopleDiscovery('');
+      return;
+    }
     if(!FILTERS[filter])filter='for-you';
     exploreFilter=filter;
+    const screen=document.getElementById('search'),input=document.getElementById('q');
+    if(screen)screen.classList.remove('people-search-mode');
+    if(input){input.placeholder='Search FindAI';input.value='';}
     document.querySelectorAll('#premiumExploreChips [data-explore-filter]').forEach(btn=>btn.classList.toggle('active',btn.dataset.exploreFilter===filter));
     const scroll=document.querySelector('#search .premium-search-home-scroll');if(scroll)scroll.scrollTop=0;
     renderPremiumDiscoverySections(false);
@@ -14784,6 +14801,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
 
   renderPremiumDiscoverySections=async function(force=false){
     const root=document.getElementById('premiumDiscoverySections');if(!root)return;
+    if(exploreFilter==='people'&&window.loadPremiumPeopleDiscovery)return window.loadPremiumPeopleDiscovery(document.getElementById('q')&&document.getElementById('q').value||'');
     const generation=++exploreGeneration;
     exploreLoading=false;
     seenExplore.clear();
@@ -14879,201 +14897,223 @@ if(typeof v116RenderMarketplaceListing==='function'){
 
 
 
-<style id="findai-v123-seller-explore-polish-style">
-/* v123 — cleaner source marks, stronger price, and product/seller discovery. */
-.premium-search-mode-tabs{
-  display:flex;align-items:center;gap:22px;height:31px;margin-top:5px;padding:0 4px;border-bottom:1px solid rgba(255,255,255,.055);
-}
-.premium-search-mode-tabs button{
-  position:relative;height:31px;padding:0;border:0;background:transparent;color:#787f89;
-  font:720 11.5px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;
-  transition:color .16s ease,transform .14s ease;
-}
-.premium-search-mode-tabs button:active{transform:scale(.96)}
-.premium-search-mode-tabs button.active{color:#f7f8f9}
-.premium-search-mode-tabs button.active:after{
-  content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:999px;background:#f7f8f9;
-}
-#search.seller-search-mode .premium-explore-chips{display:none!important}
-#search.seller-search-mode .premium-search-scan{display:none!important}
-#search.seller-search-mode .premium-search-home-header{padding-bottom:7px!important}
-
-/* Marketplace brand should float directly on the image — no black pill. */
+<style id="findai-v124-people-native-reels-comments-style">
+/* v124 — People belongs beside For You; product source marks sit tight to price. */
+.premium-search-mode-tabs{display:none!important}
+#search .premium-explore-chips{margin-top:8px!important}
+#search.people-search-mode .premium-search-scan{display:none!important}
 .premium-explore-source{
-  left:7px!important;bottom:27px!important;min-width:0!important;height:auto!important;max-width:48px!important;
+  left:7px!important;bottom:22px!important;min-width:0!important;height:15px!important;max-width:50px!important;
   padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;overflow:visible!important;
   backdrop-filter:none!important;-webkit-backdrop-filter:none!important;box-shadow:none!important;
+  display:flex!important;align-items:flex-end!important;justify-content:flex-start!important;
   filter:drop-shadow(0 1px 3px rgba(0,0,0,.82));
 }
-.premium-explore-source img{max-width:38px!important;max-height:15px!important;width:auto!important;height:auto!important}
-.premium-explore-source .app-ebay-wordmark{font-size:14px!important;line-height:1!important}
+.premium-explore-source img{display:block!important;max-width:39px!important;max-height:15px!important;width:auto!important;height:auto!important;object-fit:contain!important}
+.premium-explore-source .app-ebay-wordmark{display:block!important;font-size:14.5px!important;line-height:15px!important;height:15px!important}
 .premium-explore-source .premium-card-source-styled,.premium-explore-source .premium-card-source-text{
-  font-size:8px!important;font-weight:850!important;line-height:1!important;color:#fff!important;text-shadow:0 1px 4px rgba(0,0,0,.9)!important;
+  display:block!important;font-size:8.5px!important;font-weight:850!important;line-height:15px!important;height:15px!important;
+  color:#fff!important;text-shadow:0 1px 4px rgba(0,0,0,.9)!important;
 }
-.premium-explore-price{font-size:12.5px!important;font-weight:840!important;letter-spacing:-.18px!important;bottom:7px!important}
+.premium-explore-price{font-size:12.5px!important;font-weight:840!important;letter-spacing:-.18px!important;bottom:6px!important}
 .premium-explore-tile.featured .premium-explore-price{font-size:14px!important}
-
-/* No focus/liked-state boxes around discovery tiles or reel hearts. */
 .premium-explore-tile,.premium-explore-tile:focus,.premium-explore-tile:focus-visible{outline:0!important;box-shadow:none!important}
 .reel-social-action.like,.reel-social-action.like:focus,.reel-social-action.like:focus-visible,
-.reel-social-action.like .reel-social-icon,.reel-social-action.like.active .reel-social-icon{
-  outline:0!important;box-shadow:none!important;border:0!important;background:transparent!important;
-}
+.reel-social-action.like .reel-social-icon,.reel-social-action.like.active .reel-social-icon{outline:0!important;box-shadow:none!important;border:0!important;background:transparent!important}
 
-/* Seller discovery — deliberately closer to Instagram account search than marketplace cards. */
+/* People search rows. */
 .premium-seller-discovery{min-height:100%;padding:8px 12px 28px;background:#050607}
 .premium-seller-discovery-head{display:flex;align-items:center;justify-content:space-between;padding:6px 2px 10px}
-.premium-seller-discovery-head b{font-size:14px;letter-spacing:-.22px}
-.premium-seller-discovery-head span{color:#747c86;font-size:9.5px}
+.premium-seller-discovery-head b{font-size:14px;letter-spacing:-.22px}.premium-seller-discovery-head span{color:#747c86;font-size:9.5px}
 .premium-seller-list{display:flex;flex-direction:column}
-.premium-seller-row{
-  width:100%;min-height:70px;padding:8px 2px;border:0;border-bottom:1px solid rgba(255,255,255,.055);
-  background:transparent;color:#fff;display:grid;grid-template-columns:52px minmax(0,1fr) auto;align-items:center;gap:11px;text-align:left;
-}
-.premium-seller-row:last-child{border-bottom:0}
-.premium-seller-row:active{background:rgba(255,255,255,.025)}
+.premium-seller-row{width:100%;min-height:70px;padding:8px 2px;border:0;border-bottom:1px solid rgba(255,255,255,.055);background:transparent;color:#fff;display:grid;grid-template-columns:52px minmax(0,1fr) auto;align-items:center;gap:11px;text-align:left}
+.premium-seller-row:last-child{border-bottom:0}.premium-seller-row:active{background:rgba(255,255,255,.025)}
 .premium-seller-avatar{width:52px;height:52px;border-radius:50%;overflow:hidden;background:#171b20;display:grid;place-items:center;color:#d9dde2;font-size:17px;font-weight:820}
 .premium-seller-avatar img{width:100%;height:100%;display:block;object-fit:cover}
-.premium-seller-copy{min-width:0}
-.premium-seller-copy b{display:block;font-size:12.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.premium-seller-copy{min-width:0}.premium-seller-copy b{display:block;font-size:12.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .premium-seller-name{display:block;margin-top:3px;color:#979ea8;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .premium-seller-meta{display:block;margin-top:4px;color:#737b85;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.premium-seller-action{
-  min-width:68px;height:32px;padding:0 12px;border:0;border-radius:9px;background:#f0f2f4;color:#080a0c;font:800 10px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;
-}
-.premium-seller-action.following{background:#1b1f24;color:#eef0f2;border:1px solid rgba(255,255,255,.11)}
-.premium-seller-action:disabled{opacity:.55}
-.premium-seller-empty{padding:84px 22px;text-align:center;color:#7d858f;font-size:11px;line-height:1.5}
-.premium-seller-empty b{display:block;margin-bottom:6px;color:#f4f5f6;font-size:15px}
-.premium-seller-loading{padding:80px 20px;text-align:center;color:#838b95;font-size:10.5px}
+.premium-seller-action{min-width:68px;height:32px;padding:0 12px;border:0;border-radius:9px;background:#f0f2f4;color:#080a0c;font:800 10px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif}
+.premium-seller-action.following{background:#1b1f24;color:#eef0f2;border:1px solid rgba(255,255,255,.11)}.premium-seller-action:disabled{opacity:.55}
+.premium-seller-empty{padding:84px 22px;text-align:center;color:#7d858f;font-size:11px;line-height:1.5}.premium-seller-empty b{display:block;margin-bottom:6px;color:#f4f5f6;font-size:15px}.premium-seller-loading{padding:80px 20px;text-align:center;color:#838b95;font-size:10.5px}
 
-html.findai-light .premium-search-mode-tabs{border-color:rgba(0,0,0,.07)}
-html.findai-light .premium-search-mode-tabs button{color:#777d85}
-html.findai-light .premium-search-mode-tabs button.active{color:#111}
-html.findai-light .premium-search-mode-tabs button.active:after{background:#111}
-html.findai-light .premium-seller-discovery{background:#f8f8f8}
-html.findai-light .premium-seller-row{color:#111;border-color:rgba(0,0,0,.07)}
-html.findai-light .premium-seller-row:active{background:rgba(0,0,0,.025)}
-html.findai-light .premium-seller-avatar{background:#e8eaed;color:#333}
-html.findai-light .premium-seller-name{color:#6f747b}
-html.findai-light .premium-seller-meta{color:#858a91}
-html.findai-light .premium-seller-action{background:#111;color:#fff}
-html.findai-light .premium-seller-action.following{background:#eceef0;color:#111;border-color:#d4d7db}
+/* Profile matches can appear above ordinary product results, like account hits in Instagram search. */
+#premiumProfileMatches:empty{display:none}
+.premium-profile-matches{padding:9px 12px 2px;border-bottom:1px solid rgba(255,255,255,.055)}
+.premium-profile-matches-label{padding:2px 2px 5px;color:#8b929c;font-size:9.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em}
+.premium-profile-matches .premium-seller-row{min-height:62px;grid-template-columns:46px minmax(0,1fr) auto}
+.premium-profile-matches .premium-seller-avatar{width:46px;height:46px}
 
-@media(max-width:380px){
-  .premium-explore-price{font-size:11.5px!important}.premium-explore-tile.featured .premium-explore-price{font-size:13px!important}
-  .premium-search-mode-tabs{gap:18px}.premium-seller-row{grid-template-columns:48px minmax(0,1fr) auto}.premium-seller-avatar{width:48px;height:48px}
-}
+/* Own comments reveal Edit/Delete with a horizontal swipe. */
+.app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment{position:relative!important;display:block!important;overflow:hidden!important;padding:0!important;border:0!important}
+.wishwave-comment-swipe-body{position:relative;z-index:2;display:grid;grid-template-columns:36px minmax(0,1fr);gap:10px;padding:10px 2px;background:#0d1013;transform:translate3d(var(--comment-swipe-x,0px),0,0);transition:transform .22s cubic-bezier(.2,.82,.24,1);will-change:transform}
+.wishwave-comment.is-mine .wishwave-comment-swipe-body{touch-action:pan-y}
+.wishwave-comment.comment-swiping .wishwave-comment-swipe-body{transition:none!important}
+.wishwave-comment-actions{position:absolute;z-index:1;left:0;top:0;bottom:0;width:118px;display:grid;grid-template-columns:1fr 1fr;align-items:stretch;background:#171a1f}
+.wishwave-comment-actions button{border:0;border-radius:0;background:transparent;color:#e8eaed;font-size:10px;font-weight:800;padding:0 5px}
+.wishwave-comment-actions .wishwave-comment-delete-action{background:#d84242;color:#fff}
+.wishwave-comment-edit-row{display:flex;align-items:center;gap:6px;margin-top:6px}
+.wishwave-comment-edit-input{min-width:0;flex:1;height:34px;border:1px solid rgba(255,255,255,.13);border-radius:10px;background:#17191d;color:#fff;padding:0 10px;font:inherit;font-size:13px;outline:none}
+.wishwave-comment-edit-save,.wishwave-comment-edit-cancel{height:30px;border:0;border-radius:9px;padding:0 8px;font-size:9px;font-weight:800}
+.wishwave-comment-edit-save{background:#f4f5f6;color:#0a0b0c}.wishwave-comment-edit-cancel{background:#24272c;color:#d6d9dd}
+
+html.findai-light .premium-seller-discovery{background:#f8f8f8}html.findai-light .premium-seller-row{color:#111;border-color:rgba(0,0,0,.07)}html.findai-light .premium-seller-row:active{background:rgba(0,0,0,.025)}html.findai-light .premium-seller-avatar{background:#e8eaed;color:#333}html.findai-light .premium-seller-name{color:#6f747b}html.findai-light .premium-seller-meta{color:#858a91}html.findai-light .premium-seller-action{background:#111;color:#fff}html.findai-light .premium-seller-action.following{background:#eceef0;color:#111;border-color:#d4d7db}
+html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wishwave-comment-edit-input{background:#f1f2f4;color:#111;border-color:#dddfe2}
+@media(max-width:380px){.premium-explore-price{font-size:11.5px!important}.premium-explore-tile.featured .premium-explore-price{font-size:13px!important}.premium-seller-row{grid-template-columns:48px minmax(0,1fr) auto}.premium-seller-avatar{width:48px;height:48px}}
 </style>
-<script id="findai-v123-seller-explore-polish-script">
+<script id="findai-v124-people-native-reels-comments-script">
 (function(){
-  let premiumSearchMode='products';
-  let sellerSearchTimer=null;
-  let sellerSearchSequence=0;
-  let sellerDiscoveryRows=[];
+  let peopleRows=[];
+  let peopleTimer=null;
+  let peopleSeq=0;
+  let exploreFeedRestore=null;
 
-  function sellerSearchRoot(){return document.getElementById('premiumDiscoverySections');}
-  function sellerAvatarMarkup(seller){
+  function peopleMode(){const screen=document.getElementById('search');return !!(screen&&screen.classList.contains('people-search-mode'));}
+  function sellerRoot(){return document.getElementById('premiumDiscoverySections');}
+  function avatarMarkup(seller){
     const avatar=String(seller&&seller.avatarUrl||'').trim();
     if(avatar)return '<span class="premium-seller-avatar"><img src="'+escapeAttr(avatar)+'" alt="" loading="lazy" onerror="this.remove()"></span>';
     const label=String(seller&&seller.displayName||seller&&seller.username||'S').trim();
     return '<span class="premium-seller-avatar">'+escapeHTML((label.charAt(0)||'S').toUpperCase())+'</span>';
   }
-  function sellerRowMarkup(seller,index){
+  function sellerRow(seller,index,scope){
     const username=String(seller.username||'').replace(/^@/,'');
     const primary=username||String(seller.displayName||'Seller');
     const name=username&&seller.displayName&&String(seller.displayName).toLowerCase()!==username.toLowerCase()?String(seller.displayName):'';
-    const followers=Math.max(0,Number(seller.followerCount)||0);
-    const listings=Math.max(0,Number(seller.activeCount)||0);
+    const followers=Math.max(0,Number(seller.followerCount)||0),listings=Math.max(0,Number(seller.activeCount)||0);
     const meta=profileMetricCompact(followers)+' follower'+(followers===1?'':'s')+' · '+profileMetricCompact(listings)+' listing'+(listings===1?'':'s');
-    return '<div class="premium-seller-row" role="button" tabindex="0" onclick="openPremiumSellerDiscoveryProfile('+index+',event)" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openPremiumSellerDiscoveryProfile('+index+',event)}">'+
-      sellerAvatarMarkup(seller)+
-      '<span class="premium-seller-copy"><b>'+escapeHTML(primary)+'</b>'+(name?'<span class="premium-seller-name">'+escapeHTML(name)+'</span>':'')+'<span class="premium-seller-meta">'+escapeHTML(meta)+'</span></span>'+
-      '<button type="button" class="premium-seller-action'+(seller.isFollowing?' following':'')+'" data-seller-follow="'+index+'" onclick="event.preventDefault();event.stopPropagation();togglePremiumSellerFollow('+index+',this)">'+(seller.isFollowing?'Following':'Follow')+'</button>'+
-    '</div>';
+    const key=scope==='matches'?'profileMatchRows':'peopleRows';
+    return '<div class="premium-seller-row" role="button" tabindex="0" onclick="openPremiumSellerFromCollection(\''+key+'\','+index+',event)" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openPremiumSellerFromCollection(\''+key+'\','+index+',event)}">'+
+      avatarMarkup(seller)+'<span class="premium-seller-copy"><b>'+escapeHTML(primary)+'</b>'+(name?'<span class="premium-seller-name">'+escapeHTML(name)+'</span>':'')+'<span class="premium-seller-meta">'+escapeHTML(meta)+'</span></span>'+
+      '<button type="button" class="premium-seller-action'+(seller.isFollowing?' following':'')+'" onclick="event.preventDefault();event.stopPropagation();togglePremiumSellerFollowCollection(\''+key+'\','+index+',this)">'+(seller.isFollowing?'Following':'Follow')+'</button></div>';
   }
-  function renderSellerDiscovery(query){
-    const root=sellerSearchRoot();if(!root)return;
-    if(!sellerDiscoveryRows.length){
-      root.innerHTML='<div class="premium-seller-empty"><b>'+(query?'No sellers found':'Discover sellers')+'</b>'+(query?'Try another username or name.':'Seller profiles will appear here as people start listing on FindAI.')+'</div>';
-      return;
-    }
-    root.innerHTML='<div class="premium-seller-discovery"><div class="premium-seller-discovery-head"><b>'+(query?'Sellers':'Discover sellers')+'</b><span>'+sellerDiscoveryRows.length+' found</span></div><div class="premium-seller-list">'+sellerDiscoveryRows.map(sellerRowMarkup).join('')+'</div></div>';
+  window.profileMatchRows=[];
+  window.peopleRows=peopleRows;
+  function renderPeople(query){
+    const root=sellerRoot();if(!root)return;
+    if(!peopleRows.length){root.innerHTML='<div class="premium-seller-empty"><b>'+(query?'No people found':'Discover people')+'</b>'+(query?'Try another username or name.':'Find sellers and profiles on FindAI.')+'</div>';return;}
+    root.innerHTML='<div class="premium-seller-discovery"><div class="premium-seller-discovery-head"><b>'+(query?'People':'Discover people')+'</b><span>'+peopleRows.length+' found</span></div><div class="premium-seller-list">'+peopleRows.map((s,i)=>sellerRow(s,i,'people')).join('')+'</div></div>';
   }
-  async function loadSellerDiscovery(query=''){
-    if(premiumSearchMode!=='sellers')return;
-    const seq=++sellerSearchSequence;
-    const root=sellerSearchRoot();if(root)root.innerHTML='<div class="premium-seller-loading">Finding sellers…</div>';
+  window.loadPremiumPeopleDiscovery=async function(query=''){
+    if(!peopleMode())return;
+    const seq=++peopleSeq,root=sellerRoot();if(root)root.innerHTML='<div class="premium-seller-loading">Finding people…</div>';
     try{
       const data=await marketplaceFetch('/marketplace/sellers/search?q='+encodeURIComponent(String(query||'').trim())+'&limit=30',{method:'GET'});
-      if(seq!==sellerSearchSequence||premiumSearchMode!=='sellers')return;
-      sellerDiscoveryRows=Array.isArray(data&&data.sellers)?data.sellers:[];
-      renderSellerDiscovery(String(query||'').trim());
-    }catch(error){
-      if(seq!==sellerSearchSequence)return;
-      sellerDiscoveryRows=[];
-      if(root)root.innerHTML='<div class="premium-seller-empty"><b>Could not load sellers</b>'+escapeHTML(error&&error.message||'Try again in a moment.')+'</div>';
-    }
-  }
-  window.setPremiumSearchMode=function(mode){
-    mode=mode==='sellers'?'sellers':'products';
-    if(mode===premiumSearchMode)return;
-    premiumSearchMode=mode;
-    const screen=document.getElementById('search'),input=document.getElementById('q');
-    if(screen)screen.classList.toggle('seller-search-mode',mode==='sellers');
-    document.querySelectorAll('#premiumSearchModeTabs [data-search-mode]').forEach(btn=>btn.classList.toggle('active',btn.dataset.searchMode===mode));
-    if(input){input.placeholder=mode==='sellers'?'Search sellers':'Search FindAI';input.value='';}
-    const scroll=document.querySelector('#search .premium-search-home-scroll');if(scroll)scroll.scrollTop=0;
-    if(mode==='sellers')loadSellerDiscovery('');else renderPremiumDiscoverySections(false);
+      if(seq!==peopleSeq||!peopleMode())return;
+      peopleRows=Array.isArray(data&&data.sellers)?data.sellers:[];window.peopleRows=peopleRows;renderPeople(String(query||'').trim());
+    }catch(error){if(seq!==peopleSeq)return;peopleRows=[];window.peopleRows=peopleRows;if(root)root.innerHTML='<div class="premium-seller-empty"><b>Could not load people</b>'+escapeHTML(error&&error.message||'Try again in a moment.')+'</div>';}
   };
-  window.submitPremiumSearchOrSeller=function(event,where){
-    if(premiumSearchMode!=='sellers')return submitPremiumSearch(event,where);
-    if(event)event.preventDefault();
-    const input=document.getElementById('q');loadSellerDiscovery(input&&input.value||'');
-    try{input&&input.blur();}catch(_){ }
-    return false;
-  };
-  window.openPremiumSellerDiscoveryProfile=async function(index,event){
+  window.openPremiumSellerFromCollection=async function(collection,index,event){
     if(event){event.preventDefault();event.stopPropagation();}
-    const seller=sellerDiscoveryRows[Number(index)||0];if(!seller||!seller.id)return;
+    const rows=collection==='profileMatchRows'?window.profileMatchRows:window.peopleRows;
+    const seller=rows&&rows[Number(index)||0];if(!seller||!seller.id)return;
     const page=ensureWishWavePublicProfilePage(),body=document.getElementById('wishwavePublicProfileBody');
     if(body)body.innerHTML='<div class="social-profile-loading"><div class="feed-more-spinner"></div><br>Loading profile…</div>';
     page.classList.remove('show');requestAnimationFrame(()=>requestAnimationFrame(()=>page.classList.add('show')));
     try{wishwavePublicSellerData=await marketplaceFetch('/marketplace/sellers/'+encodeURIComponent(seller.id)+'/profile',{method:'GET'});renderWishWavePublicProfile();}
     catch(error){if(body)body.innerHTML='<div class="social-profile-empty"><b>Profile unavailable</b>'+escapeHTML(error.message||'Try again')+'</div>';}
   };
-  window.togglePremiumSellerFollow=async function(index,button){
-    const seller=sellerDiscoveryRows[Number(index)||0];if(!seller||!seller.id)return;
-    if(!marketplaceSession()){openLogin();return;}
-    const was=!!seller.isFollowing;if(button)button.disabled=true;
+  window.openPremiumSellerProfileById=async function(id){
+    if(!id)return;const page=ensureWishWavePublicProfilePage(),body=document.getElementById('wishwavePublicProfileBody');
+    if(body)body.innerHTML='<div class="social-profile-loading"><div class="feed-more-spinner"></div><br>Loading profile…</div>';
+    page.classList.remove('show');requestAnimationFrame(()=>requestAnimationFrame(()=>page.classList.add('show')));
+    try{wishwavePublicSellerData=await marketplaceFetch('/marketplace/sellers/'+encodeURIComponent(id)+'/profile',{method:'GET'});renderWishWavePublicProfile();}catch(error){if(body)body.innerHTML='<div class="social-profile-empty"><b>Profile unavailable</b>'+escapeHTML(error.message||'Try again')+'</div>';}
+  };
+  window.togglePremiumSellerFollowCollection=async function(collection,index,button){
+    const rows=collection==='profileMatchRows'?window.profileMatchRows:window.peopleRows,seller=rows&&rows[Number(index)||0];if(!seller||!seller.id)return;
+    if(!marketplaceSession()){openLogin();return;}const was=!!seller.isFollowing;if(button)button.disabled=true;
+    try{const data=await marketplaceFetch('/marketplace/sellers/'+encodeURIComponent(seller.id)+'/follow',{method:was?'DELETE':'POST'});seller.isFollowing=!!data.isFollowing;seller.followerCount=Math.max(0,Number(data.followerCount)||0);if(button){button.textContent=seller.isFollowing?'Following':'Follow';button.classList.toggle('following',seller.isFollowing);}try{haptic();}catch(_){}}
+    catch(error){toast(error.message||'Could not update follow');}finally{if(button)button.disabled=false;}
+  };
+
+  /* Search is product-first, but matching people appear above product results. */
+  async function loadProfileMatches(query){
+    const root=document.getElementById('premiumProfileMatches');if(!root)return;
+    root.innerHTML='';window.profileMatchRows=[];
     try{
-      const data=await marketplaceFetch('/marketplace/sellers/'+encodeURIComponent(seller.id)+'/follow',{method:was?'DELETE':'POST'});
-      seller.isFollowing=!!data.isFollowing;seller.followerCount=Math.max(0,Number(data.followerCount)||0);
-      if(button){button.textContent=seller.isFollowing?'Following':'Follow';button.classList.toggle('following',seller.isFollowing);}
-      const row=button&&button.closest('.premium-seller-row'),meta=row&&row.querySelector('.premium-seller-meta');
-      if(meta){const followers=Math.max(0,Number(seller.followerCount)||0),listings=Math.max(0,Number(seller.activeCount)||0);meta.textContent=profileMetricCompact(followers)+' follower'+(followers===1?'':'s')+' · '+profileMetricCompact(listings)+' listing'+(listings===1?'':'s');}
-      try{haptic();}catch(_){ }
-    }catch(error){toast(error.message||'Could not update follow');}
-    finally{if(button)button.disabled=false;}
+      const data=await marketplaceFetch('/marketplace/sellers/search?q='+encodeURIComponent(String(query||'').trim())+'&limit=3',{method:'GET'});
+      const rows=Array.isArray(data&&data.sellers)?data.sellers:[];if(!rows.length)return;
+      window.profileMatchRows=rows;
+      root.innerHTML='<div class="premium-profile-matches"><div class="premium-profile-matches-label">People</div>'+rows.map((s,i)=>sellerRow(s,i,'matches')).join('')+'</div>';
+    }catch(_){root.innerHTML='';}
+  }
+  window.submitPremiumSearchOrSeller=function(event,where){
+    if(event&&event.preventDefault)event.preventDefault();
+    const input=where==='results'?document.getElementById('premiumResultQuery'):document.getElementById('q');
+    const query=String(input&&input.value||'').trim();if(!query)return false;
+    if(peopleMode()){loadPremiumPeopleDiscovery(query);try{input.blur();}catch(_){}return false;}
+    loadProfileMatches(query);launchPremiumSearch(query);return false;
+  };
+  const q=document.getElementById('q');if(q)q.addEventListener('input',()=>{if(!peopleMode())return;clearTimeout(peopleTimer);const value=q.value;peopleTimer=setTimeout(()=>loadPremiumPeopleDiscovery(value),180);});
+
+  /* A simple name typed into the chat can surface an exact profile card. */
+  async function exactSellerForText(text){
+    const raw=String(text||'').trim(),needle=raw.replace(/^@/,'').toLowerCase();
+    if(!needle||needle.length>40||!/^[a-z0-9._ -]+$/i.test(raw)||raw.split(/\s+/).length>3)return null;
+    try{const data=await marketplaceFetch('/marketplace/sellers/search?q='+encodeURIComponent(needle)+'&limit=8',{method:'GET'});const rows=Array.isArray(data&&data.sellers)?data.sellers:[];return rows.find(s=>String(s.username||'').replace(/^@/,'').toLowerCase()===needle||String(s.displayName||'').trim().toLowerCase()===needle)||null;}catch(_){return null;}
+  }
+  window.findaiMaybeHandleProfileChat=async function(text){
+    const seller=await exactSellerForText(text);if(!seller)return false;
+    const feed=document.getElementById('feed');if(!feed)return false;
+    const userRow=appChatAddUser(text);appChatConversation.push({role:'user',content:String(text)});
+    const username=String(seller.username||'').replace(/^@/,'')||String(seller.displayName||'Seller');
+    const followers=Math.max(0,Number(seller.followerCount)||0),listings=Math.max(0,Number(seller.activeCount)||0);
+    const avatar=avatarMarkup(seller);
+    const html='<div class="premium-profile-matches"><div class="premium-profile-matches-label">Profile</div><div class="premium-seller-row" role="button" tabindex="0" onclick="openPremiumSellerProfileById(\''+escapeAttr(seller.id)+'\')">'+avatar+'<span class="premium-seller-copy"><b>'+escapeHTML(username)+'</b><span class="premium-seller-name">'+escapeHTML(String(seller.displayName||''))+'</span><span class="premium-seller-meta">'+escapeHTML(profileMetricCompact(followers)+' followers · '+profileMetricCompact(listings)+' listings')+'</span></span></div></div>';
+    appChatConversation.push({role:'assistant',content:'Profile: '+username});const row=appChatAddAssistant(html);if(row&&userRow)requestAnimationFrame(()=>feed.scrollTo({top:Math.max(0,userRow.offsetTop-10),behavior:'smooth'}));appChatPersistSession();return true;
   };
 
-  document.addEventListener('click',event=>{
-    const tab=event.target.closest&&event.target.closest('#premiumSearchModeTabs [data-search-mode]');
-    if(tab){setPremiumSearchMode(tab.dataset.searchMode);return;}
-  });
-  const productHomeRenderer=renderPremiumDiscoverySections;
-  renderPremiumSearchHome=function(){
-    if(premiumSearchMode==='sellers')return loadSellerDiscovery(document.getElementById('q')&&document.getElementById('q').value||'');
-    return productHomeRenderer(false);
+  /* Explore tiles use the exact same real Home reel — no separate overlay/header/back arrow. */
+  const originalOpenForYou=window.openForYou;
+  window.openPremiumDiscoveryItem=function(sectionId,index){
+    const section=premiumDiscoverySectionById(sectionId),all=section&&Array.isArray(section.items)?section.items:[];if(!all.length)return;
+    const chosen=Math.max(0,Math.min(all.length-1,Number(index)||0));
+    const start=Math.max(0,Math.min(chosen-5,Math.max(0,all.length-40))),end=Math.min(all.length,start+40),localIndex=chosen-start;
+    if(!exploreFeedRestore){exploreFeedRestore={items:currentFeedItems.slice(),data:currentFeedData,state:{...(feedState||{})},active:activeReelIndex,scroll:document.getElementById('personalFeed')?document.getElementById('personalFeed').scrollTop:0};}
+    currentFeedItems=all.slice(start,end);currentFeedData={personalised:true};feedState={...(feedState||{}),source:'personalised',query:'',resolvedQuery:'',loading:false,hasMore:false};activeReelIndex=localIndex;
+    const feed=document.getElementById('personalFeed');if(!feed)return;feed.classList.remove('search-grid-mode');feed.innerHTML=currentFeedItems.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');
+    window.__findaiExploreInjectedFeed=true;go('discover');showFeedHeader();bindFeedHeaderAutoHide();attachReelObserver();preloadPersonalisedImages(Math.max(0,localIndex-2),10);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{const card=feed.querySelector('.reel-card[data-index="'+localIndex+'"]');if(card){feed.scrollTop=card.offsetTop;}else feed.scrollTop=localIndex*(feed.clientHeight||1);beginReelTracking(localIndex);}));
   };
-  renderAppSearchHome=function(){return renderPremiumSearchHome();};
+  window.openForYou=function(){
+    if(window.__findaiExploreInjectedFeed&&exploreFeedRestore){
+      const restore=exploreFeedRestore;exploreFeedRestore=null;window.__findaiExploreInjectedFeed=false;currentFeedItems=restore.items;currentFeedData=restore.data;feedState=restore.state;activeReelIndex=restore.active;
+      const feed=document.getElementById('personalFeed');if(feed){feed.innerHTML=currentFeedItems.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');requestAnimationFrame(()=>{feed.scrollTop=restore.scroll||0;attachReelObserver();beginReelTracking(activeReelIndex);});}go('discover');return;
+    }
+    return originalOpenForYou();
+  };
 
-  const q=document.getElementById('q');
-  if(q)q.addEventListener('input',()=>{
-    if(premiumSearchMode!=='sellers')return;
-    clearTimeout(sellerSearchTimer);
-    const value=q.value;sellerSearchTimer=setTimeout(()=>loadSellerDiscovery(value),220);
-  });
+  /* Swipe right on your own comment to reveal Edit/Delete. */
+  let swipe=null;
+  document.addEventListener('touchstart',event=>{
+    const article=event.target.closest&&event.target.closest('.wishwave-comment.is-mine');if(!article||event.touches.length!==1||event.target.closest('button,input'))return;
+    const t=event.touches[0];swipe={article,startX:t.clientX,startY:t.clientY,x:article.classList.contains('comment-actions-open')?118:0,active:false};
+  },{passive:true});
+  document.addEventListener('touchmove',event=>{
+    if(!swipe||event.touches.length!==1)return;const t=event.touches[0],dx=t.clientX-swipe.startX,dy=t.clientY-swipe.startY;
+    if(!swipe.active){if(Math.abs(dx)<5)return;if(Math.abs(dy)>Math.abs(dx)*1.05){swipe=null;return;}swipe.active=true;swipe.article.classList.add('comment-swiping');}
+    event.preventDefault();const x=Math.max(0,Math.min(118,swipe.x+dx));swipe.article.style.setProperty('--comment-swipe-x',x+'px');swipe.current=x;
+  },{passive:false});
+  function finishSwipe(){if(!swipe)return;const s=swipe;swipe=null;if(!s.active)return;s.article.classList.remove('comment-swiping');const open=(s.current||0)>54;s.article.classList.toggle('comment-actions-open',open);s.article.style.setProperty('--comment-swipe-x',open?'118px':'0px');}
+  document.addEventListener('touchend',finishSwipe,{passive:true});document.addEventListener('touchcancel',finishSwipe,{passive:true});
+
+  async function reloadComments(){
+    if(!wishwaveCommentsItem)return;const id=String(appMpId(wishwaveCommentsItem)||'');if(!id)return;
+    const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id)+'/comments',{method:'GET'});wishwaveUpdateCommentMetric(id,data.commentCount);renderWishWaveComments(data);
+  }
+  window.startWishWaveCommentEdit=function(commentId,event){
+    if(event){event.preventDefault();event.stopPropagation();}const article=document.querySelector('.wishwave-comment[data-comment-id="'+CSS.escape(String(commentId))+'"]');if(!article)return;
+    const comment=(wishwaveCommentsData.comments||[]).find(c=>String(c.id)===String(commentId));if(!comment)return;const p=article.querySelector('.wishwave-comment-copy p');if(!p||article.querySelector('.wishwave-comment-edit-row'))return;
+    article.style.setProperty('--comment-swipe-x','0px');article.classList.remove('comment-actions-open');p.hidden=true;
+    const row=document.createElement('div');row.className='wishwave-comment-edit-row';row.innerHTML='<input class="wishwave-comment-edit-input" maxlength="300"><button class="wishwave-comment-edit-save" type="button">Save</button><button class="wishwave-comment-edit-cancel" type="button">Cancel</button>';
+    p.after(row);const input=row.querySelector('input');input.value=String(comment.body||'');input.focus();input.setSelectionRange(input.value.length,input.value.length);
+    row.querySelector('.wishwave-comment-edit-cancel').onclick=()=>{row.remove();p.hidden=false;};
+    row.querySelector('.wishwave-comment-edit-save').onclick=async()=>{const body=String(input.value||'').trim();if(!body)return;const id=String(appMpId(wishwaveCommentsItem)||'');try{await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id)+'/comments/'+encodeURIComponent(commentId),{method:'PATCH',body:JSON.stringify({body})});await reloadComments();}catch(error){toast(error.message||'Comment could not be edited');}};
+  };
+  window.deleteWishWaveComment=async function(commentId,event){
+    if(event){event.preventDefault();event.stopPropagation();}if(!wishwaveCommentsItem)return;const id=String(appMpId(wishwaveCommentsItem)||'');
+    try{const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id)+'/comments/'+encodeURIComponent(commentId),{method:'DELETE'});wishwaveUpdateCommentMetric(id,data.commentCount);await reloadComments();try{haptic();}catch(_){}}catch(error){toast(error.message||'Comment could not be deleted');}
+  };
 })();
 </script>
 </body>
