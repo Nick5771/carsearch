@@ -3554,7 +3554,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
           <div class="social-profile-stats">
             <button type="button" onclick="setProfileTab('listings')"><b id="socialListingsCount">0</b><span>Listings</span></button>
             <button type="button" onclick="setProfileTab('sold')"><b id="socialSoldCount">0</b><span>Sold</span></button>
-            <button type="button"><b id="socialFollowersValue">0</b><span>Followers</span></button>
+            <button type="button" onclick="openOwnFollowersList()" aria-label="View your followers"><b id="socialFollowersValue">0</b><span>Followers</span></button>
           </div>
         </div>
 
@@ -12125,7 +12125,7 @@ window.addEventListener('load', function(){
       '</span>';
     }
     if(type==='follow'||(type.includes('follow')&&!type.includes('request')&&!type.includes('accepted'))){
-      return '<span class="findai-notification-side"><button class="findai-notification-action" type="button" onclick="findaiNotificationOpenActor(event,'+index+')">View</button></span>';
+      return '<span class="findai-notification-side"><button class="findai-notification-action" type="button" onclick="findaiNotificationOpenFollowerList(event,'+index+')">View</button></span>';
     }
     if((type.includes('like')||type.includes('comment'))&&image){
       return '<span class="findai-notification-side"><span class="findai-notification-side-thumb"><img src="'+escapeAttr(image)+'" alt=""></span></span>';
@@ -12182,6 +12182,26 @@ window.addEventListener('load', function(){
     }else{
       openFindAINotification(index);
     }
+  };
+
+  window.findaiNotificationOpenFollowerList=async function(event,index){
+    if(event){event.preventDefault();event.stopPropagation();}
+    const n=appNotificationCache[Number(index)];
+    if(!n)return;
+    const username=String(n.actor_username||'').replace(/^@+/,'').trim();
+    try{
+      if(!n.local&&n.id&&marketplaceSession()){
+        await marketplaceFetch('/marketplace/notifications/read',{method:'POST',body:JSON.stringify({id:n.id})});
+      }
+    }catch(_){}
+    n.read_at=n.read_at||new Date().toISOString();
+    appNotificationUnread=appNotificationCache.reduce((sum,item)=>sum+(!item.read_at?1:0),0);
+    if(typeof setHomeNotificationState==='function')setHomeNotificationState(appNotificationUnread);
+    closeHomeNotifications();
+    if(typeof openProfile==='function')openProfile();
+    setTimeout(()=>{
+      if(typeof openOwnFollowersList==='function')openOwnFollowersList(username);
+    },90);
   };
   window.findaiNotificationFollowRequestAction=async function(event,index,action){
     if(event){event.preventDefault();event.stopPropagation();}
@@ -18403,6 +18423,248 @@ html.findai-light .findai-notification-mini-badge{border-color:#fff!important}
 html.findai-light .findai-notification-action{background:#eef0f3!important;color:#111!important;border-color:#dde0e4!important}
 html.findai-light .findai-notification-action.primary{background:#2388ff!important;color:#fff!important;border-color:#2388ff!important}
 </style>
+
+
+<style id="findai-v140-followers-style">
+#profile{position:relative!important;overflow:hidden!important}
+.findai-followers-page{
+  position:absolute;inset:0;z-index:2400;
+  background:#050607;color:#fff;
+  opacity:0;transform:translateX(16px);pointer-events:none;
+  transition:opacity .19s ease,transform .25s cubic-bezier(.2,.82,.22,1);
+}
+.findai-followers-page.show{opacity:1;transform:translateX(0);pointer-events:auto}
+.findai-followers-scroll{
+  height:100%;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  padding:calc(var(--safe-top) + 5px) 0 calc(68px + var(--safe-bottom));
+}
+.findai-followers-head{
+  height:50px;padding:0 15px;
+  display:grid;grid-template-columns:42px minmax(0,1fr) 42px;
+  align-items:center;border-bottom:1px solid rgba(255,255,255,.075);
+  position:sticky;top:0;z-index:3;background:#050607;
+}
+.findai-followers-back{
+  width:38px;height:38px;padding:0;border:0;background:transparent;color:#fff;
+  display:grid;place-items:center;-webkit-tap-highlight-color:transparent;
+}
+.findai-followers-back svg{width:25px;height:25px}
+.findai-followers-title{text-align:center;font-size:17px;font-weight:780;letter-spacing:-.35px}
+.findai-followers-count{color:#858c96;font-size:10px;font-weight:650;text-align:right}
+.findai-followers-search-wrap{padding:12px 14px 7px}
+.findai-followers-search{
+  height:40px;border-radius:12px;background:#16191e;
+  display:flex;align-items:center;gap:9px;padding:0 12px;color:#7f8690;
+}
+.findai-followers-search svg{width:18px;height:18px;flex:0 0 auto}
+.findai-followers-search input{
+  flex:1;min-width:0;border:0;outline:0;background:transparent;color:#fff;
+  font:500 13px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;
+}
+.findai-followers-search input::placeholder{color:#7c838d}
+.findai-followers-list{padding:2px 0 20px}
+.findai-follower-row{
+  position:relative;width:100%;min-height:68px;padding:8px 15px;border:0;
+  background:transparent;color:#fff;display:grid;
+  grid-template-columns:50px minmax(0,1fr) auto;align-items:center;gap:11px;
+  text-align:left;-webkit-tap-highlight-color:transparent;
+  transition:background .15s ease,transform .16s ease,box-shadow .22s ease;
+}
+.findai-follower-row:active{background:rgba(255,255,255,.045);transform:scale(.994)}
+.findai-follower-avatar{
+  width:50px;height:50px;border-radius:50%;overflow:hidden;background:#1b1f25;
+  display:grid;place-items:center;color:#fff;font-size:16px;font-weight:800;
+}
+.findai-follower-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+.findai-follower-copy{min-width:0}
+.findai-follower-copy b{
+  display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:#f6f7f8;font-size:13px;font-weight:750;letter-spacing:-.1px;
+}
+.findai-follower-copy span{
+  display:block;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  color:#8d949e;font-size:11px;
+}
+.findai-follower-view{
+  height:32px;min-width:59px;padding:0 12px;border:1px solid rgba(255,255,255,.10);
+  border-radius:9px;background:#24282e;color:#fff;font-size:10.5px;font-weight:760;
+}
+.findai-follower-view:active{transform:scale(.95)}
+@keyframes findaiFollowerFocus{
+  0%{background:rgba(255,255,255,0);box-shadow:inset 0 0 0 0 rgba(255,255,255,0)}
+  35%{background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+  100%{background:rgba(255,255,255,0);box-shadow:inset 0 0 0 0 rgba(255,255,255,0)}
+}
+.findai-follower-row.focused{animation:findaiFollowerFocus 1.35s ease}
+.findai-followers-empty{
+  padding:62px 24px;text-align:center;color:#858c96;font-size:12px;line-height:1.45;
+}
+.findai-followers-empty b{display:block;margin-bottom:5px;color:#f4f5f6;font-size:15px}
+.findai-followers-loading{padding:55px 20px;text-align:center;color:#7f8791;font-size:12px}
+
+html.findai-light .findai-followers-page,
+html.findai-light .findai-followers-head{background:#fff;color:#111214}
+html.findai-light .findai-followers-head{border-bottom-color:rgba(0,0,0,.08)}
+html.findai-light .findai-followers-back{color:#111214}
+html.findai-light .findai-followers-search{background:#f0f1f3}
+html.findai-light .findai-followers-search input{color:#111214}
+html.findai-light .findai-follower-row{color:#111214}
+html.findai-light .findai-follower-row:active{background:#f3f4f5}
+html.findai-light .findai-follower-copy b{color:#111214}
+html.findai-light .findai-follower-view{background:#eef0f3;color:#111214;border-color:#dde0e4}
+html.findai-light .findai-followers-empty b{color:#111214}
+</style>
+
+<script id="findai-v140-followers-script">
+(function(){
+  'use strict';
+  let ownFollowersCache=[];
+  let ownFollowersTarget='';
+  let followersEdgeGesture=null;
+
+  function ensureOwnFollowersPage(){
+    let page=document.getElementById('findaiOwnFollowersPage');
+    if(page)return page;
+    page=document.createElement('section');
+    page.id='findaiOwnFollowersPage';
+    page.className='findai-followers-page';
+    page.setAttribute('aria-label','Followers');
+    page.innerHTML=
+      '<div class="findai-followers-scroll" id="findaiFollowersScroll">'+
+        '<div class="findai-followers-head">'+
+          '<button class="findai-followers-back" type="button" onclick="closeOwnFollowersList()" aria-label="Back">'+
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg>'+
+          '</button>'+
+          '<div class="findai-followers-title">Followers</div>'+
+          '<div class="findai-followers-count" id="findaiFollowersCount"></div>'+
+        '</div>'+
+        '<div class="findai-followers-search-wrap">'+
+          '<label class="findai-followers-search">'+
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="7"/><path d="m16 16 4.2 4.2"/></svg>'+
+            '<input id="findaiFollowersSearch" type="search" autocomplete="off" placeholder="Search" oninput="renderOwnFollowersList(this.value)">'+
+          '</label>'+
+        '</div>'+
+        '<div class="findai-followers-list" id="findaiFollowersList"><div class="findai-followers-loading">Loading followers…</div></div>'+
+      '</div>';
+    document.getElementById('profile').appendChild(page);
+
+    /* iOS-style edge swipe back. */
+    page.addEventListener('touchstart',e=>{
+      const t=e.touches&&e.touches[0];
+      followersEdgeGesture=(t&&t.clientX<=28)?{x:t.clientX,y:t.clientY}:null;
+    },{passive:true});
+    page.addEventListener('touchend',e=>{
+      if(!followersEdgeGesture)return;
+      const t=e.changedTouches&&e.changedTouches[0],g=followersEdgeGesture;followersEdgeGesture=null;
+      if(t&&(t.clientX-g.x)>68&&Math.abs(t.clientY-g.y)<65)closeOwnFollowersList();
+    },{passive:true});
+    return page;
+  }
+
+  function followerInitial(row){
+    return String(row.displayName||row.username||'F').trim().charAt(0).toUpperCase()||'F';
+  }
+  function followerRowHtml(row){
+    const username=String(row.username||'').replace(/^@+/,'');
+    const avatar=String(row.avatarUrl||'');
+    const focused=ownFollowersTarget&&username.toLowerCase()===ownFollowersTarget.toLowerCase();
+    return '<div class="findai-follower-row'+(focused?' focused':'')+'" data-follower-username="'+escapeAttr(username)+'" role="button" tabindex="0" onclick="openOwnFollowerProfile(\''+escapeAttr(username)+'\',event)">'+
+      '<span class="findai-follower-avatar">'+(avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':escapeHTML(followerInitial(row)))+'</span>'+
+      '<span class="findai-follower-copy"><b>'+escapeHTML(row.displayName||username||'FindAI user')+'</b><span>'+escapeHTML(username?'@'+username:'')+'</span></span>'+
+      (username?'<button class="findai-follower-view" type="button" onclick="openOwnFollowerProfile(\''+escapeAttr(username)+'\',event)">View</button>':'')+
+    '</div>';
+  }
+
+  window.renderOwnFollowersList=function(query){
+    const root=document.getElementById('findaiFollowersList');if(!root)return;
+    const q=String(query||'').trim().toLowerCase();
+    let rows=ownFollowersCache.filter(row=>{
+      if(!q)return true;
+      return (String(row.displayName||'')+' '+String(row.username||'')).toLowerCase().includes(q);
+    });
+    if(!q&&ownFollowersTarget){
+      const i=rows.findIndex(r=>String(r.username||'').replace(/^@+/,'').toLowerCase()===ownFollowersTarget.toLowerCase());
+      if(i>0){const [target]=rows.splice(i,1);rows.unshift(target);}
+    }
+    root.innerHTML=rows.length
+      ?rows.map(followerRowHtml).join('')
+      :'<div class="findai-followers-empty"><b>'+(q?'No matches':'No followers yet')+'</b>'+(q?'Try another name or username.':'When someone follows you, they’ll appear here.')+'</div>';
+
+    if(!q&&ownFollowersTarget){
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        const target=root.querySelector('[data-follower-username="'+CSS.escape(ownFollowersTarget)+'"]');
+        if(target){
+          try{target.scrollIntoView({block:'center',behavior:'smooth'});}catch(_){}
+          setTimeout(()=>target.classList.remove('focused'),1500);
+        }
+      }));
+    }
+  };
+
+  window.openOwnFollowersList=async function(targetUsername){
+    if(!marketplaceSession()){openLogin();return;}
+    const page=ensureOwnFollowersPage();
+    ownFollowersTarget=String(targetUsername||'').replace(/^@+/,'').trim();
+    const search=document.getElementById('findaiFollowersSearch');
+    if(search)search.value='';
+    const root=document.getElementById('findaiFollowersList');
+    if(root)root.innerHTML='<div class="findai-followers-loading"><div class="feed-more-spinner"></div><br>Loading followers…</div>';
+    page.classList.add('show');
+    try{
+      const data=await marketplaceFetch('/social/followers',{method:'GET'});
+      ownFollowersCache=Array.isArray(data&&data.followers)?data.followers:[];
+      const count=Math.max(0,Number(data&&data.count||ownFollowersCache.length));
+      const countEl=document.getElementById('findaiFollowersCount');if(countEl)countEl.textContent=profileMetricCompact(count);
+      if(typeof socialProfileSeller==='object'&&socialProfileSeller){
+        socialProfileSeller.followerCount=count;
+        try{paintSocialProfileHeader();}catch(_){}
+      }
+      renderOwnFollowersList('');
+    }catch(error){
+      ownFollowersCache=[];
+      if(root)root.innerHTML='<div class="findai-followers-empty"><b>Couldn’t load followers</b>'+escapeHTML(error&&error.message||'Try again in a moment.')+'</div>';
+    }
+  };
+
+  window.closeOwnFollowersList=function(){
+    const page=document.getElementById('findaiOwnFollowersPage');
+    if(page)page.classList.remove('show');
+    ownFollowersTarget='';
+  };
+
+  window.openOwnFollowerProfile=function(username,event){
+    if(event){event.preventDefault();event.stopPropagation();}
+    const clean=String(username||'').replace(/^@+/,'').trim();if(!clean)return;
+    closeOwnFollowersList();
+    setTimeout(()=>{if(typeof openFindAIProfileByUsername==='function')openFindAIProfileByUsername(clean);},80);
+  };
+
+  /* Keep the Followers count accurate even when the user has no active listing. */
+  const beforeProfileLoad=window.loadProfileMarketplaceData;
+  if(typeof beforeProfileLoad==='function'){
+    window.loadProfileMarketplaceData=async function(force){
+      const out=await beforeProfileLoad.apply(this,arguments);
+      if(marketplaceSession()){
+        try{
+          const data=await marketplaceFetch('/social/followers',{method:'GET'});
+          if(typeof socialProfileSeller==='object'&&socialProfileSeller){
+            socialProfileSeller.followerCount=Math.max(0,Number(data&&data.count||0));
+            paintSocialProfileHeader();
+          }
+        }catch(_){}
+      }
+      return out;
+    };
+  }
+
+  /* Any main-tab tap dismisses the Followers page first. */
+  document.addEventListener('pointerdown',e=>{
+    const button=e.target&&e.target.closest&&e.target.closest('.premium-bottom-nav button,.nav.findai-five-nav button');
+    if(button)closeOwnFollowersList();
+  },{passive:true});
+})();
+</script>
 
 </body>
 </html>
