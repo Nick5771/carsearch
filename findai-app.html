@@ -17755,5 +17755,264 @@ html.findai-light .findai-settings-delete-box input{background:#fff;color:#111;b
 })();
 </script>
 
+
+<style id="findai-v138-settings-polish">
+/* ============================================================
+   v138 — Settings polish requested from live iPhone test
+   ============================================================ */
+
+/* No blue iOS-style switches. On = white track / black thumb.
+   Off = subtle dark track / white thumb. */
+#appThemeOverlay .findai-settings-switch{
+  width:46px!important;height:27px!important;padding:2px!important;
+  border:1px solid rgba(255,255,255,.22)!important;
+  background:#1b1e23!important;
+  box-shadow:none!important;
+  -webkit-appearance:none!important;appearance:none!important;
+  -webkit-tap-highlight-color:transparent!important;
+}
+#appThemeOverlay .findai-settings-switch::after{
+  width:21px!important;height:21px!important;
+  background:#fff!important;
+  transform:translateX(0)!important;
+  box-shadow:0 1px 5px rgba(0,0,0,.42)!important;
+}
+#appThemeOverlay .findai-settings-switch.on{
+  background:#fff!important;
+  border-color:#fff!important;
+}
+#appThemeOverlay .findai-settings-switch.on::after{
+  background:#111!important;
+  transform:translateX(19px)!important;
+  box-shadow:none!important;
+}
+html.findai-light #appThemeOverlay .findai-settings-switch{
+  background:#d8dbe0!important;border-color:#c9cdd2!important;
+}
+html.findai-light #appThemeOverlay .findai-settings-switch.on{
+  background:#111!important;border-color:#111!important;
+}
+html.findai-light #appThemeOverlay .findai-settings-switch.on::after{background:#fff!important}
+
+/* Tactile press/ring feel without the ugly browser tap highlight. */
+#appThemeOverlay button,
+#appThemeOverlay .findai-settings-row{
+  -webkit-tap-highlight-color:transparent!important;
+  touch-action:manipulation;
+}
+@keyframes findaiTapRing {
+  0%   {box-shadow:0 0 0 0 rgba(255,255,255,.16);transform:scale(1)}
+  38%  {box-shadow:0 0 0 4px rgba(255,255,255,.075);transform:scale(.985)}
+  100% {box-shadow:0 0 0 0 rgba(255,255,255,0);transform:scale(1)}
+}
+#appThemeOverlay .findai-v138-tap{
+  animation:findaiTapRing .245s cubic-bezier(.22,.78,.24,1)!important;
+}
+html.findai-light #appThemeOverlay .findai-v138-tap{
+  animation-name:findaiTapRing!important;
+}
+
+/* Search results */
+.findai-settings-search-results{display:none;padding:0 0 20px}
+.findai-settings-search-results.show{display:block}
+.findai-settings-search-empty{padding:34px 20px;text-align:center;color:#7f8791;font-size:12px}
+.findai-settings-search-heading{padding:6px 18px 10px;color:#7e858f;font-size:11px;font-weight:750;text-transform:uppercase;letter-spacing:.04em}
+.findai-settings-search-result{
+  width:100%;min-height:68px;padding:10px 16px;border:0;border-bottom:1px solid rgba(255,255,255,.055);
+  background:transparent;color:#fff;display:grid;grid-template-columns:34px minmax(0,1fr) 18px;align-items:center;gap:11px;text-align:left
+}
+.findai-settings-search-result>svg{width:24px;height:24px}
+.findai-settings-search-result b{display:block;font-size:13px}
+.findai-settings-search-result small{display:block;margin-top:3px;color:#858c95;font-size:10.5px;line-height:1.35}
+.findai-settings-search-result .chev{width:17px;height:17px;color:#707782}
+html.findai-light .findai-settings-search-result{color:#111;border-bottom-color:#eceef1}
+
+/* Keep account card concise — no raw login email / Apple relay string. */
+.findai-settings-account-copy span{max-width:100%!important}
+
+/* Slightly smoother rows */
+#appThemeOverlay .findai-settings-row,
+#appThemeOverlay .findai-settings-search-result{
+  transition:background .16s ease,opacity .16s ease,transform .16s ease!important;
+}
+#appThemeOverlay .findai-settings-row:active,
+#appThemeOverlay .findai-settings-search-result:active{background:rgba(255,255,255,.045)!important}
+</style>
+
+<script id="findai-v138-settings-polish-script">
+(function(){
+  'use strict';
+
+  function v138Provider(profile){
+    const p=String(profile&&profile.provider||'').toLowerCase();
+    const email=String(profile&&profile.email||'').toLowerCase();
+    if(p==='apple'||email.includes('@privaterelay.appleid.com'))return 'Apple';
+    if(p==='google')return 'Google';
+    return 'Email';
+  }
+  function v138Icon(type){
+    const icons={
+      profile:'<circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/>',
+      lock:'<rect x="4" y="10" width="16" height="10" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>',
+      heart:'<path d="M20.6 5.8c-1.8-2.1-5.1-2.2-7-.3L12 7.1l-1.6-1.6c-1.9-1.9-5.2-1.8-7 .3-1.7 2-1.5 5 .4 6.9L12 20.3l8.2-7.6c1.9-1.9 2.1-4.9.4-6.9z"/>',
+      account:'<rect x="4" y="5" width="16" height="14" rx="3"/><path d="M8 9h8M8 13h5"/>',
+      bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/>',
+      privacy:'<path d="M12 3 4.5 6v5.2c0 4.7 3.1 8.4 7.5 9.8 4.4-1.4 7.5-5.1 7.5-9.8V6L12 3Z"/><path d="m9.5 12 1.7 1.7 3.6-4"/>',
+      sell:'<path d="M3 7h18v12H3z"/><path d="M8 7V4h8v3"/>',
+      palette:'<path d="M12 3a9 9 0 1 0 0 18h1.2a2 2 0 0 0 1.2-3.6 2 2 0 0 1 1.2-3.6H18A3 3 0 0 0 21 11 8 8 0 0 0 12 3Z"/><circle cx="7.5" cy="10" r=".7"/><circle cx="10" cy="6.7" r=".7"/><circle cx="14.5" cy="6.8" r=".7"/>',
+      help:'<circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.3 2.3 0 1 1 3.6 1.9c-.9.6-1.4 1.1-1.4 2.1"/><path d="M12 17h.01"/>',
+      logout:'<path d="M10 17l5-5-5-5M15 12H3M14 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5"/>',
+      block:'<circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/>',
+      mute:'<path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="m17 9 4 4M21 9l-4 4"/>',
+      follow:'<path d="M15 19a6 6 0 0 0-12 0"/><circle cx="9" cy="7" r="4"/><path d="M18 8v6M15 11h6"/>',
+      message:'<path d="M21 4 3.8 10.8c-.9.35-.9 1.62.02 1.94l6.45 2.2 2.2 6.45c.32.92 1.59.93 1.94.02L21 4Z"/><path d="m10.3 14.8 10-10"/>'
+    };
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">'+(icons[type]||icons.help)+'</svg>';
+  }
+  function row(title,sub,action,icon,value,danger){
+    return '<button class="findai-settings-row'+(danger?' danger':'')+'" type="button" data-settings-search="'+escapeAttr((title+' '+sub).toLowerCase())+'" onclick="'+escapeAttr(action)+'">'+
+      v138Icon(icon)+'<span><b>'+escapeHTML(title)+'</b><small>'+escapeHTML(sub||'')+'</small></span>'+
+      (value?'<span class="findai-settings-value">'+escapeHTML(value)+'</span>':'<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>')+
+      '</button>';
+  }
+  function head(title,home){
+    return '<div class="findai-settings-head"><button class="findai-settings-back" type="button" onclick="'+(home?'findaiOpenSettingsHome()':'closeAppSettings()')+'" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg></button><h2>'+escapeHTML(title)+'</h2><span></span></div>';
+  }
+  function overlaySheet(){return document.getElementById('appThemeOverlay')?.querySelector('.app-theme-sheet');}
+  function showOverlay(){const o=document.getElementById('appThemeOverlay');if(o){o.classList.add('show','findai-settings-full');document.body.classList.add('findai-settings-open');}applyAppTheme();}
+
+  /* Fix v137 switches: compute from the CURRENT visual state each tap,
+     rather than replaying the value that was baked into the original HTML. */
+  const previousV137SetPref=window.findaiV137SetPref;
+  if(typeof previousV137SetPref==='function'){
+    window.findaiV137SetPref=async function(key,value,button){
+      if(button&&button.classList&&button.classList.contains('findai-settings-switch')){
+        value=!button.classList.contains('on');
+      }
+      return previousV137SetPref(key,value,button);
+    };
+  }
+
+  /* Main Settings page — deliberately no raw email address and no Shopping
+     Preferences page. Price drops/tracking already have first-class places
+     elsewhere in the app. */
+  window.findaiOpenSettingsHome=function(){
+    const sheet=overlaySheet();if(!sheet)return;
+    const profile=getAccountProfile()||null;
+    const username=profile&&profile.username?'@'+profile.username:'';
+    const method=profile?v138Provider(profile):'';
+    sheet.innerHTML='<div class="findai-settings-page v136-settings">'+head('Settings and activity',false)+
+      '<label class="findai-settings-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="7"/><path d="m16 16 4.3 4.3"/></svg><input id="findaiSettingsSearchInput" type="search" placeholder="Search settings" autocomplete="off" oninput="filterFindAISettings(this.value)"></label>'+
+      '<div class="findai-settings-search-results" id="findaiSettingsSearchResults"></div>'+
+      '<div class="v138-settings-sections" id="findaiSettingsHomeSections">'+
+      (profile?'<div class="findai-settings-account-card"><div class="findai-settings-account-avatar">'+(profile.avatar?'<img src="'+escapeAttr(profile.avatar)+'" alt="">':escapeHTML(String(profile.name||'F').slice(0,1).toUpperCase()))+'</div><div class="findai-settings-account-copy"><b>'+escapeHTML(profile.name||'FindAI user')+'</b><span>'+escapeHTML(username||method)+'</span></div></div>':'')+
+      '<section class="findai-settings-section"><div class="findai-settings-section-title">Your account</div>'+
+        row('Edit profile','Name, username, photo and bio',"closeAppSettings();openProfileEdit()",'profile')+
+        row('Login & security','Sign-in method and current session',"findaiOpenSettingsPane('security')",'lock',method)+
+        row('Liked items','Products you have liked',"closeAppSettings();openProfile();setTimeout(()=>setProfileTab('liked'),80)",'heart')+
+        row('Account management','Username, session and account deletion',"findaiOpenSettingsPane('account-management')",'account')+
+      '</section>'+
+      '<section class="findai-settings-section"><div class="findai-settings-section-title">How you use FindAI</div>'+
+        row('Notifications','Follows, comments, messages and price drops',"findaiOpenSettingsPane('notifications')",'bell')+
+        row('Privacy & recommendations','Private account, messages, blocked and muted',"findaiOpenSettingsPane('privacy')",'privacy')+
+        row('Selling preferences','Listing defaults and offers',"findaiOpenSettingsPane('seller')",'sell')+
+      '</section>'+
+      '<section class="findai-settings-section"><div class="findai-settings-section-title">Your app</div>'+
+        row('Appearance','System, light or dark',"findaiOpenSettingsPane('appearance')",'palette')+
+        row('Help & support','Help, report a problem, privacy and terms',"findaiOpenSettingsPane('support')",'help')+
+      '</section>'+
+      (profile?'<section class="findai-settings-section">'+row('Log out','Sign out of this account',"closeAppSettings();signOutAccount()",'logout','',true)+'</section>':'')+
+      '</div></div>';
+    showOverlay();
+  };
+
+  /* Settings search now searches the settings CATALOGUE, not only rows that
+     happen to be mounted on the current page. So "blocked" works immediately. */
+  const searchCatalogue=[
+    {t:'Edit profile',s:'Name, username, photo and bio',k:'edit profile name username photo bio',i:'profile',a:"closeAppSettings();openProfileEdit()"},
+    {t:'Login & security',s:'Sign-in method and current session',k:'login security apple google email sign in session',i:'lock',a:"findaiOpenSettingsPane('security')"},
+    {t:'Account management',s:'Username, session and delete account',k:'account management username delete account session',i:'account',a:"findaiOpenSettingsPane('account-management')"},
+    {t:'Notifications',s:'Follows, comments, messages and price drops',k:'notifications follows likes comments replies messages price drops sellers',i:'bell',a:"findaiOpenSettingsPane('notifications')"},
+    {t:'Private account',s:'Approve people before they can follow you',k:'private privacy account followers approval',i:'privacy',a:"findaiOpenSettingsPane('privacy')"},
+    {t:'Follow requests',s:'Approve or decline follow requests',k:'follow requests private account approve decline',i:'follow',a:"findaiOpenSettingsPane('follow-requests')"},
+    {t:'Blocked accounts',s:'Manage people you have blocked',k:'blocked block accounts privacy people',i:'block',a:"findaiOpenSettingsPane('blocked')"},
+    {t:'Muted accounts',s:'Manage muted accounts',k:'muted mute accounts notifications people',i:'mute',a:"findaiOpenSettingsPane('muted')"},
+    {t:'Who can message you',s:'Everyone, followers or no one',k:'messages messaging privacy everyone followers no one dm',i:'message',a:"findaiOpenSettingsPane('privacy')"},
+    {t:'Activity status',s:'Control whether people can see when you are active',k:'activity online last active status privacy',i:'privacy',a:"findaiOpenSettingsPane('privacy')"},
+    {t:'Personalised recommendations',s:'Control recommendation learning',k:'personalised personalized recommendations algorithm for you privacy',i:'privacy',a:"findaiOpenSettingsPane('privacy')"},
+    {t:'Selling preferences',s:'Listing defaults and offers',k:'selling seller listing condition offers',i:'sell',a:"findaiOpenSettingsPane('seller')"},
+    {t:'Appearance',s:'System, light or dark',k:'appearance theme system light dark',i:'palette',a:"findaiOpenSettingsPane('appearance')"},
+    {t:'Report a problem',s:'Send app feedback',k:'report problem bug help support feedback',i:'help',a:"findaiOpenSettingsPane('support')"},
+    {t:'Privacy policy',s:'How FindAI handles information',k:'privacy policy legal help support',i:'help',a:"findaiOpenSettingsPane('support')"},
+    {t:'Terms',s:'FindAI terms of use',k:'terms legal help support',i:'help',a:"findaiOpenSettingsPane('support')"},
+    {t:'Liked items',s:'Products you have liked',k:'liked likes saved heart items',i:'heart',a:"closeAppSettings();openProfile();setTimeout(()=>setProfileTab('liked'),80)"}
+  ];
+  window.filterFindAISettings=function(value){
+    const q=String(value||'').trim().toLowerCase();
+    const home=document.getElementById('findaiSettingsHomeSections');
+    const results=document.getElementById('findaiSettingsSearchResults');
+    if(!home||!results)return;
+    if(!q){home.style.display='';results.classList.remove('show');results.innerHTML='';return;}
+    home.style.display='none';results.classList.add('show');
+    const words=q.split(/\s+/).filter(Boolean);
+    const matches=searchCatalogue.filter(x=>{
+      const hay=(x.t+' '+x.s+' '+x.k).toLowerCase();
+      return words.every(w=>hay.includes(w));
+    });
+    results.innerHTML='<div class="findai-settings-search-heading">Settings</div>'+
+      (matches.length?matches.map(x=>'<button type="button" class="findai-settings-search-result" onclick="'+escapeAttr(x.a)+'">'+v138Icon(x.i)+'<span><b>'+escapeHTML(x.t)+'</b><small>'+escapeHTML(x.s)+'</small></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></button>').join(''):'<div class="findai-settings-search-empty">No settings found for “'+escapeHTML(q)+'”.</div>');
+  };
+
+  /* Hide the Apple relay address from all Settings UI. The relay address still
+     remains stored internally for authentication; it simply isn't user-facing. */
+  const previousPane=window.findaiOpenSettingsPane;
+  window.findaiOpenSettingsPane=function(name){
+    const sheet=overlaySheet();const profile=getAccountProfile()||{};const method=v138Provider(profile);const username=profile.username?'@'+profile.username:'';
+    if(name==='account-management'){
+      if(!sheet)return;
+      sheet.innerHTML='<div class="findai-settings-detail">'+head('Account management',true)+
+        '<section class="findai-settings-section">'+
+          row('Username',username||'Choose a username',"closeAppSettings();openProfileEdit()",'profile',username)+
+          row('Sign-in method','How you access this FindAI account',"void(0)",'lock',method)+
+          row('Current session','This device',"void(0)",'account','Active')+
+        '</section>'+
+        '<div class="findai-settings-danger-note">Deleting your account removes your FindAI profile, preferences, social connections, notifications and active listings. Completed transaction records may be retained where required for fraud, payment or legal obligations.</div>'+
+        '<div class="findai-settings-delete-box"><b>Delete account</b><div style="margin-top:6px;color:#9aa1aa;font-size:11px">Type DELETE to permanently remove your FindAI account.</div><input id="findaiDeleteAccountConfirm" autocomplete="off" placeholder="DELETE"><button type="button" onclick="findaiDeleteMyAccount()">Delete account permanently</button><div id="findaiDeleteAccountStatus" style="margin-top:8px;color:#ff8a8f;font-size:11px"></div></div></div>';
+      showOverlay();return;
+    }
+    if(name==='security'){
+      if(!sheet)return;
+      sheet.innerHTML='<div class="findai-settings-detail">'+head('Login & security',true)+
+        '<section class="findai-settings-section">'+
+          row('Username',username||'Choose a username',"closeAppSettings();openProfileEdit()",'profile',username)+
+          row('Signed in with',method,"void(0)",'lock',method)+
+          row('Current session','This device',"void(0)",'account','Active')+
+        '</section><div class="findai-settings-help">Your login email is used internally for authentication and is not displayed publicly in FindAI.</div></div>';
+      showOverlay();return;
+    }
+    return previousPane(name);
+  };
+
+  /* A tiny tactile pulse/ring on Settings interactions. */
+  document.addEventListener('pointerdown',function(e){
+    const overlay=document.getElementById('appThemeOverlay');
+    if(!overlay||!overlay.classList.contains('show')||!overlay.contains(e.target))return;
+    const target=e.target.closest('button,.findai-settings-row,.findai-settings-search-result');
+    if(!target)return;
+    target.classList.remove('findai-v138-tap');
+    void target.offsetWidth;
+    target.classList.add('findai-v138-tap');
+    setTimeout(()=>target.classList.remove('findai-v138-tap'),280);
+    try{if(typeof haptic==='function')haptic();}catch(_){}
+  },{passive:true});
+
+  /* If Settings is already open when this patch boots, refresh to the clean home. */
+  setTimeout(()=>{
+    const overlay=document.getElementById('appThemeOverlay');
+    if(overlay&&overlay.classList.contains('show')&&document.body.classList.contains('findai-settings-open'))findaiOpenSettingsHome();
+  },120);
+})();
+</script>
+
 </body>
 </html>
