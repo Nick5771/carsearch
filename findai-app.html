@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v126-social-search-feedback-personalised-explore">
+<meta name="findai-build" content="v127-live-search-comments-media-diversity">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -13372,6 +13372,7 @@ window.addEventListener('load', function(){
 <script id="wishwave-v116-social-reels-script">
 let wishwaveCommentsItem=null;
 let wishwaveCommentsData={comments:[],commentCount:0};
+let wishwavePendingCommentImage='';
 
 function wishwaveUpdateCommentMetric(id,count){
   id=String(id||'');count=Math.max(0,Number(count)||0);if(!id)return;
@@ -13408,12 +13409,17 @@ function renderWishWaveComments(data){
     const label=username?username:String(comment.displayName||'WishWave user');
     const time=wishwaveCommentTime(comment.createdAt);
     const mine=!!comment.isMine,id=String(comment.id||'');
+    const body=String(comment.body||'');
+    const imageUrl=String(comment.imageUrl||'').trim();
     return '<article class="wishwave-comment'+(mine?' is-mine':'')+'" data-comment-id="'+escapeAttr(id)+'">'+
       (mine?'<div class="wishwave-comment-actions"><button type="button" class="wishwave-comment-edit-action" onclick="startWishWaveCommentEdit(\''+escapeAttr(id)+'\',event)">Edit</button><button type="button" class="wishwave-comment-delete-action" onclick="deleteWishWaveComment(\''+escapeAttr(id)+'\',event)">Delete</button></div>':'')+
       '<div class="wishwave-comment-swipe-body">'+wishwaveCommentAvatar(comment)+
       '<div class="wishwave-comment-copy"><div class="wishwave-comment-head"><b>'+escapeHTML(label)+'</b>'+
       (time?'<time>'+escapeHTML(time)+'</time>':'')+
-      '</div><p>'+escapeHTML(comment.body||'')+'</p></div></div></article>';
+      '</div>'+
+      (body?'<p>'+escapeHTML(body)+'</p>':'')+
+      (imageUrl?'<button type="button" class="wishwave-comment-media-view" onclick="openWishWaveCommentMedia(this.querySelector(\'img\').src,event)" aria-label="View comment image"><img src="'+escapeAttr(imageUrl)+'" alt="Comment image" loading="lazy" referrerpolicy="no-referrer"></button>':'')+
+      '</div></div></article>';
   }).join(''):'<div class="wishwave-comments-empty"><b>No comments yet</b>Start the conversation.</div>';
   let composer='';
   if(signedIn){
@@ -13422,8 +13428,17 @@ function renderWishWaveComments(data){
     const initial=String(profile.name||profile.email||'Y').trim().charAt(0).toUpperCase()||'Y';
     const avatarHtml='<span class="wishwave-comment-composer-avatar">'+
       (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':escapeHTML(initial))+'</span>';
-    composer='<form class="wishwave-comment-form" onsubmit="return submitWishWaveComment(event)">'+avatarHtml+
-      '<input id="wishwaveCommentInput" maxlength="300" autocomplete="off" placeholder="Add a comment…"><button class="wishwave-comment-send" type="submit" aria-label="Send comment" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m6.5 10.5 5.5-5.5 5.5 5.5"/></svg></button></form>';
+    const reactionEmoji=['❤️','🙌','🔥','👏','😢','😍','😮','😂'];
+    const reactions='<div class="wishwave-comment-reactions" aria-label="Quick reactions">'+reactionEmoji.map(emoji=>'<button type="button" data-reaction="'+emoji+'" onclick="insertWishWaveCommentReaction(this.dataset.reaction)" aria-label="Add '+emoji+'">'+emoji+'</button>').join('')+'</div>';
+    const preview='<div class="wishwave-comment-attachment-preview'+(wishwavePendingCommentImage?' show':'')+'" id="wishwaveCommentAttachmentPreview">'+
+      '<img id="wishwaveCommentAttachmentImage" src="'+escapeAttr(wishwavePendingCommentImage||'')+'" alt="Selected comment image">'+
+      '<button type="button" onclick="removeWishWaveCommentImage(event)" aria-label="Remove image">×</button></div>';
+    composer='<div class="wishwave-comment-composer">'+reactions+preview+
+      '<form class="wishwave-comment-form" onsubmit="return submitWishWaveComment(event)">'+avatarHtml+
+      '<button class="wishwave-comment-media-button" type="button" onclick="pickWishWaveCommentImage()" aria-label="Add photo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5L5 20"/></svg></button>'+
+      '<input id="wishwaveCommentInput" maxlength="300" autocomplete="off" placeholder="Add a comment…">'+
+      '<button class="wishwave-comment-send" type="submit" aria-label="Send comment"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m6.5 10.5 5.5-5.5 5.5 5.5"/></svg></button>'+
+      '<input id="wishwaveCommentImageInput" type="file" accept="image/jpeg,image/png,image/webp" hidden onchange="wishwaveCommentImagePicked(event)"></form></div>';
   }else{
     composer='<div class="wishwave-comments-empty wishwave-comments-signin"><button type="button" onclick="closeAppMpSheet();openLogin()">Sign in to comment</button></div>';
   }
@@ -13431,7 +13446,7 @@ function renderWishWaveComments(data){
   const commentInput=root.querySelector('#wishwaveCommentInput');
   const commentSend=root.querySelector('.wishwave-comment-send');
   if(commentInput&&commentSend){
-    const syncSend=()=>{commentSend.disabled=!String(commentInput.value||'').trim();};
+    const syncSend=()=>commentSend.classList.toggle('has-content',!!String(commentInput.value||'').trim()||!!wishwavePendingCommentImage);
     commentInput.addEventListener('input',syncSend,{passive:true});
     syncSend();
   }
@@ -13442,6 +13457,7 @@ async function openWishWaveComments(index,event){
   if(event){event.preventDefault();event.stopPropagation();}
   const item=currentFeedItems[Number(index)||0];if(!item||!isFindAIListing(item))return;
   wishwaveCommentsItem=item;
+  wishwavePendingCommentImage='';
   const id=String(appMpId(item)||'');if(!id)return;
   openAppMpSheet('Comments','<div class="app-mp-loading"><div><div class="app-mp-spinner"></div><b>Loading comments</b></div></div>');
   const commentsBg=document.getElementById('appMpSheetBg');if(commentsBg)commentsBg.classList.add('wishwave-comments-mode');
@@ -13456,6 +13472,7 @@ async function openWishWaveComments(index,event){
 async function openWishWaveListingComments(){
   if(!appMpListing||!isFindAIListing(appMpListing))return;
   wishwaveCommentsItem=appMpListing;
+  wishwavePendingCommentImage='';
   const id=String(appMpId(appMpListing)||'');if(!id)return;
   openAppMpSheet('Comments','<div class="app-mp-loading"><div><div class="app-mp-spinner"></div><b>Loading comments</b></div></div>');
   const commentsBg=document.getElementById('appMpSheetBg');if(commentsBg)commentsBg.classList.add('wishwave-comments-mode');
@@ -13471,20 +13488,84 @@ async function submitWishWaveComment(event){
   event.preventDefault();
   if(!wishwaveCommentsItem||!marketplaceSession()){openLogin();return false;}
   const input=document.getElementById('wishwaveCommentInput');
-  const body=String(input&&input.value||'').trim();if(!body)return false;
+  const body=String(input&&input.value||'').trim();
+  if(!body&&!wishwavePendingCommentImage){
+    try{const button=event.submitter||event.target.querySelector('.wishwave-comment-send');if(button){button.classList.remove('empty-tap');void button.offsetWidth;button.classList.add('empty-tap');}}catch(_){}
+    return false;
+  }
   const id=String(appMpId(wishwaveCommentsItem)||'');if(!id)return false;
-  const button=event.submitter||event.target.querySelector('button');
-  if(button)button.disabled=true;
+  const button=event.submitter||event.target.querySelector('.wishwave-comment-send');
+  if(button&&button.dataset.busy==='1')return false;
+  if(button){button.dataset.busy='1';button.disabled=true;}
   try{
+    let imageUrl='';
+    if(wishwavePendingCommentImage){
+      const uploaded=await marketplaceFetch('/marketplace/comment-images',{
+        method:'POST',body:JSON.stringify({image:wishwavePendingCommentImage})
+      });
+      imageUrl=String(uploaded&&uploaded.imageUrl||'');
+    }
     const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id)+'/comments',{
-      method:'POST',body:JSON.stringify({body})
+      method:'POST',body:JSON.stringify({body,imageUrl})
     });
     wishwaveUpdateCommentMetric(id,data.commentCount);
     if(input)input.value='';
+    wishwavePendingCommentImage='';
     renderWishWaveComments(data);
   }catch(error){toast(error.message||'Comment could not be posted');}
-  finally{if(button)button.disabled=false;}
+  finally{if(button){button.disabled=false;delete button.dataset.busy;}}
   return false;
+}
+
+function pickWishWaveCommentImage(){
+  const input=document.getElementById('wishwaveCommentImageInput');
+  if(input)input.click();
+}
+async function wishwaveCommentImagePicked(event){
+  const file=event&&event.target&&event.target.files&&event.target.files[0];
+  if(event&&event.target)event.target.value='';
+  if(!file)return;
+  if(!/^image\/(jpeg|png|webp)$/i.test(String(file.type||''))){toast('Choose a JPEG, PNG or WebP image');return;}
+  try{
+    wishwavePendingCommentImage=await compressListingImage(file);
+    const preview=document.getElementById('wishwaveCommentAttachmentPreview'),img=document.getElementById('wishwaveCommentAttachmentImage');
+    if(img)img.src=wishwavePendingCommentImage;
+    if(preview)preview.classList.add('show');
+    const send=document.querySelector('.wishwave-comment-send');if(send)send.classList.add('has-content');
+  }catch(_){toast('That image could not be added');}
+}
+function removeWishWaveCommentImage(event){
+  if(event){event.preventDefault();event.stopPropagation();}
+  wishwavePendingCommentImage='';
+  const preview=document.getElementById('wishwaveCommentAttachmentPreview'),img=document.getElementById('wishwaveCommentAttachmentImage');
+  if(img)img.removeAttribute('src');
+  if(preview)preview.classList.remove('show');
+  const send=document.querySelector('.wishwave-comment-send'),input=document.getElementById('wishwaveCommentInput');
+  if(send)send.classList.toggle('has-content',!!String(input&&input.value||'').trim());
+}
+function insertWishWaveCommentReaction(emoji){
+  const input=document.getElementById('wishwaveCommentInput');if(!input)return;
+  const value=String(input.value||''),start=Number.isFinite(input.selectionStart)?input.selectionStart:value.length,end=Number.isFinite(input.selectionEnd)?input.selectionEnd:value.length;
+  input.value=value.slice(0,start)+String(emoji||'')+value.slice(end);
+  const caret=start+String(emoji||'').length;
+  try{input.setSelectionRange(caret,caret);input.focus({preventScroll:true});}catch(_){try{input.focus();}catch(__){}}
+  input.dispatchEvent(new Event('input',{bubbles:true}));
+}
+function openWishWaveCommentMedia(src,event){
+  if(event){event.preventDefault();event.stopPropagation();}
+  const url=String(src||'');if(!url)return;
+  let layer=document.getElementById('wishwaveCommentMediaViewer');
+  if(!layer){
+    layer=document.createElement('div');layer.id='wishwaveCommentMediaViewer';layer.className='wishwave-comment-media-viewer';
+    layer.innerHTML='<button type="button" aria-label="Close image" onclick="closeWishWaveCommentMedia()">×</button><img alt="Comment image">';
+    layer.addEventListener('click',e=>{if(e.target===layer)closeWishWaveCommentMedia();});
+    document.querySelector('.app').appendChild(layer);
+  }
+  const img=layer.querySelector('img');if(img)img.src=url;
+  layer.classList.add('show');
+}
+function closeWishWaveCommentMedia(){
+  const layer=document.getElementById('wishwaveCommentMediaViewer');if(layer)layer.classList.remove('show');
 }
 
 function wishwavePublicAvatar(seller){
@@ -14818,14 +14899,100 @@ if(typeof v116RenderMarketplaceListing==='function'){
       exploreSource(item)+
       '<div class="premium-explore-price">'+escapeHTML(exploreCompactPrice(item))+'</div></article>';
   }
+  function exploreDiversityKey(item){
+    const tagged=String(item&&item._interestCluster||'').trim();
+    if(tagged)return tagged;
+    const text=String((item&&item.title)||'').toLowerCase();
+    if(/\b(playstation\s*5|ps5)\b/.test(text))return 'ps5';
+    if(/\blego\b/.test(text))return /\bharry potter\b/.test(text)?'lego-harry-potter':'lego';
+    if(/\b(omega|speedmaster|seamaster)\b/.test(text))return 'omega-watches';
+    if(/\b(rolex|submariner|daytona|datejust)\b/.test(text))return 'rolex-watches';
+    if(/\b(iphone|airpods|macbook|ipad|apple watch)\b/.test(text))return 'apple';
+    if(/\b(nike|jordan|adidas|yeezy|sneaker)\b/.test(text))return 'sneakers';
+    const category=String(item&&item._interestCategory||'').trim();
+    if(category)return category;
+    try{
+      const inferred=String(interestClusterKey(item&&item._interestQuery||item&&item.title||'')||'').trim();
+      if(inferred)return inferred;
+    }catch(_){}
+    return String(getSource(item)||'misc')+'-'+text.split(/\s+/).filter(Boolean).slice(0,2).join('-');
+  }
+  function diversifyExploreItems(items){
+    const list=Array.isArray(items)?items.filter(Boolean):[];
+    if(list.length<3)return list.slice();
+    const buckets=new Map();
+    for(const item of list){
+      const key=exploreDiversityKey(item)||'misc';
+      if(!buckets.has(key))buckets.set(key,[]);
+      buckets.get(key).push(item);
+    }
+    if(buckets.size<2)return list.slice();
+    const keys=[...buckets.keys()];
+    const out=[];
+    let cursor=Math.abs((premiumDiscoveryHash()+exploreVisitSalt*17)%keys.length);
+    let previous='',previous2='';
+    while(out.length<list.length){
+      let picked=false;
+      for(let step=0;step<keys.length;step++){
+        const idx=(cursor+step)%keys.length,key=keys[idx],bucket=buckets.get(key);
+        if(!bucket||!bucket.length)continue;
+        const alternatives=keys.filter(k=>(buckets.get(k)||[]).length&&k!==previous&&k!==previous2);
+        if(alternatives.length&& (key===previous||key===previous2))continue;
+        out.push(bucket.shift());
+        previous2=previous;previous=key;cursor=(idx+1)%keys.length;picked=true;break;
+      }
+      if(!picked){
+        const key=keys.find(k=>(buckets.get(k)||[]).length);
+        if(!key)break;
+        out.push(buckets.get(key).shift());previous2=previous;previous=key;
+      }
+    }
+    return out;
+  }
   function renderExploreGrid(){
     const root=document.getElementById('premiumDiscoverySections');if(!root)return;
     const section=premiumDiscoverySections[0],items=section&&section.items||[];
     if(!items.length){
-      root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
+      if(!root.querySelector('.premium-explore-grid')){
+        root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
+      }
       return;
     }
-    root.innerHTML='<div class="premium-explore-grid">'+items.map(exploreTile).join('')+'</div><div class="premium-explore-load-marker" id="premiumExploreLoadMarker">Loading more products…</div>';
+    const ordered=diversifyExploreItems(items);
+    section.items=ordered;
+    let grid=root.querySelector('.premium-explore-grid');
+    if(!grid){
+      root.innerHTML='';
+      grid=document.createElement('div');
+      grid.className='premium-explore-grid';
+      root.appendChild(grid);
+    }
+    const existing=new Map();
+    [...grid.children].forEach(node=>{const key=node.dataset&&node.dataset.exploreKey;if(key)existing.set(key,node);});
+    ordered.forEach((item,index)=>{
+      const key=exploreItemKey(item)||('explore-'+index);
+      let node=existing.get(key);
+      if(!node){
+        const template=document.createElement('template');
+        template.innerHTML=exploreTile(item,index).trim();
+        node=template.content.firstElementChild;
+        if(!node)return;
+        node.dataset.exploreKey=key;
+      }else{
+        existing.delete(key);
+      }
+      node.classList.toggle('featured',index>0&&index%9===6);
+      node.setAttribute('onclick',"openPremiumDiscoveryItem('explore',"+index+")");
+      node.setAttribute('onkeydown',"if(event.key==='Enter'||event.key===' '){event.preventDefault();openPremiumDiscoveryItem('explore',"+index+")}");
+      grid.appendChild(node);
+    });
+    existing.forEach(node=>node.remove());
+    let marker=root.querySelector('#premiumExploreLoadMarker');
+    if(!marker){
+      marker=document.createElement('div');marker.className='premium-explore-load-marker';marker.id='premiumExploreLoadMarker';root.appendChild(marker);
+    }else if(marker.previousElementSibling!==grid){root.appendChild(marker);}
+    marker.textContent=exploreQueue.length?'Loading more products…':'';
+    root.classList.remove('premium-explore-refreshing');
   }
   async function loadExploreConfig(config,pool,generation){
     const queryUsed=premiumRotateArray(config.queries||[config.title||'products'],premiumDiscoveryHash()+String(config.id||'x').length+exploreVisitSalt*19)[0]||config.title||'products';
@@ -14908,6 +15075,76 @@ if(typeof v116RenderMarketplaceListing==='function'){
     setExploreFilter(button.dataset.exploreFilter);
   });
 
+
+  let exploreLiveSearchTimer=null;
+  let exploreLiveSearchSeq=0;
+  let exploreLiveSearchQuery='';
+  async function runExploreLiveSearch(query,immediate=false){
+    const clean=String(query||'').trim();
+    if(exploreFilter==='people'){
+      if(window.loadPremiumPeopleDiscovery)window.loadPremiumPeopleDiscovery(clean);
+      return;
+    }
+    if(!clean){
+      exploreLiveSearchQuery='';
+      exploreLiveSearchSeq++;
+      renderPremiumDiscoverySections(false);
+      return;
+    }
+    if(clean.length<2&&!immediate)return;
+    const seq=++exploreLiveSearchSeq;
+    exploreLiveSearchQuery=clean;
+    const root=document.getElementById('premiumDiscoverySections');
+    if(root)root.classList.add('premium-explore-refreshing');
+    try{
+      const result=await fetchProductResults(clean,{page:1,limit:54,preserveExact:true,skipResolve:true,passive:true});
+      if(seq!==exploreLiveSearchSeq||exploreFilter==='people')return;
+      const current=String(document.getElementById('q')&&document.getElementById('q').value||'').trim();
+      if(current!==clean)return;
+      let items=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings.slice():[];
+      items=items.filter(item=>item&&Number(item.price)>0&&premiumProductImage(item)).map(item=>({
+        ...item,
+        _interestQuery:clean,
+        _interestCategory:interestCategory(clean),
+        _interestCluster:'live-'+interestClusterKey(clean)
+      }));
+      const unique=[],seen=new Set();
+      for(const item of items){
+        const key=exploreItemKey(item);if(!key||seen.has(key))continue;
+        seen.add(key);unique.push(item);
+      }
+      if(typeof personalisedItemScore==='function'){
+        unique.sort((a,b)=>personalisedItemScore(b,clean,'search-live')-personalisedItemScore(a,clean,'search-live'));
+      }
+      premiumDiscoverySections=[{config:{id:'explore',title:'Search'},items:unique.slice(0,90)}];
+      exploreQueue=[];exploreLoading=false;seenExplore.clear();
+      premiumDiscoverySections[0].items.forEach(item=>{const key=exploreItemKey(item);if(key)seenExplore.add(key);});
+      if(unique.length){
+        renderExploreGrid();
+      }else if(root){
+        root.innerHTML='<div class="premium-explore-empty"><b>No products found</b>Try another search.</div>';
+        root.classList.remove('premium-explore-refreshing');
+      }
+    }catch(_){
+      if(seq!==exploreLiveSearchSeq)return;
+      if(root)root.classList.remove('premium-explore-refreshing');
+    }
+  }
+  window.runPremiumLiveSearch=runExploreLiveSearch;
+  const liveSearchInput=document.getElementById('q');
+  if(liveSearchInput){
+    liveSearchInput.addEventListener('input',()=>{
+      if(exploreFilter==='people')return;
+      clearTimeout(exploreLiveSearchTimer);
+      const value=String(liveSearchInput.value||'').trim();
+      if(!value){
+        exploreLiveSearchTimer=setTimeout(()=>runExploreLiveSearch('',true),80);
+        return;
+      }
+      exploreLiveSearchTimer=setTimeout(()=>runExploreLiveSearch(value,false),170);
+    });
+  }
+
   renderPremiumDiscoverySections=async function(force=false){
     const root=document.getElementById('premiumDiscoverySections');if(!root)return;
     if(exploreFilter==='people'&&window.loadPremiumPeopleDiscovery)return window.loadPremiumPeopleDiscovery(document.getElementById('q')&&document.getElementById('q').value||'');
@@ -14917,7 +15154,11 @@ if(typeof v116RenderMarketplaceListing==='function'){
     seenExplore.clear();
     premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:[]}];
     exploreQueue=exploreConfigs(exploreFilter);
-    root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
+    if(!root.querySelector('.premium-explore-grid')&&!root.querySelector('.premium-seller-discovery')){
+      root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
+    }else{
+      root.classList.add('premium-explore-refreshing');
+    }
     bindExploreScroll();
     await loadExploreMore();
     if(generation!==exploreGeneration)return;
@@ -15169,6 +15410,11 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     const input=where==='results'?document.getElementById('premiumResultQuery'):document.getElementById('q');
     const query=String(input&&input.value||'').trim();if(!query)return false;
     if(peopleMode()){loadPremiumPeopleDiscovery(query);try{input.blur();}catch(_){}return false;}
+    if(where==='home'&&window.runPremiumLiveSearch){
+      window.runPremiumLiveSearch(query,true);
+      try{input.blur();}catch(_){}
+      return false;
+    }
     loadProfileMatches(query);launchPremiumSearch(query);return false;
   };
   const q=document.getElementById('q');if(q)q.addEventListener('input',()=>{if(!peopleMode())return;clearTimeout(peopleTimer);const value=q.value;peopleTimer=setTimeout(()=>loadPremiumPeopleDiscovery(value),180);});
@@ -15676,6 +15922,90 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
   if(marketplaceSession())setTimeout(()=>v125FetchFollowingListings().catch(()=>{}),900);
 })();
 </script>
+
+
+<style id="findai-v127-live-search-comments-style">
+/* v127 — stable Explore rendering, native-feeling comments, photo comments. */
+#premiumDiscoverySections.premium-explore-refreshing .premium-explore-grid{
+  pointer-events:auto!important;
+}
+#premiumDiscoverySections.premium-explore-refreshing .premium-explore-load-marker{
+  color:#8a9098!important;
+}
+.premium-explore-tile{contain:layout paint style;backface-visibility:hidden}
+.premium-explore-tile img{backface-visibility:hidden}
+
+/* Match the swipe body to the sheet so own comments never look boxed-in. */
+.app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-swipe-body{
+  background:#101318!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+.wishwave-comment-composer{flex:0 0 auto;background:#101318}
+.wishwave-comment-reactions{
+  display:flex;align-items:center;gap:13px;overflow-x:auto;scrollbar-width:none;
+  padding:7px 4px 3px;border-top:1px solid rgba(255,255,255,.07);
+}
+.wishwave-comment-reactions::-webkit-scrollbar{display:none}
+.wishwave-comment-reactions button{
+  flex:0 0 auto;border:0;background:transparent;padding:2px;font-size:23px;line-height:1;
+  transform:translateZ(0);transition:transform .12s ease;
+}
+.wishwave-comment-reactions button:active{transform:scale(.82)}
+.wishwave-comment-attachment-preview{
+  display:none;position:relative;width:72px;height:72px;margin:7px 0 2px 77px;border-radius:12px;overflow:hidden;
+  background:#191c21;border:1px solid rgba(255,255,255,.1);
+}
+.wishwave-comment-attachment-preview.show{display:block}
+.wishwave-comment-attachment-preview img{width:100%;height:100%;object-fit:cover;display:block}
+.wishwave-comment-attachment-preview button{
+  position:absolute;right:4px;top:4px;width:22px;height:22px;padding:0!important;border:0!important;border-radius:50%!important;
+  background:rgba(0,0,0,.68)!important;color:#fff!important;font-size:17px!important;line-height:22px!important;
+}
+.wishwave-comment-form{
+  grid-template-columns:34px 32px minmax(0,1fr) 36px!important;
+  gap:7px!important;
+  align-items:center!important;
+}
+.wishwave-comment-media-button{
+  width:32px!important;height:32px!important;padding:0!important;border:0!important;border-radius:50%!important;
+  display:grid!important;place-items:center!important;background:transparent!important;color:#f7f8fa!important;
+}
+.wishwave-comment-media-button svg{width:21px;height:21px}
+.wishwave-comment-form .wishwave-comment-send,
+.wishwave-comment-form .wishwave-comment-send:disabled{
+  width:34px!important;height:34px!important;padding:0!important;border:0!important;border-radius:50%!important;
+  background:transparent!important;color:#fff!important;opacity:1!important;display:grid!important;place-items:center!important;
+  box-shadow:none!important;cursor:pointer!important;
+  transition:transform .12s ease!important;
+}
+.wishwave-comment-form .wishwave-comment-send svg{width:22px!important;height:22px!important}
+.wishwave-comment-form .wishwave-comment-send:active{transform:scale(.86)!important}
+.wishwave-comment-form .wishwave-comment-send.empty-tap{animation:wishwaveEmptySend .2s ease}
+@keyframes wishwaveEmptySend{0%,100%{transform:none}50%{transform:translateY(-2px) scale(.9)}}
+.wishwave-comment-media-view{
+  display:block;width:min(230px,100%);max-height:280px;margin:7px 0 1px;padding:0;border:0;border-radius:11px;
+  overflow:hidden;background:#15181c;text-align:left;
+}
+.wishwave-comment-media-view img{display:block;width:100%;max-height:280px;object-fit:cover}
+.wishwave-comment-media-viewer{
+  position:fixed;inset:0;z-index:260;display:none;align-items:center;justify-content:center;padding:28px 18px;
+  background:rgba(0,0,0,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+}
+.wishwave-comment-media-viewer.show{display:flex}
+.wishwave-comment-media-viewer img{max-width:100%;max-height:88dvh;object-fit:contain;border-radius:12px}
+.wishwave-comment-media-viewer button{
+  position:absolute;right:16px;top:calc(var(--safe-top) + 12px);width:40px;height:40px;border:0;border-radius:50%;
+  background:rgba(30,33,38,.82);color:#fff;font-size:27px;line-height:1;
+}
+html.findai-light .wishwave-comment-composer,
+html.findai-light .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-swipe-body{background:#fff!important}
+html.findai-light .wishwave-comment-reactions{border-top-color:#e6e7e9}
+html.findai-light .wishwave-comment-media-button,
+html.findai-light .wishwave-comment-form .wishwave-comment-send,
+html.findai-light .wishwave-comment-form .wishwave-comment-send:disabled{color:#111!important}
+html.findai-light .wishwave-comment-attachment-preview{background:#f0f1f3;border-color:#dde0e4}
+</style>
 
 </body>
 </html>
