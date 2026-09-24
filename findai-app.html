@@ -11989,6 +11989,10 @@ window.addEventListener('load', function(){
   function notificationIcon(type){
     const t=String(type||'').toLowerCase();
     if(t.includes('message'))return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v12H8l-4 4V5Z"/></svg>';
+    if(t.includes('follow'))return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M18 7v6M15 10h6"/></svg>';
+    if(t.includes('comment'))return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5h16v12H8l-4 4V5Z"/></svg>';
+    if(t.includes('price'))return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16M7 4v6M17 4v6M5 14l4 4 4-5 3 3 3-5"/></svg>';
+    if(t.includes('listing'))return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 3h14v18H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>';
     if(t.includes('view'))return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.6"/></svg>';
     if(t.includes('like'))return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20.8 4.7a5.6 5.6 0 0 0-7.9 0L12 5.6l-.9-.9a5.6 5.6 0 0 0-7.9 7.9L12 21l8.8-8.4a5.6 5.6 0 0 0 0-7.9Z"/></svg>';
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 6-3 7-3 9h18c0-2-3-3-3-9Z"/><path d="M10 21h4"/></svg>';
@@ -12047,17 +12051,23 @@ window.addEventListener('load', function(){
     const root=document.getElementById('findaiNotificationList');
     if(!root)return;
     if(!appNotificationCache.length){
-      root.innerHTML='<div class="findai-notification-empty"><b>Nothing new</b>Listing milestones, likes and new messages will appear here.</div>';
+      root.innerHTML='<div class="findai-notification-empty"><b>Nothing new</b>Follows, comments, messages, price drops and new listings will appear here.</div>';
       return;
     }
-    root.innerHTML=appNotificationCache.map((n,index)=>{
-      const unread=!n.read_at;
-      return '<button class="findai-notification-item" type="button" onclick="openFindAINotification('+index+')">'+
-        '<span class="findai-notification-icon">'+notificationIcon(n.notification_type)+'</span>'+
-        '<span class="findai-notification-copy"><b>'+escapeHTML(n.title||'WishWave notification')+(unread?'<i class="findai-notification-unread"></i>':'')+'</b><span>'+escapeHTML(n.body||'')+'</span></span>'+
-        '<span class="findai-notification-time">'+escapeHTML(notificationTime(n.created_at))+'</span>'+
-      '</button>';
-    }).join('');
+    const now=Date.now(),day=864e5,week=7*day;
+    const buckets=[{key:'today',title:'Today',items:[]},{key:'week',title:'This week',items:[]},{key:'earlier',title:'Earlier',items:[]}];
+    appNotificationCache.forEach((n,index)=>{
+      const age=Math.max(0,now-Date.parse(n.created_at||now));const bucket=age<day?buckets[0]:age<week?buckets[1]:buckets[2];bucket.items.push({n,index});
+    });
+    const itemMarkup=({n,index})=>{
+      const unread=!n.read_at,actorAvatar=String(n.actor_avatar_url||''),image=String(n.image_url||''),type=String(n.notification_type||'').toLowerCase();
+      const productish=!!image&&(type.includes('price')||type.includes('listing')||type.includes('comment')||type.includes('like')||type.includes('view'));
+      const visual=actorAvatar&&!productish?'<span class="findai-notification-thumb"><img src="'+escapeAttr(actorAvatar)+'" alt=""></span>':image?'<span class="findai-notification-thumb product"><img src="'+escapeAttr(image)+'" alt=""></span>':'<span class="findai-notification-icon">'+notificationIcon(n.notification_type)+'</span>';
+      return '<button class="findai-notification-item" type="button" onclick="openFindAINotification('+index+')">'+visual+
+        '<span class="findai-notification-copy"><b>'+escapeHTML(n.title||'FindAI notification')+(unread?'<i class="findai-notification-unread"></i>':'')+'</b><span>'+escapeHTML(n.body||'')+'</span></span>'+
+        '<span class="findai-notification-time">'+escapeHTML(notificationTime(n.created_at))+'</span></button>';
+    };
+    root.innerHTML=buckets.filter(b=>b.items.length).map(b=>'<div class="findai-notification-group"><div class="findai-notification-group-title">'+b.title+'</div>'+b.items.map(itemMarkup).join('')+'</div>').join('');
   }
   async function loadHomeNotifications(){
     ensureNotificationUI();
@@ -12135,9 +12145,11 @@ window.addEventListener('load', function(){
       if(target){
         try{
           const u=new URL(target,location.href);
-          const c=u.searchParams.get('conversation'),l=u.searchParams.get('listing');
+          const c=u.searchParams.get('conversation'),l=u.searchParams.get('listing'),p=u.searchParams.get('profile'),s=u.searchParams.get('search');
           if(c){if(typeof setMainNavActive==='function')setMainNavActive('messages');await openAppMarketplaceInbox(c);}
           else if(l)openAppMarketplaceListing({marketplaceListingId:l});
+          else if(p&&typeof openFindAIProfileByUsername==='function')await openFindAIProfileByUsername(p);
+          else if(s){openSearchHome(false);const q=document.getElementById('q');if(q)q.value=s;if(window.runPremiumLiveSearch)window.runPremiumLiveSearch(s,true);}
         }catch(_){}
       }
     }
@@ -12202,6 +12214,17 @@ window.addEventListener('load', function(){
 </script>
 
 
+
+<style id="findai-v134-notifications-refresh-style">
+.findai-notification-group-title{padding:12px 9px 5px;color:#f4f5f7;font-size:12px;font-weight:800;letter-spacing:-.15px}
+.findai-notification-thumb{width:42px;height:42px;border-radius:50%;overflow:hidden;background:#1d2025;display:grid;place-items:center;color:#fff}
+.findai-notification-thumb.product{border-radius:9px;background:#111318}
+.findai-notification-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+html.findai-light .findai-notification-group-title{color:#111214}
+.findai-tab-refreshing .findai-v133-nav-indicator{animation:findaiTabRefreshPulse .48s cubic-bezier(.2,.8,.2,1)}
+@keyframes findaiTabRefreshPulse{0%,100%{transform:var(--findai-indicator-transform) scale(1)}45%{filter:brightness(1.28);opacity:.78}}
+.premium-seller-action.findai-follow-settling,#wishwavePublicFollowButton.findai-follow-settling{transition:background .18s ease,color .18s ease,border-color .18s ease,transform .18s cubic-bezier(.16,1,.3,1)!important}
+</style>
 <style id="findai-v106-profile-polish">
   /* Exact retailer presentation: no favicon boxes, no broken-image placeholders. */
   .findai-exact-brand[data-brand="jbhifi"] img{height:23px!important;max-width:126px!important;width:auto!important;object-fit:contain!important;background:transparent!important;border-radius:0!important;padding:0!important}
@@ -16708,51 +16731,77 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
 })();
 </script>
 
-<script id="findai-v134-js-measured-nav-position">
-/*
-  Every previous fix trusted CSS (100dvh, position:fixed;inset:0, safe-area
-  env()) to correctly compute the real bottom edge on this device, and each
-  time it measured correctly in this environment's testing but still left a
-  gap on the actual phone. Rather than guess at another CSS mechanism, this
-  measures the ACTUAL visible screen height in JS on-device and places the
-  nav at an exact pixel offset - no viewport unit involved at all, so there
-  is nothing left for any browser-chrome quirk to get wrong.
-*/
+
+<script id="findai-v134-tab-refresh-haptic-script">
 (function(){
-  function placeNav(){
-    const nav=document.querySelector('.app>.nav.findai-five-nav.premium-bottom-nav')
-      || document.querySelector('.nav.findai-five-nav.premium-bottom-nav');
-    if(!nav)return;
-    const vv=window.visualViewport;
-    const realHeight=vv?Math.round(vv.height+vv.offsetTop):window.innerHeight;
-    const navHeight=nav.offsetHeight||56;
-    nav.style.setProperty('position','fixed','important');
-    nav.style.setProperty('left','0','important');
-    nav.style.setProperty('right','0','important');
-    nav.style.setProperty('margin','0','important');
-    nav.style.setProperty('transform','none','important');
-    nav.style.setProperty('bottom','auto','important');
-    nav.style.setProperty('top',(realHeight-navHeight)+'px','important');
+  const nav=document.querySelector('.nav.findai-five-nav.premium-bottom-nav');
+  function active(){return String(document.body.dataset.activeTab||'discover')}
+  function tactile(button){
+    try{if(typeof navigator.vibrate==='function')navigator.vibrate(14);}catch(_){}
+    try{if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.findaiHaptic)window.webkit.messageHandlers.findaiHaptic.postMessage('selection');}catch(_){}
+    if(button){button.classList.remove('findai-follow-crisp','findai-follow-settling');void button.offsetWidth;button.classList.add('findai-follow-crisp','findai-follow-settling');setTimeout(()=>button.classList.remove('findai-follow-crisp'),240);setTimeout(()=>button.classList.remove('findai-follow-settling'),420);}
   }
-  placeNav();
-  // Re-measure on every event that could change the visible height, plus a
-  // short settle-down poll after load to catch Safari's chrome finishing
-  // its show/hide animation a frame or two after these events fire.
-  window.addEventListener('resize',placeNav);
-  window.addEventListener('orientationchange',placeNav);
-  window.addEventListener('pageshow',placeNav);
-  document.addEventListener('visibilitychange',placeNav);
-  if(window.visualViewport){
-    window.visualViewport.addEventListener('resize',placeNav);
-    window.visualViewport.addEventListener('scroll',placeNav);
+  const priorFollowFeedback=window.findaiFollowFeedback;
+  window.findaiFollowFeedback=function(button){tactile(button);};
+
+  async function refreshCurrentTab(tab,button){
+    tactile(button);
+    document.body.classList.add('findai-tab-refreshing');setTimeout(()=>document.body.classList.remove('findai-tab-refreshing'),520);
+    if(tab==='search'){
+      try{const overlay=document.getElementById('searchDetailOverlay');if(overlay&&overlay.classList.contains('show')&&typeof closeSearchResultDetail==='function')closeSearchResultDetail();}catch(_){}
+      const q=document.getElementById('q');if(q){q.value='';try{q.blur()}catch(_){}}
+      try{if(window.runPremiumLiveSearch)await window.runPremiumLiveSearch('',true);}catch(_){}
+      try{sessionStorage.removeItem('findai_app_preview_pool_v116')}catch(_){}
+      const scroll=document.querySelector('#search .premium-search-home-scroll');if(scroll)scroll.scrollTo({top:0,behavior:'smooth'});
+      try{await renderPremiumDiscoverySections(true);}catch(_){try{renderPremiumSearchHome()}catch(__){}}
+      return;
+    }
+    if(tab==='discover'){
+      const feed=document.getElementById('personalFeed');if(feed)feed.scrollTo({top:0,behavior:'smooth'});
+      try{finaliseReelTracking()}catch(_){}
+      try{rotatePersonalisedSessionSeed()}catch(_){}
+      try{if(typeof loadPersonalisedFeed==='function')await loadPersonalisedFeed({forceNetwork:true});else openForYou();}catch(_){openForYou();}
+      return;
+    }
+    if(tab==='messages'){
+      try{await openAppMarketplaceInbox();}catch(_){}
+      const list=document.querySelector('#appMpInbox .app-mp-inbox-list,.app-mp-conversations');if(list)list.scrollTop=0;
+      return;
+    }
+    if(tab==='profile'){
+      try{socialProfileTab='listings'}catch(_){}
+      const sc=document.querySelector('#profile .profile-scroll');if(sc)sc.scrollTo({top:0,behavior:'smooth'});
+      try{await loadProfileMarketplaceData(true);paintSocialProfileHeader();renderSocialProfileContent();}catch(_){try{openProfile()}catch(__){}}
+    }
   }
-  let ticks=0;
-  const settle=setInterval(function(){
-    placeNav();
-    ticks++;
-    if(ticks>20)clearInterval(settle);
-  },100);
+  if(nav)nav.addEventListener('click',function(event){
+    const button=event.target.closest&&event.target.closest('button[data-tab]');if(!button||button.classList.contains('nav-create-action'))return;
+    const tab=String(button.dataset.tab||'');if(!tab||tab!==active())return;
+    event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();refreshCurrentTab(tab,button);
+  },true);
 })();
 </script>
+
+
+<script id="findai-v134-notification-deeplink-script">
+(function(){
+  async function openInitialNotificationTarget(){
+    let params;try{params=new URLSearchParams(location.search)}catch(_){return}
+    const listing=params.get('listing'),conversation=params.get('conversation'),profile=params.get('profile'),search=params.get('search');
+    if(!listing&&!conversation&&!profile&&!search)return;
+    try{
+      if(conversation&&typeof openAppMarketplaceInbox==='function'){setMainNavActive&&setMainNavActive('messages');await openAppMarketplaceInbox(conversation);}
+      else if(listing&&typeof openAppMarketplaceListing==='function')openAppMarketplaceListing({marketplaceListingId:listing});
+      else if(profile&&typeof openFindAIProfileByUsername==='function')await openFindAIProfileByUsername(profile);
+      else if(search){openSearchHome(false);const q=document.getElementById('q');if(q)q.value=search;if(window.runPremiumLiveSearch)await window.runPremiumLiveSearch(search,true);}
+      params.delete('listing');params.delete('conversation');params.delete('profile');params.delete('search');
+      const rest=params.toString();history.replaceState(history.state||{},'',location.pathname+(rest?'?'+rest:'')+location.hash);
+    }catch(_){ }
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(openInitialNotificationTarget,900),{once:true});
+  else setTimeout(openInitialNotificationTarget,900);
+})();
+</script>
+
 </body>
 </html>
