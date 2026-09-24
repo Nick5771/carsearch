@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v130-social-navigation-recents">
+<meta name="findai-build" content="v131-swipe-search-follow-polish">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -16283,6 +16283,192 @@ html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .finda
   document.addEventListener('touchend',()=>{if(!tabTouch)return;const state=tabTouch;tabTouch=null;if(!state.active||Math.abs(state.dx)<58)return;const idx=tabIndex();if(idx<0)return;if(state.dx<0&&idx<tabs.length-1)animateTabTo(tabs[idx+1],'next');else if(state.dx>0&&idx>0)animateTabTo(tabs[idx-1],'prev');},{passive:true});document.addEventListener('touchcancel',()=>{tabTouch=null;},{passive:true});
 
   window.addEventListener('resize',()=>{if(document.getElementById('findaiSearchRecents')?.classList.contains('show'))recentsTop();},{passive:true});
+})();
+</script>
+
+
+<style id="findai-v131-polish-style">
+/* v131 — direct-manipulation tab swipes, blended profile search, crisp follow states. */
+#findaiLiveProfileMatches:empty{display:none}
+#findaiLiveProfileMatches{background:#050607;border-bottom:1px solid rgba(255,255,255,.055)}
+#findaiLiveProfileMatches .premium-profile-matches{padding:8px 12px 4px;border-bottom:0}
+html.findai-light #findaiLiveProfileMatches{background:#f8f8f8;border-bottom-color:rgba(0,0,0,.07)}
+
+/* Follow state must feel decisive: no disabled fade, no layout jump. */
+.premium-seller-action,#wishwavePublicFollowButton{
+  transition:background-color .16s cubic-bezier(.2,.8,.2,1),color .16s cubic-bezier(.2,.8,.2,1),border-color .16s cubic-bezier(.2,.8,.2,1),transform .18s cubic-bezier(.18,.88,.28,1.18),box-shadow .16s ease!important;
+  will-change:transform;background-clip:padding-box;transform:translateZ(0)
+}
+.premium-seller-action:disabled,#wishwavePublicFollowButton:disabled{opacity:1!important;filter:none!important;cursor:default}
+.premium-seller-action.following,#wishwavePublicFollowButton.following{transform:translateZ(0)}
+.premium-seller-action.findai-follow-crisp,#wishwavePublicFollowButton.findai-follow-crisp{animation:findaiFollowCrispV131 .22s cubic-bezier(.18,.9,.3,1.18)!important}
+@keyframes findaiFollowCrispV131{0%{transform:scale(1)}42%{transform:scale(.945)}72%{transform:scale(1.035)}100%{transform:scale(1)}}
+
+/* Swipe surfaces follow the finger instead of waiting for a canned page animation. */
+.findai-swipe-current{display:flex!important;position:absolute!important;inset:0!important;z-index:35!important;will-change:transform,opacity!important;transition:none!important;animation:none!important;backface-visibility:hidden!important}
+.findai-swipe-preview{display:flex!important;position:absolute!important;inset:0!important;z-index:34!important;pointer-events:none!important;overflow:hidden!important;will-change:transform!important;transition:none!important;animation:none!important;backface-visibility:hidden!important;background:#050607!important}
+.findai-swipe-preview *{pointer-events:none!important}
+.findai-swipe-current.findai-swipe-animate,.findai-swipe-preview.findai-swipe-animate{transition:transform .24s cubic-bezier(.22,.82,.24,1),opacity .22s ease!important}
+html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
+
+/* Keep recent-search deletion in-place even when the delete button takes focus. */
+.findai-search-recents.findai-recents-lock{display:block!important}
+</style>
+<script id="findai-v131-polish-script">
+(function(){
+  'use strict';
+
+  /* ---------- 1. Blended account + product search ---------- */
+  let profileSearchSeq=0,profileSearchTimer=null;
+  function ensureLiveProfileRoot(){
+    let root=document.getElementById('findaiLiveProfileMatches');if(root)return root;
+    const scroll=document.querySelector('#search .premium-search-home-scroll');
+    const products=document.getElementById('premiumDiscoverySections');
+    if(!scroll||!products)return null;
+    root=document.createElement('div');root.id='findaiLiveProfileMatches';root.setAttribute('aria-live','polite');
+    scroll.insertBefore(root,products);return root;
+  }
+  function profileAvatar(seller){
+    const avatar=String(seller&&seller.avatarUrl||'').trim();
+    if(avatar)return '<span class="premium-seller-avatar"><img src="'+escapeAttr(avatar)+'" alt="" loading="lazy" onerror="this.remove()"></span>';
+    const label=String(seller&&seller.displayName||seller&&seller.username||'P').trim();
+    return '<span class="premium-seller-avatar">'+escapeHTML((label.charAt(0)||'P').toUpperCase())+'</span>';
+  }
+  function liveProfileRow(s,index){
+    const username=String(s.username||'').replace(/^@/,'');
+    const primary=username||String(s.displayName||'Profile');
+    const secondary=username&&s.displayName&&String(s.displayName).toLowerCase()!==username.toLowerCase()?String(s.displayName):'';
+    const followers=Math.max(0,Number(s.followerCount)||0),listings=Math.max(0,Number(s.activeCount)||0);
+    const meta=(typeof profileMetricCompact==='function'?profileMetricCompact(followers):followers)+' follower'+(followers===1?'':'s')+' · '+(typeof profileMetricCompact==='function'?profileMetricCompact(listings):listings)+' listing'+(listings===1?'':'s');
+    const action=s.isSelf?'':'<button type="button" class="premium-seller-action'+(s.isFollowing?' following':'')+'" onclick="event.preventDefault();event.stopPropagation();togglePremiumSellerFollowCollection(\'profileMatchRows\','+index+',this)">'+(s.isFollowing?'Following':'Follow')+'</button>';
+    return '<div class="premium-seller-row"><button type="button" class="premium-seller-open" onclick="openPremiumSellerFromCollection(\'profileMatchRows\','+index+',event)">'+profileAvatar(s)+'<span class="premium-seller-copy"><b>'+escapeHTML(primary)+'</b>'+(secondary?'<span class="premium-seller-name">'+escapeHTML(secondary)+'</span>':'')+'<span class="premium-seller-meta">'+escapeHTML(meta)+'</span></span></button>'+action+'</div>';
+  }
+  function clearLiveProfiles(){const root=ensureLiveProfileRoot();if(root)root.innerHTML='';window.profileMatchRows=[];}
+  async function searchProfilesAlongsideProducts(query){
+    const clean=String(query||'').trim();const root=ensureLiveProfileRoot();if(!root)return;
+    const screen=document.getElementById('search');
+    if(!clean||clean.length<1||(screen&&screen.classList.contains('people-search-mode'))){clearLiveProfiles();return;}
+    const seq=++profileSearchSeq;
+    try{
+      const data=await marketplaceFetch('/marketplace/sellers/search?q='+encodeURIComponent(clean)+'&limit=3',{method:'GET'});
+      if(seq!==profileSearchSeq)return;
+      const current=String(document.getElementById('q')?.value||'').trim();if(current!==clean)return;
+      const rows=Array.isArray(data&&data.sellers)?data.sellers:[];window.profileMatchRows=rows;
+      root.innerHTML=rows.length?'<div class="premium-profile-matches"><div class="premium-profile-matches-label">People</div>'+rows.map(liveProfileRow).join('')+'</div>':'';
+    }catch(_){if(seq===profileSearchSeq)clearLiveProfiles();}
+  }
+  const inputHandlerBefore=window.handlePremiumExploreInput;
+  window.handlePremiumExploreInput=function(value){
+    const out=typeof inputHandlerBefore==='function'?inputHandlerBefore.apply(this,arguments):undefined;
+    clearTimeout(profileSearchTimer);const clean=String(value||'').trim();
+    if(!clean){profileSearchSeq++;clearLiveProfiles();return out;}
+    profileSearchTimer=setTimeout(()=>searchProfilesAlongsideProducts(clean),85);
+    return out;
+  };
+  const submitBefore=window.handlePremiumExploreSubmit;
+  window.handlePremiumExploreSubmit=function(event){
+    const q=String(document.getElementById('q')?.value||'').trim();
+    if(q)searchProfilesAlongsideProducts(q);
+    return typeof submitBefore==='function'?submitBefore.apply(this,arguments):false;
+  };
+
+  /* ---------- 2. Deleting a Recent never kicks you out of Recents ---------- */
+  function keepRecentsOpen(){
+    const search=document.getElementById('search'),overlay=document.getElementById('findaiSearchRecents'),q=document.getElementById('q');
+    if(search)search.classList.add('search-recents-visible');
+    if(overlay){overlay.classList.add('show','findai-recents-lock');setTimeout(()=>overlay.classList.remove('findai-recents-lock'),180);}
+    if(q&&!String(q.value||'').trim())try{q.focus({preventScroll:true});}catch(_){try{q.focus();}catch(__){}}
+  }
+  const removeRecentBefore=window.removeFindAIRecent;
+  if(typeof removeRecentBefore==='function')window.removeFindAIRecent=function(index,event){
+    if(event){event.preventDefault();event.stopPropagation();}
+    const out=removeRecentBefore.call(this,index,event);requestAnimationFrame(keepRecentsOpen);setTimeout(keepRecentsOpen,110);return out;
+  };
+  const clearRecentBefore=window.clearFindAIRecentSearches;
+  if(typeof clearRecentBefore==='function')window.clearFindAIRecentSearches=function(event){
+    if(event){event.preventDefault();event.stopPropagation();}
+    const out=clearRecentBefore.call(this,event);requestAnimationFrame(keepRecentsOpen);setTimeout(keepRecentsOpen,110);return out;
+  };
+  document.addEventListener('pointerdown',function(event){
+    if(event.target.closest&&event.target.closest('.findai-recent-remove,.findai-recents-clear'))event.preventDefault();
+  },true);
+
+  /* ---------- 3. Follow feedback: instant optimistic state + best available haptic ---------- */
+  window.findaiFollowFeedback=function(button){
+    try{
+      if(typeof navigator.vibrate==='function')navigator.vibrate(12);
+      /* Native wrappers can expose this without changing the web build. */
+      else if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.findaiHaptic)window.webkit.messageHandlers.findaiHaptic.postMessage('selection');
+    }catch(_){}
+    if(!button)return;
+    button.classList.remove('follow-buzz','findai-follow-crisp');void button.offsetWidth;button.classList.add('findai-follow-crisp');
+    setTimeout(()=>button&&button.classList.remove('findai-follow-crisp'),260);
+  };
+
+  /* ---------- 4. Instagram-like direct swipe navigation ---------- */
+  const tabs=['discover','search','messages','profile'];
+  let swipe=null,preview=null,swipeLocked=false;
+  function activeTab(){return String(document.body.dataset.activeTab||'discover');}
+  function idx(tab){return tabs.indexOf(tab);}
+  function visual(tab){if(tab==='messages')return document.getElementById('appMpInbox');return document.getElementById(tab);}
+  function openTab(tab){if(tab==='discover')return openForYou();if(tab==='search')return openSearchHome(false);if(tab==='messages')return openMessagesTab();if(tab==='profile')return openProfile();}
+  function blockedTarget(target){return !!(target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,button,a,[role="button"]'))}
+  function overlayOpen(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,#createListingScreen.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show');}
+  function makePreview(targetTab,direction){
+    const source=visual(targetTab),app=document.querySelector('.app');if(!source||!app)return null;
+    const clone=source.cloneNode(true);clone.removeAttribute('id');clone.querySelectorAll('[id]').forEach(n=>n.removeAttribute('id'));clone.classList.add('findai-swipe-preview','active');clone.setAttribute('aria-hidden','true');
+    app.insertBefore(clone,document.querySelector('.nav')||null);
+    const w=app.clientWidth||window.innerWidth;clone.style.transform='translate3d('+(direction>0?w:-w)+'px,0,0)';return clone;
+  }
+  function cleanup(current){
+    if(current){current.classList.remove('findai-swipe-current','findai-swipe-animate');current.style.transform='';current.style.opacity='';}
+    if(preview){preview.remove();preview=null;}swipe=null;swipeLocked=false;
+  }
+  function cancelSwipe(){
+    if(!swipe)return;const current=swipe.current;if(current){current.classList.add('findai-swipe-animate');current.style.transform='translate3d(0,0,0)';current.style.opacity='1';}
+    if(preview){preview.classList.add('findai-swipe-animate');const w=(document.querySelector('.app')?.clientWidth||window.innerWidth);preview.style.transform='translate3d('+(swipe.direction>0?w:-w)+'px,0,0)';}
+    setTimeout(()=>cleanup(current),250);
+  }
+  function commitSwipe(){
+    if(!swipe)return;const state=swipe,current=state.current,target=state.target,direction=state.direction;const app=document.querySelector('.app'),w=app?.clientWidth||window.innerWidth;
+    swipeLocked=true;
+    current.classList.add('findai-swipe-animate');if(preview)preview.classList.add('findai-swipe-animate');
+    /* Switch the real tab immediately behind the two animated layers. */
+    try{openTab(target);}catch(_){}
+    requestAnimationFrame(()=>{
+      current.style.transform='translate3d('+(direction>0?-w:w)+'px,0,0)';current.style.opacity='.96';
+      if(preview)preview.style.transform='translate3d(0,0,0)';
+    });
+    setTimeout(()=>cleanup(current),250);
+  }
+  document.addEventListener('touchstart',function(event){
+    if(swipeLocked||overlayOpen()||event.touches.length!==1||blockedTarget(event.target))return;
+    const currentTab=activeTab(),i=idx(currentTab);if(i<0)return;
+    const t=event.touches[0];
+    swipe={tab:currentTab,index:i,startX:t.clientX,startY:t.clientY,lastX:t.clientX,lastT:performance.now(),dx:0,current:visual(currentTab),target:null,direction:0,active:false,velocity:0};
+    if(!swipe.current)return;event.stopImmediatePropagation();
+  },true);
+  document.addEventListener('touchmove',function(event){
+    if(!swipe||event.touches.length!==1)return;const t=event.touches[0],dx=t.clientX-swipe.startX,dy=t.clientY-swipe.startY,now=performance.now();
+    if(!swipe.active){
+      if(Math.abs(dx)<10)return;
+      if(Math.abs(dy)>Math.abs(dx)*.72){swipe=null;return;}
+      const direction=dx<0?1:-1,targetIndex=swipe.index+direction;if(targetIndex<0||targetIndex>=tabs.length){swipe=null;return;}
+      swipe.active=true;swipe.direction=direction;swipe.target=tabs[targetIndex];swipe.current.classList.add('findai-swipe-current');preview=makePreview(swipe.target,direction);
+    }
+    event.preventDefault();event.stopImmediatePropagation();
+    const app=document.querySelector('.app'),w=app?.clientWidth||window.innerWidth;let drag=dx;
+    if((swipe.index===0&&drag>0)||(swipe.index===tabs.length-1&&drag<0))drag*=.28;
+    swipe.velocity=(t.clientX-swipe.lastX)/Math.max(1,now-swipe.lastT);swipe.lastX=t.clientX;swipe.lastT=now;swipe.dx=drag;
+    swipe.current.style.transform='translate3d('+drag+'px,0,0)';swipe.current.style.opacity=String(1-Math.min(.10,Math.abs(drag)/w*.10));
+    if(preview)preview.style.transform='translate3d('+((swipe.direction>0?w:-w)+drag)+'px,0,0)';
+  },{capture:true,passive:false});
+  document.addEventListener('touchend',function(event){
+    if(!swipe)return;if(swipe.active)event.stopImmediatePropagation();
+    const w=document.querySelector('.app')?.clientWidth||window.innerWidth,go=Math.abs(swipe.dx)>w*.18||Math.abs(swipe.velocity)>.55;
+    go?commitSwipe():cancelSwipe();
+  },true);
+  document.addEventListener('touchcancel',function(){if(swipe)cancelSwipe();},true);
 })();
 </script>
 
