@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v120-instagram-social-profile">
+<meta name="findai-build" content="v121-explore-grid-comments-polish">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -3105,6 +3105,14 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 8V5.8A.8.8 0 0 1 5.8 5H8M16 5h2.2a.8.8 0 0 1 .8.8V8M19 16v2.2a.8.8 0 0 1-.8.8H16M8 19H5.8a.8.8 0 0 1-.8-.8V16"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       </form>
+      <div class="premium-explore-chips" id="premiumExploreChips" role="tablist" aria-label="Product discovery categories">
+        <button type="button" class="active" data-explore-filter="for-you">For You</button>
+        <button type="button" data-explore-filter="fashion">Fashion</button>
+        <button type="button" data-explore-filter="watches">Watches</button>
+        <button type="button" data-explore-filter="sneakers">Sneakers</button>
+        <button type="button" data-explore-filter="tech">Tech</button>
+        <button type="button" data-explore-filter="collectibles">Collectibles</button>
+      </div>
     </header>
 
     <div class="premium-search-home-scroll">
@@ -3439,7 +3447,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
     <div class="profile-scroll">
       <div class="profile-signed-out social-profile social-profile-guest" id="profileSignedOut">
         <div class="social-profile-topbar">
-          <div><div class="social-profile-handle">@yourprofile</div></div>
+          <div><div class="social-profile-handle">yourprofile</div></div>
           <button class="social-settings-button" type="button" onclick="openAppSettings()" aria-label="Settings">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round"><path d="M4 6.5h16M4 12h16M4 17.5h16"/></svg>
           </button>
@@ -3490,7 +3498,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
       <div id="profileSignedIn" class="social-profile" hidden>
         <div class="social-profile-topbar">
           <div>
-            <div class="social-profile-handle" id="socialProfileHandle">@findai</div>
+            <div class="social-profile-handle" id="socialProfileHandle">findai</div>
             
           </div>
           <button class="social-settings-button" type="button" onclick="openAppSettings()" aria-label="Settings">
@@ -6533,7 +6541,7 @@ function wishwaveSellerMeta(item){
   const avatar=String(item&&item.sellerAvatar||own.avatar||'').trim();
   return {
     username,
-    handle:username?'@'+username:displayName,
+    handle:username?username:displayName,
     displayName,
     avatar,
     bio:String(item&&item.sellerBio||own.bio||''),
@@ -9051,7 +9059,7 @@ async function loadProfileMarketplaceData(force=false){
 }
 function paintSocialProfileHeader(){
   const profile=getAccountProfile();if(!profile)return;
-  const handle='@'+findaiProfileUsername(profile);
+  const handle=findaiProfileUsername(profile);
   const handleEl=$('#socialProfileHandle');if(handleEl)handleEl.textContent=handle;
   const nameEl=$('#profileName');if(nameEl)nameEl.textContent=profile.name||'WishWave user';
   const bio=$('#socialProfileBio');if(bio)bio.textContent=String(profile.bio||'').trim();
@@ -9308,7 +9316,7 @@ async function shareFindAIProfile(){
   const profile=getAccountProfile();if(!profile)return;
   const username=findaiProfileUsername(profile);
   const url='https://findai.ai/findai-app.html';
-  const share={title:(profile.name||'WishWave profile')+' on FindAI',text:`Find me on FindAI as @${username}`,url};
+  const share={title:(profile.name||'WishWave profile')+' on FindAI',text:`Find me on FindAI as ${username}`,url};
   try{
     if(navigator.share)await navigator.share(share);
     else{await navigator.clipboard.writeText(`${share.text} — ${url}`);toast('Profile link copied');}
@@ -13351,12 +13359,12 @@ function renderWishWaveComments(data){
   const signedIn=!!marketplaceSession();
   const rows=comments.length?comments.map(comment=>{
     const username=String(comment.username||'').replace(/^@/,'');
-    const label=username?'@'+username:String(comment.displayName||'WishWave user');
+    const label=username?username:String(comment.displayName||'WishWave user');
     const time=wishwaveCommentTime(comment.createdAt);
     return '<article class="wishwave-comment">'+wishwaveCommentAvatar(comment)+
       '<div class="wishwave-comment-copy"><div class="wishwave-comment-head"><b>'+escapeHTML(label)+'</b>'+
       (time?'<time>'+escapeHTML(time)+'</time>':'')+
-      (comment.isSeller?'<em>SELLER</em>':'')+'</div><p>'+escapeHTML(comment.body||'')+'</p></div></article>';
+      '</div><p>'+escapeHTML(comment.body||'')+'</p></div></article>';
   }).join(''):'<div class="wishwave-comments-empty"><b>No comments yet</b>Start the conversation.</div>';
   let composer='';
   if(signedIn){
@@ -13366,11 +13374,18 @@ function renderWishWaveComments(data){
     const avatarHtml='<span class="wishwave-comment-composer-avatar">'+
       (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':escapeHTML(initial))+'</span>';
     composer='<form class="wishwave-comment-form" onsubmit="return submitWishWaveComment(event)">'+avatarHtml+
-      '<input id="wishwaveCommentInput" maxlength="300" autocomplete="off" placeholder="Add a comment…"><button type="submit">Post</button></form>';
+      '<input id="wishwaveCommentInput" maxlength="300" autocomplete="off" placeholder="Add a comment…"><button class="wishwave-comment-send" type="submit" aria-label="Send comment" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m6.5 10.5 5.5-5.5 5.5 5.5"/></svg></button></form>';
   }else{
     composer='<div class="wishwave-comments-empty wishwave-comments-signin"><button type="button" onclick="closeAppMpSheet();openLogin()">Sign in to comment</button></div>';
   }
   root.innerHTML='<div class="wishwave-comments-shell"><div class="wishwave-comments-list">'+rows+'</div>'+composer+'</div>';
+  const commentInput=root.querySelector('#wishwaveCommentInput');
+  const commentSend=root.querySelector('.wishwave-comment-send');
+  if(commentInput&&commentSend){
+    const syncSend=()=>{commentSend.disabled=!String(commentInput.value||'').trim();};
+    commentInput.addEventListener('input',syncSend,{passive:true});
+    syncSend();
+  }
   setTimeout(()=>{const list=root.querySelector('.wishwave-comments-list');if(list)list.scrollTop=list.scrollHeight;},20);
 }
 
@@ -13445,7 +13460,7 @@ function ensureWishWavePublicProfilePage(){
         '<button type="button" class="wishwave-public-profile-back" onclick="closeWishWavePublicProfile()" aria-label="Back">'+
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>'+
         '</button>'+
-        '<div class="social-profile-handle" id="wishwavePublicHandle">@seller</div>'+
+        '<div class="social-profile-handle" id="wishwavePublicHandle">seller</div>'+
         '<div class="wishwave-public-profile-top-spacer"></div>'+
       '</div>'+
       '<div id="wishwavePublicProfileBody"><div class="social-profile-loading">Loading profile…</div></div>'+
@@ -13538,7 +13553,7 @@ function renderWishWavePublicProfile(){
   const seller=data.seller||{},viewer=data.viewer||{};
   const listings=Array.isArray(data.listings)?data.listings:[];
   const username=String(seller.username||'').replace(/^@/,'');
-  const handle=username?'@'+username:String(seller.displayName||'WishWave seller');
+  const handle=username?username:String(seller.displayName||'WishWave seller');
   const avatar=String(seller.avatarUrl||'');
   const root=document.getElementById('wishwavePublicProfileBody');
   const handleEl=document.getElementById('wishwavePublicHandle');
@@ -13635,7 +13650,7 @@ async function shareWishWavePublicProfile(){
   const handle=String(seller.username||seller.displayName||'WishWave seller').replace(/^@/,'');
   const url='https://findai.ai/findai-app.html?profile='+encodeURIComponent(handle);
   try{
-    if(navigator.share)await navigator.share({title:'@'+handle+' on WishWave',url});
+    if(navigator.share)await navigator.share({title:handle+' on WishWave',url});
     else{await navigator.clipboard.writeText(url);toast('Profile link copied');}
   }catch(_){}
 }
@@ -14404,62 +14419,81 @@ if(typeof v116RenderMarketplaceListing==='function'){
   const bg=()=>document.getElementById('appMpSheetBg');
   const sheet=()=>document.querySelector('#appMpSheetBg .app-mp-sheet');
 
-  /* Swipe/flick Comments down to dismiss. No close X is needed. */
+  /* Instagram-like Comments drag: 1:1 finger tracking, frame-synced updates,
+     velocity-based dismissal and no expensive blur while the sheet is moving. */
   let commentDrag=null;
+  let commentDragRaf=0;
+  function paintCommentDrag(){
+    commentDragRaf=0;
+    if(!commentDrag)return;
+    const layer=bg();if(!layer)return;
+    const y=Math.max(0,commentDrag.paintY||0);
+    layer.style.setProperty('--wishwave-comments-drag-y',y.toFixed(1)+'px');
+  }
+  function queueCommentDrag(y){
+    if(!commentDrag)return;
+    commentDrag.paintY=y;
+    if(!commentDragRaf)commentDragRaf=requestAnimationFrame(paintCommentDrag);
+  }
   document.addEventListener('touchstart',event=>{
     const layer=bg(),panel=sheet();
     if(!layer||!panel||!layer.classList.contains('show')||!layer.classList.contains('wishwave-comments-mode'))return;
-    if(!panel.contains(event.target))return;
-    if(event.target.closest('.wishwave-comment-form,input,textarea'))return;
+    if(!panel.contains(event.target)||event.touches.length!==1)return;
+    if(event.target.closest('.wishwave-comment-form,input,textarea,button'))return;
     const list=panel.querySelector('.wishwave-comments-list');
     const fromHead=!!event.target.closest('.app-mp-sheet-head');
-    if(!fromHead&&list&&list.scrollTop>1)return;
-    const touch=event.touches&&event.touches[0];if(!touch)return;
-    commentDrag={startY:touch.clientY,startX:touch.clientX,lastY:touch.clientY,startAt:performance.now(),lastAt:performance.now(),dy:0,active:false};
+    const t=event.touches[0];
+    commentDrag={
+      startY:t.clientY,startX:t.clientX,lastY:t.clientY,lastT:performance.now(),
+      velocity:0,dy:0,paintY:0,active:false,fromHead,list
+    };
   },{passive:true});
 
   document.addEventListener('touchmove',event=>{
-    if(!commentDrag)return;
-    const layer=bg(),touch=event.touches&&event.touches[0];if(!layer||!touch)return;
-    const dy=touch.clientY-commentDrag.startY,dx=touch.clientX-commentDrag.startX;
-    if(dy<=0||Math.abs(dx)>Math.abs(dy)*1.15){
-      if(!commentDrag.active)return;
-    }
+    if(!commentDrag||event.touches.length!==1)return;
+    const layer=bg(),t=event.touches[0];if(!layer)return;
+    const dy=t.clientY-commentDrag.startY,dx=t.clientX-commentDrag.startX;
     if(!commentDrag.active){
-      if(dy<7||Math.abs(dy)<=Math.abs(dx))return;
+      if(Math.abs(dy)<4)return;
+      if(Math.abs(dx)>Math.abs(dy)*1.08){commentDrag=null;return;}
+      if(dy<0){commentDrag=null;return;}
+      if(!commentDrag.fromHead&&commentDrag.list&&commentDrag.list.scrollTop>1){commentDrag=null;return;}
       commentDrag.active=true;
       layer.classList.add('comments-dragging');
     }
     event.preventDefault();
+    const now=performance.now(),dt=Math.max(8,now-commentDrag.lastT);
+    const instantaneous=(t.clientY-commentDrag.lastY)/dt;
+    commentDrag.velocity=commentDrag.velocity*.58+instantaneous*.42;
+    commentDrag.lastY=t.clientY;commentDrag.lastT=now;
     commentDrag.dy=Math.max(0,dy);
-    commentDrag.lastY=touch.clientY;
-    commentDrag.lastAt=performance.now();
-    const eased=commentDrag.dy<90?commentDrag.dy:90+(commentDrag.dy-90)*.72;
-    layer.style.setProperty('--wishwave-comments-drag-y',Math.round(eased)+'px');
+    queueCommentDrag(commentDrag.dy);
   },{passive:false});
 
   function finishCommentDrag(){
     if(!commentDrag)return;
-    const layer=bg(),drag=commentDrag;
-    commentDrag=null;
+    const layer=bg(),drag=commentDrag;commentDrag=null;
+    if(commentDragRaf){cancelAnimationFrame(commentDragRaf);commentDragRaf=0;}
     if(!layer)return;
+    if(!drag.active){layer.style.removeProperty('--wishwave-comments-drag-y');return;}
+    const dismiss=drag.dy>105||(drag.dy>22&&drag.velocity>.52);
     layer.classList.remove('comments-dragging');
-    if(!drag.active){
-      layer.style.removeProperty('--wishwave-comments-drag-y');
-      return;
-    }
-    const velocity=Math.max(0,drag.dy/Math.max(1,performance.now()-drag.startAt));
-    const dismiss=drag.dy>92||(drag.dy>28&&velocity>.72);
     if(dismiss){
-      layer.style.setProperty('--wishwave-comments-drag-y','105%');
-      try{haptic();}catch(_){}
+      layer.classList.add('comments-dismissing');
+      layer.style.setProperty('--wishwave-comments-drag-y','calc(100dvh + 24px)');
+      try{haptic();}catch(_){ }
       setTimeout(()=>{
         closeAppMpSheet();
-        setTimeout(()=>layer.style.removeProperty('--wishwave-comments-drag-y'),380);
-      },125);
+        layer.classList.remove('comments-dismissing');
+        layer.style.removeProperty('--wishwave-comments-drag-y');
+      },205);
     }else{
+      layer.classList.add('comments-snapping');
       layer.style.setProperty('--wishwave-comments-drag-y','0px');
-      setTimeout(()=>layer.style.removeProperty('--wishwave-comments-drag-y'),260);
+      setTimeout(()=>{
+        layer.classList.remove('comments-snapping');
+        layer.style.removeProperty('--wishwave-comments-drag-y');
+      },285);
     }
   }
   document.addEventListener('touchend',finishCommentDrag,{passive:true});
@@ -14533,6 +14567,239 @@ if(typeof v116RenderMarketplaceListing==='function'){
       event.preventDefault();event.stopPropagation();
     }
   },true);
+})();
+</script>
+
+
+<style id="findai-v121-explore-comments-style">
+  /* Search / Explore — three-column, image-first product discovery. */
+  #search.premium-search-home .premium-search-home-header{
+    padding-bottom:9px!important;
+    border-bottom:1px solid rgba(255,255,255,.045)!important;
+  }
+  .premium-explore-chips{
+    display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;
+    margin-top:10px;padding:0 1px 1px;scroll-snap-type:x proximity;
+    -webkit-overflow-scrolling:touch;
+  }
+  .premium-explore-chips::-webkit-scrollbar{display:none}
+  .premium-explore-chips button{
+    flex:0 0 auto;height:36px;padding:0 15px;border:1px solid rgba(255,255,255,.15);
+    border-radius:999px;background:transparent;color:#f1f2f4;font:750 12px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;
+    scroll-snap-align:start;transition:background .18s ease,border-color .18s ease,transform .16s ease,color .18s ease;
+  }
+  .premium-explore-chips button:active{transform:scale(.96)}
+  .premium-explore-chips button.active{background:#f3f4f5;color:#090a0b;border-color:#f3f4f5}
+  #search .premium-search-home-scroll{padding:0 0 28px!important;overscroll-behavior-y:contain!important}
+  #search .premium-discovery-stack{display:block!important;padding:0!important;margin:0!important}
+  .premium-explore-grid{
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-flow:dense;
+    gap:2px;background:#050607;width:100%;
+  }
+  .premium-explore-tile{
+    position:relative;display:block;min-width:0;aspect-ratio:1/1;border:0;padding:0;margin:0;
+    overflow:hidden;background:#111419;color:#fff;text-align:left;isolation:isolate;
+  }
+  .premium-explore-tile.featured{grid-column:span 2;grid-row:span 2;aspect-ratio:auto}
+  .premium-explore-tile img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.001);transition:transform .22s ease}
+  .premium-explore-tile:active img{transform:scale(1.025)}
+  .premium-explore-tile:after{
+    content:"";position:absolute;inset:48% 0 0;pointer-events:none;z-index:1;
+    background:linear-gradient(180deg,transparent,rgba(0,0,0,.08) 30%,rgba(0,0,0,.7) 100%);
+  }
+  .premium-explore-price{
+    position:absolute;left:7px;bottom:6px;z-index:3;max-width:calc(100% - 14px);
+    color:#fff;font-size:12px;font-weight:840;letter-spacing:-.25px;line-height:1.05;
+    text-shadow:0 1px 4px rgba(0,0,0,.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .premium-explore-source{
+    position:absolute;left:7px;top:7px;z-index:3;display:flex;align-items:center;justify-content:center;
+    min-width:19px;height:19px;max-width:44px;padding:2px 4px;border-radius:5px;background:rgba(8,9,11,.72);
+    backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);overflow:hidden;
+  }
+  .premium-explore-source img{max-width:34px;max-height:13px;width:auto;height:auto;object-fit:contain;transform:none!important}
+  .premium-explore-source .app-ebay-wordmark{font-size:12px!important;line-height:1!important}
+  .premium-explore-source .premium-card-source-styled,.premium-explore-source .premium-card-source-text{font-size:7px!important;line-height:1!important}
+  .premium-explore-liked{
+    position:absolute;right:6px;top:6px;z-index:4;width:24px;height:24px;border:0;border-radius:50%;
+    display:grid;place-items:center;background:rgba(8,9,11,.58);color:#fff;backdrop-filter:blur(7px);
+  }
+  .premium-explore-liked svg{width:13px;height:13px}
+  .premium-explore-skeleton-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;background:#050607}
+  .premium-explore-skeleton{aspect-ratio:1;background:linear-gradient(100deg,#0f1216 20%,#1b1f25 40%,#0f1216 60%);background-size:220% 100%;animation:premiumSkeleton 1.05s linear infinite}
+  .premium-explore-empty{padding:82px 25px;text-align:center;color:#7c838d;font-size:11px;line-height:1.55}
+  .premium-explore-empty b{display:block;margin-bottom:6px;color:#f4f5f6;font-size:15px}
+  .premium-explore-load-marker{height:48px;display:grid;place-items:center;color:#747c86;font-size:9px}
+
+  /* Comments — lighter compositing + Instagram-like send arrow. */
+  .app-mp-sheet-bg.wishwave-comments-mode .app-mp-sheet{
+    transform:translate3d(0,var(--wishwave-comments-drag-y,0px),0)!important;
+    transition:transform .26s cubic-bezier(.2,.78,.2,1)!important;
+    contain:layout paint style!important;
+    backface-visibility:hidden!important;
+  }
+  .app-mp-sheet-bg.wishwave-comments-mode.comments-dragging{
+    backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+  }
+  .app-mp-sheet-bg.wishwave-comments-mode.comments-dragging .app-mp-sheet{transition:none!important}
+  .app-mp-sheet-bg.wishwave-comments-mode.comments-snapping .app-mp-sheet{transition:transform .28s cubic-bezier(.2,.84,.24,1)!important}
+  .app-mp-sheet-bg.wishwave-comments-mode.comments-dismissing{
+    background:rgba(0,0,0,0)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+    transition:background .2s ease!important;
+  }
+  .app-mp-sheet-bg.wishwave-comments-mode.comments-dismissing .app-mp-sheet{transition:transform .2s cubic-bezier(.25,.72,.32,1)!important}
+  .app-mp-sheet-bg.wishwave-comments-mode .app-mp-sheet-head{touch-action:none!important}
+  .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comments-list{touch-action:pan-y!important}
+  .wishwave-comment-head em{display:none!important}
+  .wishwave-comment-form{grid-template-columns:34px minmax(0,1fr) 36px!important}
+  .wishwave-comment-form .wishwave-comment-send{
+    width:34px!important;height:34px!important;padding:0!important;border:0!important;border-radius:50%!important;
+    background:#f4f5f6!important;color:#08090a!important;display:grid!important;place-items:center!important;
+    transition:transform .14s ease,opacity .14s ease,background .14s ease!important;
+  }
+  .wishwave-comment-form .wishwave-comment-send svg{width:18px!important;height:18px!important}
+  .wishwave-comment-form .wishwave-comment-send:active:not(:disabled){transform:scale(.9)!important}
+  .wishwave-comment-form .wishwave-comment-send:disabled{opacity:.24!important;cursor:default!important}
+
+  html.findai-light .premium-explore-grid,html.findai-light .premium-explore-skeleton-grid{background:#f8f8f8}
+  html.findai-light .premium-explore-chips button{color:#191a1c;border-color:#d6d8dc}
+  html.findai-light .premium-explore-chips button.active{background:#111;color:#fff;border-color:#111}
+  html.findai-light .premium-explore-tile{background:#eceef0}
+  html.findai-light .wishwave-comment-form .wishwave-comment-send{background:#111!important;color:#fff!important}
+
+  @media(max-width:380px){
+    .premium-explore-chips{gap:7px}.premium-explore-chips button{height:34px;padding:0 13px;font-size:11.5px}
+    .premium-explore-price{font-size:11px}
+  }
+</style>
+<script id="findai-v121-explore-comments-script">
+(function(){
+  const FILTERS={
+    'for-you':['lego','ps5','gucci','pokemon','watches','sneakers','apple','streetwear','gaming','cameras','handbags','collectibles','audio','tech'],
+    fashion:['gucci','handbags','streetwear','luxury','sneakers'],
+    watches:['watches','luxury'],
+    sneakers:['sneakers','streetwear','gucci'],
+    tech:['tech','apple','gaming','audio','cameras'],
+    collectibles:['collectibles','cards','pokemon','lego','retro']
+  };
+  let exploreFilter='for-you';
+  let exploreGeneration=0;
+  let exploreQueue=[];
+  let exploreLoading=false;
+  let exploreBound=false;
+  const seenExplore=new Set();
+
+  function configById(id){return PREMIUM_DISCOVERY_CATEGORIES.find(x=>x.id===id)||PREMIUM_DISCOVERY_RETAILERS.find(x=>x.id===id)||null;}
+  function exploreConfigs(filter){
+    const ids=(FILTERS[filter]||FILTERS['for-you']).slice();
+    let configs=ids.map(configById).filter(Boolean);
+    if(filter==='for-you')configs=[...premiumDiscoveryConfig(),...configs];
+    return premiumRotateArray(configs,premiumDiscoveryHash()+(filter.length*97));
+  }
+  function exploreItemKey(item){return listingKey(item)||trackedKey(item)||String(item&&item.itemId||item&&item.url||item&&item.title||'');}
+  function exploreSource(item){
+    const source=getSource(item),key=appKnownBrandForItem(item,source);
+    if(key==='ebay')return '<span class="premium-explore-source">'+EBAY_LOGO_SVG+'</span>';
+    if(key&&FINDAI_APP_REAL_LOGOS[key])return '<span class="premium-explore-source">'+appRealLogoImg(key,'premium-card-source-logo-img',sourceLabel(key))+'</span>';
+    const label=sourceLabel(source||'listing');
+    return '<span class="premium-explore-source"><span class="premium-card-source-text">'+escapeHTML(label.slice(0,6))+'</span></span>';
+  }
+  function exploreTile(item,index){
+    const img=premiumProductImage(item);if(!img)return '';
+    const featured=index>0&&index%13===7;
+    const active=isTracked(item);
+    return '<article class="premium-explore-tile'+(featured?' featured':'')+'" onclick="openPremiumDiscoveryItem(\'explore\','+index+')">'+
+      '<img src="'+escapeAttr(img)+'" alt="'+escapeAttr(item.title||'Product')+'" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest(\'.premium-explore-tile\').style.display=\'none\'">'+
+      exploreSource(item)+
+      '<button class="premium-explore-liked" type="button" onclick="togglePremiumDiscoveryLike(\'explore\','+index+',event)" aria-label="'+(active?'Unlike':'Like')+'"><svg viewBox="0 0 24 24" fill="'+(active?'currentColor':'none')+'" stroke="currentColor" stroke-width="2"><path d="M20.6 5.8c-1.8-2.1-5.1-2.2-7-.3L12 7.1l-1.6-1.6c-1.9-1.9-5.2-1.8-7 .3-1.7 2-1.5 5 .4 6.9L12 20.3l8.2-7.6c1.9-1.9 2.1-4.9.4-6.9z"/></svg></button>'+
+      '<div class="premium-explore-price">'+escapeHTML(money(Number(item.price)||0,currencyOf(item,null)||'AUD'))+'</div></article>';
+  }
+  function renderExploreGrid(){
+    const root=document.getElementById('premiumDiscoverySections');if(!root)return;
+    const section=premiumDiscoverySections[0],items=section&&section.items||[];
+    if(!items.length){
+      root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
+      return;
+    }
+    root.innerHTML='<div class="premium-explore-grid">'+items.map(exploreTile).join('')+'</div><div class="premium-explore-load-marker" id="premiumExploreLoadMarker">Loading more products…</div>';
+  }
+  async function loadExploreConfig(config,pool,generation){
+    let items=v116PreviewItemsForConfig(config,pool);
+    if(items.length<6){
+      const q=premiumRotateArray(config.queries||[config.title||'products'],premiumDiscoveryHash()+String(config.id||'x').length)[0];
+      if(q){
+        try{
+          const result=await fetchProductResults(q,{page:1,limit:18,preserveExact:true,skipResolve:true,passive:true});
+          const live=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings:[];
+          items=items.concat(live.filter(x=>Number(x&&x.price)>0&&premiumProductImage(x)));
+        }catch(_){ }
+      }
+    }
+    if(generation!==exploreGeneration)return;
+    const target=premiumDiscoverySections[0].items;
+    for(const item of items){
+      const key=exploreItemKey(item);if(!key||seenExplore.has(key)||!premiumProductImage(item)||Number(item.price)<=0)continue;
+      seenExplore.add(key);target.push(item);
+      if(target.length>=90)break;
+    }
+    renderExploreGrid();
+  }
+  async function loadExploreMore(){
+    if(exploreLoading||!exploreQueue.length)return;
+    exploreLoading=true;
+    const generation=exploreGeneration;
+    const pool=await v116GetPreviewPool(false);
+    const batch=exploreQueue.splice(0,Math.min(3,exploreQueue.length));
+    await Promise.all(batch.map(config=>loadExploreConfig(config,pool,generation)));
+    exploreLoading=false;
+    if(generation!==exploreGeneration)return;
+    const marker=document.getElementById('premiumExploreLoadMarker');
+    if(marker)marker.textContent=exploreQueue.length?'Loading more products…':'';
+  }
+  function bindExploreScroll(){
+    if(exploreBound)return;exploreBound=true;
+    const scroll=document.querySelector('#search .premium-search-home-scroll');if(!scroll)return;
+    scroll.addEventListener('scroll',()=>{
+      if(scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<620)loadExploreMore();
+    },{passive:true});
+  }
+  function setExploreFilter(filter){
+    if(!FILTERS[filter])filter='for-you';
+    exploreFilter=filter;
+    document.querySelectorAll('#premiumExploreChips [data-explore-filter]').forEach(btn=>btn.classList.toggle('active',btn.dataset.exploreFilter===filter));
+    const scroll=document.querySelector('#search .premium-search-home-scroll');if(scroll)scroll.scrollTop=0;
+    renderPremiumDiscoverySections(false);
+  }
+  document.addEventListener('click',event=>{
+    const button=event.target.closest&&event.target.closest('#premiumExploreChips [data-explore-filter]');
+    if(!button)return;
+    setExploreFilter(button.dataset.exploreFilter);
+  });
+
+  renderPremiumDiscoverySections=async function(force=false){
+    const root=document.getElementById('premiumDiscoverySections');if(!root)return;
+    const generation=++exploreGeneration;
+    exploreLoading=false;
+    seenExplore.clear();
+    premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:[]}];
+    exploreQueue=exploreConfigs(exploreFilter);
+    root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
+    bindExploreScroll();
+    await loadExploreMore();
+    if(generation!==exploreGeneration)return;
+    await loadExploreMore();
+    if(generation!==exploreGeneration)return;
+    if(!premiumDiscoverySections[0].items.length)root.innerHTML='<div class="premium-explore-empty"><b>Products are refreshing</b>Search for anything above while FindAI reloads discovery.</div>';
+  };
+  refreshPremiumEbayDiscovery=function(force=false){return renderPremiumDiscoverySections(force);};
+  renderPremiumSearchHome=function(){return renderPremiumDiscoverySections(false);};
+  renderAppSearchHome=function(){return renderPremiumSearchHome();};
+
+  /* Refresh Explore immediately if Search is already visible after an in-place deploy. */
+  requestAnimationFrame(()=>{
+    const screen=document.getElementById('search');
+    if(screen&&screen.classList.contains('active'))renderPremiumDiscoverySections(false);
+  });
 })();
 </script>
 
