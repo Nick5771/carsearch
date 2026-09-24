@@ -13526,19 +13526,56 @@ async function submitWishWaveComment(event){
   if(!wishwaveCommentsItem||!marketplaceSession()){openLogin();return false;}
   const input=document.getElementById('wishwaveCommentInput');
   const body=String(input&&input.value||'').trim();
-  if(!body&&!wishwavePendingCommentImage){
+  const pendingImage=String(wishwavePendingCommentImage||'');
+  if(!body&&!pendingImage){
     try{const button=event.submitter||event.target.querySelector('.wishwave-comment-send');if(button){button.classList.remove('empty-tap');void button.offsetWidth;button.classList.add('empty-tap');}}catch(_){}
     return false;
   }
+  if(window.__wishwaveCommentPosting)return false;
   const id=wishwaveCommentMetricKey(wishwaveCommentsItem),endpoint=wishwaveCommentEndpoint(wishwaveCommentsItem);if(!id||!endpoint)return false;
-  const button=event.submitter||event.target.querySelector('.wishwave-comment-send');
-  if(button&&button.dataset.busy==='1')return false;
-  if(button){button.dataset.busy='1';button.disabled=true;}
+
+  const previousData={
+    comments:Array.isArray(wishwaveCommentsData&&wishwaveCommentsData.comments)?wishwaveCommentsData.comments.slice():[],
+    commentCount:Math.max(0,Number(wishwaveCommentsData&&wishwaveCommentsData.commentCount)||0)
+  };
+  const profile=(typeof getAccountProfile==='function'&&getAccountProfile())||{};
+  let username=String(profile.username||'').replace(/^@/,'').trim();
+  if(!username){try{username=typeof findaiProfileUsername==='function'?findaiProfileUsername(profile):String(profile.email||'').split('@')[0];}catch(_){username='';}}
+  const tempId='optimistic-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);
+  const optimistic={
+    id:tempId,
+    username:username,
+    displayName:String(profile.name||username||'You'),
+    avatarUrl:String(profile.avatar||''),
+    body,
+    imageUrl:pendingImage,
+    createdAt:new Date().toISOString(),
+    isMine:true,
+    _optimistic:true
+  };
+
+  /* Clear the composer first, then paint the local comment immediately. */
+  if(input)input.value='';
+  wishwavePendingCommentImage='';
+  const optimisticData={
+    comments:previousData.comments.concat([optimistic]),
+    commentCount:Math.max(previousData.commentCount,previousData.comments.length)+1
+  };
+  renderWishWaveComments(optimisticData);
+  wishwaveUpdateCommentMetric(id,optimisticData.commentCount);
+  requestAnimationFrame(()=>{
+    const list=document.querySelector('.wishwave-comments-list');
+    if(list)list.scrollTo({top:list.scrollHeight,behavior:'smooth'});
+    const row=document.querySelector('[data-comment-id="'+CSS.escape(tempId)+'"]');
+    if(row)row.classList.add('wishwave-comment-optimistic');
+  });
+
+  window.__wishwaveCommentPosting=true;
   try{
     let imageUrl='';
-    if(wishwavePendingCommentImage){
+    if(pendingImage){
       const uploaded=await marketplaceFetch('/marketplace/comment-images',{
-        method:'POST',body:JSON.stringify({image:wishwavePendingCommentImage})
+        method:'POST',body:JSON.stringify({image:pendingImage})
       });
       imageUrl=String(uploaded&&uploaded.imageUrl||'');
     }
@@ -13546,11 +13583,28 @@ async function submitWishWaveComment(event){
       method:'POST',body:JSON.stringify({body,imageUrl})
     });
     wishwaveUpdateCommentMetric(id,data.commentCount);
-    if(input)input.value='';
-    wishwavePendingCommentImage='';
     renderWishWaveComments(data);
-  }catch(error){toast(error.message||'Comment could not be posted');}
-  finally{if(button){button.disabled=false;delete button.dataset.busy;}}
+    requestAnimationFrame(()=>{
+      const list=document.querySelector('.wishwave-comments-list');
+      if(list)list.scrollTop=list.scrollHeight;
+    });
+  }catch(error){
+    /* Roll back cleanly and restore what the user typed/attached. */
+    wishwavePendingCommentImage=pendingImage;
+    renderWishWaveComments(previousData);
+    wishwaveUpdateCommentMetric(id,previousData.commentCount);
+    requestAnimationFrame(()=>{
+      const restored=document.getElementById('wishwaveCommentInput');
+      if(restored)restored.value=body;
+      const preview=document.getElementById('wishwaveCommentAttachmentPreview');
+      const img=document.getElementById('wishwaveCommentAttachmentImage');
+      if(pendingImage&&img)img.src=pendingImage;
+      if(pendingImage&&preview)preview.classList.add('show');
+    });
+    toast(error.message||'Comment could not be posted');
+  }finally{
+    window.__wishwaveCommentPosting=false;
+  }
   return false;
 }
 
@@ -16275,11 +16329,32 @@ html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .finda
     let overlay=document.getElementById('findaiCommentHoldOverlay');if(overlay)return overlay;
     overlay=document.createElement('div');overlay.id='findaiCommentHoldOverlay';overlay.className='findai-comment-hold-overlay';overlay.onclick=event=>{if(event.target===overlay)closeFindAICommentActions();};document.body.appendChild(overlay);return overlay;
   }
-  window.closeFindAICommentActions=function(){const overlay=document.getElementById('findaiCommentHoldOverlay');if(overlay)overlay.classList.remove('show');};
+  window.closeFindAICommentActions=function(immediate){
+    const overlay=document.getElementById('findaiCommentHoldOverlay');if(!overlay)return;
+    const source=document.querySelector('.wishwave-comment.findai-comment-action-source');
+    if(source)source.classList.remove('findai-comment-action-source');
+    overlay.classList.remove('show');
+    if(immediate){overlay.classList.add('instant-close');requestAnimationFrame(()=>overlay.classList.remove('instant-close'));}
+  };
   function showCommentActions(article){
     const id=String(article&&article.dataset.commentId||''),comment=(wishwaveCommentsData.comments||[]).find(c=>String(c.id)===id);if(!id||!comment||!comment.isMine)return;
-    const overlay=ensureCommentHoldSheet(),hasText=!!String(comment.body||'').trim();overlay.innerHTML='<div class="findai-comment-hold-sheet" onclick="event.stopPropagation()"><div class="findai-comment-hold-grabber"></div><div class="findai-comment-hold-card">'+(hasText?'<button type="button" onclick="closeFindAICommentActions();startWishWaveCommentEdit(\''+escapeAttr(id)+'\',event)">Edit</button>':'')+'<button class="danger" type="button" onclick="closeFindAICommentActions();deleteWishWaveComment(\''+escapeAttr(id)+'\',event)">Delete</button></div><button class="findai-comment-hold-cancel" type="button" onclick="closeFindAICommentActions()">Cancel</button></div>';
-    overlay.classList.add('show');try{haptic();}catch(_){}
+    const overlay=ensureCommentHoldSheet(),hasText=!!String(comment.body||'').trim();
+    const rect=article.getBoundingClientRect();
+    const cardWidth=Math.min(270,Math.max(210,window.innerWidth-44));
+    const cardHeight=hasText?102:52;
+    const safeTop=Math.max(18,(window.visualViewport&&window.visualViewport.offsetTop||0)+18);
+    const viewBottom=(window.visualViewport?window.visualViewport.offsetTop+window.visualViewport.height:window.innerHeight)-18;
+    let left=Math.min(window.innerWidth-cardWidth-18,Math.max(18,rect.left+Math.min(92,rect.width*.28)));
+    let top=Math.max(safeTop,Math.min(viewBottom-cardHeight,rect.top+Math.min(16,Math.max(0,rect.height*.12))));
+    overlay.style.setProperty('--findai-comment-action-left',left+'px');
+    overlay.style.setProperty('--findai-comment-action-top',top+'px');
+    overlay.style.setProperty('--findai-comment-action-width',cardWidth+'px');
+    overlay.innerHTML='<div class="findai-comment-hold-sheet" onclick="event.stopPropagation()"><div class="findai-comment-hold-card">'+
+      (hasText?'<button type="button" onclick="closeFindAICommentActions();startWishWaveCommentEdit(\''+escapeAttr(id)+'\',event)">Edit</button>':'')+
+      '<button class="danger" type="button" onclick="closeFindAICommentActions();deleteWishWaveComment(\''+escapeAttr(id)+'\',event)">Delete</button></div></div>';
+    article.classList.add('findai-comment-action-source');
+    requestAnimationFrame(()=>requestAnimationFrame(()=>overlay.classList.add('show')));
+    try{haptic();}catch(_){}
   }
   let hold=null;
   document.addEventListener('pointerdown',event=>{const article=event.target.closest&&event.target.closest('.wishwave-comment.is-mine');if(!article||event.button>0||event.target.closest('button,input'))return;hold={article,x:event.clientX,y:event.clientY,timer:setTimeout(()=>{if(!hold)return;showCommentActions(article);hold=null;},480)};},{passive:true});
@@ -16800,6 +16875,164 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
   }
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(openInitialNotificationTarget,900),{once:true});
   else setTimeout(openInitialNotificationTarget,900);
+})();
+</script>
+
+
+<style id="findai-v135-premium-interaction-style">
+/* v135 — anchored comment actions, immediate comments, stable selected-tab halo. */
+
+/* Floating Edit/Delete menu sits over the held comment instead of rising from the bottom. */
+.findai-comment-hold-overlay{
+  display:flex!important;
+  align-items:stretch!important;
+  justify-content:stretch!important;
+  opacity:0!important;
+  visibility:hidden!important;
+  pointer-events:none!important;
+  background:rgba(0,0,0,.18)!important;
+  -webkit-backdrop-filter:blur(1.5px)!important;
+  backdrop-filter:blur(1.5px)!important;
+  transition:opacity .18s ease,visibility 0s linear .18s!important;
+}
+.findai-comment-hold-overlay.show{
+  opacity:1!important;
+  visibility:visible!important;
+  pointer-events:auto!important;
+  transition:opacity .18s ease!important;
+}
+.findai-comment-hold-overlay.instant-close{transition:none!important}
+.findai-comment-hold-sheet{
+  position:fixed!important;
+  left:var(--findai-comment-action-left,24px)!important;
+  top:var(--findai-comment-action-top,180px)!important;
+  bottom:auto!important;
+  width:var(--findai-comment-action-width,250px)!important;
+  padding:0!important;
+  opacity:0!important;
+  transform:translate3d(0,7px,0) scale(.94)!important;
+  transform-origin:30% 20%!important;
+  transition:transform .22s cubic-bezier(.18,.88,.24,1),opacity .16s ease!important;
+}
+.findai-comment-hold-overlay.show .findai-comment-hold-sheet{
+  opacity:1!important;
+  transform:translate3d(0,0,0) scale(1)!important;
+}
+.findai-comment-hold-grabber,.findai-comment-hold-cancel{display:none!important}
+.findai-comment-hold-card{
+  border-radius:16px!important;
+  background:rgba(27,29,34,.98)!important;
+  border:1px solid rgba(255,255,255,.09)!important;
+  box-shadow:0 14px 38px rgba(0,0,0,.42),inset 0 1px 0 rgba(255,255,255,.035)!important;
+  overflow:hidden!important;
+}
+.findai-comment-hold-card button{
+  height:50px!important;
+  transition:background .13s ease,transform .13s ease!important;
+}
+.findai-comment-hold-card button:active{transform:scale(.985)!important}
+.wishwave-comment.findai-comment-action-source{
+  position:relative!important;
+  z-index:421!important;
+  transform:scale(.992)!important;
+  filter:brightness(.88)!important;
+  transition:transform .18s cubic-bezier(.18,.88,.24,1),filter .18s ease!important;
+}
+html.findai-light .findai-comment-hold-card{background:rgba(255,255,255,.98)!important}
+
+/* Optimistic comments arrive immediately with a soft premium pop, never a blank delay. */
+.wishwave-comment-optimistic{
+  animation:findaiCommentArrive .24s cubic-bezier(.18,.9,.24,1) both!important;
+}
+@keyframes findaiCommentArrive{
+  from{opacity:.35;transform:translate3d(0,5px,0) scale(.992)}
+  to{opacity:1;transform:none}
+}
+
+/* The old travelling lens could drift off-nav after overlays. Use the Instagram-style
+   selected icon halo itself as the single source of truth. */
+.premium-bottom-nav .findai-v133-nav-indicator{display:none!important}
+.premium-bottom-nav .nav-icon-shell{
+  width:48px!important;height:48px!important;border-radius:20px!important;
+  background:transparent!important;box-shadow:none!important;
+  transition:background .22s cubic-bezier(.16,1,.3,1),transform .22s cubic-bezier(.16,1,.3,1),width .22s cubic-bezier(.16,1,.3,1),height .22s cubic-bezier(.16,1,.3,1)!important;
+}
+.premium-bottom-nav button.active .nav-icon-shell{
+  width:58px!important;height:58px!important;border-radius:22px!important;
+  background:rgba(91,98,104,.76)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 3px 15px rgba(0,0,0,.16)!important;
+  transform:scale(1)!important;
+}
+.premium-bottom-nav button.active[data-tab="profile"] .nav-icon-shell{background:rgba(91,98,104,.76)!important}
+html.findai-light .premium-bottom-nav button.active .nav-icon-shell{background:rgba(0,0,0,.12)!important}
+
+/* Keep horizontal page settling smooth and fully opaque. */
+.findai-v132-swipe-surface{opacity:1!important;filter:none!important}
+.findai-v132-current,.findai-v132-target{opacity:1!important}
+.findai-v132-settle{
+  transition:transform .36s cubic-bezier(.2,.82,.22,1)!important;
+}
+</style>
+
+<script id="findai-v135-premium-interaction-script">
+(function(){
+  const nav=document.querySelector('.nav.findai-five-nav.premium-bottom-nav');
+
+  /* A bottom-nav tap always dismisses what is floating above the app first.
+     This is synchronous so Comments / sign-in / sheets never remain over the new tab. */
+  function dismissTransientUI(){
+    try{if(typeof closeFindAICommentActions==='function')closeFindAICommentActions(true);}catch(_){}
+    try{if(typeof closeWishWaveCommentMedia==='function')closeWishWaveCommentMedia();}catch(_){}
+    try{if(typeof closeLogin==='function')closeLogin();}catch(_){}
+    try{if(typeof closeAccountMenu==='function')closeAccountMenu();}catch(_){}
+    try{if(typeof appClosePro==='function')appClosePro();}catch(_){}
+    try{if(typeof closeCreateListing==='function')closeCreateListing();}catch(_){}
+    try{if(typeof closeWishWavePublicProfile==='function')closeWishWavePublicProfile();}catch(_){}
+    try{
+      const detail=document.getElementById('searchDetailOverlay');
+      if(detail&&detail.classList.contains('show')&&typeof closeSearchResultDetail==='function')closeSearchResultDetail();
+    }catch(_){}
+    try{
+      const sheet=document.getElementById('appMpSheetBg');
+      if(sheet&&sheet.classList.contains('show')&&typeof closeAppMpSheet==='function')closeAppMpSheet();
+    }catch(_){}
+    /* Defensive close for any auth/settings surface that exposes no public closer. */
+    document.querySelectorAll('.account-overlay.show,.app-theme-overlay.show,.app-pro-overlay.show').forEach(el=>{
+      if(el.id==='loginOverlay')return;
+      el.classList.remove('show');
+    });
+  }
+  window.findaiDismissTransientUI=dismissTransientUI;
+
+  if(nav){
+    window.addEventListener('pointerdown',event=>{
+      const button=event.target.closest&&event.target.closest('.premium-bottom-nav button');
+      if(!button)return;
+      dismissTransientUI();
+      /* Clear any abandoned swipe transforms before the requested page becomes visible. */
+      document.querySelectorAll('.findai-v132-swipe-surface').forEach(el=>{
+        el.classList.remove('findai-v132-current','findai-v132-target','findai-v132-settle','findai-v132-swipe-surface');
+        el.style.removeProperty('transform');el.style.removeProperty('opacity');el.style.removeProperty('pointer-events');
+      });
+    },true);
+
+    /* After every nav click, settle the selected icon only after the page state is final. */
+    nav.addEventListener('click',()=>{
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        nav.querySelectorAll('button[data-tab]').forEach(btn=>{
+          btn.classList.toggle('active',String(btn.dataset.tab||'')===String(document.body.dataset.activeTab||'discover'));
+        });
+      }));
+    },false);
+  }
+
+  /* If a modal is visible and the active tab changes for any reason, dismiss it.
+     This also covers programmatic navigation / same-tab refresh. */
+  let lastTab=String(document.body.dataset.activeTab||'discover');
+  new MutationObserver(()=>{
+    const next=String(document.body.dataset.activeTab||'discover');
+    if(next!==lastTab){lastTab=next;dismissTransientUI();}
+  }).observe(document.body,{attributes:true,attributeFilter:['data-active-tab']});
 })();
 </script>
 
