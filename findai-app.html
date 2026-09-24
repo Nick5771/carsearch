@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v129-universal-comments-live-search">
+<meta name="findai-build" content="v130-social-navigation-recents">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -16013,5 +16013,278 @@ html.findai-light .wishwave-comment-attachment-preview{background:#f0f1f3;border
 .wishwave-comment-form .wishwave-comment-send svg{width:22px!important;height:22px!important}
 html.findai-light #search.live-search-interpreting .premium-search-bar:after{border-color:rgba(0,0,0,.18);border-top-color:#111}
 </style>
+<style id="findai-v130-social-navigation-search-style">
+/* v130 — Instagram-style social navigation, recents and comment interactions. */
+.reel-social-action.comment .reel-social-icon svg{transform:scaleX(-1)!important;transform-origin:center!important}
+.wishwave-comment-profile-link{cursor:pointer!important;-webkit-user-select:none;user-select:none}
+.wishwave-comment-profile-link:active{opacity:.68!important}
+
+.findai-comment-hold-overlay{position:fixed;inset:0;z-index:420;display:none;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.42);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.findai-comment-hold-overlay.show{display:flex}
+.findai-comment-hold-sheet{width:min(100%,520px);padding:8px 12px calc(12px + env(safe-area-inset-bottom,0px));transform:translateY(100%);transition:transform .22s cubic-bezier(.2,.82,.24,1)}
+.findai-comment-hold-overlay.show .findai-comment-hold-sheet{transform:translateY(0)}
+.findai-comment-hold-grabber{width:40px;height:4px;border-radius:999px;background:#6d727a;margin:0 auto 9px}
+.findai-comment-hold-card{overflow:hidden;border:1px solid rgba(255,255,255,.08);border-radius:15px;background:#17191d;box-shadow:0 18px 50px rgba(0,0,0,.34)}
+.findai-comment-hold-card button{width:100%;height:50px;border:0;border-bottom:1px solid rgba(255,255,255,.07);background:transparent;color:#f5f6f7;font:700 14px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif}
+.findai-comment-hold-card button:last-child{border-bottom:0}.findai-comment-hold-card button:active{background:#22252a}.findai-comment-hold-card .danger{color:#ff5b5f}
+.findai-comment-hold-cancel{width:100%;height:48px;margin-top:8px;border:0;border-radius:14px;background:#17191d;color:#f5f6f7;font:750 14px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif}
+html.findai-light .findai-comment-hold-card,html.findai-light .findai-comment-hold-cancel{background:#fff;color:#111;border-color:#e5e6e8}
+html.findai-light .findai-comment-hold-card button{color:#111;border-bottom-color:#ececef}html.findai-light .findai-comment-hold-card .danger{color:#e33237}
+
+#search.search-recents-visible .premium-explore-chips{display:none!important}
+.findai-search-recents{position:absolute;left:0;right:0;bottom:50px;z-index:34;display:none;overflow-y:auto;-webkit-overflow-scrolling:touch;background:#050607;padding:5px 18px 30px;scrollbar-width:none}
+.findai-search-recents.show{display:block}.findai-search-recents::-webkit-scrollbar{display:none}
+.findai-recents-head{height:42px;display:flex;align-items:center;justify-content:space-between}.findai-recents-head b{font-size:15px;letter-spacing:-.25px}.findai-recents-clear{border:0;background:transparent;color:#8f969f;font:700 11px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;padding:10px 0}
+.findai-recent-row{width:100%;min-height:60px;display:grid;grid-template-columns:44px minmax(0,1fr) 34px;align-items:center;gap:11px;border:0;border-bottom:1px solid rgba(255,255,255,.055);background:transparent;color:#fff;text-align:left;padding:6px 0}
+.findai-recent-row:last-child{border-bottom:0}.findai-recent-row:active{opacity:.68}
+.findai-recent-thumb{width:44px;height:44px;border-radius:8px;overflow:hidden;background:#171a1f;display:grid;place-items:center;color:#aeb4bc}.findai-recent-thumb.profile{border-radius:50%}.findai-recent-thumb img{width:100%;height:100%;object-fit:cover;display:block}.findai-recent-thumb svg{width:21px;height:21px}
+.findai-recent-copy{min-width:0}.findai-recent-copy b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px;line-height:1.25}.findai-recent-copy span{display:block;margin-top:4px;color:#888f99;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.findai-recent-remove{width:30px;height:30px;border:0;border-radius:50%;background:transparent;color:#89909a;display:grid;place-items:center;font-size:22px;font-weight:300}.findai-recent-remove:active{background:rgba(255,255,255,.06);color:#fff}
+.findai-recents-empty{padding:92px 22px;text-align:center;color:#7f8791;font-size:11px}.findai-recents-empty b{display:block;margin-bottom:7px;color:#f1f2f4;font-size:15px}
+html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .findai-recent-row{color:#111;border-bottom-color:#e8e9eb}.findai-light .findai-recent-thumb{background:#eceef0;color:#60656c}.findai-light .findai-recent-remove:active{background:#e8eaed;color:#111}
+
+/* Tab change animation is short and restrained; it never changes the layout itself. */
+.findai-tab-out-left{animation:findaiTabOutLeft .16s cubic-bezier(.34,.01,.46,1) both!important}.findai-tab-out-right{animation:findaiTabOutRight .16s cubic-bezier(.34,.01,.46,1) both!important}
+.findai-tab-in-right{animation:findaiTabInRight .23s cubic-bezier(.2,.78,.24,1) both!important}.findai-tab-in-left{animation:findaiTabInLeft .23s cubic-bezier(.2,.78,.24,1) both!important}
+@keyframes findaiTabOutLeft{to{transform:translate3d(-12%,0,0);opacity:.42}}@keyframes findaiTabOutRight{to{transform:translate3d(12%,0,0);opacity:.42}}
+@keyframes findaiTabInRight{from{transform:translate3d(12%,0,0);opacity:.5}to{transform:none;opacity:1}}@keyframes findaiTabInLeft{from{transform:translate3d(-12%,0,0);opacity:.5}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){.findai-tab-out-left,.findai-tab-out-right,.findai-tab-in-right,.findai-tab-in-left{animation:none!important}}
+</style>
+
+<script id="findai-v130-social-navigation-search-script">
+(function(){
+  'use strict';
+  const RECENT_KEY='findai_recent_searches_v130';
+  const PRIORITY_KEY='findai_priority_search_v130';
+  const MAX_RECENTS=20;
+  let recentWasTyping=false;
+  let recentQueryTimer=null;
+  let priorityTimer=null;
+  let priorityRecordedQuery='';
+
+  function safeRead(key,fallback){try{const value=JSON.parse(localStorage.getItem(key)||'null');return value===null?fallback:value;}catch(_){return fallback;}}
+  function safeWrite(key,value){try{localStorage.setItem(key,JSON.stringify(value));}catch(_){}}
+  function recentRows(){const rows=safeRead(RECENT_KEY,[]);return Array.isArray(rows)?rows:[];}
+  function recentId(row){return String(row&&row.id||'');}
+  function pushRecent(row){
+    if(!row||!row.id)return;
+    let rows=recentRows();
+    if(row.type==='query'){
+      const q=String(row.query||row.label||'').trim().toLowerCase();
+      rows=rows.filter(old=>{
+        if(old.type!=='query')return true;
+        const oq=String(old.query||old.label||'').trim().toLowerCase();
+        if(!oq)return true;
+        if(oq===q)return false;
+        if(Date.now()-Number(old.at||0)<5*60*1000&&(q.startsWith(oq)||oq.startsWith(q)))return false;
+        return true;
+      });
+    }else rows=rows.filter(old=>recentId(old)!==recentId(row));
+    rows.unshift({...row,at:Date.now()});safeWrite(RECENT_KEY,rows.slice(0,MAX_RECENTS));
+    if(document.getElementById('findaiSearchRecents')?.classList.contains('show'))renderRecents();
+  }
+  function compactItem(item){
+    if(!item)return null;
+    const keys=['itemId','marketplaceListingId','id','title','description','price','totalPrice','shippingCost','currency','image','images','condition','category','source','marketplace','platform','sellerId','sellerName','sellerUsername','sellerAvatar','sellerCountry','location','url','itemWebUrl','commentCount','commentsCount','likeCount','likes','viewCount','views','status','createdAt','publishedAt','_findaiMarketplace'];
+    const out={};for(const key of keys)if(item[key]!==undefined)out[key]=item[key];return out;
+  }
+  function recentProductId(item){return 'product:'+(typeof listingKey==='function'?listingKey(item):String(item&&item.itemId||item&&item.url||item&&item.title||''));}
+  window.findaiRememberRecentProduct=function(item){
+    if(!item)return;const compact=compactItem(item),img=String((typeof premiumProductImage==='function'&&premiumProductImage(item))||item.image||'');
+    pushRecent({id:recentProductId(item),type:'product',label:String(item.title||'Product'),subtitle:(typeof exploreCompactPrice==='function'?exploreCompactPrice(item):'')||String(item.source||''),image:img,item:compact});
+  };
+  window.findaiRememberRecentProfile=function(seller){
+    if(!seller)return;const username=String(seller.username||'').replace(/^@/,'');const label=username||String(seller.displayName||'Profile');
+    const id='profile:'+(seller.id||username.toLowerCase()||label.toLowerCase());
+    pushRecent({id,type:'profile',label,subtitle:String(seller.displayName&&seller.displayName!==label?seller.displayName:'Profile'),image:String(seller.avatarUrl||''),sellerId:String(seller.id||''),username,displayName:String(seller.displayName||label),isSelf:!!seller.isSelf});
+  };
+  function rememberQuery(query){const q=String(query||'').trim();if(q.length<2)return;pushRecent({id:'query:'+q.toLowerCase(),type:'query',label:q,subtitle:'Search',query:q});}
+
+  function ensureRecentsOverlay(){
+    let overlay=document.getElementById('findaiSearchRecents');if(overlay)return overlay;
+    const search=document.getElementById('search');if(!search)return null;
+    overlay=document.createElement('div');overlay.id='findaiSearchRecents';overlay.className='findai-search-recents';overlay.setAttribute('aria-label','Recent searches');search.appendChild(overlay);return overlay;
+  }
+  function recentThumb(row){
+    if(row.image)return '<span class="findai-recent-thumb '+(row.type==='profile'?'profile':'')+'"><img src="'+escapeAttr(row.image)+'" alt="" referrerpolicy="no-referrer" onerror="this.remove()"></span>';
+    const svg=row.type==='profile'?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>';
+    return '<span class="findai-recent-thumb '+(row.type==='profile'?'profile':'')+'">'+svg+'</span>';
+  }
+  function renderRecents(){
+    const overlay=ensureRecentsOverlay();if(!overlay)return;const rows=recentRows();
+    overlay.innerHTML='<div class="findai-recents-head"><b>Recent</b>'+(rows.length?'<button class="findai-recents-clear" type="button" onclick="clearFindAIRecentSearches(event)">Clear all</button>':'')+'</div>'+
+      (rows.length?rows.map((row,index)=>'<div class="findai-recent-row" role="button" tabindex="0" onclick="openFindAIRecent('+index+',event)" onkeydown="if(event.key===\'Enter\'){openFindAIRecent('+index+',event)}">'+recentThumb(row)+'<span class="findai-recent-copy"><b>'+escapeHTML(row.label||'Recent')+'</b><span>'+escapeHTML(row.subtitle||'')+'</span></span><button class="findai-recent-remove" type="button" aria-label="Remove recent" onclick="removeFindAIRecent('+index+',event)">×</button></div>').join(''):'<div class="findai-recents-empty"><b>No recent searches</b>Your searches, profiles and products will appear here.</div>');
+  }
+  function recentsTop(){const search=document.getElementById('search'),header=search&&search.querySelector('.premium-search-home-header'),overlay=ensureRecentsOverlay();if(overlay&&header)overlay.style.top=Math.max(0,header.offsetHeight)+'px';}
+  function showRecents(){const search=document.getElementById('search'),q=document.getElementById('q');if(!search||!q||String(q.value||'').trim())return;search.classList.add('search-recents-visible');renderRecents();const overlay=ensureRecentsOverlay();if(overlay)overlay.classList.add('show');requestAnimationFrame(recentsTop);}
+  function hideRecents(){const search=document.getElementById('search'),overlay=document.getElementById('findaiSearchRecents');if(search)search.classList.remove('search-recents-visible');if(overlay)overlay.classList.remove('show');}
+  window.removeFindAIRecent=function(index,event){if(event){event.preventDefault();event.stopPropagation();}const rows=recentRows();rows.splice(Number(index)||0,1);safeWrite(RECENT_KEY,rows);renderRecents();};
+  window.clearFindAIRecentSearches=function(event){if(event){event.preventDefault();event.stopPropagation();}safeWrite(RECENT_KEY,[]);renderRecents();};
+  window.openFindAIRecent=async function(index,event){
+    if(event){event.preventDefault();event.stopPropagation();}const row=recentRows()[Number(index)||0];if(!row)return;hideRecents();
+    if(row.type==='query'){
+      const q=document.getElementById('q');if(q){q.value=row.query||row.label||'';try{q.focus({preventScroll:true});}catch(_){q.focus();}}
+      rememberQuery(row.query||row.label);setPrioritySearch(row.query||row.label,true);if(window.handlePremiumExploreSubmit)window.handlePremiumExploreSubmit({preventDefault(){}});return;
+    }
+    if(row.type==='profile'){
+      if(row.isSelf){openProfile();return;}if(row.sellerId&&window.openPremiumSellerProfileById){window.openPremiumSellerProfileById(row.sellerId);return;}
+      if(row.username&&window.openFindAIProfileByUsername){window.openFindAIProfileByUsername(row.username);return;}return;
+    }
+    if(row.type==='product'&&row.item){
+      const old=premiumDiscoverySections;try{premiumDiscoverySections=[{config:{id:'recent-v130',title:'Recent'},items:[row.item]}];openPremiumDiscoveryItem('recent-v130',0);}finally{premiumDiscoverySections=old;}return;
+    }
+  };
+
+  function readPriority(){const p=safeRead(PRIORITY_KEY,null);if(!p||!p.query||Date.now()-Number(p.at||0)>8*60*60*1000)return null;return p;}
+  function setPrioritySearch(query,force=false){
+    const clean=String(query||'').trim();if(clean.length<2)return;
+    if(!force&&clean===priorityRecordedQuery)return;priorityRecordedQuery=clean;
+    const prior=readPriority();const items=prior&&String(prior.query).toLowerCase()===clean.toLowerCase()?prior.items||[]:[];
+    safeWrite(PRIORITY_KEY,{query:clean,at:Date.now(),items});
+    try{if(typeof recordInterest==='function')recordInterest(clean,'search',28);}catch(_){}
+  }
+  function capturePriorityItems(){
+    const q=String(document.getElementById('q')?.value||'').trim(),priority=readPriority();if(!q||!priority||q.toLowerCase()!==String(priority.query||'').toLowerCase())return;
+    const section=(typeof premiumDiscoverySections!=='undefined'&&premiumDiscoverySections&&premiumDiscoverySections[0])||null,items=section&&Array.isArray(section.items)?section.items:[];if(!items.length)return;
+    const exact=items.filter(item=>{
+      try{return interestTokenSimilarity(q,String(item.title||item._interestQuery||''))>.18||String(item.title||'').toLowerCase().includes(q.toLowerCase());}catch(_){return true;}
+    }).slice(0,10).map(compactItem);
+    if(exact.length)safeWrite(PRIORITY_KEY,{query:q,at:Date.now(),items:exact});
+  }
+  const discoveryRoot=document.getElementById('premiumDiscoverySections');if(discoveryRoot)new MutationObserver(()=>{clearTimeout(priorityTimer);priorityTimer=setTimeout(capturePriorityItems,70);}).observe(discoveryRoot,{childList:true,subtree:true});
+
+  /* Search intent is deliberately much stronger than a passive impression. */
+  const scoredBeforeV130=window.scoredInterests;
+  if(typeof scoredBeforeV130==='function')window.scoredInterests=function(limit=PERSONALISED_INTEREST_LIMIT){
+    const base=scoredBeforeV130(Math.max(limit,PERSONALISED_INTEREST_LIMIT));const priority=readPriority();if(!priority)return base.slice(0,limit);
+    const query=String(priority.query||'').trim(),cluster='priority_'+interestClusterKey(query);
+    const exact={id:'priority_search_v130',query,discoveryQuery:query,category:interestCategory(query),cluster,score:999,featured:true,_prioritySearch:true};
+    return [exact,...base.filter(x=>x&&x.cluster!==cluster&&String(x.query||'').toLowerCase()!==query.toLowerCase())].slice(0,limit);
+  };
+
+  function injectPriorityIntoHome(){
+    const priority=readPriority();if(!priority||!Array.isArray(priority.items)||!priority.items.length||typeof currentFeedItems==='undefined'||!Array.isArray(currentFeedItems)||!currentFeedItems.length||!feedState||feedState.source!=='personalised')return false;
+    const query=priority.query,existing=new Set(currentFeedItems.map(item=>listingKey(item)));const candidates=priority.items.filter(item=>item&&!existing.has(listingKey(item))).slice(0,3).map(item=>({...item,_interestQuery:query,_interestCategory:interestCategory(query),_interestCluster:'priority_'+interestClusterKey(query)}));
+    if(!candidates.length)return false;
+    let offset=Math.max(0,Number(activeReelIndex)||0)+2;for(let i=0;i<candidates.length;i++){const pos=Math.min(currentFeedItems.length,offset+i*3);currentFeedItems.splice(pos,0,candidates[i]);}
+    return true;
+  }
+  function repaintHomeAfterPriority(){
+    if(!injectPriorityIntoHome())return;const feed=document.getElementById('personalFeed');if(!feed)return;
+    const keep=Math.max(0,Number(activeReelIndex)||0);feed.innerHTML=currentFeedItems.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');attachReelObserver();preloadPersonalisedImages(Math.max(0,keep-2),12);requestAnimationFrame(()=>{const card=feed.querySelector('.reel-card[data-index="'+keep+'"]');if(card)feed.scrollTop=card.offsetTop;beginReelTracking(keep);});
+  }
+  const openForYouV130=window.openForYou;
+  window.openForYou=function(){const result=openForYouV130.apply(this,arguments);setTimeout(repaintHomeAfterPriority,0);return result;};
+
+  const q=document.getElementById('q');
+  if(q){
+    q.addEventListener('focus',()=>{if(!String(q.value||'').trim()){recentWasTyping=false;showRecents();}});
+    q.addEventListener('input',()=>{
+      const clean=String(q.value||'').trim();
+      clearTimeout(recentQueryTimer);clearTimeout(priorityTimer);
+      if(clean){recentWasTyping=true;hideRecents();priorityTimer=setTimeout(()=>setPrioritySearch(clean,false),190);recentQueryTimer=setTimeout(()=>rememberQuery(clean),650);}
+      else{
+        priorityRecordedQuery='';hideRecents();
+        if(!recentWasTyping)showRecents();
+        recentWasTyping=false;
+      }
+    },{passive:true});
+    q.addEventListener('blur',()=>{setTimeout(()=>{if(!document.activeElement||document.activeElement!==q)hideRecents();},90);});
+  }
+
+  /* Record the exact product/profile users chose, not only the text they typed. */
+  const openDiscoveryV130=window.openPremiumDiscoveryItem;
+  if(typeof openDiscoveryV130==='function')window.openPremiumDiscoveryItem=function(sectionId,index){
+    try{const section=premiumDiscoverySectionById(sectionId),item=section&&section.items&&section.items[Number(index)||0];if(item)findaiRememberRecentProduct(item);}catch(_){}
+    return openDiscoveryV130.apply(this,arguments);
+  };
+  const openSellerCollectionV130=window.openPremiumSellerFromCollection;
+  if(typeof openSellerCollectionV130==='function')window.openPremiumSellerFromCollection=function(collection,index,event){
+    try{const rows=collection==='profileMatchRows'?window.profileMatchRows:window.peopleRows,seller=rows&&rows[Number(index)||0];if(seller)findaiRememberRecentProfile(seller);}catch(_){}
+    return openSellerCollectionV130.apply(this,arguments);
+  };
+  const openSellerIdV130=window.openPremiumSellerProfileById;
+  if(typeof openSellerIdV130==='function')window.openPremiumSellerProfileById=function(id){
+    try{const rows=[...(window.peopleRows||[]),...(window.profileMatchRows||[])],seller=rows.find(x=>String(x.id||'')===String(id||''));if(seller)findaiRememberRecentProfile(seller);}catch(_){}
+    return openSellerIdV130.apply(this,arguments);
+  };
+
+  /* Comment avatar/name -> profile. For non-sellers, use the public profile endpoint. */
+  window.openFindAIProfileByUsername=async function(username){
+    const clean=String(username||'').replace(/^@/,'').trim();if(!clean)return;
+    try{
+      const sellers=await marketplaceFetch('/marketplace/sellers/search?q='+encodeURIComponent(clean)+'&limit=8',{method:'GET'}),rows=Array.isArray(sellers&&sellers.sellers)?sellers.sellers:[];
+      const seller=rows.find(s=>String(s.username||'').replace(/^@/,'').toLowerCase()===clean.toLowerCase());
+      if(seller){findaiRememberRecentProfile(seller);if(seller.isSelf){openProfile();return;}return openSellerIdV130?openSellerIdV130(seller.id):openPremiumSellerProfileById(seller.id);}
+    }catch(_){}
+    try{
+      const data=await marketplaceFetch('/profile/public/'+encodeURIComponent(clean),{method:'GET'}),profile=data&&data.profile||{};
+      if(data&&data.viewer&&data.viewer.isSelf){openProfile();return;}
+      const page=ensureWishWavePublicProfilePage(),body=document.getElementById('wishwavePublicProfileBody');if(body)body.innerHTML='<div class="social-profile-loading"><div class="feed-more-spinner"></div><br>Loading profile…</div>';page.classList.add('show');
+      wishwavePublicSellerData={seller:{id:String(data.sellerId||''),displayName:String(profile.displayName||clean),username:String(profile.username||clean),avatarUrl:String(profile.avatarUrl||''),bio:String(profile.bio||''),location:String(profile.location||''),country:String(data.country||'AU'),joinedAt:String(profile.createdAt||''),activeCount:Number(data.activeCount||0),soldCount:Number(data.soldCount||0),followerCount:Number(data.followerCount||0),recentReviews:[]},listings:Array.isArray(data.listings)?data.listings:[],viewer:{signedIn:!!(data.viewer&&data.viewer.signedIn),isSeller:false,isFollowing:!!(data.viewer&&data.viewer.isFollowing)},profileOnly:!data.sellerId};
+      findaiRememberRecentProfile({id:String(data.sellerId||''),username:String(profile.username||clean),displayName:String(profile.displayName||clean),avatarUrl:String(profile.avatarUrl||'')});renderWishWavePublicProfile();
+      if(!data.sellerId){const actions=document.querySelector('#wishwavePublicProfilePage .social-profile-actions');if(actions)actions.innerHTML='';}
+    }catch(error){toast(error&&error.message||'Profile unavailable');}
+  };
+  window.openWishWaveCommentProfile=async function(comment,event){
+    if(event){event.preventDefault();event.stopPropagation();}if(!comment)return;
+    try{closeAppMpSheet();}catch(_){}
+    if(comment.isMine){setTimeout(()=>openProfile(),90);return;}
+    const username=String(comment.username||'').replace(/^@/,'').trim();if(username){setTimeout(()=>openFindAIProfileByUsername(username),80);return;}
+    const display=String(comment.displayName||'').trim();if(display){
+      try{const data=await marketplaceFetch('/marketplace/sellers/search?q='+encodeURIComponent(display)+'&limit=8',{method:'GET'}),seller=(data.sellers||[]).find(s=>String(s.displayName||'').toLowerCase()===display.toLowerCase());if(seller){findaiRememberRecentProfile(seller);setTimeout(()=>openPremiumSellerProfileById(seller.id),80);return;}}catch(_){}
+    }
+    toast('Profile unavailable');
+  };
+  const renderCommentsV130=window.renderWishWaveComments;
+  if(typeof renderCommentsV130==='function')window.renderWishWaveComments=function(data){
+    const out=renderCommentsV130.apply(this,arguments);requestAnimationFrame(()=>{
+      const comments=Array.isArray(wishwaveCommentsData&&wishwaveCommentsData.comments)?wishwaveCommentsData.comments:[];
+      document.querySelectorAll('.wishwave-comments-list .wishwave-comment').forEach((article,index)=>{
+        const comment=comments[index];if(!comment)return;const avatar=article.querySelector('.wishwave-comment-avatar'),name=article.querySelector('.wishwave-comment-head b');
+        [avatar,name].forEach(node=>{if(!node)return;node.classList.add('wishwave-comment-profile-link');node.setAttribute('role','button');node.setAttribute('tabindex','0');node.onclick=event=>openWishWaveCommentProfile(comment,event);node.onkeydown=event=>{if(event.key==='Enter')openWishWaveCommentProfile(comment,event);};});
+      });
+    });return out;
+  };
+
+  /* Long press your own comment for an Instagram-style Edit/Delete action sheet. */
+  function ensureCommentHoldSheet(){
+    let overlay=document.getElementById('findaiCommentHoldOverlay');if(overlay)return overlay;
+    overlay=document.createElement('div');overlay.id='findaiCommentHoldOverlay';overlay.className='findai-comment-hold-overlay';overlay.onclick=event=>{if(event.target===overlay)closeFindAICommentActions();};document.body.appendChild(overlay);return overlay;
+  }
+  window.closeFindAICommentActions=function(){const overlay=document.getElementById('findaiCommentHoldOverlay');if(overlay)overlay.classList.remove('show');};
+  function showCommentActions(article){
+    const id=String(article&&article.dataset.commentId||''),comment=(wishwaveCommentsData.comments||[]).find(c=>String(c.id)===id);if(!id||!comment||!comment.isMine)return;
+    const overlay=ensureCommentHoldSheet(),hasText=!!String(comment.body||'').trim();overlay.innerHTML='<div class="findai-comment-hold-sheet" onclick="event.stopPropagation()"><div class="findai-comment-hold-grabber"></div><div class="findai-comment-hold-card">'+(hasText?'<button type="button" onclick="closeFindAICommentActions();startWishWaveCommentEdit(\''+escapeAttr(id)+'\',event)">Edit</button>':'')+'<button class="danger" type="button" onclick="closeFindAICommentActions();deleteWishWaveComment(\''+escapeAttr(id)+'\',event)">Delete</button></div><button class="findai-comment-hold-cancel" type="button" onclick="closeFindAICommentActions()">Cancel</button></div>';
+    overlay.classList.add('show');try{haptic();}catch(_){}
+  }
+  let hold=null;
+  document.addEventListener('pointerdown',event=>{const article=event.target.closest&&event.target.closest('.wishwave-comment.is-mine');if(!article||event.button>0||event.target.closest('button,input'))return;hold={article,x:event.clientX,y:event.clientY,timer:setTimeout(()=>{if(!hold)return;showCommentActions(article);hold=null;},480)};},{passive:true});
+  document.addEventListener('pointermove',event=>{if(!hold)return;if(Math.hypot(event.clientX-hold.x,event.clientY-hold.y)>9){clearTimeout(hold.timer);hold=null;}},{passive:true});
+  function cancelHold(){if(!hold)return;clearTimeout(hold.timer);hold=null;}document.addEventListener('pointerup',cancelHold,{passive:true});document.addEventListener('pointercancel',cancelHold,{passive:true});
+  document.addEventListener('contextmenu',event=>{if(event.target.closest&&event.target.closest('.wishwave-comment.is-mine'))event.preventDefault();});
+
+  /* Main app tab swiping. Create remains an action, so it is intentionally skipped. */
+  const tabs=['discover','search','messages','profile'];let tabTouch=null,tabAnimating=false;
+  function tabIndex(){return tabs.indexOf(String(document.body.dataset.activeTab||'discover'));}
+  function tabVisual(tab){if(tab==='messages')return document.getElementById('appMpInbox');return document.getElementById(tab);}
+  function openTab(tab){if(tab==='discover')return openForYou();if(tab==='search')return openSearchHome(false);if(tab==='messages')return openMessagesTab();if(tab==='profile')return openProfile();}
+  function overlayOpen(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,#createListingScreen.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show');}
+  function animateTabTo(next,direction){
+    if(tabAnimating)return;const current=tabs[tabIndex()];if(!current||current===next)return;tabAnimating=true;const oldEl=tabVisual(current);if(oldEl)oldEl.classList.add(direction==='next'?'findai-tab-out-left':'findai-tab-out-right');
+    setTimeout(()=>{try{openTab(next);}catch(_){}requestAnimationFrame(()=>{const newEl=tabVisual(next);if(newEl)newEl.classList.add(direction==='next'?'findai-tab-in-right':'findai-tab-in-left');setTimeout(()=>{[oldEl,newEl].forEach(el=>{if(el)el.classList.remove('findai-tab-out-left','findai-tab-out-right','findai-tab-in-right','findai-tab-in-left');});tabAnimating=false;},245);});},110);
+  }
+  document.addEventListener('touchstart',event=>{
+    if(tabAnimating||overlayOpen()||event.touches.length!==1)return;const active=String(document.body.dataset.activeTab||'discover');if(!tabs.includes(active))return;
+    if(event.target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,button,a'))return;
+    const t=event.touches[0];if(t.clientX<24||t.clientX>window.innerWidth-24)return;tabTouch={x:t.clientX,y:t.clientY,active:false,dx:0};
+  },{passive:true});
+  document.addEventListener('touchmove',event=>{if(!tabTouch||event.touches.length!==1)return;const t=event.touches[0],dx=t.clientX-tabTouch.x,dy=t.clientY-tabTouch.y;if(!tabTouch.active){if(Math.abs(dx)<12)return;if(Math.abs(dy)>Math.abs(dx)*.72){tabTouch=null;return;}tabTouch.active=true;}tabTouch.dx=dx;if(Math.abs(dx)>20)event.preventDefault();},{passive:false});
+  document.addEventListener('touchend',()=>{if(!tabTouch)return;const state=tabTouch;tabTouch=null;if(!state.active||Math.abs(state.dx)<58)return;const idx=tabIndex();if(idx<0)return;if(state.dx<0&&idx<tabs.length-1)animateTabTo(tabs[idx+1],'next');else if(state.dx>0&&idx>0)animateTabTo(tabs[idx-1],'prev');},{passive:true});document.addEventListener('touchcancel',()=>{tabTouch=null;},{passive:true});
+
+  window.addEventListener('resize',()=>{if(document.getElementById('findaiSearchRecents')?.classList.contains('show'))recentsTop();},{passive:true});
+})();
+</script>
+
 </body>
 </html>
