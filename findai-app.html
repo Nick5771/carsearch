@@ -4223,9 +4223,9 @@ async function submitCreateListing(event){
   if(!name){toast('Add an item name');return false;}if(!description){toast('Add an item description');return false;}if(!Number.isFinite(price)||price<=0){toast('Enter a valid price');return false;}if(!pendingListingImages.length){toast('Add at least one item image');return false;}
   const submit=$('#createListingSubmit');if(submit){submit.disabled=true;submit.textContent='Uploading images…';}
   try{
-    const uploaded=await marketplaceFetch('/marketplace/images',{method:'POST',body:JSON.stringify({images:pendingListingImages,displayName:profile.name||'WishWave seller',country:'AU'})});
+    const uploaded=await marketplaceFetch('/marketplace/images',{method:'POST',body:JSON.stringify({images:pendingListingImages,displayName:profile.name||'WishWave seller',country:(window.findaiV137Prefs?window.findaiV137Prefs().region:'AU')})});
     if(submit) submit.textContent='Publishing…';
-    const created=await marketplaceFetch('/marketplace/listings',{method:'POST',body:JSON.stringify({title:name,description,condition,itemPrice:Number(price.toFixed(2)),currency:'AUD',shippingMode:'free',shippingMinor:0,imageUrls:uploaded.imageUrls||[],displayName:profile.name||'WishWave seller',publish:true})});
+    const created=await marketplaceFetch('/marketplace/listings',{method:'POST',body:JSON.stringify({title:name,description,condition,itemPrice:Number(price.toFixed(2)),currency:(window.findaiV137Prefs?window.findaiV137Prefs().currency:'AUD'),shippingMode:'free',shippingMinor:0,offersEnabled:(window.findaiV137Prefs?window.findaiV137Prefs().sellerAllowOffers!==false:true),imageUrls:uploaded.imageUrls||[],displayName:profile.name||'WishWave seller',publish:true})});
     const current=getMarketplaceListings();
     const createdId=created&&created.listing&&(created.listing.marketplaceListingId||created.listing.itemId||created.listing.id);
     const nextListings=created&&created.listing?[created.listing,...current.filter(item=>(item.marketplaceListingId||item.itemId||item.id)!==createdId)]:current.slice();
@@ -17467,6 +17467,291 @@ html.findai-light .findai-settings-switch.on{background:#4d8cff}
 
   readPrefs();
   setTimeout(()=>{syncPrefs().catch(()=>{});if(marketplaceSession())window.findaiEnsureUsernameOnboarding(false).catch(()=>{});},900);
+})();
+</script>
+
+
+<style id="findai-v137-settings-style">
+.findai-settings-choice-row{display:flex;gap:7px;flex-wrap:wrap;padding:8px 16px 13px}
+.findai-settings-choice-row button{height:36px;padding:0 13px;border:1px solid rgba(255,255,255,.1);border-radius:11px;background:#171a1f;color:#c8cdd4;font:inherit;font-size:11px;font-weight:700}
+.findai-settings-choice-row button.active{background:#f2f3f5;color:#111;border-color:#f2f3f5}
+.findai-settings-list-empty{padding:35px 20px;color:#838a94;text-align:center;font-size:12px}
+.findai-settings-person{display:grid;grid-template-columns:42px minmax(0,1fr) auto;align-items:center;gap:11px;padding:10px 15px;border-bottom:1px solid rgba(255,255,255,.06)}
+.findai-settings-person-avatar{width:42px;height:42px;border-radius:50%;overflow:hidden;background:#20242a;display:grid;place-items:center;font-weight:800}
+.findai-settings-person-avatar img{width:100%;height:100%;object-fit:cover}
+.findai-settings-person-copy{min-width:0}.findai-settings-person-copy b{display:block;font-size:12px}.findai-settings-person-copy span{display:block;margin-top:3px;color:#858c95;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.findai-settings-person button{height:32px;padding:0 11px;border:1px solid rgba(255,255,255,.11);border-radius:9px;background:#15181d;color:#f2f3f5;font-size:10px;font-weight:750}
+.findai-settings-person button.primary{background:#4d8cff;border-color:#4d8cff;color:#fff}
+.findai-settings-danger-note{padding:14px 17px;color:#989fa8;font-size:11px;line-height:1.5}
+.findai-settings-delete-box{margin:12px 15px;padding:14px;border:1px solid rgba(255,90,90,.23);border-radius:15px;background:rgba(255,70,70,.055)}
+.findai-settings-delete-box input{width:100%;height:42px;margin-top:10px;border:1px solid rgba(255,255,255,.11);border-radius:10px;background:#0b0d10;color:#fff;padding:0 11px;outline:0}
+.findai-settings-delete-box button{width:100%;height:42px;margin-top:9px;border:0;border-radius:10px;background:#d43a3f;color:#fff;font-weight:800}
+.findai-public-more{width:44px!important;min-width:44px!important;padding:0!important}
+html.findai-light .findai-settings-choice-row button{background:#f1f2f4;color:#333;border-color:#dedfe3}
+html.findai-light .findai-settings-choice-row button.active{background:#111;color:#fff;border-color:#111}
+html.findai-light .findai-settings-person{border-bottom-color:#ececef}
+html.findai-light .findai-settings-person button{background:#f2f3f5;color:#111;border-color:#dedfe3}
+html.findai-light .findai-settings-delete-box input{background:#fff;color:#111;border-color:#ddd}
+</style>
+
+<script id="findai-v137-settings-script">
+(function(){
+  'use strict';
+
+  /* Apple sign-in must return to the app route, not the desktop homepage. */
+  window.startAppleAuth=function(){
+    var feedback=document.getElementById('profileAppleFeedback');
+    var authFeedback=document.getElementById('googleAuthError');
+    if(feedback)feedback.textContent='';if(authFeedback)authFeedback.textContent='';
+    if(!appleAuthAvailable){
+      if(feedback)feedback.textContent='Apple sign-in is still loading. Try again in a moment.';
+      if(authFeedback)authFeedback.textContent='Apple sign-in is still loading. Try again in a moment.';
+      initAppleAuth();return;
+    }
+    window.location.assign(WORKER_BASE+'/auth/apple/start?notify=0&client=app');
+  };
+
+  const OLD_PREF_KEY='findai_app_preferences_v136';
+  function prefRead(){
+    try{return {...(window.findaiAppPreferences?window.findaiAppPreferences():{}),...(JSON.parse(localStorage.getItem(OLD_PREF_KEY)||'{}')||{})};}catch(_){return window.findaiAppPreferences?window.findaiAppPreferences():{};}
+  }
+  window.findaiV137Prefs=prefRead;
+  async function prefSave(patch){
+    const current=prefRead(),next={...current,...patch};
+    try{localStorage.setItem(OLD_PREF_KEY,JSON.stringify(next));}catch(_){}
+    try{await marketplaceFetch('/preferences/app',{method:'POST',body:JSON.stringify({settings:next})});}catch(_){}
+    return next;
+  }
+  window.findaiV137SetPref=async function(key,value,button){
+    const next=await prefSave({[key]:value});
+    if(button&&button.classList.contains('findai-settings-switch')){
+      button.classList.toggle('on',!!value);button.setAttribute('aria-pressed',value?'true':'false');
+    }
+    try{haptic()}catch(_){}
+    return next;
+  };
+
+  function selectedButton(label,value,current,key){
+    return '<button type="button" class="'+(String(value)===String(current)?'active':'')+'" onclick="findaiV137SetChoice(\''+key+'\',\''+String(value).replace(/'/g,"\\'")+'\',this)">'+escapeHTML(label)+'</button>';
+  }
+  window.findaiV137SetChoice=async function(key,value,button){
+    await prefSave({[key]:value});
+    if(button&&button.parentElement)button.parentElement.querySelectorAll('button').forEach(b=>b.classList.toggle('active',b===button));
+    if(key==='region')document.documentElement.dataset.region=value;
+    if(key==='currency')document.documentElement.dataset.currency=value;
+    try{haptic()}catch(_){}
+  };
+
+  function settingsHead137(title){
+    return '<div class="findai-settings-head"><button class="findai-settings-back" type="button" onclick="findaiOpenSettingsHome()" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg></button><h2>'+escapeHTML(title)+'</h2><span></span></div>';
+  }
+  function settingRow137(title,sub,onclick,icon,value){
+    return '<button class="findai-settings-row" type="button" onclick="'+escapeAttr(onclick)+'">'+icon+'<span><b>'+escapeHTML(title)+'</b><small>'+escapeHTML(sub||'')+'</small></span>'+(value?'<span class="findai-settings-value">'+escapeHTML(value)+'</span>':'<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>')+'</button>';
+  }
+  function switchRow137(key,title,sub,on){
+    return '<div class="findai-settings-row no-chevron"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8"/></svg></span><span><b>'+escapeHTML(title)+'</b><small>'+escapeHTML(sub)+'</small></span><button class="findai-settings-switch '+(on?'on':'')+'" type="button" onclick="event.stopPropagation();findaiV137SetPref(\''+key+'\','+(!on)+',this)"></button></div>';
+  }
+
+  window.findaiOpenSettingsPane=(function(previous){
+    return function(name){
+      if(!['privacy','shopping','seller','account-management','blocked','muted','follow-requests'].includes(name))return previous(name);
+      const sheet=document.getElementById('appThemeOverlay')?.querySelector('.app-theme-sheet');if(!sheet)return;
+      const prefs=prefRead();
+      if(name==='privacy'){
+        sheet.innerHTML='<div class="findai-settings-detail">'+settingsHead137('Privacy')+
+          '<section class="findai-settings-section">'+
+          switchRow137('privateAccount','Private account','New followers must be approved before they can see your listings.',prefs.privateAccount===true)+
+          switchRow137('showActivityStatus','Activity status','Let people you message see when you are active.',prefs.showActivityStatus!==false)+
+          '</section><div class="findai-settings-detail-copy">Who can message you</div><div class="findai-settings-choice-row">'+
+          selectedButton('Everyone','everyone',prefs.messagePermission||'everyone','messagePermission')+
+          selectedButton('Followers','followers',prefs.messagePermission||'everyone','messagePermission')+
+          selectedButton('No one','no_one',prefs.messagePermission||'everyone','messagePermission')+
+          '</div><section class="findai-settings-section">'+
+          settingRow137('Follow requests','Approve or decline people requesting to follow you',"findaiOpenSettingsPane('follow-requests')",'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 19a6 6 0 0 0-12 0"/><circle cx="9" cy="7" r="4"/><path d="M18 8v6M15 11h6"/></svg>')+
+          settingRow137('Blocked accounts','They cannot follow or message you',"findaiOpenSettingsPane('blocked')",'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg>')+
+          settingRow137('Muted accounts','Hide their notifications without blocking them',"findaiOpenSettingsPane('muted')",'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="m17 9 4 4M21 9l-4 4"/></svg>')+
+          '</section></div>';
+      }else if(name==='shopping'){
+        sheet.innerHTML='<div class="findai-settings-detail">'+settingsHead137('Shopping preferences')+
+          '<div class="findai-settings-detail-copy">Region</div><div class="findai-settings-choice-row">'+
+          [['Australia','AU'],['United States','US'],['United Kingdom','GB'],['Canada','CA'],['New Zealand','NZ']].map(x=>selectedButton(x[0],x[1],prefs.region||'AU','region')).join('')+
+          '</div><div class="findai-settings-detail-copy">Currency</div><div class="findai-settings-choice-row">'+
+          [['AUD','AUD'],['USD','USD'],['GBP','GBP'],['CAD','CAD'],['NZD','NZD'],['EUR','EUR']].map(x=>selectedButton(x[0],x[1],prefs.currency||'AUD','currency')).join('')+
+          '</div><section class="findai-settings-section">'+
+          switchRow137('saveSearchHistory','Save search history','Keep recent searches so Search can reopen them quickly.',prefs.saveSearchHistory!==false)+
+          switchRow137('savedSearchAlerts','Saved-search alerts','Allow FindAI to alert you when strongly matching products are found.',prefs.savedSearchAlerts!==false)+
+          settingRow137('Saved searches','Keep searches you want to return to',"findaiOpenSavedSearchManager()",'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 4h12v16l-6-4-6 4V4Z"/></svg>')+
+          settingRow137('Recent searches','Review and remove individual recent searches',"findaiOpenRecentSearchManager()",'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="7"/><path d="m16 16 4 4"/></svg>')+
+          settingRow137('Tracked products','Products you are watching for price changes',"closeAppSettings();go('tracker')",'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 18h16M6 15l4-5 3 3 5-7"/></svg>')+
+          '</section></div>';
+      }else if(name==='seller'){
+        sheet.innerHTML='<div class="findai-settings-detail">'+settingsHead137('Selling preferences')+
+          '<div class="findai-settings-detail-copy">Default condition for new listings</div><div class="findai-settings-choice-row">'+
+          selectedButton('New','New',prefs.sellerDefaultCondition||'New','sellerDefaultCondition')+
+          selectedButton('Used','Used',prefs.sellerDefaultCondition||'New','sellerDefaultCondition')+
+          selectedButton('New (Other)','New (Other)',prefs.sellerDefaultCondition||'New','sellerDefaultCondition')+
+          '</div><section class="findai-settings-section">'+
+          switchRow137('sellerAllowOffers','Allow offers by default','Let buyers make offers on newly created listings.',prefs.sellerAllowOffers!==false)+
+          '</section></div>';
+      }else if(name==='account-management'){
+        const p=getAccountProfile()||{};
+        sheet.innerHTML='<div class="findai-settings-detail">'+settingsHead137('Account management')+
+          '<section class="findai-settings-section">'+
+          settingRow137('Username',p.username?'@'+p.username:'','closeAppSettings();openProfileEdit()', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>',p.username?'@'+p.username:'')+
+          settingRow137('Email',p.email||'','void(0)', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4.5 7 7.5 6 7.5-6"/></svg>',p.email||'')+
+          settingRow137('Current session','This device',"void(0)",'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>','Active')+
+          '</section><div class="findai-settings-danger-note">Deleting your account removes your FindAI profile, preferences, social connections, notifications and active listings. Completed transaction records may be retained where required for fraud, payment or legal obligations.</div>'+
+          '<div class="findai-settings-delete-box"><b>Delete account</b><div style="margin-top:6px;color:#9aa1aa;font-size:11px">Type DELETE to permanently remove your FindAI account.</div><input id="findaiDeleteAccountConfirm" autocomplete="off" placeholder="DELETE"><button type="button" onclick="findaiDeleteMyAccount()">Delete account permanently</button><div id="findaiDeleteAccountStatus" style="margin-top:8px;color:#ff8a8f;font-size:11px"></div></div></div>';
+      }else{
+        renderSocialControlPane(name,sheet);
+      }
+      document.getElementById('appThemeOverlay')?.classList.add('show','findai-settings-full');document.body.classList.add('findai-settings-open');applyAppTheme();
+    };
+  })(window.findaiOpenSettingsPane);
+
+  const oldHome=window.findaiOpenSettingsHome;
+  window.findaiOpenSettingsHome=function(){
+    oldHome();
+    const page=document.querySelector('.findai-settings-page.v136-settings');if(!page)return;
+    const accountSection=page.querySelector('.findai-settings-section');
+    if(accountSection){
+      const btn=document.createElement('button');btn.className='findai-settings-row';btn.type='button';btn.onclick=()=>findaiOpenSettingsPane('account-management');
+      btn.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="5" width="16" height="14" rx="3"/><path d="M8 9h8M8 13h5"/></svg><span><b>Account management</b><small>Login, session and account deletion</small></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>';
+      accountSection.appendChild(btn);
+    }
+    const useSections=[...page.querySelectorAll('.findai-settings-section')];
+    const how=useSections[1];
+    if(how){
+      const sell=document.createElement('button');sell.className='findai-settings-row';sell.type='button';sell.onclick=()=>findaiOpenSettingsPane('seller');
+      sell.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7h18v12H3z"/><path d="M8 7V4h8v3"/></svg><span><b>Selling preferences</b><small>Listing defaults and offers</small></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>';
+      how.appendChild(sell);
+    }
+  };
+
+  async function renderSocialControlPane(kind,sheet){
+    const title=kind==='blocked'?'Blocked accounts':kind==='muted'?'Muted accounts':'Follow requests';
+    sheet.innerHTML='<div class="findai-settings-detail">'+settingsHead137(title)+'<div id="findaiControlList"><div class="findai-settings-list-empty">Loading…</div></div></div>';
+    try{
+      const data=kind==='follow-requests'
+        ?await marketplaceFetch('/social/follow-requests',{method:'GET'})
+        :await marketplaceFetch('/social/controls?kind='+encodeURIComponent(kind),{method:'GET'});
+      const rows=kind==='follow-requests'?(data.requests||[]):(data.accounts||[]);
+      const root=document.getElementById('findaiControlList');if(!root)return;
+      if(!rows.length){root.innerHTML='<div class="findai-settings-list-empty">No '+(kind==='follow-requests'?'follow requests':kind+' accounts')+'.</div>';return;}
+      root.innerHTML=rows.map(row=>'<div class="findai-settings-person"><div class="findai-settings-person-avatar">'+(row.avatarUrl?'<img src="'+escapeAttr(row.avatarUrl)+'" alt="">':escapeHTML(String(row.displayName||row.username||'F').charAt(0).toUpperCase()))+'</div><div class="findai-settings-person-copy"><b>'+escapeHTML(row.username)+'</b><span>'+escapeHTML(row.displayName||'')+'</span></div>'+(kind==='follow-requests'?'<span><button class="primary" onclick="findaiFollowRequestAction(\''+escapeAttr(row.username)+'\',\'approve\')">Approve</button> <button onclick="findaiFollowRequestAction(\''+escapeAttr(row.username)+'\',\'decline\')">Delete</button></span>':'<button onclick="findaiRemoveControl(\''+kind+'\',\''+escapeAttr(row.username)+'\')">'+(kind==='blocked'?'Unblock':'Unmute')+'</button>')+'</div>').join('');
+    }catch(e){const root=document.getElementById('findaiControlList');if(root)root.innerHTML='<div class="findai-settings-list-empty">'+escapeHTML(e.message||'Could not load this list')+'</div>';}
+  }
+  window.findaiRemoveControl=async function(kind,username){await marketplaceFetch('/social/controls',{method:'DELETE',body:JSON.stringify({kind,username})});findaiOpenSettingsPane(kind);};
+  window.findaiFollowRequestAction=async function(username,action){await marketplaceFetch('/social/follow-requests/'+encodeURIComponent(username),{method:'PATCH',body:JSON.stringify({action})});findaiOpenSettingsPane('follow-requests');};
+
+
+  window.findaiSavedSearches=function(){
+    try{return JSON.parse(localStorage.getItem('findai_saved_searches_v137')||'[]')||[];}catch(_){return [];}
+  };
+  window.findaiOpenSavedSearchManager=function(){
+    const sheet=document.getElementById('appThemeOverlay')?.querySelector('.app-theme-sheet');if(!sheet)return;
+    const rows=findaiSavedSearches();
+    sheet.innerHTML='<div class="findai-settings-detail">'+settingsHead137('Saved searches')+
+      '<div style="display:flex;gap:8px;padding:14px 15px"><input id="findaiSavedSearchInput" style="flex:1;height:42px;border:1px solid rgba(255,255,255,.11);border-radius:11px;background:#101318;color:#fff;padding:0 11px;outline:0" placeholder="e.g. LEGO SpongeBob"><button style="height:42px;padding:0 14px;border:0;border-radius:11px;background:#4d8cff;color:#fff;font-weight:800" onclick="findaiAddSavedSearch()">Save</button></div>'+
+      '<div id="findaiSavedSearchList">'+(rows.length?rows.map((q,i)=>'<div class="findai-settings-person"><div class="findai-settings-person-avatar">⌕</div><div class="findai-settings-person-copy"><b>'+escapeHTML(q)+'</b><span>Saved search</span></div><button onclick="findaiRemoveSavedSearch('+i+')">Remove</button></div>').join(''):'<div class="findai-settings-list-empty">No saved searches.</div>')+'</div></div>';
+  };
+  window.findaiAddSavedSearch=function(){
+    const input=document.getElementById('findaiSavedSearchInput'),q=String(input&&input.value||'').trim();
+    if(!q)return;
+    const rows=findaiSavedSearches().filter(x=>String(x).toLowerCase()!==q.toLowerCase());
+    rows.unshift(q);try{localStorage.setItem('findai_saved_searches_v137',JSON.stringify(rows.slice(0,30)));}catch(_){}
+    findaiOpenSavedSearchManager();
+  };
+  window.findaiRemoveSavedSearch=function(index){
+    const rows=findaiSavedSearches();rows.splice(Number(index)||0,1);try{localStorage.setItem('findai_saved_searches_v137',JSON.stringify(rows));}catch(_){}
+    findaiOpenSavedSearchManager();
+  };
+
+  window.findaiOpenRecentSearchManager=function(){
+    const sheet=document.getElementById('appThemeOverlay')?.querySelector('.app-theme-sheet');if(!sheet)return;
+    let recents=[];try{recents=JSON.parse(localStorage.getItem('findai_recent_searches_v130')||'[]')||[];}catch(_){}
+    sheet.innerHTML='<div class="findai-settings-detail">'+settingsHead137('Recent searches')+'<div id="findaiRecentManager">'+(recents.length?recents.map((r,i)=>'<div class="findai-settings-person"><div class="findai-settings-person-avatar">⌕</div><div class="findai-settings-person-copy"><b>'+escapeHTML(String(r.label||r.query||r.title||r.username||'Recent'))+'</b><span>'+escapeHTML(String(r.type||'search'))+'</span></div><button onclick="findaiRemoveRecentManaged('+i+')">Remove</button></div>').join(''):'<div class="findai-settings-list-empty">No recent searches.</div>')+'</div></div>';
+  };
+  window.findaiRemoveRecentManaged=function(index){
+    let recents=[];try{recents=JSON.parse(localStorage.getItem('findai_recent_searches_v130')||'[]')||[];}catch(_){}
+    recents.splice(Number(index)||0,1);try{localStorage.setItem('findai_recent_searches_v130',JSON.stringify(recents));}catch(_){}
+    findaiOpenRecentSearchManager();
+  };
+
+  window.findaiDeleteMyAccount=async function(){
+    const input=document.getElementById('findaiDeleteAccountConfirm'),status=document.getElementById('findaiDeleteAccountStatus');
+    if(!input||input.value!=='DELETE'){if(status)status.textContent='Type DELETE exactly to continue.';return;}
+    if(!confirm('Permanently delete your FindAI account? This cannot be undone.'))return;
+    try{
+      await marketplaceFetch('/account/delete',{method:'POST',body:JSON.stringify({confirm:'DELETE'})});
+      try{localStorage.clear();sessionStorage.clear();}catch(_){}
+      signOutAccount();closeAppSettings();toast('Account deleted');
+    }catch(e){if(status)status.textContent=e.message||'Account could not be deleted';}
+  };
+
+  /* Profile-level block/mute controls. */
+  const oldPublicRender=window.renderWishWavePublicProfile;
+  window.renderWishWavePublicProfile=function(){
+    oldPublicRender();
+    const data=wishwavePublicSellerData,viewer=data&&data.viewer||{};
+    if(!data||viewer.isSeller)return;
+    const actions=document.querySelector('#wishwavePublicProfileBody .social-profile-actions');if(!actions||actions.querySelector('.findai-public-more'))return;
+    const more=document.createElement('button');more.type='button';more.className='findai-public-more';more.textContent='⋯';more.setAttribute('aria-label','More actions');more.onclick=openFindAIProfileActions;actions.appendChild(more);
+    const follow=document.getElementById('wishwavePublicFollowButton');
+    if(follow&&viewer.pending&&!viewer.isFollowing){follow.textContent='Requested';follow.classList.add('following');}
+  };
+  window.openFindAIProfileActions=async function(){
+    const seller=wishwavePublicSellerData&&wishwavePublicSellerData.seller;if(!seller||!seller.username)return;
+    let rel={blocked:false,muted:false};try{rel=await marketplaceFetch('/social/relationship?username='+encodeURIComponent(seller.username),{method:'GET'});}catch(_){}
+    openAppMpSheet('Profile options','<div class="app-mp-inline" style="display:grid;gap:8px">'+
+      '<button class="app-mp-mini" style="height:46px" onclick="findaiProfileControl(\'muted\','+(!rel.muted)+')">'+(rel.muted?'Unmute':'Mute')+'</button>'+
+      '<button class="app-mp-mini danger" style="height:46px" onclick="findaiProfileControl(\'blocked\','+(!rel.blocked)+')">'+(rel.blocked?'Unblock':'Block')+'</button>'+
+      '</div>');
+  };
+  window.findaiProfileControl=async function(kind,active){
+    const seller=wishwavePublicSellerData&&wishwavePublicSellerData.seller;if(!seller||!seller.username)return;
+    await marketplaceFetch('/social/controls',{method:active?'POST':'DELETE',body:JSON.stringify({kind,username:seller.username})});
+    closeAppMpSheet();
+    if(kind==='blocked'&&active){closeWishWavePublicProfile();toast('Account blocked');}
+    else toast(active?(kind==='muted'?'Account muted':'Account blocked'):(kind==='muted'?'Account unmuted':'Account unblocked'));
+  };
+
+  /* Follow buttons understand private-account requests. */
+  const oldTogglePublic=window.toggleWishWavePublicSellerFollow;
+  window.toggleWishWavePublicSellerFollow=async function(){
+    if(!wishwavePublicSellerData)return;
+    const seller=wishwavePublicSellerData.seller||{},viewer=wishwavePublicSellerData.viewer||{};
+    if(viewer.isSeller)return;if(!viewer.signedIn){openLogin();return;}
+    const sellerId=String(seller.id||'');if(!sellerId)return;
+    const button=document.getElementById('wishwavePublicFollowButton');
+    const removing=!!viewer.isFollowing||!!viewer.pending;
+    if(button){button.disabled=true;button.textContent=removing?'Follow':(viewer.isPrivate?'Requested':'Following');button.classList.toggle('following',!removing);}
+    try{
+      const data=await marketplaceFetch('/marketplace/sellers/'+encodeURIComponent(sellerId)+'/follow',{method:removing?'DELETE':'POST'});
+      viewer.isFollowing=!!data.isFollowing;viewer.pending=!!data.pending;seller.followerCount=Math.max(0,Number(data.followerCount)||0);
+      const count=document.getElementById('wishwavePublicFollowerCount');if(count)count.textContent=profileMetricCompact(seller.followerCount);
+      if(button){button.textContent=viewer.isFollowing?'Following':viewer.pending?'Requested':'Follow';button.classList.toggle('following',viewer.isFollowing||viewer.pending);}
+      try{if(window.findaiFollowFeedback)window.findaiFollowFeedback(button);else haptic();}catch(_){}
+    }catch(e){toast(e.message||'Could not update follow');renderWishWavePublicProfile();}finally{if(button)button.disabled=false;}
+  };
+
+  /* Seller defaults are actually applied to Create Listing. */
+  const oldResetCreate=window.resetCreateListingForm;
+  window.resetCreateListingForm=function(){
+    oldResetCreate();
+    const prefs=prefRead(),cond=prefs.sellerDefaultCondition||'New';
+    try{selectListingCondition(cond);}catch(_){}
+  };
+  const oldSubmitCreate=window.submitCreateListing;
+  window.submitCreateListing=async function(event){
+    const prefs=prefRead();
+    document.documentElement.dataset.region=prefs.region||'AU';
+    document.documentElement.dataset.currency=prefs.currency||'AUD';
+    return oldSubmitCreate(event);
+  };
+
+  /* Apply saved region immediately. */
+  const p=prefRead();document.documentElement.dataset.region=p.region||'AU';document.documentElement.dataset.currency=p.currency||'AUD';
 })();
 </script>
 
