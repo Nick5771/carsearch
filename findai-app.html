@@ -12046,6 +12046,92 @@ window.addEventListener('load', function(){
       read_at:''
     }));
   }
+  function notificationActorName(n){
+    return String(n.actor_display_name||n.actor_username||'').trim();
+  }
+  function notificationActorUsername(n){
+    const raw=String(n.actor_username||'').trim();
+    return raw?('@'+raw.replace(/^@+/,'')):'';
+  }
+  function notificationTypeLabel(n){
+    const type=String(n.notification_type||'').toLowerCase();
+    const actor=notificationActorName(n);
+    if(type==='follow_request'||type.includes('follow_request'))return actor?(actor+' requested to follow you'):'Someone requested to follow you';
+    if(type==='follow_accepted'||type.includes('follow_accepted'))return actor?(actor+' accepted your follow request'):'Your follow request was accepted';
+    if(type==='follow'||type.includes('started_following'))return actor?(actor+' started following you'):'Someone started following you';
+    if(type.includes('message'))return actor?(actor+' sent you a message'):'New message';
+    if(type.includes('like'))return actor?(actor+' liked your listing'):'Someone liked your listing';
+    if(type.includes('comment'))return actor?(actor+' commented on your listing'):'New comment';
+    if(type.includes('price'))return 'Price drop';
+    if(type.includes('offer')&&type.includes('accept'))return 'Offer accepted';
+    if(type.includes('offer'))return 'Offer update';
+    if(type.includes('listing'))return 'New listing';
+    if(type.includes('view'))return String(n.title||'Listing update');
+    return String(n.title||'FindAI notification');
+  }
+  function notificationSecondaryText(n){
+    const type=String(n.notification_type||'').toLowerCase();
+    const username=notificationActorUsername(n);
+    const body=String(n.body||'').trim();
+    if(type.includes('follow')){
+      if(username&&body&&body.replace(/^@/,'')!==username.replace(/^@/,''))return username+' · '+body;
+      return username||body;
+    }
+    return body;
+  }
+  function notificationBadge(type){
+    const t=String(type||'').toLowerCase();
+    let cls='',svg='';
+    if(t.includes('follow')){
+      cls='follow';svg='<circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M18 7v6M15 10h6"/>';
+    }else if(t.includes('like')){
+      cls='like';svg='<path d="M20.8 4.7a5.6 5.6 0 0 0-7.9 0L12 5.6l-.9-.9a5.6 5.6 0 0 0-7.9 7.9L12 21l8.8-8.4a5.6 5.6 0 0 0 0-7.9Z"/>';
+    }else if(t.includes('price')){
+      cls='price';svg='<path d="M12 4v16M6.5 14.5 12 20l5.5-5.5"/>';
+    }else if(t.includes('offer')&&t.includes('accept')){
+      cls='offer';svg='<path d="m6 12 4 4 8-9"/>';
+    }else if(t.includes('message')||t.includes('comment')){
+      svg='<path d="M4 5h16v12H8l-4 4V5Z"/>';
+    }else{
+      svg='<path d="M18 8a6 6 0 0 0-12 0c0 6-3 7-3 9h18c0-2-3-3-3-9Z"/><path d="M10 21h4"/>';
+    }
+    return '<span class="findai-notification-mini-badge '+cls+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">'+svg+'</svg></span>';
+  }
+  function notificationVisual(n){
+    const type=String(n.notification_type||'').toLowerCase();
+    const avatar=String(n.actor_avatar_url||'').trim();
+    const image=String(n.image_url||'').trim();
+    const actor=notificationActorName(n);
+    const actorFirst=(actor||notificationActorUsername(n)||'F').replace(/^@/,'').charAt(0).toUpperCase();
+    const actorish=type.includes('follow')||type.includes('message')||type.includes('comment')||type.includes('like');
+    if(actorish){
+      return '<span class="findai-notification-avatar-wrap"><span class="findai-notification-avatar">'+
+        (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':escapeHTML(actorFirst))+
+        '</span>'+notificationBadge(type)+'</span>';
+    }
+    if(image){
+      return '<span class="findai-notification-product-wrap"><span class="findai-notification-product"><img src="'+escapeAttr(image)+'" alt=""></span>'+notificationBadge(type)+'</span>';
+    }
+    return '<span class="findai-notification-avatar-wrap"><span class="findai-notification-avatar">'+escapeHTML(actorFirst)+'</span>'+notificationBadge(type)+'</span>';
+  }
+  function notificationSide(n,index){
+    const type=String(n.notification_type||'').toLowerCase();
+    const username=String(n.actor_username||'').trim();
+    const image=String(n.image_url||'').trim();
+    if(type.includes('follow_request')&&username){
+      return '<span class="findai-notification-side">'+
+        '<button class="findai-notification-action primary" type="button" onclick="findaiNotificationFollowRequestAction(event,'+index+',\'approve\')">Confirm</button>'+
+        '<button class="findai-notification-action" type="button" onclick="findaiNotificationFollowRequestAction(event,'+index+',\'decline\')">Delete</button>'+
+      '</span>';
+    }
+    if(type==='follow'||(type.includes('follow')&&!type.includes('request')&&!type.includes('accepted'))){
+      return '<span class="findai-notification-side"><button class="findai-notification-action" type="button" onclick="findaiNotificationOpenActor(event,'+index+')">View</button></span>';
+    }
+    if((type.includes('like')||type.includes('comment'))&&image){
+      return '<span class="findai-notification-side"><span class="findai-notification-side-thumb"><img src="'+escapeAttr(image)+'" alt=""></span></span>';
+    }
+    return '<span class="findai-notification-side"><span class="findai-notification-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg></span></span>';
+  }
   function renderHomeNotifications(){
     ensureNotificationUI();
     const root=document.getElementById('findaiNotificationList');
@@ -12057,18 +12143,71 @@ window.addEventListener('load', function(){
     const now=Date.now(),day=864e5,week=7*day;
     const buckets=[{key:'today',title:'Today',items:[]},{key:'week',title:'This week',items:[]},{key:'earlier',title:'Earlier',items:[]}];
     appNotificationCache.forEach((n,index)=>{
-      const age=Math.max(0,now-Date.parse(n.created_at||now));const bucket=age<day?buckets[0]:age<week?buckets[1]:buckets[2];bucket.items.push({n,index});
+      const age=Math.max(0,now-Date.parse(n.created_at||now));
+      const bucket=age<day?buckets[0]:age<week?buckets[1]:buckets[2];
+      bucket.items.push({n,index});
     });
     const itemMarkup=({n,index})=>{
-      const unread=!n.read_at,actorAvatar=String(n.actor_avatar_url||''),image=String(n.image_url||''),type=String(n.notification_type||'').toLowerCase();
-      const productish=!!image&&(type.includes('price')||type.includes('listing')||type.includes('comment')||type.includes('like')||type.includes('view'));
-      const visual=actorAvatar&&!productish?'<span class="findai-notification-thumb"><img src="'+escapeAttr(actorAvatar)+'" alt=""></span>':image?'<span class="findai-notification-thumb product"><img src="'+escapeAttr(image)+'" alt=""></span>':'<span class="findai-notification-icon">'+notificationIcon(n.notification_type)+'</span>';
-      return '<button class="findai-notification-item" type="button" onclick="openFindAINotification('+index+')">'+visual+
-        '<span class="findai-notification-copy"><b>'+escapeHTML(n.title||'FindAI notification')+(unread?'<i class="findai-notification-unread"></i>':'')+'</b><span>'+escapeHTML(n.body||'')+'</span></span>'+
-        '<span class="findai-notification-time">'+escapeHTML(notificationTime(n.created_at))+'</span></button>';
+      const unread=!n.read_at;
+      const title=notificationTypeLabel(n);
+      const secondary=notificationSecondaryText(n);
+      const time=notificationTime(n.created_at);
+      const type=String(n.notification_type||'').toLowerCase();
+      const actorOpen=(type.includes('follow')||type.includes('message'))&&n.actor_username;
+      return '<div class="findai-notification-item" role="button" tabindex="0" onclick="'+(actorOpen?'findaiNotificationOpenActor(event,'+index+')':'openFindAINotification('+index+')')+'">'+
+        notificationVisual(n)+
+        '<span class="findai-notification-copy"><b>'+escapeHTML(title)+(unread?'<i class="findai-notification-unread"></i>':'')+
+          (time?'<span class="findai-notification-meta">'+escapeHTML(time)+'</span>':'')+
+        '</b>'+(secondary?'<span>'+escapeHTML(secondary)+'</span>':'')+'</span>'+
+        notificationSide(n,index)+
+      '</div>';
     };
-    root.innerHTML=buckets.filter(b=>b.items.length).map(b=>'<div class="findai-notification-group"><div class="findai-notification-group-title">'+b.title+'</div>'+b.items.map(itemMarkup).join('')+'</div>').join('');
+    root.innerHTML=buckets.filter(b=>b.items.length).map(b=>
+      '<div class="findai-notification-group"><div class="findai-notification-group-title">'+b.title+'</div>'+
+      b.items.map(itemMarkup).join('')+'</div>'
+    ).join('');
   }
+  window.findaiNotificationOpenActor=async function(event,index){
+    if(event){event.preventDefault();event.stopPropagation();}
+    const n=appNotificationCache[Number(index)];
+    if(!n)return;
+    try{
+      if(!n.local&&n.id&&marketplaceSession())await marketplaceFetch('/marketplace/notifications/read',{method:'POST',body:JSON.stringify({id:n.id})});
+    }catch(_){}
+    n.read_at=n.read_at||new Date().toISOString();
+    const username=String(n.actor_username||'').replace(/^@+/,'');
+    if(username&&typeof openFindAIProfileByUsername==='function'){
+      closeHomeNotifications();
+      try{await openFindAIProfileByUsername(username);}catch(_){}
+    }else{
+      openFindAINotification(index);
+    }
+  };
+  window.findaiNotificationFollowRequestAction=async function(event,index,action){
+    if(event){event.preventDefault();event.stopPropagation();}
+    const n=appNotificationCache[Number(index)];
+    if(!n)return;
+    const username=String(n.actor_username||'').replace(/^@+/,'');
+    if(!username)return;
+    const row=event&&event.target&&event.target.closest?event.target.closest('.findai-notification-item'):null;
+    if(row)row.style.opacity='.62';
+    try{
+      await marketplaceFetch('/social/follow-requests/'+encodeURIComponent(username),{
+        method:'PATCH',body:JSON.stringify({action:action})
+      });
+      if(n.id&&marketplaceSession()){
+        try{await marketplaceFetch('/marketplace/notifications/read',{method:'POST',body:JSON.stringify({id:n.id})});}catch(_){}
+      }
+      appNotificationCache.splice(Number(index),1);
+      appNotificationUnread=appNotificationCache.reduce((sum,item)=>sum+(!item.read_at?1:0),0);
+      if(typeof setHomeNotificationState==='function')setHomeNotificationState(appNotificationUnread);
+      renderHomeNotifications();
+      try{if(typeof haptic==='function')haptic();}catch(_){}
+    }catch(err){
+      if(row)row.style.opacity='';
+      try{toast(err&&err.message?err.message:'Could not update follow request');}catch(_){}
+    }
+  };
   async function loadHomeNotifications(){
     ensureNotificationUI();
     let server={unreadCount:0,notifications:[]};
@@ -18013,6 +18152,257 @@ html.findai-light .findai-settings-search-result{color:#111;border-bottom-color:
   },120);
 })();
 </script>
+
+
+<style id="findai-v139-notification-bell-final">
+#discover .discover-notification-button,
+#discover .discover-notification-button.has-notification{
+  color:#fff!important;
+}
+#discover .discover-notification-button.has-notification svg{
+  color:#fff!important;
+  stroke:#fff!important;
+  fill:none!important;
+}
+html.findai-light #discover .discover-notification-button,
+html.findai-light #discover .discover-notification-button.has-notification{
+  color:#111214!important;
+}
+html.findai-light #discover .discover-notification-button.has-notification svg{
+  color:#111214!important;
+  stroke:#111214!important;
+}
+#discover .discover-notification-dot{
+  top:4px!important;
+  right:3px!important;
+  width:7px!important;
+  height:7px!important;
+  min-width:7px!important;
+  min-height:7px!important;
+  background:#ff3045!important;
+  border:1.5px solid #050607!important;
+}
+html.findai-light #discover .discover-notification-dot{
+  border-color:#f7f7f8!important;
+}
+</style>
+
+<style id="findai-v139-instagram-notifications-style">
+/* Full, calm activity surface instead of compact floating AI-looking cards. */
+.findai-notification-backdrop{
+  background:rgba(0,0,0,.16)!important;
+  backdrop-filter:blur(1.5px)!important;
+  -webkit-backdrop-filter:blur(1.5px)!important;
+}
+.findai-notification-panel{
+  top:calc(var(--safe-top) + 64px)!important;
+  left:10px!important;
+  right:10px!important;
+  bottom:58px!important;
+  width:auto!important;
+  max-height:none!important;
+  border-radius:20px!important;
+  border:1px solid rgba(255,255,255,.10)!important;
+  background:#0b0d10!important;
+  box-shadow:0 18px 60px rgba(0,0,0,.42)!important;
+  transform:translateY(-6px) scale(.992)!important;
+}
+.findai-notification-panel.show{transform:translateY(0) scale(1)!important}
+.findai-notification-panel-head{
+  flex:0 0 auto!important;
+  min-height:58px!important;
+  padding:0 15px 0 17px!important;
+  border-bottom:1px solid rgba(255,255,255,.075)!important;
+}
+.findai-notification-panel-head b{
+  font-size:18px!important;
+  line-height:1!important;
+  font-weight:800!important;
+  letter-spacing:-.4px!important;
+}
+.findai-notification-panel-head button{
+  color:#9ca2ac!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  padding:8px!important;
+  -webkit-tap-highlight-color:transparent!important;
+}
+.findai-notification-list{
+  flex:1 1 auto!important;
+  overflow:auto!important;
+  padding:4px 14px 18px!important;
+  overscroll-behavior:contain!important;
+}
+.findai-notification-group{padding-top:2px!important}
+.findai-notification-group-title{
+  padding:15px 3px 8px!important;
+  color:#f5f6f7!important;
+  font-size:15px!important;
+  line-height:1!important;
+  font-weight:800!important;
+  letter-spacing:-.25px!important;
+}
+.findai-notification-item{
+  position:relative!important;
+  width:100%!important;
+  min-height:76px!important;
+  padding:10px 0!important;
+  border:0!important;
+  border-radius:0!important;
+  border-bottom:1px solid rgba(255,255,255,.055)!important;
+  background:transparent!important;
+  color:#fff!important;
+  display:grid!important;
+  grid-template-columns:52px minmax(0,1fr) auto!important;
+  gap:11px!important;
+  align-items:center!important;
+  text-align:left!important;
+  -webkit-tap-highlight-color:transparent!important;
+  transition:background .16s ease,transform .16s ease!important;
+}
+.findai-notification-item:active{
+  background:rgba(255,255,255,.035)!important;
+  transform:scale(.993)!important;
+}
+.findai-notification-item:last-child{border-bottom:0!important}
+.findai-notification-avatar-wrap,
+.findai-notification-product-wrap{
+  position:relative!important;
+  width:52px!important;
+  height:52px!important;
+  flex:0 0 auto!important;
+}
+.findai-notification-avatar,
+.findai-notification-product{
+  width:52px!important;
+  height:52px!important;
+  overflow:hidden!important;
+  background:#1b1e23!important;
+  display:grid!important;
+  place-items:center!important;
+  color:#fff!important;
+  font-size:17px!important;
+  font-weight:800!important;
+}
+.findai-notification-avatar{border-radius:50%!important}
+.findai-notification-product{border-radius:10px!important}
+.findai-notification-avatar img,
+.findai-notification-product img{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  display:block!important;
+}
+.findai-notification-mini-badge{
+  position:absolute!important;
+  right:-2px!important;
+  bottom:-2px!important;
+  width:23px!important;
+  height:23px!important;
+  border:2px solid #0b0d10!important;
+  border-radius:50%!important;
+  background:#20242a!important;
+  display:grid!important;
+  place-items:center!important;
+  color:#fff!important;
+}
+.findai-notification-mini-badge svg{width:12px!important;height:12px!important}
+.findai-notification-mini-badge.follow{background:#2388ff!important}
+.findai-notification-mini-badge.like{background:#ff3045!important}
+.findai-notification-mini-badge.price{background:#ff3045!important}
+.findai-notification-mini-badge.offer{background:#25b46b!important}
+.findai-notification-copy{
+  min-width:0!important;
+  padding:1px 0!important;
+}
+.findai-notification-copy b{
+  display:block!important;
+  color:#f7f7f8!important;
+  font-size:13.5px!important;
+  line-height:1.25!important;
+  font-weight:760!important;
+  letter-spacing:-.15px!important;
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+}
+.findai-notification-copy span{
+  display:block!important;
+  margin-top:3px!important;
+  color:#a3a8b0!important;
+  font-size:11.5px!important;
+  line-height:1.32!important;
+  -webkit-line-clamp:2!important;
+}
+.findai-notification-meta{
+  display:inline!important;
+  margin-left:5px!important;
+  color:#7f858f!important;
+  font-size:10.5px!important;
+  font-weight:500!important;
+  white-space:nowrap!important;
+}
+.findai-notification-time{display:none!important}
+.findai-notification-unread{
+  width:6px!important;height:6px!important;margin-left:6px!important;
+  background:#2f8cff!important;
+  vertical-align:2px!important;
+}
+.findai-notification-side{
+  min-width:0!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:7px!important;
+  padding-left:4px!important;
+}
+.findai-notification-side-thumb{
+  width:46px!important;
+  height:46px!important;
+  border-radius:8px!important;
+  overflow:hidden!important;
+  background:#171a1f!important;
+}
+.findai-notification-side-thumb img{width:100%!important;height:100%!important;object-fit:cover!important;display:block!important}
+.findai-notification-action{
+  height:34px!important;
+  min-width:66px!important;
+  padding:0 12px!important;
+  border:1px solid rgba(255,255,255,.13)!important;
+  border-radius:10px!important;
+  background:#252930!important;
+  color:#fff!important;
+  font-size:10.5px!important;
+  font-weight:800!important;
+  -webkit-tap-highlight-color:transparent!important;
+}
+.findai-notification-action.primary{
+  border-color:#2388ff!important;
+  background:#2388ff!important;
+}
+.findai-notification-action:active{transform:scale(.96)!important}
+.findai-notification-chevron{
+  width:20px!important;height:20px!important;color:#8b919a!important;display:grid!important;place-items:center!important;
+}
+.findai-notification-chevron svg{width:17px!important;height:17px!important}
+.findai-notification-empty{
+  padding:44px 24px!important;
+}
+.findai-notification-empty b{font-size:15px!important}
+
+html.findai-light .findai-notification-panel{
+  background:#fff!important;border-color:rgba(0,0,0,.10)!important;
+}
+html.findai-light .findai-notification-group-title,
+html.findai-light .findai-notification-copy b,
+html.findai-light .findai-notification-item{color:#111214!important}
+html.findai-light .findai-notification-item{border-bottom-color:rgba(0,0,0,.06)!important}
+html.findai-light .findai-notification-item:active{background:#f5f6f7!important}
+html.findai-light .findai-notification-copy span{color:#6f747c!important}
+html.findai-light .findai-notification-mini-badge{border-color:#fff!important}
+html.findai-light .findai-notification-action{background:#eef0f3!important;color:#111!important;border-color:#dde0e4!important}
+html.findai-light .findai-notification-action.primary{background:#2388ff!important;color:#fff!important;border-color:#2388ff!important}
+</style>
 
 </body>
 </html>
