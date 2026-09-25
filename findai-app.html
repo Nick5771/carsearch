@@ -6626,14 +6626,58 @@ function wishwaveReelSellerMarkup(item,index){
   </button>`;
 }
 
+
+function reelGalleryImageKey(value){
+  try{
+    const u=new URL(String(value||''),location.href);
+    u.hash='';
+    for(const key of ['w','width','h','height','odnWidth','odnHeight','quality'])u.searchParams.delete(key);
+    let path=u.pathname
+      .replace(/\/s-l\d+(?=\.(?:jpg|jpeg|png|webp)(?:$|\/))/i,'/s-lSIZE')
+      .replace(/\$_(?:1|2|3|12|35|39|57)(?=\.(?:jpg|jpeg|png|webp))/i,'$_SIZE');
+    return (u.hostname+path+'?'+u.searchParams.toString()).toLowerCase();
+  }catch(_){
+    return String(value||'').replace(/s-l\d+/ig,'s-lSIZE').replace(/\$_\d+/g,'$_SIZE').toLowerCase();
+  }
+}
+function reelGalleryImages(item,index,data,plan){
+  const out=[],seen=new Set();
+  const add=value=>{
+    const raw=safeUrl(value);if(!raw)return;
+    const upgraded=enhanceImageUrl(raw)||raw;
+    const key=reelGalleryImageKey(upgraded);
+    if(!key||seen.has(key))return;
+    seen.add(key);out.push(upgraded);
+  };
+  if(plan&&plan.src)add(plan.src);
+  collectImageCandidates(item).forEach(candidate=>add(candidate&&candidate.url));
+  if(!out.length&&plan&&Array.isArray(plan.alts))plan.alts.forEach(add);
+  return out.slice(0,6);
+}
+function reelGalleryDotsMarkup(images){
+  if(!Array.isArray(images)||images.length<2)return '';
+  return '<div class="reel-gallery-dots" aria-hidden="true">'+images.map((_,i)=>'<i class="'+(i===0?'active':'')+'"></i>').join('')+'</div>'+
+    '<div class="reel-gallery-count" aria-hidden="true">1/'+images.length+'</div>';
+}
+function reelGalleryConsumeClick(article,event){
+  if(!article)return false;
+  if(article.dataset.gallerySuppressClick==='1'){
+    article.dataset.gallerySuppressClick='0';
+    if(event){event.preventDefault();event.stopPropagation();}
+    return true;
+  }
+  return false;
+}
+
 function renderReelCard(item,index,data){
   const title=String(item.title || (data && data.productDetails && data.productDetails.name) || 'Product listing');
   // Display-only image recovery: try every image the retailer already supplied,
   // then the product-level image, then a strict same-variant peer already present
   // in this result set. No extra search/API call is made.
   const plan=appImagePlan(item,index,data);
-  const image=plan.src;
-  const fallbackImage=plan.alts[0]||'';
+  const gallery=reelGalleryImages(item,index,data,plan);
+  const image=gallery[0]||plan.src;
+  const fallbackImage=(plan.alts||[]).find(src=>src&&src!==image)||'';
   const url=getListingUrl(item);
   const source=getSource(item);
   const price=Number(item.price);
@@ -6644,10 +6688,11 @@ function renderReelCard(item,index,data){
   const sellerLabel=item.topRatedSeller ? 'Top-rated seller' : (seller || 'Live listing');
   const wishwave=isFindAIListing(item);
   const commentCount=wishwaveCommentCount(item);
-  return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}" role="button" tabindex="0" onclick="openDeal(${index},event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDeal(${index},event);}">
-    <div class="hero-stage${image?' fill-solid':''}"${image?` style="--hero-fill:#0a0b0d"`:''}>
-      ${image ? `<img class="hero-image fit-contain" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
+  return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}" role="button" tabindex="0" onclick="if(reelGalleryConsumeClick(this,event))return;openDeal(${index},event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDeal(${index},event);}">
+    <div class="hero-stage reel-gallery-stage${image?' fill-solid':''}" data-gallery-index="0" data-gallery-images="${escapeAttr(JSON.stringify(gallery))}"${image?` style="--hero-fill:#0a0b0d"`:''}>
+      ${image ? `<img class="hero-image fit-contain reel-gallery-image" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
       <div class="image-fallback" style="${image?'':'display:grid'}">${reelImagePlaceholder(item)}</div>
+      ${reelGalleryDotsMarkup(gallery)}
     </div>
     <div class="reel-actions-rail" aria-label="Listing actions">
       <button class="reel-social-action like ${isTracked(item)?'active':''}" data-like-key="${escapeAttr(trackedKey(item))}" data-like-base="${itemSourceLikeCount(item)}" onclick="toggleLike(${index},event)" aria-label="${isTracked(item)?'Unlike':'Like'} this listing">
@@ -12057,6 +12102,7 @@ window.addEventListener('load', function(){
     const type=String(n.notification_type||'').toLowerCase();
     const actor=notificationActorName(n);
     if(type==='follow_request'||type.includes('follow_request'))return actor?(actor+' requested to follow you'):'Someone requested to follow you';
+    if(type==='follow_mutual'||type.includes('follow_mutual'))return actor?('You and '+actor+' started following each other'):'You started following each other';
     if(type==='follow_accepted'||type.includes('follow_accepted'))return actor?(actor+' accepted your follow request'):'Your follow request was accepted';
     if(type==='follow'||type.includes('started_following'))return actor?(actor+' started following you'):'Someone started following you';
     if(type.includes('message'))return actor?(actor+' sent you a message'):'New message';
@@ -12073,10 +12119,7 @@ window.addEventListener('load', function(){
     const type=String(n.notification_type||'').toLowerCase();
     const username=notificationActorUsername(n);
     const body=String(n.body||'').trim();
-    if(type.includes('follow')){
-      if(username&&body&&body.replace(/^@/,'')!==username.replace(/^@/,''))return username+' · '+body;
-      return username||body;
-    }
+    if(type.includes('follow'))return '';
     return body;
   }
   function notificationBadge(type){
@@ -12124,8 +12167,15 @@ window.addEventListener('load', function(){
         '<button class="findai-notification-action" type="button" onclick="findaiNotificationFollowRequestAction(event,'+index+',\'decline\')">Delete</button>'+
       '</span>';
     }
-    if(type==='follow'||(type.includes('follow')&&!type.includes('request')&&!type.includes('accepted'))){
-      return '<span class="findai-notification-side"><button class="findai-notification-action primary findai-notification-follow" type="button" onclick="findaiNotificationFollowBack(event,'+index+',this)">Follow</button></span>';
+    if(type.includes('follow_mutual')){
+      return '<span class="findai-notification-side"></span>';
+    }
+    if(type==='follow'||(type.includes('follow')&&!type.includes('request')&&!type.includes('accepted')&&!type.includes('mutual'))){
+      const isFollowing=!!(n.viewer_is_following===true||Number(n.viewer_is_following||0));
+      const isPending=!!(n.viewer_follow_pending===true||Number(n.viewer_follow_pending||0));
+      const label=isFollowing?'Following':isPending?'Requested':'Follow';
+      const cls=isFollowing||isPending?'':' primary';
+      return '<span class="findai-notification-side"><button class="findai-notification-action'+cls+' findai-notification-follow" type="button" onclick="findaiNotificationFollowBack(event,'+index+',this)">'+label+'</button></span>';
     }
     if((type.includes('like')||type.includes('comment'))&&image){
       return '<span class="findai-notification-side"><span class="findai-notification-side-thumb"><img src="'+escapeAttr(image)+'" alt=""></span></span>';
@@ -12190,42 +12240,69 @@ window.addEventListener('load', function(){
     if(!n||!button)return;
     const username=String(n.actor_username||'').replace(/^@+/,'').trim();
     if(!username)return;
+
+    const alreadyFollowing=!!(n.viewer_is_following===true||Number(n.viewer_is_following||0));
+    const alreadyPending=!!(n.viewer_follow_pending===true||Number(n.viewer_follow_pending||0));
+    if(alreadyFollowing||alreadyPending){
+      try{if(typeof haptic==='function')haptic();}catch(_){}
+      return;
+    }
+
     button.disabled=true;
-    const old=button.textContent;
     button.textContent='Following';
     button.classList.remove('primary');
     try{
       const data=await marketplaceFetch('/social/follow-user/'+encodeURIComponent(username),{method:'POST'});
-      button.textContent=data.pending?'Requested':data.isFollowing?'Following':'Follow';
-      if(!data.isFollowing&&!data.pending)button.classList.add('primary');
+      const actorEmail=String(n.actor_email||'').toLowerCase();
+      const actorUsername=String(n.actor_username||'').replace(/^@+/,'').toLowerCase();
+
+      appNotificationCache.forEach(item=>{
+        const sameEmail=actorEmail&&String(item.actor_email||'').toLowerCase()===actorEmail;
+        const sameUser=actorUsername&&String(item.actor_username||'').replace(/^@+/,'').toLowerCase()===actorUsername;
+        if(sameEmail||sameUser){
+          item.viewer_is_following=!!data.isFollowing;
+          item.viewer_follow_pending=!!data.pending;
+        }
+      });
+
       try{
-        if(!n.local&&n.id&&marketplaceSession())await marketplaceFetch('/marketplace/notifications/read',{method:'POST',body:JSON.stringify({id:n.id})});
+        if(!n.local&&n.id&&marketplaceSession()){
+          await marketplaceFetch('/marketplace/notifications/read',{method:'POST',body:JSON.stringify({id:n.id})});
+        }
       }catch(_){}
       n.read_at=n.read_at||new Date().toISOString();
       appNotificationUnread=appNotificationCache.reduce((sum,item)=>sum+(!item.read_at?1:0),0);
       if(typeof setHomeNotificationState==='function')setHomeNotificationState(appNotificationUnread);
+      renderHomeNotifications();
       try{if(typeof haptic==='function')haptic();}catch(_){}
     }catch(error){
-      button.textContent=old;button.classList.add('primary');
       try{toast(error&&error.message||'Could not follow this account');}catch(_){}
-    }finally{button.disabled=false;}
+      renderHomeNotifications();
+    }
   };
   window.findaiNotificationFollowRequestAction=async function(event,index,action){
     if(event){event.preventDefault();event.stopPropagation();}
     const n=appNotificationCache[Number(index)];
     if(!n)return;
-    const username=String(n.actor_username||'').replace(/^@+/,'');
+    const username=String(n.actor_username||'').replace(/^@+/,'').trim();
     if(!username)return;
     const row=event&&event.target&&event.target.closest?event.target.closest('.findai-notification-item'):null;
     if(row)row.style.opacity='.62';
     try{
-      await marketplaceFetch('/social/follow-requests/'+encodeURIComponent(username),{
+      const result=await marketplaceFetch('/social/follow-requests/'+encodeURIComponent(username),{
         method:'PATCH',body:JSON.stringify({action:action})
       });
-      if(n.id&&marketplaceSession()){
-        try{await marketplaceFetch('/marketplace/notifications/read',{method:'POST',body:JSON.stringify({id:n.id})});}catch(_){}
+
+      if(action==='approve'){
+        n.notification_type='follow_mutual';
+        n.title=String(result&&result.notification&&result.notification.title||('You and '+(notificationActorName(n)||username)+' started following each other'));
+        n.body='';
+        n.read_at=n.read_at||new Date().toISOString();
+        if(result&&result.notification&&result.notification.created_at)n.created_at=result.notification.created_at;
+      }else{
+        appNotificationCache.splice(Number(index),1);
       }
-      appNotificationCache.splice(Number(index),1);
+
       appNotificationUnread=appNotificationCache.reduce((sum,item)=>sum+(!item.read_at?1:0),0);
       if(typeof setHomeNotificationState==='function')setHomeNotificationState(appNotificationUnread);
       renderHomeNotifications();
@@ -18733,6 +18810,325 @@ html.findai-light .findai-follower-view.following{
   background:#eef0f3!important;color:#111214!important;border-color:#dde0e4!important;
 }
 </style>
+
+
+<script id="findai-v142-profile-nav-fix">
+(function(){
+  'use strict';
+
+  const previousOpenProfileByUsername=window.openFindAIProfileByUsername;
+  if(typeof previousOpenProfileByUsername==='function'){
+    window.openFindAIProfileByUsername=async function(username){
+      const clean=String(username||'').replace(/^@+/,'').trim();
+      if(!clean)return;
+
+      const own=getAccountProfile&&getAccountProfile();
+      if(own&&String(own.username||'').replace(/^@+/,'').toLowerCase()===clean.toLowerCase()){
+        try{closeOwnFollowersList();}catch(_){}
+        openProfile();
+        return;
+      }
+
+      try{closeOwnFollowersList();}catch(_){}
+      try{closeHomeNotifications();}catch(_){}
+      try{go('search');}catch(_){}
+      try{if(typeof setMainNavActive==='function')setMainNavActive('search');}catch(_){}
+
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      return previousOpenProfileByUsername.call(this,clean);
+    };
+  }
+
+  /* Remove the old third "..." action below Follow/Message on other profiles. */
+  const previousPublicRender=window.renderWishWavePublicProfile;
+  if(typeof previousPublicRender==='function'){
+    window.renderWishWavePublicProfile=function(){
+      const out=previousPublicRender.apply(this,arguments);
+      requestAnimationFrame(()=>{
+        document.querySelectorAll('#wishwavePublicProfileBody .findai-public-more').forEach(node=>node.remove());
+      });
+      return out;
+    };
+  }
+
+  /* Also remove one immediately if a profile was already mounted. */
+  document.querySelectorAll('#wishwavePublicProfileBody .findai-public-more').forEach(node=>node.remove());
+})();
+</script>
+<style id="findai-v142-profile-action-cleanup">
+#wishwavePublicProfileBody .findai-public-more{display:none!important}
+</style>
+
+
+<script id="findai-v143-direct-profile-navigation">
+(function(){
+  'use strict';
+
+  async function showFindAIUserProfileDirect(username){
+    const clean=String(username||'').replace(/^@+/,'').trim();
+    if(!clean)return;
+
+    const own=typeof getAccountProfile==='function'?getAccountProfile():null;
+    if(own&&String(own.username||'').replace(/^@+/,'').toLowerCase()===clean.toLowerCase()){
+      try{closeOwnFollowersList();}catch(_){}
+      try{closeHomeNotifications();}catch(_){}
+      openProfile();
+      return;
+    }
+
+    try{closeOwnFollowersList();}catch(_){}
+    try{closeHomeNotifications();}catch(_){}
+    try{closeAppMpSheet();}catch(_){}
+    try{go('search');}catch(_){}
+    try{if(typeof setMainNavActive==='function')setMainNavActive('search');}catch(_){}
+
+    const page=ensureWishWavePublicProfilePage();
+    const body=document.getElementById('wishwavePublicProfileBody');
+    if(body)body.innerHTML='<div class="social-profile-loading"><div class="feed-more-spinner"></div><br>Loading profile…</div>';
+    page.classList.remove('show');
+    requestAnimationFrame(()=>requestAnimationFrame(()=>page.classList.add('show')));
+
+    try{
+      const data=await marketplaceFetch('/profile/public/'+encodeURIComponent(clean),{method:'GET'});
+      if(data&&data.viewer&&data.viewer.isSelf){
+        page.classList.remove('show');
+        openProfile();
+        return;
+      }
+
+      const profile=data&&data.profile||{};
+      wishwavePublicSellerData={
+        seller:{
+          id:String(data&&data.sellerId||''),
+          displayName:String(profile.displayName||clean),
+          username:String(profile.username||clean),
+          avatarUrl:String(profile.avatarUrl||''),
+          bio:String(profile.bio||''),
+          location:String(profile.location||''),
+          country:String(data&&data.country||'AU'),
+          joinedAt:String(profile.createdAt||''),
+          activeCount:Number(data&&data.activeCount||0),
+          soldCount:Number(data&&data.soldCount||0),
+          followerCount:Number(data&&data.followerCount||0),
+          recentReviews:[]
+        },
+        listings:Array.isArray(data&&data.listings)?data.listings:[],
+        viewer:{
+          signedIn:!!(data&&data.viewer&&data.viewer.signedIn),
+          isSeller:false,
+          isFollowing:!!(data&&data.viewer&&data.viewer.isFollowing),
+          pending:!!(data&&data.viewer&&data.viewer.pending),
+          isPrivate:!!(data&&data.viewer&&data.viewer.isPrivate),
+          canViewListings:data&&data.viewer&&data.viewer.canViewListings!==false
+        },
+        profileOnly:!(data&&data.sellerId)
+      };
+
+      renderWishWavePublicProfile();
+
+      /* v142 requested no third-dot action on other profiles. */
+      document.querySelectorAll('#wishwavePublicProfileBody .findai-public-more').forEach(node=>node.remove());
+    }catch(error){
+      if(body)body.innerHTML='<div class="social-profile-empty"><b>Profile unavailable</b>'+escapeHTML(error&&error.message||'Try again')+'</div>';
+    }
+  }
+
+  window.openFindAIProfileByUsername=showFindAIUserProfileDirect;
+
+  /* Make Followers list avatar + name use the direct path synchronously. */
+  window.openOwnFollowerProfile=function(username,event){
+    if(event){event.preventDefault();event.stopPropagation();}
+    const clean=String(username||'').replace(/^@+/,'').trim();
+    if(!clean)return;
+    closeOwnFollowersList();
+    setTimeout(()=>showFindAIUserProfileDirect(clean),40);
+  };
+
+  /* Follow-related notification rows always go to the actor profile.
+     Buttons inside the row still stop propagation and perform their action. */
+  window.findaiNotificationOpenActor=async function(event,index){
+    if(event){event.preventDefault();event.stopPropagation();}
+    const n=appNotificationCache&&appNotificationCache[Number(index)];
+    if(!n)return;
+    try{
+      if(!n.local&&n.id&&marketplaceSession()){
+        await marketplaceFetch('/marketplace/notifications/read',{method:'POST',body:JSON.stringify({id:n.id})});
+      }
+    }catch(_){}
+    n.read_at=n.read_at||new Date().toISOString();
+    const username=String(n.actor_username||'').replace(/^@+/,'').trim();
+    if(username)return showFindAIUserProfileDirect(username);
+    if(typeof openFindAINotification==='function')return openFindAINotification(index);
+  };
+})();
+</script>
+
+
+<style id="findai-v143-reel-gallery-style">
+.reel-gallery-stage{touch-action:pan-y!important}
+.reel-gallery-image{
+  will-change:transform,opacity;
+  transition:transform .18s cubic-bezier(.2,.78,.22,1),opacity .16s ease;
+}
+.reel-gallery-dots{
+  position:absolute;z-index:7;left:50%;
+  bottom:clamp(190px,27vh,258px);
+  transform:translateX(-50%);
+  display:flex;align-items:center;gap:5px;
+  pointer-events:none;
+  padding:5px 7px;border-radius:999px;
+  background:rgba(0,0,0,.10);
+  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
+}
+.reel-gallery-dots i{
+  display:block;width:5px;height:5px;border-radius:50%;
+  background:rgba(255,255,255,.48);
+  transition:width .18s ease,background .18s ease,transform .18s ease;
+}
+.reel-gallery-dots i.active{
+  width:6px;height:6px;background:#fff;transform:scale(1.04);
+}
+.reel-gallery-count{
+  position:absolute;z-index:7;top:74px;right:16px;
+  min-width:34px;height:24px;padding:0 7px;
+  border-radius:12px;background:rgba(0,0,0,.48);
+  color:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:10px;font-weight:750;
+  opacity:0;transform:translateY(-3px);
+  transition:opacity .16s ease,transform .16s ease;
+  pointer-events:none;
+}
+.reel-gallery-count.show{opacity:1;transform:translateY(0)}
+html.findai-light .reel-gallery-dots{background:rgba(255,255,255,.16)}
+</style>
+
+<script id="findai-v143-reel-gallery-script">
+(function(){
+  'use strict';
+  let gesture=null;
+  let countTimer=null;
+
+  function galleryImages(stage){
+    try{
+      const arr=JSON.parse(stage&&stage.dataset.galleryImages||'[]');
+      return Array.isArray(arr)?arr.filter(Boolean):[];
+    }catch(_){return [];}
+  }
+  function preloadGalleryImage(src){
+    if(!src)return;
+    const img=new Image();
+    img.decoding='async';
+    img.referrerPolicy='no-referrer';
+    img.src=src;
+  }
+  function updateGalleryUI(stage,index){
+    stage.dataset.galleryIndex=String(index);
+    stage.querySelectorAll('.reel-gallery-dots i').forEach((dot,i)=>dot.classList.toggle('active',i===index));
+    const count=stage.querySelector('.reel-gallery-count');
+    const images=galleryImages(stage);
+    if(count&&images.length>1){
+      count.textContent=(index+1)+'/'+images.length;
+      count.classList.add('show');
+      clearTimeout(countTimer);
+      countTimer=setTimeout(()=>count.classList.remove('show'),800);
+    }
+  }
+  function changeGalleryImage(stage,nextIndex,direction){
+    const images=galleryImages(stage),img=stage&&stage.querySelector('.reel-gallery-image');
+    if(!img||images.length<2)return;
+    const current=Math.max(0,Math.min(images.length-1,Number(stage.dataset.galleryIndex)||0));
+    const next=Math.max(0,Math.min(images.length-1,nextIndex));
+    if(next===current){
+      img.style.transition='transform .18s cubic-bezier(.2,.78,.22,1),opacity .16s ease';
+      img.style.transform='translate3d(0,0,0)';
+      img.style.opacity='1';
+      return;
+    }
+
+    const article=stage.closest('.reel-card');
+    if(article)article.dataset.gallerySuppressClick='1';
+
+    const outX=direction>0?-46:46;
+    img.style.transition='transform .12s ease,opacity .12s ease';
+    img.style.transform='translate3d('+outX+'px,0,0)';
+    img.style.opacity='.30';
+
+    setTimeout(()=>{
+      img.src=images[next];
+      img.dataset.fallback='';
+      img.dataset.imageAlts='';
+      stage.dataset.fillSrc='';
+      img.style.transition='none';
+      img.style.transform='translate3d('+(-outX*.55)+'px,0,0)';
+      img.style.opacity='.35';
+      updateGalleryUI(stage,next);
+
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        img.style.transition='transform .18s cubic-bezier(.2,.78,.22,1),opacity .16s ease';
+        img.style.transform='translate3d(0,0,0)';
+        img.style.opacity='1';
+      }));
+
+      /* Lazy: only warm the adjacent photo after the user has actually moved. */
+      const warm=direction>0?next+1:next-1;
+      if(images[warm])preloadGalleryImage(images[warm]);
+    },115);
+  }
+
+  document.addEventListener('touchstart',e=>{
+    const stage=e.target&&e.target.closest&&e.target.closest('.reel-gallery-stage');
+    if(!stage)return;
+    const images=galleryImages(stage);
+    if(images.length<2)return;
+    const t=e.touches&&e.touches[0];if(!t)return;
+    const index=Math.max(0,Number(stage.dataset.galleryIndex)||0);
+    gesture={stage,x:t.clientX,y:t.clientY,dx:0,dy:0,axis:'',index};
+    if(images[index+1])preloadGalleryImage(images[index+1]);
+    if(images[index-1])preloadGalleryImage(images[index-1]);
+  },{passive:true});
+
+  document.addEventListener('touchmove',e=>{
+    if(!gesture)return;
+    const t=e.touches&&e.touches[0];if(!t)return;
+    gesture.dx=t.clientX-gesture.x;gesture.dy=t.clientY-gesture.y;
+    if(!gesture.axis&&(Math.abs(gesture.dx)>7||Math.abs(gesture.dy)>7)){
+      gesture.axis=Math.abs(gesture.dx)>Math.abs(gesture.dy)*1.12?'x':'y';
+    }
+    if(gesture.axis!=='x')return;
+    e.preventDefault();
+    const img=gesture.stage.querySelector('.reel-gallery-image');if(!img)return;
+    const bounded=Math.max(-92,Math.min(92,gesture.dx*.42));
+    img.style.transition='none';
+    img.style.transform='translate3d('+bounded+'px,0,0) scale(.995)';
+    img.style.opacity=String(Math.max(.72,1-Math.abs(bounded)/360));
+  },{passive:false});
+
+  document.addEventListener('touchend',()=>{
+    if(!gesture)return;
+    const g=gesture;gesture=null;
+    const img=g.stage.querySelector('.reel-gallery-image');if(!img)return;
+    if(g.axis==='x'&&Math.abs(g.dx)>=42){
+      const direction=g.dx<0?1:-1;
+      changeGalleryImage(g.stage,g.index+direction,direction);
+    }else{
+      img.style.transition='transform .18s cubic-bezier(.2,.78,.22,1),opacity .16s ease';
+      img.style.transform='translate3d(0,0,0)';
+      img.style.opacity='1';
+    }
+  },{passive:true});
+
+  document.addEventListener('touchcancel',()=>{
+    if(!gesture)return;
+    const img=gesture.stage.querySelector('.reel-gallery-image');
+    gesture=null;
+    if(img){
+      img.style.transition='transform .18s ease,opacity .16s ease';
+      img.style.transform='translate3d(0,0,0)';
+      img.style.opacity='1';
+    }
+  },{passive:true});
+})();
+</script>
 
 </body>
 </html>
