@@ -18969,14 +18969,20 @@ html.findai-light .findai-follower-view.following{
 </script>
 
 
-<style id="findai-v146-native-carousel-style">
-/* Native iOS-style horizontal carousel.
-   The browser owns the drag physics; FindAI only observes the settled slide. */
+<style id="findai-v149-premium-carousel-style">
+/* ============================================================
+   v149 — direct-manipulation product carousel
+   One GPU-composited strip follows the finger. No native snap
+   fighting JS, no image-level transforms, no delayed catch-up.
+   ============================================================ */
+
 .reel-gallery-stage{
-  touch-action:pan-x pan-y!important;
-  overscroll-behavior-x:contain!important;
+  touch-action:pan-y!important;
+  overflow:hidden!important;
+  overscroll-behavior-x:none!important;
   contain:layout paint style!important;
 }
+
 .reel-gallery-track{
   position:absolute!important;
   inset:0!important;
@@ -18984,16 +18990,13 @@ html.findai-light .findai-follower-view.following{
   display:flex!important;
   width:100%!important;
   height:100%!important;
-  overflow-x:auto!important;
-  overflow-y:hidden!important;
-  scroll-snap-type:x mandatory!important;
-  scroll-behavior:smooth!important;
-  -webkit-overflow-scrolling:touch!important;
-  scrollbar-width:none!important;
-  overscroll-behavior-x:contain!important;
-  touch-action:pan-x pan-y!important;
+  overflow:visible!important;
+  transform:translate3d(0,0,0);
+  will-change:transform;
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+  touch-action:pan-y!important;
 }
-.reel-gallery-track::-webkit-scrollbar{display:none!important}
 
 .reel-gallery-slide{
   position:relative!important;
@@ -19001,14 +19004,12 @@ html.findai-light .findai-follower-view.following{
   width:100%!important;
   height:100%!important;
   min-width:100%!important;
-  scroll-snap-align:start!important;
-  scroll-snap-stop:always!important;
   overflow:hidden!important;
   background:var(--hero-fill,#0a0b0d)!important;
 }
 
-/* Each slide is a completely normal reel image. No transforms are applied to
-   the slide itself, which fixes the clipped/half-loaded-looking image issue. */
+/* The image keeps the exact same centring/fitting rules on every slide.
+   Only the parent strip moves. */
 #discover .reel-gallery-slide .hero-image{
   position:absolute!important;
   top:50%!important;
@@ -19022,9 +19023,11 @@ html.findai-light .findai-follower-view.following{
   object-position:center center!important;
   z-index:1!important;
   opacity:1!important;
+  backface-visibility:hidden!important;
+  -webkit-backface-visibility:hidden!important;
 }
 
-/* Lower dots, just above the listing copy. */
+/* Instagram-like pagination: the selected slide is unmistakably white. */
 .reel-gallery-dots{
   position:absolute!important;
   z-index:8!important;
@@ -19037,24 +19040,27 @@ html.findai-light .findai-follower-view.following{
   gap:5px!important;
   padding:3px 5px!important;
   border-radius:999px!important;
-  background:rgba(0,0,0,.10)!important;
+  background:rgba(0,0,0,.08)!important;
   pointer-events:none!important;
 }
 .reel-gallery-dots i{
+  display:block!important;
   width:5px!important;
   height:5px!important;
   border-radius:50%!important;
-  display:block!important;
-  background:rgba(255,255,255,.42)!important;
-  transition:background .14s ease,transform .14s ease!important;
+  background:rgba(255,255,255,.46)!important;
+  box-shadow:none!important;
+  transition:background .13s ease,transform .13s ease,opacity .13s ease!important;
 }
 .reel-gallery-dots i.active{
-  background:#fff!important;
   width:6px!important;
   height:6px!important;
-  box-shadow:0 0 5px rgba(255,255,255,.58)!important;
+  background:#fff!important;
+  opacity:1!important;
+  box-shadow:0 0 5px rgba(255,255,255,.42)!important;
   transform:scale(1.08)!important;
 }
+
 .reel-gallery-count{
   position:absolute!important;
   z-index:8!important;
@@ -19073,7 +19079,7 @@ html.findai-light .findai-follower-view.following{
   font-weight:750!important;
   opacity:0!important;
   transform:translateY(-3px)!important;
-  transition:opacity .14s ease,transform .14s ease!important;
+  transition:opacity .13s ease,transform .13s ease!important;
   pointer-events:none!important;
 }
 .reel-gallery-count.show{
@@ -19081,32 +19087,45 @@ html.findai-light .findai-follower-view.following{
   transform:translateY(0)!important;
 }
 
-/* Do not let any of the old app-tab swipe surfaces visually move while the
-   product carousel is being dragged. */
-body.findai-native-gallery-dragging .findai-v132-swipe-surface,
-body.findai-native-gallery-dragging .findai-swipe-current,
-body.findai-native-gallery-dragging .findai-swipe-preview{
+/* While the gallery owns a horizontal gesture the main app pager is visually
+   frozen, so Search can never peek in from the side. */
+body.findai-premium-gallery-dragging .findai-v132-swipe-surface,
+body.findai-premium-gallery-dragging .findai-swipe-current,
+body.findai-premium-gallery-dragging .findai-swipe-preview{
   transform:none!important;
   transition:none!important;
 }
 </style>
 
-<script id="findai-v148-native-carousel-script">
+<script id="findai-v149-premium-carousel-script">
 (function(){
   'use strict';
 
-  let countTimer=null;
-  let touch=null;
-  const loaded=new WeakSet();
-  const SWIPE_DISTANCE=46;
-  const FLICK_DISTANCE=18;
-  const FLICK_VELOCITY=.30;
+  const COMMIT_DISTANCE = 38;       // short intentional swipe
+  const FLICK_DISTANCE = 14;        // a quick flick may be very short
+  const FLICK_VELOCITY = 0.24;      // px/ms
+  const PROJECTION_MS = 155;        // projects momentum without overshooting
+  const AXIS_START = 4;             // lock direction quickly
+  const EDGE_RESISTANCE = 0.24;
 
-  function galleryImages(stage){
+  let gesture=null;
+  let frame=0;
+  let countTimer=null;
+  const loaded=new WeakSet();
+
+  function images(stage){
     try{
-      const arr=JSON.parse(stage&&stage.dataset.galleryImages||'[]');
-      return Array.isArray(arr)?arr.filter(Boolean):[];
+      const list=JSON.parse(stage&&stage.dataset.galleryImages||'[]');
+      return Array.isArray(list)?list.filter(Boolean):[];
     }catch(_){return [];}
+  }
+
+  function slides(stage){
+    return [...stage.querySelectorAll('.reel-gallery-slide')];
+  }
+
+  function current(stage){
+    return Math.max(0,Number(stage.dataset.galleryIndex)||0);
   }
 
   function loadSlide(slide){
@@ -19117,301 +19136,161 @@ body.findai-native-gallery-dragging .findai-swipe-preview{
     if(!src)return;
     if(!img.getAttribute('src'))img.src=src;
     loaded.add(img);
+
+    /* Ask WebKit to decode while the image is off-screen so the next slide
+       doesn't become a blank/half-painted frame mid-gesture. */
+    try{if(typeof img.decode==='function')img.decode().catch(()=>{});}catch(_){}
   }
 
-  function loadAround(stage,index){
-    const slides=[...stage.querySelectorAll('.reel-gallery-slide')];
-    [index,index+1,index-1].forEach(i=>{if(slides[i])loadSlide(slides[i]);});
+  function warm(stage,index){
+    const all=slides(stage);
+    [index,index+1,index-1].forEach(i=>{if(all[i])loadSlide(all[i]);});
   }
 
-  function setGalleryIndex(stage,index,showCounter){
-    const images=galleryImages(stage);
-    if(!images.length)return;
-    index=Math.max(0,Math.min(images.length-1,index));
-    const before=Number(stage.dataset.galleryIndex)||0;
+  function setDots(stage,index,showCount){
+    const list=images(stage);
+    if(!list.length)return;
+    index=Math.max(0,Math.min(list.length-1,index));
+
     stage.dataset.galleryIndex=String(index);
-
     stage.querySelectorAll('.reel-gallery-dots i').forEach((dot,i)=>{
       dot.classList.toggle('active',i===index);
     });
 
-    loadAround(stage,index);
+    warm(stage,index);
 
     const count=stage.querySelector('.reel-gallery-count');
-    if(count&&images.length>1){
-      count.textContent=(index+1)+'/'+images.length;
-      if(showCounter&&before!==index){
+    if(count&&list.length>1){
+      count.textContent=(index+1)+'/'+list.length;
+      if(showCount){
         count.classList.add('show');
         clearTimeout(countTimer);
-        countTimer=setTimeout(()=>count.classList.remove('show'),620);
+        countTimer=setTimeout(()=>count.classList.remove('show'),560);
       }
     }
   }
 
-  function settle(track,index,width){
-    track.scrollTo({left:index*width,behavior:'smooth'});
+  function translate(track,x,animate,duration=205){
+    if(!track)return;
+    if(animate){
+      track.style.transition='transform '+duration+'ms cubic-bezier(.20,.78,.22,1)';
+    }else{
+      track.style.transition='none';
+    }
+    track.style.transform='translate3d('+x+'px,0,0)';
   }
 
-  function bind(stage){
-    if(!stage||stage.dataset.nativeGalleryBound==='1')return;
-    stage.dataset.nativeGalleryBound='1';
-
+  function snap(stage,target,fromVelocity){
     const track=stage.querySelector('.reel-gallery-track');
-    const slides=[...stage.querySelectorAll('.reel-gallery-slide')];
-    if(!track||slides.length<2){
-      if(slides[0])loadSlide(slides[0]);
-      return;
-    }
+    const list=images(stage);
+    const width=Math.max(1,stage.clientWidth);
+    target=Math.max(0,Math.min(list.length-1,target));
 
-    loadSlide(slides[0]);
+    const currentX=gesture&&gesture.stage===stage
+      ? (-gesture.startIndex*width + gesture.renderDx)
+      : (-current(stage)*width);
 
-    let raf=0;
-    track.addEventListener('scroll',()=>{
-      const article=stage.closest('.reel-card');
-      if(article)article.dataset.gallerySuppressClick='1';
+    const targetX=-target*width;
+    const remaining=Math.abs(targetX-currentX);
 
-      if(raf)return;
-      raf=requestAnimationFrame(()=>{
-        raf=0;
-        const width=Math.max(1,track.clientWidth);
-        const index=Math.round(track.scrollLeft/width);
-        setGalleryIndex(stage,index,true);
-      });
-    },{passive:true});
+    /* Fast release = faster settle. Slow drag = slightly softer settle.
+       Keep it short; long CSS "smooth" animations are what made v146/v148
+       feel unlike Instagram. */
+    const speed=Math.max(.36,Math.abs(fromVelocity||0));
+    let duration=remaining/(speed*2.8);
+    duration=Math.max(145,Math.min(225,duration));
 
-    track.addEventListener('touchstart',e=>{
-      if(e.touches.length!==1)return;
-      const t=e.touches[0];
-      const width=Math.max(1,track.clientWidth);
-      const now=performance.now();
+    translate(track,targetX,true,duration);
+    setDots(stage,target,true);
 
-      touch={
-        track,stage,
-        startX:t.clientX,startY:t.clientY,
-        lastX:t.clientX,lastT:now,
-        dx:0,dy:0,
-        velocity:0,
-        moved:false,
-        horizontal:false,
-        width,
-        startIndex:Math.round(track.scrollLeft/width)
-      };
-
-      document.body.classList.remove('findai-native-gallery-dragging');
-      loadAround(stage,touch.startIndex);
-    },{passive:true});
-
-    track.addEventListener('touchmove',e=>{
-      if(!touch||touch.track!==track||e.touches.length!==1)return;
-      const t=e.touches[0];
-      const now=performance.now();
-      const dx=t.clientX-touch.startX;
-      const dy=t.clientY-touch.startY;
-
-      touch.dx=dx;
-      touch.dy=dy;
-      touch.velocity=(t.clientX-touch.lastX)/Math.max(1,now-touch.lastT);
-      touch.lastX=t.clientX;
-      touch.lastT=now;
-
-      if(!touch.horizontal&&Math.abs(dx)>5&&Math.abs(dx)>Math.abs(dy)*.82){
-        touch.horizontal=true;
-        touch.moved=true;
-        document.body.classList.add('findai-native-gallery-dragging');
-        const article=stage.closest('.reel-card');
-        if(article)article.dataset.gallerySuppressClick='1';
-      }
-    },{passive:true});
-
-    const finish=e=>{
-      if(!touch||touch.track!==track)return;
-
-      if(e&&e.changedTouches&&e.changedTouches[0]){
-        const t=e.changedTouches[0];
-        const now=performance.now();
-        touch.dx=t.clientX-touch.startX;
-        touch.dy=t.clientY-touch.startY;
-        const endVelocity=(t.clientX-touch.lastX)/Math.max(1,now-touch.lastT);
-        if(Math.abs(endVelocity)>Math.abs(touch.velocity))touch.velocity=endVelocity;
-      }
-
-      const state=touch;
-      touch=null;
-      document.body.classList.remove('findai-native-gallery-dragging');
-
-      const images=galleryImages(stage);
-      const distance=Math.abs(state.dx);
-      const speed=Math.abs(state.velocity);
-      const shouldAdvance=state.horizontal&&(
-        distance>=SWIPE_DISTANCE ||
-        (distance>=FLICK_DISTANCE&&speed>=FLICK_VELOCITY)
-      );
-
-      let target=state.startIndex;
-      if(shouldAdvance)target += state.dx<0?1:-1;
-      target=Math.max(0,Math.min(images.length-1,target));
-
-      setGalleryIndex(stage,target,shouldAdvance);
-      settle(track,target,state.width);
-
-      if(state.moved){
-        const article=stage.closest('.reel-card');
-        setTimeout(()=>{
-          if(article&&article.dataset.gallerySuppressClick==='1'){
-            article.dataset.gallerySuppressClick='0';
-          }
-        },420);
-      }
-    };
-
-    track.addEventListener('touchend',finish,{passive:true});
-    track.addEventListener('touchcancel',finish,{passive:true});
+    setTimeout(()=>{
+      track.style.transition='';
+      track.style.transform='translate3d('+targetX+'px,0,0)';
+    },duration+24);
   }
 
-  const visibleObserver=new IntersectionObserver(entries=>{
-    for(const entry of entries){
-      if(!entry.isIntersecting||entry.intersectionRatio<.34)continue;
-      const stage=entry.target;
-      const index=Number(stage.dataset.galleryIndex)||0;
-      loadAround(stage,index);
-    }
-  },{threshold:[.34,.6]});
+  function renderDrag(){
+    frame=0;
+    if(!gesture||gesture.axis!=='x')return;
 
-  function bindAll(root=document){
-    const stages=[];
-    if(root.matches&&root.matches('.reel-gallery-stage'))stages.push(root);
-    root.querySelectorAll&&stages.push(...root.querySelectorAll('.reel-gallery-stage'));
+    const g=gesture;
+    const list=g.list;
+    let dx=g.dx;
 
-    stages.forEach(stage=>{
-      bind(stage);
-      if(stage.dataset.galleryObserved!=='1'){
-        stage.dataset.galleryObserved='1';
-        visibleObserver.observe(stage);
-      }
-    });
+    const tryingPastFirst=g.startIndex===0&&dx>0;
+    const tryingPastLast=g.startIndex===list.length-1&&dx<0;
+    if(tryingPastFirst||tryingPastLast)dx*=EDGE_RESISTANCE;
+
+    g.renderDx=dx;
+    translate(g.track,-g.startIndex*g.width+dx,false);
   }
 
-  bindAll(document);
-  new MutationObserver(records=>{
-    records.forEach(record=>record.addedNodes.forEach(node=>{
-      if(node.nodeType===1)bindAll(node);
-    }));
-  }).observe(document.body,{childList:true,subtree:true});
-})();
-</script>
+  function queueDrag(){
+    if(frame)return;
+    frame=requestAnimationFrame(renderDrag);
+  }
 
-
-
-
-
-<script id="findai-v146-carousel-tab-guard">
-(function(){
-  'use strict';
-  /* Stop app-level document/window touch handlers from seeing horizontal
-     carousel drags, while leaving the browser's native inner scrolling intact. */
-  let horizontal=false,start=null;
-
-  document.addEventListener('touchstart',e=>{
-    const track=e.target&&e.target.closest&&e.target.closest('.reel-gallery-track');
-    if(!track||e.touches.length!==1){start=null;horizontal=false;return;}
-    const t=e.touches[0];
-    start={track,x:t.clientX,y:t.clientY};
-    horizontal=false;
-  },{capture:true,passive:true});
-
-  document.addEventListener('touchmove',e=>{
-    if(!start||e.touches.length!==1)return;
-    const t=e.touches[0],dx=t.clientX-start.x,dy=t.clientY-start.y;
-    if(!horizontal&&Math.abs(dx)>7&&Math.abs(dx)>Math.abs(dy)*1.03)horizontal=true;
-    if(horizontal){
-      /* Do NOT preventDefault: native scroll must remain buttery smooth.
-         Capturing propagation is enough to stop FindAI's tab pager. */
-      e.stopPropagation();
-      if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
-    }
-  },{capture:true,passive:true});
-
-  const end=()=>{start=null;horizontal=false;};
-  document.addEventListener('touchend',end,{capture:true,passive:true});
-  document.addEventListener('touchcancel',end,{capture:true,passive:true});
-})();
-</script>
-
-
-<script id="findai-v148-wide-carousel-gesture">
-(function(){
-  'use strict';
-
-  let wideGesture=null;
-  const SWIPE_DISTANCE=46;
-  const FLICK_DISTANCE=18;
-  const FLICK_VELOCITY=.30;
-
-  function isInteractiveTarget(target){
+  function shouldIgnore(target){
     return !!(target&&target.closest&&target.closest(
       'button,a,input,textarea,select,[contenteditable="true"],.reel-social-actions,.reel-social-action,.reel-compare-button'
     ));
   }
 
-  function suppressCardClick(card){
-    if(!card)return;
-    card.dataset.gallerySuppressClick='1';
-    setTimeout(()=>{
-      if(card.dataset.gallerySuppressClick==='1')card.dataset.gallerySuppressClick='0';
-    },500);
-  }
+  function begin(e){
+    if(e.touches.length!==1||shouldIgnore(e.target))return;
 
-  document.addEventListener('touchstart',e=>{
-    if(e.touches.length!==1)return;
     const card=e.target&&e.target.closest&&e.target.closest('.reel-card[data-has-gallery="1"]');
-    if(!card||isInteractiveTarget(e.target))return;
+    if(!card)return;
 
     const stage=card.querySelector('.reel-gallery-stage');
     const track=stage&&stage.querySelector('.reel-gallery-track');
-    if(!stage||!track)return;
-
-    if(e.target.closest('.reel-gallery-track')){
-      wideGesture=null;
-      return;
-    }
+    const list=stage&&images(stage);
+    if(!stage||!track||!list||list.length<2)return;
 
     const t=e.touches[0];
     const now=performance.now();
-    const width=Math.max(1,track.clientWidth);
+    const width=Math.max(1,stage.clientWidth);
+    const startIndex=current(stage);
 
-    wideGesture={
-      card,stage,track,
-      startX:t.clientX,startY:t.clientY,
+    warm(stage,startIndex);
+
+    track.style.transition='none';
+    track.style.transform='translate3d('+(-startIndex*width)+'px,0,0)';
+
+    gesture={
+      card,stage,track,list,width,startIndex,
+      x:t.clientX,y:t.clientY,
       lastX:t.clientX,lastT:now,
-      dx:0,dy:0,velocity:0,
-      axis:'',
-      width,
-      startIndex:Math.round(track.scrollLeft/width),
-      startScroll:track.scrollLeft
+      dx:0,dy:0,renderDx:0,
+      velocity:0,axis:'',
+      startedAt:now
     };
-  },{capture:true,passive:true});
+  }
 
-  document.addEventListener('touchmove',e=>{
-    if(!wideGesture||e.touches.length!==1)return;
+  function move(e){
+    if(!gesture||e.touches.length!==1)return;
+
     const t=e.touches[0];
     const now=performance.now();
-    const g=wideGesture;
+    const g=gesture;
 
-    g.dx=t.clientX-g.startX;
-    g.dy=t.clientY-g.startY;
-    g.velocity=(t.clientX-g.lastX)/Math.max(1,now-g.lastT);
+    g.dx=t.clientX-g.x;
+    g.dy=t.clientY-g.y;
+
+    const instant=(t.clientX-g.lastX)/Math.max(1,now-g.lastT);
+    /* Damp noisy single-frame velocity readings. */
+    g.velocity=g.velocity*.35+instant*.65;
     g.lastX=t.clientX;
     g.lastT=now;
 
-    if(!g.axis&&(Math.abs(g.dx)>5||Math.abs(g.dy)>5)){
-      if(Math.abs(g.dx)>Math.abs(g.dy)*.82){
+    if(!g.axis&&(Math.abs(g.dx)>=AXIS_START||Math.abs(g.dy)>=AXIS_START)){
+      /* Intentionally forgiving. A user's finger rarely moves perfectly flat. */
+      if(Math.abs(g.dx)>Math.abs(g.dy)*.72){
         g.axis='x';
-        document.body.classList.add('findai-native-gallery-dragging');
-        suppressCardClick(g.card);
-      }else if(Math.abs(g.dy)>Math.abs(g.dx)*1.18){
-        wideGesture=null;
-        return;
-      }else{
+        document.body.classList.add('findai-premium-gallery-dragging');
+        g.card.dataset.gallerySuppressClick='1';
+      }else if(Math.abs(g.dy)>Math.abs(g.dx)*1.22){
+        gesture=null;
         return;
       }
     }
@@ -19421,44 +19300,160 @@ body.findai-native-gallery-dragging .findai-swipe-preview{
     e.preventDefault();
     e.stopPropagation();
     if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
+    queueDrag();
+  }
 
-    g.track.scrollLeft=g.startScroll-g.dx;
-  },{capture:true,passive:false});
+  function finish(e,cancelled){
+    if(!gesture)return;
+    const g=gesture;
 
-  function finishWideGesture(e){
-    if(!wideGesture)return;
-    const g=wideGesture;
-    wideGesture=null;
-    document.body.classList.remove('findai-native-gallery-dragging');
-
-    if(g.axis!=='x')return;
+    if(frame){
+      cancelAnimationFrame(frame);
+      frame=0;
+      renderDrag();
+    }
 
     if(e&&e.changedTouches&&e.changedTouches[0]){
       const t=e.changedTouches[0];
       const now=performance.now();
-      g.dx=t.clientX-g.startX;
+      g.dx=t.clientX-g.x;
+      g.dy=t.clientY-g.y;
+
       const endVelocity=(t.clientX-g.lastX)/Math.max(1,now-g.lastT);
       if(Math.abs(endVelocity)>Math.abs(g.velocity))g.velocity=endVelocity;
     }
 
-    const images=(()=>{try{return JSON.parse(g.stage.dataset.galleryImages||'[]')||[]}catch(_){return []}})();
-    const distance=Math.abs(g.dx);
-    const speed=Math.abs(g.velocity);
+    document.body.classList.remove('findai-premium-gallery-dragging');
 
-    const advance=
-      distance>=SWIPE_DISTANCE ||
-      (distance>=FLICK_DISTANCE&&speed>=FLICK_VELOCITY);
+    if(g.axis!=='x'){
+      gesture=null;
+      return;
+    }
+
+    if(e){
+      e.stopPropagation();
+      if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
+    }
+
+    const rawDx=g.dx;
+    const distance=Math.abs(rawDx);
+    const velocity=g.velocity;
+    const projected=rawDx+velocity*PROJECTION_MS;
+
+    const commits=!cancelled&&(
+      distance>=COMMIT_DISTANCE ||
+      (distance>=FLICK_DISTANCE&&Math.abs(velocity)>=FLICK_VELOCITY) ||
+      Math.abs(projected)>=COMMIT_DISTANCE
+    );
 
     let target=g.startIndex;
-    if(advance)target += g.dx<0?1:-1;
-    target=Math.max(0,Math.min(Math.max(0,images.length-1),target));
+    if(commits)target += projected<0?1:-1;
+    target=Math.max(0,Math.min(g.list.length-1,target));
 
-    g.track.scrollTo({left:target*g.width,behavior:'smooth'});
-    suppressCardClick(g.card);
+    gesture=null;
+
+    /* Re-create the minimum state snap() needs for the current visual offset. */
+    gesture={stage:g.stage,startIndex:g.startIndex,width:g.width,renderDx:g.renderDx};
+    snap(g.stage,target,velocity);
+    gesture=null;
+
+    setTimeout(()=>{
+      if(g.card&&g.card.dataset.gallerySuppressClick==='1'){
+        g.card.dataset.gallerySuppressClick='0';
+      }
+    },330);
   }
 
-  document.addEventListener('touchend',finishWideGesture,{capture:true,passive:true});
-  document.addEventListener('touchcancel',finishWideGesture,{capture:true,passive:true});
+  document.addEventListener('touchstart',begin,{capture:true,passive:true});
+  document.addEventListener('touchmove',move,{capture:true,passive:false});
+  document.addEventListener('touchend',e=>finish(e,false),{capture:true,passive:true});
+  document.addEventListener('touchcancel',e=>finish(e,true),{capture:true,passive:true});
+
+  /* Load current + adjacent image before a visible reel is touched. */
+  const observer=new IntersectionObserver(entries=>{
+    for(const entry of entries){
+      if(!entry.isIntersecting||entry.intersectionRatio<.30)continue;
+      const stage=entry.target;
+      const index=current(stage);
+      const track=stage.querySelector('.reel-gallery-track');
+      const width=Math.max(1,stage.clientWidth);
+
+      if(track&&!stage.dataset.v149Positioned){
+        stage.dataset.v149Positioned='1';
+        track.style.transform='translate3d('+(-index*width)+'px,0,0)';
+      }
+      warm(stage,index);
+    }
+  },{threshold:[.30,.55]});
+
+  function bind(root=document){
+    const found=[];
+    if(root.matches&&root.matches('.reel-gallery-stage'))found.push(root);
+    root.querySelectorAll&&found.push(...root.querySelectorAll('.reel-gallery-stage'));
+
+    found.forEach(stage=>{
+      if(stage.dataset.v149Observed==='1')return;
+      stage.dataset.v149Observed='1';
+      observer.observe(stage);
+      warm(stage,current(stage));
+    });
+  }
+
+  bind(document);
+  new MutationObserver(records=>{
+    records.forEach(record=>record.addedNodes.forEach(node=>{
+      if(node.nodeType===1)bind(node);
+    }));
+  }).observe(document.body,{childList:true,subtree:true});
+
+  /* Orientation/viewport changes should not leave the strip between slides. */
+  window.addEventListener('resize',()=>{
+    document.querySelectorAll('.reel-gallery-stage').forEach(stage=>{
+      const track=stage.querySelector('.reel-gallery-track');
+      if(track)translate(track,-current(stage)*Math.max(1,stage.clientWidth),false);
+    });
+  },{passive:true});
+})();
+</script>
+
+
+
+
+
+
+
+
+
+
+
+<script id="findai-v149-main-pager-guard">
+(function(){
+  'use strict';
+
+  let galleryTouch=null;
+
+  window.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1)return;
+    const card=e.target&&e.target.closest&&e.target.closest('.reel-card[data-has-gallery="1"]');
+    if(!card)return;
+    if(e.target.closest('button,a,input,textarea,select,[contenteditable="true"],.reel-social-actions,.reel-social-action,.reel-compare-button'))return;
+    const t=e.touches[0];
+    galleryTouch={x:t.clientX,y:t.clientY};
+  },{capture:true,passive:true});
+
+  window.addEventListener('touchmove',e=>{
+    if(!galleryTouch||e.touches.length!==1)return;
+    const t=e.touches[0];
+    const dx=t.clientX-galleryTouch.x,dy=t.clientY-galleryTouch.y;
+    if(Math.abs(dx)>4&&Math.abs(dx)>Math.abs(dy)*.72){
+      e.stopPropagation();
+      if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
+    }
+  },{capture:true,passive:true});
+
+  const clear=()=>{galleryTouch=null;};
+  window.addEventListener('touchend',clear,{capture:true,passive:true});
+  window.addEventListener('touchcancel',clear,{capture:true,passive:true});
 })();
 </script>
 
