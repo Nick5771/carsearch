@@ -12125,7 +12125,7 @@ window.addEventListener('load', function(){
       '</span>';
     }
     if(type==='follow'||(type.includes('follow')&&!type.includes('request')&&!type.includes('accepted'))){
-      return '<span class="findai-notification-side"><button class="findai-notification-action" type="button" onclick="findaiNotificationOpenFollowerList(event,'+index+')">View</button></span>';
+      return '<span class="findai-notification-side"><button class="findai-notification-action primary findai-notification-follow" type="button" onclick="findaiNotificationFollowBack(event,'+index+',this)">Follow</button></span>';
     }
     if((type.includes('like')||type.includes('comment'))&&image){
       return '<span class="findai-notification-side"><span class="findai-notification-side-thumb"><img src="'+escapeAttr(image)+'" alt=""></span></span>';
@@ -12184,24 +12184,31 @@ window.addEventListener('load', function(){
     }
   };
 
-  window.findaiNotificationOpenFollowerList=async function(event,index){
+  window.findaiNotificationFollowBack=async function(event,index,button){
     if(event){event.preventDefault();event.stopPropagation();}
     const n=appNotificationCache[Number(index)];
-    if(!n)return;
+    if(!n||!button)return;
     const username=String(n.actor_username||'').replace(/^@+/,'').trim();
+    if(!username)return;
+    button.disabled=true;
+    const old=button.textContent;
+    button.textContent='Following';
+    button.classList.remove('primary');
     try{
-      if(!n.local&&n.id&&marketplaceSession()){
-        await marketplaceFetch('/marketplace/notifications/read',{method:'POST',body:JSON.stringify({id:n.id})});
-      }
-    }catch(_){}
-    n.read_at=n.read_at||new Date().toISOString();
-    appNotificationUnread=appNotificationCache.reduce((sum,item)=>sum+(!item.read_at?1:0),0);
-    if(typeof setHomeNotificationState==='function')setHomeNotificationState(appNotificationUnread);
-    closeHomeNotifications();
-    if(typeof openProfile==='function')openProfile();
-    setTimeout(()=>{
-      if(typeof openOwnFollowersList==='function')openOwnFollowersList(username);
-    },90);
+      const data=await marketplaceFetch('/social/follow-user/'+encodeURIComponent(username),{method:'POST'});
+      button.textContent=data.pending?'Requested':data.isFollowing?'Following':'Follow';
+      if(!data.isFollowing&&!data.pending)button.classList.add('primary');
+      try{
+        if(!n.local&&n.id&&marketplaceSession())await marketplaceFetch('/marketplace/notifications/read',{method:'POST',body:JSON.stringify({id:n.id})});
+      }catch(_){}
+      n.read_at=n.read_at||new Date().toISOString();
+      appNotificationUnread=appNotificationCache.reduce((sum,item)=>sum+(!item.read_at?1:0),0);
+      if(typeof setHomeNotificationState==='function')setHomeNotificationState(appNotificationUnread);
+      try{if(typeof haptic==='function')haptic();}catch(_){}
+    }catch(error){
+      button.textContent=old;button.classList.add('primary');
+      try{toast(error&&error.message||'Could not follow this account');}catch(_){}
+    }finally{button.disabled=false;}
   };
   window.findaiNotificationFollowRequestAction=async function(event,index,action){
     if(event){event.preventDefault();event.stopPropagation();}
@@ -18569,10 +18576,14 @@ html.findai-light .findai-followers-empty b{color:#111214}
     const username=String(row.username||'').replace(/^@+/,'');
     const avatar=String(row.avatarUrl||'');
     const focused=ownFollowersTarget&&username.toLowerCase()===ownFollowersTarget.toLowerCase();
-    return '<div class="findai-follower-row'+(focused?' focused':'')+'" data-follower-username="'+escapeAttr(username)+'" role="button" tabindex="0" onclick="openOwnFollowerProfile(\''+escapeAttr(username)+'\',event)">'+
-      '<span class="findai-follower-avatar">'+(avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':escapeHTML(followerInitial(row)))+'</span>'+
-      '<span class="findai-follower-copy"><b>'+escapeHTML(row.displayName||username||'FindAI user')+'</b><span>'+escapeHTML(username?'@'+username:'')+'</span></span>'+
-      (username?'<button class="findai-follower-view" type="button" onclick="openOwnFollowerProfile(\''+escapeAttr(username)+'\',event)">View</button>':'')+
+    const followLabel=row.isFollowing?'Following':row.pending?'Requested':'Follow';
+    const followClass=row.isFollowing||row.pending?' following':'';
+    return '<div class="findai-follower-row'+(focused?' focused':'')+'" data-follower-username="'+escapeAttr(username)+'">'+
+      '<button class="findai-follower-avatar" type="button" onclick="openOwnFollowerProfile(\''+escapeAttr(username)+'\',event)" aria-label="Open '+escapeAttr(username)+' profile">'+
+        (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':escapeHTML(followerInitial(row)))+
+      '</button>'+
+      '<button class="findai-follower-copy" type="button" onclick="openOwnFollowerProfile(\''+escapeAttr(username)+'\',event)"><b>'+escapeHTML(row.displayName||username||'FindAI user')+'</b><span>'+escapeHTML(username?'@'+username:'')+'</span></button>'+
+      (username?'<button class="findai-follower-view'+followClass+'" type="button" onclick="followOwnFollower(\''+escapeAttr(username)+'\',this,event)">'+escapeHTML(followLabel)+'</button>':'')+
     '</div>';
   }
 
@@ -18633,6 +18644,34 @@ html.findai-light .findai-followers-empty b{color:#111214}
     ownFollowersTarget='';
   };
 
+
+  window.followOwnFollower=async function(username,button,event){
+    if(event){event.preventDefault();event.stopPropagation();}
+    const clean=String(username||'').replace(/^@+/,'').trim();if(!clean||!button)return;
+    const row=ownFollowersCache.find(r=>String(r.username||'').replace(/^@+/,'').toLowerCase()===clean.toLowerCase());
+    const wasFollowing=!!(row&&row.isFollowing),wasPending=!!(row&&row.pending);
+    if(wasFollowing||wasPending){
+      /* Keep the list action simple: tapping Following/Requested does not unfollow.
+         Unfollow remains available from the person's profile. */
+      try{if(typeof haptic==='function')haptic();}catch(_){}
+      return;
+    }
+    button.disabled=true;
+    const old=button.textContent;
+    button.textContent='Following';
+    button.classList.add('following');
+    try{
+      const data=await marketplaceFetch('/social/follow-user/'+encodeURIComponent(clean),{method:'POST'});
+      if(row){row.isFollowing=!!data.isFollowing;row.pending=!!data.pending;}
+      button.textContent=data.pending?'Requested':data.isFollowing?'Following':'Follow';
+      button.classList.toggle('following',!!data.isFollowing||!!data.pending);
+      try{if(typeof haptic==='function')haptic();}catch(_){}
+    }catch(error){
+      button.textContent=old;button.classList.remove('following');
+      try{toast(error&&error.message||'Could not follow this account');}catch(_){}
+    }finally{button.disabled=false;}
+  };
+
   window.openOwnFollowerProfile=function(username,event){
     if(event){event.preventDefault();event.stopPropagation();}
     const clean=String(username||'').replace(/^@+/,'').trim();if(!clean)return;
@@ -18665,6 +18704,35 @@ html.findai-light .findai-followers-empty b{color:#111214}
   },{passive:true});
 })();
 </script>
+
+
+<style id="findai-v141-follow-back-style">
+.findai-follower-avatar,
+.findai-follower-copy{
+  border:0!important;background:transparent!important;color:inherit!important;padding:0!important;
+  text-align:left!important;-webkit-tap-highlight-color:transparent!important;
+}
+.findai-follower-avatar{display:grid!important}
+.findai-follower-copy{display:block!important;min-width:0!important;width:100%!important}
+.findai-follower-view{
+  min-width:66px!important;
+  background:#f2f3f5!important;
+  border-color:#f2f3f5!important;
+  color:#111214!important;
+  transition:transform .16s ease,background .16s ease,color .16s ease,border-color .16s ease!important;
+}
+.findai-follower-view.following{
+  background:#24282e!important;
+  border-color:rgba(255,255,255,.11)!important;
+  color:#fff!important;
+}
+html.findai-light .findai-follower-view{
+  background:#111214!important;color:#fff!important;border-color:#111214!important;
+}
+html.findai-light .findai-follower-view.following{
+  background:#eef0f3!important;color:#111214!important;border-color:#dde0e4!important;
+}
+</style>
 
 </body>
 </html>
