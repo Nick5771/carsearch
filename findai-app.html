@@ -6688,7 +6688,7 @@ function renderReelCard(item,index,data){
   const sellerLabel=item.topRatedSeller ? 'Top-rated seller' : (seller || 'Live listing');
   const wishwave=isFindAIListing(item);
   const commentCount=wishwaveCommentCount(item);
-  return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}" role="button" tabindex="0" onclick="if(reelGalleryConsumeClick(this,event))return;openDeal(${index},event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDeal(${index},event);}">
+  return `<article class="reel-card" data-index="${index}" data-has-gallery="${gallery.length>1?'1':'0'}" aria-label="${escapeAttr(title)}" role="button" tabindex="0" onclick="if(reelGalleryConsumeClick(this,event))return;openDeal(${index},event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDeal(${index},event);}">
     <div class="hero-stage reel-gallery-stage${image?' fill-solid':''}" data-horizontal-scroll="1" data-gallery-index="0" data-gallery-images="${escapeAttr(JSON.stringify(gallery))}"${image?` style="--hero-fill:#0a0b0d"`:''}>
       <div class="reel-gallery-track" data-gallery-track="1">
         ${gallery.length
@@ -16622,7 +16622,7 @@ html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .finda
   }
   document.addEventListener('touchstart',event=>{
     if(tabAnimating||overlayOpen()||event.touches.length!==1)return;const active=String(document.body.dataset.activeTab||'discover');if(!tabs.includes(active))return;
-    if(event.target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.reel-gallery-stage,[data-horizontal-scroll],button,a'))return;
+    if(event.target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.reel-card[data-has-gallery="1"],.reel-gallery-stage,[data-horizontal-scroll],button,a'))return;
     const t=event.touches[0];if(t.clientX<24||t.clientX>window.innerWidth-24)return;tabTouch={x:t.clientX,y:t.clientY,active:false,dx:0};
   },{passive:true});
   document.addEventListener('touchmove',event=>{if(!tabTouch||event.touches.length!==1)return;const t=event.touches[0],dx=t.clientX-tabTouch.x,dy=t.clientY-tabTouch.y;if(!tabTouch.active){if(Math.abs(dx)<12)return;if(Math.abs(dy)>Math.abs(dx)*.72){tabTouch=null;return;}tabTouch.active=true;}tabTouch.dx=dx;if(Math.abs(dx)>20)event.preventDefault();},{passive:false});
@@ -16758,7 +16758,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
   function idx(tab){return tabs.indexOf(tab);}
   function visual(tab){if(tab==='messages')return document.getElementById('appMpInbox');return document.getElementById(tab);}
   function openTab(tab){if(tab==='discover')return openForYou();if(tab==='search')return openSearchHome(false);if(tab==='messages')return openMessagesTab();if(tab==='profile')return openProfile();}
-  function blockedTarget(target){return !!(target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,.reel-gallery-stage,[data-horizontal-scroll]'));}
+  function blockedTarget(target){return !!(target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,.reel-card[data-has-gallery="1"],.reel-gallery-stage,[data-horizontal-scroll]'));}
   function overlayOpen(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,#createListingScreen.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show');}
   function prepSurface(el,kind){if(!el)return;el.classList.add(kind,'findai-v132-swipe-surface');el.style.removeProperty('display');}
   function clearSurface(el){if(!el)return;el.classList.remove('findai-v132-current','findai-v132-target','findai-v132-settle','findai-v132-swipe-surface');el.style.transform='';el.style.opacity='';el.style.pointerEvents='';}
@@ -16925,7 +16925,7 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
 
   /* Move the grey lens with the user's finger. Window capture runs before the document-level pager. */
   let lensGesture=null;
-  function gestureBlocked(target){return !!(target&&target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,.reel-gallery-stage,[data-horizontal-scroll]'))}
+  function gestureBlocked(target){return !!(target&&target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,.reel-card[data-has-gallery="1"],.reel-gallery-stage,[data-horizontal-scroll]'))}
   function anyOverlay(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,#createListingScreen.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show')}
   addEventListener('touchstart',e=>{
     if(e.touches.length!==1||anyOverlay()||gestureBlocked(e.target))return;
@@ -19045,12 +19045,13 @@ html.findai-light .findai-follower-view.following{
   height:5px!important;
   border-radius:50%!important;
   display:block!important;
-  background:rgba(255,255,255,.44)!important;
+  background:rgba(255,255,255,.78)!important;
   transition:background .14s ease,transform .14s ease!important;
 }
 .reel-gallery-dots i.active{
   background:#fff!important;
-  transform:scale(1.18)!important;
+  box-shadow:0 0 0 1px rgba(255,255,255,.14)!important;
+  transform:scale(1.20)!important;
 }
 .reel-gallery-count{
   position:absolute!important;
@@ -19279,6 +19280,105 @@ body.findai-native-gallery-dragging .findai-swipe-preview{
   const end=()=>{start=null;horizontal=false;};
   document.addEventListener('touchend',end,{capture:true,passive:true});
   document.addEventListener('touchcancel',end,{capture:true,passive:true});
+})();
+</script>
+
+
+<script id="findai-v147-wide-carousel-gesture">
+(function(){
+  'use strict';
+
+  let wideGesture=null;
+
+  function isInteractiveTarget(target){
+    return !!(target&&target.closest&&target.closest(
+      'button,a,input,textarea,select,[contenteditable="true"],.reel-social-actions,.reel-social-action,.reel-compare-button'
+    ));
+  }
+
+  function suppressCardClick(card){
+    if(!card)return;
+    card.dataset.gallerySuppressClick='1';
+    setTimeout(()=>{
+      if(card.dataset.gallerySuppressClick==='1')card.dataset.gallerySuppressClick='0';
+    },500);
+  }
+
+  document.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1)return;
+    const card=e.target&&e.target.closest&&e.target.closest('.reel-card[data-has-gallery="1"]');
+    if(!card||isInteractiveTarget(e.target))return;
+
+    const stage=card.querySelector('.reel-gallery-stage');
+    const track=stage&&stage.querySelector('.reel-gallery-track');
+    if(!stage||!track)return;
+
+    /* If the finger began directly on the native track, v146's native scrolling
+       already gives the best iOS feel. This fallback is only for the rest of the card. */
+    if(e.target.closest('.reel-gallery-track')){
+      wideGesture=null;
+      return;
+    }
+
+    const t=e.touches[0];
+    wideGesture={
+      card,stage,track,
+      x:t.clientX,y:t.clientY,
+      startScroll:track.scrollLeft,
+      dx:0,dy:0,
+      axis:'',
+      width:Math.max(1,track.clientWidth)
+    };
+  },{capture:true,passive:true});
+
+  document.addEventListener('touchmove',e=>{
+    if(!wideGesture||e.touches.length!==1)return;
+    const t=e.touches[0];
+    const g=wideGesture;
+    g.dx=t.clientX-g.x;
+    g.dy=t.clientY-g.y;
+
+    if(!g.axis&&(Math.abs(g.dx)>5||Math.abs(g.dy)>5)){
+      if(Math.abs(g.dx)>Math.abs(g.dy)*1.02){
+        g.axis='x';
+        document.body.classList.add('findai-native-gallery-dragging');
+        suppressCardClick(g.card);
+      }else if(Math.abs(g.dy)>Math.abs(g.dx)*1.10){
+        wideGesture=null;
+        return;
+      }else{
+        return;
+      }
+    }
+
+    if(g.axis!=='x')return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
+
+    /* 1:1 finger tracking, same physical model as the native track. */
+    g.track.scrollLeft=g.startScroll-g.dx;
+  },{capture:true,passive:false});
+
+  function finishWideGesture(){
+    if(!wideGesture)return;
+    const g=wideGesture;
+    wideGesture=null;
+    document.body.classList.remove('findai-native-gallery-dragging');
+
+    if(g.axis!=='x')return;
+
+    const index=Math.round(g.track.scrollLeft/g.width);
+    g.track.scrollTo({
+      left:index*g.width,
+      behavior:'smooth'
+    });
+    suppressCardClick(g.card);
+  }
+
+  document.addEventListener('touchend',finishWideGesture,{capture:true,passive:true});
+  document.addEventListener('touchcancel',finishWideGesture,{capture:true,passive:true});
 })();
 </script>
 
