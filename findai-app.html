@@ -20673,5 +20673,391 @@ html.findai-light .app>.nav.findai-five-nav.premium-bottom-nav button[data-tab].
 })();
 </script>
 
+
+<style id="findai-v158-chat-search-notification-style">
+/* Direct chats are person-first. No fake $0 listing/context card. */
+#appMpInbox.direct-message-chat .app-mp-chat-head{
+  display:none!important;
+  min-height:0!important;
+  height:0!important;
+  padding:0!important;
+  border:0!important;
+}
+#appMpInboxTitle .findai-chat-title-person{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:9px!important;
+  max-width:100%!important;
+}
+#appMpInboxTitle .findai-chat-title-avatar{
+  width:31px!important;
+  height:31px!important;
+  min-width:31px!important;
+  border-radius:50%!important;
+  overflow:hidden!important;
+  display:grid!important;
+  place-items:center!important;
+  background:#1d2127!important;
+  color:#fff!important;
+  font-size:13px!important;
+  font-weight:800!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+}
+#appMpInboxTitle .findai-chat-title-avatar img{
+  width:100%!important;height:100%!important;object-fit:cover!important;display:block!important;
+}
+#appMpInboxTitle .findai-chat-title-name{
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+#appMpInbox.chat-open .app-mp-header h2{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  font-size:20px!important;
+  letter-spacing:-.45px!important;
+}
+
+/* Notification rows should feel like real links to the relevant activity. */
+.findai-notification-item[data-notification-index]{
+  cursor:pointer!important;
+}
+.findai-notification-item[data-notification-index]:active{
+  background:rgba(255,255,255,.035)!important;
+}
+</style>
+
+<script id="findai-v158-chat-search-notification-script">
+(function(){
+  'use strict';
+
+  /* =========================================================
+     1. EXACT SEARCH/DISCOVERY ITEM -> EXACT HOME REEL
+     ========================================================= */
+  function openExactHomeReel(items,index,data){
+    const list=Array.isArray(items)?items.filter(Boolean):[];
+    if(!list.length){
+      try{toast('This listing could not be opened.')}catch(_){}
+      return false;
+    }
+
+    const chosen=Math.max(0,Math.min(list.length-1,Number(index)||0));
+    const selected=list[chosen];
+
+    /* Put the clicked product first. This removes all scroll-to-index races and
+       makes the transition deterministic: the exact thing tapped is reel #1. */
+    const ordered=[
+      selected,
+      ...list.filter((_,i)=>i!==chosen)
+    ].slice(0,36);
+
+    try{closeSearchResultDetail();}catch(_){}
+    try{hideRecents();}catch(_){}
+    try{closeHomeNotifications();}catch(_){}
+
+    /* Navigate FIRST. Earlier versions rendered before switching tabs, allowing
+       pending Home work to repaint over the selected product. */
+    go('discover');
+    try{if(typeof setMainNavActive==='function')setMainNavActive('discover');}catch(_){}
+
+    const feed=document.getElementById('personalFeed');
+    if(!feed)return false;
+
+    /* A distinct source prevents any in-flight personalised background request
+       from treating this contextual Search reel as its own feed and overwriting it. */
+    currentFeedItems=ordered;
+    currentFeedData=data||{personalised:true};
+    feedState={
+      ...(feedState||{}),
+      source:'contextual-reel',
+      query:'',
+      resolvedQuery:'',
+      loading:false,
+      hasMore:false,
+      cursor:null
+    };
+    activeReelIndex=0;
+
+    feed.classList.remove('search-grid-mode');
+    feed.innerHTML=ordered.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');
+    feed.scrollTop=0;
+    window.__findaiExploreInjectedFeed=true;
+
+    try{showFeedHeader();bindFeedHeaderAutoHide();}catch(_){}
+    try{preloadPersonalisedImages(0,10);}catch(_){}
+
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      feed.scrollTop=0;
+      activeReelIndex=0;
+      try{attachReelObserver();}catch(_){}
+      try{beginReelTracking(0);}catch(_){}
+    }));
+
+    return true;
+  }
+
+  window.findaiOpenItemsInHomeReelV158=openExactHomeReel;
+  window.findaiOpenItemsInHomeReelV155=openExactHomeReel;
+
+  window.openPremiumDiscoveryItem=function(sectionId,index){
+    const section=typeof premiumDiscoverySectionById==='function'
+      ?premiumDiscoverySectionById(sectionId):null;
+    const list=section&&Array.isArray(section.items)?section.items:[];
+    const item=list[Number(index)||0];
+    if(item&&typeof findaiRememberRecentProduct==='function'){
+      try{findaiRememberRecentProduct(item);}catch(_){}
+    }
+    openExactHomeReel(list,index,null);
+  };
+
+  window.openSearchResultDetail=function(index){
+    const list=Array.isArray(currentFeedItems)?currentFeedItems:[];
+    const item=list[Number(index)||0];
+    if(item&&typeof findaiRememberRecentProduct==='function'){
+      try{findaiRememberRecentProduct(item);}catch(_){}
+    }
+    openExactHomeReel(list,index,currentFeedData);
+  };
+
+  /* =========================================================
+     2. NOTIFICATIONS — one authoritative content router
+     ========================================================= */
+  function listingIdFromNotification(n){
+    const type=String(n&&n.notification_type||'').toLowerCase();
+    const direct=String(
+      n&&(n.listing_id||n.listingId||
+        ((type.includes('comment')||type.includes('like')||type.includes('listing'))?n.entity_id:'')
+      )||''
+    ).trim();
+    if(direct)return direct;
+    try{
+      const u=new URL(String(n&&n.target_url||''),location.origin);
+      return String(u.searchParams.get('listing')||'').trim();
+    }catch(_){return '';}
+  }
+
+  async function fetchNotificationListing(n){
+    const id=listingIdFromNotification(n);
+    if(!id)throw new Error('Listing link is unavailable');
+    const payload=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id),{method:'GET'});
+    const item=payload&&(payload.listing||payload.item);
+    if(!item)throw new Error('Listing unavailable');
+    return item;
+  }
+
+  async function openNotificationComments(n){
+    const item=await fetchNotificationListing(n);
+    closeHomeNotifications();
+    if(!openExactHomeReel([item],0,{personalised:true}))return;
+
+    /* Wait until the exact reel is mounted, then open its comments. */
+    await new Promise(resolve=>setTimeout(resolve,120));
+    await window.openWishWaveComments(0,null);
+
+    const wanted=String(n&&n.body||'').trim();
+    const actor=String(n&&(n.actor_username||n.actor_display_name)||'')
+      .replace(/^@/,'').trim().toLowerCase();
+
+    const findAndHighlight=()=>{
+      const rows=[...document.querySelectorAll('.wishwave-comments-list .wishwave-comment')];
+      let target=null;
+
+      for(const row of rows){
+        const body=String(row.querySelector('.wishwave-comment-copy p')?.textContent||'').trim();
+        const name=String(row.querySelector('.wishwave-comment-head b')?.textContent||'')
+          .replace(/^@/,'').trim().toLowerCase();
+
+        if((!wanted||body===wanted)&&(!actor||name===actor||name.includes(actor))){
+          target=row;break;
+        }
+      }
+
+      if(!target&&wanted){
+        target=rows.find(row=>
+          String(row.querySelector('.wishwave-comment-copy p')?.textContent||'').trim()===wanted
+        )||null;
+      }
+
+      if(target){
+        target.classList.add('findai-notification-comment-target');
+        try{target.scrollIntoView({block:'center',behavior:'smooth'});}catch(_){}
+        setTimeout(()=>target.classList.remove('findai-notification-comment-target'),1800);
+        return true;
+      }
+      return false;
+    };
+
+    if(!findAndHighlight()){
+      setTimeout(findAndHighlight,180);
+      setTimeout(findAndHighlight,480);
+    }
+  }
+
+  async function openNotificationLike(n){
+    const item=await fetchNotificationListing(n);
+    closeHomeNotifications();
+    openExactHomeReel([item],0,{personalised:true});
+  }
+
+  function notificationConversationId(n){
+    const direct=String(n&&(n.conversation_id||n.conversationId)||'').trim();
+    if(direct)return direct;
+    try{
+      return String(new URL(String(n&&n.target_url||''),location.origin).searchParams.get('conversation')||'').trim();
+    }catch(_){return '';}
+  }
+
+  window.findaiNotificationOpenContent=async function(event,index){
+    if(event){event.preventDefault();event.stopPropagation();}
+    const n=appNotificationCache&&appNotificationCache[Number(index)];
+    if(!n)return;
+
+    /* Individual activity is marked read immediately; navigation never waits. */
+    n.read_at=n.read_at||new Date().toISOString();
+    try{
+      if(!n.local&&n.id&&marketplaceSession()){
+        marketplaceFetch('/marketplace/notifications/read',{
+          method:'POST',body:JSON.stringify({id:n.id})
+        }).catch(()=>{});
+      }
+    }catch(_){}
+
+    const type=String(n.notification_type||'').toLowerCase();
+
+    try{
+      if(type.includes('comment')){
+        await openNotificationComments(n);
+        return;
+      }
+
+      if(type.includes('like')||type.includes('followed_seller_listing')){
+        await openNotificationLike(n);
+        return;
+      }
+
+      if(type.includes('message')){
+        const conversationId=notificationConversationId(n);
+        closeHomeNotifications();
+        try{document.body.dataset.activeTab='messages';setMainNavActive('messages');}catch(_){}
+        if(conversationId){
+          await openAppMarketplaceInbox(conversationId);
+          return;
+        }
+      }
+
+      if(type.includes('follow')){
+        return findaiNotificationOpenActor(event,index);
+      }
+
+      /* Preserve offer/price-drop/etc. behavior. */
+      if(typeof openFindAINotification==='function'){
+        return openFindAINotification(index);
+      }
+    }catch(error){
+      console.error('Notification navigation failed',error);
+      try{toast(error&&error.message||'Could not open this notification');}catch(_){}
+    }
+  };
+
+  /* Add explicit indices for robust delegated/touch navigation too. */
+  const renderNotificationsBefore=window.renderHomeNotifications;
+  if(typeof renderNotificationsBefore==='function'){
+    window.renderHomeNotifications=function(){
+      const result=renderNotificationsBefore.apply(this,arguments);
+      requestAnimationFrame(()=>{
+        document.querySelectorAll('#findaiNotificationList .findai-notification-item').forEach((row,i)=>{
+          row.dataset.notificationIndex=String(i);
+        });
+      });
+      return result;
+    };
+  }
+
+  const notificationList=document.getElementById('findaiNotificationList');
+  if(notificationList&&!notificationList.dataset.v158Delegated){
+    notificationList.dataset.v158Delegated='1';
+    notificationList.addEventListener('click',event=>{
+      /* Buttons such as actor name/avatar, Follow and Confirm own their clicks. */
+      if(event.target.closest('button,a'))return;
+      const row=event.target.closest('.findai-notification-item[data-notification-index]');
+      if(!row)return;
+      event.preventDefault();event.stopPropagation();
+      window.findaiNotificationOpenContent(event,Number(row.dataset.notificationIndex)||0);
+    },true);
+  }
+
+  /* =========================================================
+     3. MESSAGES — remove fake Direct message product card and
+        show the actual user's avatar beside their name at top.
+     ========================================================= */
+  function chatTitleMarkup(c){
+    const name=String(c&&c.otherParty||'WishWave member');
+    const avatar=String(c&&c.otherPartyAvatar||'').trim();
+    const initial=escapeHTML(appMpInitial(name));
+    return '<span class="findai-chat-title-person">'+
+      '<span class="findai-chat-title-avatar">'+
+        (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':initial)+
+      '</span>'+
+      '<span class="findai-chat-title-name">'+escapeHTML(name)+'</span>'+
+    '</span>';
+  }
+
+  window.appMpRenderMessageHeader=function(c,presence){
+    appMpCurrentConversation=c||appMpCurrentConversation;
+    if(!appMpCurrentConversation)return;
+
+    const x=appMpCurrentConversation;
+    const inbox=document.getElementById('appMpInbox');
+    const title=document.getElementById('appMpInboxTitle');
+    const head=document.getElementById('appMpChatHead');
+    const direct=!!x.directMessage||String(x.listingTitle||'').trim().toLowerCase()==='direct message';
+
+    if(inbox)inbox.classList.toggle('direct-message-chat',direct);
+    if(title)title.innerHTML=chatTitleMarkup(x);
+
+    const offer=document.getElementById('appMpComposeOffer');
+    const activeOffer=Array.isArray(appMpCurrentOffers)&&appMpCurrentOffers.some(o=>o.status==='pending'||o.status==='accepted');
+    if(offer){
+      offer.style.display=!direct&&x.viewerRole==='buyer'&&Number(x.listingPrice)>0?'block':'none';
+      offer.disabled=activeOffer;
+      offer.textContent=activeOffer?'Active':'Offer';
+    }
+
+    if(!head)return;
+
+    if(direct){
+      head.innerHTML='';
+      return;
+    }
+
+    const image=x.listingImage
+      ?'<img src="'+escapeAttr(x.listingImage)+'" alt="">'
+      :'<span class="app-mp-chat-listing-placeholder">◇</span>';
+
+    head.innerHTML='<button class="app-mp-chat-context" type="button" onclick="appMpOpenConversationListing()">'+
+      image+
+      '<span class="app-mp-chat-context-copy">'+
+        '<b>'+escapeHTML(x.listingTitle||'WishWave listing')+'</b>'+
+        '<span>'+escapeHTML(appMpMoney(x.listingPrice,x.currency))+' · '+escapeHTML(appMpPresenceText(presence))+'</span>'+
+      '</span>'+
+    '</button>';
+  };
+
+  /* When going back to the inbox, remove direct-chat layout state. */
+  const inboxBackBefore=window.appMpInboxBack;
+  if(typeof inboxBackBefore==='function'){
+    window.appMpInboxBack=function(){
+      const result=inboxBackBefore.apply(this,arguments);
+      const inbox=document.getElementById('appMpInbox');
+      if(inbox&&!appMpConversation)inbox.classList.remove('direct-message-chat');
+      return result;
+    };
+  }
+})();
+</script>
+
 </body>
 </html>
