@@ -19105,7 +19105,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
   const FLICK_DISTANCE = 14;        // a quick flick may be very short
   const FLICK_VELOCITY = 0.24;      // px/ms
   const PROJECTION_MS = 155;        // projects momentum without overshooting
-  const AXIS_START = 4;             // lock direction quickly
+  const AXIS_START = 3;             // lock direction quickly
   const EDGE_RESISTANCE = 0.24;
 
   let gesture=null;
@@ -19426,34 +19426,18 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
 
 
 
-<script id="findai-v149-main-pager-guard">
+
+
+
+<script id="findai-v150-gallery-pager-guard">
 (function(){
   'use strict';
-
-  let galleryTouch=null;
-
-  window.addEventListener('touchstart',e=>{
-    if(e.touches.length!==1)return;
+  document.addEventListener('touchmove',function(e){
+    if(!document.body.classList.contains('findai-premium-gallery-dragging'))return;
     const card=e.target&&e.target.closest&&e.target.closest('.reel-card[data-has-gallery="1"]');
     if(!card)return;
-    if(e.target.closest('button,a,input,textarea,select,[contenteditable="true"],.reel-social-actions,.reel-social-action,.reel-compare-button'))return;
-    const t=e.touches[0];
-    galleryTouch={x:t.clientX,y:t.clientY};
-  },{capture:true,passive:true});
-
-  window.addEventListener('touchmove',e=>{
-    if(!galleryTouch||e.touches.length!==1)return;
-    const t=e.touches[0];
-    const dx=t.clientX-galleryTouch.x,dy=t.clientY-galleryTouch.y;
-    if(Math.abs(dx)>4&&Math.abs(dx)>Math.abs(dy)*.72){
-      e.stopPropagation();
-      if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
-    }
-  },{capture:true,passive:true});
-
-  const clear=()=>{galleryTouch=null;};
-  window.addEventListener('touchend',clear,{capture:true,passive:true});
-  window.addEventListener('touchcancel',clear,{capture:true,passive:true});
+    e.stopPropagation();
+  },{passive:true});
 })();
 </script>
 
