@@ -12208,7 +12208,7 @@ window.addEventListener('load', function(){
       const secondary=notificationSecondaryText(n);
       const time=notificationTime(n.created_at);
       const type=String(n.notification_type||'').toLowerCase();
-      const actorOpen=(type.includes('follow')||type.includes('message'))&&n.actor_username;
+      const actorOpen=(type.includes('follow')||type.includes('message'))&&(n.actor_username||n.actor_seller_id||n.actor_email);
       return '<div class="findai-notification-item" role="button" tabindex="0" onclick="'+(actorOpen?'findaiNotificationOpenActor(event,'+index+')':'openFindAINotification('+index+')')+'">'+
         notificationVisual(n)+
         '<span class="findai-notification-copy"><b>'+escapeHTML(title)+(unread?'<i class="findai-notification-unread"></i>':'')+
@@ -15464,7 +15464,10 @@ if(typeof v116RenderMarketplaceListing==='function'){
     const root=document.getElementById('premiumDiscoverySections');if(!root)return;
     if(exploreFilter==='people'&&window.loadPremiumPeopleDiscovery)return window.loadPremiumPeopleDiscovery(document.getElementById('q')&&document.getElementById('q').value||'');
     const typed=String(document.getElementById('q')&&document.getElementById('q').value||'').trim();if(typed){runExploreLiveSearch(typed,true);return;}
-    if(!force&&exploreLoadedFilter===exploreFilter&&premiumDiscoverySections[0]&&premiumDiscoverySections[0].items&&premiumDiscoverySections[0].items.length)return;
+    if(!force&&premiumDiscoverySections[0]&&premiumDiscoverySections[0].items&&premiumDiscoverySections[0].items.length){
+      if(!exploreLoadedFilter)exploreLoadedFilter=exploreFilter;
+      return;
+    }
     if(exploreInitialPromise&&exploreInitialPromiseFilter===exploreFilter&&!force)return exploreInitialPromise;
     exploreInitialPromiseFilter=exploreFilter;
     exploreInitialPromise=(async()=>{
@@ -16953,16 +16956,29 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
   }
   function cacheSearch(){
     const items=usefulExploreItems();if(!items.length)return;
-    try{localStorage.setItem(SEARCH_CACHE_KEY,JSON.stringify({at:now(),items:items.slice(0,36)}));}catch(_){ }
+    try{
+      localStorage.setItem(SEARCH_CACHE_KEY,JSON.stringify({
+        at:now(),
+        filter:String(exploreFilter||'for-you'),
+        items:items.slice(0,48)
+      }));
+    }catch(_){ }
   }
   function hydrateSearchCache(){
     const root=document.getElementById('premiumDiscoverySections');if(!root)return false;
-    const data=safeJSON(localStorage.getItem(SEARCH_CACHE_KEY)||'',null);if(!data||!Array.isArray(data.items)||!data.items.length)return false;
+    const data=safeJSON(localStorage.getItem(SEARCH_CACHE_KEY)||'',null);
+    if(!data||!Array.isArray(data.items)||!data.items.length)return false;
+    const cachedFilter=String(data.filter||'for-you');
+    if(cachedFilter!==String(exploreFilter||'for-you'))return false;
     try{
       if(!usefulExploreItems().length){
         premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:data.items.slice()}];
+        exploreLoadedFilter=String(exploreFilter||'for-you');
+        seenExplore.clear();
+        data.items.forEach(item=>{try{const key=exploreItemKey(item);if(key)seenExplore.add(key)}catch(_){}});
         if(typeof renderExploreGrid==='function')renderExploreGrid({replace:true});
-        document.getElementById('search')?.classList.add('findai-v133-warm');return true;
+        document.getElementById('search')?.classList.add('findai-v133-warm');
+        return true;
       }
     }catch(_){ }
     return false;
@@ -17006,7 +17022,8 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
 
   /* Start both warmers after first paint, not during startup-critical work. */
   const idle=window.requestIdleCallback||function(fn){return setTimeout(fn,700)};
-  idle(()=>{warmSearch();setTimeout(warmProfile,180)}, {timeout:1500});
+  setTimeout(warmSearch,90);
+  idle(()=>{setTimeout(warmProfile,180)}, {timeout:1500});
   document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){setTimeout(warmSearch,180);setTimeout(warmProfile,420)}});
 
   /* 4) Search -> reel is a contextual push, not a tab switch. Browser/iOS back and edge swipe reveal Search exactly where it was. */
@@ -18938,8 +18955,6 @@ html.findai-light .findai-follower-view.following{
     try{closeOwnFollowersList();}catch(_){}
     try{closeHomeNotifications();}catch(_){}
     try{closeAppMpSheet();}catch(_){}
-    try{go('search');}catch(_){}
-    try{if(typeof setMainNavActive==='function')setMainNavActive('search');}catch(_){}
 
     const page=ensureWishWavePublicProfilePage();
     const body=document.getElementById('wishwavePublicProfileBody');
@@ -19009,14 +19024,24 @@ html.findai-light .findai-follower-view.following{
     if(event){event.preventDefault();event.stopPropagation();}
     const n=appNotificationCache&&appNotificationCache[Number(index)];
     if(!n)return;
-    try{
-      if(!n.local&&n.id&&marketplaceSession()){
-        await marketplaceFetch('/marketplace/notifications/read',{method:'POST',body:JSON.stringify({id:n.id})});
-      }
-    }catch(_){}
+
+    /* Navigation should feel immediate; mark-as-read is not allowed to block it. */
+    if(!n.local&&n.id&&marketplaceSession()){
+      marketplaceFetch('/marketplace/notifications/read',{
+        method:'POST',body:JSON.stringify({id:n.id})
+      }).catch(()=>{});
+    }
     n.read_at=n.read_at||new Date().toISOString();
+
     const username=String(n.actor_username||'').replace(/^@+/,'').trim();
     if(username)return showFindAIUserProfileDirect(username);
+
+    const sellerId=String(n.actor_seller_id||'').trim();
+    if(sellerId&&typeof openPremiumSellerProfileById==='function'){
+      try{closeHomeNotifications();}catch(_){}
+      return openPremiumSellerProfileById(sellerId);
+    }
+
     if(typeof openFindAINotification==='function')return openFindAINotification(index);
   };
 })();
@@ -19521,7 +19546,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
 
 <style id="findai-v153-carousel-performance">
 .reel-gallery-track{
-  contain:layout style paint!important;
+  contain:layout style!important;
   transform-origin:0 50%!important;
 }
 .reel-gallery-slide{
@@ -19553,157 +19578,7 @@ body.findai-premium-gallery-dragging .reel-card{
 </style>
 
 
-<script id="findai-v153-search-reel-routing">
-(function(){
-  'use strict';
 
-  let searchReelState=null;
-  const previousOpenSearchResultDetail=window.openSearchResultDetail;
-  const previousCloseSearchResultDetail=window.closeSearchResultDetail;
-
-  function searchScrollState(){
-    const home=document.querySelector('#search .premium-search-home-scroll');
-    const feed=document.getElementById('feed');
-    return {
-      home:home?home.scrollTop:0,
-      feed:feed?feed.scrollTop:0
-    };
-  }
-
-  function restoreSearchScroll(state){
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      const home=document.querySelector('#search .premium-search-home-scroll');
-      const feed=document.getElementById('feed');
-      if(home)home.scrollTop=Number(state&&state.home)||0;
-      if(feed)feed.scrollTop=Number(state&&state.feed)||0;
-    }));
-  }
-
-  function closeSearchReelDirect(){
-    if(!searchReelState)return false;
-    const state=searchReelState;
-    searchReelState=null;
-
-    const overlay=document.getElementById('searchDetailOverlay');
-    const feed=document.getElementById('searchDetailFeed');
-    if(feed)feed.onscroll=null;
-    if(overlay){
-      overlay.classList.remove(
-        'show','explore-reel-mode','findai-v133-context-reel','findai-v133-dragging'
-      );
-      overlay.style.transform='';
-    }
-
-    currentFeedItems=state.items;
-    currentFeedData=state.data;
-    feedState=state.feedState;
-    activeReelIndex=state.active;
-    restoreSearchScroll(state.scroll);
-
-    if(feed)setTimeout(()=>{
-      if(!searchReelState&&!overlay?.classList.contains('show'))feed.innerHTML='';
-    },260);
-
-    return true;
-  }
-
-  function openSearchReel(items,index,data){
-    const list=Array.isArray(items)?items.filter(Boolean):[];
-    if(!list.length)return;
-
-    const chosen=Math.max(0,Math.min(list.length-1,Number(index)||0));
-    const start=Math.max(0,Math.min(chosen-5,Math.max(0,list.length-40)));
-    const end=Math.min(list.length,start+40);
-    const localIndex=chosen-start;
-
-    if(searchReelState)closeSearchReelDirect();
-
-    searchReelState={
-      items:Array.isArray(currentFeedItems)?currentFeedItems.slice():[],
-      data:currentFeedData,
-      feedState:{...(feedState||{})},
-      active:Number(activeReelIndex)||0,
-      scroll:searchScrollState()
-    };
-
-    currentFeedItems=list.slice(start,end);
-    currentFeedData=data||null;
-    feedState={...(feedState||{}),source:'explore-reel',loading:false,hasMore:false};
-    activeReelIndex=localIndex;
-
-    const overlay=document.getElementById('searchDetailOverlay');
-    const feed=document.getElementById('searchDetailFeed');
-    const count=document.getElementById('searchDetailCount');
-    if(!overlay||!feed){
-      closeSearchReelDirect();
-      return;
-    }
-
-    overlay.classList.add('explore-reel-mode','findai-v133-context-reel','show');
-    overlay.style.transform='translate3d(0,0,0)';
-    if(count)count.textContent='Explore';
-
-    feed.innerHTML=currentFeedItems.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');
-    feed.scrollTop=0;
-
-    let lastIndex=-1,raf=0;
-    feed.onscroll=()=>{
-      if(raf)return;
-      raf=requestAnimationFrame(()=>{
-        raf=0;
-        const h=Math.max(1,feed.clientHeight);
-        const next=Math.max(0,Math.min(currentFeedItems.length-1,Math.round(feed.scrollTop/h)));
-        if(next!==lastIndex){
-          lastIndex=next;
-          activeReelIndex=next;
-          try{if(typeof beginReelTracking==='function')beginReelTracking(next,1);}catch(_){}
-        }
-      });
-    };
-
-    try{
-      if(typeof preloadPersonalisedImages==='function'){
-        preloadPersonalisedImages(Math.max(0,localIndex-2),10);
-      }
-    }catch(_){}
-
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      const card=feed.querySelector('.reel-card[data-index="'+localIndex+'"]');
-      feed.scrollTop=card?card.offsetTop:localIndex*Math.max(1,feed.clientHeight);
-      lastIndex=localIndex;
-      try{if(typeof beginReelTracking==='function')beginReelTracking(localIndex,1);}catch(_){}
-    }));
-  }
-
-  /* Typed-search cards, legacy grid cards and mobile search cards all use this. */
-  window.openSearchResultDetail=function(index){
-    const search=document.getElementById('search');
-    if(search&&search.classList.contains('active')&&Array.isArray(currentFeedItems)&&currentFeedItems.length){
-      openSearchReel(currentFeedItems,index,currentFeedData);
-      return;
-    }
-    return previousOpenSearchResultDetail&&previousOpenSearchResultDetail.apply(this,arguments);
-  };
-
-  /* Explore tiles use the same contextual reel viewer and Search stays selected. */
-  window.openPremiumDiscoveryItem=function(sectionId,index){
-    const section=typeof premiumDiscoverySectionById==='function'
-      ?premiumDiscoverySectionById(sectionId):null;
-    const list=section&&Array.isArray(section.items)?section.items:[];
-    if(!list.length)return;
-    openSearchReel(list,index,null);
-  };
-
-  window.closeSearchResultDetail=function(){
-    if(closeSearchReelDirect())return;
-    return previousCloseSearchResultDetail&&previousCloseSearchResultDetail.apply(this,arguments);
-  };
-
-  /* Bottom-nav changes and browser back should never leave an orphaned Search reel. */
-  addEventListener('popstate',()=>{if(searchReelState)closeSearchReelDirect()});
-  window.__findaiCloseSearchReelV153=closeSearchReelDirect;
-})();
-</script>
 
 
 <script id="findai-v153-comments-performance">
@@ -19872,6 +19747,251 @@ body.findai-premium-gallery-dragging .reel-card{
 
   if('requestIdleCallback' in window)requestIdleCallback(warm,{timeout:1800});
   else setTimeout(warm,1200);
+})();
+</script>
+
+
+<style id="findai-v154-gallery-dot-positioning">
+.reel-gallery-dots{
+  top:var(--findai-gallery-dots-top,68%)!important;
+  background:transparent!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  padding:2px 4px!important;
+}
+.reel-gallery-dots i{
+  background:rgba(255,255,255,.34)!important;
+  opacity:1!important;
+  box-shadow:0 1px 2px rgba(0,0,0,.42)!important;
+}
+.reel-gallery-dots i.active{
+  width:8px!important;
+  height:8px!important;
+  background:rgb(255,255,255)!important;
+  opacity:1!important;
+  box-shadow:0 1px 4px rgba(0,0,0,.68)!important;
+  filter:none!important;
+  mix-blend-mode:normal!important;
+}
+</style>
+
+
+<script id="findai-v154-dynamic-gallery-dots">
+(function(){
+  'use strict';
+
+  function place(stage){
+    if(!stage||!stage.isConnected)return;
+    const card=stage.closest('.reel-card');
+    const panel=card&&card.querySelector('.product-panel');
+    const dots=stage.querySelector('.reel-gallery-dots');
+    if(!card||!panel||!dots)return;
+
+    const stageRect=stage.getBoundingClientRect();
+    const candidates=[...panel.children].filter(el=>{
+      if(!el||!el.getBoundingClientRect)return false;
+      const cs=getComputedStyle(el);
+      const r=el.getBoundingClientRect();
+      return cs.display!=='none'&&cs.visibility!=='hidden'&&r.height>0&&r.width>0;
+    });
+    if(!candidates.length)return;
+
+    const top=Math.min(...candidates.map(el=>el.getBoundingClientRect().top));
+    const local=top-stageRect.top-13;
+    const clamped=Math.max(80,Math.min(stage.clientHeight-28,local));
+    stage.style.setProperty('--findai-gallery-dots-top',clamped+'px');
+  }
+
+  function placeAll(root=document){
+    const stages=[];
+    if(root.matches&&root.matches('.reel-gallery-stage'))stages.push(root);
+    root.querySelectorAll&&stages.push(...root.querySelectorAll('.reel-gallery-stage'));
+    stages.forEach(stage=>requestAnimationFrame(()=>place(stage)));
+  }
+
+  const ro=new ResizeObserver(entries=>{
+    entries.forEach(entry=>{
+      const card=entry.target.closest&&entry.target.closest('.reel-card');
+      const stage=card&&card.querySelector('.reel-gallery-stage');
+      if(stage)place(stage);
+    });
+  });
+
+  function observe(root=document){
+    placeAll(root);
+    const cards=[];
+    if(root.matches&&root.matches('.reel-card'))cards.push(root);
+    root.querySelectorAll&&cards.push(...root.querySelectorAll('.reel-card'));
+    cards.forEach(card=>{
+      if(card.dataset.v154DotObserved==='1')return;
+      card.dataset.v154DotObserved='1';
+      ro.observe(card);
+      const panel=card.querySelector('.product-panel');
+      if(panel)ro.observe(panel);
+    });
+  }
+
+  observe(document);
+  new MutationObserver(records=>{
+    records.forEach(record=>record.addedNodes.forEach(node=>{
+      if(node.nodeType===1)observe(node);
+    }));
+  }).observe(document.body,{childList:true,subtree:true});
+
+  addEventListener('resize',()=>placeAll(document),{passive:true});
+})();
+</script>
+
+
+<script id="findai-v154-stable-search-reel">
+(function(){
+  'use strict';
+
+  let restore=null;
+
+  function searchScroller(){
+    return document.querySelector('#search .premium-search-home-scroll');
+  }
+
+  function closeStableSearchReel(){
+    if(!restore)return false;
+    const saved=restore;
+    restore=null;
+
+    const overlay=document.getElementById('searchDetailOverlay');
+    const feed=document.getElementById('searchDetailFeed');
+
+    if(feed){
+      feed.onscroll=null;
+      feed.innerHTML='';
+    }
+    if(overlay){
+      overlay.classList.remove('show','explore-reel-mode','findai-v133-context-reel','findai-v133-dragging');
+      overlay.style.transform='';
+    }
+
+    currentFeedItems=saved.items;
+    currentFeedData=saved.data;
+    feedState=saved.feedState;
+    activeReelIndex=saved.active;
+
+    requestAnimationFrame(()=>{
+      const sc=searchScroller();
+      if(sc)sc.scrollTop=saved.searchScroll;
+    });
+    return true;
+  }
+
+  function openStableSearchReel(items,index,data){
+    const list=Array.isArray(items)?items.filter(Boolean):[];
+    if(!list.length){
+      try{toast('This listing could not be opened.')}catch(_){}
+      return;
+    }
+
+    const overlay=document.getElementById('searchDetailOverlay');
+    const feed=document.getElementById('searchDetailFeed');
+    const count=document.getElementById('searchDetailCount');
+    if(!overlay||!feed){
+      try{toast('Listing viewer is unavailable.')}catch(_){}
+      return;
+    }
+
+    if(restore)closeStableSearchReel();
+
+    const chosen=Math.max(0,Math.min(list.length-1,Number(index)||0));
+    const start=Math.max(0,chosen-5);
+    const end=Math.min(list.length,start+32);
+    const localIndex=chosen-start;
+    const selected=list.slice(start,end);
+
+    restore={
+      items:Array.isArray(currentFeedItems)?currentFeedItems.slice():[],
+      data:currentFeedData,
+      feedState:{...(feedState||{})},
+      active:Number(activeReelIndex)||0,
+      searchScroll:Number(searchScroller()&&searchScroller().scrollTop)||0
+    };
+
+    currentFeedItems=selected;
+    currentFeedData=data||{personalised:true};
+    feedState={...(feedState||{}),source:'personalised',loading:false,hasMore:false};
+    activeReelIndex=localIndex;
+
+    try{
+      feed.innerHTML=selected.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');
+    }catch(error){
+      closeStableSearchReel();
+      console.error('Search reel render failed',error);
+      try{toast('This listing could not be opened.')}catch(_){}
+      return;
+    }
+
+    overlay.classList.add('explore-reel-mode','findai-v133-context-reel','show');
+    overlay.style.transform='translate3d(0,0,0)';
+    if(count)count.textContent='Explore';
+
+    let raf=0;
+    feed.onscroll=()=>{
+      if(raf)return;
+      raf=requestAnimationFrame(()=>{
+        raf=0;
+        const h=Math.max(1,feed.clientHeight);
+        activeReelIndex=Math.max(0,Math.min(
+          currentFeedItems.length-1,
+          Math.round(feed.scrollTop/h)
+        ));
+      });
+    };
+
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const card=feed.querySelector('.reel-card[data-index="'+localIndex+'"]');
+      feed.scrollTop=card?card.offsetTop:localIndex*Math.max(1,feed.clientHeight);
+      activeReelIndex=localIndex;
+
+      /* Preload this reel and the next few without waiting for a scroll event. */
+      try{
+        [localIndex,localIndex+1,localIndex-1].forEach(i=>{
+          const stage=feed.querySelector('.reel-card[data-index="'+i+'"] .reel-gallery-stage');
+          if(!stage)return;
+          stage.querySelectorAll('.reel-gallery-slide').forEach((slide,j)=>{
+            if(Math.abs(j-(Number(stage.dataset.galleryIndex)||0))>1)return;
+            const img=slide.querySelector('.reel-gallery-image');
+            if(img&&!img.getAttribute('src')&&img.dataset.src)img.src=img.dataset.src;
+          });
+        });
+      }catch(_){}
+    }));
+  }
+
+  const legacyDetail=window.openSearchResultDetail;
+
+  window.openPremiumDiscoveryItem=function(sectionId,index){
+    const section=typeof premiumDiscoverySectionById==='function'
+      ?premiumDiscoverySectionById(sectionId):null;
+    const list=section&&Array.isArray(section.items)?section.items:[];
+    openStableSearchReel(list,index,null);
+  };
+
+  window.openSearchResultDetail=function(index){
+    const search=document.getElementById('search');
+    if(search&&search.classList.contains('active')){
+      const list=Array.isArray(currentFeedItems)?currentFeedItems:[];
+      if(list.length){
+        openStableSearchReel(list,index,currentFeedData);
+        return;
+      }
+    }
+    if(typeof legacyDetail==='function')return legacyDetail.apply(this,arguments);
+  };
+
+  const legacyClose=window.closeSearchResultDetail;
+  window.closeSearchResultDetail=function(){
+    if(closeStableSearchReel())return;
+    if(typeof legacyClose==='function')return legacyClose.apply(this,arguments);
+  };
+
+  window.__findaiCloseStableSearchReelV154=closeStableSearchReel;
 })();
 </script>
 
