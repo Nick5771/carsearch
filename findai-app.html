@@ -12220,7 +12220,7 @@ window.addEventListener('load', function(){
       const time=notificationTime(n.created_at);
       const type=String(n.notification_type||'').toLowerCase();
       const actorOpen=(type.includes('follow')||type.includes('message'))&&(n.actor_username||n.actor_seller_id||n.actor_email);
-      return '<div class="findai-notification-item" role="button" tabindex="0" onclick="'+(actorOpen?'findaiNotificationOpenActor(event,'+index+')':'openFindAINotification('+index+')')+'">'+
+      return '<div class="findai-notification-item" role="button" tabindex="0" onclick="findaiNotificationOpenContent(event,'+index+')">'+
         notificationVisual(n,index)+
         '<span class="findai-notification-copy"><b>'+notificationTitleMarkup(n,index,title)+(unread?'<i class="findai-notification-unread"></i>':'')+
           (time?'<span class="findai-notification-meta">'+escapeHTML(time)+'</span>':'')+
@@ -13939,7 +13939,7 @@ function ensureWishWavePublicProfilePage(){
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>'+
         '</button>'+
         '<div class="social-profile-handle" id="wishwavePublicHandle">seller</div>'+
-        '<div class="wishwave-public-profile-top-spacer"></div>'+
+        '<button type="button" class="findai-public-top-more" onclick="openFindAIProfileActions()" aria-label="Profile options">•••</button>'+
       '</div>'+
       '<div id="wishwavePublicProfileBody"><div class="social-profile-loading">Loading profile…</div></div>'+
     '</div>';
@@ -20153,6 +20153,330 @@ body.findai-premium-gallery-dragging .reel-card{
     const root=document.querySelector('.app')||document.body;
     if(page.parentElement!==root)root.appendChild(page);
     return prior.apply(this,arguments);
+  };
+})();
+</script>
+
+
+<style id="findai-v156-social-navigation-style">
+/* A clearly visible Instagram-like selected tab treatment. */
+.app>.nav.findai-five-nav.premium-bottom-nav button.active .nav-icon-shell{
+  background:rgba(255,255,255,.115)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.045)!important;
+  border-radius:20px!important;
+}
+.app>.nav.findai-five-nav.premium-bottom-nav button.active[data-tab="profile"] .nav-icon-shell{
+  background:rgba(255,255,255,.115)!important;
+}
+html.findai-light .app>.nav.findai-five-nav.premium-bottom-nav button.active .nav-icon-shell{
+  background:rgba(0,0,0,.09)!important;
+}
+
+/* The magnifying glass becomes an explicit exit from Recent searches. */
+#search .premium-search-glass{
+  pointer-events:auto!important;
+  cursor:pointer!important;
+  position:relative!important;
+  z-index:3!important;
+}
+
+/* True top-right profile actions. */
+.findai-public-top-more{
+  width:38px!important;height:38px!important;min-width:38px!important;
+  border:0!important;border-radius:50%!important;background:transparent!important;
+  color:#f5f6f7!important;font:800 17px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif!important;
+  letter-spacing:1.2px!important;display:grid!important;place-items:center!important;padding:0!important;
+}
+.findai-public-top-more:active{background:rgba(255,255,255,.08)!important;transform:scale(.94)!important}
+html.findai-light .findai-public-top-more{color:#111!important}
+html.findai-light .findai-public-top-more:active{background:rgba(0,0,0,.07)!important}
+
+/* Confirmation sheet. */
+.findai-unfollow-confirm{
+  padding:6px 2px 2px;text-align:center;
+}
+.findai-unfollow-confirm b{display:block;font-size:17px;color:#f5f6f7;margin-bottom:7px}
+.findai-unfollow-confirm p{margin:0 10px 17px;color:#9399a2;font-size:12px;line-height:1.45}
+.findai-unfollow-confirm-actions{display:grid;gap:8px}
+.findai-unfollow-confirm-actions button{
+  width:100%;height:47px;border:0;border-radius:13px;
+  background:#202329;color:#f5f6f7;font:750 13px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif;
+}
+.findai-unfollow-confirm-actions .danger{color:#ff5a61;background:#241719}
+.findai-unfollow-confirm-actions button:active{transform:scale(.985)}
+</style>
+
+<script id="findai-v156-social-navigation-script">
+(function(){
+  'use strict';
+
+  /* -----------------------------------------------------------
+     Search Recent -> listings grid via magnifying glass.
+     ----------------------------------------------------------- */
+  function bindSearchGlass(){
+    const glass=document.querySelector('#search .premium-search-glass');
+    const input=document.getElementById('q');
+    const search=document.getElementById('search');
+    if(!glass||!input||!search||glass.dataset.v156Bound==='1')return;
+    glass.dataset.v156Bound='1';
+    glass.setAttribute('role','button');
+    glass.setAttribute('tabindex','0');
+    glass.setAttribute('aria-label','Back to search listings');
+
+    const activate=event=>{
+      if(event){event.preventDefault();event.stopPropagation();}
+      if(search.classList.contains('search-recents-visible')){
+        try{hideRecents();}catch(_){}
+        input.value='';
+        try{input.blur();}catch(_){}
+        try{renderPremiumSearchHome();}catch(_){}
+        return;
+      }
+      try{input.focus({preventScroll:true});}catch(_){input.focus();}
+    };
+
+    glass.addEventListener('click',activate);
+    glass.addEventListener('keydown',event=>{
+      if(event.key==='Enter'||event.key===' '){event.preventDefault();activate(event);}
+    });
+  }
+  bindSearchGlass();
+
+  /* -----------------------------------------------------------
+     Message button on another user's profile.
+     Create/resolve the conversation on the server, then open it.
+     ----------------------------------------------------------- */
+  window.messageWishWavePublicSeller=async function(){
+    if(!wishwavePublicSellerData)return;
+    const viewer=wishwavePublicSellerData.viewer||{};
+    const seller=wishwavePublicSellerData.seller||{};
+
+    if(viewer.isSeller){
+      closeWishWavePublicProfile();
+      if(typeof openMessagesTab==='function')return openMessagesTab();
+      return openAppMarketplaceInbox();
+    }
+    if(!viewer.signedIn){openLogin();return;}
+
+    const username=String(seller.username||'').replace(/^@+/,'').trim();
+    if(!username){toast('This profile cannot be messaged yet');return;}
+
+    const button=[...document.querySelectorAll('#wishwavePublicProfileBody .social-profile-actions button')]
+      .find(node=>String(node.textContent||'').trim()==='Message');
+    if(button){button.disabled=true;button.textContent='Opening…';}
+
+    try{
+      const data=await marketplaceFetch('/social/message-user/'+encodeURIComponent(username),{
+        method:'POST'
+      });
+      const conversationId=String(data&&data.conversationId||'');
+      if(!conversationId)throw new Error('Could not open conversation');
+
+      closeWishWavePublicProfile();
+      try{document.body.dataset.activeTab='messages';setMainNavActive('messages');}catch(_){}
+      await openAppMarketplaceInbox(conversationId);
+    }catch(error){
+      toast(error&&error.message||'Could not open messages');
+    }finally{
+      if(button&&button.isConnected){button.disabled=false;button.textContent='Message';}
+    }
+  };
+
+  /* -----------------------------------------------------------
+     Unfollow confirmation. Pending requests still cancel instantly.
+     ----------------------------------------------------------- */
+  const directPublicFollow=window.toggleWishWavePublicSellerFollow;
+  let confirmedUnfollow=false;
+
+  window.findaiConfirmPublicUnfollow=async function(){
+    if(typeof directPublicFollow!=='function')return;
+    confirmedUnfollow=true;
+    try{closeAppMpSheet();}catch(_){}
+    try{await directPublicFollow();}
+    finally{confirmedUnfollow=false;}
+  };
+
+  if(typeof directPublicFollow==='function'){
+    window.toggleWishWavePublicSellerFollow=async function(){
+      const data=wishwavePublicSellerData||{};
+      const seller=data.seller||{},viewer=data.viewer||{};
+      if(viewer.isFollowing&&!confirmedUnfollow){
+        const username=String(seller.username||'').replace(/^@+/,'').trim();
+        const label=username?'@'+username:String(seller.displayName||'this account');
+        openAppMpSheet(
+          'Unfollow?',
+          '<div class="findai-unfollow-confirm">'+
+            '<b>Unfollow '+escapeHTML(label)+'?</b>'+
+            '<p>Their posts and listings will no longer be prioritised in your feed.</p>'+
+            '<div class="findai-unfollow-confirm-actions">'+
+              '<button type="button" class="danger" onclick="findaiConfirmPublicUnfollow()">Unfollow</button>'+
+              '<button type="button" onclick="closeAppMpSheet()">Cancel</button>'+
+            '</div>'+
+          '</div>'
+        );
+        return;
+      }
+      return directPublicFollow.apply(this,arguments);
+    };
+  }
+
+  /* -----------------------------------------------------------
+     Public profile top menu survives every profile renderer.
+     ----------------------------------------------------------- */
+  function ensureTopProfileMenu(){
+    const page=document.getElementById('wishwavePublicProfilePage');
+    if(!page)return;
+    const top=page.querySelector('.wishwave-public-profile-topbar');
+    if(!top)return;
+    let more=top.querySelector('.findai-public-top-more');
+    if(!more){
+      const spacer=top.querySelector('.wishwave-public-profile-top-spacer');
+      more=document.createElement('button');
+      more.type='button';
+      more.className='findai-public-top-more';
+      more.textContent='•••';
+      more.setAttribute('aria-label','Profile options');
+      more.onclick=()=>window.openFindAIProfileActions&&window.openFindAIProfileActions();
+      if(spacer)spacer.replaceWith(more);else top.appendChild(more);
+    }
+  }
+
+  const beforePublicRender=window.renderWishWavePublicProfile;
+  if(typeof beforePublicRender==='function'){
+    window.renderWishWavePublicProfile=function(){
+      const out=beforePublicRender.apply(this,arguments);
+      ensureTopProfileMenu();
+      return out;
+    };
+  }
+  ensureTopProfileMenu();
+
+  /* -----------------------------------------------------------
+     One authoritative notification content router.
+     Avatar/name buttons still use findaiNotificationOpenActor().
+     ----------------------------------------------------------- */
+  function notificationParam(n,key){
+    try{
+      const raw=String(n&&n.target_url||'');
+      if(!raw)return '';
+      return String(new URL(raw,location.origin).searchParams.get(key)||'');
+    }catch(_){return '';}
+  }
+
+  async function openNotificationListing(n,withComments){
+    const type=String(n&&n.notification_type||'').toLowerCase();
+    const listingId=String(
+      n&&(n.listing_id||n.listingId||
+        ((type.includes('like')||type.includes('comment')||type.includes('listing'))?n.entity_id:'')||
+        notificationParam(n,'listing'))||''
+    ).trim();
+
+    if(!listingId)return false;
+
+    const payload=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(listingId),{
+      method:'GET'
+    });
+    const item=payload&&payload.listing;
+    if(!item)return false;
+
+    closeHomeNotifications();
+
+    const opened=window.findaiOpenItemsInHomeReelV155
+      ?window.findaiOpenItemsInHomeReelV155([item],0,{personalised:true})
+      :false;
+    if(!opened)return false;
+
+    if(withComments){
+      const wanted=String(n&&n.body||'').trim();
+      const actor=String(n&&(n.actor_username||n.actor_display_name)||'')
+        .replace(/^@/,'').trim().toLowerCase();
+
+      setTimeout(async()=>{
+        try{
+          await window.openWishWaveComments(0,null);
+
+          const locate=()=>{
+            const rows=[...document.querySelectorAll('.wishwave-comments-list .wishwave-comment')];
+            let target=null;
+
+            for(const row of rows){
+              const body=String(row.querySelector('.wishwave-comment-copy p')?.textContent||'').trim();
+              const name=String(row.querySelector('.wishwave-comment-head b')?.textContent||'')
+                .replace(/^@/,'').trim().toLowerCase();
+              if((!wanted||body===wanted)&&(!actor||name===actor||name.includes(actor))){
+                target=row;
+                break;
+              }
+            }
+
+            if(!target&&wanted){
+              target=rows.find(row=>
+                String(row.querySelector('.wishwave-comment-copy p')?.textContent||'').trim()===wanted
+              )||null;
+            }
+
+            if(target){
+              target.classList.add('findai-notification-comment-target');
+              try{target.scrollIntoView({block:'center',behavior:'smooth'});}catch(_){}
+              setTimeout(()=>target.classList.remove('findai-notification-comment-target'),1700);
+              return true;
+            }
+            return false;
+          };
+
+          if(!locate())setTimeout(locate,240);
+        }catch(_){}
+      },220);
+    }
+    return true;
+  }
+
+  window.findaiNotificationOpenContent=async function(event,index){
+    if(event){event.preventDefault();event.stopPropagation();}
+    const n=appNotificationCache&&appNotificationCache[Number(index)];
+    if(!n)return;
+
+    if(!n.local&&n.id&&marketplaceSession()){
+      marketplaceFetch('/marketplace/notifications/read',{
+        method:'POST',body:JSON.stringify({id:n.id})
+      }).catch(()=>{});
+    }
+    n.read_at=n.read_at||new Date().toISOString();
+
+    const type=String(n.notification_type||'').toLowerCase();
+
+    try{
+      if(type.includes('comment')){
+        if(await openNotificationListing(n,true))return;
+      }
+
+      if(type.includes('like')||type.includes('followed_seller_listing')){
+        if(await openNotificationListing(n,false))return;
+      }
+
+      if(type.includes('message')){
+        closeHomeNotifications();
+        const conversationId=String(
+          n.conversation_id||n.conversationId||notificationParam(n,'conversation')||''
+        ).trim();
+        if(conversationId){
+          try{document.body.dataset.activeTab='messages';setMainNavActive('messages');}catch(_){}
+          await openAppMarketplaceInbox(conversationId);
+          return;
+        }
+      }
+
+      if(type.includes('follow')){
+        return findaiNotificationOpenActor(event,index);
+      }
+    }catch(error){
+      try{toast(error&&error.message||'Could not open notification');}catch(_){}
+    }
+
+    /* Keep all existing offer/price-drop/deep-link behavior as the fallback. */
+    if(typeof window.openFindAINotification==='function'){
+      return window.openFindAINotification(index);
+    }
   };
 })();
 </script>
