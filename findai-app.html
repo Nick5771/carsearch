@@ -12053,7 +12053,7 @@ window.addEventListener('load', function(){
     host.insertAdjacentHTML('beforeend',
       '<div class="findai-notification-backdrop" id="findaiNotificationBackdrop" onclick="closeHomeNotifications()"></div>'+
       '<section class="findai-notification-panel" id="findaiNotificationPanel" aria-label="Notifications">'+
-        '<div class="findai-notification-panel-head"><b>Notifications</b><button type="button" onclick="markAllHomeNotificationsRead(event)">Mark all read</button></div>'+
+        '<div class="findai-notification-panel-head"><b>Notifications</b></div>'+
         '<div class="findai-notification-list" id="findaiNotificationList"></div>'+
       '</section>'
     );
@@ -14057,7 +14057,7 @@ function renderWishWavePublicProfile(){
       '</div>'+
       '<div class="social-profile-actions '+(viewer.isSeller?'self-profile-actions':'')+'">'+
         (viewer.isSeller?'':'<button type="button" id="wishwavePublicFollowButton" class="'+(viewer.isFollowing?'following':'')+'" onclick="toggleWishWavePublicSellerFollow()">'+(viewer.isFollowing?'Following':'Follow')+'</button>')+
-        '<button type="button" onclick="messageWishWavePublicSeller()">'+(viewer.isSeller?'Messages':'Message')+'</button>'+
+        '<button type="button" id="wishwavePublicMessageButton" onclick="messageWishWavePublicSeller()">'+(viewer.isSeller?'Messages':'Message')+'</button>'+
       '</div>'+
       '<div class="social-profile-tabs wishwave-public-profile-tabs" role="tablist">'+
         '<button class="active" type="button" data-public-profile-tab="listings" onclick="setWishWavePublicSellerTab(\'listings\')" aria-label="Listings">'+
@@ -20477,6 +20477,198 @@ html.findai-light .findai-public-top-more:active{background:rgba(0,0,0,.07)!impo
     if(typeof window.openFindAINotification==='function'){
       return window.openFindAINotification(index);
     }
+  };
+})();
+</script>
+
+
+<style id="findai-v157-final-interaction-style">
+/* Public profiles must sit above every ordinary app surface, while action sheets
+   and toasts must sit above the profile itself. */
+.wishwave-public-profile-page{z-index:5000!important}
+.wishwave-public-profile-page.show{pointer-events:auto!important}
+.wishwave-public-profile-page.show .wishwave-public-profile-scroll,
+.wishwave-public-profile-page.show button,
+.wishwave-public-profile-page.show [role="button"]{
+  pointer-events:auto!important;
+}
+.app-mp-sheet-bg{z-index:6500!important}
+.toast{z-index:7000!important}
+
+/* Make the selected bottom tab visibly GREY, never black/transparent. */
+body:not(.findai-light) .app>.nav.findai-five-nav.premium-bottom-nav button[data-tab].active .nav-icon-shell{
+  position:relative!important;
+  background:#3b3f45!important;
+  box-shadow:0 0 0 5px #3b3f45,inset 0 1px 0 rgba(255,255,255,.06)!important;
+  border-radius:20px!important;
+}
+body:not(.findai-light) .app>.nav.findai-five-nav.premium-bottom-nav button[data-tab].active[data-tab="profile"] .nav-icon-shell{
+  background:#3b3f45!important;
+  box-shadow:0 0 0 5px #3b3f45,inset 0 1px 0 rgba(255,255,255,.06)!important;
+}
+html.findai-light .app>.nav.findai-five-nav.premium-bottom-nav button[data-tab].active .nav-icon-shell{
+  background:rgba(0,0,0,.10)!important;
+  box-shadow:0 0 0 5px rgba(0,0,0,.10)!important;
+}
+
+/* No header action is needed once opening Activity marks the current batch seen. */
+.findai-notification-panel-head{justify-content:flex-start!important}
+</style>
+
+<script id="findai-v157-final-interaction-script">
+(function(){
+  'use strict';
+
+  /* ---------------------------------------------------------
+     Public profile controls: use one capture listener so Follow,
+     Message and ... work even if older inline-handler layers exist.
+     --------------------------------------------------------- */
+  function bindPublicProfileControls(){
+    const page=document.getElementById('wishwavePublicProfilePage');
+    if(!page||page.dataset.v157Controls==='1')return;
+    page.dataset.v157Controls='1';
+
+    page.addEventListener('click',event=>{
+      const follow=event.target.closest&&event.target.closest('#wishwavePublicFollowButton');
+      if(follow){
+        event.preventDefault();event.stopPropagation();
+        if(typeof event.stopImmediatePropagation==='function')event.stopImmediatePropagation();
+        window.toggleWishWavePublicSellerFollow&&window.toggleWishWavePublicSellerFollow();
+        return;
+      }
+
+      const message=event.target.closest&&event.target.closest('#wishwavePublicMessageButton');
+      if(message){
+        event.preventDefault();event.stopPropagation();
+        if(typeof event.stopImmediatePropagation==='function')event.stopImmediatePropagation();
+        window.messageWishWavePublicSeller&&window.messageWishWavePublicSeller();
+        return;
+      }
+
+      const more=event.target.closest&&event.target.closest('.findai-public-top-more');
+      if(more){
+        event.preventDefault();event.stopPropagation();
+        if(typeof event.stopImmediatePropagation==='function')event.stopImmediatePropagation();
+        window.openFindAIProfileActions&&window.openFindAIProfileActions();
+      }
+    },true);
+  }
+  bindPublicProfileControls();
+
+  new MutationObserver(()=>bindPublicProfileControls()).observe(document.body,{
+    childList:true,subtree:true
+  });
+
+  /* ---------------------------------------------------------
+     Search bottom-nav icon:
+     when Recent searches are open, tapping Search again exits
+     Recent and returns to the listings/discovery Search page.
+     --------------------------------------------------------- */
+  const priorOpenSearchHome=window.openSearchHome;
+  if(typeof priorOpenSearchHome==='function'){
+    window.openSearchHome=function(focus=true){
+      const search=document.getElementById('search');
+      const q=document.getElementById('q');
+      const recents=search&&search.classList.contains('search-recents-visible');
+      const alreadySearch=String(document.body.dataset.activeTab||'')==='search';
+
+      if(focus===false&&alreadySearch&&recents){
+        try{hideRecents();}catch(_){}
+        if(q){q.value='';try{q.blur();}catch(_){}}
+        try{renderPremiumSearchHome();}catch(_){}
+        try{setMainNavActive('search');}catch(_){}
+        return;
+      }
+      return priorOpenSearchHome.apply(this,arguments);
+    };
+  }
+
+  /* Belt-and-braces capture for the actual bottom Search button. */
+  const navSearch=document.querySelector('.premium-bottom-nav button[data-tab="search"]');
+  if(navSearch){
+    navSearch.addEventListener('click',event=>{
+      const search=document.getElementById('search');
+      if(String(document.body.dataset.activeTab||'')!=='search'||!search?.classList.contains('search-recents-visible'))return;
+      event.preventDefault();event.stopPropagation();
+      if(typeof event.stopImmediatePropagation==='function')event.stopImmediatePropagation();
+      try{hideRecents();}catch(_){}
+      const q=document.getElementById('q');
+      if(q){q.value='';try{q.blur();}catch(_){}}
+      try{renderPremiumSearchHome();}catch(_){}
+      try{setMainNavActive('search');}catch(_){}
+    },true);
+  }
+
+  /* ---------------------------------------------------------
+     Notifications:
+     opening Activity means the current batch has been seen.
+     Clear the bell red dot immediately and mark the loaded batch
+     read locally + remotely in the background.
+     --------------------------------------------------------- */
+  const priorOpenHomeNotifications=window.openHomeNotifications;
+  if(typeof priorOpenHomeNotifications==='function'){
+    window.openHomeNotifications=async function(event){
+      await priorOpenHomeNotifications.apply(this,arguments);
+
+      const panel=document.getElementById('findaiNotificationPanel');
+      if(!panel||!panel.classList.contains('show'))return;
+
+      const now=Date.now();
+      try{
+        const state=typeof readLocalNoticeState==='function'?readLocalNoticeState():{};
+        (appNotificationCache||[]).forEach(n=>{
+          if(n.local&&n.id)state[n.id]=now;
+          n.read_at=n.read_at||new Date(now).toISOString();
+        });
+        if(typeof writeLocalNoticeState==='function')writeLocalNoticeState(state);
+      }catch(_){}
+
+      appNotificationUnread=0;
+      try{setHomeNotificationState(0);}catch(_){}
+      try{renderHomeNotifications();}catch(_){}
+
+      if(marketplaceSession()){
+        marketplaceFetch('/marketplace/notifications/read',{
+          method:'POST',body:JSON.stringify({})
+        }).catch(()=>{});
+      }
+    };
+  }
+
+  /* ---------------------------------------------------------
+     Notification item navigation.
+     v156 already points rows here; now the single-listing endpoint
+     exists, so Like/Comment rows can resolve the exact listing.
+     Keep a safe fallback that parses ?listing= from target_url.
+     --------------------------------------------------------- */
+  const priorNotificationContent=window.findaiNotificationOpenContent;
+  window.findaiNotificationOpenContent=async function(event,index){
+    if(event){event.preventDefault();event.stopPropagation();}
+    const n=appNotificationCache&&appNotificationCache[Number(index)];
+    if(!n)return;
+
+    /* Clear its unread state immediately. */
+    n.read_at=n.read_at||new Date().toISOString();
+    appNotificationUnread=Math.max(0,(appNotificationCache||[]).reduce((sum,item)=>sum+(!item.read_at?1:0),0));
+    try{setHomeNotificationState(appNotificationUnread);}catch(_){}
+
+    try{
+      if(typeof priorNotificationContent==='function'){
+        await priorNotificationContent.call(this,event,index);
+        return;
+      }
+    }catch(error){
+      console.warn('Notification navigation fallback',error);
+    }
+
+    /* Last-resort profile navigation for actor notifications. */
+    try{
+      const username=String(n.actor_username||'').replace(/^@+/,'').trim();
+      if(username&&typeof openFindAIProfileByUsername==='function'){
+        closeHomeNotifications();
+        await openFindAIProfileByUsername(username);
+      }
+    }catch(_){}
   };
 })();
 </script>
