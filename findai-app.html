@@ -12138,14 +12138,16 @@ window.addEventListener('load', function(){
       cls='price';svg='<path d="M12 4v16M6.5 14.5 12 20l5.5-5.5"/>';
     }else if(t.includes('offer')&&t.includes('accept')){
       cls='offer';svg='<path d="m6 12 4 4 8-9"/>';
-    }else if(t.includes('message')||t.includes('comment')){
-      svg='<path d="M4 5h16v12H8l-4 4V5Z"/>';
+    }else if(t.includes('comment')){
+      svg='<path d="M21 11.5a8.5 8.5 0 0 1-9 8.5 9.4 9.4 0 0 1-3.7-.8L3 21l1.7-5A8.2 8.2 0 0 1 3 11.5a8.5 8.5 0 1 1 18 0Z"/>';
+    }else if(t.includes('message')){
+      svg='<path d="M5 5.5h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-5 3v-13a2 2 0 0 1 2-2Z"/>';
     }else{
       svg='<path d="M18 8a6 6 0 0 0-12 0c0 6-3 7-3 9h18c0-2-3-3-3-9Z"/><path d="M10 21h4"/>';
     }
     return '<span class="findai-notification-mini-badge '+cls+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">'+svg+'</svg></span>';
   }
-  function notificationVisual(n){
+  function notificationVisual(n,index){
     const type=String(n.notification_type||'').toLowerCase();
     const avatar=String(n.actor_avatar_url||'').trim();
     const image=String(n.image_url||'').trim();
@@ -12153,14 +12155,23 @@ window.addEventListener('load', function(){
     const actorFirst=(actor||notificationActorUsername(n)||'F').replace(/^@/,'').charAt(0).toUpperCase();
     const actorish=type.includes('follow')||type.includes('message')||type.includes('comment')||type.includes('like');
     if(actorish){
-      return '<span class="findai-notification-avatar-wrap"><span class="findai-notification-avatar">'+
+      return '<button type="button" class="findai-notification-avatar-wrap findai-notification-actor-avatar" onclick="findaiNotificationOpenActor(event,'+index+')" aria-label="Open '+escapeAttr(actor||'profile')+' profile"><span class="findai-notification-avatar">'+
         (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':escapeHTML(actorFirst))+
-        '</span>'+notificationBadge(type)+'</span>';
+        '</span>'+notificationBadge(type)+'</button>';
     }
     if(image){
       return '<span class="findai-notification-product-wrap"><span class="findai-notification-product"><img src="'+escapeAttr(image)+'" alt=""></span>'+notificationBadge(type)+'</span>';
     }
     return '<span class="findai-notification-avatar-wrap"><span class="findai-notification-avatar">'+escapeHTML(actorFirst)+'</span>'+notificationBadge(type)+'</span>';
+  }
+  function notificationTitleMarkup(n,index,title){
+    const actor=notificationActorName(n);
+    const text=String(title||'');
+    if(actor&&text.toLowerCase().startsWith(String(actor).toLowerCase())){
+      const rest=text.slice(String(actor).length);
+      return '<button type="button" class="findai-notification-actor-name" onclick="findaiNotificationOpenActor(event,'+index+')">'+escapeHTML(actor)+'</button>'+escapeHTML(rest);
+    }
+    return escapeHTML(text);
   }
   function notificationSide(n,index){
     const type=String(n.notification_type||'').toLowerCase();
@@ -12210,8 +12221,8 @@ window.addEventListener('load', function(){
       const type=String(n.notification_type||'').toLowerCase();
       const actorOpen=(type.includes('follow')||type.includes('message'))&&(n.actor_username||n.actor_seller_id||n.actor_email);
       return '<div class="findai-notification-item" role="button" tabindex="0" onclick="'+(actorOpen?'findaiNotificationOpenActor(event,'+index+')':'openFindAINotification('+index+')')+'">'+
-        notificationVisual(n)+
-        '<span class="findai-notification-copy"><b>'+escapeHTML(title)+(unread?'<i class="findai-notification-unread"></i>':'')+
+        notificationVisual(n,index)+
+        '<span class="findai-notification-copy"><b>'+notificationTitleMarkup(n,index,title)+(unread?'<i class="findai-notification-unread"></i>':'')+
           (time?'<span class="findai-notification-meta">'+escapeHTML(time)+'</span>':'')+
         '</b>'+(secondary?'<span>'+escapeHTML(secondary)+'</span>':'')+'</span>'+
         notificationSide(n,index)+
@@ -12248,16 +12259,22 @@ window.addEventListener('load', function(){
 
     const alreadyFollowing=!!(n.viewer_is_following===true||Number(n.viewer_is_following||0));
     const alreadyPending=!!(n.viewer_follow_pending===true||Number(n.viewer_follow_pending||0));
-    if(alreadyFollowing||alreadyPending){
+
+    if(alreadyFollowing){
       try{if(typeof haptic==='function')haptic();}catch(_){}
       return;
     }
 
+    const cancelling=alreadyPending;
     button.disabled=true;
-    button.textContent='Following';
-    button.classList.remove('primary');
+    button.textContent=cancelling?'Follow':'Following';
+    button.classList.toggle('primary',cancelling);
+
     try{
-      const data=await marketplaceFetch('/social/follow-user/'+encodeURIComponent(username),{method:'POST'});
+      const data=await marketplaceFetch('/social/follow-user/'+encodeURIComponent(username),{
+        method:cancelling?'DELETE':'POST'
+      });
+
       const actorEmail=String(n.actor_email||'').toLowerCase();
       const actorUsername=String(n.actor_username||'').replace(/^@+/,'').toLowerCase();
 
@@ -12270,18 +12287,10 @@ window.addEventListener('load', function(){
         }
       });
 
-      try{
-        if(!n.local&&n.id&&marketplaceSession()){
-          await marketplaceFetch('/marketplace/notifications/read',{method:'POST',body:JSON.stringify({id:n.id})});
-        }
-      }catch(_){}
-      n.read_at=n.read_at||new Date().toISOString();
-      appNotificationUnread=appNotificationCache.reduce((sum,item)=>sum+(!item.read_at?1:0),0);
-      if(typeof setHomeNotificationState==='function')setHomeNotificationState(appNotificationUnread);
       renderHomeNotifications();
       try{if(typeof haptic==='function')haptic();}catch(_){}
     }catch(error){
-      try{toast(error&&error.message||'Could not follow this account');}catch(_){}
+      try{toast(error&&error.message||'Could not update follow request');}catch(_){}
       renderHomeNotifications();
     }
   };
@@ -13934,7 +13943,7 @@ function ensureWishWavePublicProfilePage(){
       '</div>'+
       '<div id="wishwavePublicProfileBody"><div class="social-profile-loading">Loading profile…</div></div>'+
     '</div>';
-  document.getElementById('search').appendChild(page);
+  (document.querySelector('.app')||document.body).appendChild(page);
   return page;
 }
 function wishwavePublicProfileImage(item){
@@ -14271,7 +14280,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
      stays selected in the permanent bottom navigation. */
   #search{position:relative!important;overflow:hidden!important}
   .wishwave-public-profile-page{
-    position:absolute!important;
+    position:fixed!important;
     inset:0!important;
     z-index:1200!important;
     background:#000!important;
@@ -16517,7 +16526,17 @@ html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .finda
         recentWasTyping=false;
       }
     },{passive:true});
-    q.addEventListener('blur',()=>{setTimeout(()=>{if(!document.activeElement||document.activeElement!==q)hideRecents();},90);});
+    q.addEventListener('blur',()=>{setTimeout(()=>{
+      if(document.activeElement===q)return;
+      if(String(q.value||'').trim()){hideRecents();return;}
+      const search=document.getElementById('search'),overlay=ensureRecentsOverlay();
+      if(search&&search.classList.contains('active')){
+        search.classList.add('search-recents-visible');
+        renderRecents();
+        if(overlay)overlay.classList.add('show');
+        requestAnimationFrame(recentsTop);
+      }
+    },110);});
   }
 
   /* Record the exact product/profile users chose, not only the text they typed. */
@@ -17987,17 +18006,45 @@ html.findai-light .findai-settings-delete-box input{background:#fff;color:#111;b
     if(!wishwavePublicSellerData)return;
     const seller=wishwavePublicSellerData.seller||{},viewer=wishwavePublicSellerData.viewer||{};
     if(viewer.isSeller)return;if(!viewer.signedIn){openLogin();return;}
-    const sellerId=String(seller.id||'');if(!sellerId)return;
+    const username=String(seller.username||'').replace(/^@+/,'').trim();
+    if(!username)return;
+
     const button=document.getElementById('wishwavePublicFollowButton');
-    const removing=!!viewer.isFollowing||!!viewer.pending;
-    if(button){button.disabled=true;button.textContent=removing?'Follow':(viewer.isPrivate?'Requested':'Following');button.classList.toggle('following',!removing);}
+    const wasFollowing=!!viewer.isFollowing,wasPending=!!viewer.pending;
+    const removing=wasFollowing||wasPending;
+
+    if(button){
+      button.disabled=true;
+      button.textContent=removing?'Follow':(viewer.isPrivate?'Requested':'Following');
+      button.classList.toggle('following',!removing);
+    }
+
     try{
-      const data=await marketplaceFetch('/marketplace/sellers/'+encodeURIComponent(sellerId)+'/follow',{method:removing?'DELETE':'POST'});
-      viewer.isFollowing=!!data.isFollowing;viewer.pending=!!data.pending;seller.followerCount=Math.max(0,Number(data.followerCount)||0);
-      const count=document.getElementById('wishwavePublicFollowerCount');if(count)count.textContent=profileMetricCompact(seller.followerCount);
-      if(button){button.textContent=viewer.isFollowing?'Following':viewer.pending?'Requested':'Follow';button.classList.toggle('following',viewer.isFollowing||viewer.pending);}
+      const data=await marketplaceFetch('/social/follow-user/'+encodeURIComponent(username),{
+        method:removing?'DELETE':'POST'
+      });
+      viewer.isFollowing=!!data.isFollowing;
+      viewer.pending=!!data.pending;
+
+      if(!wasFollowing&&viewer.isFollowing)seller.followerCount=Math.max(0,Number(seller.followerCount||0)+1);
+      if(wasFollowing&&!viewer.isFollowing)seller.followerCount=Math.max(0,Number(seller.followerCount||0)-1);
+
+      const count=document.getElementById('wishwavePublicFollowerCount');
+      if(count)count.textContent=profileMetricCompact(seller.followerCount);
+
+      if(button){
+        button.textContent=viewer.isFollowing?'Following':viewer.pending?'Requested':'Follow';
+        button.classList.toggle('following',viewer.isFollowing||viewer.pending);
+      }
       try{if(window.findaiFollowFeedback)window.findaiFollowFeedback(button);else haptic();}catch(_){}
-    }catch(e){toast(e.message||'Could not update follow');renderWishWavePublicProfile();}finally{if(button)button.disabled=false;}
+    }catch(e){
+      viewer.isFollowing=wasFollowing;viewer.pending=wasPending;
+      if(button){
+        button.textContent=wasFollowing?'Following':wasPending?'Requested':'Follow';
+        button.classList.toggle('following',wasFollowing||wasPending);
+      }
+      toast(e.message||'Could not update follow');
+    }finally{if(button)button.disabled=false;}
   };
 
   /* Seller defaults are actually applied to Create Listing. */
@@ -18686,7 +18733,7 @@ html.findai-light .findai-followers-empty b{color:#111214}
     const focused=ownFollowersTarget&&username.toLowerCase()===ownFollowersTarget.toLowerCase();
     const followLabel=row.isFollowing?'Following':row.pending?'Requested':'Follow';
     const followClass=row.isFollowing||row.pending?' following':'';
-    return '<div class="findai-follower-row'+(focused?' focused':'')+'" data-follower-username="'+escapeAttr(username)+'">'+
+    return '<div class="findai-follower-row'+(focused?' focused':'')+'" data-follower-username="'+escapeAttr(username)+'" role="button" tabindex="0" onclick="openOwnFollowerProfile(\''+escapeAttr(username)+'\',event)" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openOwnFollowerProfile(\''+escapeAttr(username)+'\',event)}">'+
       '<button class="findai-follower-avatar" type="button" onclick="openOwnFollowerProfile(\''+escapeAttr(username)+'\',event)" aria-label="Open '+escapeAttr(username)+' profile">'+
         (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':escapeHTML(followerInitial(row)))+
       '</button>'+
@@ -18803,25 +18850,38 @@ html.findai-light .findai-followers-empty b{color:#111214}
     const clean=String(username||'').replace(/^@+/,'').trim();if(!clean||!button)return;
     const row=ownFollowersCache.find(r=>String(r.username||'').replace(/^@+/,'').toLowerCase()===clean.toLowerCase());
     const wasFollowing=!!(row&&row.isFollowing),wasPending=!!(row&&row.pending);
-    if(wasFollowing||wasPending){
-      /* Keep the list action simple: tapping Following/Requested does not unfollow.
-         Unfollow remains available from the person's profile. */
+
+    if(wasFollowing){
       try{if(typeof haptic==='function')haptic();}catch(_){}
       return;
     }
+
+    const cancelling=wasPending;
     button.disabled=true;
     const old=button.textContent;
-    button.textContent='Following';
-    button.classList.add('following');
+
+    if(cancelling){
+      button.textContent='Follow';
+      button.classList.remove('following');
+      if(row)row.pending=false;
+    }else{
+      button.textContent='Following';
+      button.classList.add('following');
+    }
+
     try{
-      const data=await marketplaceFetch('/social/follow-user/'+encodeURIComponent(clean),{method:'POST'});
+      const data=await marketplaceFetch('/social/follow-user/'+encodeURIComponent(clean),{
+        method:cancelling?'DELETE':'POST'
+      });
       if(row){row.isFollowing=!!data.isFollowing;row.pending=!!data.pending;}
       button.textContent=data.pending?'Requested':data.isFollowing?'Following':'Follow';
       button.classList.toggle('following',!!data.isFollowing||!!data.pending);
       try{if(typeof haptic==='function')haptic();}catch(_){}
     }catch(error){
-      button.textContent=old;button.classList.remove('following');
-      try{toast(error&&error.message||'Could not follow this account');}catch(_){}
+      if(row){row.isFollowing=wasFollowing;row.pending=wasPending;}
+      button.textContent=old;
+      button.classList.toggle('following',wasFollowing||wasPending);
+      try{toast(error&&error.message||'Could not update follow request');}catch(_){}
     }finally{button.disabled=false;}
   };
 
@@ -18829,7 +18889,7 @@ html.findai-light .findai-followers-empty b{color:#111214}
     if(event){event.preventDefault();event.stopPropagation();}
     const clean=String(username||'').replace(/^@+/,'').trim();if(!clean)return;
     closeOwnFollowersList();
-    setTimeout(()=>{if(typeof openFindAIProfileByUsername==='function')openFindAIProfileByUsername(clean);},80);
+    if(typeof openFindAIProfileByUsername==='function')openFindAIProfileByUsername(clean);
   };
 
   /* Keep the Followers count accurate even when the user has no active listing. */
@@ -18957,6 +19017,8 @@ html.findai-light .findai-follower-view.following{
     try{closeAppMpSheet();}catch(_){}
 
     const page=ensureWishWavePublicProfilePage();
+    const appRoot=document.querySelector('.app')||document.body;
+    if(page.parentElement!==appRoot)appRoot.appendChild(page);
     const body=document.getElementById('wishwavePublicProfileBody');
     if(body)body.innerHTML='<div class="social-profile-loading"><div class="feed-more-spinner"></div><br>Loading profile…</div>';
     page.classList.remove('show');
@@ -19843,155 +19905,255 @@ body.findai-premium-gallery-dragging .reel-card{
 </script>
 
 
-<script id="findai-v154-stable-search-reel">
+
+
+
+<style id="findai-v155-notification-actor-links">
+.findai-notification-actor-avatar{
+  padding:0!important;border:0!important;background:transparent!important;color:inherit!important;
+  cursor:pointer!important;text-align:inherit!important;
+}
+.findai-notification-actor-name{
+  display:inline!important;padding:0!important;border:0!important;background:transparent!important;
+  color:inherit!important;font:inherit!important;font-weight:inherit!important;letter-spacing:inherit!important;
+  cursor:pointer!important;text-align:left!important;
+}
+.findai-notification-actor-name:active,
+.findai-notification-actor-avatar:active{opacity:.72!important}
+.findai-notification-mini-badge svg{
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+}
+.findai-notification-comment-target{
+  outline:1px solid rgba(255,255,255,.18)!important;
+  background:rgba(255,255,255,.045)!important;
+  border-radius:12px!important;
+  animation:findaiV155CommentHighlight 1.35s ease both;
+}
+@keyframes findaiV155CommentHighlight{
+  0%,100%{background:rgba(255,255,255,.03)}
+  24%,72%{background:rgba(255,255,255,.09)}
+}
+.findai-follower-row{cursor:pointer!important}
+.findai-follower-row:active{background:rgba(255,255,255,.028)!important}
+</style>
+
+
+<script id="findai-v155-home-reel-routing">
 (function(){
   'use strict';
 
-  let restore=null;
+  let injectedHome=false;
+  let personalisedRestore=null;
 
-  function searchScroller(){
-    return document.querySelector('#search .premium-search-home-scroll');
+  function snapshotHome(){
+    const feed=document.getElementById('personalFeed');
+    if(!feed||!feed.querySelector('.reel-card'))return;
+    if(!feedState||feedState.source!=='personalised')return;
+    personalisedRestore={
+      items:Array.isArray(currentFeedItems)?currentFeedItems.slice():[],
+      data:currentFeedData,
+      state:{...(feedState||{})},
+      active:Number(activeReelIndex)||0,
+      scroll:Number(feed.scrollTop)||0
+    };
   }
 
-  function closeStableSearchReel(){
-    if(!restore)return false;
-    const saved=restore;
-    restore=null;
-
-    const overlay=document.getElementById('searchDetailOverlay');
-    const feed=document.getElementById('searchDetailFeed');
-
-    if(feed){
-      feed.onscroll=null;
-      feed.innerHTML='';
-    }
-    if(overlay){
-      overlay.classList.remove('show','explore-reel-mode','findai-v133-context-reel','findai-v133-dragging');
-      overlay.style.transform='';
-    }
-
-    currentFeedItems=saved.items;
-    currentFeedData=saved.data;
-    feedState=saved.feedState;
-    activeReelIndex=saved.active;
-
-    requestAnimationFrame(()=>{
-      const sc=searchScroller();
-      if(sc)sc.scrollTop=saved.searchScroll;
-    });
-    return true;
-  }
-
-  function openStableSearchReel(items,index,data){
+  function openItemsInHome(items,index,data){
     const list=Array.isArray(items)?items.filter(Boolean):[];
     if(!list.length){
       try{toast('This listing could not be opened.')}catch(_){}
-      return;
+      return false;
     }
 
-    const overlay=document.getElementById('searchDetailOverlay');
-    const feed=document.getElementById('searchDetailFeed');
-    const count=document.getElementById('searchDetailCount');
-    if(!overlay||!feed){
-      try{toast('Listing viewer is unavailable.')}catch(_){}
-      return;
-    }
-
-    if(restore)closeStableSearchReel();
+    if(!injectedHome)snapshotHome();
 
     const chosen=Math.max(0,Math.min(list.length-1,Number(index)||0));
-    const start=Math.max(0,chosen-5);
-    const end=Math.min(list.length,start+32);
+    const start=Math.max(0,Math.min(chosen-5,Math.max(0,list.length-36)));
+    const end=Math.min(list.length,start+36);
     const localIndex=chosen-start;
-    const selected=list.slice(start,end);
 
-    restore={
-      items:Array.isArray(currentFeedItems)?currentFeedItems.slice():[],
-      data:currentFeedData,
-      feedState:{...(feedState||{})},
-      active:Number(activeReelIndex)||0,
-      searchScroll:Number(searchScroller()&&searchScroller().scrollTop)||0
-    };
-
-    currentFeedItems=selected;
+    currentFeedItems=list.slice(start,end);
     currentFeedData=data||{personalised:true};
-    feedState={...(feedState||{}),source:'personalised',loading:false,hasMore:false};
+    feedState={...(feedState||{}),source:'personalised',query:'',resolvedQuery:'',loading:false,hasMore:false};
     activeReelIndex=localIndex;
 
-    try{
-      feed.innerHTML=selected.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');
-    }catch(error){
-      closeStableSearchReel();
-      console.error('Search reel render failed',error);
-      try{toast('This listing could not be opened.')}catch(_){}
-      return;
-    }
+    const feed=document.getElementById('personalFeed');
+    if(!feed)return false;
 
-    overlay.classList.add('explore-reel-mode','findai-v133-context-reel','show');
-    overlay.style.transform='translate3d(0,0,0)';
-    if(count)count.textContent='Explore';
+    feed.classList.remove('search-grid-mode');
+    feed.innerHTML=currentFeedItems.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');
+    injectedHome=true;
+    window.__findaiExploreInjectedFeed=true;
 
-    let raf=0;
-    feed.onscroll=()=>{
-      if(raf)return;
-      raf=requestAnimationFrame(()=>{
-        raf=0;
-        const h=Math.max(1,feed.clientHeight);
-        activeReelIndex=Math.max(0,Math.min(
-          currentFeedItems.length-1,
-          Math.round(feed.scrollTop/h)
-        ));
-      });
-    };
+    try{closeSearchResultDetail();}catch(_){}
+    try{closeHomeNotifications();}catch(_){}
+    go('discover');
+    try{if(typeof setMainNavActive==='function')setMainNavActive('discover');}catch(_){}
+    try{showFeedHeader();bindFeedHeaderAutoHide();attachReelObserver();}catch(_){}
+    try{preloadPersonalisedImages(Math.max(0,localIndex-2),10);}catch(_){}
 
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
       const card=feed.querySelector('.reel-card[data-index="'+localIndex+'"]');
       feed.scrollTop=card?card.offsetTop:localIndex*Math.max(1,feed.clientHeight);
       activeReelIndex=localIndex;
-
-      /* Preload this reel and the next few without waiting for a scroll event. */
-      try{
-        [localIndex,localIndex+1,localIndex-1].forEach(i=>{
-          const stage=feed.querySelector('.reel-card[data-index="'+i+'"] .reel-gallery-stage');
-          if(!stage)return;
-          stage.querySelectorAll('.reel-gallery-slide').forEach((slide,j)=>{
-            if(Math.abs(j-(Number(stage.dataset.galleryIndex)||0))>1)return;
-            const img=slide.querySelector('.reel-gallery-image');
-            if(img&&!img.getAttribute('src')&&img.dataset.src)img.src=img.dataset.src;
-          });
-        });
-      }catch(_){}
+      try{beginReelTracking(localIndex);}catch(_){}
     }));
+    return true;
   }
 
-  const legacyDetail=window.openSearchResultDetail;
+  window.findaiOpenItemsInHomeReelV155=openItemsInHome;
 
   window.openPremiumDiscoveryItem=function(sectionId,index){
     const section=typeof premiumDiscoverySectionById==='function'
       ?premiumDiscoverySectionById(sectionId):null;
     const list=section&&Array.isArray(section.items)?section.items:[];
-    openStableSearchReel(list,index,null);
+    try{
+      const item=list[Number(index)||0];
+      if(item&&typeof findaiRememberRecentProduct==='function')findaiRememberRecentProduct(item);
+    }catch(_){}
+    openItemsInHome(list,index,null);
   };
 
   window.openSearchResultDetail=function(index){
-    const search=document.getElementById('search');
-    if(search&&search.classList.contains('active')){
-      const list=Array.isArray(currentFeedItems)?currentFeedItems:[];
-      if(list.length){
-        openStableSearchReel(list,index,currentFeedData);
+    const list=Array.isArray(currentFeedItems)?currentFeedItems:[];
+    if(list.length){
+      try{
+        const item=list[Number(index)||0];
+        if(item&&typeof findaiRememberRecentProduct==='function')findaiRememberRecentProduct(item);
+      }catch(_){}
+      openItemsInHome(list,index,currentFeedData);
+      return;
+    }
+    try{toast('This listing could not be opened.')}catch(_){}
+  };
+
+  const priorOpenForYou=window.openForYou;
+  window.openForYou=function(){
+    if(injectedHome&&personalisedRestore){
+      const saved=personalisedRestore;
+      personalisedRestore=null;
+      injectedHome=false;
+      window.__findaiExploreInjectedFeed=false;
+      currentFeedItems=saved.items;
+      currentFeedData=saved.data;
+      feedState=saved.state;
+      activeReelIndex=saved.active;
+      const feed=document.getElementById('personalFeed');
+      if(feed){
+        feed.innerHTML=currentFeedItems.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');
+        go('discover');
+        try{if(typeof setMainNavActive==='function')setMainNavActive('discover');}catch(_){}
+        requestAnimationFrame(()=>{
+          feed.scrollTop=saved.scroll||0;
+          try{attachReelObserver();beginReelTracking(activeReelIndex);}catch(_){}
+        });
         return;
       }
     }
-    if(typeof legacyDetail==='function')return legacyDetail.apply(this,arguments);
+    return typeof priorOpenForYou==='function'?priorOpenForYou.apply(this,arguments):undefined;
   };
+})();
+</script>
 
-  const legacyClose=window.closeSearchResultDetail;
-  window.closeSearchResultDetail=function(){
-    if(closeStableSearchReel())return;
-    if(typeof legacyClose==='function')return legacyClose.apply(this,arguments);
+
+<script id="findai-v155-notification-content-routing">
+(function(){
+  'use strict';
+
+  async function openListingFromNotification(n,openComments){
+    const type=String(n&&n.notification_type||'').toLowerCase();
+    const listingId=String(
+      n&&(n.listing_id||n.listingId||((type.includes('like')||type.includes('comment'))?n.entity_id:''))||''
+    ).trim();
+    if(!listingId)return false;
+
+    try{
+      go('discover');
+      if(typeof setMainNavActive==='function')setMainNavActive('discover');
+
+      const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(listingId),{method:'GET'});
+      const item=data&&data.listing;
+      if(!item)throw new Error('Listing unavailable');
+
+      const opened=window.findaiOpenItemsInHomeReelV155
+        ?window.findaiOpenItemsInHomeReelV155([item],0,{personalised:true})
+        :false;
+      if(!opened)return false;
+
+      if(openComments){
+        setTimeout(async()=>{
+          try{
+            await window.openWishWaveComments(0,null);
+
+            const wanted=String(n.body||'').trim();
+            const actor=String(n.actor_username||n.actor_display_name||'').replace(/^@/,'').trim().toLowerCase();
+
+            const highlight=()=>{
+              const rows=[...document.querySelectorAll('.wishwave-comments-list .wishwave-comment')];
+              let target=null;
+              for(const row of rows){
+                const body=String(row.querySelector('.wishwave-comment-copy p')?.textContent||'').trim();
+                const name=String(row.querySelector('.wishwave-comment-head b')?.textContent||'').replace(/^@/,'').trim().toLowerCase();
+                if((!wanted||body===wanted)&&(!actor||name===actor||name.includes(actor)))target=row;
+              }
+              if(!target&&wanted){
+                target=rows.find(row=>String(row.querySelector('.wishwave-comment-copy p')?.textContent||'').trim()===wanted)||null;
+              }
+              if(target){
+                target.classList.add('findai-notification-comment-target');
+                try{target.scrollIntoView({block:'center',behavior:'smooth'});}catch(_){}
+                setTimeout(()=>target.classList.remove('findai-notification-comment-target'),1700);
+                return true;
+              }
+              return false;
+            };
+
+            if(!highlight())setTimeout(highlight,220);
+          }catch(_){}
+        },190);
+      }
+      return true;
+    }catch(error){
+      try{toast(error&&error.message||'Listing unavailable');}catch(_){}
+      return false;
+    }
+  }
+
+  const legacy=window.openFindAINotification;
+  window.openFindAINotification=async function(index){
+    const n=appNotificationCache&&appNotificationCache[Number(index)];
+    if(!n)return;
+
+    if(!n.local&&n.id&&marketplaceSession()){
+      marketplaceFetch('/marketplace/notifications/read',{
+        method:'POST',body:JSON.stringify({id:n.id})
+      }).catch(()=>{});
+    }
+    n.read_at=n.read_at||new Date().toISOString();
+    closeHomeNotifications();
+
+    const type=String(n.notification_type||'').toLowerCase();
+    if(type.includes('comment')&&await openListingFromNotification(n,true))return;
+    if(type.includes('like')&&await openListingFromNotification(n,false))return;
+
+    return typeof legacy==='function'?legacy.apply(this,arguments):undefined;
   };
+})();
+</script>
 
-  window.__findaiCloseStableSearchReelV154=closeStableSearchReel;
+
+<script id="findai-v155-profile-overlay-guard">
+(function(){
+  'use strict';
+  const prior=window.openFindAIProfileByUsername;
+  if(typeof prior!=='function')return;
+  window.openFindAIProfileByUsername=function(username){
+    const page=ensureWishWavePublicProfilePage();
+    const root=document.querySelector('.app')||document.body;
+    if(page.parentElement!==root)root.appendChild(page);
+    return prior.apply(this,arguments);
+  };
 })();
 </script>
 
