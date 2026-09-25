@@ -19040,7 +19040,7 @@ html.findai-light .findai-follower-view.following{
   gap:5px!important;
   padding:3px 5px!important;
   border-radius:999px!important;
-  background:rgba(0,0,0,.08)!important;
+  background:rgba(0,0,0,.035)!important;
   pointer-events:none!important;
 }
 .reel-gallery-dots i{
@@ -19048,17 +19048,17 @@ html.findai-light .findai-follower-view.following{
   width:5px!important;
   height:5px!important;
   border-radius:50%!important;
-  background:rgba(255,255,255,.34)!important;
+  background:rgba(255,255,255,.28)!important;
   box-shadow:none!important;
-  transition:background .13s ease,transform .13s ease,opacity .13s ease!important;
+  transition:background .18s ease,transform .18s ease,opacity .18s ease!important;
 }
 .reel-gallery-dots i.active{
-  width:6px!important;
-  height:6px!important;
-  background:#fff!important;
+  width:7px!important;
+  height:7px!important;
+  background:rgb(255,255,255)!important;
   opacity:1!important;
-  box-shadow:0 0 0 1px rgba(255,255,255,.34),0 0 8px rgba(255,255,255,.82)!important;
-  transform:scale(1.18)!important;
+  box-shadow:0 0 0 1px rgba(0,0,0,.18),0 1px 3px rgba(0,0,0,.48)!important;
+  transform:scale(1)!important;
 }
 
 .reel-gallery-count{
@@ -19104,7 +19104,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
   const COMMIT_DISTANCE = 38;       // short intentional swipe
   const FLICK_DISTANCE = 14;        // a quick flick may be very short
   const FLICK_VELOCITY = 0.24;      // px/ms
-  const PROJECTION_MS = 135;        // projects momentum without overshooting
+  const PROJECTION_MS = 105;        // projects momentum without overshooting
   const AXIS_START = 3;             // lock direction quickly
   const EDGE_RESISTANCE = 0.24;
 
@@ -19173,7 +19173,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
   function translate(track,x,animate,duration=205){
     if(!track)return;
     if(animate){
-      track.style.transition='transform '+duration+'ms cubic-bezier(.18,.86,.24,1)';
+      track.style.transition='transform '+duration+'ms cubic-bezier(.22,.68,.24,1)';
     }else{
       track.style.transition='none';
     }
@@ -19196,9 +19196,9 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     /* Fast release = faster settle. Slow drag = slightly softer settle.
        Keep it short; long CSS "smooth" animations are what made v146/v148
        feel unlike Instagram. */
-    const speed=Math.max(.34,Math.abs(fromVelocity||0));
-    let duration=remaining/(speed*2.55);
-    duration=Math.max(175,Math.min(255,duration));
+    const speed=Math.max(.30,Math.abs(fromVelocity||0));
+    let duration=remaining/(speed*2.15);
+    duration=Math.max(245,Math.min(345,duration));
 
     translate(track,targetX,true,duration);
     setDots(stage,target,true);
