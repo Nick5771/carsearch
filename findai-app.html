@@ -12155,7 +12155,7 @@ window.addEventListener('load', function(){
     const actorFirst=(actor||notificationActorUsername(n)||'F').replace(/^@/,'').charAt(0).toUpperCase();
     const actorish=type.includes('follow')||type.includes('message')||type.includes('comment')||type.includes('like');
     if(actorish){
-      return '<button type="button" class="findai-notification-avatar-wrap findai-notification-actor-avatar" onclick="findaiNotificationOpenActor(event,'+index+')" aria-label="Open '+escapeAttr(actor||'profile')+' profile"><span class="findai-notification-avatar">'+
+      return '<button type="button" class="findai-notification-avatar-wrap findai-notification-actor-avatar findai-notification-control" onclick="findaiNotificationOpenActor(event,'+index+')" aria-label="Open '+escapeAttr(actor||'profile')+' profile"><span class="findai-notification-avatar">'+
         (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':escapeHTML(actorFirst))+
         '</span>'+notificationBadge(type)+'</button>';
     }
@@ -12169,7 +12169,7 @@ window.addEventListener('load', function(){
     const text=String(title||'');
     if(actor&&text.toLowerCase().startsWith(String(actor).toLowerCase())){
       const rest=text.slice(String(actor).length);
-      return '<button type="button" class="findai-notification-actor-name" onclick="findaiNotificationOpenActor(event,'+index+')">'+escapeHTML(actor)+'</button>'+escapeHTML(rest);
+      return '<button type="button" class="findai-notification-actor-name findai-notification-control" onclick="findaiNotificationOpenActor(event,'+index+')">'+escapeHTML(actor)+'</button>'+escapeHTML(rest);
     }
     return escapeHTML(text);
   }
@@ -12179,8 +12179,8 @@ window.addEventListener('load', function(){
     const image=String(n.image_url||'').trim();
     if(type.includes('follow_request')&&username){
       return '<span class="findai-notification-side">'+
-        '<button class="findai-notification-action primary" type="button" onclick="findaiNotificationFollowRequestAction(event,'+index+',\'approve\')">Confirm</button>'+
-        '<button class="findai-notification-action" type="button" onclick="findaiNotificationFollowRequestAction(event,'+index+',\'decline\')">Delete</button>'+
+        '<button class="findai-notification-action findai-notification-control primary" type="button" onclick="findaiNotificationFollowRequestAction(event,'+index+',\'approve\')">Confirm</button>'+
+        '<button class="findai-notification-action findai-notification-control" type="button" onclick="findaiNotificationFollowRequestAction(event,'+index+',\'decline\')">Delete</button>'+
       '</span>';
     }
     if(type.includes('follow_mutual')){
@@ -12191,7 +12191,7 @@ window.addEventListener('load', function(){
       const isPending=!!(n.viewer_follow_pending===true||Number(n.viewer_follow_pending||0));
       const label=isFollowing?'Following':isPending?'Requested':'Follow';
       const cls=isFollowing||isPending?'':' primary';
-      return '<span class="findai-notification-side"><button class="findai-notification-action'+cls+' findai-notification-follow" type="button" onclick="findaiNotificationFollowBack(event,'+index+',this)">'+label+'</button></span>';
+      return '<span class="findai-notification-side"><button class="findai-notification-action findai-notification-control'+cls+' findai-notification-follow" type="button" onclick="findaiNotificationFollowBack(event,'+index+',this)">'+label+'</button></span>';
     }
     if((type.includes('like')||type.includes('comment'))&&image){
       return '<span class="findai-notification-side"><span class="findai-notification-side-thumb"><img src="'+escapeAttr(image)+'" alt=""></span></span>';
@@ -12220,7 +12220,7 @@ window.addEventListener('load', function(){
       const time=notificationTime(n.created_at);
       const type=String(n.notification_type||'').toLowerCase();
       const actorOpen=(type.includes('follow')||type.includes('message'))&&(n.actor_username||n.actor_seller_id||n.actor_email);
-      return '<div class="findai-notification-item" role="button" tabindex="0" onclick="findaiNotificationOpenContent(event,'+index+')">'+
+      return '<div class="findai-notification-item" data-notification-index="'+index+'" data-notification-id="'+escapeAttr(String(n.id||''))+'" role="button" tabindex="0">'+
         notificationVisual(n,index)+
         '<span class="findai-notification-copy"><b>'+notificationTitleMarkup(n,index,title)+(unread?'<i class="findai-notification-unread"></i>':'')+
           (time?'<span class="findai-notification-meta">'+escapeHTML(time)+'</span>':'')+
@@ -21053,6 +21053,392 @@ html.findai-light .app>.nav.findai-five-nav.premium-bottom-nav button[data-tab].
       const result=inboxBackBefore.apply(this,arguments);
       const inbox=document.getElementById('appMpInbox');
       if(inbox&&!appMpConversation)inbox.classList.remove('direct-message-chat');
+      return result;
+    };
+  }
+})();
+</script>
+
+
+<style id="findai-v159-notification-dedicated-style">
+.findai-notification-item{
+  cursor:pointer!important;
+  -webkit-tap-highlight-color:transparent!important;
+  touch-action:manipulation!important;
+}
+.findai-notification-item:active{
+  background:#17191d!important;
+}
+.findai-notification-item.findai-notification-opening{
+  opacity:.64!important;
+  pointer-events:none!important;
+}
+.findai-notification-item.findai-notification-opening .findai-notification-chevron{
+  animation:findaiNotifPulse .75s ease-in-out infinite alternate;
+}
+@keyframes findaiNotifPulse{from{opacity:.3}to{opacity:1}}
+</style>
+
+<script id="findai-v159-notification-dedicated-script">
+(function(){
+  'use strict';
+
+  let opening=false;
+  let notificationReelToken=0;
+
+  function currentNotice(index){
+    const i=Number(index);
+    if(!Number.isFinite(i))return null;
+    return appNotificationCache&&appNotificationCache[i]||null;
+  }
+
+  function noticeType(n){
+    return String(n&&n.notification_type||'').toLowerCase();
+  }
+
+  function paramFromNotice(n,key){
+    try{
+      const raw=String(n&&(n.target_url||n.targetUrl)||'');
+      if(!raw)return '';
+      return String(new URL(raw,location.origin).searchParams.get(key)||'').trim();
+    }catch(_){return ''}
+  }
+
+  function listingIdFromNotice(n){
+    const type=noticeType(n);
+    const direct=String(n&&(n.listing_id||n.listingId)||'').trim();
+    if(direct)return direct;
+
+    const param=paramFromNotice(n,'listing');
+    if(param)return param;
+
+    if(type.includes('comment')||type.includes('like')||type.includes('listing')||type.includes('view')){
+      return String(n&&n.entity_id||'').trim();
+    }
+    return '';
+  }
+
+  function commentIdFromNotice(n){
+    return String(
+      n&&(n.comment_id||n.commentId)||paramFromNotice(n,'comment')||''
+    ).trim();
+  }
+
+  function conversationIdFromNotice(n){
+    const direct=String(n&&(n.conversation_id||n.conversationId)||'').trim();
+    return direct||paramFromNotice(n,'conversation');
+  }
+
+  function markNoticeRead(n){
+    if(!n)return;
+    if(!n.read_at)n.read_at=new Date().toISOString();
+
+    appNotificationUnread=(appNotificationCache||[]).reduce(
+      (sum,item)=>sum+(!item.read_at?1:0),0
+    );
+    try{setHomeNotificationState(appNotificationUnread);}catch(_){}
+
+    if(!n.local&&n.id&&marketplaceSession()){
+      marketplaceFetch('/marketplace/notifications/read',{
+        method:'POST',
+        body:JSON.stringify({id:n.id})
+      }).catch(()=>{});
+    }else if(n.local&&n.id){
+      try{
+        const state=readLocalNoticeState();
+        state[n.id]=Date.now();
+        writeLocalNoticeState(state);
+      }catch(_){}
+    }
+  }
+
+  function notificationRow(index){
+    return document.querySelector(
+      '#findaiNotificationList .findai-notification-item[data-notification-index="'+Number(index)+'"]'
+    );
+  }
+
+  function setOpening(index,value){
+    const row=notificationRow(index);
+    if(row)row.classList.toggle('findai-notification-opening',!!value);
+  }
+
+  async function getListing(n){
+    const listingId=listingIdFromNotice(n);
+    if(!listingId)throw new Error('This notification is missing its listing link.');
+
+    const data=await marketplaceFetch(
+      '/marketplace/listings/'+encodeURIComponent(listingId),
+      {method:'GET'}
+    );
+    const item=data&&(data.listing||data.item);
+    if(!item)throw new Error('That listing is no longer available.');
+    return item;
+  }
+
+  function itemId(item){
+    try{return String(appMpId(item)||'')}catch(_){return ''}
+  }
+
+  function renderExactNotificationReel(item){
+    const wanted=itemId(item);
+    const token=++notificationReelToken;
+
+    try{closeHomeNotifications();}catch(_){}
+    go('discover');
+    try{setMainNavActive('discover');}catch(_){}
+
+    const feed=document.getElementById('personalFeed');
+    if(!feed)return false;
+
+    const apply=()=>{
+      if(token!==notificationReelToken)return;
+      currentFeedItems=[item];
+      currentFeedData={personalised:true,notification:true};
+      feedState={
+        ...(feedState||{}),
+        source:'notification-reel',
+        query:'',
+        resolvedQuery:'',
+        loading:false,
+        hasMore:false,
+        cursor:null
+      };
+      activeReelIndex=0;
+      feed.classList.remove('search-grid-mode');
+      feed.innerHTML=renderReelCard(item,0,currentFeedData);
+      feed.scrollTop=0;
+      window.__findaiExploreInjectedFeed=true;
+      try{showFeedHeader();bindFeedHeaderAutoHide();}catch(_){}
+      try{preloadPersonalisedImages(0,4);}catch(_){}
+    };
+
+    apply();
+
+    /* Home has several historical async loaders. Verify twice that none of them
+       replaced the clicked notification reel after navigation. */
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      if(token!==notificationReelToken)return;
+      const live=currentFeedItems&&currentFeedItems[0];
+      if(wanted&&itemId(live)!==wanted)apply();
+      try{attachReelObserver();beginReelTracking(0);}catch(_){}
+    }));
+
+    setTimeout(()=>{
+      if(token!==notificationReelToken)return;
+      const live=currentFeedItems&&currentFeedItems[0];
+      if(wanted&&itemId(live)!==wanted){
+        apply();
+        try{attachReelObserver();beginReelTracking(0);}catch(_){}
+      }
+    },260);
+
+    return true;
+  }
+
+  function commentRows(){
+    return [...document.querySelectorAll('.wishwave-comments-list .wishwave-comment')];
+  }
+
+  function commentRowId(row){
+    return String(
+      row&&(
+        row.dataset.commentId||
+        row.getAttribute('data-comment-id')||
+        row.querySelector('[data-comment-id]')?.getAttribute('data-comment-id')
+      )||''
+    ).trim();
+  }
+
+  function highlightComment(n){
+    const exactId=commentIdFromNotice(n);
+    const wanted=String(n&&n.body||'').trim();
+    const actor=String(n&&(n.actor_username||n.actor_display_name)||'')
+      .replace(/^@/,'').trim().toLowerCase();
+
+    const rows=commentRows();
+    let target=null;
+
+    if(exactId){
+      target=rows.find(row=>commentRowId(row)===exactId)||null;
+    }
+
+    if(!target){
+      target=rows.find(row=>{
+        const body=String(
+          row.querySelector('.wishwave-comment-copy p')?.textContent||
+          row.querySelector('p')?.textContent||''
+        ).trim();
+        const name=String(
+          row.querySelector('.wishwave-comment-head b')?.textContent||
+          row.querySelector('b')?.textContent||''
+        ).replace(/^@/,'').trim().toLowerCase();
+
+        const bodyMatch=!wanted||body===wanted;
+        const actorMatch=!actor||name===actor||name.includes(actor);
+        return bodyMatch&&actorMatch;
+      })||null;
+    }
+
+    if(!target&&wanted){
+      target=rows.find(row=>{
+        const text=String(row.textContent||'').trim();
+        return text.includes(wanted);
+      })||null;
+    }
+
+    if(!target)return false;
+
+    target.classList.add('findai-notification-comment-target');
+    try{target.scrollIntoView({block:'center',behavior:'smooth'});}catch(_){}
+    setTimeout(()=>target.classList.remove('findai-notification-comment-target'),1800);
+    return true;
+  }
+
+  async function openCommentNotice(n){
+    const item=await getListing(n);
+    if(!renderExactNotificationReel(item))throw new Error('Could not open listing.');
+
+    /* Wait for the exact reel DOM before opening its Comments sheet. */
+    await new Promise(resolve=>requestAnimationFrame(
+      ()=>requestAnimationFrame(()=>setTimeout(resolve,45))
+    ));
+
+    await window.openWishWaveComments(0,null);
+
+    /* Cached comments paint synchronously; network comments may take a moment. */
+    if(!highlightComment(n)){
+      [120,300,650,1100].forEach(delay=>setTimeout(()=>highlightComment(n),delay));
+    }
+  }
+
+  async function openListingNotice(n){
+    const item=await getListing(n);
+    if(!renderExactNotificationReel(item))throw new Error('Could not open listing.');
+  }
+
+  async function openMessageNotice(n,index,event){
+    const conversationId=conversationIdFromNotice(n);
+    if(conversationId){
+      closeHomeNotifications();
+      try{
+        document.body.dataset.activeTab='messages';
+        setMainNavActive('messages');
+      }catch(_){}
+      await openAppMarketplaceInbox(conversationId);
+      return;
+    }
+
+    /* Older message notices may not have a conversation URL. Open the actor
+       profile rather than silently doing nothing. */
+    return findaiNotificationOpenActor(event,index);
+  }
+
+  async function routeNotification(index,event){
+    if(opening)return;
+    const n=currentNotice(index);
+    if(!n)return;
+
+    opening=true;
+    setOpening(index,true);
+    markNoticeRead(n);
+
+    const type=noticeType(n);
+
+    try{
+      if(type.includes('comment')){
+        /* Close immediately so the tap visibly responds before any network work. */
+        closeHomeNotifications();
+        go('discover');
+        try{setMainNavActive('discover');}catch(_){}
+        await openCommentNotice(n);
+        return;
+      }
+
+      if(type.includes('like')||type.includes('followed_seller_listing')||type.includes('view')){
+        closeHomeNotifications();
+        go('discover');
+        try{setMainNavActive('discover');}catch(_){}
+        await openListingNotice(n);
+        return;
+      }
+
+      if(type.includes('message')){
+        await openMessageNotice(n,index,event);
+        return;
+      }
+
+      if(type.includes('follow')){
+        await findaiNotificationOpenActor(event,index);
+        return;
+      }
+
+      /* Offer / price-drop / legacy notifications retain the old route. */
+      closeHomeNotifications();
+      if(typeof openFindAINotification==='function'){
+        await openFindAINotification(index);
+        return;
+      }
+    }catch(error){
+      console.error('v159 notification navigation failed',error);
+      try{toast(error&&error.message||'Could not open this notification');}catch(_){}
+      /* If we moved to Home but failed to resolve content, reopen Activity so
+         the user isn't left staring at an unrelated screen. */
+      try{
+        ensureNotificationUI();
+        const panel=document.getElementById('findaiNotificationPanel');
+        const backdrop=document.getElementById('findaiNotificationBackdrop');
+        if(panel)panel.classList.add('show');
+        if(backdrop)backdrop.classList.add('show');
+      }catch(_){}
+    }finally{
+      opening=false;
+      setOpening(index,false);
+      try{renderHomeNotifications();}catch(_){}
+    }
+  }
+
+  window.findaiNotificationOpenContent=routeNotification;
+
+  /* ---------------------------------------------------------
+     One permanent document-level click handler.
+     It does NOT depend on the notification panel existing when
+     this script first runs, fixing the v158 missing-listener bug.
+     --------------------------------------------------------- */
+  document.addEventListener('click',event=>{
+    const row=event.target&&event.target.closest
+      ?event.target.closest('#findaiNotificationList .findai-notification-item[data-notification-index]')
+      :null;
+    if(!row)return;
+
+    /* Actor name/avatar and Follow/Confirm/Delete controls own their action. */
+    if(event.target.closest('.findai-notification-control'))return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if(typeof event.stopImmediatePropagation==='function')event.stopImmediatePropagation();
+
+    routeNotification(Number(row.dataset.notificationIndex)||0,event);
+  },true);
+
+  document.addEventListener('keydown',event=>{
+    if(event.key!=='Enter'&&event.key!==' ')return;
+    const row=event.target&&event.target.closest
+      ?event.target.closest('#findaiNotificationList .findai-notification-item[data-notification-index]')
+      :null;
+    if(!row||event.target.closest('.findai-notification-control'))return;
+    event.preventDefault();
+    routeNotification(Number(row.dataset.notificationIndex)||0,event);
+  },true);
+
+  /* Make sure every render has an index immediately, not one RAF later. */
+  const priorRender=window.renderHomeNotifications;
+  if(typeof priorRender==='function'){
+    window.renderHomeNotifications=function(){
+      const result=priorRender.apply(this,arguments);
+      document.querySelectorAll('#findaiNotificationList .findai-notification-item').forEach((row,i)=>{
+        if(!row.dataset.notificationIndex)row.dataset.notificationIndex=String(i);
+      });
       return result;
     };
   }
