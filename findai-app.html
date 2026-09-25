@@ -6690,9 +6690,12 @@ function renderReelCard(item,index,data){
   const commentCount=wishwaveCommentCount(item);
   return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}" role="button" tabindex="0" onclick="if(reelGalleryConsumeClick(this,event))return;openDeal(${index},event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDeal(${index},event);}">
     <div class="hero-stage reel-gallery-stage${image?' fill-solid':''}" data-horizontal-scroll="1" data-gallery-index="0" data-gallery-images="${escapeAttr(JSON.stringify(gallery))}"${image?` style="--hero-fill:#0a0b0d"`:''}>
-      <div class="reel-gallery-layer reel-gallery-current-layer">
-        ${image ? `<img class="hero-image fit-contain reel-gallery-image" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
-        <div class="image-fallback" style="${image?'':'display:grid'}">${reelImagePlaceholder(item)}</div>
+      <div class="reel-gallery-track" data-gallery-track="1">
+        ${gallery.length
+          ? gallery.map((src,galleryIndex)=>`<div class="reel-gallery-slide" data-gallery-slide="${galleryIndex}">
+              <img class="hero-image fit-contain reel-gallery-image" ${galleryIndex===0?`src="${escapeAttr(src)}"`:`data-src="${escapeAttr(src)}"`} data-fallback="${galleryIndex===0?escapeAttr(fallbackImage):''}" data-image-alts="${galleryIndex===0?appImageAltAttr(plan.alts):'[]'}" alt="${escapeAttr(title)}" loading="${galleryIndex===0&&index<3?'eager':'lazy'}" decoding="async" ${galleryIndex===0&&index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">
+            </div>`).join('')
+          : `<div class="reel-gallery-slide"><div class="image-fallback" style="display:grid">${reelImagePlaceholder(item)}</div></div>`}
       </div>
       ${reelGalleryDotsMarkup(gallery)}
     </div>
@@ -18966,59 +18969,84 @@ html.findai-light .findai-follower-view.following{
 </script>
 
 
-<style id="findai-v145-reel-gallery-style">
-/* Instagram-style reel carousel: direct manipulation with two GPU layers. */
-html,body,.app,#discover,#personalFeed{
-  overscroll-behavior-x:none!important;
-}
+<style id="findai-v146-native-carousel-style">
+/* Native iOS-style horizontal carousel.
+   The browser owns the drag physics; FindAI only observes the settled slide. */
 .reel-gallery-stage{
-  touch-action:pan-y!important;
-  overscroll-behavior-x:none!important;
-  contain:layout paint style;
+  touch-action:pan-x pan-y!important;
+  overscroll-behavior-x:contain!important;
+  contain:layout paint style!important;
 }
-.reel-gallery-layer{
+.reel-gallery-track{
   position:absolute!important;
   inset:0!important;
   z-index:1!important;
+  display:flex!important;
+  width:100%!important;
+  height:100%!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  scroll-snap-type:x mandatory!important;
+  scroll-behavior:smooth!important;
+  -webkit-overflow-scrolling:touch!important;
+  scrollbar-width:none!important;
+  overscroll-behavior-x:contain!important;
+  touch-action:pan-x pan-y!important;
+}
+.reel-gallery-track::-webkit-scrollbar{display:none!important}
+
+.reel-gallery-slide{
+  position:relative!important;
+  flex:0 0 100%!important;
+  width:100%!important;
+  height:100%!important;
+  min-width:100%!important;
+  scroll-snap-align:start!important;
+  scroll-snap-stop:always!important;
   overflow:hidden!important;
-  transform:translate3d(0,0,0);
-  will-change:transform;
-  backface-visibility:hidden;
-  -webkit-backface-visibility:hidden;
-}
-.reel-gallery-layer .hero-image{
-  will-change:auto!important;
-}
-.reel-gallery-adjacent-layer{
-  pointer-events:none!important;
-  z-index:1!important;
+  background:var(--hero-fill,#0a0b0d)!important;
 }
 
-/* Lower than v144, but still safely above the product title block. */
+/* Each slide is a completely normal reel image. No transforms are applied to
+   the slide itself, which fixes the clipped/half-loaded-looking image issue. */
+#discover .reel-gallery-slide .hero-image{
+  position:absolute!important;
+  top:50%!important;
+  left:50%!important;
+  width:100%!important;
+  height:100%!important;
+  max-width:none!important;
+  max-height:none!important;
+  transform:translate(-50%,-50%)!important;
+  object-fit:contain!important;
+  object-position:center center!important;
+  z-index:1!important;
+  opacity:1!important;
+}
+
+/* Lower dots, just above the listing copy. */
 .reel-gallery-dots{
   position:absolute!important;
-  z-index:7!important;
+  z-index:8!important;
   left:50%!important;
-  top:64%!important;
+  top:69%!important;
   bottom:auto!important;
   transform:translate(-50%,-50%)!important;
   display:flex!important;
   align-items:center!important;
   gap:5px!important;
-  pointer-events:none!important;
   padding:3px 5px!important;
   border-radius:999px!important;
-  background:rgba(0,0,0,.12)!important;
-  backdrop-filter:blur(2px)!important;
-  -webkit-backdrop-filter:blur(2px)!important;
+  background:rgba(0,0,0,.10)!important;
+  pointer-events:none!important;
 }
 .reel-gallery-dots i{
-  display:block!important;
   width:5px!important;
   height:5px!important;
   border-radius:50%!important;
-  background:rgba(255,255,255,.46)!important;
-  transition:background .16s ease,transform .16s ease!important;
+  display:block!important;
+  background:rgba(255,255,255,.44)!important;
+  transition:background .14s ease,transform .14s ease!important;
 }
 .reel-gallery-dots i.active{
   background:#fff!important;
@@ -19026,14 +19054,14 @@ html,body,.app,#discover,#personalFeed{
 }
 .reel-gallery-count{
   position:absolute!important;
-  z-index:7!important;
+  z-index:8!important;
   top:74px!important;
   right:16px!important;
   min-width:34px!important;
   height:24px!important;
   padding:0 7px!important;
   border-radius:12px!important;
-  background:rgba(0,0,0,.48)!important;
+  background:rgba(0,0,0,.46)!important;
   color:#fff!important;
   display:flex!important;
   align-items:center!important;
@@ -19049,25 +19077,24 @@ html,body,.app,#discover,#personalFeed{
   opacity:1!important;
   transform:translateY(0)!important;
 }
-html.findai-light .reel-gallery-dots{
-  background:rgba(0,0,0,.10)!important;
-}
 
-/* Horizontal carousel owns its gesture; the tab pager must never peek through. */
-body.findai-reel-gallery-dragging .findai-v132-swipe-surface,
-body.findai-reel-gallery-dragging .findai-swipe-current,
-body.findai-reel-gallery-dragging .findai-swipe-preview{
+/* Do not let any of the old app-tab swipe surfaces visually move while the
+   product carousel is being dragged. */
+body.findai-native-gallery-dragging .findai-v132-swipe-surface,
+body.findai-native-gallery-dragging .findai-swipe-current,
+body.findai-native-gallery-dragging .findai-swipe-preview{
   transform:none!important;
+  transition:none!important;
 }
 </style>
 
-<script id="findai-v145-reel-gallery-script">
+<script id="findai-v146-native-carousel-script">
 (function(){
   'use strict';
 
-  let gesture=null;
   let countTimer=null;
-  const warmed=new Set();
+  let touch=null;
+  const loaded=new WeakSet();
 
   function galleryImages(stage){
     try{
@@ -19076,350 +19103,182 @@ body.findai-reel-gallery-dragging .findai-swipe-preview{
     }catch(_){return [];}
   }
 
-  function currentIndex(stage){
-    const images=galleryImages(stage);
-    return Math.max(0,Math.min(Math.max(0,images.length-1),Number(stage&&stage.dataset.galleryIndex)||0));
+  function loadSlide(slide){
+    if(!slide)return;
+    const img=slide.querySelector('.reel-gallery-image');
+    if(!img||loaded.has(img))return;
+    const src=String(img.dataset.src||img.getAttribute('src')||'').trim();
+    if(!src)return;
+    if(!img.getAttribute('src'))img.src=src;
+    loaded.add(img);
   }
 
-  function warm(src){
-    if(!src||warmed.has(src))return;
-    warmed.add(src);
-    const image=new Image();
-    image.decoding='async';
-    image.referrerPolicy='no-referrer';
-    image.src=src;
+  function loadAround(stage,index){
+    const slides=[...stage.querySelectorAll('.reel-gallery-slide')];
+    [index,index+1,index-1].forEach(i=>{if(slides[i])loadSlide(slides[i]);});
   }
 
-  function warmNeighbours(stage,index){
+  function setGalleryIndex(stage,index,showCounter){
     const images=galleryImages(stage);
-    if(images[index+1])warm(images[index+1]);
-    if(images[index-1])warm(images[index-1]);
-  }
-
-  function updateUI(stage,index,showCounter=true){
-    const images=galleryImages(stage);
+    if(!images.length)return;
+    index=Math.max(0,Math.min(images.length-1,index));
+    const before=Number(stage.dataset.galleryIndex)||0;
     stage.dataset.galleryIndex=String(index);
     stage.querySelectorAll('.reel-gallery-dots i').forEach((dot,i)=>{
       dot.classList.toggle('active',i===index);
     });
+    loadAround(stage,index);
+
     const count=stage.querySelector('.reel-gallery-count');
     if(count&&images.length>1){
       count.textContent=(index+1)+'/'+images.length;
-      if(showCounter){
+      if(showCounter&&before!==index){
         count.classList.add('show');
         clearTimeout(countTimer);
-        countTimer=setTimeout(()=>count.classList.remove('show'),650);
+        countTimer=setTimeout(()=>count.classList.remove('show'),620);
       }
     }
   }
 
-  function layer(stage){
-    return stage&&stage.querySelector('.reel-gallery-current-layer');
-  }
+  function bind(stage){
+    if(!stage||stage.dataset.nativeGalleryBound==='1')return;
+    stage.dataset.nativeGalleryBound='1';
 
-  function activeImage(stage){
-    return stage&&stage.querySelector('.reel-gallery-current-layer .reel-gallery-image');
-  }
+    const track=stage.querySelector('.reel-gallery-track');
+    const slides=[...stage.querySelectorAll('.reel-gallery-slide')];
+    if(!track||slides.length<2){
+      if(slides[0])loadSlide(slides[0]);
+      return;
+    }
 
-  function makeAdjacent(stage,targetIndex,side,width){
-    const images=galleryImages(stage);
-    const src=images[targetIndex];
-    if(!src)return null;
+    loadSlide(slides[0]);
 
-    let adjacent=stage.querySelector('.reel-gallery-adjacent-layer');
-    if(adjacent)adjacent.remove();
+    let raf=0;
+    track.addEventListener('scroll',()=>{
+      const article=stage.closest('.reel-card');
+      if(article)article.dataset.gallerySuppressClick='1';
+      if(raf)return;
+      raf=requestAnimationFrame(()=>{
+        raf=0;
+        const width=Math.max(1,track.clientWidth);
+        const index=Math.round(track.scrollLeft/width);
+        setGalleryIndex(stage,index,true);
+      });
+    },{passive:true});
 
-    adjacent=document.createElement('div');
-    adjacent.className='reel-gallery-layer reel-gallery-adjacent-layer';
-    adjacent.style.transform='translate3d('+(side*width)+'px,0,0)';
+    track.addEventListener('touchstart',e=>{
+      if(e.touches.length!==1)return;
+      const t=e.touches[0];
+      touch={track,stage,x:t.clientX,y:t.clientY,moved:false};
+      document.body.classList.remove('findai-native-gallery-dragging');
+      loadAround(stage,Number(stage.dataset.galleryIndex)||0);
+    },{passive:true});
 
-    const img=document.createElement('img');
-    img.className='hero-image fit-contain reel-gallery-image';
-    img.alt='';
-    img.decoding='async';
-    img.loading='eager';
-    img.referrerPolicy='no-referrer';
-    img.src=src;
-    img.onerror=()=>adjacent&&adjacent.remove();
-
-    adjacent.appendChild(img);
-    stage.appendChild(adjacent);
-    return adjacent;
-  }
-
-  function clearAdjacent(stage){
-    const adjacent=stage&&stage.querySelector('.reel-gallery-adjacent-layer');
-    if(adjacent)adjacent.remove();
-  }
-
-  function setLayerTransition(node,duration){
-    if(!node)return;
-    node.style.transition='transform '+duration+'ms cubic-bezier(.22,.82,.24,1)';
-  }
-
-  function clearLayerTransition(node){
-    if(node)node.style.transition='none';
-  }
-
-  function commitImage(stage,index,adjacent){
-    const images=galleryImages(stage);
-    const img=activeImage(stage);
-    const current=layer(stage);
-    if(!img||!current||!images[index])return Promise.resolve();
-
-    const target=images[index];
-    img.src=target;
-    img.dataset.fallback='';
-    img.dataset.imageAlts='';
-    stage.dataset.fillSrc='';
+    track.addEventListener('touchmove',e=>{
+      if(!touch||touch.track!==track||e.touches.length!==1)return;
+      const t=e.touches[0];
+      const dx=t.clientX-touch.x,dy=t.clientY-touch.y;
+      if(!touch.moved&&Math.abs(dx)>7&&Math.abs(dx)>Math.abs(dy)*1.03){
+        touch.moved=true;
+        document.body.classList.add('findai-native-gallery-dragging');
+        const article=stage.closest('.reel-card');
+        if(article)article.dataset.gallerySuppressClick='1';
+      }
+    },{passive:true});
 
     const finish=()=>{
-      current.style.transition='none';
-      current.style.transform='translate3d(0,0,0)';
-      if(adjacent)adjacent.remove();
-      try{adaptListingImage(img);}catch(_){}
-      updateUI(stage,index,true);
-      warmNeighbours(stage,index);
-      requestAnimationFrame(()=>{current.style.transition='';});
+      if(!touch||touch.track!==track)return;
+      const moved=touch.moved;
+      touch=null;
+      document.body.classList.remove('findai-native-gallery-dragging');
+
+      const width=Math.max(1,track.clientWidth);
+      const index=Math.round(track.scrollLeft/width);
+      setGalleryIndex(stage,index,moved);
+
+      /* One final exact snap protects against iOS leaving a 1–2px fraction. */
+      if(Math.abs(track.scrollLeft-index*width)>1.5){
+        track.scrollTo({left:index*width,behavior:'smooth'});
+      }
+
+      if(moved){
+        const article=stage.closest('.reel-card');
+        setTimeout(()=>{
+          if(article&&article.dataset.gallerySuppressClick==='1'){
+            article.dataset.gallerySuppressClick='0';
+          }
+        },420);
+      }
     };
-
-    /* The adjacent copy is already visible at x=0, so wait for the main copy to
-       decode from browser cache before removing it. No white/black flash. */
-    if(typeof img.decode==='function'){
-      return img.decode().catch(()=>{}).then(finish);
-    }
-    return new Promise(resolve=>{
-      if(img.complete){finish();resolve();return;}
-      const done=()=>{img.removeEventListener('load',done);finish();resolve();};
-      img.addEventListener('load',done,{once:true});
-      setTimeout(()=>{finish();resolve();},180);
-    });
+    track.addEventListener('touchend',finish,{passive:true});
+    track.addEventListener('touchcancel',finish,{passive:true});
   }
 
-  function resetGestureVisual(state,duration=190){
-    if(!state)return;
-    const current=state.currentLayer;
-    const adjacent=state.adjacent;
-    setLayerTransition(current,duration);
-    setLayerTransition(adjacent,duration);
-    if(current)current.style.transform='translate3d(0,0,0)';
-    if(adjacent)adjacent.style.transform='translate3d('+(state.side*state.width)+'px,0,0)';
-    setTimeout(()=>{
-      clearAdjacent(state.stage);
-      if(current){current.style.transition='';current.style.transform='translate3d(0,0,0)';}
-    },duration+25);
-  }
-
-  function finishGesture(cancelled=false){
-    if(!gesture)return;
-    const state=gesture;
-    gesture=null;
-    document.body.classList.remove('findai-reel-gallery-dragging');
-
-    if(!state.horizontal){
-      clearAdjacent(state.stage);
-      return;
-    }
-
-    const images=state.images;
-    const index=state.index;
-    const width=state.width||1;
-    const elapsed=Math.max(1,performance.now()-state.startedAt);
-    const averageVelocity=state.dx/elapsed;
-    const velocity=Math.abs(state.velocity)>Math.abs(averageVelocity)?state.velocity:averageVelocity;
-    const projected=state.dx+(velocity*150);
-
-    const validTarget=state.targetIndex>=0&&state.targetIndex<images.length;
-    const commit=!cancelled&&validTarget&&(
-      Math.abs(projected)>width*.13 ||
-      Math.abs(state.dx)>width*.20 ||
-      Math.abs(velocity)>.42
-    );
-
-    if(!commit){
-      resetGestureVisual(state,Math.abs(state.dx)>35?205:165);
-      return;
-    }
-
-    const direction=state.direction; // +1 = next / swipe left
-    const current=state.currentLayer;
-    const adjacent=state.adjacent;
-    const remaining=Math.max(0,width-Math.abs(state.dx));
-    const speed=Math.max(.65,Math.abs(velocity)*1000);
-    const duration=Math.max(150,Math.min(245,remaining/speed*1000*.72));
-
-    setLayerTransition(current,duration);
-    setLayerTransition(adjacent,duration);
-    if(current)current.style.transform='translate3d('+(-direction*width)+'px,0,0)';
-    if(adjacent)adjacent.style.transform='translate3d(0,0,0)';
-
-    const article=state.stage.closest('.reel-card');
-    if(article)article.dataset.gallerySuppressClick='1';
-
-    setTimeout(()=>{
-      commitImage(state.stage,state.targetIndex,adjacent);
-    },duration);
-  }
-
-  function beginHorizontal(state,dx){
-    const direction=dx<0?1:-1;
-    const targetIndex=state.index+direction;
-    state.horizontal=true;
-    state.direction=direction;
-    state.targetIndex=targetIndex;
-    state.side=direction>0?1:-1;
-    document.body.classList.add('findai-reel-gallery-dragging');
-
-    if(targetIndex>=0&&targetIndex<state.images.length){
-      state.adjacent=makeAdjacent(state.stage,targetIndex,state.side,state.width);
-    }
-  }
-
-  /* Current/next image is warmed as soon as that reel actually becomes visible,
-     not for every result in the feed. */
-  const observer=new IntersectionObserver(entries=>{
+  const visibleObserver=new IntersectionObserver(entries=>{
     for(const entry of entries){
-      if(!entry.isIntersecting||entry.intersectionRatio<.42)continue;
+      if(!entry.isIntersecting||entry.intersectionRatio<.34)continue;
       const stage=entry.target;
-      warmNeighbours(stage,currentIndex(stage));
+      const index=Number(stage.dataset.galleryIndex)||0;
+      loadAround(stage,index);
     }
-  },{threshold:[.42,.68]});
+  },{threshold:[.34,.6]});
 
-  function observeStages(root=document){
-    root.querySelectorAll&&root.querySelectorAll('.reel-gallery-stage').forEach(stage=>{
-      if(stage.dataset.galleryObserved==='1')return;
-      stage.dataset.galleryObserved='1';
-      observer.observe(stage);
+  function bindAll(root=document){
+    const stages=[];
+    if(root.matches&&root.matches('.reel-gallery-stage'))stages.push(root);
+    root.querySelectorAll&&stages.push(...root.querySelectorAll('.reel-gallery-stage'));
+    stages.forEach(stage=>{
+      bind(stage);
+      if(stage.dataset.galleryObserved!=='1'){
+        stage.dataset.galleryObserved='1';
+        visibleObserver.observe(stage);
+      }
     });
   }
-  observeStages(document);
+
+  bindAll(document);
   new MutationObserver(records=>{
     records.forEach(record=>record.addedNodes.forEach(node=>{
-      if(node.nodeType!==1)return;
-      if(node.matches&&node.matches('.reel-gallery-stage')){
-        node.dataset.galleryObserved='1';observer.observe(node);
-      }
-      observeStages(node);
+      if(node.nodeType===1)bindAll(node);
     }));
   }).observe(document.body,{childList:true,subtree:true});
-
-  document.addEventListener('touchstart',e=>{
-    const stage=e.target&&e.target.closest&&e.target.closest('.reel-gallery-stage');
-    if(!stage||e.touches.length!==1)return;
-    const images=galleryImages(stage);
-    if(images.length<2)return;
-
-    const t=e.touches[0];
-    const index=currentIndex(stage);
-    const currentLayer=layer(stage);
-    if(!currentLayer)return;
-
-    clearAdjacent(stage);
-    clearLayerTransition(currentLayer);
-    currentLayer.style.transform='translate3d(0,0,0)';
-
-    gesture={
-      stage,images,index,currentLayer,
-      adjacent:null,targetIndex:index,direction:0,side:0,
-      startX:t.clientX,startY:t.clientY,lastX:t.clientX,lastT:performance.now(),
-      startedAt:performance.now(),dx:0,dy:0,velocity:0,
-      axis:'',horizontal:false,width:Math.max(1,stage.clientWidth||innerWidth)
-    };
-    warmNeighbours(stage,index);
-  },{capture:true,passive:true});
-
-  document.addEventListener('touchmove',e=>{
-    if(!gesture||e.touches.length!==1)return;
-    const t=e.touches[0];
-    const now=performance.now();
-    const dx=t.clientX-gesture.startX;
-    const dy=t.clientY-gesture.startY;
-
-    gesture.dx=dx;
-    gesture.dy=dy;
-    gesture.velocity=(t.clientX-gesture.lastX)/Math.max(1,now-gesture.lastT);
-    gesture.lastX=t.clientX;
-    gesture.lastT=now;
-
-    if(!gesture.axis){
-      if(Math.abs(dx)<5&&Math.abs(dy)<5)return;
-      if(Math.abs(dx)>Math.abs(dy)*1.04){
-        gesture.axis='x';
-        beginHorizontal(gesture,dx);
-      }else if(Math.abs(dy)>Math.abs(dx)*1.10){
-        gesture.axis='y';
-        gesture=null;
-        return;
-      }else{
-        return;
-      }
-    }
-
-    if(gesture.axis!=='x')return;
-
-    e.preventDefault();
-    e.stopPropagation();
-    if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
-
-    /* If the user reverses direction before travelling far, swap the neighbouring
-       slide instantly rather than fighting the finger. */
-    const newDirection=dx<0?1:-1;
-    if(Math.abs(dx)<34&&newDirection!==gesture.direction){
-      clearAdjacent(gesture.stage);
-      gesture.direction=newDirection;
-      gesture.targetIndex=gesture.index+newDirection;
-      gesture.side=newDirection>0?1:-1;
-      if(gesture.targetIndex>=0&&gesture.targetIndex<gesture.images.length){
-        gesture.adjacent=makeAdjacent(
-          gesture.stage,gesture.targetIndex,gesture.side,gesture.width
-        );
-      }else{
-        gesture.adjacent=null;
-      }
-    }
-
-    const valid=gesture.targetIndex>=0&&gesture.targetIndex<gesture.images.length;
-    const drag=valid?dx:dx*.24;
-
-    clearLayerTransition(gesture.currentLayer);
-    clearLayerTransition(gesture.adjacent);
-    gesture.currentLayer.style.transform='translate3d('+drag+'px,0,0)';
-    if(gesture.adjacent){
-      gesture.adjacent.style.transform=
-        'translate3d('+(gesture.side*gesture.width+drag)+'px,0,0)';
-    }
-  },{capture:true,passive:false});
-
-  document.addEventListener('touchend',e=>{
-    if(!gesture)return;
-    if(gesture.horizontal){
-      e.stopPropagation();
-      if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
-    }
-    finishGesture(false);
-  },{capture:true,passive:true});
-
-  document.addEventListener('touchcancel',()=>{
-    finishGesture(true);
-  },{capture:true,passive:true});
 })();
 </script>
 
 
-<script id="findai-v145-gallery-tab-guard">
+
+
+
+<script id="findai-v146-carousel-tab-guard">
 (function(){
   'use strict';
+  /* Stop app-level document/window touch handlers from seeing horizontal
+     carousel drags, while leaving the browser's native inner scrolling intact. */
+  let horizontal=false,start=null;
 
-  /* These run before bubble handlers and make the gallery a hard horizontal
-     interaction island. This is deliberately separate from the carousel code so
-     older tab-navigation listeners can never interpret the same drag. */
+  document.addEventListener('touchstart',e=>{
+    const track=e.target&&e.target.closest&&e.target.closest('.reel-gallery-track');
+    if(!track||e.touches.length!==1){start=null;horizontal=false;return;}
+    const t=e.touches[0];
+    start={track,x:t.clientX,y:t.clientY};
+    horizontal=false;
+  },{capture:true,passive:true});
+
   document.addEventListener('touchmove',e=>{
-    if(!document.body.classList.contains('findai-reel-gallery-dragging'))return;
-    if(!(e.target&&e.target.closest&&e.target.closest('.reel-gallery-stage')))return;
-    e.preventDefault();
-    e.stopPropagation();
-    if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
-  },{capture:true,passive:false});
+    if(!start||e.touches.length!==1)return;
+    const t=e.touches[0],dx=t.clientX-start.x,dy=t.clientY-start.y;
+    if(!horizontal&&Math.abs(dx)>7&&Math.abs(dx)>Math.abs(dy)*1.03)horizontal=true;
+    if(horizontal){
+      /* Do NOT preventDefault: native scroll must remain buttery smooth.
+         Capturing propagation is enough to stop FindAI's tab pager. */
+      e.stopPropagation();
+      if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
+    }
+  },{capture:true,passive:true});
+
+  const end=()=>{start=null;horizontal=false;};
+  document.addEventListener('touchend',end,{capture:true,passive:true});
+  document.addEventListener('touchcancel',end,{capture:true,passive:true});
 })();
 </script>
 
