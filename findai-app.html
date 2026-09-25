@@ -6689,7 +6689,7 @@ function renderReelCard(item,index,data){
   const wishwave=isFindAIListing(item);
   const commentCount=wishwaveCommentCount(item);
   return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}" role="button" tabindex="0" onclick="if(reelGalleryConsumeClick(this,event))return;openDeal(${index},event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDeal(${index},event);}">
-    <div class="hero-stage reel-gallery-stage${image?' fill-solid':''}" data-gallery-index="0" data-gallery-images="${escapeAttr(JSON.stringify(gallery))}"${image?` style="--hero-fill:#0a0b0d"`:''}>
+    <div class="hero-stage reel-gallery-stage${image?' fill-solid':''}" data-horizontal-scroll="1" data-gallery-index="0" data-gallery-images="${escapeAttr(JSON.stringify(gallery))}"${image?` style="--hero-fill:#0a0b0d"`:''}>
       ${image ? `<img class="hero-image fit-contain reel-gallery-image" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
       <div class="image-fallback" style="${image?'':'display:grid'}">${reelImagePlaceholder(item)}</div>
       ${reelGalleryDotsMarkup(gallery)}
@@ -16617,7 +16617,7 @@ html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .finda
   }
   document.addEventListener('touchstart',event=>{
     if(tabAnimating||overlayOpen()||event.touches.length!==1)return;const active=String(document.body.dataset.activeTab||'discover');if(!tabs.includes(active))return;
-    if(event.target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,button,a'))return;
+    if(event.target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.reel-gallery-stage,[data-horizontal-scroll],button,a'))return;
     const t=event.touches[0];if(t.clientX<24||t.clientX>window.innerWidth-24)return;tabTouch={x:t.clientX,y:t.clientY,active:false,dx:0};
   },{passive:true});
   document.addEventListener('touchmove',event=>{if(!tabTouch||event.touches.length!==1)return;const t=event.touches[0],dx=t.clientX-tabTouch.x,dy=t.clientY-tabTouch.y;if(!tabTouch.active){if(Math.abs(dx)<12)return;if(Math.abs(dy)>Math.abs(dx)*.72){tabTouch=null;return;}tabTouch.active=true;}tabTouch.dx=dx;if(Math.abs(dx)>20)event.preventDefault();},{passive:false});
@@ -16753,7 +16753,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
   function idx(tab){return tabs.indexOf(tab);}
   function visual(tab){if(tab==='messages')return document.getElementById('appMpInbox');return document.getElementById(tab);}
   function openTab(tab){if(tab==='discover')return openForYou();if(tab==='search')return openSearchHome(false);if(tab==='messages')return openMessagesTab();if(tab==='profile')return openProfile();}
-  function blockedTarget(target){return !!(target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,[data-horizontal-scroll]'));}
+  function blockedTarget(target){return !!(target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,.reel-gallery-stage,[data-horizontal-scroll]'));}
   function overlayOpen(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,#createListingScreen.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show');}
   function prepSurface(el,kind){if(!el)return;el.classList.add(kind,'findai-v132-swipe-surface');el.style.removeProperty('display');}
   function clearSurface(el){if(!el)return;el.classList.remove('findai-v132-current','findai-v132-target','findai-v132-settle','findai-v132-swipe-surface');el.style.transform='';el.style.opacity='';el.style.pointerEvents='';}
@@ -16920,7 +16920,7 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
 
   /* Move the grey lens with the user's finger. Window capture runs before the document-level pager. */
   let lensGesture=null;
-  function gestureBlocked(target){return !!(target&&target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,[data-horizontal-scroll]'))}
+  function gestureBlocked(target){return !!(target&&target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,.reel-gallery-stage,[data-horizontal-scroll]'))}
   function anyOverlay(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,#createListingScreen.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show')}
   addEventListener('touchstart',e=>{
     if(e.touches.length!==1||anyOverlay()||gestureBlocked(e.target))return;
@@ -18972,13 +18972,14 @@ html.findai-light .findai-follower-view.following{
 }
 .reel-gallery-dots{
   position:absolute;z-index:7;left:50%;
-  bottom:clamp(190px,27vh,258px);
-  transform:translateX(-50%);
+  top:58%;
+  bottom:auto;
+  transform:translate(-50%,-50%);
   display:flex;align-items:center;gap:5px;
   pointer-events:none;
-  padding:5px 7px;border-radius:999px;
-  background:rgba(0,0,0,.10);
-  backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);
+  padding:4px 6px;border-radius:999px;
+  background:rgba(0,0,0,.16);
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
 }
 .reel-gallery-dots i{
   display:block;width:5px;height:5px;border-radius:50%;
@@ -19085,23 +19086,25 @@ html.findai-light .reel-gallery-dots{background:rgba(255,255,255,.16)}
     gesture={stage,x:t.clientX,y:t.clientY,dx:0,dy:0,axis:'',index};
     if(images[index+1])preloadGalleryImage(images[index+1]);
     if(images[index-1])preloadGalleryImage(images[index-1]);
-  },{passive:true});
+  },{capture:true,passive:true});
 
   document.addEventListener('touchmove',e=>{
     if(!gesture)return;
     const t=e.touches&&e.touches[0];if(!t)return;
     gesture.dx=t.clientX-gesture.x;gesture.dy=t.clientY-gesture.y;
-    if(!gesture.axis&&(Math.abs(gesture.dx)>7||Math.abs(gesture.dy)>7)){
-      gesture.axis=Math.abs(gesture.dx)>Math.abs(gesture.dy)*1.12?'x':'y';
+    if(!gesture.axis&&(Math.abs(gesture.dx)>6||Math.abs(gesture.dy)>6)){
+      gesture.axis=Math.abs(gesture.dx)>Math.abs(gesture.dy)*1.08?'x':'y';
     }
     if(gesture.axis!=='x')return;
     e.preventDefault();
+    e.stopPropagation();
+    if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
     const img=gesture.stage.querySelector('.reel-gallery-image');if(!img)return;
     const bounded=Math.max(-92,Math.min(92,gesture.dx*.42));
     img.style.transition='none';
     img.style.transform='translate3d('+bounded+'px,0,0) scale(.995)';
     img.style.opacity=String(Math.max(.72,1-Math.abs(bounded)/360));
-  },{passive:false});
+  },{capture:true,passive:false});
 
   document.addEventListener('touchend',()=>{
     if(!gesture)return;
