@@ -6690,8 +6690,10 @@ function renderReelCard(item,index,data){
   const commentCount=wishwaveCommentCount(item);
   return `<article class="reel-card" data-index="${index}" aria-label="${escapeAttr(title)}" role="button" tabindex="0" onclick="if(reelGalleryConsumeClick(this,event))return;openDeal(${index},event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDeal(${index},event);}">
     <div class="hero-stage reel-gallery-stage${image?' fill-solid':''}" data-horizontal-scroll="1" data-gallery-index="0" data-gallery-images="${escapeAttr(JSON.stringify(gallery))}"${image?` style="--hero-fill:#0a0b0d"`:''}>
-      ${image ? `<img class="hero-image fit-contain reel-gallery-image" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
-      <div class="image-fallback" style="${image?'':'display:grid'}">${reelImagePlaceholder(item)}</div>
+      <div class="reel-gallery-layer reel-gallery-current-layer">
+        ${image ? `<img class="hero-image fit-contain reel-gallery-image" src="${escapeAttr(image)}" data-fallback="${escapeAttr(fallbackImage)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" loading="${index<3?'eager':'lazy'}" decoding="async" ${index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">` : ''}
+        <div class="image-fallback" style="${image?'':'display:grid'}">${reelImagePlaceholder(item)}</div>
+      </div>
       ${reelGalleryDotsMarkup(gallery)}
     </div>
     <div class="reel-actions-rail" aria-label="Listing actions">
@@ -18964,50 +18966,108 @@ html.findai-light .findai-follower-view.following{
 </script>
 
 
-<style id="findai-v143-reel-gallery-style">
-.reel-gallery-stage{touch-action:pan-y!important}
-.reel-gallery-image{
-  will-change:transform,opacity;
-  transition:transform .18s cubic-bezier(.2,.78,.22,1),opacity .16s ease;
+<style id="findai-v145-reel-gallery-style">
+/* Instagram-style reel carousel: direct manipulation with two GPU layers. */
+html,body,.app,#discover,#personalFeed{
+  overscroll-behavior-x:none!important;
 }
+.reel-gallery-stage{
+  touch-action:pan-y!important;
+  overscroll-behavior-x:none!important;
+  contain:layout paint style;
+}
+.reel-gallery-layer{
+  position:absolute!important;
+  inset:0!important;
+  z-index:1!important;
+  overflow:hidden!important;
+  transform:translate3d(0,0,0);
+  will-change:transform;
+  backface-visibility:hidden;
+  -webkit-backface-visibility:hidden;
+}
+.reel-gallery-layer .hero-image{
+  will-change:auto!important;
+}
+.reel-gallery-adjacent-layer{
+  pointer-events:none!important;
+  z-index:1!important;
+}
+
+/* Lower than v144, but still safely above the product title block. */
 .reel-gallery-dots{
-  position:absolute;z-index:7;left:50%;
-  top:58%;
-  bottom:auto;
-  transform:translate(-50%,-50%);
-  display:flex;align-items:center;gap:5px;
-  pointer-events:none;
-  padding:4px 6px;border-radius:999px;
-  background:rgba(0,0,0,.16);
-  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);
+  position:absolute!important;
+  z-index:7!important;
+  left:50%!important;
+  top:64%!important;
+  bottom:auto!important;
+  transform:translate(-50%,-50%)!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:5px!important;
+  pointer-events:none!important;
+  padding:3px 5px!important;
+  border-radius:999px!important;
+  background:rgba(0,0,0,.12)!important;
+  backdrop-filter:blur(2px)!important;
+  -webkit-backdrop-filter:blur(2px)!important;
 }
 .reel-gallery-dots i{
-  display:block;width:5px;height:5px;border-radius:50%;
-  background:rgba(255,255,255,.48);
-  transition:width .18s ease,background .18s ease,transform .18s ease;
+  display:block!important;
+  width:5px!important;
+  height:5px!important;
+  border-radius:50%!important;
+  background:rgba(255,255,255,.46)!important;
+  transition:background .16s ease,transform .16s ease!important;
 }
 .reel-gallery-dots i.active{
-  width:6px;height:6px;background:#fff;transform:scale(1.04);
+  background:#fff!important;
+  transform:scale(1.18)!important;
 }
 .reel-gallery-count{
-  position:absolute;z-index:7;top:74px;right:16px;
-  min-width:34px;height:24px;padding:0 7px;
-  border-radius:12px;background:rgba(0,0,0,.48);
-  color:#fff;display:flex;align-items:center;justify-content:center;
-  font-size:10px;font-weight:750;
-  opacity:0;transform:translateY(-3px);
-  transition:opacity .16s ease,transform .16s ease;
-  pointer-events:none;
+  position:absolute!important;
+  z-index:7!important;
+  top:74px!important;
+  right:16px!important;
+  min-width:34px!important;
+  height:24px!important;
+  padding:0 7px!important;
+  border-radius:12px!important;
+  background:rgba(0,0,0,.48)!important;
+  color:#fff!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  font-size:10px!important;
+  font-weight:750!important;
+  opacity:0!important;
+  transform:translateY(-3px)!important;
+  transition:opacity .14s ease,transform .14s ease!important;
+  pointer-events:none!important;
 }
-.reel-gallery-count.show{opacity:1;transform:translateY(0)}
-html.findai-light .reel-gallery-dots{background:rgba(255,255,255,.16)}
+.reel-gallery-count.show{
+  opacity:1!important;
+  transform:translateY(0)!important;
+}
+html.findai-light .reel-gallery-dots{
+  background:rgba(0,0,0,.10)!important;
+}
+
+/* Horizontal carousel owns its gesture; the tab pager must never peek through. */
+body.findai-reel-gallery-dragging .findai-v132-swipe-surface,
+body.findai-reel-gallery-dragging .findai-swipe-current,
+body.findai-reel-gallery-dragging .findai-swipe-preview{
+  transform:none!important;
+}
 </style>
 
-<script id="findai-v143-reel-gallery-script">
+<script id="findai-v145-reel-gallery-script">
 (function(){
   'use strict';
+
   let gesture=null;
   let countTimer=null;
+  const warmed=new Set();
 
   function galleryImages(stage){
     try{
@@ -19015,121 +19075,351 @@ html.findai-light .reel-gallery-dots{background:rgba(255,255,255,.16)}
       return Array.isArray(arr)?arr.filter(Boolean):[];
     }catch(_){return [];}
   }
-  function preloadGalleryImage(src){
-    if(!src)return;
-    const img=new Image();
-    img.decoding='async';
-    img.referrerPolicy='no-referrer';
-    img.src=src;
-  }
-  function updateGalleryUI(stage,index){
-    stage.dataset.galleryIndex=String(index);
-    stage.querySelectorAll('.reel-gallery-dots i').forEach((dot,i)=>dot.classList.toggle('active',i===index));
-    const count=stage.querySelector('.reel-gallery-count');
+
+  function currentIndex(stage){
     const images=galleryImages(stage);
+    return Math.max(0,Math.min(Math.max(0,images.length-1),Number(stage&&stage.dataset.galleryIndex)||0));
+  }
+
+  function warm(src){
+    if(!src||warmed.has(src))return;
+    warmed.add(src);
+    const image=new Image();
+    image.decoding='async';
+    image.referrerPolicy='no-referrer';
+    image.src=src;
+  }
+
+  function warmNeighbours(stage,index){
+    const images=galleryImages(stage);
+    if(images[index+1])warm(images[index+1]);
+    if(images[index-1])warm(images[index-1]);
+  }
+
+  function updateUI(stage,index,showCounter=true){
+    const images=galleryImages(stage);
+    stage.dataset.galleryIndex=String(index);
+    stage.querySelectorAll('.reel-gallery-dots i').forEach((dot,i)=>{
+      dot.classList.toggle('active',i===index);
+    });
+    const count=stage.querySelector('.reel-gallery-count');
     if(count&&images.length>1){
       count.textContent=(index+1)+'/'+images.length;
-      count.classList.add('show');
-      clearTimeout(countTimer);
-      countTimer=setTimeout(()=>count.classList.remove('show'),800);
+      if(showCounter){
+        count.classList.add('show');
+        clearTimeout(countTimer);
+        countTimer=setTimeout(()=>count.classList.remove('show'),650);
+      }
     }
   }
-  function changeGalleryImage(stage,nextIndex,direction){
-    const images=galleryImages(stage),img=stage&&stage.querySelector('.reel-gallery-image');
-    if(!img||images.length<2)return;
-    const current=Math.max(0,Math.min(images.length-1,Number(stage.dataset.galleryIndex)||0));
-    const next=Math.max(0,Math.min(images.length-1,nextIndex));
-    if(next===current){
-      img.style.transition='transform .18s cubic-bezier(.2,.78,.22,1),opacity .16s ease';
-      img.style.transform='translate3d(0,0,0)';
-      img.style.opacity='1';
+
+  function layer(stage){
+    return stage&&stage.querySelector('.reel-gallery-current-layer');
+  }
+
+  function activeImage(stage){
+    return stage&&stage.querySelector('.reel-gallery-current-layer .reel-gallery-image');
+  }
+
+  function makeAdjacent(stage,targetIndex,side,width){
+    const images=galleryImages(stage);
+    const src=images[targetIndex];
+    if(!src)return null;
+
+    let adjacent=stage.querySelector('.reel-gallery-adjacent-layer');
+    if(adjacent)adjacent.remove();
+
+    adjacent=document.createElement('div');
+    adjacent.className='reel-gallery-layer reel-gallery-adjacent-layer';
+    adjacent.style.transform='translate3d('+(side*width)+'px,0,0)';
+
+    const img=document.createElement('img');
+    img.className='hero-image fit-contain reel-gallery-image';
+    img.alt='';
+    img.decoding='async';
+    img.loading='eager';
+    img.referrerPolicy='no-referrer';
+    img.src=src;
+    img.onerror=()=>adjacent&&adjacent.remove();
+
+    adjacent.appendChild(img);
+    stage.appendChild(adjacent);
+    return adjacent;
+  }
+
+  function clearAdjacent(stage){
+    const adjacent=stage&&stage.querySelector('.reel-gallery-adjacent-layer');
+    if(adjacent)adjacent.remove();
+  }
+
+  function setLayerTransition(node,duration){
+    if(!node)return;
+    node.style.transition='transform '+duration+'ms cubic-bezier(.22,.82,.24,1)';
+  }
+
+  function clearLayerTransition(node){
+    if(node)node.style.transition='none';
+  }
+
+  function commitImage(stage,index,adjacent){
+    const images=galleryImages(stage);
+    const img=activeImage(stage);
+    const current=layer(stage);
+    if(!img||!current||!images[index])return Promise.resolve();
+
+    const target=images[index];
+    img.src=target;
+    img.dataset.fallback='';
+    img.dataset.imageAlts='';
+    stage.dataset.fillSrc='';
+
+    const finish=()=>{
+      current.style.transition='none';
+      current.style.transform='translate3d(0,0,0)';
+      if(adjacent)adjacent.remove();
+      try{adaptListingImage(img);}catch(_){}
+      updateUI(stage,index,true);
+      warmNeighbours(stage,index);
+      requestAnimationFrame(()=>{current.style.transition='';});
+    };
+
+    /* The adjacent copy is already visible at x=0, so wait for the main copy to
+       decode from browser cache before removing it. No white/black flash. */
+    if(typeof img.decode==='function'){
+      return img.decode().catch(()=>{}).then(finish);
+    }
+    return new Promise(resolve=>{
+      if(img.complete){finish();resolve();return;}
+      const done=()=>{img.removeEventListener('load',done);finish();resolve();};
+      img.addEventListener('load',done,{once:true});
+      setTimeout(()=>{finish();resolve();},180);
+    });
+  }
+
+  function resetGestureVisual(state,duration=190){
+    if(!state)return;
+    const current=state.currentLayer;
+    const adjacent=state.adjacent;
+    setLayerTransition(current,duration);
+    setLayerTransition(adjacent,duration);
+    if(current)current.style.transform='translate3d(0,0,0)';
+    if(adjacent)adjacent.style.transform='translate3d('+(state.side*state.width)+'px,0,0)';
+    setTimeout(()=>{
+      clearAdjacent(state.stage);
+      if(current){current.style.transition='';current.style.transform='translate3d(0,0,0)';}
+    },duration+25);
+  }
+
+  function finishGesture(cancelled=false){
+    if(!gesture)return;
+    const state=gesture;
+    gesture=null;
+    document.body.classList.remove('findai-reel-gallery-dragging');
+
+    if(!state.horizontal){
+      clearAdjacent(state.stage);
       return;
     }
 
-    const article=stage.closest('.reel-card');
+    const images=state.images;
+    const index=state.index;
+    const width=state.width||1;
+    const elapsed=Math.max(1,performance.now()-state.startedAt);
+    const averageVelocity=state.dx/elapsed;
+    const velocity=Math.abs(state.velocity)>Math.abs(averageVelocity)?state.velocity:averageVelocity;
+    const projected=state.dx+(velocity*150);
+
+    const validTarget=state.targetIndex>=0&&state.targetIndex<images.length;
+    const commit=!cancelled&&validTarget&&(
+      Math.abs(projected)>width*.13 ||
+      Math.abs(state.dx)>width*.20 ||
+      Math.abs(velocity)>.42
+    );
+
+    if(!commit){
+      resetGestureVisual(state,Math.abs(state.dx)>35?205:165);
+      return;
+    }
+
+    const direction=state.direction; // +1 = next / swipe left
+    const current=state.currentLayer;
+    const adjacent=state.adjacent;
+    const remaining=Math.max(0,width-Math.abs(state.dx));
+    const speed=Math.max(.65,Math.abs(velocity)*1000);
+    const duration=Math.max(150,Math.min(245,remaining/speed*1000*.72));
+
+    setLayerTransition(current,duration);
+    setLayerTransition(adjacent,duration);
+    if(current)current.style.transform='translate3d('+(-direction*width)+'px,0,0)';
+    if(adjacent)adjacent.style.transform='translate3d(0,0,0)';
+
+    const article=state.stage.closest('.reel-card');
     if(article)article.dataset.gallerySuppressClick='1';
 
-    const outX=direction>0?-46:46;
-    img.style.transition='transform .12s ease,opacity .12s ease';
-    img.style.transform='translate3d('+outX+'px,0,0)';
-    img.style.opacity='.30';
-
     setTimeout(()=>{
-      img.src=images[next];
-      img.dataset.fallback='';
-      img.dataset.imageAlts='';
-      stage.dataset.fillSrc='';
-      img.style.transition='none';
-      img.style.transform='translate3d('+(-outX*.55)+'px,0,0)';
-      img.style.opacity='.35';
-      updateGalleryUI(stage,next);
-
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{
-        img.style.transition='transform .18s cubic-bezier(.2,.78,.22,1),opacity .16s ease';
-        img.style.transform='translate3d(0,0,0)';
-        img.style.opacity='1';
-      }));
-
-      /* Lazy: only warm the adjacent photo after the user has actually moved. */
-      const warm=direction>0?next+1:next-1;
-      if(images[warm])preloadGalleryImage(images[warm]);
-    },115);
+      commitImage(state.stage,state.targetIndex,adjacent);
+    },duration);
   }
+
+  function beginHorizontal(state,dx){
+    const direction=dx<0?1:-1;
+    const targetIndex=state.index+direction;
+    state.horizontal=true;
+    state.direction=direction;
+    state.targetIndex=targetIndex;
+    state.side=direction>0?1:-1;
+    document.body.classList.add('findai-reel-gallery-dragging');
+
+    if(targetIndex>=0&&targetIndex<state.images.length){
+      state.adjacent=makeAdjacent(state.stage,targetIndex,state.side,state.width);
+    }
+  }
+
+  /* Current/next image is warmed as soon as that reel actually becomes visible,
+     not for every result in the feed. */
+  const observer=new IntersectionObserver(entries=>{
+    for(const entry of entries){
+      if(!entry.isIntersecting||entry.intersectionRatio<.42)continue;
+      const stage=entry.target;
+      warmNeighbours(stage,currentIndex(stage));
+    }
+  },{threshold:[.42,.68]});
+
+  function observeStages(root=document){
+    root.querySelectorAll&&root.querySelectorAll('.reel-gallery-stage').forEach(stage=>{
+      if(stage.dataset.galleryObserved==='1')return;
+      stage.dataset.galleryObserved='1';
+      observer.observe(stage);
+    });
+  }
+  observeStages(document);
+  new MutationObserver(records=>{
+    records.forEach(record=>record.addedNodes.forEach(node=>{
+      if(node.nodeType!==1)return;
+      if(node.matches&&node.matches('.reel-gallery-stage')){
+        node.dataset.galleryObserved='1';observer.observe(node);
+      }
+      observeStages(node);
+    }));
+  }).observe(document.body,{childList:true,subtree:true});
 
   document.addEventListener('touchstart',e=>{
     const stage=e.target&&e.target.closest&&e.target.closest('.reel-gallery-stage');
-    if(!stage)return;
+    if(!stage||e.touches.length!==1)return;
     const images=galleryImages(stage);
     if(images.length<2)return;
-    const t=e.touches&&e.touches[0];if(!t)return;
-    const index=Math.max(0,Number(stage.dataset.galleryIndex)||0);
-    gesture={stage,x:t.clientX,y:t.clientY,dx:0,dy:0,axis:'',index};
-    if(images[index+1])preloadGalleryImage(images[index+1]);
-    if(images[index-1])preloadGalleryImage(images[index-1]);
+
+    const t=e.touches[0];
+    const index=currentIndex(stage);
+    const currentLayer=layer(stage);
+    if(!currentLayer)return;
+
+    clearAdjacent(stage);
+    clearLayerTransition(currentLayer);
+    currentLayer.style.transform='translate3d(0,0,0)';
+
+    gesture={
+      stage,images,index,currentLayer,
+      adjacent:null,targetIndex:index,direction:0,side:0,
+      startX:t.clientX,startY:t.clientY,lastX:t.clientX,lastT:performance.now(),
+      startedAt:performance.now(),dx:0,dy:0,velocity:0,
+      axis:'',horizontal:false,width:Math.max(1,stage.clientWidth||innerWidth)
+    };
+    warmNeighbours(stage,index);
   },{capture:true,passive:true});
 
   document.addEventListener('touchmove',e=>{
-    if(!gesture)return;
-    const t=e.touches&&e.touches[0];if(!t)return;
-    gesture.dx=t.clientX-gesture.x;gesture.dy=t.clientY-gesture.y;
-    if(!gesture.axis&&(Math.abs(gesture.dx)>6||Math.abs(gesture.dy)>6)){
-      gesture.axis=Math.abs(gesture.dx)>Math.abs(gesture.dy)*1.08?'x':'y';
+    if(!gesture||e.touches.length!==1)return;
+    const t=e.touches[0];
+    const now=performance.now();
+    const dx=t.clientX-gesture.startX;
+    const dy=t.clientY-gesture.startY;
+
+    gesture.dx=dx;
+    gesture.dy=dy;
+    gesture.velocity=(t.clientX-gesture.lastX)/Math.max(1,now-gesture.lastT);
+    gesture.lastX=t.clientX;
+    gesture.lastT=now;
+
+    if(!gesture.axis){
+      if(Math.abs(dx)<5&&Math.abs(dy)<5)return;
+      if(Math.abs(dx)>Math.abs(dy)*1.04){
+        gesture.axis='x';
+        beginHorizontal(gesture,dx);
+      }else if(Math.abs(dy)>Math.abs(dx)*1.10){
+        gesture.axis='y';
+        gesture=null;
+        return;
+      }else{
+        return;
+      }
     }
+
     if(gesture.axis!=='x')return;
+
     e.preventDefault();
     e.stopPropagation();
     if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
-    const img=gesture.stage.querySelector('.reel-gallery-image');if(!img)return;
-    const bounded=Math.max(-92,Math.min(92,gesture.dx*.42));
-    img.style.transition='none';
-    img.style.transform='translate3d('+bounded+'px,0,0) scale(.995)';
-    img.style.opacity=String(Math.max(.72,1-Math.abs(bounded)/360));
+
+    /* If the user reverses direction before travelling far, swap the neighbouring
+       slide instantly rather than fighting the finger. */
+    const newDirection=dx<0?1:-1;
+    if(Math.abs(dx)<34&&newDirection!==gesture.direction){
+      clearAdjacent(gesture.stage);
+      gesture.direction=newDirection;
+      gesture.targetIndex=gesture.index+newDirection;
+      gesture.side=newDirection>0?1:-1;
+      if(gesture.targetIndex>=0&&gesture.targetIndex<gesture.images.length){
+        gesture.adjacent=makeAdjacent(
+          gesture.stage,gesture.targetIndex,gesture.side,gesture.width
+        );
+      }else{
+        gesture.adjacent=null;
+      }
+    }
+
+    const valid=gesture.targetIndex>=0&&gesture.targetIndex<gesture.images.length;
+    const drag=valid?dx:dx*.24;
+
+    clearLayerTransition(gesture.currentLayer);
+    clearLayerTransition(gesture.adjacent);
+    gesture.currentLayer.style.transform='translate3d('+drag+'px,0,0)';
+    if(gesture.adjacent){
+      gesture.adjacent.style.transform=
+        'translate3d('+(gesture.side*gesture.width+drag)+'px,0,0)';
+    }
   },{capture:true,passive:false});
 
-  document.addEventListener('touchend',()=>{
+  document.addEventListener('touchend',e=>{
     if(!gesture)return;
-    const g=gesture;gesture=null;
-    const img=g.stage.querySelector('.reel-gallery-image');if(!img)return;
-    if(g.axis==='x'&&Math.abs(g.dx)>=42){
-      const direction=g.dx<0?1:-1;
-      changeGalleryImage(g.stage,g.index+direction,direction);
-    }else{
-      img.style.transition='transform .18s cubic-bezier(.2,.78,.22,1),opacity .16s ease';
-      img.style.transform='translate3d(0,0,0)';
-      img.style.opacity='1';
+    if(gesture.horizontal){
+      e.stopPropagation();
+      if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
     }
-  },{passive:true});
+    finishGesture(false);
+  },{capture:true,passive:true});
 
   document.addEventListener('touchcancel',()=>{
-    if(!gesture)return;
-    const img=gesture.stage.querySelector('.reel-gallery-image');
-    gesture=null;
-    if(img){
-      img.style.transition='transform .18s ease,opacity .16s ease';
-      img.style.transform='translate3d(0,0,0)';
-      img.style.opacity='1';
-    }
-  },{passive:true});
+    finishGesture(true);
+  },{capture:true,passive:true});
+})();
+</script>
+
+
+<script id="findai-v145-gallery-tab-guard">
+(function(){
+  'use strict';
+
+  /* These run before bubble handlers and make the gallery a hard horizontal
+     interaction island. This is deliberately separate from the carousel code so
+     older tab-navigation listeners can never interpret the same drag. */
+  document.addEventListener('touchmove',e=>{
+    if(!document.body.classList.contains('findai-reel-gallery-dragging'))return;
+    if(!(e.target&&e.target.closest&&e.target.closest('.reel-gallery-stage')))return;
+    e.preventDefault();
+    e.stopPropagation();
+    if(typeof e.stopImmediatePropagation==='function')e.stopImmediatePropagation();
+  },{capture:true,passive:false});
 })();
 </script>
 
