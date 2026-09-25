@@ -18611,6 +18611,15 @@ html.findai-light .findai-followers-empty b{color:#111214}
   let ownFollowersCache=[];
   let ownFollowersTarget='';
   let followersEdgeGesture=null;
+  let ownFollowersFetchedAt=0;
+  const OWN_FOLLOWERS_CACHE_KEY='findai_own_followers_v153';
+  try{
+    const saved=JSON.parse(sessionStorage.getItem(OWN_FOLLOWERS_CACHE_KEY)||'null');
+    if(saved&&Array.isArray(saved.followers)){
+      ownFollowersCache=saved.followers;
+      ownFollowersFetchedAt=Number(saved.at)||0;
+    }
+  }catch(_){}
 
   function ensureOwnFollowersPage(){
     let page=document.getElementById('findaiOwnFollowersPage');
@@ -18695,28 +18704,73 @@ html.findai-light .findai-followers-empty b{color:#111214}
     }
   };
 
+  async function loadOwnFollowersFast(force=false){
+    const fresh=ownFollowersCache.length&&Date.now()-ownFollowersFetchedAt<45000;
+    if(fresh&&!force)return {followers:ownFollowersCache,count:ownFollowersCache.length,cached:true};
+
+    const data=await marketplaceFetch('/social/followers',{method:'GET'});
+    ownFollowersCache=Array.isArray(data&&data.followers)?data.followers:[];
+    ownFollowersFetchedAt=Date.now();
+    const count=Math.max(0,Number(data&&data.count||ownFollowersCache.length));
+
+    try{
+      sessionStorage.setItem(OWN_FOLLOWERS_CACHE_KEY,JSON.stringify({
+        at:ownFollowersFetchedAt,
+        count,
+        followers:ownFollowersCache
+      }));
+    }catch(_){}
+
+    const countEl=document.getElementById('findaiFollowersCount');
+    if(countEl)countEl.textContent=profileMetricCompact(count);
+
+    if(typeof socialProfileSeller==='object'&&socialProfileSeller){
+      socialProfileSeller.followerCount=count;
+      try{paintSocialProfileHeader();}catch(_){}
+    }
+    return {followers:ownFollowersCache,count,cached:false};
+  }
+
+  window.prefetchOwnFollowersList=function(force=false){
+    if(!marketplaceSession())return Promise.resolve(null);
+    return loadOwnFollowersFast(force).catch(()=>null);
+  };
+
   window.openOwnFollowersList=async function(targetUsername){
     if(!marketplaceSession()){openLogin();return;}
     const page=ensureOwnFollowersPage();
     ownFollowersTarget=String(targetUsername||'').replace(/^@+/,'').trim();
+
     const search=document.getElementById('findaiFollowersSearch');
     if(search)search.value='';
+
     const root=document.getElementById('findaiFollowersList');
-    if(root)root.innerHTML='<div class="findai-followers-loading"><div class="feed-more-spinner"></div><br>Loading followers…</div>';
-    page.classList.add('show');
-    try{
-      const data=await marketplaceFetch('/social/followers',{method:'GET'});
-      ownFollowersCache=Array.isArray(data&&data.followers)?data.followers:[];
-      const count=Math.max(0,Number(data&&data.count||ownFollowersCache.length));
-      const countEl=document.getElementById('findaiFollowersCount');if(countEl)countEl.textContent=profileMetricCompact(count);
-      if(typeof socialProfileSeller==='object'&&socialProfileSeller){
-        socialProfileSeller.followerCount=count;
-        try{paintSocialProfileHeader();}catch(_){}
+    const countEl=document.getElementById('findaiFollowersCount');
+
+    /* Paint session cache BEFORE the page animates in. */
+    if(ownFollowersCache.length){
+      if(countEl){
+        let cachedCount=ownFollowersCache.length;
+        try{
+          const saved=JSON.parse(sessionStorage.getItem(OWN_FOLLOWERS_CACHE_KEY)||'null');
+          cachedCount=Math.max(cachedCount,Number(saved&&saved.count)||0);
+        }catch(_){}
+        countEl.textContent=profileMetricCompact(cachedCount);
       }
       renderOwnFollowersList('');
+    }else if(root){
+      root.innerHTML='<div class="findai-followers-loading"><div class="feed-more-spinner"></div><br>Loading followers…</div>';
+    }
+
+    page.classList.add('show');
+
+    try{
+      await loadOwnFollowersFast(false);
+      if(page.classList.contains('show'))renderOwnFollowersList('');
     }catch(error){
-      ownFollowersCache=[];
-      if(root)root.innerHTML='<div class="findai-followers-empty"><b>Couldn’t load followers</b>'+escapeHTML(error&&error.message||'Try again in a moment.')+'</div>';
+      if(!ownFollowersCache.length&&root){
+        root.innerHTML='<div class="findai-followers-empty"><b>Couldn’t load followers</b>'+escapeHTML(error&&error.message||'Try again in a moment.')+'</div>';
+      }
     }
   };
 
@@ -19222,7 +19276,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     if(tryingPastFirst||tryingPastLast)dx*=EDGE_RESISTANCE;
 
     g.renderDx=dx;
-    translate(g.track,-g.startIndex*g.width+dx,false);
+    g.track.style.transform='translate3d('+(-g.startIndex*g.width+dx)+'px,0,0)';
   }
 
   function queueDrag(){
@@ -19463,6 +19517,363 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
   backface-visibility:hidden!important;
 }
 </style>
+
+
+<style id="findai-v153-carousel-performance">
+.reel-gallery-track{
+  contain:layout style paint!important;
+  transform-origin:0 50%!important;
+}
+.reel-gallery-slide{
+  contain:layout style paint!important;
+}
+body.findai-premium-gallery-dragging .reel-gallery-track{
+  will-change:transform!important;
+}
+body.findai-premium-gallery-dragging .reel-card{
+  contain:layout paint style!important;
+}
+/* The Search reel viewer uses exactly the same gallery image rules as Home. */
+.search-detail-overlay.explore-reel-mode .reel-gallery-slide .hero-image{
+  position:absolute!important;
+  top:50%!important;
+  left:50%!important;
+  width:100%!important;
+  height:100%!important;
+  max-width:none!important;
+  max-height:none!important;
+  transform:translate(-50%,-50%)!important;
+  object-fit:contain!important;
+  object-position:center center!important;
+  z-index:1!important;
+  opacity:1!important;
+  backface-visibility:hidden!important;
+  -webkit-backface-visibility:hidden!important;
+}
+</style>
+
+
+<script id="findai-v153-search-reel-routing">
+(function(){
+  'use strict';
+
+  let searchReelState=null;
+  const previousOpenSearchResultDetail=window.openSearchResultDetail;
+  const previousCloseSearchResultDetail=window.closeSearchResultDetail;
+
+  function searchScrollState(){
+    const home=document.querySelector('#search .premium-search-home-scroll');
+    const feed=document.getElementById('feed');
+    return {
+      home:home?home.scrollTop:0,
+      feed:feed?feed.scrollTop:0
+    };
+  }
+
+  function restoreSearchScroll(state){
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const home=document.querySelector('#search .premium-search-home-scroll');
+      const feed=document.getElementById('feed');
+      if(home)home.scrollTop=Number(state&&state.home)||0;
+      if(feed)feed.scrollTop=Number(state&&state.feed)||0;
+    }));
+  }
+
+  function closeSearchReelDirect(){
+    if(!searchReelState)return false;
+    const state=searchReelState;
+    searchReelState=null;
+
+    const overlay=document.getElementById('searchDetailOverlay');
+    const feed=document.getElementById('searchDetailFeed');
+    if(feed)feed.onscroll=null;
+    if(overlay){
+      overlay.classList.remove(
+        'show','explore-reel-mode','findai-v133-context-reel','findai-v133-dragging'
+      );
+      overlay.style.transform='';
+    }
+
+    currentFeedItems=state.items;
+    currentFeedData=state.data;
+    feedState=state.feedState;
+    activeReelIndex=state.active;
+    restoreSearchScroll(state.scroll);
+
+    if(feed)setTimeout(()=>{
+      if(!searchReelState&&!overlay?.classList.contains('show'))feed.innerHTML='';
+    },260);
+
+    return true;
+  }
+
+  function openSearchReel(items,index,data){
+    const list=Array.isArray(items)?items.filter(Boolean):[];
+    if(!list.length)return;
+
+    const chosen=Math.max(0,Math.min(list.length-1,Number(index)||0));
+    const start=Math.max(0,Math.min(chosen-5,Math.max(0,list.length-40)));
+    const end=Math.min(list.length,start+40);
+    const localIndex=chosen-start;
+
+    if(searchReelState)closeSearchReelDirect();
+
+    searchReelState={
+      items:Array.isArray(currentFeedItems)?currentFeedItems.slice():[],
+      data:currentFeedData,
+      feedState:{...(feedState||{})},
+      active:Number(activeReelIndex)||0,
+      scroll:searchScrollState()
+    };
+
+    currentFeedItems=list.slice(start,end);
+    currentFeedData=data||null;
+    feedState={...(feedState||{}),source:'explore-reel',loading:false,hasMore:false};
+    activeReelIndex=localIndex;
+
+    const overlay=document.getElementById('searchDetailOverlay');
+    const feed=document.getElementById('searchDetailFeed');
+    const count=document.getElementById('searchDetailCount');
+    if(!overlay||!feed){
+      closeSearchReelDirect();
+      return;
+    }
+
+    overlay.classList.add('explore-reel-mode','findai-v133-context-reel','show');
+    overlay.style.transform='translate3d(0,0,0)';
+    if(count)count.textContent='Explore';
+
+    feed.innerHTML=currentFeedItems.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');
+    feed.scrollTop=0;
+
+    let lastIndex=-1,raf=0;
+    feed.onscroll=()=>{
+      if(raf)return;
+      raf=requestAnimationFrame(()=>{
+        raf=0;
+        const h=Math.max(1,feed.clientHeight);
+        const next=Math.max(0,Math.min(currentFeedItems.length-1,Math.round(feed.scrollTop/h)));
+        if(next!==lastIndex){
+          lastIndex=next;
+          activeReelIndex=next;
+          try{if(typeof beginReelTracking==='function')beginReelTracking(next,1);}catch(_){}
+        }
+      });
+    };
+
+    try{
+      if(typeof preloadPersonalisedImages==='function'){
+        preloadPersonalisedImages(Math.max(0,localIndex-2),10);
+      }
+    }catch(_){}
+
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const card=feed.querySelector('.reel-card[data-index="'+localIndex+'"]');
+      feed.scrollTop=card?card.offsetTop:localIndex*Math.max(1,feed.clientHeight);
+      lastIndex=localIndex;
+      try{if(typeof beginReelTracking==='function')beginReelTracking(localIndex,1);}catch(_){}
+    }));
+  }
+
+  /* Typed-search cards, legacy grid cards and mobile search cards all use this. */
+  window.openSearchResultDetail=function(index){
+    const search=document.getElementById('search');
+    if(search&&search.classList.contains('active')&&Array.isArray(currentFeedItems)&&currentFeedItems.length){
+      openSearchReel(currentFeedItems,index,currentFeedData);
+      return;
+    }
+    return previousOpenSearchResultDetail&&previousOpenSearchResultDetail.apply(this,arguments);
+  };
+
+  /* Explore tiles use the same contextual reel viewer and Search stays selected. */
+  window.openPremiumDiscoveryItem=function(sectionId,index){
+    const section=typeof premiumDiscoverySectionById==='function'
+      ?premiumDiscoverySectionById(sectionId):null;
+    const list=section&&Array.isArray(section.items)?section.items:[];
+    if(!list.length)return;
+    openSearchReel(list,index,null);
+  };
+
+  window.closeSearchResultDetail=function(){
+    if(closeSearchReelDirect())return;
+    return previousCloseSearchResultDetail&&previousCloseSearchResultDetail.apply(this,arguments);
+  };
+
+  /* Bottom-nav changes and browser back should never leave an orphaned Search reel. */
+  addEventListener('popstate',()=>{if(searchReelState)closeSearchReelDirect()});
+  window.__findaiCloseSearchReelV153=closeSearchReelDirect;
+})();
+</script>
+
+
+<script id="findai-v153-comments-performance">
+(function(){
+  'use strict';
+
+  const CACHE_TTL=60000;
+  const commentCache=new Map();
+  const pending=new Map();
+
+  function keyFor(item){
+    try{return String(wishwaveCommentMetricKey(item)||'')}catch(_){return ''}
+  }
+  function endpointFor(item){
+    try{return String(wishwaveCommentEndpoint(item)||'')}catch(_){return ''}
+  }
+
+  async function fetchComments(item,force){
+    const key=keyFor(item),endpoint=endpointFor(item);
+    if(!key||!endpoint)return null;
+
+    const cached=commentCache.get(key);
+    if(!force&&cached&&Date.now()-cached.at<CACHE_TTL)return cached.data;
+    if(pending.has(key))return pending.get(key);
+
+    const request=marketplaceFetch(endpoint,{method:'GET'}).then(data=>{
+      commentCache.set(key,{at:Date.now(),data});
+      pending.delete(key);
+      return data;
+    }).catch(error=>{
+      pending.delete(key);
+      throw error;
+    });
+    pending.set(key,request);
+    return request;
+  }
+
+  function isCurrent(item){
+    return wishwaveCommentsItem===item;
+  }
+
+  function openShell(item){
+    wishwaveCommentsItem=item;
+    wishwavePendingCommentImage='';
+    const key=keyFor(item);
+    const cached=commentCache.get(key);
+
+    if(cached){
+      openAppMpSheet('Comments','');
+      renderWishWaveComments(cached.data);
+    }else if(typeof wishwaveCommentCount==='function'&&wishwaveCommentCount(item)===0){
+      /* Zero-count reels feel instant; network quietly verifies in the background. */
+      openAppMpSheet('Comments','');
+      renderWishWaveComments({comments:[],commentCount:0});
+    }else{
+      openAppMpSheet(
+        'Comments',
+        '<div class="app-mp-loading"><div><div class="app-mp-spinner"></div><b>Loading comments</b></div></div>'
+      );
+    }
+
+    const bg=document.getElementById('appMpSheetBg');
+    if(bg)bg.classList.add('wishwave-comments-mode');
+  }
+
+  window.openWishWaveComments=async function(index,event){
+    if(event){event.preventDefault();event.stopPropagation();}
+    const item=currentFeedItems[Number(index)||0];
+    if(!item)return;
+
+    openShell(item);
+    const key=keyFor(item);
+    try{
+      const data=await fetchComments(item,false);
+      if(!data)return;
+      wishwaveUpdateCommentMetric(key,data.commentCount);
+      if(isCurrent(item))renderWishWaveComments(data);
+    }catch(error){
+      const cached=commentCache.get(key);
+      if(!cached&&isCurrent(item)){
+        const root=document.getElementById('appMpSheetBody');
+        if(root)root.innerHTML='<div class="wishwave-comments-empty"><b>Comments unavailable</b>'+escapeHTML(error.message||'Try again')+'</div>';
+      }
+    }
+  };
+
+  window.openWishWaveListingComments=async function(){
+    if(!appMpListing||!isFindAIListing(appMpListing))return;
+    const item=appMpListing;
+    openShell(item);
+    const key=keyFor(item);
+    try{
+      const data=await fetchComments(item,false);
+      if(!data)return;
+      wishwaveUpdateCommentMetric(key,data.commentCount);
+      if(isCurrent(item))renderWishWaveComments(data);
+    }catch(error){
+      const cached=commentCache.get(key);
+      if(!cached&&isCurrent(item)){
+        const root=document.getElementById('appMpSheetBody');
+        if(root)root.innerHTML='<div class="wishwave-comments-empty"><b>Comments unavailable</b>'+escapeHTML(error.message||'Try again')+'</div>';
+      }
+    }
+  };
+
+  window.__findaiPrefetchCommentsV153=function(item){
+    if(!item)return;
+    /* Don't spend a request on obvious zero-comment items until the user opens them. */
+    if(typeof wishwaveCommentCount==='function'&&wishwaveCommentCount(item)<=0)return;
+    fetchComments(item,false).catch(()=>{});
+  };
+
+  /* Warm current + next comments shortly after the active reel settles. */
+  const beforeBegin=window.beginReelTracking;
+  if(typeof beforeBegin==='function'){
+    window.beginReelTracking=function(index){
+      const out=beforeBegin.apply(this,arguments);
+      const i=Math.max(0,Number(index)||0);
+      const warm=()=>{
+        try{
+          window.__findaiPrefetchCommentsV153(currentFeedItems[i]);
+          window.__findaiPrefetchCommentsV153(currentFeedItems[i+1]);
+        }catch(_){}
+      };
+      if('requestIdleCallback' in window)requestIdleCallback(warm,{timeout:500});
+      else setTimeout(warm,120);
+      return out;
+    };
+  }
+
+  /* Keep the client cache coherent after an optimistic comment post. */
+  const beforeSubmit=window.submitWishWaveComment;
+  if(typeof beforeSubmit==='function'){
+    window.submitWishWaveComment=async function(){
+      const item=wishwaveCommentsItem;
+      const result=await beforeSubmit.apply(this,arguments);
+      const key=keyFor(item);
+      if(key&&isCurrent(item)&&wishwaveCommentsData){
+        commentCache.set(key,{at:Date.now(),data:wishwaveCommentsData});
+      }
+      return result;
+    };
+  }
+})();
+</script>
+
+
+<script id="findai-v153-followers-prefetch">
+(function(){
+  'use strict';
+
+  const beforeOpenProfile=window.openProfile;
+  if(typeof beforeOpenProfile==='function'){
+    window.openProfile=function(){
+      const out=beforeOpenProfile.apply(this,arguments);
+      setTimeout(()=>{try{window.prefetchOwnFollowersList&&window.prefetchOwnFollowersList(false)}catch(_){}},60);
+      return out;
+    };
+  }
+
+  const warm=()=>{try{
+    if(marketplaceSession()&&window.prefetchOwnFollowersList){
+      window.prefetchOwnFollowersList(false);
+    }
+  }catch(_){}};
+
+  if('requestIdleCallback' in window)requestIdleCallback(warm,{timeout:1800});
+  else setTimeout(warm,1200);
+})();
+</script>
 
 </body>
 </html>
