@@ -24988,5 +24988,417 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
 })();
 </script>
 
+
+<style id="findai-v169-chat-profile-scroll-style">
+/* =========================================================
+   Chat top bar: avatar + name sit directly beside Back.
+   ========================================================= */
+#appMpInbox.chat-open .app-mp-header{
+  display:grid!important;
+  grid-template-columns:42px minmax(0,1fr) 0!important;
+  column-gap:8px!important;
+  padding-left:8px!important;
+  padding-right:8px!important;
+}
+#appMpInbox.chat-open #appMpInboxTitle{
+  width:auto!important;
+  min-width:0!important;
+  justify-self:start!important;
+  text-align:left!important;
+  margin:0!important;
+  overflow:hidden!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+}
+#appMpInbox.chat-open #appMpInboxTitle .findai-chat-title-person{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:8px!important;
+  min-width:0!important;
+}
+#appMpInbox.chat-open #appMpInboxTitle .findai-chat-title-avatar{
+  width:34px!important;
+  height:34px!important;
+  min-width:34px!important;
+}
+#appMpInbox.chat-open #appMpInboxTitle .findai-chat-title-name{
+  font-size:18px!important;
+  font-weight:760!important;
+  min-width:0!important;
+  max-width:220px!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+#appMpInbox.chat-open .app-mp-header-spacer{
+  width:0!important;
+  min-width:0!important;
+}
+
+/* =========================================================
+   Chat scrolling: the conversation itself owns vertical scroll.
+   ========================================================= */
+#appMpInbox .app-mp-inbox-body,
+#appMpInbox .app-mp-chat{
+  min-height:0!important;
+  overflow:hidden!important;
+}
+#appMpInbox .app-mp-chat{
+  display:grid!important;
+  grid-template-rows:auto minmax(0,1fr) auto auto!important;
+}
+#appMpInbox .app-mp-messages{
+  min-height:0!important;
+  height:100%!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+  overscroll-behavior-y:contain!important;
+  touch-action:pan-y!important;
+  scrollbar-width:none!important;
+  padding:0 13px 16px!important;
+}
+#appMpInbox .app-mp-messages::-webkit-scrollbar{
+  display:none!important;
+}
+
+/* =========================================================
+   Instagram-style profile identity block at the TOP of chat.
+   It remains there even after messages exist; scroll upward to see it.
+   ========================================================= */
+.findai-v169-chat-profile{
+  flex:0 0 auto!important;
+  min-height:360px!important;
+  width:100%!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  text-align:center!important;
+  padding:42px 18px 34px!important;
+  color:#fff!important;
+}
+.findai-v169-chat-profile-avatar{
+  width:116px!important;
+  height:116px!important;
+  border-radius:50%!important;
+  overflow:hidden!important;
+  display:grid!important;
+  place-items:center!important;
+  background:#202124!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+  color:#fff!important;
+  font-size:34px!important;
+  font-weight:800!important;
+}
+.findai-v169-chat-profile-avatar img{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  display:block!important;
+}
+.findai-v169-chat-profile-name{
+  margin-top:17px!important;
+  font-size:25px!important;
+  line-height:1.08!important;
+  font-weight:800!important;
+  letter-spacing:-.65px!important;
+  max-width:90%!important;
+}
+.findai-v169-chat-profile-username{
+  margin-top:7px!important;
+  color:#a2a6ae!important;
+  font-size:15px!important;
+  font-weight:560!important;
+}
+.findai-v169-chat-profile-stats{
+  margin-top:8px!important;
+  color:#a2a6ae!important;
+  font-size:14px!important;
+  font-weight:620!important;
+}
+.findai-v169-chat-profile-relation{
+  margin-top:8px!important;
+  color:#9da2aa!important;
+  font-size:13px!important;
+  line-height:1.35!important;
+}
+.findai-v169-chat-profile-view{
+  margin-top:18px!important;
+  height:42px!important;
+  min-width:132px!important;
+  padding:0 19px!important;
+  border:0!important;
+  border-radius:11px!important;
+  background:#30343a!important;
+  color:#fff!important;
+  font:760 15px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif!important;
+}
+.findai-v169-chat-profile-view:active{
+  transform:scale(.98)!important;
+}
+
+/* Messages begin normally underneath the profile block. */
+#appMpInbox .findai-v169-chat-profile + .app-mp-date-divider{
+  margin-top:2px!important;
+}
+</style>
+
+<script id="findai-v169-chat-profile-scroll-script">
+(function(){
+  'use strict';
+
+  let hydrateToken=0;
+
+  function compactMetric(value){
+    const n=Math.max(0,Number(value)||0);
+    if(n>=1000000){
+      const v=n/1000000;
+      return (v>=10?v.toFixed(0):v.toFixed(1)).replace(/\.0$/,'')+'M';
+    }
+    if(n>=1000){
+      const v=n/1000;
+      return (v>=10?v.toFixed(0):v.toFixed(1)).replace(/\.0$/,'')+'K';
+    }
+    return String(Math.round(n));
+  }
+
+  function currentParty(){
+    return window.appMpCurrentConversation||appMpCurrentConversation||{};
+  }
+
+  function chatProfileMarkup(c,extra){
+    const x=c||{};
+    const p=extra||{};
+
+    const name=String(
+      p.displayName||
+      x.otherParty||
+      'WishWave member'
+    ).trim();
+
+    const username=String(
+      p.username||
+      x.otherPartyUsername||
+      ''
+    ).replace(/^@+/,'').trim();
+
+    const avatar=String(
+      p.avatarUrl||
+      x.otherPartyAvatar||
+      ''
+    ).trim();
+
+    const initial=escapeHTML(appMpInitial(name));
+
+    const followerKnown=Number.isFinite(Number(p.followerCount));
+    const postKnown=Number.isFinite(Number(p.activeCount));
+    const relationship=String(p.relationship||'').trim();
+
+    return '<section class="findai-v169-chat-profile" id="findaiV169ChatProfile">'+
+      '<div class="findai-v169-chat-profile-avatar">'+
+        (avatar
+          ?'<img src="'+escapeAttr(avatar)+'" alt="">'
+          :initial)+
+      '</div>'+
+      '<div class="findai-v169-chat-profile-name">'+escapeHTML(name)+'</div>'+
+      (username
+        ?'<div class="findai-v169-chat-profile-username">@'+escapeHTML(username)+'</div>'
+        :'')+
+      ((followerKnown||postKnown)
+        ?'<div class="findai-v169-chat-profile-stats">'+
+           (followerKnown?escapeHTML(compactMetric(p.followerCount))+' followers':'')+
+           (followerKnown&&postKnown?' · ':'')+
+           (postKnown?escapeHTML(compactMetric(p.activeCount))+' posts':'')+
+         '</div>'
+        :'')+
+      (relationship
+        ?'<div class="findai-v169-chat-profile-relation">'+escapeHTML(relationship)+'</div>'
+        :'')+
+      (username
+        ?'<button type="button" class="findai-v169-chat-profile-view" data-profile-username="'+escapeAttr(username)+'">View profile</button>'
+        :'')+
+    '</section>';
+  }
+
+  function bindProfileButton(root){
+    const button=(root||document).querySelector('.findai-v169-chat-profile-view');
+    if(!button||button.dataset.boundV169==='1')return;
+    button.dataset.boundV169='1';
+    button.addEventListener('click',()=>{
+      const username=String(button.dataset.profileUsername||'').trim();
+      if(username&&typeof window.openFindAIProfileByUsername==='function'){
+        window.openFindAIProfileByUsername(username);
+      }
+    });
+  }
+
+  async function hydrateChatProfile(c){
+    const token=++hydrateToken;
+    const username=String(c&&c.otherPartyUsername||'').replace(/^@+/,'').trim();
+    if(!username)return;
+
+    try{
+      const data=await marketplaceFetch(
+        '/profile/public/'+encodeURIComponent(username),
+        {method:'GET'}
+      );
+
+      if(token!==hydrateToken)return;
+
+      const root=document.getElementById('appMpMessages');
+      const card=document.getElementById('findaiV169ChatProfile');
+      if(!root||!card)return;
+
+      const profile=data&&data.profile||{};
+      const viewer=data&&data.viewer||{};
+      let relationship='';
+
+      if(viewer&&viewer.isFollowing){
+        relationship='You follow this account';
+      }else if(viewer&&viewer.pending){
+        relationship='Follow request pending';
+      }
+
+      const replacement=document.createElement('div');
+      replacement.innerHTML=chatProfileMarkup(c,{
+        displayName:profile.displayName||c.otherParty,
+        username:profile.username||username,
+        avatarUrl:profile.avatarUrl||c.otherPartyAvatar,
+        followerCount:Number(data&&data.followerCount),
+        activeCount:Number(data&&data.activeCount),
+        relationship
+      });
+
+      const next=replacement.firstElementChild;
+      if(next){
+        card.replaceWith(next);
+        bindProfileButton(root);
+      }
+    }catch(_){}
+  }
+
+  function renderConversationHtml(messages,c){
+    const profile=chatProfileMarkup(c);
+    const timeline=(Array.isArray(messages)&&messages.length)
+      ?appMpMessageTimeline(messages)
+      :'';
+    return profile+timeline;
+  }
+
+  /* Every conversation gets the Instagram-style profile block at the very top,
+     not only a zero-message conversation. */
+  window.appMpLoadMessages=async function(){
+    if(!appMpConversation)return;
+
+    const root=document.getElementById('appMpMessages');
+    if(!root)return;
+
+    const wasLoaded=root.dataset.loaded==='1';
+    const oldHeight=root.scrollHeight;
+    const oldTop=root.scrollTop;
+    const distanceFromBottom=oldHeight-oldTop-root.clientHeight;
+    const wasNearBottom=!wasLoaded||distanceFromBottom<90;
+
+    try{
+      const data=await marketplaceFetch(
+        '/marketplace/conversations/'+encodeURIComponent(appMpConversation)+'/messages',
+        {method:'GET'}
+      );
+
+      const messages=Array.isArray(data&&data.messages)?data.messages:[];
+      appMpCurrentOffers=Array.isArray(data&&data.offers)?data.offers:[];
+      appMpCurrentConversation=(data&&data.conversation)||appMpCurrentConversation;
+
+      appMpRenderMessageHeader(appMpCurrentConversation,data&&data.presence);
+
+      root.innerHTML=renderConversationHtml(messages,appMpCurrentConversation);
+      root.dataset.loaded='1';
+
+      bindProfileButton(root);
+      hydrateChatProfile(appMpCurrentConversation);
+
+      requestAnimationFrame(()=>{
+        if(wasNearBottom){
+          root.scrollTop=root.scrollHeight;
+        }else{
+          const heightGain=root.scrollHeight-oldHeight;
+          root.scrollTop=Math.max(0,oldTop+heightGain);
+        }
+      });
+
+      if(typeof appRefreshMarketplaceBadge==='function'){
+        appRefreshMarketplaceBadge();
+      }
+    }catch(error){
+      if(!wasLoaded){
+        root.innerHTML='<div class="app-mp-empty">'+
+          escapeHTML(error&&error.message||'Messages could not be loaded')+
+          '<br><button class="app-mp-mini" onclick="appMpLoadMessages()">Try again</button>'+
+        '</div>';
+      }
+    }
+  };
+
+  /* Make the profile block visible immediately when a brand-new chat shell
+     appears, even before its first /messages response returns. */
+  const previousRenderChat=window.renderAppMpChat;
+  if(typeof previousRenderChat==='function'){
+    window.renderAppMpChat=function(id,newBuyer){
+      const out=previousRenderChat.apply(this,arguments);
+      const root=document.getElementById('appMpMessages');
+      const c=currentParty();
+
+      if(root&&c){
+        root.innerHTML=chatProfileMarkup(c);
+        bindProfileButton(root);
+        hydrateChatProfile(c);
+        root.scrollTop=0;
+      }
+      return out;
+    };
+  }
+
+  /* Final header alignment override: previous generations centered the H2
+     itself even when its grid cell was left-aligned. */
+  const previousHeader=window.appMpRenderMessageHeader;
+  window.appMpRenderMessageHeader=function(c,presence){
+    const out=previousHeader&&previousHeader.apply(this,arguments);
+
+    const x=currentParty()||c;
+    const title=document.getElementById('appMpInboxTitle');
+    if(!title||!x)return out;
+
+    const name=String(x.otherParty||'WishWave member');
+    const avatar=String(x.otherPartyAvatar||'').trim();
+    const initial=escapeHTML(appMpInitial(name));
+
+    title.innerHTML=
+      '<span class="findai-chat-title-person">'+
+        '<span class="findai-chat-title-avatar">'+
+          (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':initial)+
+        '</span>'+
+        '<span class="findai-chat-title-name">'+escapeHTML(name)+'</span>'+
+      '</span>';
+
+    return out;
+  };
+
+  /* Extra Safari insurance: never let a chat scroll gesture bubble into
+     the fixed app shell. */
+  document.addEventListener('touchmove',event=>{
+    const root=event.target&&event.target.closest
+      ?event.target.closest('#appMpInbox .app-mp-messages')
+      :null;
+    if(!root)return;
+    if(root.scrollHeight>root.clientHeight){
+      event.stopPropagation();
+    }
+  },{capture:true,passive:true});
+})();
+</script>
+
 </body>
 </html>
