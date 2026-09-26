@@ -22797,5 +22797,835 @@ html.findai-light .nav-messages-badge{border-color:#f7f7f8!important}
 })();
 </script>
 
+
+<style id="findai-v164-search-recents-polish-style">
+/* Settings profile header: keep the content, remove the chunky grey card. */
+.findai-settings-account-card{
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  border-radius:0!important;
+  margin:12px 18px 8px!important;
+  padding:8px 0!important;
+}
+
+/* Keep Recent searches mounted so entering/leaving it is compositor-only.
+   The listings/discovery Search page remains alive underneath. */
+#search .findai-search-recents{
+  display:block!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  pointer-events:none!important;
+  transform:translate3d(0,8px,0)!important;
+  transition:
+    transform .20s cubic-bezier(.22,.76,.24,1),
+    opacity .15s ease!important;
+  will-change:transform,opacity!important;
+  backface-visibility:hidden!important;
+  -webkit-backface-visibility:hidden!important;
+  contain:paint style!important;
+}
+#search .findai-search-recents.show{
+  visibility:visible!important;
+  opacity:1!important;
+  pointer-events:auto!important;
+  transform:translate3d(0,0,0)!important;
+}
+#search .findai-search-recents.findai-recents-dragging{
+  transition:none!important;
+}
+#search .findai-search-recents.findai-recents-leaving{
+  pointer-events:none!important;
+}
+
+/* No layout or filter work while the edge-back gesture is active. */
+body.findai-recents-edge-dragging #search .premium-search-home-scroll{
+  pointer-events:none!important;
+}
+</style>
+
+<script id="findai-v164-search-recents-polish-script">
+(function(){
+  'use strict';
+
+  let edgeGesture=null;
+  let exiting=false;
+  const EDGE_START=42;
+  const COMMIT_DISTANCE=72;
+  const FLICK_DISTANCE=28;
+  const FLICK_VELOCITY=.34;
+
+  function searchScreen(){
+    return document.getElementById('search');
+  }
+
+  function recentsOverlay(){
+    return document.getElementById('findaiSearchRecents');
+  }
+
+  function recentsVisible(){
+    const search=searchScreen();
+    const overlay=recentsOverlay();
+    return !!(
+      search &&
+      overlay &&
+      search.classList.contains('active') &&
+      search.classList.contains('search-recents-visible') &&
+      overlay.classList.contains('show')
+    );
+  }
+
+  function resetOverlay(){
+    const overlay=recentsOverlay();
+    if(!overlay)return;
+    overlay.classList.remove('findai-recents-dragging','findai-recents-leaving');
+    overlay.style.transition='';
+    overlay.style.transform='';
+    overlay.style.opacity='';
+  }
+
+  function finishExit(){
+    const search=searchScreen();
+    const overlay=recentsOverlay();
+    try{if(typeof hideRecents==='function')hideRecents();}catch(_){
+      search?.classList.remove('search-recents-visible');
+      overlay?.classList.remove('show');
+    }
+
+    const q=document.getElementById('q');
+    if(q){
+      q.value='';
+      try{q.blur();}catch(_){}
+    }
+
+    /* The normal listings Search page was never destroyed; this simply
+       refreshes its visible state if needed. */
+    try{if(typeof renderPremiumSearchHome==='function')renderPremiumSearchHome();}catch(_){}
+    try{if(typeof setMainNavActive==='function')setMainNavActive('search');}catch(_){}
+
+    resetOverlay();
+    exiting=false;
+  }
+
+  function exitRecents(animated=true){
+    if(exiting||!recentsVisible())return false;
+    exiting=true;
+
+    const overlay=recentsOverlay();
+    if(!overlay){finishExit();return true;}
+
+    if(!animated){
+      finishExit();
+      return true;
+    }
+
+    overlay.classList.remove('findai-recents-dragging');
+    overlay.classList.add('findai-recents-leaving');
+    overlay.style.transition='transform 185ms cubic-bezier(.22,.78,.24,1), opacity 150ms ease';
+    overlay.style.transform='translate3d(100%,0,0)';
+    overlay.style.opacity='.34';
+
+    setTimeout(finishExit,190);
+    return true;
+  }
+
+  window.findaiExitSearchRecentsV164=exitRecents;
+
+  /* Tapping the already-selected Search icon acts as "back to Search root". 
+     Delegated capture means this keeps working even if the nav is re-rendered. */
+  window.addEventListener('click',event=>{
+    const button=event.target&&event.target.closest
+      ?event.target.closest('.premium-bottom-nav button[data-tab="search"]')
+      :null;
+    if(!button||!recentsVisible())return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if(typeof event.stopImmediatePropagation==='function')event.stopImmediatePropagation();
+    exitRecents(true);
+  },true);
+
+  /* High-FPS iOS-style edge swipe:
+     only active inside Recent searches and only when starting near the left edge,
+     so it cannot disturb normal Search scrolling or the rest of the app. */
+  window.addEventListener('touchstart',event=>{
+    if(!recentsVisible()||event.touches.length!==1){
+      edgeGesture=null;
+      return;
+    }
+
+    const t=event.touches[0];
+    if(t.clientX>EDGE_START){
+      edgeGesture=null;
+      return;
+    }
+
+    const overlay=recentsOverlay();
+    if(!overlay)return;
+
+    const now=performance.now();
+    edgeGesture={
+      overlay,
+      x:t.clientX,
+      y:t.clientY,
+      lastX:t.clientX,
+      lastT:now,
+      dx:0,
+      dy:0,
+      velocity:0,
+      axis:'',
+      raf:0
+    };
+  },{capture:true,passive:true});
+
+  window.addEventListener('touchmove',event=>{
+    const g=edgeGesture;
+    if(!g||event.touches.length!==1)return;
+
+    const t=event.touches[0];
+    const now=performance.now();
+    g.dx=Math.max(0,t.clientX-g.x);
+    g.dy=t.clientY-g.y;
+
+    const instant=(t.clientX-g.lastX)/Math.max(1,now-g.lastT);
+    g.velocity=g.velocity*.35+instant*.65;
+    g.lastX=t.clientX;
+    g.lastT=now;
+
+    if(!g.axis&&(Math.abs(g.dx)>4||Math.abs(g.dy)>4)){
+      if(g.dx>Math.abs(g.dy)*.72){
+        g.axis='x';
+        g.overlay.classList.add('findai-recents-dragging');
+        document.body.classList.add('findai-recents-edge-dragging');
+      }else if(Math.abs(g.dy)>Math.abs(g.dx)*1.18){
+        edgeGesture=null;
+        return;
+      }
+    }
+
+    if(g.axis!=='x')return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if(typeof event.stopImmediatePropagation==='function')event.stopImmediatePropagation();
+
+    if(g.raf)return;
+    g.raf=requestAnimationFrame(()=>{
+      g.raf=0;
+      if(!edgeGesture||edgeGesture!==g)return;
+      const width=Math.max(1,window.innerWidth);
+      const progress=Math.min(1,g.dx/width);
+      g.overlay.style.transform='translate3d('+g.dx+'px,0,0)';
+      g.overlay.style.opacity=String(Math.max(.55,1-progress*.45));
+    });
+  },{capture:true,passive:false});
+
+  function endEdge(event,cancelled){
+    const g=edgeGesture;
+    edgeGesture=null;
+    document.body.classList.remove('findai-recents-edge-dragging');
+    if(!g)return;
+
+    if(g.raf){
+      cancelAnimationFrame(g.raf);
+      g.raf=0;
+    }
+
+    if(g.axis!=='x'){
+      resetOverlay();
+      return;
+    }
+
+    const distance=Math.max(0,g.dx);
+    const speed=Math.abs(g.velocity);
+    const commit=!cancelled&&(
+      distance>=COMMIT_DISTANCE ||
+      (distance>=FLICK_DISTANCE&&speed>=FLICK_VELOCITY)
+    );
+
+    if(commit){
+      exiting=true;
+      g.overlay.classList.remove('findai-recents-dragging');
+      g.overlay.classList.add('findai-recents-leaving');
+      g.overlay.style.transition='transform 175ms cubic-bezier(.22,.78,.24,1), opacity 145ms ease';
+      g.overlay.style.transform='translate3d(100%,0,0)';
+      g.overlay.style.opacity='.3';
+      setTimeout(finishExit,180);
+    }else{
+      g.overlay.classList.remove('findai-recents-dragging');
+      g.overlay.style.transition='transform 165ms cubic-bezier(.22,.78,.24,1), opacity 140ms ease';
+      g.overlay.style.transform='translate3d(0,0,0)';
+      g.overlay.style.opacity='1';
+      setTimeout(resetOverlay,175);
+    }
+  }
+
+  window.addEventListener('touchend',event=>endEdge(event,false),{capture:true,passive:true});
+  window.addEventListener('touchcancel',event=>endEdge(event,true),{capture:true,passive:true});
+
+  /* If another action closes Recents, clear any temporary transform state. */
+  const observer=new MutationObserver(()=>{
+    if(!recentsVisible()&&!exiting){
+      document.body.classList.remove('findai-recents-edge-dragging');
+      resetOverlay();
+    }
+  });
+
+  const search=searchScreen();
+  if(search)observer.observe(search,{attributes:true,attributeFilter:['class']});
+})();
+</script>
+
+
+<style id="findai-v165-message-image-style">
+/* -----------------------------------------------------------
+   Message header: user identity closer to the left, Instagram-like.
+   ----------------------------------------------------------- */
+#appMpInbox.chat-open .app-mp-header{
+  grid-template-columns:42px minmax(0,1fr) 12px!important;
+  padding-left:8px!important;
+  padding-right:8px!important;
+}
+#appMpInbox.chat-open #appMpInboxTitle{
+  justify-self:start!important;
+  width:100%!important;
+  text-align:left!important;
+  margin-left:0!important;
+  overflow:visible!important;
+}
+#appMpInbox.chat-open #appMpInboxTitle .findai-chat-title-person{
+  justify-content:flex-start!important;
+  gap:9px!important;
+}
+#appMpInbox.chat-open #appMpInboxTitle .findai-chat-title-avatar{
+  width:34px!important;
+  height:34px!important;
+  min-width:34px!important;
+}
+
+/* -----------------------------------------------------------
+   No per-message timestamp / Sent / Read copy.
+   Date separators remain because they keep long chats readable.
+   ----------------------------------------------------------- */
+#appMpInbox .app-mp-bubble .app-mp-time,
+#appMpInbox .app-mp-bubble .app-mp-receipt{
+  display:none!important;
+}
+
+/* -----------------------------------------------------------
+   Image messages.
+   ----------------------------------------------------------- */
+#appMpInbox .app-mp-bubble.has-image{
+  padding:4px!important;
+  overflow:hidden!important;
+  background:transparent!important;
+  max-width:min(72%,310px)!important;
+}
+#appMpInbox .app-mp-bubble.has-image.mine{
+  background:transparent!important;
+}
+.app-mp-message-image{
+  display:block!important;
+  width:100%!important;
+  max-height:360px!important;
+  object-fit:cover!important;
+  border-radius:17px!important;
+  background:#17181b!important;
+}
+.app-mp-message-image-copy{
+  display:block!important;
+  padding:8px 9px 6px!important;
+  color:#fff!important;
+  font-size:14px!important;
+  line-height:1.35!important;
+}
+
+/* Pending attachment becomes an actual picture, not "IMG_6044.png". */
+#appMpInbox .app-mp-attachment-tray{
+  display:flex!important;
+  gap:8px!important;
+  padding:7px 14px 2px!important;
+  overflow-x:auto!important;
+  background:#000!important;
+}
+#appMpInbox .app-mp-attachment-tray[hidden]{display:none!important}
+.app-mp-attachment-preview{
+  position:relative!important;
+  width:74px!important;
+  height:74px!important;
+  min-width:74px!important;
+  border-radius:12px!important;
+  overflow:hidden!important;
+  border:1px solid rgba(255,255,255,.12)!important;
+  background:#17181b!important;
+}
+.app-mp-attachment-preview img{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  display:block!important;
+}
+.app-mp-attachment-preview button{
+  position:absolute!important;
+  top:4px!important;
+  right:4px!important;
+  width:23px!important;
+  height:23px!important;
+  border:0!important;
+  border-radius:50%!important;
+  background:rgba(0,0,0,.72)!important;
+  color:#fff!important;
+  font-size:17px!important;
+  line-height:1!important;
+  display:grid!important;
+  place-items:center!important;
+}
+
+/* Send button: small Instagram-blue circle instead of loose white arrow. */
+#appMpInbox .app-mp-compose-send{
+  width:38px!important;
+  height:38px!important;
+  min-width:38px!important;
+  border-radius:50%!important;
+  border:0!important;
+  background:#3797f0!important;
+  color:#fff!important;
+  box-shadow:none!important;
+  opacity:1!important;
+  font-size:18px!important;
+  display:grid!important;
+  place-items:center!important;
+}
+#appMpInbox .app-mp-compose-send:disabled{
+  background:#254f72!important;
+  color:rgba(255,255,255,.58)!important;
+}
+
+/* -----------------------------------------------------------
+   First-message identity, like Instagram's new-chat screen.
+   ----------------------------------------------------------- */
+.findai-first-message-profile{
+  flex:1!important;
+  min-height:330px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  padding:54px 24px 30px!important;
+  text-align:center!important;
+  color:#fff!important;
+}
+.findai-first-message-profile-avatar{
+  width:112px!important;
+  height:112px!important;
+  border-radius:50%!important;
+  overflow:hidden!important;
+  display:grid!important;
+  place-items:center!important;
+  background:#202124!important;
+  color:#fff!important;
+  font-size:34px!important;
+  font-weight:800!important;
+  border:1px solid rgba(255,255,255,.1)!important;
+}
+.findai-first-message-profile-avatar img{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+}
+.findai-first-message-profile-name{
+  margin-top:18px!important;
+  font-size:22px!important;
+  line-height:1.1!important;
+  font-weight:790!important;
+  letter-spacing:-.5px!important;
+}
+.findai-first-message-profile-username{
+  margin-top:6px!important;
+  color:#a2a5aa!important;
+  font-size:14px!important;
+  font-weight:550!important;
+}
+
+/* -----------------------------------------------------------
+   Comment image preview stays INSIDE the comments sheet.
+   ----------------------------------------------------------- */
+.app-mp-sheet-bg.wishwave-comments-mode .app-mp-sheet{
+  position:relative!important;
+  overflow:hidden!important;
+}
+.wishwave-comment-media-viewer{
+  position:absolute!important;
+  inset:0!important;
+  z-index:50!important;
+  display:none!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:56px 18px 28px!important;
+  background:rgba(7,8,10,.92)!important;
+  backdrop-filter:blur(10px)!important;
+  -webkit-backdrop-filter:blur(10px)!important;
+}
+.wishwave-comment-media-viewer.show{display:flex!important}
+.wishwave-comment-media-viewer img{
+  max-width:94%!important;
+  max-height:78dvh!important;
+  object-fit:contain!important;
+  border-radius:14px!important;
+  box-shadow:0 12px 36px rgba(0,0,0,.42)!important;
+}
+.wishwave-comment-media-viewer button{
+  position:absolute!important;
+  top:14px!important;
+  right:14px!important;
+  width:38px!important;
+  height:38px!important;
+  border:0!important;
+  border-radius:50%!important;
+  background:rgba(35,37,42,.9)!important;
+  color:#fff!important;
+  font-size:25px!important;
+  display:grid!important;
+  place-items:center!important;
+}
+</style>
+
+<script id="findai-v165-message-image-script">
+(function(){
+  'use strict';
+
+  const previewUrls=new Map();
+
+  function isImageFile(file){
+    return !!file&&/^image\/(jpeg|png|webp|heic|heif)$/i.test(String(file.type||''));
+  }
+
+  function filePreview(file){
+    if(!file)return '';
+    if(previewUrls.has(file))return previewUrls.get(file);
+    try{
+      const url=URL.createObjectURL(file);
+      previewUrls.set(file,url);
+      return url;
+    }catch(_){return ''}
+  }
+
+  function revokePreview(file){
+    const url=previewUrls.get(file);
+    if(url){
+      try{URL.revokeObjectURL(url);}catch(_){}
+      previewUrls.delete(file);
+    }
+  }
+
+  window.appMpClearPendingFiles=function(){
+    (Array.isArray(window.appMpPendingFiles)?window.appMpPendingFiles:[]).forEach(revokePreview);
+    window.appMpPendingFiles=[];
+    const input=document.getElementById('appMpAttachmentInput');
+    if(input)input.value='';
+    window.appMpRenderPendingFiles();
+  };
+
+  window.appMpHandleAttachmentPick=function(event){
+    const picked=Array.prototype.slice.call(
+      (event&&event.target&&event.target.files)||[],
+      0,4
+    ).filter(isImageFile);
+
+    if(!picked.length){
+      try{toast('Choose an image');}catch(_){}
+      if(event&&event.target)event.target.value='';
+      return;
+    }
+
+    (Array.isArray(window.appMpPendingFiles)?window.appMpPendingFiles:[]).forEach(revokePreview);
+    window.appMpPendingFiles=picked;
+    window.appMpRenderPendingFiles();
+  };
+
+  window.appMpRemovePendingFile=function(index){
+    if(!Array.isArray(window.appMpPendingFiles))window.appMpPendingFiles=[];
+    const removed=window.appMpPendingFiles.splice(Number(index)||0,1)[0];
+    if(removed)revokePreview(removed);
+    const input=document.getElementById('appMpAttachmentInput');
+    if(input&&!window.appMpPendingFiles.length)input.value='';
+    window.appMpRenderPendingFiles();
+  };
+
+  window.appMpRenderPendingFiles=function(){
+    const tray=document.getElementById('appMpAttachmentTray');
+    if(!tray)return;
+
+    const files=Array.isArray(window.appMpPendingFiles)?window.appMpPendingFiles:[];
+    tray.hidden=!files.length;
+    tray.innerHTML=files.map((file,index)=>{
+      const src=filePreview(file);
+      return '<div class="app-mp-attachment-preview">'+
+        (src?'<img src="'+escapeAttr(src)+'" alt="Image preview">':'')+
+        '<button type="button" onclick="appMpRemovePendingFile('+index+')" aria-label="Remove image">×</button>'+
+      '</div>';
+    }).join('');
+  };
+
+  function messageImageMarkup(src){
+    const url=String(src||'').trim();
+    if(!url)return '';
+    return '<img class="app-mp-message-image" src="'+escapeAttr(url)+'" alt="Message image" loading="lazy" referrerpolicy="no-referrer">';
+  }
+
+  window.appMpMessageTimeline=function(messages){
+    let day='';
+    let html='';
+
+    (messages||[]).forEach(m=>{
+      if(!m)return;
+
+      const next=appMpMessageDay(m.createdAt);
+      if(next&&next!==day){
+        day=next;
+        html+='<div class="app-mp-date-divider">'+escapeHTML(next)+'</div>';
+      }
+
+      const body=String(m.body||'').trim();
+      const image=String(m.imageUrl||'').trim();
+      const classes='app-mp-bubble '+(m.mine?'mine ':'')+(image?'has-image':'');
+
+      html+='<div class="'+classes.trim()+'">'+
+        (image?messageImageMarkup(image):'')+
+        (body?'<span class="'+(image?'app-mp-message-image-copy':'')+'">'+escapeHTML(body)+'</span>':'')+
+      '</div>';
+    });
+
+    return html;
+  };
+
+  window.appMpAppendOptimisticMessage=function(body,imageUrl){
+    const root=document.getElementById('appMpMessages');
+    if(!root)return null;
+
+    const empty=root.querySelector('.app-mp-empty,.findai-first-message-profile');
+    if(empty)root.innerHTML='';
+
+    const bubble=document.createElement('div');
+    const hasImage=!!String(imageUrl||'');
+    bubble.className='app-mp-bubble mine pending'+(hasImage?' has-image':'');
+    bubble.innerHTML=
+      (hasImage?messageImageMarkup(imageUrl):'')+
+      (String(body||'').trim()
+        ?'<span class="'+(hasImage?'app-mp-message-image-copy':'')+'">'+escapeHTML(String(body).trim())+'</span>'
+        :'');
+    root.appendChild(bubble);
+    root.scrollTop=root.scrollHeight;
+    return bubble;
+  };
+
+  async function uploadMessageImage(file){
+    const dataUrl=await compressListingImage(file);
+    const data=await marketplaceFetch('/marketplace/message-images',{
+      method:'POST',
+      body:JSON.stringify({image:dataUrl})
+    });
+    const url=String(data&&data.imageUrl||'').trim();
+    if(!url)throw new Error('Image upload failed');
+    return url;
+  }
+
+  window.appMpSendMessage=async function(event){
+    if(event&&event.preventDefault)event.preventDefault();
+
+    const input=document.getElementById('appMpMessageInput');
+    const button=document.getElementById('appMpMessageSend');
+    const typed=String(input&&input.value||'').trim();
+    const files=Array.isArray(window.appMpPendingFiles)?window.appMpPendingFiles.slice():[];
+
+    if(!typed&&!files.length)return false;
+
+    if(input){input.value='';input.style.height='';}
+    if(button)button.disabled=true;
+
+    clearTimeout(appMpTypingClearTimer);
+    appMpTypingLastSent=0;
+
+    /* Show the local image immediately while it uploads. */
+    const firstPreview=files[0]?filePreview(files[0]):'';
+    const optimistic=appMpAppendOptimisticMessage(typed,firstPreview);
+
+    try{
+      const id=await appMpEnsureConversation();
+      const uploaded=[];
+
+      for(const file of files){
+        uploaded.push(await uploadMessageImage(file));
+      }
+
+      if(uploaded.length){
+        await marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(id)+'/messages',{
+          method:'POST',
+          body:JSON.stringify({
+            body:typed,
+            imageUrl:uploaded[0]
+          })
+        });
+
+        for(let i=1;i<uploaded.length;i++){
+          await marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(id)+'/messages',{
+            method:'POST',
+            body:JSON.stringify({body:'',imageUrl:uploaded[i]})
+          });
+        }
+      }else{
+        await marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(id)+'/messages',{
+          method:'POST',
+          body:JSON.stringify({body:typed})
+        });
+      }
+
+      appMpSetTyping(false);
+      window.appMpClearPendingFiles();
+      await appMpLoadMessages();
+    }catch(error){
+      appMpSetTyping(false);
+      if(optimistic&&optimistic.isConnected){
+        optimistic.classList.remove('pending');
+        optimistic.classList.add('failed');
+      }
+      if(input&&!input.value)input.value=typed;
+      window.appMpPendingFiles=files;
+      window.appMpRenderPendingFiles();
+      try{toast(error&&error.message||'Message could not be sent');}catch(_){}
+    }finally{
+      if(button)button.disabled=false;
+    }
+
+    return false;
+  };
+
+  function firstMessageProfileMarkup(c){
+    const x=c||{};
+    const name=String(x.otherParty||'WishWave member');
+    const username=String(x.otherPartyUsername||'').replace(/^@+/,'').trim();
+    const avatar=String(x.otherPartyAvatar||'').trim();
+    const initial=escapeHTML(appMpInitial(name));
+
+    return '<div class="findai-first-message-profile">'+
+      '<div class="findai-first-message-profile-avatar">'+
+        (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':initial)+
+      '</div>'+
+      '<div class="findai-first-message-profile-name">'+escapeHTML(name)+'</div>'+
+      (username?'<div class="findai-first-message-profile-username">@'+escapeHTML(username)+'</div>':'')+
+    '</div>';
+  }
+
+  const previousLoadMessages=window.appMpLoadMessages;
+  window.appMpLoadMessages=async function(){
+    if(!appMpConversation)return;
+
+    const root=document.getElementById('appMpMessages');
+    if(!root)return;
+
+    const near=root.scrollHeight-root.scrollTop-root.clientHeight<90;
+    const wasEmpty=!root.dataset.loaded;
+
+    try{
+      const data=await marketplaceFetch(
+        '/marketplace/conversations/'+encodeURIComponent(appMpConversation)+'/messages',
+        {method:'GET'}
+      );
+
+      const messages=Array.isArray(data&&data.messages)?data.messages:[];
+      appMpCurrentOffers=[];
+      appMpCurrentConversation=(data&&data.conversation)||appMpCurrentConversation;
+      appMpRenderMessageHeader(appMpCurrentConversation,data&&data.presence);
+
+      if(messages.length){
+        root.innerHTML=appMpMessageTimeline(messages);
+      }else{
+        root.innerHTML=firstMessageProfileMarkup(appMpCurrentConversation);
+      }
+
+      root.dataset.loaded='1';
+      if(near||wasEmpty)root.scrollTop=root.scrollHeight;
+      if(typeof appRefreshMarketplaceBadge==='function')appRefreshMarketplaceBadge();
+    }catch(error){
+      if(typeof previousLoadMessages==='function'&&!root.dataset.loaded){
+        root.innerHTML='<div class="app-mp-empty">'+
+          escapeHTML(error&&error.message||'Messages could not be loaded')+
+          '<br><button class="app-mp-mini" onclick="appMpLoadMessages()">Try again</button></div>';
+      }
+    }
+  };
+
+  /* Keep profile avatar + name farther left in the top bar. */
+  const previousHeader=window.appMpRenderMessageHeader;
+  window.appMpRenderMessageHeader=function(c,presence){
+    previousHeader&&previousHeader.apply(this,arguments);
+
+    const x=appMpCurrentConversation||c;
+    const title=document.getElementById('appMpInboxTitle');
+    if(!title||!x)return;
+
+    const name=String(x.otherParty||'WishWave member');
+    const avatar=String(x.otherPartyAvatar||'').trim();
+    const initial=escapeHTML(appMpInitial(name));
+
+    title.innerHTML=
+      '<span class="findai-chat-title-person">'+
+        '<span class="findai-chat-title-avatar">'+
+          (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':initial)+
+        '</span>'+
+        '<span class="findai-chat-title-name">'+escapeHTML(name)+'</span>'+
+      '</span>';
+  };
+
+  /* Comment images preview inside the existing Comments sheet rather than
+     opening a full app-level layer behind/over the sheet. */
+  window.openWishWaveCommentMedia=function(src,event){
+    if(event){event.preventDefault();event.stopPropagation();}
+    const url=String(src||'').trim();
+    if(!url)return;
+
+    const sheet=document.querySelector('#appMpSheetBg.wishwave-comments-mode .app-mp-sheet');
+    if(!sheet)return;
+
+    let viewer=document.getElementById('wishwaveCommentMediaViewer');
+    if(viewer&&viewer.parentElement!==sheet)viewer.remove();
+
+    viewer=document.getElementById('wishwaveCommentMediaViewer');
+    if(!viewer){
+      viewer=document.createElement('div');
+      viewer.id='wishwaveCommentMediaViewer';
+      viewer.className='wishwave-comment-media-viewer';
+      viewer.innerHTML=
+        '<button type="button" aria-label="Close image" onclick="closeWishWaveCommentMedia()">×</button>'+
+        '<img alt="Comment image">';
+      viewer.addEventListener('click',e=>{
+        if(e.target===viewer)window.closeWishWaveCommentMedia();
+      });
+      sheet.appendChild(viewer);
+    }
+
+    const img=viewer.querySelector('img');
+    if(img)img.src=url;
+    viewer.classList.add('show');
+  };
+
+  window.closeWishWaveCommentMedia=function(){
+    const viewer=document.getElementById('wishwaveCommentMediaViewer');
+    if(viewer)viewer.classList.remove('show');
+  };
+
+  /* Limit the picker to images now that the composer shows visual media. */
+  const patchAttachmentInput=()=>{
+    const input=document.getElementById('appMpAttachmentInput');
+    if(input){
+      input.setAttribute('accept','image/jpeg,image/png,image/webp,image/heic,image/heif');
+      input.setAttribute('multiple','');
+    }
+  };
+  patchAttachmentInput();
+  new MutationObserver(patchAttachmentInput).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
+
 </body>
 </html>
