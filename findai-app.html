@@ -23627,5 +23627,227 @@ body.findai-recents-edge-dragging #search .premium-search-home-scroll{
 })();
 </script>
 
+
+<style id="findai-v166-trust-safety-style">
+/* Small, contextual compliance controls — intentionally not a redesign. */
+.findai-safety-report-link{
+  border:0!important;background:transparent!important;color:#9ba0a8!important;
+  font-size:12px!important;font-weight:650!important;padding:8px 2px!important;
+  text-decoration:none!important;cursor:pointer!important;
+}
+.findai-safety-report-link:active{opacity:.6!important}
+.findai-safety-comment-more{
+  margin-left:auto!important;border:0!important;background:transparent!important;color:#8b9098!important;
+  min-width:28px!important;height:28px!important;padding:0!important;font-size:17px!important;line-height:1!important;
+}
+#appMpInbox .app-mp-bubble{position:relative!important}
+#appMpInbox .app-mp-bubble:not(.mine) .findai-safety-message-more{
+  display:grid!important;
+}
+.findai-safety-message-more{
+  display:none!important;position:absolute!important;right:5px!important;top:4px!important;z-index:3!important;
+  width:26px!important;height:24px!important;border:0!important;border-radius:12px!important;
+  background:rgba(0,0,0,.36)!important;color:rgba(255,255,255,.78)!important;font-size:15px!important;line-height:1!important;
+  place-items:center!important;padding:0!important;
+}
+#appMpInbox .app-mp-bubble:not(.mine){padding-right:32px!important}
+#appMpInbox .app-mp-bubble.has-image:not(.mine){padding-right:4px!important}
+#appMpInbox .app-mp-bubble.has-image:not(.mine) .findai-safety-message-more{background:rgba(0,0,0,.62)!important}
+
+.findai-safety-overlay{
+  position:fixed!important;inset:0!important;z-index:2147482500!important;display:none!important;
+  align-items:flex-end!important;justify-content:center!important;background:rgba(0,0,0,.48)!important;
+  padding:0!important;
+}
+.findai-safety-overlay.show{display:flex!important}
+.findai-safety-sheet{
+  width:min(100%,560px)!important;max-height:min(82dvh,720px)!important;overflow:auto!important;
+  border-radius:22px 22px 0 0!important;background:#111216!important;color:#fff!important;
+  padding:12px 16px calc(18px + env(safe-area-inset-bottom))!important;
+  box-shadow:0 -20px 60px rgba(0,0,0,.34)!important;
+}
+.findai-safety-handle{width:38px;height:4px;border-radius:999px;background:#4c4f56;margin:0 auto 15px}
+.findai-safety-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.findai-safety-head h3{margin:0;font-size:19px;letter-spacing:-.25px}
+.findai-safety-head button{width:34px;height:34px;border:0;border-radius:50%;background:#24262b;color:#fff;font-size:22px}
+.findai-safety-copy{margin:0 0 14px;color:#a9adb5;font-size:13px;line-height:1.45}
+.findai-safety-reasons{display:grid;gap:7px}
+.findai-safety-reason{
+  width:100%;height:45px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:#191b20;color:#fff;
+  text-align:left;padding:0 13px;font-size:14px;font-weight:660;
+}
+.findai-safety-reason.active{border-color:#4d8cff;background:#18243a}
+.findai-safety-details{width:100%;min-height:74px;margin-top:10px;resize:none;border:1px solid rgba(255,255,255,.09);border-radius:12px;background:#191b20;color:#fff;padding:11px;font:inherit;outline:0}
+.findai-safety-block-row{display:flex;align-items:center;gap:10px;margin:12px 2px;color:#d8dbe0;font-size:13px}
+.findai-safety-block-row input{width:18px;height:18px;accent-color:#4d8cff}
+.findai-safety-submit{width:100%;height:47px;border:0;border-radius:13px;background:#ed4956;color:#fff;font-weight:800;font-size:14px;margin-top:4px}
+.findai-safety-submit:disabled{opacity:.5}
+.findai-safety-status{min-height:18px;margin-top:8px;color:#ff9aa2;font-size:12px;text-align:center}
+html.findai-light .findai-safety-sheet{background:#fff;color:#111}
+html.findai-light .findai-safety-head button,html.findai-light .findai-safety-reason,html.findai-light .findai-safety-details{background:#f3f3f5;color:#111;border-color:#e2e2e5}
+html.findai-light .findai-safety-copy{color:#666b72}
+html.findai-light .findai-safety-block-row{color:#222}
+</style>
+<script id="findai-v166-trust-safety-script">
+(function(){
+  'use strict';
+
+  let safetyReportState=null;
+  let safetyReason='';
+  const safetyReasons=[
+    ['spam','Spam'],['scam','Scam or fraud'],['harassment','Harassment or bullying'],
+    ['inappropriate','Inappropriate content'],['counterfeit','Counterfeit or misleading item'],
+    ['hate','Hateful conduct'],['self_harm','Self-harm concern'],['other','Something else']
+  ];
+
+  function ensureSafetyOverlay(){
+    let layer=document.getElementById('findaiSafetyOverlay');
+    if(layer)return layer;
+    layer=document.createElement('div');
+    layer.id='findaiSafetyOverlay';layer.className='findai-safety-overlay';
+    layer.innerHTML='<div class="findai-safety-sheet" role="dialog" aria-modal="true" aria-labelledby="findaiSafetyTitle">'+
+      '<div class="findai-safety-handle"></div><div class="findai-safety-head"><h3 id="findaiSafetyTitle">Report</h3><button type="button" onclick="closeWishWaveSafetyReport()" aria-label="Close">×</button></div>'+
+      '<p class="findai-safety-copy" id="findaiSafetyCopy">Tell us what is wrong. Reports are reviewed and are not shared with the person you report.</p>'+
+      '<div class="findai-safety-reasons" id="findaiSafetyReasons"></div>'+
+      '<textarea class="findai-safety-details" id="findaiSafetyDetails" maxlength="500" placeholder="Add details (optional)"></textarea>'+
+      '<label class="findai-safety-block-row" id="findaiSafetyBlockRow"><input type="checkbox" id="findaiSafetyBlock"> Block this account too</label>'+
+      '<button class="findai-safety-submit" id="findaiSafetySubmit" type="button" onclick="submitWishWaveSafetyReport()">Submit report</button>'+
+      '<div class="findai-safety-status" id="findaiSafetyStatus"></div></div>';
+    layer.addEventListener('click',e=>{if(e.target===layer)window.closeWishWaveSafetyReport();});
+    (document.querySelector('.app')||document.body).appendChild(layer);
+    return layer;
+  }
+
+  window.openWishWaveSafetyReport=function(targetType,context){
+    if(!marketplaceSession()){openLogin();return;}
+    safetyReportState={targetType:String(targetType||''),...(context||{})};
+    safetyReason='';
+    const layer=ensureSafetyOverlay();
+    const label={user:'account',listing:'listing',comment:'comment',message:'message'}[safetyReportState.targetType]||'content';
+    document.getElementById('findaiSafetyTitle').textContent='Report '+label;
+    document.getElementById('findaiSafetyCopy').textContent='Tell us what is wrong. Reports are reviewed and are not shared with the person you report.';
+    document.getElementById('findaiSafetyReasons').innerHTML=safetyReasons.map(x=>'<button type="button" class="findai-safety-reason" data-reason="'+escapeAttr(x[0])+'" onclick="chooseWishWaveSafetyReason(this.dataset.reason,this)">'+escapeHTML(x[1])+'</button>').join('');
+    const details=document.getElementById('findaiSafetyDetails');if(details)details.value='';
+    const block=document.getElementById('findaiSafetyBlock');if(block)block.checked=false;
+    const status=document.getElementById('findaiSafetyStatus');if(status)status.textContent='';
+    layer.classList.add('show');
+  };
+
+  window.closeWishWaveSafetyReport=function(){
+    document.getElementById('findaiSafetyOverlay')?.classList.remove('show');
+    safetyReportState=null;safetyReason='';
+  };
+
+  window.chooseWishWaveSafetyReason=function(reason,button){
+    safetyReason=String(reason||'');
+    document.querySelectorAll('#findaiSafetyReasons .findai-safety-reason').forEach(node=>node.classList.toggle('active',node===button));
+  };
+
+  window.submitWishWaveSafetyReport=async function(){
+    if(!safetyReportState)return;
+    const status=document.getElementById('findaiSafetyStatus');
+    if(!safetyReason){if(status)status.textContent='Choose a reason first.';return;}
+    const button=document.getElementById('findaiSafetySubmit');if(button)button.disabled=true;
+    try{
+      const data=await marketplaceFetch('/safety/reports',{method:'POST',body:JSON.stringify({
+        targetType:safetyReportState.targetType,
+        targetId:String(safetyReportState.id||safetyReportState.targetId||''),
+        contextId:String(safetyReportState.contextId||''),
+        reason:safetyReason,
+        details:String(document.getElementById('findaiSafetyDetails')?.value||''),
+        blockUser:!!document.getElementById('findaiSafetyBlock')?.checked
+      })});
+      const previous={...safetyReportState};
+      window.closeWishWaveSafetyReport();
+      if(previous.targetType==='comment'&&previous.id){
+        document.querySelector('.wishwave-comment[data-comment-id="'+CSS.escape(String(previous.id))+'"]')?.remove();
+      }
+      if(data&&data.blocked&&previous.targetType==='user'){
+        try{closeWishWavePublicProfile();}catch(_){ }
+      }
+      toast(data&&data.blocked?'Report submitted and account blocked':'Report submitted');
+    }catch(error){if(status)status.textContent=error&&error.message||'Report could not be submitted';}
+    finally{if(button)button.disabled=false;}
+  };
+
+  /* Profile •••: keep Mute/Block and add Report. */
+  window.openFindAIProfileActions=async function(){
+    const seller=wishwavePublicSellerData&&wishwavePublicSellerData.seller;if(!seller||!seller.username)return;
+    let rel={blocked:false,muted:false};try{rel=await marketplaceFetch('/social/relationship?username='+encodeURIComponent(seller.username),{method:'GET'});}catch(_){ }
+    openAppMpSheet('Profile options','<div class="app-mp-inline" style="display:grid;gap:8px">'+
+      '<button class="app-mp-mini" style="height:46px" onclick="findaiProfileControl(\'muted\','+(!rel.muted)+')">'+(rel.muted?'Unmute':'Mute')+'</button>'+
+      '<button class="app-mp-mini danger" style="height:46px" onclick="findaiProfileControl(\'blocked\','+(!rel.blocked)+')">'+(rel.blocked?'Unblock':'Block')+'</button>'+
+      '<button class="app-mp-mini danger" style="height:46px" onclick="closeAppMpSheet();openWishWaveSafetyReport(\'user\',{id:'+JSON.stringify(String(seller.username))+'})">Report account</button>'+
+      '</div>');
+  };
+
+  /* Listing detail gets one subdued report link; sellers never see it on their own listing. */
+  const priorListingRender=window.renderAppMarketplaceListing;
+  if(typeof priorListingRender==='function')window.renderAppMarketplaceListing=function(){
+    const out=priorListingRender.apply(this,arguments);
+    try{
+      const viewer=appMpContext&&appMpContext.viewer||{};
+      const listing=appMpListing;
+      const root=document.getElementById('appMpProductContent');
+      if(root&&listing&&!viewer.isSeller&&!root.querySelector('.findai-safety-listing-report')){
+        const section=root.querySelector('.app-mp-protection')||root.querySelector('.app-mp-actions');
+        const button=document.createElement('button');button.type='button';button.className='findai-safety-report-link findai-safety-listing-report';button.textContent='Report listing';
+        button.onclick=()=>openWishWaveSafetyReport('listing',{id:String(appMpId(listing)||'')});
+        if(section)section.insertAdjacentElement('afterend',button);else root.appendChild(button);
+      }
+    }catch(_){ }
+    return out;
+  };
+
+  /* Comments: a tiny ••• only on other people's comments. */
+  const priorCommentsRender=window.renderWishWaveComments;
+  if(typeof priorCommentsRender==='function')window.renderWishWaveComments=function(data){
+    const out=priorCommentsRender.apply(this,arguments);
+    try{
+      const comments=Array.isArray(data&&data.comments)?data.comments:[];
+      const contextId=wishwaveCommentsItem?String(wishwaveCommentMetricKey(wishwaveCommentsItem)||''):'';
+      comments.forEach(comment=>{
+        if(!comment||comment.isMine)return;
+        const id=String(comment.id||'');if(!id)return;
+        const row=document.querySelector('.wishwave-comment[data-comment-id="'+CSS.escape(id)+'"]');
+        const head=row&&row.querySelector('.wishwave-comment-head');if(!head||head.querySelector('.findai-safety-comment-more'))return;
+        const button=document.createElement('button');button.type='button';button.className='findai-safety-comment-more';button.textContent='•••';button.setAttribute('aria-label','Comment options');
+        button.onclick=e=>{e.preventDefault();e.stopPropagation();openWishWaveSafetyReport('comment',{id,contextId});};
+        head.appendChild(button);
+      });
+    }catch(_){ }
+    return out;
+  };
+
+  /* Messages: preserve v165 photo rendering, add an unobtrusive report action to incoming bubbles. */
+  window.appMpMessageTimeline=function(messages){
+    let day='',html='';
+    (messages||[]).forEach(m=>{
+      if(!m)return;
+      const next=appMpMessageDay(m.createdAt);
+      if(next&&next!==day){day=next;html+='<div class="app-mp-date-divider">'+escapeHTML(next)+'</div>';}
+      const body=String(m.body||'').trim(),image=String(m.imageUrl||'').trim(),id=String(m.id||'');
+      const classes='app-mp-bubble '+(m.mine?'mine ':'')+(image?'has-image':'');
+      html+='<div class="'+classes.trim()+'" data-message-id="'+escapeAttr(id)+'">'+
+        (image?'<img class="app-mp-message-image" src="'+escapeAttr(image)+'" alt="Message image" loading="lazy" referrerpolicy="no-referrer">':'')+
+        (body?'<span class="'+(image?'app-mp-message-image-copy':'')+'">'+escapeHTML(body)+'</span>':'')+
+        (!m.mine&&id?'<button type="button" class="findai-safety-message-more" aria-label="Message options" onclick="event.preventDefault();event.stopPropagation();openWishWaveSafetyReport(\'message\',{id:'+JSON.stringify(id)+',contextId:String(appMpConversation||\'\')})">•••</button>':'')+
+      '</div>';
+    });
+    return html;
+  };
+
+  /* Make the account-deletion copy match the expanded backend cleanup. */
+  const deletionObserver=new MutationObserver(()=>{
+    document.querySelectorAll('.findai-settings-danger-note').forEach(node=>{
+      if(/Deleting your account removes/i.test(String(node.textContent||''))){
+        node.textContent='Deleting your account removes your WishWave profile, public content, social connections, messages you sent, saved activity, notifications and active listings. Transaction records may be retained only where required for payment, fraud or legal obligations.';
+      }
+    });
+  });
+  deletionObserver.observe(document.body,{childList:true,subtree:true});
+})();
+</script>
+
 </body>
 </html>
