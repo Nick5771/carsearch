@@ -26597,7 +26597,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     const id=String(bubble.dataset.messageId||'');
     if(lastTap.id===id&&now-lastTap.time<320){
       lastTap={id:'',time:0};
-      setReaction(bubble,true);
+      setReaction(bubble);
       event.preventDefault();
       event.stopPropagation();
       return;
@@ -26842,6 +26842,383 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
       return oldOpenSend2.apply(this,arguments);
     };
   }
+})();
+</script>
+
+
+<style id="findai-v173-comment-like-chat-avatar-style">
+/* =========================================================
+   Instagram-like comment hearts.
+   ========================================================= */
+.app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-swipe-body{
+  grid-template-columns:36px minmax(0,1fr) 38px!important;
+  align-items:start!important;
+}
+.wishwave-comment-like{
+  width:38px!important;
+  min-width:38px!important;
+  padding:3px 0 0!important;
+  border:0!important;
+  background:transparent!important;
+  color:#9aa0a9!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  gap:3px!important;
+  touch-action:manipulation!important;
+}
+.wishwave-comment-like svg{
+  width:22px!important;
+  height:22px!important;
+  display:block!important;
+  overflow:visible!important;
+  stroke:currentColor!important;
+  fill:transparent!important;
+  transition:transform .12s ease,color .12s ease,fill .12s ease!important;
+}
+.wishwave-comment-like span{
+  min-height:11px!important;
+  color:#8d929a!important;
+  font-size:10px!important;
+  line-height:1!important;
+  font-weight:700!important;
+}
+.wishwave-comment-like.liked{
+  color:#ff3045!important;
+}
+.wishwave-comment-like.liked svg{
+  fill:#ff3045!important;
+  stroke:#ff3045!important;
+}
+.wishwave-comment-like:active svg{
+  transform:scale(.82)!important;
+}
+@keyframes findaiV173CommentHeart{
+  0%{transform:scale(.72)}
+  55%{transform:scale(1.18)}
+  100%{transform:scale(1)}
+}
+.wishwave-comment-like.pop svg{
+  animation:findaiV173CommentHeart .22s ease-out!important;
+}
+
+/* =========================================================
+   Incoming chat messages: Instagram-style sender avatar on the
+   left, shown on the final bubble of each consecutive group.
+   ========================================================= */
+.findai-v173-message-row{
+  width:100%!important;
+  display:flex!important;
+  align-items:flex-end!important;
+  gap:7px!important;
+}
+.findai-v173-message-row.incoming{
+  justify-content:flex-start!important;
+}
+.findai-v173-message-row.outgoing{
+  justify-content:flex-end!important;
+}
+.findai-v173-message-row .app-mp-bubble{
+  margin-left:0!important;
+  margin-right:0!important;
+}
+.findai-v173-message-avatar{
+  width:30px!important;
+  height:30px!important;
+  min-width:30px!important;
+  border-radius:50%!important;
+  overflow:hidden!important;
+  display:grid!important;
+  place-items:center!important;
+  background:#25282d!important;
+  color:#fff!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  font-size:11px!important;
+  font-weight:800!important;
+}
+.findai-v173-message-avatar img{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  display:block!important;
+}
+.findai-v173-message-avatar.spacer{
+  visibility:hidden!important;
+}
+.findai-v173-message-row.incoming .app-mp-bubble{
+  max-width:calc(76% - 37px)!important;
+}
+.findai-v173-message-row.outgoing .app-mp-bubble{
+  max-width:76%!important;
+}
+</style>
+
+<script id="findai-v173-comment-like-chat-avatar-script">
+(function(){
+  'use strict';
+
+  /* =========================================================
+     COMMENT HEARTS
+     ========================================================= */
+  function commentReactionScope(){
+    try{
+      return (wishwaveCommentsItem&&isFindAIListing(wishwaveCommentsItem)&&appMpId(wishwaveCommentsItem))
+        ?'marketplace'
+        :'social';
+    }catch(_){
+      return 'social';
+    }
+  }
+
+  function commentHeartSvg(){
+    return '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+
+      '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78L12 21.23l8.84-8.84a5.5 5.5 0 0 0 0-7.78Z"/>'+
+    '</svg>';
+  }
+
+  function commentById(id){
+    const rows=Array.isArray(window.wishwaveCommentsData&&wishwaveCommentsData.comments)
+      ?wishwaveCommentsData.comments:[];
+    return rows.find(c=>String(c&&c.id||'')===String(id||''))||null;
+  }
+
+  function paintCommentHeart(button,comment){
+    if(!button||!comment)return;
+    const liked=!!comment.likedByViewer;
+    const count=Math.max(0,Number(comment.likeCount||0));
+    button.classList.toggle('liked',liked);
+    button.dataset.liked=liked?'1':'0';
+    button.setAttribute('aria-label',liked?'Unlike comment':'Like comment');
+    const countNode=button.querySelector('span');
+    if(countNode)countNode.textContent=count?String(count):'';
+  }
+
+  async function toggleCommentHeart(button,id){
+    if(!button||button.dataset.busy==='1')return;
+
+    const comment=commentById(id);
+    if(!comment)return;
+
+    if(!marketplaceSession()){
+      try{openLogin();}catch(_){}
+      return;
+    }
+
+    const beforeLiked=!!comment.likedByViewer;
+    const beforeCount=Math.max(0,Number(comment.likeCount||0));
+    const next=!beforeLiked;
+
+    comment.likedByViewer=next;
+    comment.likeCount=Math.max(0,beforeCount+(next?1:-1));
+    paintCommentHeart(button,comment);
+
+    button.classList.remove('pop');
+    void button.offsetWidth;
+    button.classList.add('pop');
+    button.dataset.busy='1';
+
+    try{
+      const data=await marketplaceFetch(
+        '/social/comment-reactions/'+commentReactionScope()+'/'+encodeURIComponent(String(id)),
+        {
+          method:'POST',
+          body:JSON.stringify({active:next})
+        }
+      );
+
+      comment.likedByViewer=!!(data&&data.liked);
+      comment.likeCount=Math.max(0,Number(data&&data.likeCount||0));
+      paintCommentHeart(button,comment);
+      try{haptic();}catch(_){}
+    }catch(error){
+      comment.likedByViewer=beforeLiked;
+      comment.likeCount=beforeCount;
+      paintCommentHeart(button,comment);
+      try{toast(error&&error.message||'Could not like comment');}catch(_){}
+    }finally{
+      delete button.dataset.busy;
+    }
+  }
+
+  function decorateCommentHearts(data){
+    const comments=Array.isArray(data&&data.comments)
+      ?data.comments
+      :(Array.isArray(window.wishwaveCommentsData&&wishwaveCommentsData.comments)
+        ?wishwaveCommentsData.comments:[]);
+
+    comments.forEach(comment=>{
+      const id=String(comment&&comment.id||'');
+      if(!id)return;
+
+      const article=document.querySelector(
+        '.wishwave-comment[data-comment-id="'+CSS.escape(id)+'"]'
+      );
+      const body=article&&article.querySelector('.wishwave-comment-swipe-body');
+      if(!body)return;
+
+      let button=body.querySelector('.wishwave-comment-like');
+      if(!button){
+        button=document.createElement('button');
+        button.type='button';
+        button.className='wishwave-comment-like';
+        button.innerHTML=commentHeartSvg()+'<span></span>';
+        button.addEventListener('click',event=>{
+          event.preventDefault();
+          event.stopPropagation();
+          toggleCommentHeart(button,id);
+        });
+        body.appendChild(button);
+      }
+      paintCommentHeart(button,comment);
+    });
+  }
+
+  const previousRenderComments=window.renderWishWaveComments;
+  if(typeof previousRenderComments==='function'){
+    window.renderWishWaveComments=function(data){
+      const out=previousRenderComments.apply(this,arguments);
+      requestAnimationFrame(()=>decorateCommentHearts(data));
+      return out;
+    };
+  }
+
+  /* Decorate any Comments sheet that was already on-screen during the upgrade. */
+  if(document.querySelector('.wishwave-comments-list')){
+    requestAnimationFrame(()=>decorateCommentHearts(window.wishwaveCommentsData||{}));
+  }
+
+  /* =========================================================
+     MESSAGE AVATARS + FINAL TIMELINE RENDERER
+     ========================================================= */
+  function otherPartyMeta(){
+    const c=window.appMpCurrentConversation||appMpCurrentConversation||{};
+    const name=String(c.otherParty||'WishWave member');
+    const avatar=String(c.otherPartyAvatar||'').trim();
+    return {
+      name,
+      avatar,
+      initial:String(typeof appMpInitial==='function'?appMpInitial(name):name.charAt(0)).toUpperCase()
+    };
+  }
+
+  function avatarMarkup(show){
+    const meta=otherPartyMeta();
+    return '<span class="findai-v173-message-avatar'+(show?'':' spacer')+'">'+
+      (show&&meta.avatar
+        ?'<img src="'+escapeAttr(meta.avatar)+'" alt="">'
+        :escapeHTML(meta.initial||'W'))+
+    '</span>';
+  }
+
+  function sharedCardMarkupCompat(shared){
+    /* v172's card builder is closure-local, so reproduce the final visual
+       through the DOM-safe helper exposed by the v172 timeline output. */
+    const x=shared&&typeof shared==='object'?shared:{};
+    const price=String(x.priceText||'').trim()||(
+      Number(x.price)>0
+        ?money(Number(x.price),String(x.currency||'AUD'))
+        :''
+    );
+
+    let source='';
+    try{
+      source=sourceMarkup(
+        String(x.source||'WishWave'),
+        {
+          source:String(x.source||'WishWave'),
+          retailer:String(x.retailerName||x.source||'WishWave'),
+          retailerName:String(x.retailerName||x.source||'WishWave'),
+          retailerHost:String(x.retailerHost||''),
+          retailerLogo:String(x.retailerLogo||''),
+          url:String(x.url||'')
+        }
+      );
+    }catch(_){
+      source='<span class="retailer-source-name">'+escapeHTML(String(x.source||'WishWave'))+'</span>';
+    }
+
+    return '<div data-shared-json="'+escapeAttr(encodeURIComponent(JSON.stringify(x)))+'" onclick="openSharedListingMessageV172(this)">'+
+      '<div class="app-mp-shared-listing">'+
+        '<button type="button" class="findai-v172-shared-button">'+
+          '<div class="app-mp-shared-listing-image">'+
+            (x.imageUrl?'<img src="'+escapeAttr(String(x.imageUrl))+'" alt="" loading="eager" referrerpolicy="no-referrer">':'')+
+            (price?'<span class="findai-v172-shared-price">'+escapeHTML(price)+'</span>':'')+
+          '</div>'+
+          '<div class="app-mp-shared-listing-copy">'+
+            '<div class="app-mp-shared-listing-title">'+escapeHTML(String(x.title||'Shared listing'))+'</div>'+
+            '<div class="findai-v172-shared-source">'+source+'</div>'+
+          '</div>'+
+        '</button>'+
+      '</div>'+
+    '</div>';
+  }
+
+  function reactionMarkupCompat(message){
+    const count=Math.max(0,Number(message&&message.heartCount||0));
+    if(!count)return '';
+    return '<span class="findai-message-reaction'+(message&&message.viewerReaction==='❤️'?' mine-reaction':'')+'">❤️'+
+      (count>1?'<small>'+count+'</small>':'')+
+    '</span>';
+  }
+
+  window.appMpMessageTimeline=function(messages){
+    let day='';
+    let html='';
+    const rows=Array.isArray(messages)?messages:[];
+
+    rows.forEach((m,index)=>{
+      if(!m)return;
+
+      const nextDay=appMpMessageDay(m.createdAt);
+      if(nextDay&&nextDay!==day){
+        day=nextDay;
+        html+='<div class="app-mp-date-divider">'+escapeHTML(nextDay)+'</div>';
+      }
+
+      const body=String(m.body||'').trim();
+      const image=String(m.imageUrl||'').trim();
+      const shared=m.sharedItem&&m.sharedItem.title?m.sharedItem:null;
+      const mine=!!m.mine;
+
+      /* Instagram-style grouping: show their profile picture beside the final
+         incoming bubble in a consecutive run. */
+      const next=rows[index+1];
+      const showAvatar=!mine&&(!next||!!next.mine);
+
+      const classes='app-mp-bubble '+(mine?'mine ':'')+
+        (image?'has-image ':'')+
+        (shared?'has-shared-item ':'')+
+        (Number(m.heartCount||0)>0?'has-reaction':'');
+      const sharedJson=shared?encodeURIComponent(JSON.stringify(shared)):'';
+
+      let bubble='<div class="'+classes.trim()+'"'+
+        ' data-message-id="'+escapeAttr(String(m.id||''))+'"'+
+        ' data-message-body="'+escapeAttr(body)+'"'+
+        ' data-mine="'+(mine?'1':'0')+'"'+
+        ' data-viewer-reaction="'+escapeAttr(String(m.viewerReaction||''))+'"'+
+        ' data-heart-count="'+escapeAttr(String(Number(m.heartCount||0)))+'"'+
+        (shared?' data-shared-json="'+escapeAttr(sharedJson)+'"':'')+
+        '>'+
+          (image
+            ?'<img class="app-mp-message-image" src="'+escapeAttr(findaiNormalizeMessageMediaUrl(image))+'" alt="Message image" loading="eager" decoding="async" referrerpolicy="no-referrer" onerror="findaiRetryMessageImage(this)">'
+            :'')+
+          (shared?sharedCardMarkupCompat(shared):'')+
+          (body
+            ?'<span class="'+((image||shared)?'app-mp-message-image-copy':'')+'">'+escapeHTML(body)+'</span>'
+            :'')+
+          reactionMarkupCompat(m)+
+      '</div>';
+
+      if(mine){
+        html+='<div class="findai-v173-message-row outgoing">'+bubble+'</div>';
+      }else{
+        html+='<div class="findai-v173-message-row incoming">'+avatarMarkup(showAvatar)+bubble+'</div>';
+      }
+    });
+
+    return html;
+  };
 })();
 </script>
 
