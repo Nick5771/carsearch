@@ -3676,7 +3676,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
   </section>
 
   <section class="app-mp-product" id="appMpProduct" aria-label="FindAI marketplace listing">
-    <header class="app-mp-header"><button type="button" onclick="closeAppMarketplaceListing()" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Listing</h2><button type="button" onclick="appMpShareListing()" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4M7 9l5-5 5 5M5 13v6h14v-6"/></svg></button></header>
+    <header class="app-mp-header"><button type="button" onclick="closeAppMarketplaceListing()" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Listing</h2><button type="button" onclick="appMpShareListing()" aria-label="Send listing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 9.7 14.3"/><path d="m22 2-7.8 20-4.5-7.7L2 10.2 22 2Z"/></svg></button></header>
     <div class="app-mp-scroll" id="appMpProductContent"></div>
   </section>
 
@@ -6478,7 +6478,7 @@ function renderSearchGridPages(items,data){
 }
 function renderSearchDetailCard(item,index){
   const title=String(item.title||'Product listing'),plan=appImagePlan(item,index,currentFeedData),image=plan.src,source=getSource(item),country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item),condition=conditionText(item);
-  return `<article class="search-detail-card" data-detail-index="${index}"><div class="search-detail-media">${image?`<img src="${escapeAttr(image)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,'${escapeAttr(item&& (item.retailer||item.source) || 'Retailer')}','${escapeAttr(item&&item.retailerLogo||'')}','image-fallback')">`:appRetailerProductPlaceholder(item,'image-fallback')}</div><div class="search-detail-content"><div class="search-detail-source">${sourceMarkup(source,item)}</div><h2 class="search-detail-title">${escapeHTML(title)}</h2><div class="search-detail-price">${escapeHTML(appListingPriceText(item,currentFeedData))}</div><div class="search-detail-meta">${condition?`<div><b>Condition</b> · ${escapeHTML(condition)}</div>`:''}${country?`<div><b>${escapeHTML(country)}</b></div>`:''}${shipping?`<div class="${/^free\s+shipping$/i.test(shipping)?'findai-free-shipping':''}">${escapeHTML(shipping)}</div>`:''}</div><div class="search-detail-actions"><button class="search-detail-view" onclick="openDeal(${index},event)">${item&&item._retailerLinkOnly?'View retailer':'View Deal'}</button><button class="search-detail-icon ${isTracked(item)?'active':''}" onclick="toggleLike(${index},event)" aria-label="Save"><svg viewBox="0 0 24 24" fill="${isTracked(item)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></button><button class="search-detail-icon" onclick="shareItem(${index},event)" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 13v6h14v-6"/></svg></button></div></div></article>`;
+  return `<article class="search-detail-card" data-detail-index="${index}"><div class="search-detail-media">${image?`<img src="${escapeAttr(image)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,'${escapeAttr(item&& (item.retailer||item.source) || 'Retailer')}','${escapeAttr(item&&item.retailerLogo||'')}','image-fallback')">`:appRetailerProductPlaceholder(item,'image-fallback')}</div><div class="search-detail-content"><div class="search-detail-source">${sourceMarkup(source,item)}</div><h2 class="search-detail-title">${escapeHTML(title)}</h2><div class="search-detail-price">${escapeHTML(appListingPriceText(item,currentFeedData))}</div><div class="search-detail-meta">${condition?`<div><b>Condition</b> · ${escapeHTML(condition)}</div>`:''}${country?`<div><b>${escapeHTML(country)}</b></div>`:''}${shipping?`<div class="${/^free\s+shipping$/i.test(shipping)?'findai-free-shipping':''}">${escapeHTML(shipping)}</div>`:''}</div><div class="search-detail-actions"><button class="search-detail-view" onclick="openDeal(${index},event)">${item&&item._retailerLinkOnly?'View retailer':'View Deal'}</button><button class="search-detail-icon ${isTracked(item)?'active':''}" onclick="toggleLike(${index},event)" aria-label="Save"><svg viewBox="0 0 24 24" fill="${isTracked(item)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></button><button class="search-detail-icon" onclick="shareItem(${index},event)" aria-label="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 9.7 14.3"/><path d="m22 2-7.8 20-4.5-7.7L2 10.2 22 2Z"/></svg></button></div></div></article>`;
 }
 function openSearchResultDetail(index){
   if(feedState.source==='personalised')return;
@@ -6713,9 +6713,9 @@ function renderReelCard(item,index,data){
         <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 7h13l-3-3M20 7l-3 3M17 17H4l3 3M4 17l3-3"/></svg></span>
         <span class="reel-social-label">Compare</span>
       </button>
-      <button class="reel-social-action share" onclick="shareItem(${index},event)" aria-label="Share this listing">
-        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 13v6h14v-6"/></svg></span>
-        <span class="reel-social-label">Share</span>
+      <button class="reel-social-action share" onclick="shareItem(${index},event)" aria-label="Send this listing">
+        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 9.7 14.3"/><path d="m22 2-7.8 20-4.5-7.7L2 10.2 22 2Z"/></svg></span>
+        <span class="reel-social-label">Send</span>
       </button>
     </div>
     <div class="product-panel">
@@ -25397,6 +25397,537 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
       event.stopPropagation();
     }
   },{capture:true,passive:true});
+})();
+</script>
+
+
+<style id="findai-v170-send-style">
+/* =========================
+   Instagram-like Send sheet
+   ========================= */
+.findai-send-sheet-bg{
+  position:fixed!important;
+  inset:0!important;
+  z-index:2147482200!important;
+  display:none!important;
+  align-items:flex-end!important;
+  background:rgba(0,0,0,.38)!important;
+  -webkit-backdrop-filter:blur(3px)!important;
+  backdrop-filter:blur(3px)!important;
+}
+.findai-send-sheet-bg.show{display:flex!important}
+.findai-send-sheet{
+  width:100%!important;
+  max-height:min(78dvh,760px)!important;
+  min-height:58dvh!important;
+  display:flex!important;
+  flex-direction:column!important;
+  overflow:hidden!important;
+  border-radius:30px 30px 0 0!important;
+  background:#161b20!important;
+  border-top:1px solid rgba(255,255,255,.08)!important;
+  box-shadow:0 -18px 60px rgba(0,0,0,.42)!important;
+  padding-bottom:max(10px,var(--safe-bottom))!important;
+}
+.findai-send-handle{
+  width:48px!important;height:5px!important;border-radius:999px!important;
+  background:#8a919b!important;margin:12px auto 10px!important;flex:0 0 auto!important;
+}
+.findai-send-head{
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  position:relative!important;padding:0 18px 12px!important;flex:0 0 auto!important;
+}
+.findai-send-head b{font-size:20px!important;font-weight:800!important}
+.findai-send-head button{
+  position:absolute!important;right:16px!important;top:-3px!important;
+  width:36px!important;height:36px!important;border:0!important;border-radius:50%!important;
+  background:#252a30!important;color:#fff!important;font-size:24px!important;line-height:1!important;
+}
+.findai-send-search-wrap{
+  display:flex!important;gap:10px!important;align-items:center!important;
+  padding:0 18px 14px!important;flex:0 0 auto!important;
+}
+.findai-send-search{
+  flex:1!important;height:54px!important;border:0!important;border-radius:18px!important;
+  padding:0 18px!important;background:#282e35!important;color:#fff!important;
+  outline:0!important;font-size:18px!important;font-weight:560!important;
+}
+.findai-send-search::placeholder{color:#a5abb4!important}
+.findai-send-people{
+  flex:1!important;min-height:0!important;overflow-y:auto!important;overflow-x:hidden!important;
+  -webkit-overflow-scrolling:touch!important;padding:4px 22px 14px!important;
+  display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:22px 16px!important;align-content:start!important;
+}
+.findai-send-person{
+  border:0!important;background:transparent!important;color:#fff!important;
+  display:flex!important;flex-direction:column!important;align-items:center!important;gap:9px!important;
+  min-width:0!important;padding:0!important;
+}
+.findai-send-person-avatar{
+  width:88px!important;height:88px!important;border-radius:50%!important;overflow:hidden!important;
+  display:grid!important;place-items:center!important;background:#272c32!important;
+  border:2px solid transparent!important;color:#fff!important;font-size:27px!important;font-weight:800!important;
+  position:relative!important;
+}
+.findai-send-person.selected .findai-send-person-avatar{
+  border-color:#3797f0!important;
+}
+.findai-send-person.selected .findai-send-person-avatar::after{
+  content:"✓"!important;position:absolute!important;right:2px!important;bottom:2px!important;
+  width:27px!important;height:27px!important;border-radius:50%!important;display:grid!important;place-items:center!important;
+  background:#3797f0!important;color:#fff!important;border:3px solid #161b20!important;font-size:14px!important;font-weight:900!important;
+}
+.findai-send-person-avatar img{width:100%!important;height:100%!important;object-fit:cover!important;display:block!important}
+.findai-send-person-name{
+  width:100%!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;
+  font-size:13px!important;font-weight:680!important;text-align:center!important;
+}
+.findai-send-loading{
+  grid-column:1/-1!important;color:#9ea5af!important;text-align:center!important;padding:26px 0!important;font-weight:650!important;
+}
+.findai-send-bottom{
+  flex:0 0 auto!important;border-top:1px solid rgba(255,255,255,.08)!important;
+  padding:12px 18px 4px!important;background:#161b20!important;
+}
+.findai-send-secondary{
+  display:flex!important;gap:22px!important;align-items:center!important;justify-content:flex-start!important;
+  overflow-x:auto!important;padding:2px 0 10px!important;
+}
+.findai-send-secondary button{
+  min-width:76px!important;border:0!important;background:transparent!important;color:#fff!important;
+  display:flex!important;flex-direction:column!important;align-items:center!important;gap:7px!important;
+  font-size:12px!important;font-weight:680!important;
+}
+.findai-send-secondary-icon{
+  width:58px!important;height:58px!important;border-radius:50%!important;background:#272d34!important;
+  display:grid!important;place-items:center!important;
+}
+.findai-send-secondary-icon svg{width:28px!important;height:28px!important}
+.findai-send-primary{
+  width:100%!important;height:49px!important;border:0!important;border-radius:14px!important;
+  background:#3797f0!important;color:#fff!important;font-size:16px!important;font-weight:820!important;
+  display:none!important;
+}
+.findai-send-primary.show{display:block!important}
+.findai-send-primary:disabled{opacity:.55!important}
+
+/* =========================
+   Robust image messages
+   ========================= */
+#appMpInbox .app-mp-bubble.has-image{
+  width:min(72vw,310px)!important;
+  max-width:min(72vw,310px)!important;
+  min-width:156px!important;
+  min-height:84px!important;
+  background:transparent!important;
+}
+#appMpInbox .app-mp-message-image{
+  width:100%!important;
+  height:auto!important;
+  max-height:390px!important;
+  min-height:84px!important;
+  display:block!important;
+  object-fit:cover!important;
+  border-radius:17px!important;
+  background:#202328!important;
+}
+.findai-message-image-failed{
+  min-height:108px!important;
+  display:grid!important;place-items:center!important;
+  border-radius:17px!important;background:#202328!important;color:#a6abb3!important;
+  font-size:13px!important;font-weight:650!important;
+}
+
+/* Shared listing inside Messages */
+.app-mp-shared-listing{
+  width:min(72vw,310px)!important;
+  border:1px solid rgba(255,255,255,.10)!important;
+  border-radius:18px!important;
+  overflow:hidden!important;
+  background:#171a1f!important;
+  color:#fff!important;
+}
+.app-mp-shared-listing button{
+  width:100%!important;border:0!important;background:transparent!important;color:inherit!important;padding:0!important;text-align:left!important;
+}
+.app-mp-shared-listing-image{
+  width:100%!important;aspect-ratio:1.18/1!important;background:#24282e!important;overflow:hidden!important;
+}
+.app-mp-shared-listing-image img{width:100%!important;height:100%!important;object-fit:cover!important;display:block!important}
+.app-mp-shared-listing-copy{padding:10px 11px 12px!important}
+.app-mp-shared-listing-title{font-size:14px!important;font-weight:770!important;line-height:1.25!important}
+.app-mp-shared-listing-meta{margin-top:5px!important;color:#a6abb3!important;font-size:12px!important;font-weight:620!important}
+
+/* Shared listing messages don't need a coloured text bubble behind the card. */
+#appMpInbox .app-mp-bubble.has-shared-item{
+  padding:0!important;background:transparent!important;max-width:min(72vw,310px)!important;
+}
+</style>
+
+<script id="findai-v170-send-script">
+(function(){
+  'use strict';
+
+  let sendItem=null;
+  let sendPeople=[];
+  let sendSelected=new Map();
+  let sendSearchTimer=0;
+  let sendLoadToken=0;
+
+  function normalizeMessageMediaUrl(src){
+    const raw=String(src||'').trim();
+    if(!raw)return '';
+    try{
+      const u=new URL(raw,location.origin);
+      if(u.pathname.startsWith('/product-media/')){
+        if(u.host===location.host||/findai\.ai$/i.test(u.host)){
+          return WORKER_BASE.replace(/\/$/,'')+u.pathname+u.search;
+        }
+      }
+      return u.href;
+    }catch(_){return raw;}
+  }
+  window.findaiNormalizeMessageMediaUrl=normalizeMessageMediaUrl;
+
+  window.findaiRetryMessageImage=function(img){
+    if(!img)return;
+    const current=String(img.src||'');
+    if(img.dataset.retryV170!=='1'){
+      img.dataset.retryV170='1';
+      try{
+        const u=new URL(current,location.origin);
+        if(u.pathname.startsWith('/product-media/')){
+          img.src=WORKER_BASE.replace(/\/$/,'')+u.pathname+u.search;
+          return;
+        }
+      }catch(_){}
+    }
+    const holder=img.parentElement;
+    if(holder){
+      img.remove();
+      if(!holder.querySelector('.findai-message-image-failed')){
+        const failed=document.createElement('div');
+        failed.className='findai-message-image-failed';
+        failed.textContent='Photo unavailable';
+        holder.prepend(failed);
+      }
+    }
+  };
+
+  function safeSharedItem(value){
+    const x=value&&typeof value==='object'?value:{};
+    return {
+      listingId:String(x.listingId||'').trim(),
+      title:String(x.title||'').trim(),
+      imageUrl:String(x.imageUrl||'').trim(),
+      priceText:String(x.priceText||'').trim(),
+      source:String(x.source||'').trim(),
+      url:String(x.url||'').trim()
+    };
+  }
+
+  function sharedCardMarkup(shared){
+    const x=safeSharedItem(shared);
+    if(!x.title)return '';
+    return '<div class="app-mp-shared-listing">'+
+      '<button type="button"'+
+        ' data-listing-id="'+escapeAttr(x.listingId)+'"'+
+        ' data-url="'+escapeAttr(x.url)+'"'+
+        ' onclick="openSharedListingMessage(this)">'+
+        '<div class="app-mp-shared-listing-image">'+
+          (x.imageUrl
+            ?'<img src="'+escapeAttr(x.imageUrl)+'" alt="" loading="eager" referrerpolicy="no-referrer">'
+            :'')+
+        '</div>'+
+        '<div class="app-mp-shared-listing-copy">'+
+          '<div class="app-mp-shared-listing-title">'+escapeHTML(x.title)+'</div>'+
+          '<div class="app-mp-shared-listing-meta">'+
+            escapeHTML([x.priceText,x.source].filter(Boolean).join(' · '))+
+          '</div>'+
+        '</div>'+
+      '</button>'+
+    '</div>';
+  }
+
+  window.openSharedListingMessage=async function(button){
+    const listingId=String(button&&button.dataset.listingId||'').trim();
+    const url=String(button&&button.dataset.url||'').trim();
+
+    if(listingId){
+      try{
+        const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(listingId),{method:'GET'});
+        const item=data&&(data.listing||data.item);
+        if(item){openAppMarketplaceListing(item);return;}
+      }catch(_){}
+    }
+    if(url)window.open(url,'_blank','noopener,noreferrer');
+  };
+
+  function imageMarkup(src){
+    const url=normalizeMessageMediaUrl(src);
+    if(!url)return '';
+    return '<img class="app-mp-message-image" src="'+escapeAttr(url)+'" alt="Message image" loading="eager" decoding="async" referrerpolicy="no-referrer" onerror="findaiRetryMessageImage(this)">';
+  }
+
+  /* Final message renderer: reliable images + shared listing cards. */
+  window.appMpMessageTimeline=function(messages){
+    let day='',html='';
+    (messages||[]).forEach(m=>{
+      if(!m)return;
+      const next=appMpMessageDay(m.createdAt);
+      if(next&&next!==day){
+        day=next;
+        html+='<div class="app-mp-date-divider">'+escapeHTML(next)+'</div>';
+      }
+
+      const body=String(m.body||'').trim();
+      const image=String(m.imageUrl||'').trim();
+      const shared=m.sharedItem&&m.sharedItem.title?m.sharedItem:null;
+      const classes='app-mp-bubble '+(m.mine?'mine ':'')+(image?'has-image ':'')+(shared?'has-shared-item':'');
+
+      html+='<div class="'+classes.trim()+'" data-message-id="'+escapeAttr(String(m.id||''))+'" data-message-body="'+escapeAttr(body)+'" data-mine="'+(m.mine?'1':'0')+'">'+
+        (image?imageMarkup(image):'')+
+        (shared?sharedCardMarkup(shared):'')+
+        (body?'<span class="'+((image||shared)?'app-mp-message-image-copy':'')+'">'+escapeHTML(body)+'</span>':'')+
+      '</div>';
+    });
+    return html;
+  };
+
+  function sendSheet(){
+    let bg=document.getElementById('findaiSendSheetBg');
+    if(bg)return bg;
+
+    bg=document.createElement('div');
+    bg.id='findaiSendSheetBg';
+    bg.className='findai-send-sheet-bg';
+    bg.innerHTML=
+      '<section class="findai-send-sheet" role="dialog" aria-modal="true" aria-label="Send listing">'+
+        '<div class="findai-send-handle"></div>'+
+        '<div class="findai-send-head"><b>Send to</b><button type="button" aria-label="Close">×</button></div>'+
+        '<div class="findai-send-search-wrap"><input id="findaiSendSearch" class="findai-send-search" placeholder="Search" autocomplete="off"></div>'+
+        '<div class="findai-send-people" id="findaiSendPeople"><div class="findai-send-loading">Loading people…</div></div>'+
+        '<div class="findai-send-bottom">'+
+          '<div class="findai-send-secondary">'+
+            '<button type="button" id="findaiSendCopy"><span class="findai-send-secondary-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 8h11v11H8z"/><path d="M16 8V5H5v11h3"/></svg></span><span>Copy link</span></button>'+
+            '<button type="button" id="findaiSendMore"><span class="findai-send-secondary-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 13v6h14v-6"/></svg></span><span>Share to</span></button>'+
+          '</div>'+
+          '<button type="button" class="findai-send-primary" id="findaiSendPrimary">Send</button>'+
+        '</div>'+
+      '</section>';
+
+    bg.addEventListener('click',e=>{if(e.target===bg)closeFindAISendSheet();});
+    bg.querySelector('.findai-send-head button').onclick=closeFindAISendSheet;
+    bg.querySelector('#findaiSendSearch').addEventListener('input',e=>{
+      clearTimeout(sendSearchTimer);
+      const q=String(e.target.value||'').trim();
+      sendSearchTimer=setTimeout(()=>loadSendPeople(q),180);
+    });
+    bg.querySelector('#findaiSendCopy').onclick=copySendItemLink;
+    bg.querySelector('#findaiSendMore').onclick=externalShareSendItem;
+    bg.querySelector('#findaiSendPrimary').onclick=sendSelectedItem;
+
+    (document.querySelector('.app')||document.body).appendChild(bg);
+    return bg;
+  }
+
+  window.closeFindAISendSheet=function(){
+    const bg=document.getElementById('findaiSendSheetBg');
+    if(bg)bg.classList.remove('show');
+    sendSelected.clear();
+    sendItem=null;
+  };
+
+  function recipientMarkup(person){
+    const p=person||{};
+    const username=String(p.username||'').replace(/^@+/,'').trim();
+    const name=String(p.displayName||username||'WishWave user');
+    const avatar=String(p.avatarUrl||'').trim();
+    const selected=sendSelected.has(username.toLowerCase());
+
+    return '<button type="button" class="findai-send-person'+(selected?' selected':'')+'" data-username="'+escapeAttr(username)+'">'+
+      '<span class="findai-send-person-avatar">'+
+        (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':escapeHTML(name.charAt(0).toUpperCase()))+
+      '</span>'+
+      '<span class="findai-send-person-name">'+escapeHTML(name)+'</span>'+
+    '</button>';
+  }
+
+  function paintSendPeople(){
+    const root=document.getElementById('findaiSendPeople');
+    if(!root)return;
+
+    if(!sendPeople.length){
+      root.innerHTML='<div class="findai-send-loading">No people found</div>';
+      updateSendButton();
+      return;
+    }
+
+    root.innerHTML=sendPeople.map(recipientMarkup).join('');
+    root.querySelectorAll('.findai-send-person').forEach(button=>{
+      button.addEventListener('click',()=>{
+        const username=String(button.dataset.username||'').toLowerCase();
+        const person=sendPeople.find(p=>String(p.username||'').toLowerCase()===username);
+        if(!person)return;
+        if(sendSelected.has(username))sendSelected.delete(username);
+        else sendSelected.set(username,person);
+        paintSendPeople();
+      });
+    });
+    updateSendButton();
+  }
+
+  function updateSendButton(){
+    const button=document.getElementById('findaiSendPrimary');
+    if(!button)return;
+    const count=sendSelected.size;
+    button.classList.toggle('show',count>0);
+    button.textContent=count>1?'Send to '+count:'Send';
+  }
+
+  async function loadSendPeople(query){
+    const token=++sendLoadToken;
+    const root=document.getElementById('findaiSendPeople');
+    if(root)root.innerHTML='<div class="findai-send-loading">Loading people…</div>';
+
+    try{
+      const data=await marketplaceFetch(
+        '/social/send-suggestions'+(query?'?q='+encodeURIComponent(query):''),
+        {method:'GET'}
+      );
+      if(token!==sendLoadToken)return;
+      sendPeople=Array.isArray(data&&data.people)?data.people:[];
+      paintSendPeople();
+    }catch(error){
+      if(token!==sendLoadToken)return;
+      sendPeople=[];
+      if(root)root.innerHTML='<div class="findai-send-loading">Could not load people</div>';
+    }
+  }
+
+  function itemForSend(item){
+    const x=item||{};
+    const listingId=String(
+      x.marketplaceListingId||x.itemId||
+      ((getSource(x)==='findai')?x.id:'')||
+      ''
+    ).trim();
+
+    let priceText='';
+    try{
+      priceText=money(Number(x.price)||0,currencyOf(x,currentFeedData));
+    }catch(_){}
+
+    return {
+      listingId,
+      title:String(x.title||x.name||'WishWave listing'),
+      imageUrl:String(getImage(x)||''),
+      priceText,
+      source:String(getSource(x)||x.retailer||'WishWave'),
+      url:String(getListingUrl(x)||(
+        listingId
+          ?'https://findai.ai/findai-app.html?listing='+encodeURIComponent(listingId)
+          :''
+      ))
+    };
+  }
+
+  window.openFindAISendSheet=function(item){
+    if(!marketplaceSession()){
+      openLogin();
+      return;
+    }
+    sendItem=itemForSend(item);
+    sendSelected.clear();
+    sendPeople=[];
+    const bg=sendSheet();
+    const search=bg.querySelector('#findaiSendSearch');
+    if(search)search.value='';
+    bg.classList.add('show');
+    loadSendPeople('');
+  };
+
+  async function ensureRecipientConversation(person){
+    if(person&&person.conversationId)return String(person.conversationId);
+    const username=String(person&&person.username||'').replace(/^@+/,'').trim();
+    if(!username)throw new Error('This account cannot receive messages yet');
+    const data=await marketplaceFetch('/social/message-user/'+encodeURIComponent(username),{method:'POST'});
+    const id=String(data&&data.conversationId||'').trim();
+    if(!id)throw new Error('Could not start the conversation');
+    person.conversationId=id;
+    return id;
+  }
+
+  async function sendSelectedItem(){
+    const button=document.getElementById('findaiSendPrimary');
+    if(!sendItem||!sendSelected.size||!button)return;
+
+    button.disabled=true;
+    const recipients=[...sendSelected.values()];
+    let sent=0;
+
+    for(const person of recipients){
+      try{
+        const id=await ensureRecipientConversation(person);
+        await marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(id)+'/messages',{
+          method:'POST',
+          body:JSON.stringify({body:'',sharedItem:sendItem})
+        });
+        sent++;
+      }catch(error){
+        console.error('send listing failed',person&&person.username,error);
+      }
+    }
+
+    button.disabled=false;
+    if(sent){
+      const names=recipients.slice(0,2).map(p=>p.displayName||p.username).filter(Boolean);
+      closeFindAISendSheet();
+      try{appRefreshMarketplaceBadge();}catch(_){}
+      toast(sent===1?'Sent to '+(names[0]||'user'):'Sent to '+sent+' people');
+    }else{
+      toast('Could not send this listing');
+    }
+  }
+
+  async function copySendItemLink(){
+    if(!sendItem)return;
+    const url=sendItem.url||location.href;
+    try{
+      await navigator.clipboard.writeText(url);
+      toast('Link copied');
+    }catch(_){}
+  }
+
+  async function externalShareSendItem(){
+    if(!sendItem)return;
+    try{
+      if(navigator.share){
+        await navigator.share({
+          title:sendItem.title,
+          text:sendItem.title,
+          url:sendItem.url||location.href
+        });
+      }else{
+        await copySendItemLink();
+      }
+    }catch(_){}
+  }
+
+  /* Rewire the old Share action into the WishWave Send sheet. */
+  window.shareItem=function(index,event){
+    if(event){event.preventDefault();event.stopPropagation();}
+    const item=currentFeedItems&&currentFeedItems[Number(index)||0];
+    if(!item)return;
+    try{recordInterest(item._interestQuery||feedState.query||item.title,'share');}catch(_){}
+    openFindAISendSheet(item);
+  };
+
+  window.appMpShareListing=function(){
+    if(!appMpListing)return;
+    openFindAISendSheet(appMpListing);
+  };
 })();
 </script>
 
