@@ -4652,11 +4652,42 @@ function getTrust(item){
 }
 function getShippingText(item){
   if(!item) return 'Shipping shown by seller';
-  const raw = item.shippingText || item.shipping || item.delivery || item.shippingDisplay;
-  if(raw && typeof raw === 'string') return raw;
-  const cost = Number(item.shippingCost);
-  if(Number.isFinite(cost)) return cost === 0 ? 'Free shipping' : 'Shipping extra';
-  if(item.freeShipping === true) return 'Free shipping';
+
+  // Retailer APIs (especially eBay) can return shipping as an object. Never
+  // stringify that object into the UI (which produces "[object Object]" or
+  // "object/object"). Prefer any real seller text first, then derive a
+  // readable amount from the structured shipping fields.
+  const cleanText=value=>{
+    if(typeof value!=='string')return '';
+    const text=String(value).trim();
+    if(!text || /\[object\s+object\]/i.test(text) || /^object\s*[/\-]\s*object$/i.test(text))return '';
+    return text;
+  };
+
+  for(const value of [item.shippingText,item.shippingDisplay,item.shippingNote]){
+    const text=cleanText(value);
+    if(text)return text;
+  }
+
+  const structured=[item.shipping,item.delivery].find(value=>value&&typeof value==='object')||null;
+  if(structured&&structured.free===true)return 'Free shipping';
+
+  const structuredCost=structured&&(
+    structured.cost ?? structured.value ?? structured.amount ??
+    (structured.shippingCost&&structured.shippingCost.value)
+  );
+  const cost=Number(item.shippingCost ?? item.deliveryCost ?? structuredCost);
+  if(Number.isFinite(cost)&&cost>=0){
+    if(cost===0)return 'Free shipping';
+    const currency=String((structured&&structured.currency)||item.currency||'AUD').toUpperCase();
+    try{return money(cost,currency)+' shipping';}catch(_){return cost.toFixed(2)+' '+currency+' shipping';}
+  }
+
+  for(const value of [item.shipping,item.delivery]){
+    const text=cleanText(value);
+    if(text)return text;
+  }
+  if(item.freeShipping===true)return 'Free shipping';
   return 'Shipping shown by seller';
 }
 function haptic(){ try{ if(navigator.vibrate) navigator.vibrate(8); }catch(_){} }
@@ -24050,7 +24081,7 @@ html.findai-light .findai-safety-block-row{color:#222}
 
   function commentForArticle(article){
     const id=String(article&&article.dataset.commentId||'');
-    const rows=Array.isArray(window.wishwaveCommentsData&&wishwaveCommentsData.comments)
+    const rows=Array.isArray(wishwaveCommentsData&&wishwaveCommentsData.comments)
       ?wishwaveCommentsData.comments:[];
     return rows.find(c=>String(c&&c.id||'')===id)||null;
   }
@@ -26978,7 +27009,10 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
   }
 
   function commentById(id){
-    const rows=Array.isArray(window.wishwaveCommentsData&&wishwaveCommentsData.comments)
+    // wishwaveCommentsData is declared with top-level `let`, so it is a global
+    // lexical binding rather than a window property. Reading it through
+    // window.wishwaveCommentsData made every heart click exit here as "not found".
+    const rows=Array.isArray(wishwaveCommentsData&&wishwaveCommentsData.comments)
       ?wishwaveCommentsData.comments:[];
     return rows.find(c=>String(c&&c.id||'')===String(id||''))||null;
   }
@@ -27044,7 +27078,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
   function decorateCommentHearts(data){
     const comments=Array.isArray(data&&data.comments)
       ?data.comments
-      :(Array.isArray(window.wishwaveCommentsData&&wishwaveCommentsData.comments)
+      :(Array.isArray(wishwaveCommentsData&&wishwaveCommentsData.comments)
         ?wishwaveCommentsData.comments:[]);
 
     comments.forEach(comment=>{
@@ -27085,7 +27119,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
 
   /* Decorate any Comments sheet that was already on-screen during the upgrade. */
   if(document.querySelector('.wishwave-comments-list')){
-    requestAnimationFrame(()=>decorateCommentHearts(window.wishwaveCommentsData||{}));
+    requestAnimationFrame(()=>decorateCommentHearts(wishwaveCommentsData||{}));
   }
 
   /* =========================================================
