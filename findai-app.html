@@ -27222,5 +27222,409 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
 })();
 </script>
 
+
+<script id="findai-v174-shopping-engine-client">
+(function(){
+  window.WISHWAVE_SHOPPING_ENGINE_VERSION='wishwave-shopping-v1.0';
+  window.wishwaveShoppingSearch=async function(query,options){
+    const opts=options||{};
+    if(typeof marketplaceFetch!=='function')throw new Error('Shopping search is unavailable');
+    return marketplaceFetch('/shopping/search',{
+      method:'POST',
+      body:JSON.stringify({
+        query:String(query||''),
+        country:String(opts.country||''),
+        limit:Number(opts.limit)||40,
+        maxPrice:opts.maxPrice==null?'':String(opts.maxPrice),
+        passive:!!opts.passive
+      })
+    });
+  };
+})();
+</script>
+
+
+<style id="findai-v175-ui-polish-style">
+/* =========================================================
+   Reel polish
+   ========================================================= */
+#discover .price{
+  font-size:25px!important;
+  letter-spacing:-.6px!important;
+}
+#discover .reel-like-count,
+#discover .reel-comment-count{
+  font-size:12px!important;
+  line-height:1!important;
+  font-weight:820!important;
+}
+
+/* Sent listing cards: slightly quieter price overlay. */
+#appMpInbox .findai-v172-shared-price{
+  font-size:24px!important;
+  letter-spacing:-.55px!important;
+}
+
+/* =========================================================
+   Send sheet selection check — fully visible, Instagram-like.
+   ========================================================= */
+.findai-send-person{
+  position:relative!important;
+}
+.findai-send-person-avatar{
+  overflow:visible!important;
+}
+.findai-send-person-avatar img{
+  border-radius:50%!important;
+  clip-path:circle(50%)!important;
+}
+.findai-send-person.selected .findai-send-person-avatar::after{
+  right:-3px!important;
+  bottom:-3px!important;
+  width:24px!important;
+  height:24px!important;
+  border:2px solid #161b20!important;
+  font-size:14px!important;
+  line-height:1!important;
+  z-index:5!important;
+  box-sizing:border-box!important;
+}
+
+/* Send sheet follows the finger from the handle/header. */
+.findai-send-sheet{
+  will-change:transform!important;
+  transform:translate3d(0,0,0);
+  transition:transform .18s cubic-bezier(.22,.78,.24,1)!important;
+}
+.findai-send-sheet.findai-v175-dragging{
+  transition:none!important;
+}
+.findai-send-handle,
+.findai-send-head{
+  touch-action:none!important;
+}
+
+/* Profile tiles should feel tappable, but never double-fire. */
+#profile .social-profile-tile,
+#wishwavePublicProfilePage .social-profile-tile{
+  touch-action:manipulation!important;
+}
+</style>
+
+<script id="findai-v175-ui-stability-script">
+(function(){
+  'use strict';
+
+  /* =========================================================
+     1. Cleaner reel price text: A$450, not A$450 AUD.
+     ========================================================= */
+  function compactDisplayedPrice(text){
+    let value=String(text||'').trim();
+    if(!value)return value;
+
+    /* Only remove a trailing currency code when a currency symbol is already
+       present, so a bare "450 AUD" never becomes ambiguous. */
+    if(/[$£€¥₹₩]/.test(value)){
+      value=value.replace(/\s+(AUD|USD|NZD|CAD|GBP|EUR|JPY|CNY|HKD|SGD|INR|KRW)\s*$/i,'');
+    }
+    return value.trim();
+  }
+
+  const previousReelCard=window.renderReelCard;
+  if(typeof previousReelCard==='function'){
+    window.renderReelCard=function(item,index,data){
+      let html=previousReelCard.apply(this,arguments);
+      html=String(html).replace(
+        /(<span class="price">)([^<]*)(<\/span>)/,
+        (_,open,value,close)=>open+escapeHTML(compactDisplayedPrice(
+          String(value||'')
+            .replace(/&amp;/g,'&')
+            .replace(/&lt;/g,'<')
+            .replace(/&gt;/g,'>')
+        ))+close
+      );
+      return html;
+    };
+  }
+
+  /* Existing sent-listing cards get the same compact currency treatment. */
+  const previousTimeline=window.appMpMessageTimeline;
+  if(typeof previousTimeline==='function'){
+    window.appMpMessageTimeline=function(messages){
+      let html=String(previousTimeline.apply(this,arguments)||'');
+      html=html.replace(
+        /(<span class="findai-v172-shared-price">)([^<]*)(<\/span>)/g,
+        (_,open,value,close)=>open+escapeHTML(compactDisplayedPrice(
+          String(value||'')
+            .replace(/&amp;/g,'&')
+            .replace(/&lt;/g,'<')
+            .replace(/&gt;/g,'>')
+        ))+close
+      );
+      return html;
+    };
+  }
+
+  /* =========================================================
+     2. Swipe the Send sheet down to dismiss it.
+     ========================================================= */
+  let sendDrag=null;
+
+  function bindSendSheetSwipe(){
+    const sheet=document.querySelector('#findaiSendSheetBg .findai-send-sheet');
+    if(!sheet||sheet.dataset.v175Swipe==='1')return;
+    sheet.dataset.v175Swipe='1';
+
+    const startDrag=event=>{
+      if(!document.getElementById('findaiSendSheetBg')?.classList.contains('show'))return;
+      if(event.touches&&event.touches.length!==1)return;
+
+      const target=event.target;
+      if(!target.closest('.findai-send-handle,.findai-send-head'))return;
+
+      const point=event.touches?event.touches[0]:event;
+      sendDrag={
+        sheet,
+        bg:document.getElementById('findaiSendSheetBg'),
+        startY:point.clientY,
+        lastY:point.clientY,
+        lastT:performance.now(),
+        dy:0,
+        velocity:0
+      };
+      sheet.classList.add('findai-v175-dragging');
+    };
+
+    const moveDrag=event=>{
+      if(!sendDrag)return;
+      const point=event.touches?event.touches[0]:event;
+      if(!point)return;
+
+      const now=performance.now();
+      const dy=Math.max(0,point.clientY-sendDrag.startY);
+      const instant=(point.clientY-sendDrag.lastY)/Math.max(1,now-sendDrag.lastT);
+      sendDrag.velocity=sendDrag.velocity*.35+instant*.65;
+      sendDrag.lastY=point.clientY;
+      sendDrag.lastT=now;
+      sendDrag.dy=dy;
+
+      if(dy>0){
+        event.preventDefault();
+        event.stopPropagation();
+        sendDrag.sheet.style.transform='translate3d(0,'+dy+'px,0)';
+        if(sendDrag.bg){
+          sendDrag.bg.style.background='rgba(0,0,0,'+Math.max(.08,.38-dy/700)+')';
+        }
+      }
+    };
+
+    const endDrag=()=>{
+      if(!sendDrag)return;
+      const drag=sendDrag;
+      sendDrag=null;
+
+      drag.sheet.classList.remove('findai-v175-dragging');
+      const close=drag.dy>82||drag.velocity>.48;
+
+      if(close){
+        drag.sheet.style.transition='transform 150ms cubic-bezier(.22,.78,.24,1)';
+        drag.sheet.style.transform='translate3d(0,105%,0)';
+        setTimeout(()=>{
+          try{closeFindAISendSheet();}catch(_){}
+          drag.sheet.style.transform='';
+          drag.sheet.style.transition='';
+          if(drag.bg)drag.bg.style.background='';
+        },155);
+      }else{
+        drag.sheet.style.transform='translate3d(0,0,0)';
+        if(drag.bg)drag.bg.style.background='';
+        setTimeout(()=>{
+          drag.sheet.style.transform='';
+          drag.sheet.style.transition='';
+        },190);
+      }
+    };
+
+    sheet.addEventListener('touchstart',startDrag,{passive:true});
+    sheet.addEventListener('touchmove',moveDrag,{passive:false});
+    sheet.addEventListener('touchend',endDrag,{passive:true});
+    sheet.addEventListener('touchcancel',endDrag,{passive:true});
+  }
+
+  bindSendSheetSwipe();
+  new MutationObserver(bindSendSheetSwipe).observe(document.body,{childList:true,subtree:true});
+
+  /* =========================================================
+     3. Profile / Liked grid items open as a single Home reel.
+        This avoids the old detail-page/external-window paths that
+        could fight Home state and produce the glitch the user saw.
+     ========================================================= */
+  let profileOpening=false;
+
+  function openProfileItemAsReel(item){
+    if(!item||profileOpening)return;
+    profileOpening=true;
+
+    try{closeProfileListingDropdown&&closeProfileListingDropdown();}catch(_){}
+    try{closeWishWavePublicProfile&&closeWishWavePublicProfile();}catch(_){}
+    try{closeAppMpSheet&&closeAppMpSheet();}catch(_){}
+
+    go('discover');
+    try{setMainNavActive('discover');}catch(_){}
+    try{showFeedHeader();bindFeedHeaderAutoHide();}catch(_){}
+
+    let layer=document.getElementById('findaiContextualReelV168');
+    if(!layer){
+      const wrap=document.querySelector('#discover .discover-feed-wrap');
+      if(wrap){
+        layer=document.createElement('div');
+        layer.id='findaiContextualReelV168';
+        layer.innerHTML='<div class="findai-v168-context-feed" id="findaiContextualFeedV168"></div>';
+        wrap.appendChild(layer);
+      }
+    }
+
+    const out=document.getElementById('findaiContextualFeedV168');
+    if(!layer||!out){
+      profileOpening=false;
+      try{findaiOpenItemsInHomeReelV158([item],0,{personalised:true});}catch(_){}
+      return;
+    }
+
+    try{if(reelObserver)reelObserver.disconnect();}catch(_){}
+
+    currentFeedItems=[item];
+    currentFeedData={personalised:true,profileContext:true};
+    feedState={
+      ...(feedState||{}),
+      source:'contextual-reel',
+      query:'',
+      resolvedQuery:'',
+      loading:false,
+      hasMore:false,
+      cursor:null
+    };
+    activeReelIndex=0;
+    window.__findaiExploreInjectedFeed=false;
+
+    out.innerHTML=renderReelCard(item,0,currentFeedData);
+    out.scrollTop=0;
+    layer.classList.add('show');
+
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      out.scrollTop=0;
+      activeReelIndex=0;
+      try{beginReelTracking(0);}catch(_){}
+      setTimeout(()=>{profileOpening=false;},150);
+    }));
+  }
+
+  window.openProfileListingItem=function(index,source){
+    const list=source==='sold'
+      ?socialProfileListings.filter(x=>String(x.status||'').toLowerCase()==='sold')
+      :socialProfileListings.filter(x=>String(x.status||'active').toLowerCase()!=='sold');
+    openProfileItemAsReel(list[Math.max(0,Number(index)||0)]);
+  };
+
+  window.openProfileLikedItem=function(index){
+    const item=getTracked()[Math.max(0,Number(index)||0)];
+    if(item)openProfileItemAsReel(item);
+  };
+
+  window.openWishWavePublicListing=function(index,kind){
+    if(!wishwavePublicSellerData)return;
+    const list=kind==='sold'
+      ?wishwavePublicSellerData.listings.filter(x=>String(x.status||'').toLowerCase()==='sold')
+      :wishwavePublicSellerData.listings.filter(x=>String(x.status||'active').toLowerCase()!=='sold');
+    const item=list[Math.max(0,Number(index)||0)];
+    if(item)openProfileItemAsReel(item);
+  };
+
+  /* =========================================================
+     4. Messages unread badge is painted at app launch, not only
+        after opening Messages.
+     ========================================================= */
+  const BADGE_CACHE='wishwave-v175-message-unread';
+
+  function paintLaunchMessageBadge(count){
+    count=Math.max(0,Number(count)||0);
+    const badge=document.getElementById('navMessagesBadge');
+    const button=document.querySelector('.premium-bottom-nav button[data-tab="messages"]');
+
+    if(badge){
+      badge.textContent=count>99?'99+':String(count);
+      badge.classList.toggle('show',count>0);
+    }
+    if(button){
+      button.setAttribute(
+        'aria-label',
+        count>0?'Messages — '+count+' unread':'Messages'
+      );
+    }
+
+    ['#appMpUnreadBadge','#appMpAvatarBadge'].forEach(selector=>{
+      try{
+        const node=document.querySelector(selector);
+        if(node){
+          node.textContent=count>99?'99+':String(count);
+          node.classList.toggle('show',count>0);
+        }
+      }catch(_){}
+    });
+  }
+
+  try{
+    const cached=Number(localStorage.getItem(BADGE_CACHE)||0);
+    if(cached>0)paintLaunchMessageBadge(cached);
+  }catch(_){}
+
+  window.appRefreshMarketplaceBadge=async function(){
+    if(!marketplaceSession()){
+      paintLaunchMessageBadge(0);
+      try{localStorage.removeItem(BADGE_CACHE);}catch(_){}
+      try{navigator.clearAppBadge&&navigator.clearAppBadge();}catch(_){}
+      return 0;
+    }
+
+    try{
+      const data=await marketplaceFetch('/marketplace/conversations',{method:'GET'});
+      const count=Math.max(0,Number(data&&data.unreadCount||0));
+      paintLaunchMessageBadge(count);
+      try{localStorage.setItem(BADGE_CACHE,String(count));}catch(_){}
+      try{
+        if(navigator.setAppBadge){
+          if(count>0)navigator.setAppBadge(count);
+          else navigator.clearAppBadge&&navigator.clearAppBadge();
+        }
+      }catch(_){}
+      return count;
+    }catch(_){
+      return Number(localStorage.getItem(BADGE_CACHE)||0)||0;
+    }
+  };
+
+  /* Several short retries cover restored PWA/Safari sessions where the auth
+     object becomes available just after the HTML has painted. */
+  [40,260,850,1800,3600].forEach(delay=>{
+    setTimeout(()=>{try{appRefreshMarketplaceBadge();}catch(_){}},delay);
+  });
+
+  window.addEventListener('pageshow',()=>{
+    setTimeout(()=>{try{appRefreshMarketplaceBadge();}catch(_){}},80);
+  });
+  window.addEventListener('focus',()=>{
+    setTimeout(()=>{try{appRefreshMarketplaceBadge();}catch(_){}},120);
+  });
+  window.addEventListener('online',()=>{
+    setTimeout(()=>{try{appRefreshMarketplaceBadge();}catch(_){}},120);
+  });
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'){
+      setTimeout(()=>{try{appRefreshMarketplaceBadge();}catch(_){}},100);
+    }
+  });
+})();
+</script>
+
 </body>
 </html>
