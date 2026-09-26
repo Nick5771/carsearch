@@ -26209,5 +26209,641 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
 })();
 </script>
 
+
+<style id="findai-v172-chat-listing-reaction-style">
+/* =========================================================
+   Shared listing cards inside Messages:
+   - price centred on image
+   - name underneath
+   - proper retailer/logo underneath, like the normal reel
+   ========================================================= */
+#appMpInbox .app-mp-bubble.has-shared-item{
+  width:min(72vw,310px)!important;
+  max-width:min(72vw,310px)!important;
+  padding:0!important;
+  overflow:visible!important;
+  background:transparent!important;
+}
+#appMpInbox .app-mp-shared-listing{
+  width:100%!important;
+  overflow:hidden!important;
+  border-radius:18px!important;
+  border:1px solid rgba(255,255,255,.10)!important;
+  background:#171a1f!important;
+}
+#appMpInbox .app-mp-shared-listing button{
+  width:100%!important;
+  border:0!important;
+  padding:0!important;
+  background:transparent!important;
+  color:#fff!important;
+  text-align:left!important;
+}
+#appMpInbox .app-mp-shared-listing-image{
+  position:relative!important;
+  width:100%!important;
+  aspect-ratio:1/1!important;
+  overflow:hidden!important;
+  background:#20242a!important;
+}
+#appMpInbox .app-mp-shared-listing-image img{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  display:block!important;
+}
+.findai-v172-shared-price{
+  position:absolute!important;
+  inset:0!important;
+  display:grid!important;
+  place-items:center!important;
+  padding:16px!important;
+  color:#fff!important;
+  font-size:30px!important;
+  line-height:1!important;
+  font-weight:900!important;
+  letter-spacing:-1px!important;
+  text-align:center!important;
+  text-shadow:0 2px 12px rgba(0,0,0,.8)!important;
+  pointer-events:none!important;
+}
+#appMpInbox .app-mp-shared-listing-copy{
+  padding:11px 12px 13px!important;
+}
+#appMpInbox .app-mp-shared-listing-title{
+  font-size:15px!important;
+  line-height:1.22!important;
+  font-weight:800!important;
+  letter-spacing:-.2px!important;
+}
+.findai-v172-shared-source{
+  display:flex!important;
+  align-items:center!important;
+  min-height:24px!important;
+  margin-top:6px!important;
+}
+.findai-v172-shared-source .app-ebay-wordmark{
+  font-size:23px!important;
+  line-height:1!important;
+}
+.findai-v172-shared-source .app-source-logo{
+  height:18px!important;
+  max-width:82px!important;
+}
+.findai-v172-shared-source .retailer-source-name{
+  color:#a7abb2!important;
+  font-size:12px!important;
+  font-weight:760!important;
+}
+.findai-v172-shared-source .findai-source-brand{
+  color:#fff!important;
+  font-size:13px!important;
+  font-weight:800!important;
+}
+
+/* =========================================================
+   Message heart reactions
+   ========================================================= */
+#appMpInbox .app-mp-bubble{
+  position:relative!important;
+}
+.findai-message-reaction{
+  position:absolute!important;
+  bottom:-11px!important;
+  right:7px!important;
+  min-width:28px!important;
+  height:23px!important;
+  padding:0 6px!important;
+  border-radius:999px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:3px!important;
+  background:#24272c!important;
+  border:2px solid #000!important;
+  box-shadow:0 3px 9px rgba(0,0,0,.28)!important;
+  color:#fff!important;
+  font-size:14px!important;
+  line-height:1!important;
+  z-index:3!important;
+}
+.app-mp-bubble.mine .findai-message-reaction{
+  right:7px!important;
+}
+.findai-message-reaction small{
+  font-size:10px!important;
+  font-weight:760!important;
+  color:#c6c9cf!important;
+}
+#appMpInbox .app-mp-bubble.has-reaction{
+  margin-bottom:16px!important;
+}
+
+/* Quick like feedback */
+@keyframes findaiV172HeartPop{
+  0%{transform:scale(.65);opacity:.3}
+  55%{transform:scale(1.15);opacity:1}
+  100%{transform:scale(1);opacity:1}
+}
+.findai-message-reaction.pop{
+  animation:findaiV172HeartPop .22s ease-out!important;
+}
+</style>
+
+<script id="findai-v172-chat-listing-reaction-script">
+(function(){
+  'use strict';
+
+  /* =========================================================
+     Shared listing helpers
+     ========================================================= */
+  function parsePriceNumber(text){
+    const cleaned=String(text||'').replace(/,/g,'').match(/-?\d+(?:\.\d+)?/);
+    return cleaned?Number(cleaned[0]):0;
+  }
+
+  function parseCurrency(text){
+    const t=String(text||'').toUpperCase();
+    const code=t.match(/\b(AUD|USD|NZD|CAD|GBP|EUR|JPY|CNY|HKD|SGD)\b/);
+    if(code)return code[1];
+    if(t.includes('A$'))return 'AUD';
+    if(t.includes('NZ$'))return 'NZD';
+    if(t.includes('C$'))return 'CAD';
+    if(t.includes('£'))return 'GBP';
+    if(t.includes('€'))return 'EUR';
+    return 'AUD';
+  }
+
+  function safeShared(value){
+    const x=value&&typeof value==='object'?value:{};
+    return {
+      listingId:String(x.listingId||'').trim(),
+      title:String(x.title||'').trim(),
+      imageUrl:String(x.imageUrl||'').trim(),
+      priceText:String(x.priceText||'').trim(),
+      price:Number.isFinite(Number(x.price))?Number(x.price):parsePriceNumber(x.priceText),
+      currency:String(x.currency||'').trim()||parseCurrency(x.priceText),
+      source:String(x.source||'').trim()||'WishWave',
+      retailerName:String(x.retailerName||'').trim(),
+      retailerHost:String(x.retailerHost||'').trim(),
+      retailerLogo:String(x.retailerLogo||'').trim(),
+      condition:String(x.condition||'').trim(),
+      shipping:String(x.shipping||'').trim(),
+      url:String(x.url||'').trim()
+    };
+  }
+
+  function sharedSourceMarkup(shared){
+    const x=safeShared(shared);
+    const sourceItem={
+      source:x.source,
+      retailer:x.retailerName||x.source,
+      retailerName:x.retailerName||x.source,
+      retailerHost:x.retailerHost,
+      retailerLogo:x.retailerLogo,
+      url:x.url
+    };
+    try{
+      return sourceMarkup(x.source,sourceItem);
+    }catch(_){
+      return '<span class="retailer-source-name">'+escapeHTML(x.source||'WishWave')+'</span>';
+    }
+  }
+
+  function sharedCardMarkupV172(shared){
+    const x=safeShared(shared);
+    if(!x.title)return '';
+
+    const price=x.priceText||(
+      x.price>0
+        ?money(x.price,x.currency||'AUD')
+        :''
+    );
+
+    return '<div class="app-mp-shared-listing">'+
+      '<button type="button" class="findai-v172-shared-button">'+
+        '<div class="app-mp-shared-listing-image">'+
+          (x.imageUrl?'<img src="'+escapeAttr(x.imageUrl)+'" alt="" loading="eager" referrerpolicy="no-referrer">':'')+
+          (price?'<span class="findai-v172-shared-price">'+escapeHTML(price)+'</span>':'')+
+        '</div>'+
+        '<div class="app-mp-shared-listing-copy">'+
+          '<div class="app-mp-shared-listing-title">'+escapeHTML(x.title)+'</div>'+
+          '<div class="findai-v172-shared-source">'+sharedSourceMarkup(x)+'</div>'+
+        '</div>'+
+      '</button>'+
+    '</div>';
+  }
+
+  function itemFromShared(shared){
+    const x=safeShared(shared);
+    return {
+      id:x.listingId||('shared-'+Date.now()),
+      itemId:x.listingId||'',
+      marketplaceListingId:x.listingId||'',
+      title:x.title||'Shared listing',
+      price:Number(x.price)||0,
+      currency:x.currency||'AUD',
+      source:x.source||'WishWave',
+      retailer:x.retailerName||x.source||'WishWave',
+      retailerName:x.retailerName||x.source||'WishWave',
+      retailerHost:x.retailerHost||'',
+      retailerLogo:x.retailerLogo||'',
+      condition:x.condition||'',
+      shipping:x.shipping||'',
+      shippingText:x.shipping||'',
+      imageUrl:x.imageUrl||'',
+      image:x.imageUrl||'',
+      images:x.imageUrl?[x.imageUrl]:[],
+      imageUrls:x.imageUrl?[x.imageUrl]:[],
+      url:x.url||'',
+      itemWebUrl:x.url||''
+    };
+  }
+
+  function openSharedAsReel(shared){
+    const item=itemFromShared(shared);
+
+    /* Close Messages, but do not rebuild Home. */
+    try{
+      clearInterval(appMpMessageTimer);
+      clearInterval(appMpTypingTimer);
+      appMpMessageTimer=null;
+      appMpTypingTimer=null;
+      document.getElementById('appMpInbox')?.classList.remove('show');
+    }catch(_){}
+
+    go('discover');
+    try{setMainNavActive('discover');}catch(_){}
+    try{showFeedHeader();bindFeedHeaderAutoHide();}catch(_){}
+
+    let layer=document.getElementById('findaiContextualReelV168');
+    if(!layer){
+      const wrap=document.querySelector('#discover .discover-feed-wrap');
+      if(wrap){
+        layer=document.createElement('div');
+        layer.id='findaiContextualReelV168';
+        layer.innerHTML='<div class="findai-v168-context-feed" id="findaiContextualFeedV168"></div>';
+        wrap.appendChild(layer);
+      }
+    }
+
+    const out=document.getElementById('findaiContextualFeedV168');
+    if(!layer||!out){
+      /* Fallback to the existing exact-reel path. */
+      try{findaiOpenItemsInHomeReelV158([item],0,{personalised:true});}catch(_){}
+      return;
+    }
+
+    try{if(reelObserver)reelObserver.disconnect();}catch(_){}
+
+    currentFeedItems=[item];
+    currentFeedData={personalised:true,sharedMessage:true};
+    feedState={
+      ...(feedState||{}),
+      source:'contextual-reel',
+      query:'',
+      resolvedQuery:'',
+      loading:false,
+      hasMore:false,
+      cursor:null
+    };
+    activeReelIndex=0;
+    window.__findaiExploreInjectedFeed=false;
+
+    out.innerHTML=renderReelCard(item,0,currentFeedData);
+    out.scrollTop=0;
+    layer.classList.add('show');
+
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      out.scrollTop=0;
+      activeReelIndex=0;
+      try{beginReelTracking(0);}catch(_){}
+    }));
+  }
+
+  window.openSharedListingMessageV172=function(button){
+    try{
+      const raw=button&&button.closest('[data-shared-json]')?.dataset.sharedJson||'';
+      const shared=raw?JSON.parse(decodeURIComponent(raw)):{};
+      openSharedAsReel(shared);
+    }catch(error){
+      console.error('open shared reel failed',error);
+      try{toast('Could not open this listing');}catch(_){}
+    }
+  };
+
+  /* =========================================================
+     Reactions
+     ========================================================= */
+  function reactionMarkup(message){
+    const count=Math.max(0,Number(message&&message.heartCount||0));
+    if(!count)return '';
+    return '<span class="findai-message-reaction'+(message&&message.viewerReaction==='❤️'?' mine-reaction':'')+'">❤️'+
+      (count>1?'<small>'+count+'</small>':'')+
+    '</span>';
+  }
+
+  async function setReaction(bubble,wanted){
+    const id=String(bubble&&bubble.dataset.messageId||'').trim();
+    if(!id||bubble.dataset.reactionBusy==='1')return;
+
+    const active=String(bubble.dataset.viewerReaction||'')==='❤️';
+    const next=(wanted===undefined?!active:!!wanted);
+    bubble.dataset.reactionBusy='1';
+
+    try{
+      const data=await marketplaceFetch(
+        '/marketplace/messages/'+encodeURIComponent(id)+'/reaction',
+        {method:'POST',body:JSON.stringify({emoji:next?'❤️':''})}
+      );
+
+      const count=Math.max(0,Number(data&&data.heartCount||0));
+      bubble.dataset.viewerReaction=next?'❤️':'';
+      bubble.dataset.heartCount=String(count);
+
+      let badge=bubble.querySelector('.findai-message-reaction');
+      if(count){
+        if(!badge){
+          badge=document.createElement('span');
+          badge.className='findai-message-reaction';
+          bubble.appendChild(badge);
+        }
+        badge.innerHTML='❤️'+(count>1?'<small>'+count+'</small>':'');
+        badge.classList.remove('pop');
+        void badge.offsetWidth;
+        badge.classList.add('pop');
+        bubble.classList.add('has-reaction');
+      }else{
+        badge?.remove();
+        bubble.classList.remove('has-reaction');
+      }
+      try{haptic();}catch(_){}
+    }catch(error){
+      try{toast(error&&error.message||'Could not react');}catch(_){}
+    }finally{
+      delete bubble.dataset.reactionBusy;
+    }
+  }
+  window.findaiToggleMessageHeartV172=setReaction;
+
+  /* Double-tap a message to ❤️ it. */
+  let lastTap={id:'',time:0};
+  document.addEventListener('pointerup',event=>{
+    const bubble=event.target.closest&&event.target.closest('#appMpInbox .app-mp-bubble[data-message-id]');
+    if(!bubble)return;
+    if(event.target.closest('button,a,input,textarea'))return;
+
+    const now=Date.now();
+    const id=String(bubble.dataset.messageId||'');
+    if(lastTap.id===id&&now-lastTap.time<320){
+      lastTap={id:'',time:0};
+      setReaction(bubble,true);
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+    lastTap={id,time:now};
+  },true);
+
+  /* Add Like / Unlike to the existing long-press menu by wrapping its creator. */
+  const originalShowHoldMenu=window.showHoldMenu;
+  /* v167's function is closure-local, so instead intercept long-press on message
+     before its old menu fires and add a compact heart action through the same
+     overlay when possible. */
+  let longPressTimer=0;
+  let longPressTarget=null;
+
+  document.addEventListener('pointerdown',event=>{
+    const bubble=event.target.closest&&event.target.closest('#appMpInbox .app-mp-bubble[data-message-id]');
+    if(!bubble)return;
+    if(event.target.closest('button,a,input,textarea'))return;
+
+    clearTimeout(longPressTimer);
+    longPressTarget=bubble;
+    longPressTimer=setTimeout(()=>{
+      const overlay=document.getElementById('findaiV167HoldOverlay');
+      if(!overlay)return;
+
+      requestAnimationFrame(()=>{
+        const menu=overlay.querySelector('.findai-v167-hold-menu');
+        if(!menu||menu.querySelector('[data-v172-heart]'))return;
+
+        const heart=document.createElement('button');
+        heart.type='button';
+        heart.dataset.v172Heart='1';
+        heart.className='findai-v167-hold-action';
+        const liked=String(bubble.dataset.viewerReaction||'')==='❤️';
+        heart.innerHTML='<span style="font-size:25px;width:27px;text-align:center">❤️</span><span>'+(liked?'Remove like':'Like')+'</span>';
+        heart.addEventListener('click',async()=>{
+          try{closeFindAIV167HoldMenu();}catch(_){}
+          await setReaction(bubble,!liked);
+        });
+        menu.insertBefore(heart,menu.firstChild);
+      });
+    },540);
+  },true);
+
+  document.addEventListener('pointerup',()=>{clearTimeout(longPressTimer);longPressTimer=0;longPressTarget=null;},true);
+  document.addEventListener('pointercancel',()=>{clearTimeout(longPressTimer);longPressTimer=0;longPressTarget=null;},true);
+
+  /* =========================================================
+     Final message timeline renderer:
+     - stable HTML
+     - shared listing cards
+     - heart badges
+     ========================================================= */
+  window.appMpMessageTimeline=function(messages){
+    let day='',html='';
+
+    (messages||[]).forEach(m=>{
+      if(!m)return;
+
+      const next=appMpMessageDay(m.createdAt);
+      if(next&&next!==day){
+        day=next;
+        html+='<div class="app-mp-date-divider">'+escapeHTML(next)+'</div>';
+      }
+
+      const body=String(m.body||'').trim();
+      const image=String(m.imageUrl||'').trim();
+      const shared=m.sharedItem&&m.sharedItem.title?safeShared(m.sharedItem):null;
+      const classes='app-mp-bubble '+(m.mine?'mine ':'')+
+        (image?'has-image ':'')+
+        (shared?'has-shared-item ':'')+
+        (Number(m.heartCount||0)>0?'has-reaction':'');
+      const sharedJson=shared?encodeURIComponent(JSON.stringify(shared)):'';
+
+      html+='<div class="'+classes.trim()+'"'+
+        ' data-message-id="'+escapeAttr(String(m.id||''))+'"'+
+        ' data-message-body="'+escapeAttr(body)+'"'+
+        ' data-mine="'+(m.mine?'1':'0')+'"'+
+        ' data-viewer-reaction="'+escapeAttr(String(m.viewerReaction||''))+'"'+
+        ' data-heart-count="'+escapeAttr(String(Number(m.heartCount||0)))+'"'+
+        (shared?' data-shared-json="'+escapeAttr(sharedJson)+'"':'')+
+        '>'+
+          (image
+            ?'<img class="app-mp-message-image" src="'+escapeAttr(findaiNormalizeMessageMediaUrl(image))+'" alt="Message image" loading="eager" decoding="async" referrerpolicy="no-referrer" onerror="findaiRetryMessageImage(this)">'
+            :'')+
+          (shared
+            ?'<div data-shared-json="'+escapeAttr(sharedJson)+'" onclick="openSharedListingMessageV172(this)">'+sharedCardMarkupV172(shared)+'</div>'
+            :'')+
+          (body
+            ?'<span class="'+((image||shared)?'app-mp-message-image-copy':'')+'">'+escapeHTML(body)+'</span>'
+            :'')+
+          reactionMarkup(m)+
+      '</div>';
+    });
+
+    return html;
+  };
+
+  /* =========================================================
+     Reduce the brief message "jump":
+     don't rebuild the whole conversation when polling returns
+     the exact same message data.
+     ========================================================= */
+  let lastConversationSignature='';
+
+  function messageSignature(messages){
+    return (messages||[]).map(m=>[
+      m.id,
+      m.body,
+      m.imageUrl,
+      m.sharedItem&&m.sharedItem.title,
+      m.viewerReaction,
+      m.heartCount,
+      m.readAt
+    ].join('|')).join('~');
+  }
+
+  const previousLoadV172=window.appMpLoadMessages;
+  window.appMpLoadMessages=async function(){
+    if(!appMpConversation)return;
+    const root=document.getElementById('appMpMessages');
+    if(!root)return;
+
+    const wasLoaded=root.dataset.loaded==='1';
+    const oldHeight=root.scrollHeight;
+    const oldTop=root.scrollTop;
+    const distanceFromBottom=oldHeight-oldTop-root.clientHeight;
+    const wasNearBottom=!wasLoaded||distanceFromBottom<90;
+
+    try{
+      const data=await marketplaceFetch(
+        '/marketplace/conversations/'+encodeURIComponent(appMpConversation)+'/messages',
+        {method:'GET'}
+      );
+      const messages=Array.isArray(data&&data.messages)?data.messages:[];
+      const sig=messageSignature(messages);
+
+      appMpCurrentOffers=Array.isArray(data&&data.offers)?data.offers:[];
+      appMpCurrentConversation=(data&&data.conversation)||appMpCurrentConversation;
+      appMpRenderMessageHeader(appMpCurrentConversation,data&&data.presence);
+
+      if(sig===lastConversationSignature&&wasLoaded){
+        if(typeof appRefreshMarketplaceBadge==='function')appRefreshMarketplaceBadge();
+        return;
+      }
+
+      lastConversationSignature=sig;
+
+      const profileCard=document.getElementById('findaiV169ChatProfile');
+      const profileHtml=profileCard
+        ?profileCard.outerHTML
+        :(typeof chatProfileMarkup==='function'
+          ?chatProfileMarkup(appMpCurrentConversation)
+          :'');
+      root.innerHTML=profileHtml+appMpMessageTimeline(messages);
+      root.dataset.loaded='1';
+
+      requestAnimationFrame(()=>{
+        if(wasNearBottom)root.scrollTop=root.scrollHeight;
+        else{
+          const delta=root.scrollHeight-oldHeight;
+          root.scrollTop=Math.max(0,oldTop+delta);
+        }
+      });
+
+      if(typeof appRefreshMarketplaceBadge==='function')appRefreshMarketplaceBadge();
+    }catch(error){
+      if(!wasLoaded&&typeof previousLoadV172==='function'){
+        return previousLoadV172.apply(this,arguments);
+      }
+    }
+  };
+
+  /* =========================================================
+     Enrich future shared-listing sends so chat cards and reels
+     can reproduce the original retailer identity.
+     ========================================================= */
+  const previousOpenSend=window.openFindAISendSheet;
+  if(typeof previousOpenSend==='function'){
+    window.openFindAISendSheet=function(item){
+      if(item&&typeof item==='object'){
+        item.__v172ShareMeta={
+          price:Number(item.price)||0,
+          currency:String(item.currency||''),
+          retailerName:String(item.retailerName||item.retailer||item.source||''),
+          retailerHost:String(item.retailerHost||''),
+          retailerLogo:String(item.retailerLogo||''),
+          condition:String(typeof conditionText==='function'?conditionText(item):item.condition||''),
+          shipping:String(typeof getShippingText==='function'?getShippingText(item):item.shipping||'')
+        };
+      }
+      return previousOpenSend.apply(this,arguments);
+    };
+  }
+
+  /* Patch itemForSend indirectly by wrapping JSON sent by sendSelectedItem.
+     We decorate the shared object at the final marketplaceFetch boundary. */
+  const originalMarketplaceFetchV172=window.marketplaceFetch;
+  if(typeof originalMarketplaceFetchV172==='function'&&!window.__findaiV172FetchWrapped){
+    window.__findaiV172FetchWrapped=true;
+    window.marketplaceFetch=async function(path,options){
+      try{
+        if(
+          /^\/marketplace\/conversations\/[^/]+\/messages$/.test(String(path||'')) &&
+          options &&
+          String(options.method||'GET').toUpperCase()==='POST' &&
+          typeof options.body==='string'
+        ){
+          const payload=JSON.parse(options.body);
+          if(payload&&payload.sharedItem&&window.__findaiV172LastShareItem){
+            payload.sharedItem={...payload.sharedItem,...window.__findaiV172LastShareItem};
+            options={...options,body:JSON.stringify(payload)};
+          }
+        }
+      }catch(_){}
+      return originalMarketplaceFetchV172(path,options);
+    };
+  }
+
+  /* Capture the full item whenever the Send sheet opens. */
+  const oldOpenSend2=window.openFindAISendSheet;
+  if(typeof oldOpenSend2==='function'){
+    window.openFindAISendSheet=function(item){
+      try{
+        let priceText='';
+        try{priceText=money(Number(item&&item.price)||0,currencyOf(item,currentFeedData));}catch(_){}
+        window.__findaiV172LastShareItem={
+          price:Number(item&&item.price)||0,
+          currency:String(item&&item.currency||''),
+          priceText,
+          source:String(typeof getSource==='function'?getSource(item):item&&item.source||'WishWave'),
+          retailerName:String(item&&(item.retailerName||item.retailer)||''),
+          retailerHost:String(item&&item.retailerHost||''),
+          retailerLogo:String(item&&item.retailerLogo||''),
+          condition:String(typeof conditionText==='function'?conditionText(item):item&&item.condition||''),
+          shipping:String(typeof getShippingText==='function'?getShippingText(item):item&&item.shipping||'')
+        };
+      }catch(_){
+        window.__findaiV172LastShareItem=null;
+      }
+      return oldOpenSend2.apply(this,arguments);
+    };
+  }
+})();
+</script>
+
 </body>
 </html>
