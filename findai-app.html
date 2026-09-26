@@ -25931,5 +25931,283 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
 })();
 </script>
 
+
+<style id="findai-v171-send-photo-style">
+/* =========================================================
+   Send sheet: easier to use on an iPhone-height viewport.
+   ========================================================= */
+.findai-send-sheet{
+  max-height:86dvh!important;
+  min-height:0!important;
+  height:auto!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+  overscroll-behavior:contain!important;
+}
+.findai-send-head{
+  position:sticky!important;
+  top:0!important;
+  z-index:4!important;
+  background:#161b20!important;
+  padding-top:2px!important;
+}
+.findai-send-search-wrap{
+  position:sticky!important;
+  top:50px!important;
+  z-index:4!important;
+  background:#161b20!important;
+}
+.findai-send-people{
+  flex:none!important;
+  min-height:170px!important;
+  max-height:none!important;
+  overflow:visible!important;
+  padding-bottom:18px!important;
+}
+
+/* Smaller people, and selection uses only a check — no big blue ring. */
+.findai-send-person-avatar{
+  width:70px!important;
+  height:70px!important;
+  min-width:70px!important;
+  min-height:70px!important;
+  border:1px solid rgba(255,255,255,.08)!important;
+  font-size:22px!important;
+}
+.findai-send-person.selected .findai-send-person-avatar{
+  border-color:rgba(255,255,255,.08)!important;
+}
+.findai-send-person.selected .findai-send-person-avatar::after{
+  right:0!important;
+  bottom:0!important;
+  width:24px!important;
+  height:24px!important;
+  border-width:2px!important;
+  font-size:13px!important;
+}
+.findai-send-person-name{
+  font-size:12px!important;
+}
+
+/* The actual Send button is always reachable and sits ABOVE the external row. */
+.findai-send-bottom{
+  position:sticky!important;
+  bottom:0!important;
+  z-index:6!important;
+  background:#161b20!important;
+  padding:11px 16px calc(10px + env(safe-area-inset-bottom))!important;
+}
+.findai-send-primary{
+  order:-1!important;
+  margin-bottom:10px!important;
+  flex:0 0 auto!important;
+}
+.findai-send-secondary{
+  width:100%!important;
+  justify-content:flex-start!important;
+  gap:18px!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  -webkit-overflow-scrolling:touch!important;
+  scrollbar-width:none!important;
+  padding-bottom:2px!important;
+}
+.findai-send-secondary::-webkit-scrollbar{display:none!important}
+.findai-send-secondary button{
+  min-width:72px!important;
+  flex:0 0 72px!important;
+}
+.findai-send-secondary-icon{
+  width:54px!important;
+  height:54px!important;
+}
+
+/* Give uploaded photos a stable visible frame while loading. */
+#appMpInbox .app-mp-message-image{
+  background:#202328!important;
+  min-height:120px!important;
+}
+</style>
+
+<script id="findai-v171-send-photo-script">
+(function(){
+  'use strict';
+
+  let externalItem=null;
+  let decorated=false;
+
+  function itemShareData(item){
+    const x=item||{};
+    let listingId='';
+    try{
+      listingId=String(
+        x.marketplaceListingId||
+        x.itemId||
+        ((typeof getSource==='function'&&getSource(x)==='findai')?x.id:'')||
+        ''
+      ).trim();
+    }catch(_){}
+
+    let url='';
+    try{
+      url=String(typeof getListingUrl==='function'?getListingUrl(x):'').trim();
+    }catch(_){}
+    if(!url&&listingId){
+      url='https://findai.ai/findai-app.html?listing='+encodeURIComponent(listingId);
+    }
+    if(!url)url=location.href;
+
+    return {
+      title:String(x.title||x.name||'WishWave listing').trim()||'WishWave listing',
+      url
+    };
+  }
+
+  async function nativeShare(preferred){
+    const data=itemShareData(externalItem);
+    const text=data.title+'\n'+data.url;
+
+    if(preferred==='messages'){
+      /* iOS Messages supports the sms: composer with a prefilled body. */
+      location.href='sms:&body='+encodeURIComponent(text);
+      return;
+    }
+
+    if(preferred==='whatsapp'){
+      const wa='https://wa.me/?text='+encodeURIComponent(text);
+      window.open(wa,'_blank','noopener,noreferrer');
+      return;
+    }
+
+    if(preferred==='instagram'){
+      /* Browsers cannot target an Instagram DM/story with prefilled content.
+         The native share sheet can expose Instagram when installed. */
+      try{
+        await navigator.clipboard.writeText(data.url);
+      }catch(_){}
+      if(navigator.share){
+        try{
+          toast('Choose Instagram');
+          await navigator.share({title:data.title,text:data.title,url:data.url});
+          return;
+        }catch(_){}
+      }
+      try{
+        location.href='instagram://app';
+      }catch(_){}
+      return;
+    }
+
+    if(navigator.share){
+      try{
+        await navigator.share({title:data.title,text:data.title,url:data.url});
+        return;
+      }catch(_){}
+    }
+
+    try{
+      await navigator.clipboard.writeText(data.url);
+      toast('Link copied');
+    }catch(_){}
+  }
+
+  function icon(type){
+    if(type==='messages'){
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v11H9l-5 4V5Z"/></svg>';
+    }
+    if(type==='whatsapp'){
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8"/><path d="m7 19-2 1 1-3"/><path d="M9 8c.4 3.3 2.7 5.6 6 6"/></svg>';
+    }
+    if(type==='instagram'){
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="5"/><circle cx="12" cy="12" r="3.5"/><path d="M17.5 6.5h.01"/></svg>';
+    }
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 13v6h14v-6"/></svg>';
+  }
+
+  function makeExternalButton(label,type){
+    const button=document.createElement('button');
+    button.type='button';
+    button.innerHTML='<span class="findai-send-secondary-icon">'+icon(type)+'</span><span>'+escapeHTML(label)+'</span>';
+    button.addEventListener('click',()=>nativeShare(type));
+    return button;
+  }
+
+  function decorateSendSheet(){
+    const bg=document.getElementById('findaiSendSheetBg');
+    if(!bg)return;
+
+    const bottom=bg.querySelector('.findai-send-bottom');
+    const secondary=bg.querySelector('.findai-send-secondary');
+    const primary=bg.querySelector('#findaiSendPrimary');
+    if(!bottom||!secondary||!primary)return;
+
+    /* Put Send above the app/share destinations so it can never be below the
+       visible edge when somebody is selected. */
+    if(bottom.firstElementChild!==primary){
+      bottom.insertBefore(primary,bottom.firstElementChild);
+    }
+
+    if(!secondary.querySelector('[data-v171-external="messages"]')){
+      const messages=makeExternalButton('Messages','messages');
+      messages.dataset.v171External='messages';
+
+      const whatsapp=makeExternalButton('WhatsApp','whatsapp');
+      whatsapp.dataset.v171External='whatsapp';
+
+      const instagram=makeExternalButton('Instagram','instagram');
+      instagram.dataset.v171External='instagram';
+
+      const generic=makeExternalButton('Share to','share');
+      generic.dataset.v171External='share';
+
+      /* Keep Copy link first, then the familiar external destinations. */
+      const existingMore=secondary.querySelector('#findaiSendMore');
+      if(existingMore)existingMore.remove();
+
+      secondary.appendChild(messages);
+      secondary.appendChild(whatsapp);
+      secondary.appendChild(instagram);
+      secondary.appendChild(generic);
+    }
+  }
+
+  const previousOpen=window.openFindAISendSheet;
+  if(typeof previousOpen==='function'){
+    window.openFindAISendSheet=function(item){
+      externalItem=item||null;
+      const out=previousOpen.apply(this,arguments);
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        decorateSendSheet();
+        const sheet=document.querySelector('#findaiSendSheetBg .findai-send-sheet');
+        if(sheet)sheet.scrollTop=0;
+      }));
+      return out;
+    };
+  }
+
+  /* If v170 already created the sheet once, still upgrade it. */
+  const observer=new MutationObserver(()=>{
+    if(document.getElementById('findaiSendSheetBg'))decorateSendSheet();
+  });
+  observer.observe(document.body,{childList:true,subtree:true});
+
+  /* Extra image-upload guard: old Worker errors could leave the file selected.
+     The v171 Worker now uses the globally available mpMediaUrl helper. */
+  const previousSend=window.appMpSendMessage;
+  if(typeof previousSend==='function'){
+    window.appMpSendMessage=async function(event){
+      try{
+        return await previousSend.apply(this,arguments);
+      }catch(error){
+        console.error('v171 message send failed',error);
+        try{toast(error&&error.message||'Photo could not be sent');}catch(_){}
+        return false;
+      }
+    };
+  }
+})();
+</script>
+
 </body>
 </html>
