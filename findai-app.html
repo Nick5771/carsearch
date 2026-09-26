@@ -22306,5 +22306,496 @@ html.findai-light .nav-messages-badge{border-color:#f7f7f8!important}
 })();
 </script>
 
+
+<style id="findai-v163-notification-polish">
+/* A notification-opened comment must look completely normal. */
+.findai-notification-comment-target{
+  outline:0!important;
+  border:0!important;
+  box-shadow:none!important;
+  background:transparent!important;
+  animation:none!important;
+}
+
+/* Small Instagram-like social proof when a Like notification opens a reel. */
+.findai-like-proof{
+  position:absolute!important;
+  z-index:18!important;
+  left:22px!important;
+  top:56%!important;
+  width:58px!important;
+  height:50px!important;
+  pointer-events:none!important;
+  opacity:0!important;
+  transform:translate3d(0,7px,0) scale(.94)!important;
+  transition:opacity .22s ease,transform .32s cubic-bezier(.2,.8,.2,1)!important;
+}
+.findai-like-proof.show{
+  opacity:1!important;
+  transform:translate3d(0,0,0) scale(1)!important;
+}
+.findai-like-proof.hide{
+  opacity:0!important;
+  transform:translate3d(0,-4px,0) scale(.98)!important;
+}
+.findai-like-proof-avatar{
+  position:absolute!important;
+  left:0!important;
+  top:0!important;
+  width:45px!important;
+  height:45px!important;
+  border-radius:50%!important;
+  overflow:hidden!important;
+  display:grid!important;
+  place-items:center!important;
+  background:#25282e!important;
+  border:2px solid rgba(255,255,255,.9)!important;
+  box-shadow:0 3px 14px rgba(0,0,0,.36)!important;
+  color:#fff!important;
+  font:800 15px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif!important;
+}
+.findai-like-proof-avatar img{
+  width:100%!important;
+  height:100%!important;
+  object-fit:cover!important;
+  display:block!important;
+}
+.findai-like-proof-heart{
+  position:absolute!important;
+  left:34px!important;
+  top:25px!important;
+  width:26px!important;
+  height:26px!important;
+  border-radius:50%!important;
+  display:grid!important;
+  place-items:center!important;
+  background:#25282e!important;
+  box-shadow:0 3px 10px rgba(0,0,0,.34)!important;
+  font-size:16px!important;
+  line-height:1!important;
+  animation:findaiV163HeartFloat 1.55s ease-in-out infinite alternate!important;
+}
+@keyframes findaiV163HeartFloat{
+  from{transform:translate3d(0,1px,0) scale(1)}
+  to{transform:translate3d(0,-2px,0) scale(1.04)}
+}
+</style>
+
+<script id="findai-v163-notification-polish-script">
+(function(){
+  'use strict';
+
+  const state=()=>window.findaiNotificationState||null;
+  let busy=false;
+  let proofTimer=0;
+
+  function cache(){
+    try{return state()?.getCache?.()||[]}catch(_){return []}
+  }
+
+  function notice(index){
+    return cache()[Math.max(0,Number(index)||0)]||null;
+  }
+
+  function typeOf(n){
+    return String(n&&n.notification_type||'').toLowerCase().trim();
+  }
+
+  function urlParam(n,key){
+    try{
+      const raw=String(n&&(n.target_url||n.targetUrl)||'');
+      if(!raw)return '';
+      return String(new URL(raw,location.origin).searchParams.get(key)||'').trim();
+    }catch(_){return ''}
+  }
+
+  function listingId(n){
+    const t=typeOf(n);
+    return String(
+      n&&(n.listing_id||n.listingId)||
+      urlParam(n,'listing')||
+      ((t==='comment'||t==='like'||t==='followed_seller_listing'||t==='view_milestone')?n.entity_id:'')||
+      ''
+    ).trim();
+  }
+
+  function commentId(n){
+    return String(
+      n&&(n.comment_id||n.commentId)||
+      urlParam(n,'comment')||
+      ''
+    ).trim();
+  }
+
+  function markRead(n){
+    if(!n)return;
+    n.read_at=n.read_at||new Date().toISOString();
+    const unread=cache().reduce((sum,item)=>sum+(!item.read_at?1:0),0);
+    try{state()?.setUnread?.(unread);}catch(_){}
+    try{setHomeNotificationState(unread);}catch(_){}
+
+    if(!n.local&&n.id&&marketplaceSession()){
+      marketplaceFetch('/marketplace/notifications/read',{
+        method:'POST',
+        body:JSON.stringify({id:n.id})
+      }).catch(()=>{});
+    }
+  }
+
+  async function fetchListing(n){
+    const id=listingId(n);
+    if(!id)throw new Error('This notification does not have a listing attached.');
+
+    const data=await marketplaceFetch(
+      '/marketplace/listings/'+encodeURIComponent(id),
+      {method:'GET'}
+    );
+
+    const item=data&&(data.listing||data.item);
+    if(!item)throw new Error('That listing is no longer available.');
+    return item;
+  }
+
+  function itemId(item){
+    try{return String(appMpId(item)||'')}catch(_){return ''}
+  }
+
+  function openExactReel(item){
+    try{state()?.close?.()}catch(_){}
+
+    /* Reuse the v162 ghost-click protection. */
+    window.__findaiNotificationReelGuardUntil=Date.now()+900;
+
+    go('discover');
+    try{setMainNavActive('discover');}catch(_){}
+
+    const feed=document.getElementById('personalFeed');
+    if(!feed)return false;
+
+    const apply=()=>{
+      currentFeedItems=[item];
+      currentFeedData={personalised:true,notification:true};
+      feedState={
+        ...(feedState||{}),
+        source:'notification-reel',
+        query:'',
+        resolvedQuery:'',
+        loading:false,
+        hasMore:false,
+        cursor:null
+      };
+      activeReelIndex=0;
+
+      feed.classList.remove('search-grid-mode');
+      feed.classList.add('findai-notification-reel-guard');
+      feed.innerHTML=renderReelCard(item,0,currentFeedData);
+      feed.scrollTop=0;
+      window.__findaiExploreInjectedFeed=true;
+    };
+
+    apply();
+
+    const expected=itemId(item);
+
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const live=currentFeedItems&&currentFeedItems[0];
+      if(expected&&itemId(live)!==expected)apply();
+      feed.scrollTop=0;
+      try{attachReelObserver();beginReelTracking(0);}catch(_){}
+      try{preloadPersonalisedImages(0,4);}catch(_){}
+    }));
+
+    setTimeout(()=>{
+      const live=currentFeedItems&&currentFeedItems[0];
+      if(expected&&itemId(live)!==expected){
+        apply();
+        try{attachReelObserver();beginReelTracking(0);}catch(_){}
+      }
+      feed.classList.remove('findai-notification-reel-guard');
+    },850);
+
+    return true;
+  }
+
+  /* Wait until the exact reel is not only in currentFeedItems, but has actually
+     painted its image. This stops Comments from opening over a stale prior reel. */
+  async function waitForExactReelPaint(item){
+    const expected=itemId(item);
+    const feed=document.getElementById('personalFeed');
+
+    for(let attempt=0;attempt<12;attempt++){
+      await new Promise(resolve=>setTimeout(resolve,attempt<2?35:55));
+
+      const live=currentFeedItems&&currentFeedItems[0];
+      const card=feed&&feed.querySelector('.reel-card[data-index="0"]');
+
+      if(!live||!card)continue;
+      if(expected&&itemId(live)!==expected)continue;
+
+      const img=card.querySelector('.reel-gallery-image,.hero-image');
+      if(!img)return true;
+
+      if(img.complete&&img.naturalWidth>0)return true;
+
+      try{
+        if(typeof img.decode==='function'){
+          await Promise.race([
+            img.decode().catch(()=>{}),
+            new Promise(resolve=>setTimeout(resolve,90))
+          ]);
+        }
+      }catch(_){}
+
+      if(img.complete&&img.naturalWidth>0)return true;
+    }
+    return true;
+  }
+
+  function centreComment(n){
+    const exact=commentId(n);
+    const wanted=String(n&&n.body||'').trim();
+    const actor=String(n&&(n.actor_username||n.actor_display_name)||'')
+      .replace(/^@/,'').trim().toLowerCase();
+
+    const rows=[...document.querySelectorAll('.wishwave-comments-list .wishwave-comment')];
+    let target=null;
+
+    if(exact){
+      target=rows.find(row=>
+        String(row.dataset.commentId||row.getAttribute('data-comment-id')||'')===exact
+      )||null;
+    }
+
+    if(!target){
+      target=rows.find(row=>{
+        const body=String(
+          row.querySelector('.wishwave-comment-copy p')?.textContent||
+          row.querySelector('p')?.textContent||''
+        ).trim();
+        const name=String(
+          row.querySelector('.wishwave-comment-head b')?.textContent||
+          row.querySelector('b')?.textContent||''
+        ).replace(/^@/,'').trim().toLowerCase();
+
+        return (!wanted||body===wanted)&&(!actor||name===actor||name.includes(actor));
+      })||null;
+    }
+
+    if(!target&&wanted){
+      target=rows.find(row=>String(row.textContent||'').includes(wanted))||null;
+    }
+
+    if(!target)return false;
+
+    /* Normal comment styling only. */
+    target.classList.remove('findai-notification-comment-target');
+    try{target.scrollIntoView({block:'center',behavior:'smooth'});}catch(_){}
+    return true;
+  }
+
+  function showLikeProof(n){
+    clearTimeout(proofTimer);
+    document.querySelectorAll('.findai-like-proof').forEach(node=>node.remove());
+
+    const feed=document.getElementById('personalFeed');
+    const card=feed&&feed.querySelector('.reel-card[data-index="0"]');
+    if(!card)return;
+
+    const avatar=String(n&&(n.actor_avatar_url||n.actorAvatarUrl)||'').trim();
+    const name=String(n&&(n.actor_display_name||n.actor_username)||'').trim();
+    const initial=String(name||'W').trim().charAt(0).toUpperCase();
+
+    const proof=document.createElement('div');
+    proof.className='findai-like-proof';
+    proof.setAttribute('aria-hidden','true');
+    proof.innerHTML=
+      '<span class="findai-like-proof-avatar">'+
+        (avatar
+          ?'<img src="'+escapeAttr(avatar)+'" alt="" referrerpolicy="no-referrer">'
+          :escapeHTML(initial))+
+      '</span>'+
+      '<span class="findai-like-proof-heart">❤️</span>';
+
+    card.appendChild(proof);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>proof.classList.add('show')));
+
+    proofTimer=setTimeout(()=>{
+      proof.classList.add('hide');
+      setTimeout(()=>proof.remove(),300);
+    },3200);
+  }
+
+  async function openCommentNotice(n){
+    const item=await fetchListing(n);
+    if(!openExactReel(item))throw new Error('Could not open listing.');
+
+    await waitForExactReelPaint(item);
+    await window.openWishWaveComments(0,null);
+
+    if(!centreComment(n)){
+      [150,360,720,1150].forEach(delay=>setTimeout(()=>centreComment(n),delay));
+    }
+  }
+
+  async function openLikeNotice(n){
+    const item=await fetchListing(n);
+    if(!openExactReel(item))throw new Error('Could not open listing.');
+
+    await waitForExactReelPaint(item);
+    showLikeProof(n);
+  }
+
+  /* Direct profile render for follow-related activity. This intentionally avoids
+     all the historical profile-wrapper layers. */
+  async function openActorProfileDirect(n){
+    try{state()?.close?.()}catch(_){}
+    try{closeAppMpSheet();}catch(_){}
+
+    const username=String(
+      n&&(n.actor_username||n.actorUsername)||
+      urlParam(n,'profile')||
+      ''
+    ).replace(/^@+/,'').trim();
+
+    if(username){
+      const own=typeof getAccountProfile==='function'?getAccountProfile():null;
+      if(own&&String(own.username||'').replace(/^@+/,'').toLowerCase()===username.toLowerCase()){
+        openProfile();
+        return;
+      }
+
+      const page=ensureWishWavePublicProfilePage();
+      const root=document.querySelector('.app')||document.body;
+      if(page.parentElement!==root)root.appendChild(page);
+
+      const body=document.getElementById('wishwavePublicProfileBody');
+      if(body){
+        body.innerHTML='<div class="social-profile-loading"><div class="feed-more-spinner"></div><br>Loading profile…</div>';
+      }
+
+      page.classList.remove('show');
+      requestAnimationFrame(()=>requestAnimationFrame(()=>page.classList.add('show')));
+
+      try{
+        const data=await marketplaceFetch('/profile/public/'+encodeURIComponent(username),{method:'GET'});
+
+        if(data&&data.viewer&&data.viewer.isSelf){
+          page.classList.remove('show');
+          openProfile();
+          return;
+        }
+
+        const profile=data&&data.profile||{};
+        wishwavePublicSellerData={
+          seller:{
+            id:String(data&&data.sellerId||''),
+            displayName:String(profile.displayName||username),
+            username:String(profile.username||username),
+            avatarUrl:String(profile.avatarUrl||''),
+            bio:String(profile.bio||''),
+            location:String(profile.location||''),
+            country:String(data&&data.country||'AU'),
+            joinedAt:String(profile.createdAt||''),
+            activeCount:Number(data&&data.activeCount||0),
+            soldCount:Number(data&&data.soldCount||0),
+            followerCount:Number(data&&data.followerCount||0),
+            recentReviews:[]
+          },
+          listings:Array.isArray(data&&data.listings)?data.listings:[],
+          viewer:{
+            signedIn:!!(data&&data.viewer&&data.viewer.signedIn),
+            isSeller:false,
+            isFollowing:!!(data&&data.viewer&&data.viewer.isFollowing),
+            pending:!!(data&&data.viewer&&data.viewer.pending),
+            isPrivate:!!(data&&data.viewer&&data.viewer.isPrivate),
+            canViewListings:data&&data.viewer&&data.viewer.canViewListings!==false
+          },
+          profileOnly:!(data&&data.sellerId)
+        };
+
+        renderWishWavePublicProfile();
+        return;
+      }catch(error){
+        const sellerId=String(n&&(n.actor_seller_id||n.actorSellerId)||'').trim();
+        if(sellerId&&typeof window.openPremiumSellerProfileById==='function'){
+          await window.openPremiumSellerProfileById(sellerId);
+          return;
+        }
+        throw error;
+      }
+    }
+
+    const sellerId=String(n&&(n.actor_seller_id||n.actorSellerId)||'').trim();
+    if(sellerId&&typeof window.openPremiumSellerProfileById==='function'){
+      await window.openPremiumSellerProfileById(sellerId);
+      return;
+    }
+
+    throw new Error('This profile could not be opened.');
+  }
+
+  async function route(index,event){
+    if(busy)return;
+    const n=notice(index);
+    if(!n)return;
+
+    busy=true;
+    markRead(n);
+    const t=typeOf(n);
+
+    try{
+      if(t==='comment'){
+        await openCommentNotice(n);
+        return;
+      }
+
+      if(t==='like'){
+        await openLikeNotice(n);
+        return;
+      }
+
+      if(t==='followed_seller_listing'||t==='view_milestone'){
+        const item=await fetchListing(n);
+        openExactReel(item);
+        return;
+      }
+
+      /* Covers follow_accepted, follow, follow_mutual, follow_request and any
+         older follow-related string without relying on one exact backend spelling. */
+      if(t.includes('follow')){
+        await openActorProfileDirect(n);
+        return;
+      }
+
+      if(typeof window.openFindAINotification==='function'){
+        await window.openFindAINotification(index);
+      }
+    }catch(error){
+      console.error('v163 notification route failed',error);
+      try{toast(error&&error.message||'Could not open this notification');}catch(_){}
+    }finally{
+      setTimeout(()=>{busy=false;},130);
+    }
+  }
+
+  window.findaiNotificationOpenContent=route;
+
+  /* Actor-name/avatar taps now use the same direct profile route instead of the
+     old function that referenced the once-private appNotificationCache. */
+  window.findaiNotificationOpenActor=async function(event,index){
+    if(event){event.preventDefault();event.stopPropagation();}
+    const n=notice(index);
+    if(!n)return;
+    markRead(n);
+    try{
+      await openActorProfileDirect(n);
+    }catch(error){
+      console.error('v163 actor profile route failed',error);
+      try{toast(error&&error.message||'Profile unavailable');}catch(_){}
+    }
+  };
+})();
+</script>
+
 </body>
 </html>
