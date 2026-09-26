@@ -23849,5 +23849,615 @@ html.findai-light .findai-safety-block-row{color:#222}
 })();
 </script>
 
+
+<style id="findai-v167-interaction-stability-style">
+/* =========================================================
+   1) Comments + Messages: no permanent three-dot clutter.
+      Long-press now owns the contextual actions.
+   ========================================================= */
+.findai-safety-comment-more,
+.findai-safety-message-more{
+  display:none!important;
+}
+#appMpInbox .app-mp-bubble:not(.mine){
+  padding-right:12px!important;
+}
+#appMpInbox .app-mp-bubble.has-image:not(.mine){
+  padding-right:4px!important;
+}
+.wishwave-comment,
+#appMpInbox .app-mp-bubble{
+  -webkit-touch-callout:none!important;
+}
+
+/* Instagram-like floating hold menu. */
+.findai-v167-hold-overlay{
+  position:fixed!important;
+  inset:0!important;
+  z-index:2147482400!important;
+  display:none!important;
+  background:rgba(0,0,0,.10)!important;
+}
+.findai-v167-hold-overlay.show{display:block!important}
+.findai-v167-hold-menu{
+  position:fixed!important;
+  left:var(--hold-left,22px)!important;
+  top:var(--hold-top,50%)!important;
+  width:var(--hold-width,286px)!important;
+  overflow:hidden!important;
+  border-radius:22px!important;
+  background:rgba(27,28,33,.97)!important;
+  border:1px solid rgba(255,255,255,.07)!important;
+  box-shadow:0 18px 52px rgba(0,0,0,.45)!important;
+  -webkit-backdrop-filter:blur(18px)!important;
+  backdrop-filter:blur(18px)!important;
+  transform:scale(.97)!important;
+  opacity:0!important;
+  transition:opacity .13s ease,transform .18s cubic-bezier(.2,.85,.25,1)!important;
+}
+.findai-v167-hold-overlay.show .findai-v167-hold-menu{
+  opacity:1!important;
+  transform:scale(1)!important;
+}
+.findai-v167-hold-action{
+  width:100%!important;
+  min-height:58px!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:14px!important;
+  padding:0 18px!important;
+  border:0!important;
+  border-bottom:1px solid rgba(255,255,255,.055)!important;
+  background:transparent!important;
+  color:#f5f5f7!important;
+  text-align:left!important;
+  font:650 18px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif!important;
+}
+.findai-v167-hold-action:last-child{border-bottom:0!important}
+.findai-v167-hold-action svg{
+  width:27px!important;
+  height:27px!important;
+  flex:0 0 27px!important;
+  stroke:currentColor!important;
+}
+.findai-v167-hold-action.danger{color:#ff5964!important}
+.findai-v167-hold-action:active{background:rgba(255,255,255,.06)!important}
+
+/* =========================================================
+   2) Messages badges: remain locked close to the paper-plane,
+      regardless of selected/unselected nav icon width.
+   ========================================================= */
+.premium-bottom-nav button[data-tab="messages"] .nav-icon-shell{
+  position:relative!important;
+  overflow:visible!important;
+}
+.premium-bottom-nav button[data-tab="messages"] .nav-messages-badge{
+  right:auto!important;
+  left:calc(50% + 8px)!important;
+  top:-4px!important;
+  transform:none!important;
+}
+#appMpInbox .app-mp-unread{
+  background:#ff3045!important;
+  color:#fff!important;
+}
+
+/* Prevent any legacy active-state rule from turning the inbox unread pill blue. */
+#appMpInbox .app-mp-conversation-card .app-mp-unread{
+  background:#ff3045!important;
+}
+
+/* Search cards should never visually "double tap" through into the page below. */
+#search .search-grid-card.findai-v167-opening,
+#search .app-search-evidence.findai-v167-opening{
+  pointer-events:none!important;
+  opacity:.78!important;
+}
+</style>
+
+<script id="findai-v167-interaction-stability-script">
+(function(){
+  'use strict';
+
+  /* =========================================================
+     A. Long-press actions for comments/messages.
+     ========================================================= */
+  let holdState=null;
+  let suppressClickUntil=0;
+
+  function holdIcon(kind){
+    if(kind==='share')return '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M5 13v6h14v-6"/></svg>';
+    if(kind==='copy')return '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>';
+    if(kind==='block')return '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="m5.6 5.6 12.8 12.8"/></svg>';
+    return '<svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M5 4h14v12H9l-4 4V4Z"/><path d="M12 7v4M12 14h.01"/></svg>';
+  }
+
+  function ensureHoldOverlay(){
+    let overlay=document.getElementById('findaiV167HoldOverlay');
+    if(overlay)return overlay;
+    overlay=document.createElement('div');
+    overlay.id='findaiV167HoldOverlay';
+    overlay.className='findai-v167-hold-overlay';
+    overlay.addEventListener('click',event=>{
+      if(event.target===overlay)closeHoldOverlay();
+    });
+    (document.querySelector('.app')||document.body).appendChild(overlay);
+    return overlay;
+  }
+
+  function closeHoldOverlay(){
+    const overlay=document.getElementById('findaiV167HoldOverlay');
+    if(overlay)overlay.classList.remove('show');
+  }
+  window.closeFindAIV167HoldMenu=closeHoldOverlay;
+
+  function actionButton(label,kind,handler,danger){
+    const id='findaiV167HoldAction_'+Math.random().toString(36).slice(2);
+    queueMicrotask(()=>{
+      const button=document.getElementById(id);
+      if(button)button.onclick=handler;
+    });
+    return '<button type="button" id="'+id+'" class="findai-v167-hold-action'+(danger?' danger':'')+'">'+
+      holdIcon(kind)+'<span>'+escapeHTML(label)+'</span></button>';
+  }
+
+  function showHoldMenu(source,actions){
+    if(!source||!actions||!actions.length)return;
+    const overlay=ensureHoldOverlay();
+    const rect=source.getBoundingClientRect();
+    const width=Math.min(300,Math.max(240,window.innerWidth-44));
+    const height=actions.length*58;
+    const viewportTop=(window.visualViewport&&window.visualViewport.offsetTop)||0;
+    const viewportHeight=(window.visualViewport&&window.visualViewport.height)||window.innerHeight;
+    const minTop=viewportTop+16;
+    const maxTop=viewportTop+viewportHeight-height-18;
+
+    let left=Math.min(window.innerWidth-width-18,Math.max(18,rect.left+Math.min(70,rect.width*.18)));
+    let top=rect.bottom+10;
+    if(top>maxTop)top=rect.top-height-10;
+    top=Math.max(minTop,Math.min(maxTop,top));
+
+    overlay.style.setProperty('--hold-left',left+'px');
+    overlay.style.setProperty('--hold-top',top+'px');
+    overlay.style.setProperty('--hold-width',width+'px');
+    overlay.innerHTML='<div class="findai-v167-hold-menu" onclick="event.stopPropagation()">'+
+      actions.map(a=>actionButton(a.label,a.kind,a.run,!!a.danger)).join('')+
+    '</div>';
+    requestAnimationFrame(()=>requestAnimationFrame(()=>overlay.classList.add('show')));
+    try{haptic();}catch(_){}
+  }
+
+  async function blockUsername(username){
+    const clean=String(username||'').replace(/^@+/,'').trim();
+    if(!clean){toast('This account cannot be blocked yet');return;}
+    await marketplaceFetch('/social/controls',{
+      method:'POST',
+      body:JSON.stringify({kind:'blocked',username:clean})
+    });
+    toast('Account blocked');
+  }
+
+  async function shareCommentText(body){
+    const text=String(body||'').trim()||'WishWave comment';
+    try{
+      if(navigator.share)await navigator.share({text,url:location.href});
+      else{
+        await navigator.clipboard.writeText(text);
+        toast('Comment copied');
+      }
+    }catch(_){}
+  }
+
+  function commentForArticle(article){
+    const id=String(article&&article.dataset.commentId||'');
+    const rows=Array.isArray(window.wishwaveCommentsData&&wishwaveCommentsData.comments)
+      ?wishwaveCommentsData.comments:[];
+    return rows.find(c=>String(c&&c.id||'')===id)||null;
+  }
+
+  function openOtherCommentActions(article){
+    const comment=commentForArticle(article);
+    if(!comment||comment.isMine)return;
+    const id=String(comment.id||'');
+    const username=String(comment.username||'').replace(/^@+/,'').trim();
+    const body=String(comment.body||'').trim();
+    const contextId=window.wishwaveCommentsItem
+      ?String(wishwaveCommentMetricKey(wishwaveCommentsItem)||''):'';
+
+    const actions=[
+      {
+        label:'Share',
+        kind:'share',
+        run:async()=>{closeHoldOverlay();await shareCommentText(body);}
+      }
+    ];
+
+    if(username){
+      actions.push({
+        label:'Block',
+        kind:'block',
+        run:async()=>{
+          closeHoldOverlay();
+          try{
+            await blockUsername(username);
+            document.querySelectorAll('.wishwave-comment').forEach(node=>{
+              const c=commentForArticle(node);
+              if(c&&String(c.username||'').replace(/^@+/,'').toLowerCase()===username.toLowerCase())node.remove();
+            });
+          }catch(error){toast(error&&error.message||'Could not block account');}
+        }
+      });
+    }
+
+    actions.push({
+      label:'Report',
+      kind:'report',
+      danger:true,
+      run:()=>{
+        closeHoldOverlay();
+        openWishWaveSafetyReport('comment',{id,contextId});
+      }
+    });
+
+    showHoldMenu(article,actions);
+  }
+
+  function openMessageActions(bubble){
+    const id=String(bubble&&bubble.dataset.messageId||'');
+    const body=String(bubble&&bubble.dataset.messageBody||'');
+    const mine=String(bubble&&bubble.dataset.mine||'')==='1';
+    const username=String(
+      window.appMpCurrentConversation&&
+      (appMpCurrentConversation.otherPartyUsername||appMpCurrentConversation.username)||''
+    ).replace(/^@+/,'').trim();
+
+    const actions=[];
+    if(body){
+      actions.push({
+        label:'Copy',
+        kind:'copy',
+        run:async()=>{
+          closeHoldOverlay();
+          try{await navigator.clipboard.writeText(body);toast('Copied');}catch(_){}
+        }
+      });
+    }
+
+    if(!mine&&username){
+      actions.push({
+        label:'Block',
+        kind:'block',
+        run:async()=>{
+          closeHoldOverlay();
+          try{await blockUsername(username);}catch(error){toast(error&&error.message||'Could not block account');}
+        }
+      });
+    }
+
+    if(!mine&&id){
+      actions.push({
+        label:'Report',
+        kind:'report',
+        danger:true,
+        run:()=>{
+          closeHoldOverlay();
+          openWishWaveSafetyReport('message',{
+            id,
+            contextId:String(window.appMpConversation||'')
+          });
+        }
+      });
+    }
+
+    if(actions.length)showHoldMenu(bubble,actions);
+  }
+
+  function cancelHold(){
+    if(!holdState)return;
+    clearTimeout(holdState.timer);
+    holdState=null;
+  }
+
+  document.addEventListener('pointerdown',event=>{
+    if(event.button>0)return;
+
+    const otherComment=event.target.closest&&event.target.closest('.wishwave-comment:not(.is-mine)');
+    const bubble=event.target.closest&&event.target.closest('#appMpInbox .app-mp-bubble');
+
+    if(!otherComment&&!bubble)return;
+    if(event.target.closest('input,textarea,a'))return;
+
+    const source=otherComment||bubble;
+    holdState={
+      source,
+      x:event.clientX,
+      y:event.clientY,
+      timer:setTimeout(()=>{
+        if(!holdState||holdState.source!==source)return;
+        holdState=null;
+        suppressClickUntil=Date.now()+450;
+        if(otherComment)openOtherCommentActions(otherComment);
+        else openMessageActions(bubble);
+      },500)
+    };
+  },{passive:true});
+
+  document.addEventListener('pointermove',event=>{
+    if(!holdState)return;
+    if(Math.hypot(event.clientX-holdState.x,event.clientY-holdState.y)>10)cancelHold();
+  },{passive:true});
+
+  document.addEventListener('pointerup',cancelHold,{passive:true});
+  document.addEventListener('pointercancel',cancelHold,{passive:true});
+
+  document.addEventListener('click',event=>{
+    if(Date.now()>suppressClickUntil)return;
+    const source=event.target.closest&&event.target.closest('.wishwave-comment,#appMpInbox .app-mp-bubble');
+    if(!source)return;
+    event.preventDefault();
+    event.stopPropagation();
+    if(event.stopImmediatePropagation)event.stopImmediatePropagation();
+  },true);
+
+  document.addEventListener('contextmenu',event=>{
+    if(event.target.closest&&event.target.closest('.wishwave-comment,#appMpInbox .app-mp-bubble')){
+      event.preventDefault();
+    }
+  });
+
+  /* Re-render messages without a visible per-bubble ••• button. */
+  window.appMpMessageTimeline=function(messages){
+    let day='',html='';
+    (messages||[]).forEach(m=>{
+      if(!m)return;
+      const next=appMpMessageDay(m.createdAt);
+      if(next&&next!==day){
+        day=next;
+        html+='<div class="app-mp-date-divider">'+escapeHTML(next)+'</div>';
+      }
+
+      const body=String(m.body||'').trim();
+      const image=String(m.imageUrl||'').trim();
+      const id=String(m.id||'');
+      const classes='app-mp-bubble '+(m.mine?'mine ':'')+(image?'has-image':'');
+
+      html+='<div class="'+classes.trim()+'" data-message-id="'+escapeAttr(id)+'" data-message-body="'+escapeAttr(body)+'" data-mine="'+(m.mine?'1':'0')+'">'+
+        (image?'<img class="app-mp-message-image" src="'+escapeAttr(image)+'" alt="Message image" loading="lazy" referrerpolicy="no-referrer">':'')+
+        (body?'<span class="'+(image?'app-mp-message-image-copy':'')+'">'+escapeHTML(body)+'</span>':'')+
+      '</div>';
+    });
+    return html;
+  };
+
+  /* Ensure legacy v166 comment ••• buttons are removed after every render. */
+  const beforeCommentsRender=window.renderWishWaveComments;
+  if(typeof beforeCommentsRender==='function'){
+    window.renderWishWaveComments=function(data){
+      const out=beforeCommentsRender.apply(this,arguments);
+      requestAnimationFrame(()=>{
+        document.querySelectorAll('.findai-safety-comment-more').forEach(node=>node.remove());
+      });
+      return out;
+    };
+  }
+
+  /* =========================================================
+     B. Stable Home/Search navigation.
+        Preserve the loaded Home feed instead of refreshing it
+        every time the user returns from another tab.
+   ========================================================= */
+  let homeSnapshot=null;
+  let homeDomFragment=null;
+  let searchReelOpen=false;
+  let searchOpening=false;
+  let homeCaptureTimer=0;
+
+  function homeFeed(){
+    return document.getElementById('personalFeed');
+  }
+
+  function canSnapshotHome(){
+    const feed=homeFeed();
+    return !!(
+      feed &&
+      feed.querySelector('.reel-card') &&
+      window.feedState &&
+      String(feedState.source||'')==='personalised' &&
+      Array.isArray(window.currentFeedItems) &&
+      currentFeedItems.length
+    );
+  }
+
+  function captureHomeSnapshot(force){
+    if(searchReelOpen)return false;
+    if(!force&&String(document.body.dataset.activeTab||'')!=='discover')return false;
+    if(!canSnapshotHome())return false;
+
+    const feed=homeFeed();
+    homeSnapshot={
+      items:currentFeedItems.slice(),
+      data:currentFeedData,
+      state:{...(feedState||{})},
+      active:Number(activeReelIndex)||0,
+      scroll:Number(feed.scrollTop)||0
+    };
+    return true;
+  }
+
+  function scheduleHomeCapture(){
+    clearTimeout(homeCaptureTimer);
+    homeCaptureTimer=setTimeout(()=>captureHomeSnapshot(false),90);
+  }
+
+  const feedAtBoot=homeFeed();
+  if(feedAtBoot){
+    feedAtBoot.addEventListener('scroll',()=>{
+      if(String(document.body.dataset.activeTab||'')==='discover'&&!searchReelOpen)scheduleHomeCapture();
+    },{passive:true});
+  }
+  setTimeout(()=>captureHomeSnapshot(false),900);
+  setTimeout(()=>captureHomeSnapshot(false),1800);
+
+  document.addEventListener('pointerdown',event=>{
+    const btn=event.target.closest&&event.target.closest('.premium-bottom-nav button[data-tab]');
+    if(!btn)return;
+    const target=String(btn.dataset.tab||'');
+    if(target!=='discover'&&String(document.body.dataset.activeTab||'')==='discover'&&!searchReelOpen){
+      captureHomeSnapshot(true);
+    }
+  },true);
+
+  function stashHomeDom(){
+    const feed=homeFeed();
+    if(!feed||homeDomFragment||!homeSnapshot)return;
+    homeDomFragment=document.createDocumentFragment();
+    while(feed.firstChild)homeDomFragment.appendChild(feed.firstChild);
+  }
+
+  function restoreHomeSnapshot(){
+    if(!homeSnapshot)return false;
+    const feed=homeFeed();
+    if(!feed)return false;
+
+    currentFeedItems=homeSnapshot.items.slice();
+    currentFeedData=homeSnapshot.data;
+    feedState={...(homeSnapshot.state||{}),source:'personalised'};
+    activeReelIndex=homeSnapshot.active;
+
+    if(homeDomFragment){
+      feed.replaceChildren(homeDomFragment);
+      homeDomFragment=null;
+    }else if(searchReelOpen){
+      feed.innerHTML=currentFeedItems.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');
+    }
+
+    searchReelOpen=false;
+    window.__findaiExploreInjectedFeed=false;
+
+    go('discover');
+    try{setMainNavActive('discover');}catch(_){}
+    try{showFeedHeader();bindFeedHeaderAutoHide();}catch(_){}
+
+    requestAnimationFrame(()=>{
+      feed.scrollTop=homeSnapshot.scroll||0;
+      try{attachReelObserver();beginReelTracking(activeReelIndex);}catch(_){}
+      try{preloadPersonalisedImages(Math.max(0,activeReelIndex-2),8);}catch(_){}
+    });
+    return true;
+  }
+
+  const previousOpenForYouV167=window.openForYou;
+  window.openForYou=function(){
+    const active=String(document.body.dataset.activeTab||'discover');
+
+    if(searchReelOpen&&homeSnapshot){
+      restoreHomeSnapshot();
+      return;
+    }
+
+    /* Normal return from Search/Messages/Profile: restore the existing Home
+       globals and show the already-mounted feed without a network repaint. */
+    if(active!=='discover'&&homeSnapshot&&!searchReelOpen){
+      currentFeedItems=homeSnapshot.items.slice();
+      currentFeedData=homeSnapshot.data;
+      feedState={...(homeSnapshot.state||{}),source:'personalised'};
+      activeReelIndex=homeSnapshot.active;
+      go('discover');
+      try{setMainNavActive('discover');}catch(_){}
+      const feed=homeFeed();
+      if(feed){
+        requestAnimationFrame(()=>{
+          feed.scrollTop=homeSnapshot.scroll||0;
+          try{attachReelObserver();beginReelTracking(activeReelIndex);}catch(_){}
+        });
+      }
+      return;
+    }
+
+    return typeof previousOpenForYouV167==='function'
+      ?previousOpenForYouV167.apply(this,arguments)
+      :undefined;
+  };
+
+  /* One stable Search listing -> Home reel route.
+     It deliberately does NOT set the old Explore-injected flag, which was
+     fighting several generations of Home restore logic. */
+  window.openSearchResultDetail=function(index){
+    if(searchOpening)return;
+    const list=Array.isArray(currentFeedItems)?currentFeedItems.slice():[];
+    const chosen=Math.max(0,Math.min(list.length-1,Number(index)||0));
+    const selected=list[chosen];
+    if(!selected){
+      try{toast('This listing could not be opened.')}catch(_){}
+      return;
+    }
+
+    searchOpening=true;
+    const clicked=document.querySelector('#search .search-grid-card[data-grid-index="'+chosen+'"]');
+    if(clicked)clicked.classList.add('findai-v167-opening');
+
+    try{
+      if(typeof findaiRememberRecentProduct==='function')findaiRememberRecentProduct(selected);
+    }catch(_){}
+
+    /* Home DOM is preserved in memory before this contextual reel replaces it. */
+    if(!homeSnapshot){
+      /* If the user arrived at Search unusually early, keep whatever valid
+         personalised feed we already have as the return state. */
+      try{captureHomeSnapshot(true);}catch(_){}
+    }
+    stashHomeDom();
+
+    const ordered=[selected,...list.filter((_,i)=>i!==chosen)].slice(0,36);
+    const feed=homeFeed();
+
+    currentFeedItems=ordered;
+    currentFeedData=currentFeedData||{personalised:true};
+    feedState={
+      ...(feedState||{}),
+      source:'search-reel',
+      query:'',
+      resolvedQuery:'',
+      loading:false,
+      hasMore:false,
+      cursor:null
+    };
+    activeReelIndex=0;
+    searchReelOpen=true;
+    window.__findaiExploreInjectedFeed=false;
+
+    if(feed){
+      feed.classList.remove('search-grid-mode');
+      feed.innerHTML=ordered.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');
+      feed.scrollTop=0;
+    }
+
+    try{hideRecents();}catch(_){}
+    try{closeSearchResultDetail();}catch(_){}
+    go('discover');
+    try{setMainNavActive('discover');}catch(_){}
+    try{showFeedHeader();bindFeedHeaderAutoHide();}catch(_){}
+
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      if(feed){
+        feed.scrollTop=0;
+        try{attachReelObserver();beginReelTracking(0);}catch(_){}
+        try{preloadPersonalisedImages(0,8);}catch(_){}
+      }
+      if(clicked)clicked.classList.remove('findai-v167-opening');
+      setTimeout(()=>{searchOpening=false;},140);
+    }));
+  };
+
+  /* If the user goes from Search reel straight back to the Search tab, clear
+     only the transient opening lock; the Search page itself stays mounted. */
+  document.addEventListener('pointerdown',event=>{
+    const btn=event.target.closest&&event.target.closest('.premium-bottom-nav button[data-tab="search"]');
+    if(!btn)return;
+    searchOpening=false;
+  },true);
+})();
+</script>
+
 </body>
 </html>
