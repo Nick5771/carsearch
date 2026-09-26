@@ -24459,5 +24459,534 @@ html.findai-light .findai-safety-block-row{color:#222}
 })();
 </script>
 
+
+<style id="findai-v168-stability-style">
+/* =========================================================
+   Messages badge: anchor it to the NAV BUTTON, not the active
+   halo, so the red "1" never drifts when Messages is selected.
+   ========================================================= */
+.premium-bottom-nav button[data-tab="messages"]{
+  position:relative!important;
+}
+.premium-bottom-nav button[data-tab="messages"] .nav-icon-shell{
+  position:static!important;
+  overflow:visible!important;
+}
+.premium-bottom-nav button[data-tab="messages"] .nav-messages-badge{
+  position:absolute!important;
+  left:calc(50% + 10px)!important;
+  right:auto!important;
+  top:3px!important;
+  transform:none!important;
+  background:#ff3045!important;
+  border-color:#000!important;
+  z-index:20!important;
+}
+html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-badge{
+  border-color:#f7f7f8!important;
+}
+
+/* =========================================================
+   Stable contextual Search reel.
+   Home stays mounted underneath; only ONE selected reel is
+   layered over it. This avoids replacing/rebuilding Home.
+   ========================================================= */
+#findaiContextualReelV168{
+  position:absolute!important;
+  inset:0!important;
+  z-index:45!important;
+  display:none!important;
+  overflow:hidden!important;
+  background:#000!important;
+  contain:layout paint style!important;
+}
+#findaiContextualReelV168.show{
+  display:block!important;
+}
+#findaiContextualReelV168 .findai-v168-context-feed{
+  width:100%!important;
+  height:100%!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  scroll-snap-type:y mandatory!important;
+  overscroll-behavior:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+}
+#findaiContextualReelV168 .reel-card{
+  width:100%!important;
+  height:100%!important;
+  min-height:100%!important;
+  scroll-snap-align:start!important;
+  border-radius:0!important;
+}
+
+/* =========================================================
+   Instagram-style empty/new conversation identity.
+   ========================================================= */
+.findai-first-message-profile.v168{
+  min-height:440px!important;
+  padding:60px 22px 34px!important;
+  justify-content:flex-start!important;
+}
+.findai-first-message-profile.v168 .findai-first-message-profile-avatar{
+  width:116px!important;
+  height:116px!important;
+}
+.findai-first-message-profile.v168 .findai-first-message-profile-name{
+  margin-top:18px!important;
+  font-size:25px!important;
+}
+.findai-first-message-profile.v168 .findai-first-message-profile-username{
+  margin-top:7px!important;
+  font-size:15px!important;
+}
+.findai-v168-profile-stats{
+  margin-top:7px!important;
+  color:#a1a6af!important;
+  font-size:14px!important;
+  font-weight:620!important;
+}
+.findai-v168-view-profile{
+  margin-top:19px!important;
+  min-width:132px!important;
+  height:42px!important;
+  padding:0 18px!important;
+  border:0!important;
+  border-radius:11px!important;
+  background:#30343a!important;
+  color:#fff!important;
+  font:760 15px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif!important;
+}
+</style>
+
+<script id="findai-v168-stability-script">
+(function(){
+  'use strict';
+
+  /* =========================================================
+     1. STATE — data only.
+     We intentionally DO NOT move Home DOM nodes into a fragment.
+     That was too memory-expensive on iOS Safari.
+     ========================================================= */
+  let homeState=null;
+  let searchState=null;
+  let contextualItem=null;
+  let contextualData=null;
+  let openingSearchReel=false;
+  let profileHydrateToken=0;
+
+  function personalFeed(){
+    return document.getElementById('personalFeed');
+  }
+
+  function contextLayer(){
+    let layer=document.getElementById('findaiContextualReelV168');
+    if(layer)return layer;
+
+    const wrap=document.querySelector('#discover .discover-feed-wrap');
+    if(!wrap)return null;
+
+    layer=document.createElement('div');
+    layer.id='findaiContextualReelV168';
+    layer.innerHTML='<div class="findai-v168-context-feed" id="findaiContextualFeedV168"></div>';
+    wrap.appendChild(layer);
+    return layer;
+  }
+
+  function contextFeed(){
+    contextLayer();
+    return document.getElementById('findaiContextualFeedV168');
+  }
+
+  function contextVisible(){
+    return !!document.getElementById('findaiContextualReelV168')?.classList.contains('show');
+  }
+
+  function cloneFeedState(value){
+    if(!value)return {};
+    const out={...value};
+    /* Maps/Sets must stay usable after restoring. */
+    if(value.seen instanceof Set)out.seen=new Set(value.seen);
+    if(value.familyCounts instanceof Map)out.familyCounts=new Map(value.familyCounts);
+    if(Array.isArray(value.interests))out.interests=value.interests;
+    return out;
+  }
+
+  function captureHome(){
+    const feed=personalFeed();
+    if(!feed)return false;
+    if(!Array.isArray(window.currentFeedItems)||!currentFeedItems.length)return false;
+    if(!window.feedState||String(feedState.source||'')!=='personalised')return false;
+    if(!feed.querySelector('.reel-card'))return false;
+
+    homeState={
+      items:currentFeedItems.slice(),
+      data:currentFeedData,
+      state:cloneFeedState(feedState),
+      active:Number(activeReelIndex)||0,
+      scroll:Number(feed.scrollTop)||0
+    };
+    return true;
+  }
+
+  function restoreHomeGlobals(){
+    if(!homeState)return false;
+    currentFeedItems=homeState.items.slice();
+    currentFeedData=homeState.data;
+    feedState=cloneFeedState(homeState.state);
+    feedState.source='personalised';
+    activeReelIndex=homeState.active;
+    return true;
+  }
+
+  function captureSearch(){
+    if(!Array.isArray(window.currentFeedItems)||!currentFeedItems.length)return false;
+    if(!window.feedState)return false;
+    const source=String(feedState.source||'');
+    if(source==='personalised'||source==='contextual-reel'||source==='search-reel')return false;
+
+    searchState={
+      items:currentFeedItems.slice(),
+      data:currentFeedData,
+      state:cloneFeedState(feedState),
+      active:Number(activeReelIndex)||0
+    };
+    return true;
+  }
+
+  function restoreSearchGlobals(){
+    if(!searchState)return false;
+    currentFeedItems=searchState.items.slice();
+    currentFeedData=searchState.data;
+    feedState=cloneFeedState(searchState.state);
+    activeReelIndex=searchState.active;
+    return true;
+  }
+
+  function hideContextualReel(){
+    const layer=document.getElementById('findaiContextualReelV168');
+    if(layer)layer.classList.remove('show');
+    contextualItem=null;
+    contextualData=null;
+    window.__findaiExploreInjectedFeed=false;
+    openingSearchReel=false;
+  }
+
+  /* Capture Home before any tab can replace the global search/feed state. */
+  document.addEventListener('pointerdown',event=>{
+    const nav=event.target.closest&&event.target.closest('.premium-bottom-nav button[data-tab]');
+    if(!nav)return;
+
+    const target=String(nav.dataset.tab||'');
+    const active=String(document.body.dataset.activeTab||'');
+
+    if(active==='discover'&&!contextVisible()&&target!=='discover'){
+      captureHome();
+    }
+  },true);
+
+  /* Keep a lightweight up-to-date Home snapshot while Home is actually visible. */
+  let snapshotTimer=0;
+  function scheduleHomeSnapshot(){
+    clearTimeout(snapshotTimer);
+    snapshotTimer=setTimeout(()=>{
+      if(
+        String(document.body.dataset.activeTab||'')==='discover' &&
+        !contextVisible()
+      )captureHome();
+    },80);
+  }
+
+  const feed=personalFeed();
+  if(feed)feed.addEventListener('scroll',scheduleHomeSnapshot,{passive:true});
+
+  setTimeout(captureHome,700);
+  setTimeout(captureHome,1500);
+
+  /* =========================================================
+     2. HOME — no network refresh merely because the user taps Home.
+     ========================================================= */
+  window.openForYou=function(){
+    /* Search result reel -> actual Home. */
+    if(contextVisible()){
+      hideContextualReel();
+      restoreHomeGlobals();
+      go('discover');
+      try{setMainNavActive('discover');}catch(_){}
+      const feed=personalFeed();
+      if(feed&&homeState){
+        requestAnimationFrame(()=>{
+          feed.scrollTop=homeState.scroll||0;
+          try{
+            if(reelObserver)reelObserver.disconnect();
+            attachReelObserver();
+            beginReelTracking(activeReelIndex);
+          }catch(_){}
+        });
+      }
+      return;
+    }
+
+    /* Returning from Search / Messages / Profile. */
+    if(homeState&&personalFeed()?.querySelector('.reel-card')){
+      restoreHomeGlobals();
+      go('discover');
+      try{setMainNavActive('discover');}catch(_){}
+      requestAnimationFrame(()=>{
+        const feed=personalFeed();
+        if(feed)feed.scrollTop=homeState.scroll||0;
+        try{
+          if(reelObserver)reelObserver.disconnect();
+          attachReelObserver();
+          beginReelTracking(activeReelIndex);
+        }catch(_){}
+      });
+      return;
+    }
+
+    /* First-ever Home load only. */
+    go('discover');
+    if(personalFeed()?.querySelector('.reel-card')&&String(feedState&&feedState.source||'')==='personalised'){
+      captureHome();
+      return;
+    }
+
+    try{loadPersonalisedFeed({forceNetwork:false});}catch(_){}
+  };
+
+  /* =========================================================
+     3. SEARCH RESULT -> one exact reel ABOVE Home.
+        PersonalFeed itself is never replaced, so an older Home
+        async repaint cannot visually overwrite the selected item.
+     ========================================================= */
+  window.openSearchResultDetail=function(index){
+    if(openingSearchReel)return;
+
+    const list=Array.isArray(currentFeedItems)?currentFeedItems.slice():[];
+    const chosen=Math.max(0,Math.min(list.length-1,Number(index)||0));
+    const selected=list[chosen];
+
+    if(!selected){
+      try{toast('This listing could not be opened.')}catch(_){}
+      return;
+    }
+
+    openingSearchReel=true;
+    captureSearch();
+
+    try{
+      if(typeof findaiRememberRecentProduct==='function'){
+        findaiRememberRecentProduct(selected);
+      }
+    }catch(_){}
+
+    /* Abort any now-irrelevant Search fetch before switching global feed state. */
+    try{
+      if(feedRequestController)feedRequestController.abort();
+    }catch(_){}
+
+    contextualItem=selected;
+    contextualData=currentFeedData;
+
+    currentFeedItems=[selected];
+    currentFeedData=contextualData||{personalised:true};
+    feedState={
+      ...(feedState||{}),
+      source:'contextual-reel',
+      query:'',
+      resolvedQuery:'',
+      loading:false,
+      hasMore:false,
+      cursor:null
+    };
+    activeReelIndex=0;
+    window.__findaiExploreInjectedFeed=false;
+
+    const layer=contextLayer();
+    const out=contextFeed();
+    if(!layer||!out){
+      openingSearchReel=false;
+      return;
+    }
+
+    /* Stop the hidden Home observer from changing reel globals underneath us. */
+    try{if(reelObserver)reelObserver.disconnect();}catch(_){}
+
+    out.innerHTML=renderReelCard(selected,0,currentFeedData);
+    out.scrollTop=0;
+
+    try{hideRecents();}catch(_){}
+    go('discover');
+    try{setMainNavActive('discover');}catch(_){}
+    try{showFeedHeader();bindFeedHeaderAutoHide();}catch(_){}
+
+    layer.classList.add('show');
+
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      out.scrollTop=0;
+      activeReelIndex=0;
+      try{beginReelTracking(0);}catch(_){}
+      openingSearchReel=false;
+    }));
+  };
+
+  /* Search tab from a contextual reel returns to the SAME Search results page. */
+  document.addEventListener('click',event=>{
+    const button=event.target.closest&&event.target.closest('.premium-bottom-nav button[data-tab="search"]');
+    if(!button||!contextVisible())return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if(event.stopImmediatePropagation)event.stopImmediatePropagation();
+
+    hideContextualReel();
+    restoreSearchGlobals();
+    go('search');
+    try{setMainNavActive('search');}catch(_){}
+  },true);
+
+  /* =========================================================
+     4. NEW CONVERSATION — profile identity in the middle.
+     ========================================================= */
+  function messageProfileMarkup(c,extra){
+    const x=c||{};
+    const info=extra||{};
+    const name=String(
+      info.displayName||
+      x.otherParty||
+      'WishWave member'
+    ).trim();
+
+    const username=String(
+      info.username||
+      x.otherPartyUsername||
+      ''
+    ).replace(/^@+/,'').trim();
+
+    const avatar=String(
+      info.avatarUrl||
+      x.otherPartyAvatar||
+      ''
+    ).trim();
+
+    const initial=escapeHTML(appMpInitial(name));
+    const followers=Number(info.followerCount);
+    const posts=Number(info.activeCount);
+    const hasStats=Number.isFinite(followers)||Number.isFinite(posts);
+
+    return '<div class="findai-first-message-profile v168" id="findaiV168FirstMessageProfile">'+
+      '<div class="findai-first-message-profile-avatar">'+
+        (avatar
+          ?'<img src="'+escapeAttr(avatar)+'" alt="">'
+          :initial)+
+      '</div>'+
+      '<div class="findai-first-message-profile-name">'+escapeHTML(name)+'</div>'+
+      (username
+        ?'<div class="findai-first-message-profile-username">@'+escapeHTML(username)+'</div>'
+        :'')+
+      (hasStats
+        ?'<div class="findai-v168-profile-stats">'+
+           (Number.isFinite(followers)?escapeHTML(profileMetricCompact(Math.max(0,followers)))+' followers':'')+
+           (Number.isFinite(followers)&&Number.isFinite(posts)?' · ':'')+
+           (Number.isFinite(posts)?escapeHTML(profileMetricCompact(Math.max(0,posts)))+' posts':'')+
+         '</div>'
+        :'')+
+      (username
+        ?'<button type="button" class="findai-v168-view-profile" onclick="openFindAIProfileByUsername(\''+escapeAttr(username)+'\')">View profile</button>'
+        :'')+
+    '</div>';
+  }
+
+  async function hydrateEmptyConversationProfile(c){
+    const token=++profileHydrateToken;
+    const username=String(c&&c.otherPartyUsername||'').replace(/^@+/,'').trim();
+    if(!username)return;
+
+    try{
+      const data=await marketplaceFetch(
+        '/profile/public/'+encodeURIComponent(username),
+        {method:'GET'}
+      );
+      if(token!==profileHydrateToken)return;
+
+      const root=document.getElementById('appMpMessages');
+      const card=document.getElementById('findaiV168FirstMessageProfile');
+      if(!root||!card||root.querySelector('.app-mp-bubble'))return;
+
+      const profile=data&&data.profile||{};
+      root.innerHTML=messageProfileMarkup(c,{
+        displayName:profile.displayName||c.otherParty,
+        username:profile.username||username,
+        avatarUrl:profile.avatarUrl||c.otherPartyAvatar,
+        followerCount:Number(data&&data.followerCount),
+        activeCount:Number(data&&data.activeCount)
+      });
+    }catch(_){}
+  }
+
+  /* Show it immediately while the empty conversation request is loading. */
+  const renderChatBeforeV168=window.renderAppMpChat;
+  if(typeof renderChatBeforeV168==='function'){
+    window.renderAppMpChat=function(id,newBuyer){
+      const result=renderChatBeforeV168.apply(this,arguments);
+      const c=window.appMpCurrentConversation||appMpCurrentConversation;
+      const root=document.getElementById('appMpMessages');
+
+      if(
+        root &&
+        c &&
+        (!String(c.lastMessage||'').trim()) &&
+        (newBuyer||!!String(c.otherParty||'').trim())
+      ){
+        root.innerHTML=messageProfileMarkup(c);
+        hydrateEmptyConversationProfile(c);
+      }
+      return result;
+    };
+  }
+
+  /* Keep the identity card when the server confirms there are zero messages. */
+  window.appMpLoadMessages=async function(){
+    if(!appMpConversation)return;
+
+    const root=document.getElementById('appMpMessages');
+    if(!root)return;
+
+    const near=root.scrollHeight-root.scrollTop-root.clientHeight<90;
+    const wasEmpty=!root.dataset.loaded;
+
+    try{
+      const data=await marketplaceFetch(
+        '/marketplace/conversations/'+encodeURIComponent(appMpConversation)+'/messages',
+        {method:'GET'}
+      );
+
+      const messages=Array.isArray(data&&data.messages)?data.messages:[];
+      appMpCurrentOffers=Array.isArray(data&&data.offers)?data.offers:[];
+      appMpCurrentConversation=(data&&data.conversation)||appMpCurrentConversation;
+      appMpRenderMessageHeader(appMpCurrentConversation,data&&data.presence);
+
+      if(messages.length){
+        root.innerHTML=appMpMessageTimeline(messages);
+      }else{
+        root.innerHTML=messageProfileMarkup(appMpCurrentConversation);
+        hydrateEmptyConversationProfile(appMpCurrentConversation);
+      }
+
+      root.dataset.loaded='1';
+      if(near||wasEmpty)root.scrollTop=root.scrollHeight;
+      if(typeof appRefreshMarketplaceBadge==='function')appRefreshMarketplaceBadge();
+    }catch(error){
+      if(!root.dataset.loaded){
+        root.innerHTML='<div class="app-mp-empty">'+
+          escapeHTML(error&&error.message||'Messages could not be loaded')+
+          '<br><button class="app-mp-mini" onclick="appMpLoadMessages()">Try again</button>'+
+        '</div>';
+      }
+    }
+  };
+})();
+</script>
+
 </body>
 </html>
