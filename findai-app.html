@@ -3460,7 +3460,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
         <button class="account-menu-item" onclick="closeAccountMenu();go('tracker')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 17l5-5 3.5 3.5L20 8"/><path d="M16 8h4v4"/></svg><span>Tracked products</span><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
         <button class="account-menu-item" onclick="appEnableNotifications()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span>Phone notifications</span><span class="app-push-state" id="appPushState">Off</span></button>
         <button class="account-menu-item" onclick="openAppSettings()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06-2.83 2.83-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6 1.7 1.7 0 0 0-.4 1.1V21h-4v-.1A1.7 1.7 0 0 0 8.6 19.4a1.7 1.7 0 0 0-1.87.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1 1.7 1.7 0 0 0-1.1-.4H3v-4h.1A1.7 1.7 0 0 0 4.6 8.6a1.7 1.7 0 0 0-.34-1.87l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6 1.7 1.7 0 0 0 .4-1.1V3h4v.1A1.7 1.7 0 0 0 15.4 4.6a1.7 1.7 0 0 0 1.87-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.4 9c.25.37.6.7 1 .9.34.17.72.25 1.1.25H21v4h-.1a1.7 1.7 0 0 0-1.5.85z"/></svg><span>Settings</span><svg class="chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
-        <button class="account-menu-item danger" onclick="signOutAccount()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 17l5-5-5-5M15 12H3M14 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5"/></svg><span>Log out</span><span></span></button>
+        <button class="account-menu-item danger" onclick="requestFindAILogout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 17l5-5-5-5M15 12H3M14 4h5a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-5"/></svg><span>Log out</span><span></span></button>
       </div>
     </div>
   </div>
@@ -11629,7 +11629,7 @@ window.addEventListener('load', function(){
       +(profile?'<section class="findai-settings-section"><div class="findai-settings-section-title">Your account</div>'+settingsRow('edit',profileIcon,'Edit profile','Name, username, photo and bio',"closeAppSettings();openProfileEdit()")+settingsRow('saved',heartIcon,'Liked items','Products you have saved',"closeAppSettings();openProfile();setTimeout(()=>setProfileTab('liked'),80)")+'</section>':'')
       +'<section class="findai-settings-section"><div class="findai-settings-section-title">How you use WishWave</div>'+settingsRow('messages',msgIcon,'Messages','Marketplace conversations',"closeAppSettings();openMessagesTab()")+settingsRow('notifications',bell,'Notifications','Price drops, messages and saved items',"closeAppSettings();appEnableNotifications()")+'</section>'
       +'<section class="findai-settings-section"><div class="findai-settings-section-title">Appearance</div><div class="findai-settings-appearance" data-settings-search="appearance system light dark"><div class="app-theme-segment"><button class="app-theme-choice" type="button" data-app-theme-choice="system" onclick="setAppTheme(\'system\')">System</button><button class="app-theme-choice" type="button" data-app-theme-choice="light" onclick="setAppTheme(\'light\')">Light</button><button class="app-theme-choice" type="button" data-app-theme-choice="dark" onclick="setAppTheme(\'dark\')">Dark</button></div></div></section>'
-      +(profile?'<section class="findai-settings-section">'+settingsRow('logout',logout,'Log out',profile.email||'',"closeAppSettings();signOutAccount()",true)+'</section>':'')
+      +(profile?'<section class="findai-settings-section">'+settingsRow('logout',logout,'Log out',profile.email||'',"closeAppSettings();requestFindAILogout()",true)+'</section>':'')
       +'</div>';
     overlay.classList.add('findai-settings-full','show');document.body.classList.add('findai-settings-open');applyAppTheme();
   };
@@ -12474,6 +12474,35 @@ window.addEventListener('load', function(){
   document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState==='visible'&&marketplaceSession())loadHomeNotifications().catch(()=>{});
   });
+
+  /* v161: expose controlled access to the REAL notification state.
+     Do not duplicate this state in later scripts. */
+  window.findaiNotificationState={
+    getCache:()=>appNotificationCache,
+    getUnread:()=>appNotificationUnread,
+    setUnread:value=>{
+      appNotificationUnread=Math.max(0,Number(value)||0);
+      return appNotificationUnread;
+    },
+    markAllLocalRead:()=>{
+      const now=Date.now();
+      const state=readLocalNoticeState();
+      appNotificationCache.forEach(n=>{
+        n.read_at=n.read_at||new Date(now).toISOString();
+        if(n.local&&n.id)state[n.id]=now;
+      });
+      writeLocalNoticeState(state);
+      appNotificationUnread=0;
+      return appNotificationCache;
+    },
+    readLocalNoticeState,
+    writeLocalNoticeState,
+    ensureUI:ensureNotificationUI,
+    load:loadHomeNotifications,
+    render:renderHomeNotifications,
+    close:closeHomeNotifications
+  };
+  window.renderHomeNotifications=renderHomeNotifications;
 })();
 </script>
 
@@ -17468,7 +17497,7 @@ html.findai-light .findai-settings-switch.on{background:#4d8cff}
     </div>
     <div class="findai-username-status" id="findaiUsernameStatus">3–30 characters · letters, numbers, periods and underscores</div>
     <button class="findai-onboard-primary" id="findaiUsernameContinue" type="button" disabled>Continue</button>
-    <button class="findai-onboard-signout" type="button" onclick="signOutAccount()">Use another account</button>
+    <button class="findai-onboard-signout" type="button" onclick="requestFindAILogout()">Use another account</button>
   </div>
 </div>
 
@@ -17592,7 +17621,7 @@ html.findai-light .findai-settings-switch.on{background:#4d8cff}
         settingRow('Appearance','System, light or dark',"findaiOpenSettingsPane('appearance')",icons.palette)+
         settingRow('Help & support','Help, report a problem, privacy and terms',"findaiOpenSettingsPane('support')",icons.help)+
       '</section>'+
-      (profile?'<section class="findai-settings-section">'+settingRow('Log out',profile.email||'',"closeAppSettings();signOutAccount()",icons.logout,'',true)+'</section>':'')+
+      (profile?'<section class="findai-settings-section">'+settingRow('Log out',profile.email||'',"closeAppSettings();requestFindAILogout()",icons.logout,'',true)+'</section>':'')+
       '</div>';
     ensureSettingsOpen();applyAppTheme();
   };
@@ -18240,7 +18269,7 @@ html.findai-light .findai-settings-search-result{color:#111;border-bottom-color:
         row('Appearance','System, light or dark',"findaiOpenSettingsPane('appearance')",'palette')+
         row('Help & support','Help, report a problem, privacy and terms',"findaiOpenSettingsPane('support')",'help')+
       '</section>'+
-      (profile?'<section class="findai-settings-section">'+row('Log out','Sign out of this account',"closeAppSettings();signOutAccount()",'logout','',true)+'</section>':'')+
+      (profile?'<section class="findai-settings-section">'+row('Log out','Sign out of this account',"closeAppSettings();requestFindAILogout()",'logout','',true)+'</section>':'')+
       '</div></div>';
     showOverlay();
   };
@@ -21086,371 +21115,7 @@ html.findai-light .app>.nav.findai-five-nav.premium-bottom-nav button[data-tab].
 @keyframes findaiNotifPulse{from{opacity:.3}to{opacity:1}}
 </style>
 
-<script id="findai-v159-notification-dedicated-script">
-(function(){
-  'use strict';
 
-  let opening=false;
-  let notificationReelToken=0;
-
-  function currentNotice(index){
-    const i=Number(index);
-    if(!Number.isFinite(i))return null;
-    return appNotificationCache&&appNotificationCache[i]||null;
-  }
-
-  function noticeType(n){
-    return String(n&&n.notification_type||'').toLowerCase();
-  }
-
-  function paramFromNotice(n,key){
-    try{
-      const raw=String(n&&(n.target_url||n.targetUrl)||'');
-      if(!raw)return '';
-      return String(new URL(raw,location.origin).searchParams.get(key)||'').trim();
-    }catch(_){return ''}
-  }
-
-  function listingIdFromNotice(n){
-    const type=noticeType(n);
-    const direct=String(n&&(n.listing_id||n.listingId)||'').trim();
-    if(direct)return direct;
-
-    const param=paramFromNotice(n,'listing');
-    if(param)return param;
-
-    if(type.includes('comment')||type.includes('like')||type.includes('listing')||type.includes('view')){
-      return String(n&&n.entity_id||'').trim();
-    }
-    return '';
-  }
-
-  function commentIdFromNotice(n){
-    return String(
-      n&&(n.comment_id||n.commentId)||paramFromNotice(n,'comment')||''
-    ).trim();
-  }
-
-  function conversationIdFromNotice(n){
-    const direct=String(n&&(n.conversation_id||n.conversationId)||'').trim();
-    return direct||paramFromNotice(n,'conversation');
-  }
-
-  function markNoticeRead(n){
-    if(!n)return;
-    if(!n.read_at)n.read_at=new Date().toISOString();
-
-    appNotificationUnread=(appNotificationCache||[]).reduce(
-      (sum,item)=>sum+(!item.read_at?1:0),0
-    );
-    try{setHomeNotificationState(appNotificationUnread);}catch(_){}
-
-    if(!n.local&&n.id&&marketplaceSession()){
-      marketplaceFetch('/marketplace/notifications/read',{
-        method:'POST',
-        body:JSON.stringify({id:n.id})
-      }).catch(()=>{});
-    }else if(n.local&&n.id){
-      try{
-        const state=readLocalNoticeState();
-        state[n.id]=Date.now();
-        writeLocalNoticeState(state);
-      }catch(_){}
-    }
-  }
-
-  function notificationRow(index){
-    return document.querySelector(
-      '#findaiNotificationList .findai-notification-item[data-notification-index="'+Number(index)+'"]'
-    );
-  }
-
-  function setOpening(index,value){
-    const row=notificationRow(index);
-    if(row)row.classList.toggle('findai-notification-opening',!!value);
-  }
-
-  async function getListing(n){
-    const listingId=listingIdFromNotice(n);
-    if(!listingId)throw new Error('This notification is missing its listing link.');
-
-    const data=await marketplaceFetch(
-      '/marketplace/listings/'+encodeURIComponent(listingId),
-      {method:'GET'}
-    );
-    const item=data&&(data.listing||data.item);
-    if(!item)throw new Error('That listing is no longer available.');
-    return item;
-  }
-
-  function itemId(item){
-    try{return String(appMpId(item)||'')}catch(_){return ''}
-  }
-
-  function renderExactNotificationReel(item){
-    const wanted=itemId(item);
-    const token=++notificationReelToken;
-
-    try{closeHomeNotifications();}catch(_){}
-    go('discover');
-    try{setMainNavActive('discover');}catch(_){}
-
-    const feed=document.getElementById('personalFeed');
-    if(!feed)return false;
-
-    const apply=()=>{
-      if(token!==notificationReelToken)return;
-      currentFeedItems=[item];
-      currentFeedData={personalised:true,notification:true};
-      feedState={
-        ...(feedState||{}),
-        source:'notification-reel',
-        query:'',
-        resolvedQuery:'',
-        loading:false,
-        hasMore:false,
-        cursor:null
-      };
-      activeReelIndex=0;
-      feed.classList.remove('search-grid-mode');
-      feed.innerHTML=renderReelCard(item,0,currentFeedData);
-      feed.scrollTop=0;
-      window.__findaiExploreInjectedFeed=true;
-      try{showFeedHeader();bindFeedHeaderAutoHide();}catch(_){}
-      try{preloadPersonalisedImages(0,4);}catch(_){}
-    };
-
-    apply();
-
-    /* Home has several historical async loaders. Verify twice that none of them
-       replaced the clicked notification reel after navigation. */
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      if(token!==notificationReelToken)return;
-      const live=currentFeedItems&&currentFeedItems[0];
-      if(wanted&&itemId(live)!==wanted)apply();
-      try{attachReelObserver();beginReelTracking(0);}catch(_){}
-    }));
-
-    setTimeout(()=>{
-      if(token!==notificationReelToken)return;
-      const live=currentFeedItems&&currentFeedItems[0];
-      if(wanted&&itemId(live)!==wanted){
-        apply();
-        try{attachReelObserver();beginReelTracking(0);}catch(_){}
-      }
-    },260);
-
-    return true;
-  }
-
-  function commentRows(){
-    return [...document.querySelectorAll('.wishwave-comments-list .wishwave-comment')];
-  }
-
-  function commentRowId(row){
-    return String(
-      row&&(
-        row.dataset.commentId||
-        row.getAttribute('data-comment-id')||
-        row.querySelector('[data-comment-id]')?.getAttribute('data-comment-id')
-      )||''
-    ).trim();
-  }
-
-  function highlightComment(n){
-    const exactId=commentIdFromNotice(n);
-    const wanted=String(n&&n.body||'').trim();
-    const actor=String(n&&(n.actor_username||n.actor_display_name)||'')
-      .replace(/^@/,'').trim().toLowerCase();
-
-    const rows=commentRows();
-    let target=null;
-
-    if(exactId){
-      target=rows.find(row=>commentRowId(row)===exactId)||null;
-    }
-
-    if(!target){
-      target=rows.find(row=>{
-        const body=String(
-          row.querySelector('.wishwave-comment-copy p')?.textContent||
-          row.querySelector('p')?.textContent||''
-        ).trim();
-        const name=String(
-          row.querySelector('.wishwave-comment-head b')?.textContent||
-          row.querySelector('b')?.textContent||''
-        ).replace(/^@/,'').trim().toLowerCase();
-
-        const bodyMatch=!wanted||body===wanted;
-        const actorMatch=!actor||name===actor||name.includes(actor);
-        return bodyMatch&&actorMatch;
-      })||null;
-    }
-
-    if(!target&&wanted){
-      target=rows.find(row=>{
-        const text=String(row.textContent||'').trim();
-        return text.includes(wanted);
-      })||null;
-    }
-
-    if(!target)return false;
-
-    target.classList.add('findai-notification-comment-target');
-    try{target.scrollIntoView({block:'center',behavior:'smooth'});}catch(_){}
-    setTimeout(()=>target.classList.remove('findai-notification-comment-target'),1800);
-    return true;
-  }
-
-  async function openCommentNotice(n){
-    const item=await getListing(n);
-    if(!renderExactNotificationReel(item))throw new Error('Could not open listing.');
-
-    /* Wait for the exact reel DOM before opening its Comments sheet. */
-    await new Promise(resolve=>requestAnimationFrame(
-      ()=>requestAnimationFrame(()=>setTimeout(resolve,45))
-    ));
-
-    await window.openWishWaveComments(0,null);
-
-    /* Cached comments paint synchronously; network comments may take a moment. */
-    if(!highlightComment(n)){
-      [120,300,650,1100].forEach(delay=>setTimeout(()=>highlightComment(n),delay));
-    }
-  }
-
-  async function openListingNotice(n){
-    const item=await getListing(n);
-    if(!renderExactNotificationReel(item))throw new Error('Could not open listing.');
-  }
-
-  async function openMessageNotice(n,index,event){
-    const conversationId=conversationIdFromNotice(n);
-    if(conversationId){
-      closeHomeNotifications();
-      try{
-        document.body.dataset.activeTab='messages';
-        setMainNavActive('messages');
-      }catch(_){}
-      await openAppMarketplaceInbox(conversationId);
-      return;
-    }
-
-    /* Older message notices may not have a conversation URL. Open the actor
-       profile rather than silently doing nothing. */
-    return findaiNotificationOpenActor(event,index);
-  }
-
-  async function routeNotification(index,event){
-    if(opening)return;
-    const n=currentNotice(index);
-    if(!n)return;
-
-    opening=true;
-    setOpening(index,true);
-    markNoticeRead(n);
-
-    const type=noticeType(n);
-
-    try{
-      if(type.includes('comment')){
-        /* Close immediately so the tap visibly responds before any network work. */
-        closeHomeNotifications();
-        go('discover');
-        try{setMainNavActive('discover');}catch(_){}
-        await openCommentNotice(n);
-        return;
-      }
-
-      if(type.includes('like')||type.includes('followed_seller_listing')||type.includes('view')){
-        closeHomeNotifications();
-        go('discover');
-        try{setMainNavActive('discover');}catch(_){}
-        await openListingNotice(n);
-        return;
-      }
-
-      if(type.includes('message')){
-        await openMessageNotice(n,index,event);
-        return;
-      }
-
-      if(type.includes('follow')){
-        await findaiNotificationOpenActor(event,index);
-        return;
-      }
-
-      /* Offer / price-drop / legacy notifications retain the old route. */
-      closeHomeNotifications();
-      if(typeof openFindAINotification==='function'){
-        await openFindAINotification(index);
-        return;
-      }
-    }catch(error){
-      console.error('v159 notification navigation failed',error);
-      try{toast(error&&error.message||'Could not open this notification');}catch(_){}
-      /* If we moved to Home but failed to resolve content, reopen Activity so
-         the user isn't left staring at an unrelated screen. */
-      try{
-        ensureNotificationUI();
-        const panel=document.getElementById('findaiNotificationPanel');
-        const backdrop=document.getElementById('findaiNotificationBackdrop');
-        if(panel)panel.classList.add('show');
-        if(backdrop)backdrop.classList.add('show');
-      }catch(_){}
-    }finally{
-      opening=false;
-      setOpening(index,false);
-      try{renderHomeNotifications();}catch(_){}
-    }
-  }
-
-  window.findaiNotificationOpenContent=routeNotification;
-
-  /* ---------------------------------------------------------
-     One permanent document-level click handler.
-     It does NOT depend on the notification panel existing when
-     this script first runs, fixing the v158 missing-listener bug.
-     --------------------------------------------------------- */
-  document.addEventListener('click',event=>{
-    const row=event.target&&event.target.closest
-      ?event.target.closest('#findaiNotificationList .findai-notification-item[data-notification-index]')
-      :null;
-    if(!row)return;
-
-    /* Actor name/avatar and Follow/Confirm/Delete controls own their action. */
-    if(event.target.closest('.findai-notification-control'))return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    if(typeof event.stopImmediatePropagation==='function')event.stopImmediatePropagation();
-
-    routeNotification(Number(row.dataset.notificationIndex)||0,event);
-  },true);
-
-  document.addEventListener('keydown',event=>{
-    if(event.key!=='Enter'&&event.key!==' ')return;
-    const row=event.target&&event.target.closest
-      ?event.target.closest('#findaiNotificationList .findai-notification-item[data-notification-index]')
-      :null;
-    if(!row||event.target.closest('.findai-notification-control'))return;
-    event.preventDefault();
-    routeNotification(Number(row.dataset.notificationIndex)||0,event);
-  },true);
-
-  /* Make sure every render has an index immediately, not one RAF later. */
-  const priorRender=window.renderHomeNotifications;
-  if(typeof priorRender==='function'){
-    window.renderHomeNotifications=function(){
-      const result=priorRender.apply(this,arguments);
-      document.querySelectorAll('#findaiNotificationList .findai-notification-item').forEach((row,i)=>{
-        if(!row.dataset.notificationIndex)row.dataset.notificationIndex=String(i);
-      });
-      return result;
-    };
-  }
-})();
-</script>
 
 
 <style id="findai-v160-final-style">
@@ -21666,69 +21331,6 @@ html.findai-light .nav-messages-badge{border-color:#f7f7f8!important}
   'use strict';
 
   /* =========================================================
-     1) Activity: native button click, plus touch fallback.
-     ========================================================= */
-  let touchNotice=null;
-
-  document.addEventListener('touchstart',event=>{
-    const hit=event.target&&event.target.closest
-      ?event.target.closest('.findai-notification-hit')
-      :null;
-    if(!hit||event.touches.length!==1){touchNotice=null;return;}
-    const row=hit.closest('.findai-notification-item');
-    const t=event.touches[0];
-    touchNotice={
-      hit,row,
-      index:Number(row&&row.dataset.notificationIndex)||0,
-      x:t.clientX,y:t.clientY,moved:false
-    };
-  },{capture:true,passive:true});
-
-  document.addEventListener('touchmove',event=>{
-    if(!touchNotice||event.touches.length!==1)return;
-    const t=event.touches[0];
-    if(Math.abs(t.clientX-touchNotice.x)>9||Math.abs(t.clientY-touchNotice.y)>9){
-      touchNotice.moved=true;
-    }
-  },{capture:true,passive:true});
-
-  document.addEventListener('touchend',event=>{
-    if(!touchNotice)return;
-    const state=touchNotice;
-    touchNotice=null;
-    if(state.moved)return;
-
-    /* iOS occasionally suppresses click after scrolling inside fixed panels.
-       Route from touchend as a fallback, then suppress the synthetic click. */
-    if(state.hit){
-      state.hit.dataset.touchOpened=String(Date.now());
-      event.preventDefault();
-      event.stopPropagation();
-      window.findaiNotificationOpenContent&&
-        window.findaiNotificationOpenContent(event,state.index);
-    }
-  },{capture:true,passive:false});
-
-  document.addEventListener('click',event=>{
-    const hit=event.target&&event.target.closest
-      ?event.target.closest('.findai-notification-hit')
-      :null;
-    if(!hit)return;
-    const stamp=Number(hit.dataset.touchOpened||0);
-    if(stamp&&Date.now()-stamp<700){
-      event.preventDefault();
-      event.stopPropagation();
-      return;
-    }
-    const row=hit.closest('.findai-notification-item');
-    const index=Number(row&&row.dataset.notificationIndex)||0;
-    event.preventDefault();
-    event.stopPropagation();
-    window.findaiNotificationOpenContent&&
-      window.findaiNotificationOpenContent(event,index);
-  },true);
-
-  /* =========================================================
      2) Messages unread count is owned by the Messages tab.
      ========================================================= */
   function paintMessageBadge(count){
@@ -21858,6 +21460,478 @@ html.findai-light .nav-messages-badge{border-color:#f7f7f8!important}
   }
 
   setTimeout(warmFollowerCount,300);
+})();
+</script>
+
+
+<style id="findai-v161-notifications-logout-style">
+/* Notification rows are now truly tappable. */
+.findai-notification-item{
+  position:relative!important;
+}
+.findai-notification-hit{
+  position:absolute!important;
+  inset:0!important;
+  z-index:3!important;
+  display:block!important;
+  width:100%!important;
+  height:100%!important;
+  padding:0!important;
+  margin:0!important;
+  border:0!important;
+  background:transparent!important;
+  cursor:pointer!important;
+  touch-action:manipulation!important;
+  -webkit-tap-highlight-color:rgba(255,255,255,.06)!important;
+}
+.findai-notification-copy,
+.findai-notification-side-thumb,
+.findai-notification-chevron{
+  position:relative!important;
+  z-index:2!important;
+  pointer-events:none!important;
+}
+.findai-notification-control,
+.findai-notification-action,
+.findai-notification-actor-avatar,
+.findai-notification-actor-name{
+  position:relative!important;
+  z-index:5!important;
+  pointer-events:auto!important;
+}
+.findai-notification-hit:active{
+  background:rgba(255,255,255,.045)!important;
+}
+
+/* Logout confirmation */
+.findai-logout-confirm{
+  text-align:center!important;
+  padding:8px 2px 2px!important;
+}
+.findai-logout-confirm b{
+  display:block!important;
+  font-size:18px!important;
+  color:#f6f7f8!important;
+  margin-bottom:7px!important;
+}
+.findai-logout-confirm p{
+  margin:0 14px 18px!important;
+  color:#9298a2!important;
+  font-size:12px!important;
+  line-height:1.45!important;
+}
+.findai-logout-confirm-actions{
+  display:grid!important;
+  gap:8px!important;
+}
+.findai-logout-confirm-actions button{
+  width:100%!important;
+  height:48px!important;
+  border:0!important;
+  border-radius:13px!important;
+  background:#202329!important;
+  color:#f6f7f8!important;
+  font:750 13px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif!important;
+}
+.findai-logout-confirm-actions .danger{
+  color:#ff5b63!important;
+  background:#26191b!important;
+}
+</style>
+
+<script id="findai-v161-notifications-logout-script">
+(function(){
+  'use strict';
+
+  const N=()=>window.findaiNotificationState||null;
+  let routing=false;
+  let touch=null;
+  let routeStamp=0;
+
+  function cache(){
+    try{return N()?.getCache?.()||[]}catch(_){return []}
+  }
+
+  function notice(index){
+    return cache()[Math.max(0,Number(index)||0)]||null;
+  }
+
+  function typeOf(n){
+    return String(n&&n.notification_type||'').toLowerCase();
+  }
+
+  function urlParam(n,key){
+    try{
+      const raw=String(n&&(n.target_url||n.targetUrl)||'');
+      if(!raw)return '';
+      return String(new URL(raw,location.origin).searchParams.get(key)||'').trim();
+    }catch(_){return ''}
+  }
+
+  function listingId(n){
+    const type=typeOf(n);
+    return String(
+      n&&(n.listing_id||n.listingId)||
+      urlParam(n,'listing')||
+      ((type.includes('comment')||type.includes('like')||type.includes('listing')||type.includes('view'))?n.entity_id:'')||
+      ''
+    ).trim();
+  }
+
+  function commentId(n){
+    return String(
+      n&&(n.comment_id||n.commentId)||
+      urlParam(n,'comment')||
+      ''
+    ).trim();
+  }
+
+  function markRead(n){
+    if(!n)return;
+    n.read_at=n.read_at||new Date().toISOString();
+
+    const state=N();
+    if(state){
+      const unread=cache().reduce((sum,item)=>sum+(!item.read_at?1:0),0);
+      state.setUnread?.(unread);
+      try{setHomeNotificationState(unread);}catch(_){}
+    }
+
+    if(!n.local&&n.id&&marketplaceSession()){
+      marketplaceFetch('/marketplace/notifications/read',{
+        method:'POST',
+        body:JSON.stringify({id:n.id})
+      }).catch(()=>{});
+    }else if(n.local&&n.id){
+      try{
+        const s=state?.readLocalNoticeState?.()||{};
+        s[n.id]=Date.now();
+        state?.writeLocalNoticeState?.(s);
+      }catch(_){}
+    }
+  }
+
+  async function fetchListing(n){
+    const id=listingId(n);
+    if(!id)throw new Error('This notification is missing its listing link.');
+
+    const data=await marketplaceFetch(
+      '/marketplace/listings/'+encodeURIComponent(id),
+      {method:'GET'}
+    );
+
+    const item=data&&(data.listing||data.item);
+    if(!item)throw new Error('That listing is no longer available.');
+    return item;
+  }
+
+  function exactReel(item){
+    try{N()?.close?.()}catch(_){}
+    go('discover');
+    try{setMainNavActive('discover');}catch(_){}
+
+    const feed=document.getElementById('personalFeed');
+    if(!feed)return false;
+
+    currentFeedItems=[item];
+    currentFeedData={personalised:true,notification:true};
+    feedState={
+      ...(feedState||{}),
+      source:'notification-reel',
+      query:'',
+      resolvedQuery:'',
+      loading:false,
+      hasMore:false,
+      cursor:null
+    };
+    activeReelIndex=0;
+
+    feed.classList.remove('search-grid-mode');
+    feed.innerHTML=renderReelCard(item,0,currentFeedData);
+    feed.scrollTop=0;
+    window.__findaiExploreInjectedFeed=true;
+
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      feed.scrollTop=0;
+      activeReelIndex=0;
+      try{attachReelObserver();beginReelTracking(0);}catch(_){}
+      try{preloadPersonalisedImages(0,4);}catch(_){}
+    }));
+
+    return true;
+  }
+
+  function highlightComment(n){
+    const exact=commentId(n);
+    const wanted=String(n&&n.body||'').trim();
+    const actor=String(n&&(n.actor_username||n.actor_display_name)||'')
+      .replace(/^@/,'').trim().toLowerCase();
+
+    const rows=[...document.querySelectorAll('.wishwave-comments-list .wishwave-comment')];
+    let target=null;
+
+    if(exact){
+      target=rows.find(row=>
+        String(row.dataset.commentId||row.getAttribute('data-comment-id')||'')===exact
+      )||null;
+    }
+
+    if(!target){
+      target=rows.find(row=>{
+        const body=String(
+          row.querySelector('.wishwave-comment-copy p')?.textContent||
+          row.querySelector('p')?.textContent||''
+        ).trim();
+        const name=String(
+          row.querySelector('.wishwave-comment-head b')?.textContent||
+          row.querySelector('b')?.textContent||''
+        ).replace(/^@/,'').trim().toLowerCase();
+
+        return (!wanted||body===wanted)&&(!actor||name===actor||name.includes(actor));
+      })||null;
+    }
+
+    if(!target&&wanted){
+      target=rows.find(row=>String(row.textContent||'').includes(wanted))||null;
+    }
+
+    if(!target)return false;
+
+    target.classList.add('findai-notification-comment-target');
+    try{target.scrollIntoView({block:'center',behavior:'smooth'});}catch(_){}
+    setTimeout(()=>target.classList.remove('findai-notification-comment-target'),1800);
+    return true;
+  }
+
+  async function openComment(n){
+    const item=await fetchListing(n);
+    if(!exactReel(item))throw new Error('Could not open listing.');
+
+    await new Promise(resolve=>
+      requestAnimationFrame(()=>requestAnimationFrame(()=>setTimeout(resolve,50)))
+    );
+
+    await window.openWishWaveComments(0,null);
+
+    if(!highlightComment(n)){
+      [140,320,650,1050].forEach(delay=>setTimeout(()=>highlightComment(n),delay));
+    }
+  }
+
+  async function openListing(n){
+    const item=await fetchListing(n);
+    if(!exactReel(item))throw new Error('Could not open listing.');
+  }
+
+  async function route(index,event){
+    const now=Date.now();
+    if(routing&&now-routeStamp<900)return;
+
+    const n=notice(index);
+    if(!n)return;
+
+    routing=true;
+    routeStamp=now;
+    markRead(n);
+
+    const type=typeOf(n);
+
+    try{
+      if(type.includes('comment')){
+        N()?.close?.();
+        await openComment(n);
+        return;
+      }
+
+      if(type.includes('like')||type.includes('followed_seller_listing')||type.includes('view')){
+        N()?.close?.();
+        await openListing(n);
+        return;
+      }
+
+      if(type.includes('follow')){
+        await window.findaiNotificationOpenActor?.(event,index);
+        return;
+      }
+
+      if(type.includes('message')){
+        const conversation=String(
+          n.conversation_id||n.conversationId||urlParam(n,'conversation')||''
+        ).trim();
+        N()?.close?.();
+        if(conversation){
+          try{
+            document.body.dataset.activeTab='messages';
+            setMainNavActive('messages');
+          }catch(_){}
+          await openAppMarketplaceInbox(conversation);
+          return;
+        }
+      }
+
+      /* Offers, price drops and any older notification shapes keep the
+         original closure-based router, which has access to the private state. */
+      if(typeof window.openFindAINotification==='function'){
+        await window.openFindAINotification(index);
+        return;
+      }
+    }catch(error){
+      console.error('v161 notification route failed',error);
+      try{toast(error&&error.message||'Could not open this notification');}catch(_){}
+    }finally{
+      setTimeout(()=>{routing=false;},120);
+    }
+  }
+
+  window.findaiNotificationOpenContent=route;
+
+  /* iPhone-safe tap handling. No stopImmediatePropagation anywhere. */
+  document.addEventListener('pointerdown',event=>{
+    const hit=event.target&&event.target.closest
+      ?event.target.closest('.findai-notification-hit')
+      :null;
+    if(!hit){touch=null;return;}
+
+    const row=hit.closest('.findai-notification-item');
+    touch={
+      pointerId:event.pointerId,
+      index:Number(row&&row.dataset.notificationIndex)||0,
+      x:event.clientX,
+      y:event.clientY,
+      moved:false
+    };
+  },true);
+
+  document.addEventListener('pointermove',event=>{
+    if(!touch||event.pointerId!==touch.pointerId)return;
+    if(Math.abs(event.clientX-touch.x)>10||Math.abs(event.clientY-touch.y)>10){
+      touch.moved=true;
+    }
+  },true);
+
+  document.addEventListener('pointerup',event=>{
+    if(!touch||event.pointerId!==touch.pointerId)return;
+    const state=touch;
+    touch=null;
+    if(state.moved)return;
+
+    const hit=event.target&&event.target.closest
+      ?event.target.closest('.findai-notification-hit')
+      :null;
+    if(!hit)return;
+
+    hit.dataset.v161Opened=String(Date.now());
+    event.preventDefault();
+    event.stopPropagation();
+    route(state.index,event);
+  },true);
+
+  /* The inline button onclick remains as a desktop/fallback path. */
+  document.addEventListener('click',event=>{
+    const hit=event.target&&event.target.closest
+      ?event.target.closest('.findai-notification-hit')
+      :null;
+    if(!hit)return;
+
+    if(Date.now()-Number(hit.dataset.v161Opened||0)<800){
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    const row=hit.closest('.findai-notification-item');
+    event.preventDefault();
+    event.stopPropagation();
+    route(Number(row&&row.dataset.notificationIndex)||0,event);
+  },true);
+
+  /* =========================================================
+     Bell: opening Activity immediately means "seen".
+     The red dot goes away BEFORE any network request finishes.
+     This replaces the broken wrapper chain from older versions.
+     ========================================================= */
+  window.openHomeNotifications=async function(event){
+    if(event){event.preventDefault();event.stopPropagation();}
+
+    const state=N();
+    if(!state)return;
+
+    state.ensureUI?.();
+
+    const panel=document.getElementById('findaiNotificationPanel');
+    const backdrop=document.getElementById('findaiNotificationBackdrop');
+    if(!panel)return;
+
+    if(panel.classList.contains('show')){
+      state.close?.();
+      return;
+    }
+
+    /* Seen immediately. */
+    state.markAllLocalRead?.();
+    state.setUnread?.(0);
+    try{setHomeNotificationState(0);}catch(_){}
+
+    panel.classList.add('show');
+    if(backdrop)backdrop.classList.add('show');
+
+    const list=document.getElementById('findaiNotificationList');
+    if(list&&!cache().length){
+      list.innerHTML='<div class="findai-notification-empty">Loading notifications…</div>';
+    }else{
+      state.render?.();
+    }
+
+    /* Persist read state remotely without holding up the UI. */
+    if(marketplaceSession()){
+      marketplaceFetch('/marketplace/notifications/read',{
+        method:'POST',
+        body:JSON.stringify({})
+      }).catch(()=>{});
+    }
+
+    try{
+      await state.load?.();
+    }catch(_){}
+
+    /* The just-loaded server rows may still reflect pre-request read_at values.
+       Treat the batch as seen because the panel is already open. */
+    state.markAllLocalRead?.();
+    state.setUnread?.(0);
+    try{setHomeNotificationState(0);}catch(_){}
+    state.render?.();
+
+    /* One final guard against a concurrent notification refresh restoring the dot. */
+    setTimeout(()=>{try{setHomeNotificationState(0);}catch(_){ }},120);
+    setTimeout(()=>{try{setHomeNotificationState(0);}catch(_){ }},450);
+  };
+
+  /* =========================================================
+     Logout confirmation — only user-initiated logout calls this.
+     ========================================================= */
+  window.requestFindAILogout=function(){
+    try{closeAccountMenu();}catch(_){}
+    try{closeAppSettings();}catch(_){}
+
+    openAppMpSheet(
+      'Log out?',
+      '<div class="findai-logout-confirm">'+
+        '<b>Are you sure you want to log out?</b>'+
+        '<p>You can sign back in at any time.</p>'+
+        '<div class="findai-logout-confirm-actions">'+
+          '<button type="button" class="danger" onclick="confirmFindAILogout()">Log out</button>'+
+          '<button type="button" onclick="closeAppMpSheet()">Cancel</button>'+
+        '</div>'+
+      '</div>'
+    );
+  };
+
+  window.confirmFindAILogout=function(){
+    closeAppMpSheet();
+    setTimeout(()=>{
+      if(typeof signOutAccount==='function')signOutAccount();
+    },40);
+  };
 })();
 </script>
 
