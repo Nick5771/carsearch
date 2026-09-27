@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v180-functional-stability">
+<meta name="findai-build" content="v182-search-stability">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -15533,7 +15533,9 @@ if(typeof v116RenderMarketplaceListing==='function'){
     const pool=await v116GetPreviewPool(false);
     const batch=exploreQueue.splice(0,Math.min(initial?10:5,exploreQueue.length));
     const groups=await Promise.all(batch.map(config=>loadExploreConfig(config,pool,generation)));
-    if(generation!==exploreGeneration){exploreLoading=false;return;}
+    /* If the user started typing while this browse batch was in flight, the
+       batch is stale. Never append browse products into live-search results. */
+    if(generation!==exploreGeneration||exploreLiveSearchQuery){exploreLoading=false;return;}
     const incoming=[];
     for(const group of groups)for(const item of group||[]){
       const key=exploreItemKey(item);if(!key||seenExplore.has(key)||!premiumProductImage(item)||Number(item.price)<=0)continue;
@@ -15599,6 +15601,11 @@ if(typeof v116RenderMarketplaceListing==='function'){
     const clean=String(query||'').trim();
     if(exploreFilter==='people'){if(window.loadPremiumPeopleDiscovery)window.loadPremiumPeopleDiscovery(clean);return;}
     if(!clean){exploreLiveSearchSeq++;if(exploreLiveController){try{exploreLiveController.abort();}catch(_){}}restoreBrowseSnapshot();return;}
+    /* Invalidate any browse/discovery batch that began before this typed query.
+       Without this, a late browse response can append unrelated products into
+       the live results while the user is trying to tap a listing. */
+    exploreGeneration++;
+    exploreLoading=false;
     setExploreInterpreting(true);snapshotBrowseIfNeeded();
     const seq=++exploreLiveSearchSeq;exploreLiveSearchQuery=clean;
     if(exploreLiveController){try{exploreLiveController.abort();}catch(_){}}
@@ -28143,6 +28150,335 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     requestAnimationFrame(clearSwipeResidue);
     if(next==='discover'&&!layerVisible()&&String(feedState&&feedState.source||'')==='personalised')ensureController();
   }).observe(document.body,{attributes:true,attributeFilter:['data-active-tab']});
+})();
+</script>
+
+
+<style id="wishwave-v181-profile-polish">
+  /* Public profile readability: make the bio and location feel app-sized, not caption-sized. */
+  .wishwave-public-profile .bio{
+    margin:12px auto 0!important;
+    max-width:320px!important;
+    font-size:15px!important;
+    line-height:1.52!important;
+    color:#f1f2f3!important;
+    font-weight:400!important;
+  }
+  .wishwave-public-profile .location{
+    margin-top:6px!important;
+    font-size:13px!important;
+    line-height:1.35!important;
+    color:#9aa0a8!important;
+  }
+
+  /* Following should look like a calm filled control, not a hollow ring. */
+  #wishwavePublicFollowButton.following,
+  .premium-seller-action.following{
+    background:#161a1f!important;
+    color:#f4f5f6!important;
+    border:1px solid rgba(255,255,255,.08)!important;
+    box-shadow:none!important;
+  }
+  html.findai-light #wishwavePublicFollowButton.following,
+  html.findai-light .premium-seller-action.following{
+    background:#eff1f4!important;
+    color:#111214!important;
+    border-color:#e1e3e7!important;
+  }
+
+  /* Bottom-nav profile image: keep the circle optically centred and hide any black seam. */
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar,
+  .app>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar{
+    position:relative!important;
+    background:#14171c!important;
+    overflow:hidden!important;
+  }
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar.has-image,
+  .app>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar.has-image{
+    background:transparent!important;
+  }
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar img,
+  .app>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar img{
+    position:absolute!important;
+    inset:-1px!important;
+    width:calc(100% + 2px)!important;
+    height:calc(100% + 2px)!important;
+    display:block!important;
+    border-radius:50%!important;
+    object-fit:cover!important;
+    object-position:center center!important;
+    transform:none!important;
+    -webkit-transform:none!important;
+  }
+  body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar>span,
+  .app>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar>span{
+    transform:translateY(-.25px)!important;
+  }
+
+  /* Move the gallery counter clear of the bell so 2/2 never clips through it. */
+  #discover .reel-gallery-count{
+    top:78px!important;
+    right:70px!important;
+    z-index:6!important;
+  }
+  @media (max-width:380px){
+    #discover .reel-gallery-count{
+      right:64px!important;
+    }
+  }
+</style>
+
+
+<script id="findai-v182-search-stability-script">
+(function(){
+  'use strict';
+
+  /* =========================================================
+     SEARCH STABILITY AUTHORITY
+     The visible Search UI stays exactly as-is. This layer only
+     fixes state ownership, tap reliability and async races.
+     ========================================================= */
+  let returnState=null;
+  let tapState=null;
+  let isolatedTouch=false;
+  let lastDirectOpenAt=0;
+
+  function contextLayer(){return document.getElementById('findaiContextualReelV168');}
+  function cloneState(value){
+    if(!value)return value;
+    const out={...value};
+    if(value.seen instanceof Set)out.seen=new Set(value.seen);
+    if(value.familyCounts instanceof Map)out.familyCounts=new Map(value.familyCounts);
+    return out;
+  }
+  function captureGlobals(){
+    return {
+      items:Array.isArray(currentFeedItems)?currentFeedItems.slice():[],
+      data:currentFeedData,
+      state:cloneState(feedState),
+      active:Number(activeReelIndex)||0
+    };
+  }
+  function restoreGlobals(saved){
+    if(!saved)return;
+    currentFeedItems=Array.isArray(saved.items)?saved.items.slice():[];
+    currentFeedData=saved.data;
+    feedState=cloneState(saved.state)||{};
+    activeReelIndex=Number(saved.active)||0;
+  }
+  function activeScreen(){
+    const active=String(document.body.dataset.activeTab||'');
+    if(active==='searchResults')return 'searchResults';
+    return 'search';
+  }
+  function searchScroller(screen){
+    if(screen==='searchResults')return document.querySelector('#searchResults .premium-results-scroll');
+    return document.querySelector('#search .premium-search-home-scroll');
+  }
+  function snapshotReturn(screen){
+    const which=screen||activeScreen();
+    const scroller=searchScroller(which);
+    returnState={
+      screen:which,
+      scroll:Number(scroller&&scroller.scrollTop)||0,
+      q:String(document.getElementById('q')?.value||''),
+      resultQ:String(document.getElementById('premiumResultQuery')?.value||''),
+      globals:captureGlobals()
+    };
+  }
+  function hideContext(){
+    const layer=contextLayer();
+    if(layer){layer.classList.remove('show');delete layer.dataset.contextOrigin;}
+    window.__findaiExploreInjectedFeed=false;
+  }
+  function baseNavigate(tab){
+    try{
+      if(typeof findaiGoV86==='function')findaiGoV86(tab);
+      else go(tab);
+    }catch(_){try{go(tab);}catch(__){}}
+    try{if(tab==='searchResults')setSearchNavActive();else setMainNavActive('search');}catch(_){ }
+  }
+  function restoreReturn(){
+    if(!returnState){hideContext();baseNavigate('search');return;}
+    const saved=returnState;
+    hideContext();
+    restoreGlobals(saved.globals);
+    baseNavigate(saved.screen);
+    const q=document.getElementById('q');if(q)q.value=saved.q||'';
+    const rq=document.getElementById('premiumResultQuery');if(rq)rq.value=saved.resultQ||'';
+    requestAnimationFrame(()=>{
+      const scroller=searchScroller(saved.screen);
+      if(scroller)scroller.scrollTop=saved.scroll||0;
+    });
+  }
+  function remember(item){
+    try{if(item&&typeof findaiRememberRecentProduct==='function')findaiRememberRecentProduct(item);}catch(_){ }
+  }
+  function openStable(item,data,origin){
+    if(!item){try{toast('This listing could not be opened.')}catch(_){ }return false;}
+    snapshotReturn(origin==='search-results-v182'?'searchResults':'search');
+    remember(item);
+    lastDirectOpenAt=Date.now();
+    if(typeof window.__wishwaveStableOpenContextualReel==='function'){
+      return window.__wishwaveStableOpenContextualReel(item,data||{personalised:true},origin||'search-v182');
+    }
+    return false;
+  }
+
+  /* One authoritative discovery-tile opener. Older versions routed Search
+     tiles through a closure that rebuilt Home with up to 36 Search items. */
+  window.openPremiumDiscoveryItem=function(sectionId,index){
+    const section=typeof premiumDiscoverySectionById==='function'?premiumDiscoverySectionById(sectionId):null;
+    const list=section&&Array.isArray(section.items)?section.items:[];
+    const i=Math.max(0,Math.min(list.length-1,Number(index)||0));
+    return openStable(list[i],{personalised:true},'search-v182');
+  };
+
+  /* Separate results page uses the same non-destructive viewer and returns to
+     the exact results page/scroll position rather than dumping the user Home. */
+  window.openPremiumResultItem=function(index){
+    const list=Array.isArray(premiumResultItems)?premiumResultItems:[];
+    const i=Math.max(0,Math.min(list.length-1,Number(index)||0));
+    return openStable(list[i],premiumResultData||{personalised:true},'search-results-v182');
+  };
+
+  /* Legacy Search grid/evidence cards are also made deterministic. */
+  window.openSearchResultDetail=function(index){
+    const list=Array.isArray(currentFeedItems)?currentFeedItems:[];
+    const i=Math.max(0,Math.min(list.length-1,Number(index)||0));
+    const origin=String(document.body.dataset.activeTab||'')==='searchResults'?'search-results-v182':'search-v182';
+    return openStable(list[i],currentFeedData||{personalised:true},origin);
+  };
+
+  /* Returning with the Search nav icon restores the already-mounted Search DOM.
+     Do not call go('search') here because the legacy go wrapper re-renders Search. */
+  window.addEventListener('click',event=>{
+    const button=event.target?.closest?.('.premium-bottom-nav button[data-tab="search"]');
+    if(!button)return;
+    const origin=String(contextLayer()?.dataset.contextOrigin||'');
+    if(origin!=='search-v182'&&origin!=='search-results-v182')return;
+    event.preventDefault();event.stopPropagation();
+    if(event.stopImmediatePropagation)event.stopImmediatePropagation();
+    restoreReturn();
+  },true);
+
+  /* Search tab itself: one navigation, one render at most. The older chain
+     called renderPremiumSearchHome both inside go('search') and again after it. */
+  window.openSearchHome=function(focus=true){
+    const origin=String(contextLayer()?.dataset.contextOrigin||'');
+    if(origin==='search-v182'||origin==='search-results-v182'){
+      restoreReturn();
+      return;
+    }
+
+    try{closeWishWavePublicProfile();}catch(_){ }
+    const search=document.getElementById('search');
+    const recents=search?.classList.contains('search-recents-visible');
+    if(recents&&String(document.body.dataset.activeTab||'')==='search'&&focus===false){
+      search.classList.remove('search-recents-visible');
+      document.getElementById('findaiSearchRecents')?.classList.remove('show','findai-recents-lock');
+      const q=document.getElementById('q');if(q){q.value='';try{q.blur();}catch(_){ }}
+      try{setMainNavActive('search');}catch(_){ }
+      return;
+    }
+
+    try{finaliseReelTracking();}catch(_){ }
+    baseNavigate('search');
+
+    const root=document.getElementById('premiumDiscoverySections');
+    const hasContent=!!root?.querySelector('.premium-explore-grid,.premium-profile-matches,.premium-market-section:not(.is-loading),.premium-explore-empty');
+    if(!hasContent){
+      try{Promise.resolve(renderPremiumSearchHome()).catch(()=>{});}catch(_){ }
+    }
+    if(focus){
+      setTimeout(()=>{const q=document.getElementById('q');if(q)try{q.focus({preventScroll:true});}catch(_){q.focus();}},70);
+    }
+  };
+
+  /* Search cards sit inside the app-wide horizontal tab swiper. On iPhone even
+     a tiny diagonal finger movement could make that swiper preventDefault(),
+     which cancels the card click. Keep tab swiping available from blank Search
+     space/header, but let listing cards own touches that start on a listing. */
+  function listingHost(target){
+    if(!target?.closest)return null;
+    if(target.closest('button,a,input,textarea,select'))return null;
+    return target.closest('.premium-explore-tile,.premium-ebay-card,.premium-result-card,.search-grid-card,.app-search-evidence');
+  }
+  function resolveHost(host){
+    if(!host)return null;
+    if(host.classList.contains('premium-result-card')){
+      const m=String(host.getAttribute('onclick')||'').match(/openPremiumResultItem\((\d+)\)/);
+      const i=m?Number(m[1]):-1;
+      return i>=0&&Array.isArray(premiumResultItems)?{item:premiumResultItems[i],data:premiumResultData,origin:'search-results-v182'}:null;
+    }
+    if(host.classList.contains('search-grid-card')){
+      const i=Number(host.dataset.gridIndex);
+      return Number.isFinite(i)&&Array.isArray(currentFeedItems)?{item:currentFeedItems[i],data:currentFeedData,origin:'search-v182'}:null;
+    }
+    if(host.classList.contains('app-search-evidence')){
+      const m=String(host.getAttribute('onclick')||'').match(/openSearchResultDetail\((\d+)\)/);
+      const i=m?Number(m[1]):-1;
+      return i>=0&&Array.isArray(currentFeedItems)?{item:currentFeedItems[i],data:currentFeedData,origin:'search-v182'}:null;
+    }
+    const m=String(host.getAttribute('onclick')||'').match(/openPremiumDiscoveryItem\(['\"]([^'\"]+)['\"],\s*(\d+)\)/);
+    if(!m)return null;
+    const section=typeof premiumDiscoverySectionById==='function'?premiumDiscoverySectionById(m[1]):null;
+    const i=Number(m[2]);
+    return section&&Array.isArray(section.items)?{item:section.items[i],data:{personalised:true},origin:'search-v182'}:null;
+  }
+
+  /* Stop only the old document-level tab-swipe listeners from seeing a touch
+     that began on a Search listing. No preventDefault: native vertical scrolling
+     remains untouched. */
+  window.addEventListener('touchstart',event=>{
+    const host=listingHost(event.target);
+    isolatedTouch=!!host;
+    if(isolatedTouch)event.stopPropagation();
+  },true);
+  window.addEventListener('touchmove',event=>{if(isolatedTouch)event.stopPropagation();},true);
+  window.addEventListener('touchend',event=>{if(isolatedTouch)event.stopPropagation();isolatedTouch=false;},true);
+  window.addEventListener('touchcancel',event=>{if(isolatedTouch)event.stopPropagation();isolatedTouch=false;},true);
+
+  /* Capture the actual item at pointer-down. Even if a network result replaces
+     the Search grid before pointer-up, the item the user touched still opens. */
+  window.addEventListener('pointerdown',event=>{
+    const host=listingHost(event.target);
+    const resolved=resolveHost(host);
+    if(!host||!resolved?.item){tapState=null;return;}
+    tapState={pointerId:event.pointerId,x:event.clientX,y:event.clientY,moved:false,host,...resolved};
+  },true);
+  window.addEventListener('pointermove',event=>{
+    if(!tapState||event.pointerId!==tapState.pointerId)return;
+    if(Math.hypot(event.clientX-tapState.x,event.clientY-tapState.y)>11)tapState.moved=true;
+  },true);
+  window.addEventListener('pointerup',event=>{
+    if(!tapState||event.pointerId!==tapState.pointerId)return;
+    const state=tapState;tapState=null;
+    if(state.moved)return;
+    event.preventDefault();event.stopPropagation();
+    if(event.stopImmediatePropagation)event.stopImmediatePropagation();
+    state.host.dataset.v182Opened=String(Date.now());
+    openStable(state.item,state.data,state.origin);
+  },true);
+  window.addEventListener('pointercancel',()=>{tapState=null;},true);
+
+  /* Suppress the synthetic click that follows the pointer-up direct open. */
+  window.addEventListener('click',event=>{
+    const host=event.target?.closest?.('.premium-explore-tile,.premium-ebay-card,.premium-result-card,.search-grid-card,.app-search-evidence');
+    if(!host)return;
+    const opened=Number(host.dataset.v182Opened||0);
+    if(opened&&Date.now()-opened<900){
+      event.preventDefault();event.stopPropagation();
+      if(event.stopImmediatePropagation)event.stopImmediatePropagation();
+    }
+  },true);
+
+  /* If Home is chosen instead of returning to Search, forget only the Search
+     return snapshot; Home restoration remains owned by v168. */
+  window.addEventListener('click',event=>{
+    const home=event.target?.closest?.('.premium-bottom-nav button[data-tab="discover"]');
+    if(home&&contextLayer()?.classList.contains('show'))returnState=null;
+  },true);
 })();
 </script>
 
