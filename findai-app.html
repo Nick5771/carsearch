@@ -28482,5 +28482,339 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
 })();
 </script>
 
+
+<style id="wishwave-v183-tab-owned-reels-style">
+/* The image-position chip belongs to the media gallery, directly beneath the bell. */
+#discover .reel-gallery-count{
+  top:78px!important;
+  right:24px!important;
+  z-index:8!important;
+}
+@media(max-width:380px){
+  #discover .reel-gallery-count{right:22px!important}
+}
+
+/* Search cards own their tap/vertical-scroll gesture. Horizontal app paging must
+   never turn a normal listing tap into a cancelled click. */
+#search .premium-explore-tile,
+#search .premium-ebay-card,
+#search .premium-result-card,
+#searchResults .premium-result-card,
+#searchResults .premium-ebay-card,
+#search .search-grid-card,
+#search .app-search-evidence{
+  touch-action:pan-y!important;
+  -webkit-tap-highlight-color:transparent!important;
+}
+</style>
+
+<script id="wishwave-v183-tab-owned-reels-script">
+(function(){
+  'use strict';
+
+  const overlay=()=>document.getElementById('findaiContextualReelV168');
+  const contextFeed=()=>document.getElementById('findaiContextualFeedV168');
+  let profileReturn=null;
+  let reelScrollRaf=0;
+  let stableOpenAt=0;
+
+  function itemKey(item){
+    if(!item)return '';
+    try{if(typeof listingKey==='function'){const k=listingKey(item);if(k)return String(k);}}catch(_){ }
+    try{if(typeof trackedKey==='function'){const k=trackedKey(item);if(k)return String(k);}}catch(_){ }
+    return String(item.marketplaceListingId||item.itemId||item.id||item.url||item.viewItemURL||item.title||'');
+  }
+  function sameItem(a,b){
+    if(a===b)return true;
+    const ak=itemKey(a),bk=itemKey(b);
+    return !!(ak&&bk&&ak===bk);
+  }
+  function cleanList(items){
+    const out=[],seen=new Set();
+    (Array.isArray(items)?items:[]).forEach(item=>{
+      if(!item)return;
+      const k=itemKey(item)||('object-'+out.length);
+      if(seen.has(k))return;
+      seen.add(k);out.push(item);
+    });
+    return out.slice(0,80);
+  }
+  function indexOfItem(list,item){
+    const i=(list||[]).findIndex(x=>sameItem(x,item));
+    return i<0?0:i;
+  }
+
+  function searchListFor(item,origin){
+    const o=String(origin||'');
+    if(o.includes('search-results')){
+      const result=cleanList(typeof premiumResultItems!=='undefined'?premiumResultItems:[]);
+      if(result.some(x=>sameItem(x,item)))return result;
+    }
+
+    /* Prefer the exact visible discovery section that owns the tapped card. */
+    try{
+      if(Array.isArray(premiumDiscoverySections)){
+        for(const section of premiumDiscoverySections){
+          const list=cleanList(section&&section.items);
+          if(list.some(x=>sameItem(x,item)))return list;
+        }
+      }
+    }catch(_){ }
+
+    try{
+      const current=cleanList(currentFeedItems);
+      if(current.some(x=>sameItem(x,item))&&String(feedState&&feedState.source||'')!=='contextual-reel')return current;
+    }catch(_){ }
+
+    try{
+      const ebay=cleanList(premiumEbayItems);
+      if(ebay.some(x=>sameItem(x,item)))return ebay;
+    }catch(_){ }
+
+    try{
+      const results=cleanList(premiumResultItems);
+      if(results.some(x=>sameItem(x,item)))return results;
+    }catch(_){ }
+
+    return [item];
+  }
+
+  function setOwnedTab(owner){
+    try{if(typeof setMainNavActive==='function')setMainNavActive(owner);}catch(_){ }
+    const nav=document.querySelector('.premium-bottom-nav');
+    if(nav){
+      nav.querySelectorAll('button[data-tab]').forEach(btn=>btn.classList.toggle('active',String(btn.dataset.tab||'')===owner));
+    }
+    const layer=overlay();
+    if(layer)layer.dataset.contextTab=owner;
+  }
+
+  function attachVerticalReel(list,start,data,origin,owner){
+    const layer=overlay(),out=contextFeed();
+    if(!layer||!out||!list.length)return false;
+    const chosen=Math.max(0,Math.min(list.length-1,Number(start)||0));
+
+    currentFeedItems=list.slice();
+    currentFeedData=data||{personalised:true};
+    feedState={
+      ...(feedState||{}),source:'contextual-reel',query:'',resolvedQuery:'',
+      loading:false,hasMore:false,cursor:null
+    };
+    activeReelIndex=chosen;
+    window.__findaiExploreInjectedFeed=false;
+
+    out.innerHTML=list.map((entry,i)=>renderReelCard(entry,i,currentFeedData)).join('');
+    layer.dataset.contextOrigin=String(origin||'context');
+    layer.dataset.contextTab=String(owner||'discover');
+    layer.classList.add('show');
+    setOwnedTab(owner||'discover');
+
+    const syncIndex=()=>{
+      reelScrollRaf=0;
+      const cards=Array.from(out.querySelectorAll('.reel-card'));
+      if(!cards.length)return;
+      const y=Number(out.scrollTop)||0;
+      let best=0,bestDistance=Infinity;
+      cards.forEach((card,i)=>{
+        const d=Math.abs((Number(card.offsetTop)||0)-y);
+        if(d<bestDistance){bestDistance=d;best=i;}
+      });
+      if(best!==activeReelIndex){
+        try{finaliseReelTracking();}catch(_){ }
+        activeReelIndex=best;
+        try{beginReelTracking(best);}catch(_){ }
+        try{if(typeof preloadPersonalisedImages==='function')preloadPersonalisedImages(Math.max(0,best-2),7);}catch(_){ }
+      }
+    };
+    out.onscroll=()=>{if(!reelScrollRaf)reelScrollRaf=requestAnimationFrame(syncIndex);};
+
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const card=out.querySelector('.reel-card[data-index="'+chosen+'"]');
+      out.scrollTop=card?card.offsetTop:chosen*(out.clientHeight||1);
+      activeReelIndex=chosen;
+      try{beginReelTracking(chosen);}catch(_){ }
+      try{if(typeof preloadPersonalisedImages==='function')preloadPersonalisedImages(Math.max(0,chosen-2),7);}catch(_){ }
+    }));
+    return true;
+  }
+
+  /* Upgrade the existing safe contextual opener: Search now gets the full result
+     set and remains a vertically swipeable reel instead of a one-item page. */
+  const singleOpen=window.__wishwaveStableOpenContextualReel;
+  if(typeof singleOpen==='function'){
+    window.__wishwaveStableOpenContextualReel=function(item,data,origin){
+      if(!item)return false;
+      const o=String(origin||'context');
+      const isSearch=o.includes('search');
+      const list=isSearch?searchListFor(item,o):[item];
+      const chosen=indexOfItem(list,item);
+
+      /* Let v180 do the difficult Home snapshot/mount work first. */
+      const opened=singleOpen.call(this,item,data,origin);
+      if(!opened)return false;
+      stableOpenAt=Date.now();
+      return attachVerticalReel(list,chosen,data,o,isSearch?'search':String(overlay()?.dataset.contextTab||'discover'));
+    };
+  }
+
+  /* A reusable full-list opener for tab-owned Profile/Liked reels. */
+  window.__wishwaveOpenTabOwnedReel=function(items,index,data,origin,owner){
+    const list=cleanList(items);
+    if(!list.length)return false;
+    const chosen=Math.max(0,Math.min(list.length-1,Number(index)||0));
+    const item=list[chosen];
+    if(typeof singleOpen!=='function')return false;
+    const opened=singleOpen.call(window,item,data||{personalised:true},origin||'context');
+    if(!opened)return false;
+    stableOpenAt=Date.now();
+    return attachVerticalReel(list,chosen,data||{personalised:true},origin||'context',owner||'discover');
+  };
+
+  function rememberProfileReturn(tab){
+    const scroller=document.querySelector('#profile .profile-scroll');
+    profileReturn={tab:tab||String(typeof socialProfileTab!=='undefined'?socialProfileTab:'listings'),scroll:Number(scroller&&scroller.scrollTop)||0};
+  }
+  function returnToProfile(){
+    const layer=overlay();
+    if(layer){layer.classList.remove('show');delete layer.dataset.contextOrigin;delete layer.dataset.contextTab;}
+    try{if(typeof finaliseReelTracking==='function')finaliseReelTracking();}catch(_){ }
+    try{go('profile');}catch(_){ }
+    try{setMainNavActive('profile');}catch(_){ }
+    if(profileReturn?.tab){try{setProfileTab(profileReturn.tab);}catch(_){ }}
+    requestAnimationFrame(()=>{
+      const scroller=document.querySelector('#profile .profile-scroll');
+      if(scroller)scroller.scrollTop=Number(profileReturn&&profileReturn.scroll)||0;
+    });
+  }
+
+  /* Own Profile: Listings / Sold / Liked all become vertical reels owned by the
+     Profile tab. The selected grid remains exactly where it was when you return. */
+  window.openProfileListingItem=function(index,source){
+    const sold=source==='sold';
+    const list=(Array.isArray(socialProfileListings)?socialProfileListings:[]).filter(x=>sold?String(x.status||'').toLowerCase()==='sold':String(x.status||'active').toLowerCase()!=='sold');
+    if(!list.length)return;
+    rememberProfileReturn(sold?'sold':'listings');
+    window.__wishwaveOpenTabOwnedReel(list,index,{personalised:true,profileContext:true},'profile-v183','profile');
+  };
+  window.openProfileLikedItem=function(index){
+    const list=cleanList(typeof getTracked==='function'?getTracked():[]);
+    if(!list.length)return;
+    rememberProfileReturn('liked');
+    window.__wishwaveOpenTabOwnedReel(list,index,{personalised:true,profileContext:true,likedContext:true},'profile-v183','profile');
+  };
+
+  /* Tapping Profile while its reel is open means "back to my profile", not Home. */
+  window.addEventListener('click',event=>{
+    const button=event.target?.closest?.('.premium-bottom-nav button[data-tab="profile"]');
+    const layer=overlay();
+    if(!button||!layer?.classList.contains('show')||String(layer.dataset.contextOrigin||'')!=='profile-v183')return;
+    event.preventDefault();event.stopPropagation();
+    if(event.stopImmediatePropagation)event.stopImmediatePropagation();
+    returnToProfile();
+  },true);
+
+  /* Any other tab is allowed to navigate normally; first remove the Profile
+     contextual layer so an invisible reel can never intercept the next screen. */
+  window.addEventListener('pointerdown',event=>{
+    const button=event.target?.closest?.('.premium-bottom-nav button[data-tab]');
+    const layer=overlay();
+    if(!button||!layer?.classList.contains('show'))return;
+    if(String(layer.dataset.contextOrigin||'')!=='profile-v183')return;
+    if(String(button.dataset.tab||'')==='profile')return;
+    layer.classList.remove('show');delete layer.dataset.contextOrigin;delete layer.dataset.contextTab;
+  },true);
+
+  /* Last-resort Search tap path. This fires even when iOS suppresses the normal
+     synthetic click after a tiny diagonal finger movement. It never hijacks the
+     heart/other explicit controls inside a card. */
+  let touchTap=null;
+  function searchCard(target){
+    if(!target?.closest)return null;
+    const host=target.closest('.premium-explore-tile,.premium-ebay-card,.premium-result-card,.search-grid-card,.app-search-evidence');
+    if(!host)return null;
+    const control=target.closest('button,a,input,textarea,select,.premium-card-like,.premium-seller-action');
+    if(control&&control!==host)return null;
+    return host;
+  }
+  function resolveSearchCard(host){
+    if(!host)return null;
+    let m=String(host.getAttribute('onclick')||'').match(/openPremiumDiscoveryItem\(['\"]([^'\"]+)['\"],\s*(\d+)\)/);
+    if(m){
+      const section=typeof premiumDiscoverySectionById==='function'?premiumDiscoverySectionById(m[1]):null;
+      const list=cleanList(section&&section.items),index=Number(m[2]);
+      if(list[index])return {list,index,item:list[index],data:{personalised:true},origin:'search-v182'};
+    }
+    m=String(host.getAttribute('onclick')||'').match(/openPremiumResultItem\((\d+)\)/);
+    if(m){const list=cleanList(premiumResultItems),index=Number(m[1]);if(list[index])return {list,index,item:list[index],data:premiumResultData||{personalised:true},origin:'search-results-v182'};}
+    m=String(host.getAttribute('onclick')||'').match(/openPremiumEbayItem\((\d+)\)/);
+    if(m){const list=cleanList(premiumEbayItems),index=Number(m[1]);if(list[index])return {list,index,item:list[index],data:{personalised:true},origin:'search-v182'};}
+    m=String(host.getAttribute('onclick')||'').match(/openSearchResultDetail\((\d+)\)/);
+    if(m){const list=cleanList(currentFeedItems),index=Number(m[1]);if(list[index])return {list,index,item:list[index],data:currentFeedData||{personalised:true},origin:'search-v182'};}
+    const gridIndex=Number(host.dataset.gridIndex);
+    if(Number.isFinite(gridIndex)){
+      const list=cleanList(currentFeedItems);if(list[gridIndex])return {list,index:gridIndex,item:list[gridIndex],data:currentFeedData||{personalised:true},origin:'search-v182'};
+    }
+    return null;
+  }
+  function openResolvedSearch(resolved,host){
+    if(!resolved?.item)return false;
+    if(Date.now()-stableOpenAt<500)return true;
+    try{
+      /* v182 owns the exact Search return snapshot. Route through its public
+         opener where possible; our upgraded contextual helper supplies the list. */
+      const inline=String(host&&host.getAttribute('onclick')||'');
+      if(resolved.origin==='search-results-v182'&&typeof openPremiumResultItem==='function')openPremiumResultItem(resolved.index);
+      else if(/openPremiumDiscoveryItem/.test(inline)){
+        const m=inline.match(/openPremiumDiscoveryItem\(['\"]([^'\"]+)['\"],\s*(\d+)\)/);
+        if(m&&typeof openPremiumDiscoveryItem==='function')openPremiumDiscoveryItem(m[1],Number(m[2]));
+        else window.__wishwaveOpenTabOwnedReel(resolved.list,resolved.index,resolved.data,resolved.origin,'search');
+      }else if(/openPremiumEbayItem/.test(inline)&&typeof openPremiumEbayItem==='function'){
+        openPremiumEbayItem(resolved.index);
+      }else if((/openSearchResultDetail/.test(inline)||host?.classList.contains('search-grid-card')||host?.classList.contains('app-search-evidence'))&&typeof openSearchResultDetail==='function'){
+        openSearchResultDetail(resolved.index);
+      }else{
+        /* Direct list opener still gives a complete vertical reel; Search nav
+           remains selected. */
+        window.__wishwaveOpenTabOwnedReel(resolved.list,resolved.index,resolved.data,resolved.origin,'search');
+      }
+      stableOpenAt=Date.now();
+      if(host)host.dataset.v183Opened=String(stableOpenAt);
+      return true;
+    }catch(_){return false;}
+  }
+
+  window.addEventListener('touchstart',event=>{
+    const host=searchCard(event.target),resolved=resolveSearchCard(host);
+    if(!host||!resolved){touchTap=null;return;}
+    const t=event.touches&&event.touches[0];if(!t)return;
+    touchTap={host,resolved,x:t.clientX,y:t.clientY,moved:false};
+  },true);
+  window.addEventListener('touchmove',event=>{
+    if(!touchTap)return;const t=event.touches&&event.touches[0];if(!t)return;
+    if(Math.hypot(t.clientX-touchTap.x,t.clientY-touchTap.y)>10)touchTap.moved=true;
+  },true);
+  window.addEventListener('touchend',event=>{
+    if(!touchTap)return;const state=touchTap;touchTap=null;
+    if(state.moved)return;
+    const v182=Number(state.host.dataset.v182Opened||0),v183=Number(state.host.dataset.v183Opened||0);
+    if((v182&&Date.now()-v182<700)||(v183&&Date.now()-v183<700))return;
+    event.preventDefault();event.stopPropagation();
+    openResolvedSearch(state.resolved,state.host);
+  },true);
+  window.addEventListener('touchcancel',()=>{touchTap=null;},true);
+
+  /* Mouse/trackpad/Desktop Safari fallback. */
+  window.addEventListener('click',event=>{
+    const host=searchCard(event.target);if(!host)return;
+    const opened=Math.max(Number(host.dataset.v182Opened||0),Number(host.dataset.v183Opened||0));
+    if(opened&&Date.now()-opened<900)return;
+    const resolved=resolveSearchCard(host);if(!resolved)return;
+    event.preventDefault();event.stopPropagation();
+    if(event.stopImmediatePropagation)event.stopImmediatePropagation();
+    openResolvedSearch(resolved,host);
+  },true);
+})();
+</script>
+
 </body>
 </html>
