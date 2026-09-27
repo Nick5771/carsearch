@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v186-search-native-reel">
+<meta name="findai-build" content="v189-search-home-reel-parity">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -6772,7 +6772,7 @@ function renderReelCard(item,index,data){
         <span class="reel-social-label reel-like-count">${itemLikeLabel(item)}</span>
       </button>
       <button class="reel-social-action comment" data-comment-listing="${escapeAttr(wishwaveCommentMetricKey(item))}" onclick="openWishWaveComments(${index},event)" aria-label="Comments">
-        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.5 8.5 0 0 1-9 8.5 9.4 9.4 0 0 1-3.7-.8L3 21l1.7-5A8.2 8.2 0 0 1 3 11.5a8.5 8.5 0 1 1 18 0Z"/></svg></span>
+        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.05" stroke-linecap="round" stroke-linejoin="round"><path d="M20.7 11.5c0 4.46-3.82 8.05-8.55 8.05a9.2 9.2 0 0 1-3.63-.72L3.6 20.2l1.37-4.04A7.84 7.84 0 0 1 3.6 11.5c0-4.45 3.82-8.05 8.55-8.05s8.55 3.6 8.55 8.05Z"/><circle cx="8.55" cy="11.45" r="1.02" fill="currentColor" stroke="none"/><circle cx="12.1" cy="11.45" r="1.02" fill="currentColor" stroke="none"/><circle cx="15.65" cy="11.45" r="1.02" fill="currentColor" stroke="none"/></svg></span>
         <span class="reel-social-label reel-comment-count">${commentCount>0?escapeHTML(String(commentCount)):''}</span>
       </button>
       <button class="reel-social-action compare" onclick="compareItem(${index},event)" aria-label="Compare prices for this product">
@@ -29146,9 +29146,9 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
 /* v187 — monochrome create control + one authoritative profile avatar in the nav. */
 body>.nav.findai-five-nav.premium-bottom-nav .nav-create-shell,
 .app>.nav.findai-five-nav.premium-bottom-nav .nav-create-shell{
-  width:66px!important;
+  width:72px!important;
   height:38px!important;
-  min-width:66px!important;
+  min-width:72px!important;
   min-height:38px!important;
   border-radius:999px!important;
   border:1.5px solid rgba(255,255,255,.72)!important;
@@ -29700,6 +29700,221 @@ body>.nav.findai-five-nav.premium-bottom-nav,
 
   /* Clean up an obsolete contextual layer left behind by a previous build. */
   hideLegacyContext();
+})();
+</script>
+
+
+<style id="wishwave-v189-search-home-reel-parity-style">
+/* v189 — A listing opened from Search is visually the exact same reel system as Home.
+   Search only owns the navigation context; it no longer owns a second listing UI. */
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity{
+  background:#000!important;
+}
+
+/* Remove the legacy Search-detail chrome (back circle + x / total counter). */
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .search-detail-header{
+  display:none!important;
+}
+
+/* Home header cloned into the Search-owned reel. */
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .wishwave-search-reel-topbar{
+  position:absolute!important;
+  top:0!important;left:0!important;right:0!important;
+  z-index:80!important;
+  height:calc(var(--safe-top) + 52px)!important;
+  padding:var(--safe-top) 15px 0!important;
+  display:grid!important;
+  grid-template-columns:1fr auto 1fr!important;
+  align-items:center!important;
+  color:#fff!important;
+  pointer-events:none!important;
+  background:linear-gradient(180deg,rgba(0,0,0,.62) 0%,rgba(0,0,0,.24) 68%,rgba(0,0,0,0) 100%)!important;
+  text-shadow:0 1px 12px rgba(0,0,0,.55)!important;
+  box-sizing:border-box!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .wishwave-search-reel-brand{
+  justify-self:start!important;font-size:21px!important;line-height:1!important;font-weight:760!important;letter-spacing:-.65px!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .wishwave-search-reel-title{
+  justify-self:center!important;font-size:15px!important;line-height:1!important;font-weight:720!important;letter-spacing:-.2px!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .wishwave-search-notification-button{
+  justify-self:end!important;align-self:center!important;position:relative!important;
+  width:38px!important;height:38px!important;margin:0!important;padding:0!important;
+  border:0!important;border-radius:50%!important;background:transparent!important;color:#fff!important;
+  display:grid!important;place-items:center!important;pointer-events:auto!important;cursor:pointer!important;
+  -webkit-tap-highlight-color:transparent!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .wishwave-search-notification-button svg{
+  width:25px!important;height:25px!important;display:block!important;filter:drop-shadow(0 1px 5px rgba(0,0,0,.35))!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .wishwave-search-notification-button:active{opacity:.72!important}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .wishwave-search-notification-dot{
+  position:absolute!important;top:5px!important;right:5px!important;width:8px!important;height:8px!important;
+  border-radius:50%!important;background:#ff3045!important;border:1.5px solid #050607!important;
+  opacity:0!important;transform:scale(.55)!important;pointer-events:none!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .wishwave-search-notification-button.has-notification{color:#ff3045!important}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .wishwave-search-notification-button.has-notification .wishwave-search-notification-dot{opacity:1!important;transform:scale(1)!important}
+
+/* The Search-owned feed now follows Home's reel geometry. */
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .search-detail-feed{
+  position:absolute!important;inset:0!important;width:100%!important;height:100%!important;
+  padding:0!important;margin:0!important;background:#000!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-card{
+  position:relative!important;flex:0 0 100%!important;width:100%!important;height:100%!important;min-height:100%!important;
+  margin:0!important;border:0!important;border-radius:0!important;background:#000!important;overflow:hidden!important;
+}
+
+/* Exact Home image treatment. */
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .hero-stage{
+  position:absolute!important;inset:0!important;overflow:hidden!important;background:var(--hero-fill,#0a0b0d)!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .hero-stage::after{
+  content:""!important;position:absolute!important;inset:0!important;z-index:2!important;pointer-events:none!important;
+  background:linear-gradient(180deg,rgba(5,6,7,.34) 0%,rgba(5,6,7,0) 17%,rgba(5,6,7,0) 60%,rgba(5,6,7,.30) 80%,rgba(5,6,7,.90) 100%)!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .hero-stage.fill-light::after{
+  background:linear-gradient(180deg,rgba(5,6,7,.10) 0%,rgba(5,6,7,0) 14%,rgba(5,6,7,0) 66%,rgba(0,0,0,.06) 82%,rgba(0,0,0,.14) 100%)!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .hero-image,
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-gallery-slide .hero-image{
+  position:absolute!important;top:50%!important;left:50%!important;z-index:1!important;
+  width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;
+  transform:translate(-50%,-50%)!important;object-fit:contain!important;object-position:center center!important;
+  padding:0!important;filter:none!important;-webkit-mask-image:none!important;mask-image:none!important;
+}
+
+/* Exact Home information hierarchy. */
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .product-panel{
+  position:absolute!important;left:0!important;right:0!important;bottom:0!important;z-index:4!important;
+  padding:64px 17px calc(var(--wishwave-tab-h) + env(safe-area-inset-bottom,0px) + 10px)!important;
+  box-sizing:border-box!important;
+  background:linear-gradient(180deg,rgba(5,6,7,0) 0%,rgba(5,6,7,.26) 27%,rgba(5,6,7,.73) 58%,rgba(5,6,7,.94) 80%,rgba(5,6,7,.98) 100%)!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .source-chip{
+  position:static!important;display:flex!important;width:max-content!important;max-width:88%!important;
+  min-height:0!important;margin:0 0 10px!important;padding:0!important;gap:7px!important;
+  border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;color:#fff!important;
+  font-size:20px!important;line-height:1!important;overflow:visible!important;text-overflow:clip!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .source-chip .source-brand{
+  font-size:20px!important;font-weight:800!important;letter-spacing:-.3px!important;color:#fff!important;
+  text-shadow:0 1px 6px rgba(0,0,0,.55)!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .source-chip .retailer-source{display:inline-flex!important;align-items:center!important;gap:6px!important}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .source-chip .retailer-source-logo{width:18px!important;height:18px!important;object-fit:contain!important;border-radius:3px!important}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .source-chip .retailer-source-name{font-weight:800!important;color:#fff!important}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .source-chip .ebay-logo{height:24px!important;width:auto!important;display:block!important;object-fit:contain!important;filter:drop-shadow(0 1px 5px rgba(0,0,0,.35))!important}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .title{
+  margin:0!important;max-width:calc(100% - 58px)!important;color:#f7f8fa!important;
+  font-size:18.5px!important;font-weight:520!important;line-height:1.1!important;letter-spacing:-.35px!important;
+  display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .price-action-row{margin-top:9px!important;gap:10px!important}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .listing-price-copy{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:3px!important;min-width:0!important;flex:1!important}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .price-line{display:flex!important;align-items:baseline!important;gap:10px!important;flex-wrap:wrap!important}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .price{font-size:25px!important;font-weight:620!important;line-height:.98!important;letter-spacing:-.6px!important;white-space:nowrap!important}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .condition-badge{
+  color:#fff!important;font-size:14px!important;font-weight:750!important;letter-spacing:-.2px!important;
+  line-height:1.15!important;text-shadow:0 1px 5px rgba(0,0,0,.6)!important;white-space:nowrap!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .listing-meta{margin-top:2px!important;color:#aab0b9!important;font-size:11px!important;font-weight:500!important}
+
+/* Exact Home social rail: glyphs only — no Search-detail circles/plates. */
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-actions-rail{
+  position:absolute!important;right:10px!important;bottom:calc(var(--wishwave-tab-h) + env(safe-area-inset-bottom,0px) + 8px)!important;
+  z-index:12!important;display:flex!important;flex-direction:column!important;align-items:center!important;gap:13px!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity button.reel-social-action{
+  -webkit-appearance:none!important;appearance:none!important;-webkit-tap-highlight-color:transparent!important;
+  width:50px!important;min-height:53px!important;padding:0!important;border:0!important;border-radius:0!important;
+  background:transparent!important;background-image:none!important;box-shadow:none!important;outline:0!important;
+  color:#fff!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:4px!important;
+  text-shadow:0 1px 7px rgba(0,0,0,.8)!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-social-icon,
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-social-action.like .reel-social-icon,
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-social-action.like.active .reel-social-icon{
+  width:auto!important;height:auto!important;min-width:0!important;min-height:0!important;
+  border:0!important;border-radius:0!important;background:transparent!important;background-image:none!important;
+  box-shadow:none!important;outline:0!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+  display:grid!important;place-items:center!important;overflow:visible!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-social-icon::before,
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-social-icon::after,
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity button.reel-social-action::before,
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity button.reel-social-action::after{content:none!important;display:none!important}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-social-action svg{
+  width:29px!important;height:29px!important;color:#fff!important;
+  filter:drop-shadow(0 1px 4px rgba(0,0,0,.55)) drop-shadow(0 2px 10px rgba(0,0,0,.4))!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-social-action.comment .reel-social-icon svg{width:28px!important;height:28px!important}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-social-label{
+  color:#fff!important;text-shadow:0 1px 5px rgba(0,0,0,.7)!important;font-size:9.5px!important;font-weight:700!important;line-height:1!important;
+}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-like-count,
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-comment-count{font-size:12px!important;line-height:1!important;font-weight:820!important}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-social-action.like.active svg{color:#ff3045!important;fill:#ff3045!important;stroke:#ff3045!important}
+
+/* Home gallery controls, including the image count directly below the bell. */
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-gallery-count{top:78px!important;right:24px!important;z-index:8!important}
+#searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-gallery-dots{top:69%!important}
+
+@media(max-width:380px){
+  #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-gallery-count{right:22px!important}
+}
+@media(max-height:740px){
+  #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-actions-rail{right:8px!important;gap:9px!important}
+  #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity button.reel-social-action{width:46px!important;min-height:48px!important;gap:2px!important}
+}
+</style>
+<script id="wishwave-v189-search-home-reel-parity-script">
+(function(){
+  'use strict';
+  const view=document.getElementById('searchDetailOverlay');
+  if(!view)return;
+
+  function ensureTopbar(){
+    let bar=view.querySelector('.wishwave-search-reel-topbar');
+    if(!bar){
+      bar=document.createElement('header');
+      bar.className='wishwave-search-reel-topbar';
+      bar.setAttribute('aria-label','WishWave reel');
+      bar.innerHTML='<div class="wishwave-search-reel-brand">WishWave</div><div class="wishwave-search-reel-title">For You</div><button class="wishwave-search-notification-button" type="button" aria-label="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 6.7-2.7 7-3 9h18c-.3-2-3-2.3-3-9"/><path d="M10 21h4"/></svg><span class="wishwave-search-notification-dot" aria-hidden="true"></span></button>';
+      const button=bar.querySelector('.wishwave-search-notification-button');
+      button.addEventListener('click',event=>{
+        event.preventDefault();event.stopPropagation();
+        try{if(typeof openHomeNotifications==='function')openHomeNotifications();}catch(_){ }
+      });
+      view.appendChild(bar);
+    }
+    const homeButton=document.getElementById('homeNotificationButton');
+    const button=bar.querySelector('.wishwave-search-notification-button');
+    if(button)button.classList.toggle('has-notification',!!homeButton?.classList.contains('has-notification'));
+    return bar;
+  }
+
+  function sync(){
+    const active=view.classList.contains('show')&&view.classList.contains('search-owned-v186');
+    view.classList.toggle('wishwave-home-reel-parity',active);
+    if(active){
+      ensureTopbar();
+      /* Search remains the logical owner even though its listing card now looks
+         exactly like a Home reel card. */
+      try{if(typeof setMainNavActive==='function')setMainNavActive('search');}catch(_){ }
+      document.querySelectorAll('.premium-bottom-nav button[data-tab]').forEach(btn=>{
+        btn.classList.toggle('active',String(btn.dataset.tab||'')==='search');
+      });
+    }
+  }
+
+  new MutationObserver(sync).observe(view,{attributes:true,attributeFilter:['class']});
+  const homeButton=document.getElementById('homeNotificationButton');
+  if(homeButton)new MutationObserver(()=>{if(view.classList.contains('wishwave-home-reel-parity'))ensureTopbar();}).observe(homeButton,{attributes:true,attributeFilter:['class']});
+  sync();
 })();
 </script>
 
