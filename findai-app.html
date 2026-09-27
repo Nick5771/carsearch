@@ -16947,7 +16947,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     if(tab==='messages')return openMessagesTab();
     if(tab==='profile')return openProfile();
   }
-  function blockedTarget(target){return !!(target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,.reel-card[data-has-gallery="1"],.reel-gallery-stage,[data-horizontal-scroll]'));}
+  function blockedTarget(target){return !!(target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,#findaiContextualReelV168.show,.reel-card[data-has-gallery="1"],.reel-gallery-stage,[data-horizontal-scroll],#search .premium-explore-tile,#search .premium-ebay-card,#search .premium-result-card,#search .search-grid-card,#search .app-search-evidence,#searchResults .premium-result-card,#searchResults .premium-ebay-card'));}
   function overlayOpen(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,#createListingScreen.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show');}
   function prepSurface(el,kind){if(!el)return;el.classList.add(kind,'findai-v132-swipe-surface');el.style.removeProperty('display');}
   function clearSurface(el){if(!el)return;el.classList.remove('findai-v132-current','findai-v132-target','findai-v132-settle','findai-v132-swipe-surface');el.style.transform='';el.style.opacity='';el.style.pointerEvents='';}
@@ -17130,7 +17130,7 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
   /* Move the grey lens with the user's finger. Window capture runs before the document-level pager. */
   let lensGesture=null;
   function gestureBlocked(target){return !!(target&&target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,.reel-card[data-has-gallery="1"],.reel-gallery-stage,[data-horizontal-scroll]'))}
-  function anyOverlay(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,#createListingScreen.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show')}
+  function anyOverlay(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,#createListingScreen.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show,#findaiContextualReelV168.show')}
   addEventListener('touchstart',e=>{
     if(e.touches.length!==1||anyOverlay()||gestureBlocked(e.target))return;
     const tab=activeTab(),i=NAV_TABS.indexOf(tab);if(i<0)return;const t=e.touches[0];
@@ -28229,7 +28229,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
 </style>
 
 
-<script id="findai-v182-search-stability-script">
+<script id="findai-v182-search-stability-script" type="application/x-disabled">
 (function(){
   'use strict';
 
@@ -28729,12 +28729,8 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
      heart/other explicit controls inside a card. */
   let touchTap=null;
   function searchCard(target){
-    if(!target?.closest)return null;
-    const host=target.closest('.premium-explore-tile,.premium-ebay-card,.premium-result-card,.search-grid-card,.app-search-evidence');
-    if(!host)return null;
-    const control=target.closest('button,a,input,textarea,select,.premium-card-like,.premium-seller-action');
-    if(control&&control!==host)return null;
-    return host;
+    /* v184 owns every Search listing tap. Keep v183 active only for Profile-owned reels. */
+    return null;
   }
   function resolveSearchCard(host){
     if(!host)return null;
@@ -28813,6 +28809,523 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     if(event.stopImmediatePropagation)event.stopImmediatePropagation();
     openResolvedSearch(resolved,host);
   },true);
+})();
+</script>
+
+
+<style id="wishwave-v184-search-owned-reel-style">
+/* Search-owned contextual reel: the visible reel still uses the Home visual shell,
+   but Search remains the logical/selected tab and Home is never invoked. */
+#findaiContextualReelV168[data-context-origin^="search-v184"]{
+  display:none!important;
+}
+#findaiContextualReelV168[data-context-origin^="search-v184"].show{
+  display:block!important;
+}
+/* Gallery count remains directly under the bell. */
+#discover #findaiContextualReelV168 .reel-gallery-count{
+  top:78px!important;
+  right:24px!important;
+  z-index:8!important;
+}
+@media(max-width:380px){
+  #discover #findaiContextualReelV168 .reel-gallery-count{right:22px!important}
+}
+</style>
+<script id="wishwave-v184-search-owned-reel-script">
+(function(){
+  'use strict';
+
+  let searchReturn=null;
+  let touchState=null;
+  let lastOpenAt=0;
+  let scrollRaf=0;
+
+  function cloneFeedState(value){
+    if(!value)return {};
+    const out={...value};
+    if(value.seen instanceof Set)out.seen=new Set(value.seen);
+    if(value.familyCounts instanceof Map)out.familyCounts=new Map(value.familyCounts);
+    return out;
+  }
+  function itemKey(item){
+    if(!item)return '';
+    try{if(typeof listingKey==='function'){const key=listingKey(item);if(key)return String(key);}}catch(_){ }
+    try{if(typeof trackedKey==='function'){const key=trackedKey(item);if(key)return String(key);}}catch(_){ }
+    return String(item.marketplaceListingId||item.itemId||item.id||item.url||item.viewItemURL||item.title||'');
+  }
+  function cleanList(items){
+    const out=[],seen=new Set();
+    (Array.isArray(items)?items:[]).forEach(item=>{
+      if(!item)return;
+      const key=itemKey(item)||('row-'+out.length);
+      if(seen.has(key))return;
+      seen.add(key);out.push(item);
+    });
+    return out.slice(0,100);
+  }
+  function sameItem(a,b){
+    if(a===b)return true;
+    const ak=itemKey(a),bk=itemKey(b);
+    return !!(ak&&bk&&ak===bk);
+  }
+  function findIndex(list,item,fallback){
+    const found=(list||[]).findIndex(entry=>sameItem(entry,item));
+    if(found>=0)return found;
+    return Math.max(0,Math.min((list||[]).length-1,Number(fallback)||0));
+  }
+  function visibleSearchScreen(){
+    if(document.getElementById('searchResults')?.classList.contains('active'))return 'searchResults';
+    return 'search';
+  }
+  function searchScroller(screen){
+    const root=document.getElementById(screen||'search');
+    if(!root)return null;
+    return root.querySelector('.premium-results-scroll,.premium-search-scroll,.app-chat-scroll,.reel-feed.search-grid-mode,.search-scroll,.feed-wrap')||root;
+  }
+  function captureSearchReturn(){
+    const screen=visibleSearchScreen(),scroller=searchScroller(screen);
+    searchReturn={
+      screen,
+      scroll:Number(scroller&&scroller.scrollTop)||0,
+      q:String(document.getElementById('q')?.value||''),
+      resultQ:String(document.getElementById('premiumResultQuery')?.value||''),
+      items:Array.isArray(currentFeedItems)?currentFeedItems.slice():[],
+      data:currentFeedData,
+      state:cloneFeedState(feedState),
+      active:Number(activeReelIndex)||0
+    };
+  }
+  function ensureLayer(){
+    let layer=document.getElementById('findaiContextualReelV168');
+    if(layer)return layer;
+    const wrap=document.querySelector('#discover .discover-feed-wrap');
+    if(!wrap)return null;
+    layer=document.createElement('div');
+    layer.id='findaiContextualReelV168';
+    layer.innerHTML='<div class="findai-v168-context-feed" id="findaiContextualFeedV168"></div>';
+    wrap.appendChild(layer);
+    return layer;
+  }
+  function contextFeed(){ensureLayer();return document.getElementById('findaiContextualFeedV168');}
+  function isSearchContext(){
+    const layer=document.getElementById('findaiContextualReelV168');
+    return !!(layer?.classList.contains('show')&&String(layer.dataset.contextOrigin||'').startsWith('search-v184'));
+  }
+  function setNavOwner(owner){
+    try{if(typeof setMainNavActive==='function')setMainNavActive(owner);}catch(_){ }
+    const nav=document.querySelector('.premium-bottom-nav');
+    nav?.querySelectorAll('button[data-tab]').forEach(button=>button.classList.toggle('active',String(button.dataset.tab||'')===owner));
+  }
+  function showDiscoverVisualOwnedBy(owner){
+    /* Do NOT call go('discover') / openForYou(). Those functions are the old race.
+       Switch only the visible screen synchronously after the populated overlay is
+       already marked visible, so Safari has no frame in which Home can flash. */
+    document.querySelectorAll('.screen').forEach(screen=>screen.classList.toggle('active',screen.id==='discover'));
+    document.body.dataset.activeTab=owner;
+    document.body.classList.remove('scanning-fs','scan-results-open','keyboard-open');
+    try{document.getElementById('q')?.blur();}catch(_){ }
+    try{if(typeof closeAppChatDrawer==='function')closeAppChatDrawer();}catch(_){ }
+    setNavOwner(owner);
+    try{showFeedHeader();bindFeedHeaderAutoHide();}catch(_){ }
+  }
+  function hideLayer(){
+    const layer=document.getElementById('findaiContextualReelV168');
+    if(layer){
+      layer.classList.remove('show');
+      delete layer.dataset.contextOrigin;
+      delete layer.dataset.contextTab;
+    }
+    try{finaliseReelTracking();}catch(_){ }
+  }
+  function restoreSearch(){
+    const saved=searchReturn;
+    hideLayer();
+    if(saved){
+      currentFeedItems=saved.items.slice();
+      currentFeedData=saved.data;
+      feedState=cloneFeedState(saved.state);
+      activeReelIndex=saved.active;
+    }
+    const screen=saved?.screen||'search';
+    document.querySelectorAll('.screen').forEach(node=>node.classList.toggle('active',node.id===screen));
+    document.body.dataset.activeTab=screen==='searchResults'?'searchResults':'search';
+    document.body.classList.remove('scanning-fs','scan-results-open','keyboard-open');
+    setNavOwner('search');
+    if(saved){
+      const q=document.getElementById('q');if(q)q.value=saved.q||'';
+      const rq=document.getElementById('premiumResultQuery');if(rq)rq.value=saved.resultQ||'';
+      requestAnimationFrame(()=>{
+        const scroller=searchScroller(screen);
+        if(scroller)scroller.scrollTop=saved.scroll||0;
+      });
+    }
+  }
+  function syncContextIndex(out){
+    if(scrollRaf)return;
+    scrollRaf=requestAnimationFrame(()=>{
+      scrollRaf=0;
+      const cards=Array.from(out.querySelectorAll('.reel-card'));
+      if(!cards.length)return;
+      const y=Number(out.scrollTop)||0;
+      let best=0,distance=Infinity;
+      cards.forEach((card,index)=>{
+        const d=Math.abs((Number(card.offsetTop)||0)-y);
+        if(d<distance){distance=d;best=index;}
+      });
+      if(best===activeReelIndex)return;
+      try{finaliseReelTracking();}catch(_){ }
+      activeReelIndex=best;
+      try{beginReelTracking(best);}catch(_){ }
+      try{if(typeof preloadPersonalisedImages==='function')preloadPersonalisedImages(Math.max(0,best-2),7);}catch(_){ }
+    });
+  }
+  function openSearchReel(list,index,data,origin){
+    list=cleanList(list);
+    if(!list.length)return false;
+    const chosen=Math.max(0,Math.min(list.length-1,Number(index)||0));
+    const selected=list[chosen];
+    if(!selected)return false;
+
+    captureSearchReturn();
+    try{if(typeof findaiRememberRecentProduct==='function')findaiRememberRecentProduct(selected);}catch(_){ }
+
+    const layer=ensureLayer(),out=contextFeed();
+    if(!layer||!out)return false;
+
+    /* Populate first. No navigation has happened yet. */
+    currentFeedItems=list.slice();
+    currentFeedData=data||{personalised:true};
+    feedState={...(feedState||{}),source:'contextual-reel',query:'',resolvedQuery:'',loading:false,hasMore:false,cursor:null};
+    activeReelIndex=chosen;
+    window.__findaiExploreInjectedFeed=false;
+    try{if(reelObserver)reelObserver.disconnect();}catch(_){ }
+
+    out.innerHTML=list.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');
+    out.onscroll=()=>syncContextIndex(out);
+    layer.dataset.contextOrigin=String(origin||'search-v184');
+    layer.dataset.contextTab='search';
+    layer.classList.add('show');
+
+    /* Only after the overlay exists do we expose the reel visual surface. This is
+       synchronous, so there is no intermediate Home paint. */
+    showDiscoverVisualOwnedBy('search');
+
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const card=out.querySelector('.reel-card[data-index="'+chosen+'"]');
+      out.scrollTop=card?card.offsetTop:chosen*(out.clientHeight||1);
+      activeReelIndex=chosen;
+      try{beginReelTracking(chosen);}catch(_){ }
+      try{if(typeof preloadPersonalisedImages==='function')preloadPersonalisedImages(Math.max(0,chosen-2),7);}catch(_){ }
+    }));
+    lastOpenAt=Date.now();
+    return true;
+  }
+
+  function sectionById(id){
+    try{
+      if(typeof premiumDiscoverySectionById==='function')return premiumDiscoverySectionById(id);
+      return (Array.isArray(premiumDiscoverySections)?premiumDiscoverySections:[]).find(section=>String(section?.config?.id||section?.id||'')===String(id));
+    }catch(_){return null;}
+  }
+
+  /* One Search listing authority. Every visible Search card routes here. */
+  window.openPremiumDiscoveryItem=function(sectionId,index){
+    const section=sectionById(sectionId),list=cleanList(section&&section.items);
+    const i=Math.max(0,Math.min(list.length-1,Number(index)||0));
+    return openSearchReel(list,i,{personalised:true},'search-v184-discovery');
+  };
+  window.openPremiumResultItem=function(index){
+    const list=cleanList(typeof premiumResultItems!=='undefined'?premiumResultItems:[]);
+    const i=Math.max(0,Math.min(list.length-1,Number(index)||0));
+    return openSearchReel(list,i,(typeof premiumResultData!=='undefined'&&premiumResultData)||{personalised:true},'search-v184-results');
+  };
+  window.openPremiumEbayItem=function(index){
+    const list=cleanList(typeof premiumEbayItems!=='undefined'?premiumEbayItems:[]);
+    const i=Math.max(0,Math.min(list.length-1,Number(index)||0));
+    return openSearchReel(list,i,{personalised:true},'search-v184-ebay');
+  };
+  window.openSearchResultDetail=function(index){
+    const list=cleanList(Array.isArray(currentFeedItems)?currentFeedItems:[]);
+    const i=Math.max(0,Math.min(list.length-1,Number(index)||0));
+    return openSearchReel(list,i,currentFeedData||{personalised:true},'search-v184-grid');
+  };
+
+  /* Search nav while a Search reel is open is Back-to-Search. */
+  window.addEventListener('click',event=>{
+    const search=event.target?.closest?.('.premium-bottom-nav button[data-tab="search"]');
+    if(!search||!isSearchContext())return;
+    event.preventDefault();event.stopPropagation();
+    if(event.stopImmediatePropagation)event.stopImmediatePropagation();
+    restoreSearch();
+  },true);
+
+  /* Home / Messages / Profile may leave the contextual reel normally. Hide it
+     before those normal handlers execute so no invisible layer survives. */
+  window.addEventListener('pointerdown',event=>{
+    if(!isSearchContext())return;
+    const button=event.target?.closest?.('.premium-bottom-nav button[data-tab]');
+    if(!button)return;
+    const tab=String(button.dataset.tab||'');
+    if(tab==='search')return;
+    hideLayer();
+    searchReturn=null;
+  },true);
+
+  const searchBase=window.openSearchHome;
+  window.openSearchHome=function(focus=true){
+    if(isSearchContext()){restoreSearch();return;}
+    return typeof searchBase==='function'?searchBase.apply(this,arguments):undefined;
+  };
+
+  function listingHost(target){
+    if(!target?.closest)return null;
+    const host=target.closest('#search .premium-explore-tile,#search .premium-ebay-card,#search .premium-result-card,#search .search-grid-card,#search .app-search-evidence,#searchResults .premium-result-card,#searchResults .premium-ebay-card');
+    if(!host)return null;
+    const explicit=target.closest('button,a,input,textarea,select,.premium-card-like,.premium-seller-action');
+    return explicit&&explicit!==host?null:host;
+  }
+  function resolveHost(host){
+    if(!host)return null;
+    let match=String(host.getAttribute('onclick')||'').match(/openPremiumDiscoveryItem\(['\"]([^'\"]+)['\"],\s*(\d+)\)/);
+    if(match){
+      const list=cleanList(sectionById(match[1])?.items),index=Number(match[2]);
+      if(list[index])return {list,index,data:{personalised:true},origin:'search-v184-discovery'};
+    }
+    match=String(host.getAttribute('onclick')||'').match(/openPremiumResultItem\((\d+)\)/);
+    if(match){const list=cleanList(typeof premiumResultItems!=='undefined'?premiumResultItems:[]),index=Number(match[1]);if(list[index])return {list,index,data:(typeof premiumResultData!=='undefined'&&premiumResultData)||{personalised:true},origin:'search-v184-results'};}
+    match=String(host.getAttribute('onclick')||'').match(/openPremiumEbayItem\((\d+)\)/);
+    if(match){const list=cleanList(typeof premiumEbayItems!=='undefined'?premiumEbayItems:[]),index=Number(match[1]);if(list[index])return {list,index,data:{personalised:true},origin:'search-v184-ebay'};}
+    match=String(host.getAttribute('onclick')||'').match(/openSearchResultDetail\((\d+)\)/);
+    if(match){const list=cleanList(Array.isArray(currentFeedItems)?currentFeedItems:[]),index=Number(match[1]);if(list[index])return {list,index,data:currentFeedData||{personalised:true},origin:'search-v184-grid'};}
+    const gridIndex=Number(host.dataset.gridIndex);
+    if(Number.isFinite(gridIndex)){
+      const list=cleanList(Array.isArray(currentFeedItems)?currentFeedItems:[]);
+      if(list[gridIndex])return {list,index:gridIndex,data:currentFeedData||{personalised:true},origin:'search-v184-grid'};
+    }
+    return null;
+  }
+
+  /* iPhone reliability: remember the item on touch-down, then open it ourselves
+     on a true tap. v132 is now explicitly blocked from Search listing surfaces. */
+  window.addEventListener('touchstart',event=>{
+    const host=listingHost(event.target),resolved=resolveHost(host),touch=event.touches?.[0];
+    if(!host||!resolved||!touch){touchState=null;return;}
+    touchState={host,resolved,x:touch.clientX,y:touch.clientY,moved:false};
+  },{capture:true,passive:true});
+  window.addEventListener('touchmove',event=>{
+    if(!touchState)return;const touch=event.touches?.[0];if(!touch)return;
+    if(Math.hypot(touch.clientX-touchState.x,touch.clientY-touchState.y)>12)touchState.moved=true;
+  },{capture:true,passive:true});
+  window.addEventListener('touchend',event=>{
+    if(!touchState)return;
+    const state=touchState;touchState=null;
+    if(state.moved)return;
+    event.preventDefault();event.stopPropagation();
+    if(event.stopImmediatePropagation)event.stopImmediatePropagation();
+    openSearchReel(state.resolved.list,state.resolved.index,state.resolved.data,state.resolved.origin);
+  },{capture:true,passive:false});
+  window.addEventListener('touchcancel',()=>{touchState=null;},true);
+
+  /* Desktop / mouse fallback. The native inline onclick is intentionally
+     suppressed so the listing can only open once. */
+  window.addEventListener('click',event=>{
+    const host=listingHost(event.target);
+    if(!host)return;
+    if(Date.now()-lastOpenAt<750){event.preventDefault();event.stopPropagation();if(event.stopImmediatePropagation)event.stopImmediatePropagation();return;}
+    const resolved=resolveHost(host);if(!resolved)return;
+    event.preventDefault();event.stopPropagation();
+    if(event.stopImmediatePropagation)event.stopImmediatePropagation();
+    openSearchReel(resolved.list,resolved.index,resolved.data,resolved.origin);
+  },true);
+})();
+</script>
+
+
+<style id="wishwave-v185-brand-nav-style">
+/* v185 — branded create control + one authoritative profile avatar in the nav. */
+body>.nav.findai-five-nav.premium-bottom-nav .nav-create-shell,
+.app>.nav.findai-five-nav.premium-bottom-nav .nav-create-shell{
+  width:66px!important;
+  height:38px!important;
+  min-width:66px!important;
+  min-height:38px!important;
+  border-radius:999px!important;
+  border:2px solid transparent!important;
+  background:
+    linear-gradient(#050607,#050607) padding-box,
+    linear-gradient(115deg,#ff8a3d 0%,#ff2f8c 34%,#a726ff 66%,#247cff 100%) border-box!important;
+  color:#fff!important;
+  box-shadow:none!important;
+  display:grid!important;
+  place-items:center!important;
+  overflow:hidden!important;
+  transform:none!important;
+}
+body>.nav.findai-five-nav.premium-bottom-nav .nav-create-shell svg,
+.app>.nav.findai-five-nav.premium-bottom-nav .nav-create-shell svg{
+  width:24px!important;
+  height:24px!important;
+  stroke:#fff!important;
+  stroke-width:1.9!important;
+}
+body>.nav.findai-five-nav.premium-bottom-nav .nav-create-action:active .nav-create-shell,
+.app>.nav.findai-five-nav.premium-bottom-nav .nav-create-action:active .nav-create-shell{
+  transform:scale(.95)!important;
+  box-shadow:0 0 0 1px rgba(255,255,255,.035),0 0 16px rgba(193,40,255,.14)!important;
+}
+html.findai-light body>.nav.findai-five-nav.premium-bottom-nav .nav-create-shell,
+html.findai-light .app>.nav.findai-five-nav.premium-bottom-nav .nav-create-shell{
+  background:
+    linear-gradient(#fff,#fff) padding-box,
+    linear-gradient(115deg,#ff8a3d 0%,#ff2f8c 34%,#a726ff 66%,#247cff 100%) border-box!important;
+  color:#111!important;
+}
+html.findai-light body>.nav.findai-five-nav.premium-bottom-nav .nav-create-shell svg,
+html.findai-light .app>.nav.findai-five-nav.premium-bottom-nav .nav-create-shell svg{stroke:#111!important}
+
+/* The signed-in nav avatar is the same crop/photo as the profile avatar. */
+body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar,
+.app>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar{
+  width:29px!important;
+  height:29px!important;
+  border-radius:50%!important;
+  overflow:hidden!important;
+  background:#17191d!important;
+  border:1px solid rgba(255,255,255,.58)!important;
+  box-sizing:border-box!important;
+  padding:0!important;
+}
+body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar.has-image,
+.app>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar.has-image{
+  background:transparent!important;
+}
+body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar.has-image img,
+.app>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar.has-image img{
+  position:absolute!important;
+  inset:-1px!important;
+  width:calc(100% + 2px)!important;
+  height:calc(100% + 2px)!important;
+  max-width:none!important;
+  max-height:none!important;
+  display:block!important;
+  object-fit:cover!important;
+  object-position:50% 50%!important;
+  border-radius:50%!important;
+  transform:none!important;
+  -webkit-transform:none!important;
+}
+body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar.has-image>span,
+.app>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar.has-image>span{display:none!important}
+
+/* Keep the image-position chip directly beneath the notification bell. */
+#discover .reel-gallery-count,
+#discover #findaiContextualReelV168 .reel-gallery-count{
+  top:78px!important;
+  right:24px!important;
+  z-index:8!important;
+}
+@media(max-width:380px){
+  #discover .reel-gallery-count,
+  #discover #findaiContextualReelV168 .reel-gallery-count{right:22px!important}
+}
+</style>
+<script id="wishwave-v185-brand-nav-script">
+(function(){
+  'use strict';
+
+  function usableAvatar(value){
+    const src=String(value||'').trim();
+    return /^(?:https?:\/\/|data:image\/)/i.test(src)?src:'';
+  }
+
+  function authoritativeAvatar(){
+    /* Prefer the image the profile screen is actually painting. This guarantees the
+       bottom-nav photo cannot disagree with the visible profile after remote sync. */
+    const profileRoot=document.getElementById('profileAvatar');
+    const profileImg=profileRoot&&profileRoot.querySelector('img');
+    if(profileRoot&&profileRoot.classList.contains('has-image')&&profileImg){
+      const src=usableAvatar(profileImg.currentSrc||profileImg.src||profileImg.getAttribute('src'));
+      if(src)return src;
+    }
+    try{
+      const p=typeof getAccountProfile==='function'?getAccountProfile():null;
+      return usableAvatar(p&&p.avatar);
+    }catch(_){return '';}
+  }
+
+  function syncNavAvatar(){
+    const nav=document.getElementById('navProfileAvatar');
+    if(!nav)return;
+    const img=nav.querySelector('img');
+    const fallback=nav.querySelector('span');
+    const src=authoritativeAvatar();
+    if(src){
+      if(img){
+        if(img.getAttribute('src')!==src)img.setAttribute('src',src);
+        img.style.objectPosition='50% 50%';
+      }
+      nav.classList.add('has-image');
+      if(fallback)fallback.style.display='none';
+    }else{
+      if(img)img.removeAttribute('src');
+      nav.classList.remove('has-image');
+      if(fallback)fallback.style.removeProperty('display');
+    }
+  }
+  window.wishwaveSyncNavAvatar=syncNavAvatar;
+
+  /* Keep existing account/profile functions intact; just mirror their final painted state. */
+  const priorHeader=window.updateAccountHeader;
+  if(typeof priorHeader==='function'){
+    window.updateAccountHeader=function(){
+      const out=priorHeader.apply(this,arguments);
+      requestAnimationFrame(syncNavAvatar);
+      return out;
+    };
+  }
+  const priorPaint=window.paintSocialProfileHeader;
+  if(typeof priorPaint==='function'){
+    window.paintSocialProfileHeader=function(){
+      const out=priorPaint.apply(this,arguments);
+      requestAnimationFrame(syncNavAvatar);
+      return out;
+    };
+  }
+  const priorRender=window.renderProfileTab;
+  if(typeof priorRender==='function'){
+    window.renderProfileTab=function(){
+      const out=priorRender.apply(this,arguments);
+      requestAnimationFrame(syncNavAvatar);
+      return out;
+    };
+  }
+
+  function observeProfileAvatar(){
+    const root=document.getElementById('profileAvatar');
+    if(!root||root.__wishwaveV185Observed)return;
+    root.__wishwaveV185Observed=true;
+    new MutationObserver(syncNavAvatar).observe(root,{attributes:true,attributeFilter:['class'],childList:true,subtree:true});
+    const img=root.querySelector('img');
+    if(img)new MutationObserver(syncNavAvatar).observe(img,{attributes:true,attributeFilter:['src']});
+  }
+
+  function boot(){
+    observeProfileAvatar();
+    syncNavAvatar();
+    setTimeout(syncNavAvatar,80);
+    setTimeout(syncNavAvatar,350);
+    setTimeout(syncNavAvatar,1200);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});
+  else boot();
+  window.addEventListener('pageshow',boot,{passive:true});
+
+  /* Profile markup can be repainted by older social code; rebind only when needed. */
+  new MutationObserver(()=>{
+    observeProfileAvatar();
+    syncNavAvatar();
+  }).observe(document.body,{childList:true,subtree:true});
 })();
 </script>
 
