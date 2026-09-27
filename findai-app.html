@@ -27660,5 +27660,392 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
 })();
 </script>
 
+
+<style id="findai-v178-messaging-profile-polish-style">
+/* =========================================================
+   v178 — Messaging / profile navigation launch polish
+   ========================================================= */
+
+/* A failed outgoing message remains in the thread and explains itself,
+   Instagram-style, instead of relying on a transient toast. */
+#appMpInbox .app-mp-bubble.mine.failed{
+  position:relative!important;
+  margin-bottom:30px!important;
+  opacity:1!important;
+}
+#appMpInbox .app-mp-bubble.mine.failed::before{
+  content:"!"!important;
+  position:absolute!important;
+  right:0!important;
+  bottom:-24px!important;
+  width:15px!important;
+  height:15px!important;
+  display:grid!important;
+  place-items:center!important;
+  border-radius:50%!important;
+  background:#ff3045!important;
+  color:#fff!important;
+  font:800 10px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif!important;
+  box-shadow:0 0 0 2px #000!important;
+}
+#appMpInbox .app-mp-bubble.mine.failed::after{
+  content:"Not delivered"!important;
+  position:absolute!important;
+  right:21px!important;
+  bottom:-24px!important;
+  color:#ff4b5f!important;
+  white-space:nowrap!important;
+  font:650 10.5px/15px -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif!important;
+  letter-spacing:-.05px!important;
+}
+
+/* Every visible identity surface in a conversation should feel tappable. */
+#appMpInboxTitle .findai-chat-title-person,
+.findai-v169-chat-profile-avatar,
+.findai-v169-chat-profile-name,
+.findai-v169-chat-profile-username,
+.findai-v169-chat-profile-view,
+.findai-v173-message-avatar:not(.spacer),
+.wishwave-comment-avatar,
+.wishwave-comment-head b{
+  cursor:pointer!important;
+  -webkit-tap-highlight-color:transparent!important;
+}
+#appMpInboxTitle .findai-chat-title-person:active,
+.findai-v169-chat-profile-avatar:active,
+.findai-v169-chat-profile-name:active,
+.findai-v169-chat-profile-username:active,
+.findai-v169-chat-profile-view:active,
+.findai-v173-message-avatar:not(.spacer):active,
+.wishwave-comment-avatar:active,
+.wishwave-comment-head b:active{
+  opacity:.68!important;
+}
+
+/* Shared listing cards can be double-tapped to like without changing the
+   single-tap behaviour that opens the listing. */
+#appMpInbox [data-findai-v178-shared="1"]{
+  cursor:pointer!important;
+  -webkit-tap-highlight-color:transparent!important;
+  touch-action:manipulation!important;
+}
+</style>
+
+<script id="findai-v178-messaging-profile-polish-script">
+(function(){
+  'use strict';
+
+  /* ---------------------------------------------------------
+     PROFILE ROUTING
+     Event delegation is intentional: the chat timeline is rebuilt while
+     polling, so direct listeners on View profile were being lost.
+     --------------------------------------------------------- */
+  async function openCurrentChatProfile(explicitUsername){
+    const c=(typeof appMpCurrentConversation!=='undefined'&&appMpCurrentConversation)||window.appMpCurrentConversation||{};
+    const username=String(explicitUsername||c.otherPartyUsername||'').replace(/^@+/,'').trim();
+
+    if(username&&typeof window.openFindAIProfileByUsername==='function'){
+      try{return await window.openFindAIProfileByUsername(username);}catch(_){}
+    }
+
+    /* Fallback for older conversations that pre-date stored usernames. */
+    const display=String(c.otherParty||'').trim();
+    if(!display)return;
+    try{
+      const data=await marketplaceFetch('/marketplace/sellers/search?q='+encodeURIComponent(display)+'&limit=8',{method:'GET'});
+      const rows=Array.isArray(data&&data.sellers)?data.sellers:[];
+      const seller=rows.find(row=>String(row.displayName||'').trim().toLowerCase()===display.toLowerCase())||rows[0];
+      if(seller&&seller.id&&typeof window.openPremiumSellerProfileById==='function'){
+        return window.openPremiumSellerProfileById(seller.id);
+      }
+    }catch(_){ }
+    try{toast('Profile unavailable');}catch(_){ }
+  }
+  window.findaiOpenCurrentChatProfileV178=openCurrentChatProfile;
+
+  function commentForTarget(target){
+    const article=target&&target.closest?target.closest('.wishwave-comment[data-comment-id]'):null;
+    if(!article)return null;
+    const id=String(article.dataset.commentId||'');
+    try{
+      const rows=(typeof wishwaveCommentsData!=='undefined'&&wishwaveCommentsData&&Array.isArray(wishwaveCommentsData.comments))
+        ?wishwaveCommentsData.comments:[];
+      return rows.find(c=>String(c&&c.id||'')===id)||null;
+    }catch(_){return null;}
+  }
+
+  document.addEventListener('click',event=>{
+    const target=event.target;
+    if(!target||!target.closest)return;
+
+    /* View profile button and the large identity card in chat. */
+    const viewButton=target.closest('.findai-v169-chat-profile-view');
+    const profileIdentity=target.closest('.findai-v169-chat-profile-avatar,.findai-v169-chat-profile-name,.findai-v169-chat-profile-username');
+    const messageAvatar=target.closest('.findai-v173-message-avatar:not(.spacer)');
+    const titleIdentity=target.closest('#appMpInboxTitle .findai-chat-title-person');
+    if(viewButton||profileIdentity||messageAvatar||titleIdentity){
+      event.preventDefault();
+      event.stopPropagation();
+      if(event.stopImmediatePropagation)event.stopImmediatePropagation();
+      const username=viewButton?String(viewButton.dataset.profileUsername||''):'';
+      openCurrentChatProfile(username);
+      return;
+    }
+
+    /* Comment avatar/name -> that user's profile. */
+    const commentIdentity=target.closest('.wishwave-comment-avatar,.wishwave-comment-head b');
+    if(commentIdentity){
+      const comment=commentForTarget(commentIdentity);
+      if(!comment)return;
+      event.preventDefault();
+      event.stopPropagation();
+      if(event.stopImmediatePropagation)event.stopImmediatePropagation();
+      if(typeof window.openWishWaveCommentProfile==='function'){
+        window.openWishWaveCommentProfile(comment,null);
+      }else if(comment.isMine&&typeof window.openProfile==='function'){
+        window.openProfile();
+      }else{
+        const username=String(comment.username||'').replace(/^@+/,'').trim();
+        if(username&&typeof window.openFindAIProfileByUsername==='function')window.openFindAIProfileByUsername(username);
+      }
+    }
+  },true);
+
+  /* ---------------------------------------------------------
+     TIMELINE DECORATION
+     Keep v173's final renderer, but make incoming avatars actionable and
+     convert shared cards to a gesture-aware single/double-tap surface.
+     --------------------------------------------------------- */
+  const timelineBeforeV178=window.appMpMessageTimeline;
+  if(typeof timelineBeforeV178==='function'){
+    window.appMpMessageTimeline=function(messages){
+      const html=timelineBeforeV178.apply(this,arguments);
+      try{
+        const template=document.createElement('template');
+        template.innerHTML=html;
+
+        template.content.querySelectorAll('.findai-v173-message-avatar:not(.spacer)').forEach(node=>{
+          node.setAttribute('role','button');
+          node.setAttribute('tabindex','0');
+          node.setAttribute('aria-label','View profile');
+          node.dataset.findaiV178ChatProfile='1';
+        });
+
+        template.content.querySelectorAll('.app-mp-shared-listing').forEach(card=>{
+          const host=card.closest('[data-shared-json]');
+          if(!host)return;
+          host.removeAttribute('onclick');
+          host.dataset.findaiV178Shared='1';
+          host.setAttribute('role','button');
+          host.setAttribute('tabindex','0');
+          host.setAttribute('aria-label','Open shared listing. Double tap to like.');
+        });
+        return template.innerHTML;
+      }catch(_){return html;}
+    };
+  }
+
+  /* ---------------------------------------------------------
+     SHARED LISTINGS — single tap opens, double tap likes.
+     A small delay is only applied to the shared card so the second tap can
+     cancel navigation and become a heart reaction instead.
+     --------------------------------------------------------- */
+  let sharedTap={id:'',time:0,timer:0,host:null};
+  const sharedDown=new WeakMap();
+
+  document.addEventListener('pointerdown',event=>{
+    const host=event.target&&event.target.closest?event.target.closest('#appMpInbox [data-findai-v178-shared="1"]'):null;
+    if(host)sharedDown.set(host,Date.now());
+  },true);
+
+  document.addEventListener('pointerup',event=>{
+    const host=event.target&&event.target.closest?event.target.closest('#appMpInbox [data-findai-v178-shared="1"]'):null;
+    if(!host)return;
+
+    const held=Date.now()-Number(sharedDown.get(host)||Date.now());
+    sharedDown.delete(host);
+    if(held>440)return; /* a hold belongs to the Copy/Report menu */
+
+    const bubble=host.closest('.app-mp-bubble[data-message-id]');
+    if(!bubble)return;
+    const id=String(bubble.dataset.messageId||'');
+    const now=Date.now();
+
+    if(sharedTap.id===id&&now-sharedTap.time<330){
+      clearTimeout(sharedTap.timer);
+      sharedTap={id:'',time:0,timer:0,host:null};
+      window.__findaiV178LastMessageDoubleTap=now;
+      try{
+        /* Clears the older long-press timer even though a reaction listener
+           may have stopped the original pointerup from bubbling. */
+        const cancelEvent=typeof PointerEvent==='function'
+          ?new PointerEvent('pointercancel',{bubbles:true,cancelable:false})
+          :new Event('pointercancel',{bubbles:true});
+        bubble.dispatchEvent(cancelEvent);
+      }catch(_){ }
+      if(typeof window.findaiToggleMessageHeartV172==='function'){
+        window.findaiToggleMessageHeartV172(bubble);
+      }
+      try{event.preventDefault();}catch(_){ }
+      return;
+    }
+
+    clearTimeout(sharedTap.timer);
+    sharedTap={id,time:now,timer:0,host};
+    sharedTap.timer=setTimeout(()=>{
+      const openHost=sharedTap.host;
+      sharedTap={id:'',time:0,timer:0,host:null};
+      if(openHost&&document.contains(openHost)&&typeof window.openSharedListingMessageV172==='function'){
+        window.openSharedListingMessageV172(openHost);
+      }
+    },285);
+  },true);
+
+  /* No native/legacy click should open a shared card before the 285ms
+     single-vs-double-tap decision above. */
+  document.addEventListener('click',event=>{
+    const host=event.target&&event.target.closest?event.target.closest('#appMpInbox [data-findai-v178-shared="1"]'):null;
+    if(!host)return;
+    event.preventDefault();
+    event.stopPropagation();
+  },true);
+
+  /* Keyboard remains instant and accessible. */
+  document.addEventListener('keydown',event=>{
+    const host=event.target&&event.target.closest?event.target.closest('#appMpInbox [data-findai-v178-shared="1"]'):null;
+    if(!host||!(event.key==='Enter'||event.key===' '))return;
+    event.preventDefault();
+    if(typeof window.openSharedListingMessageV172==='function')window.openSharedListingMessageV172(host);
+  },true);
+
+  /* ---------------------------------------------------------
+     MESSAGE DOUBLE TAP vs LONG PRESS
+     v172 reacted on pointerup in capture phase and stopped propagation.
+     That meant v167's bubble-phase pointerup could miss the event and leave
+     its 500ms Copy/Report timer alive. Explicitly emit pointercancel on the
+     second tap so Copy/Report is hold-only again.
+     --------------------------------------------------------- */
+  let messageTap={id:'',time:0};
+  function cancelLegacyHold(bubble){
+    try{
+      const cancelEvent=typeof PointerEvent==='function'
+        ?new PointerEvent('pointercancel',{bubbles:true,cancelable:false})
+        :new Event('pointercancel',{bubbles:true});
+      bubble.dispatchEvent(cancelEvent);
+    }catch(_){ }
+  }
+  function closeAccidentalHoldMenu(){
+    const overlay=document.getElementById('findaiV167HoldOverlay');
+    if(overlay&&overlay.classList.contains('show')){
+      try{if(typeof window.closeFindAIV167HoldMenu==='function')window.closeFindAIV167HoldMenu();}
+      catch(_){overlay.classList.remove('show');}
+    }
+  }
+
+  document.addEventListener('pointerup',event=>{
+    if(event.target&&event.target.closest&&event.target.closest('#appMpInbox [data-findai-v178-shared="1"]'))return;
+    const bubble=event.target&&event.target.closest?event.target.closest('#appMpInbox .app-mp-bubble[data-message-id]'):null;
+    if(!bubble)return;
+    if(event.target.closest('button,a,input,textarea'))return;
+
+    const id=String(bubble.dataset.messageId||'');
+    const now=Date.now();
+    if(messageTap.id===id&&now-messageTap.time<350){
+      messageTap={id:'',time:0};
+      window.__findaiV178LastMessageDoubleTap=now;
+      cancelLegacyHold(bubble);
+      setTimeout(closeAccidentalHoldMenu,0);
+      setTimeout(closeAccidentalHoldMenu,520);
+      return;
+    }
+    messageTap={id,time:now};
+  },true);
+
+  const holdOverlay=document.getElementById('findaiV167HoldOverlay');
+  if(holdOverlay){
+    new MutationObserver(()=>{
+      if(
+        holdOverlay.classList.contains('show')&&
+        Date.now()-Number(window.__findaiV178LastMessageDoubleTap||0)<750
+      )closeAccidentalHoldMenu();
+    }).observe(holdOverlay,{attributes:true,attributeFilter:['class']});
+  }
+
+  /* ---------------------------------------------------------
+     OPEN CHAT AT THE NEWEST MESSAGE
+     First load is forced to the bottom repeatedly for a short period so
+     late-loading avatars/listing images cannot push the newest message away.
+     Polling later keeps the user's manual scroll position as before.
+     --------------------------------------------------------- */
+  let forceBottomUntil=0;
+  function bottomNow(root){
+    if(!root)return;
+    root.scrollTop=root.scrollHeight;
+  }
+  function pinNewestMessage(){
+    const root=document.getElementById('appMpMessages');
+    if(!root)return;
+    bottomNow(root);
+    [30,100,240,520,900].forEach(delay=>setTimeout(()=>{
+      if(Date.now()<=forceBottomUntil)bottomNow(root);
+    },delay));
+    root.querySelectorAll('img').forEach(img=>{
+      if(img.complete)return;
+      img.addEventListener('load',()=>{
+        if(Date.now()<=forceBottomUntil)bottomNow(root);
+      },{once:true});
+    });
+  }
+
+  const renderChatBeforeV178=window.renderAppMpChat;
+  if(typeof renderChatBeforeV178==='function'){
+    window.renderAppMpChat=function(id,newBuyer){
+      const out=renderChatBeforeV178.apply(this,arguments);
+      if(id&&!newBuyer)forceBottomUntil=Date.now()+1300;
+      return out;
+    };
+  }
+
+  const loadBeforeV178=window.appMpLoadMessages;
+  if(typeof loadBeforeV178==='function'){
+    window.appMpLoadMessages=async function(){
+      const root=document.getElementById('appMpMessages');
+      const firstLoad=!!(root&&!root.dataset.loaded);
+      const out=await loadBeforeV178.apply(this,arguments);
+      if(firstLoad||Date.now()<=forceBottomUntil){
+        forceBottomUntil=Math.max(forceBottomUntil,Date.now()+1100);
+        requestAnimationFrame(()=>requestAnimationFrame(pinNewestMessage));
+      }
+      return out;
+    };
+  }
+
+  const openConversationBeforeV178=window.appMpOpenConversation;
+  if(typeof openConversationBeforeV178==='function'){
+    window.appMpOpenConversation=async function(){
+      forceBottomUntil=Date.now()+1400;
+      const out=await openConversationBeforeV178.apply(this,arguments);
+      requestAnimationFrame(()=>requestAnimationFrame(pinNewestMessage));
+      return out;
+    };
+  }
+
+  /* ---------------------------------------------------------
+     BLOCKED / FAILED DELIVERY
+     The failed bubble now carries the persistent red explanation, so suppress
+     the old large "Messaging is unavailable" toast that obscured the thread.
+     Other errors still use the normal toast.
+     --------------------------------------------------------- */
+  const toastBeforeV178=window.toast;
+  if(typeof toastBeforeV178==='function'){
+    window.toast=function(message){
+      const text=String(message||'');
+      if(/Messaging is unavailable for this conversation/i.test(text))return;
+      return toastBeforeV178.apply(this,arguments);
+    };
+  }
+})();
+</script>
+
 </body>
 </html>
