@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v133-navigation-cache-context-reel">
+<meta name="findai-build" content="v180-functional-stability">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -4241,7 +4241,14 @@ async function listingImagesPicked(event){
   const files=Array.from(event.target.files||[]).filter(file=>file.type.startsWith('image/'));event.target.value='';
   const remaining=Math.max(0,6-pendingListingImages.length);if(!remaining){toast('You can upload up to 6 images');return;}
   const selected=files.slice(0,remaining);if(!selected.length)return;
-  try{const images=await Promise.all(selected.map(compressListingImage));pendingListingImages.push(...images);renderListingImagePreviews();if(files.length>remaining)toast('Only the first 6 images were added');}catch(_){toast('One of those images could not be added');}
+  try{
+    const settled=await Promise.allSettled(selected.map(compressListingImage));
+    const images=settled.filter(result=>result.status==='fulfilled').map(result=>result.value);
+    const failed=settled.length-images.length;
+    if(images.length){pendingListingImages.push(...images);renderListingImagePreviews();}
+    if(files.length>remaining)toast('Only the first 6 images were added');
+    else if(failed)toast(failed===1?'One image could not be added':failed+' images could not be added');
+  }catch(_){toast('One of those images could not be added');}
 }
 function renderListingImagePreviews(){const grid=$('#listingImageGrid');if(!grid)return;grid.innerHTML=pendingListingImages.map((src,index)=>`<div class="listing-image-preview"><img src="${src}" alt="Listing image ${index+1}"><button type="button" onclick="removeListingImage(${index})" aria-label="Remove image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>`).join('');}
 function removeListingImage(index){pendingListingImages.splice(index,1);renderListingImagePreviews();}
@@ -16789,24 +16796,8 @@ html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .finda
   function cancelHold(){if(!hold)return;clearTimeout(hold.timer);hold=null;}document.addEventListener('pointerup',cancelHold,{passive:true});document.addEventListener('pointercancel',cancelHold,{passive:true});
   document.addEventListener('contextmenu',event=>{if(event.target.closest&&event.target.closest('.wishwave-comment.is-mine'))event.preventDefault();});
 
-  /* Main app tab swiping. Create remains an action, so it is intentionally skipped. */
-  const tabs=['discover','search','messages','profile'];let tabTouch=null,tabAnimating=false;
-  function tabIndex(){return tabs.indexOf(String(document.body.dataset.activeTab||'discover'));}
-  function tabVisual(tab){if(tab==='messages')return document.getElementById('appMpInbox');return document.getElementById(tab);}
-  function openTab(tab){if(tab==='discover')return openForYou();if(tab==='search')return openSearchHome(false);if(tab==='messages')return openMessagesTab();if(tab==='profile')return openProfile();}
-  function overlayOpen(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,#createListingScreen.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show');}
-  function animateTabTo(next,direction){
-    if(tabAnimating)return;const current=tabs[tabIndex()];if(!current||current===next)return;tabAnimating=true;const oldEl=tabVisual(current);if(oldEl)oldEl.classList.add(direction==='next'?'findai-tab-out-left':'findai-tab-out-right');
-    setTimeout(()=>{try{openTab(next);}catch(_){}requestAnimationFrame(()=>{const newEl=tabVisual(next);if(newEl)newEl.classList.add(direction==='next'?'findai-tab-in-right':'findai-tab-in-left');setTimeout(()=>{[oldEl,newEl].forEach(el=>{if(el)el.classList.remove('findai-tab-out-left','findai-tab-out-right','findai-tab-in-right','findai-tab-in-left');});tabAnimating=false;},245);});},110);
-  }
-  document.addEventListener('touchstart',event=>{
-    if(tabAnimating||overlayOpen()||event.touches.length!==1)return;const active=String(document.body.dataset.activeTab||'discover');if(!tabs.includes(active))return;
-    if(event.target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.reel-card[data-has-gallery="1"],.reel-gallery-stage,[data-horizontal-scroll],button,a'))return;
-    const t=event.touches[0];if(t.clientX<24||t.clientX>window.innerWidth-24)return;tabTouch={x:t.clientX,y:t.clientY,active:false,dx:0};
-  },{passive:true});
-  document.addEventListener('touchmove',event=>{if(!tabTouch||event.touches.length!==1)return;const t=event.touches[0],dx=t.clientX-tabTouch.x,dy=t.clientY-tabTouch.y;if(!tabTouch.active){if(Math.abs(dx)<12)return;if(Math.abs(dy)>Math.abs(dx)*.72){tabTouch=null;return;}tabTouch.active=true;}tabTouch.dx=dx;if(Math.abs(dx)>20)event.preventDefault();},{passive:false});
-  document.addEventListener('touchend',()=>{if(!tabTouch)return;const state=tabTouch;tabTouch=null;if(!state.active||Math.abs(state.dx)<58)return;const idx=tabIndex();if(idx<0)return;if(state.dx<0&&idx<tabs.length-1)animateTabTo(tabs[idx+1],'next');else if(state.dx>0&&idx>0)animateTabTo(tabs[idx-1],'prev');},{passive:true});document.addEventListener('touchcancel',()=>{tabTouch=null;},{passive:true});
-
+  /* Main app tab swiping is owned by the later v131 direct-manipulation controller.
+     The older v130 gesture listener was removed to prevent competing swipe decisions. */
   window.addEventListener('resize',()=>{if(document.getElementById('findaiSearchRecents')?.classList.contains('show'))recentsTop();},{passive:true});
 })();
 </script>
@@ -16936,7 +16927,19 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
   function activeTab(){return String(document.body.dataset.activeTab||'discover');}
   function idx(tab){return tabs.indexOf(tab);}
   function visual(tab){if(tab==='messages')return document.getElementById('appMpInbox');return document.getElementById(tab);}
-  function openTab(tab){if(tab==='discover')return openForYou();if(tab==='search')return openSearchHome(false);if(tab==='messages')return openMessagesTab();if(tab==='profile')return openProfile();}
+  function openTab(tab){
+    if(tab==='discover')return openForYou();
+    if(tab==='search'){
+      const layer=document.getElementById('findaiContextualReelV168');
+      if(layer?.classList.contains('show')&&String(layer.dataset.contextOrigin||'')==='search'){
+        const button=document.querySelector('.premium-bottom-nav button[data-tab="search"]');
+        if(button){button.click();return;}
+      }
+      return openSearchHome(false);
+    }
+    if(tab==='messages')return openMessagesTab();
+    if(tab==='profile')return openProfile();
+  }
   function blockedTarget(target){return !!(target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,.reel-card[data-has-gallery="1"],.reel-gallery-stage,[data-horizontal-scroll]'));}
   function overlayOpen(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,#createListingScreen.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show');}
   function prepSurface(el,kind){if(!el)return;el.classList.add(kind,'findai-v132-swipe-surface');el.style.removeProperty('display');}
@@ -16944,7 +16947,22 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
   function cleanup(state,activate){
     cancelAnimationFrame(raf);raf=0;
     const current=state&&state.current,target=state&&state.targetEl,targetTab=state&&state.targetTab;
-    if(activate&&targetTab){try{openTab(targetTab);}catch(_){}}
+    if(activate&&targetTab){
+      /* A swipe has no nav-button pointerdown, so explicitly fire the same
+         pre-navigation capture hook used by taps before leaving Home. */
+      try{
+        if(activeTab()==='discover'&&targetTab!=='discover'){
+          const navButton=document.querySelector('.premium-bottom-nav button[data-tab="'+targetTab+'"]');
+          if(navButton){
+            let ev;
+            try{ev=new PointerEvent('pointerdown',{bubbles:true,cancelable:true,pointerType:'touch'});}
+            catch(_){ev=new Event('pointerdown',{bubbles:true,cancelable:true});}
+            navButton.dispatchEvent(ev);
+          }
+        }
+      }catch(_){ }
+      try{openTab(targetTab);}catch(_){}
+    }
     requestAnimationFrame(()=>{clearSurface(current);clearSurface(target);swipe=null;swipeLocked=false;});
   }
   function drawSwipe(){
@@ -22605,6 +22623,10 @@ html.findai-light .nav-messages-badge{border-color:#f7f7f8!important}
   function openExactReel(item){
     try{state()?.close?.()}catch(_){}
 
+    if(typeof window.__wishwaveStableOpenContextualReel==='function'){
+      return window.__wishwaveStableOpenContextualReel(item,{personalised:true,notification:true},'notification');
+    }
+
     /* Reuse the v162 ghost-click protection. */
     window.__findaiNotificationReelGuardUntil=Date.now()+900;
 
@@ -22663,7 +22685,10 @@ html.findai-light .nav-messages-badge{border-color:#f7f7f8!important}
      painted its image. This stops Comments from opening over a stale prior reel. */
   async function waitForExactReelPaint(item){
     const expected=itemId(item);
-    const feed=document.getElementById('personalFeed');
+    const contextual=document.getElementById('findaiContextualReelV168');
+    const feed=contextual?.classList.contains('show')
+      ?document.getElementById('findaiContextualFeedV168')
+      :document.getElementById('personalFeed');
 
     for(let attempt=0;attempt<12;attempt++){
       await new Promise(resolve=>setTimeout(resolve,attempt<2?35:55));
@@ -22739,7 +22764,10 @@ html.findai-light .nav-messages-badge{border-color:#f7f7f8!important}
     clearTimeout(proofTimer);
     document.querySelectorAll('.findai-like-proof').forEach(node=>node.remove());
 
-    const feed=document.getElementById('personalFeed');
+    const contextual=document.getElementById('findaiContextualReelV168');
+    const feed=contextual?.classList.contains('show')
+      ?document.getElementById('findaiContextualFeedV168')
+      :document.getElementById('personalFeed');
     const card=feed&&feed.querySelector('.reel-card[data-index="0"]');
     if(!card)return;
 
@@ -24388,221 +24416,7 @@ html.findai-light .findai-safety-block-row{color:#222}
     };
   }
 
-  /* =========================================================
-     B. Stable Home/Search navigation.
-        Preserve the loaded Home feed instead of refreshing it
-        every time the user returns from another tab.
-   ========================================================= */
-  let homeSnapshot=null;
-  let homeDomFragment=null;
-  let searchReelOpen=false;
-  let searchOpening=false;
-  let homeCaptureTimer=0;
-
-  function homeFeed(){
-    return document.getElementById('personalFeed');
-  }
-
-  function canSnapshotHome(){
-    const feed=homeFeed();
-    return !!(
-      feed &&
-      feed.querySelector('.reel-card') &&
-      window.feedState &&
-      String(feedState.source||'')==='personalised' &&
-      Array.isArray(window.currentFeedItems) &&
-      currentFeedItems.length
-    );
-  }
-
-  function captureHomeSnapshot(force){
-    if(searchReelOpen)return false;
-    if(!force&&String(document.body.dataset.activeTab||'')!=='discover')return false;
-    if(!canSnapshotHome())return false;
-
-    const feed=homeFeed();
-    homeSnapshot={
-      items:currentFeedItems.slice(),
-      data:currentFeedData,
-      state:{...(feedState||{})},
-      active:Number(activeReelIndex)||0,
-      scroll:Number(feed.scrollTop)||0
-    };
-    return true;
-  }
-
-  function scheduleHomeCapture(){
-    clearTimeout(homeCaptureTimer);
-    homeCaptureTimer=setTimeout(()=>captureHomeSnapshot(false),90);
-  }
-
-  const feedAtBoot=homeFeed();
-  if(feedAtBoot){
-    feedAtBoot.addEventListener('scroll',()=>{
-      if(String(document.body.dataset.activeTab||'')==='discover'&&!searchReelOpen)scheduleHomeCapture();
-    },{passive:true});
-  }
-  setTimeout(()=>captureHomeSnapshot(false),900);
-  setTimeout(()=>captureHomeSnapshot(false),1800);
-
-  document.addEventListener('pointerdown',event=>{
-    const btn=event.target.closest&&event.target.closest('.premium-bottom-nav button[data-tab]');
-    if(!btn)return;
-    const target=String(btn.dataset.tab||'');
-    if(target!=='discover'&&String(document.body.dataset.activeTab||'')==='discover'&&!searchReelOpen){
-      captureHomeSnapshot(true);
-    }
-  },true);
-
-  function stashHomeDom(){
-    const feed=homeFeed();
-    if(!feed||homeDomFragment||!homeSnapshot)return;
-    homeDomFragment=document.createDocumentFragment();
-    while(feed.firstChild)homeDomFragment.appendChild(feed.firstChild);
-  }
-
-  function restoreHomeSnapshot(){
-    if(!homeSnapshot)return false;
-    const feed=homeFeed();
-    if(!feed)return false;
-
-    currentFeedItems=homeSnapshot.items.slice();
-    currentFeedData=homeSnapshot.data;
-    feedState={...(homeSnapshot.state||{}),source:'personalised'};
-    activeReelIndex=homeSnapshot.active;
-
-    if(homeDomFragment){
-      feed.replaceChildren(homeDomFragment);
-      homeDomFragment=null;
-    }else if(searchReelOpen){
-      feed.innerHTML=currentFeedItems.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');
-    }
-
-    searchReelOpen=false;
-    window.__findaiExploreInjectedFeed=false;
-
-    go('discover');
-    try{setMainNavActive('discover');}catch(_){}
-    try{showFeedHeader();bindFeedHeaderAutoHide();}catch(_){}
-
-    requestAnimationFrame(()=>{
-      feed.scrollTop=homeSnapshot.scroll||0;
-      try{attachReelObserver();beginReelTracking(activeReelIndex);}catch(_){}
-      try{preloadPersonalisedImages(Math.max(0,activeReelIndex-2),8);}catch(_){}
-    });
-    return true;
-  }
-
-  const previousOpenForYouV167=window.openForYou;
-  window.openForYou=function(){
-    const active=String(document.body.dataset.activeTab||'discover');
-
-    if(searchReelOpen&&homeSnapshot){
-      restoreHomeSnapshot();
-      return;
-    }
-
-    /* Normal return from Search/Messages/Profile: restore the existing Home
-       globals and show the already-mounted feed without a network repaint. */
-    if(active!=='discover'&&homeSnapshot&&!searchReelOpen){
-      currentFeedItems=homeSnapshot.items.slice();
-      currentFeedData=homeSnapshot.data;
-      feedState={...(homeSnapshot.state||{}),source:'personalised'};
-      activeReelIndex=homeSnapshot.active;
-      go('discover');
-      try{setMainNavActive('discover');}catch(_){}
-      const feed=homeFeed();
-      if(feed){
-        requestAnimationFrame(()=>{
-          feed.scrollTop=homeSnapshot.scroll||0;
-          try{attachReelObserver();beginReelTracking(activeReelIndex);}catch(_){}
-        });
-      }
-      return;
-    }
-
-    return typeof previousOpenForYouV167==='function'
-      ?previousOpenForYouV167.apply(this,arguments)
-      :undefined;
-  };
-
-  /* One stable Search listing -> Home reel route.
-     It deliberately does NOT set the old Explore-injected flag, which was
-     fighting several generations of Home restore logic. */
-  window.openSearchResultDetail=function(index){
-    if(searchOpening)return;
-    const list=Array.isArray(currentFeedItems)?currentFeedItems.slice():[];
-    const chosen=Math.max(0,Math.min(list.length-1,Number(index)||0));
-    const selected=list[chosen];
-    if(!selected){
-      try{toast('This listing could not be opened.')}catch(_){}
-      return;
-    }
-
-    searchOpening=true;
-    const clicked=document.querySelector('#search .search-grid-card[data-grid-index="'+chosen+'"]');
-    if(clicked)clicked.classList.add('findai-v167-opening');
-
-    try{
-      if(typeof findaiRememberRecentProduct==='function')findaiRememberRecentProduct(selected);
-    }catch(_){}
-
-    /* Home DOM is preserved in memory before this contextual reel replaces it. */
-    if(!homeSnapshot){
-      /* If the user arrived at Search unusually early, keep whatever valid
-         personalised feed we already have as the return state. */
-      try{captureHomeSnapshot(true);}catch(_){}
-    }
-    stashHomeDom();
-
-    const ordered=[selected,...list.filter((_,i)=>i!==chosen)].slice(0,36);
-    const feed=homeFeed();
-
-    currentFeedItems=ordered;
-    currentFeedData=currentFeedData||{personalised:true};
-    feedState={
-      ...(feedState||{}),
-      source:'search-reel',
-      query:'',
-      resolvedQuery:'',
-      loading:false,
-      hasMore:false,
-      cursor:null
-    };
-    activeReelIndex=0;
-    searchReelOpen=true;
-    window.__findaiExploreInjectedFeed=false;
-
-    if(feed){
-      feed.classList.remove('search-grid-mode');
-      feed.innerHTML=ordered.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');
-      feed.scrollTop=0;
-    }
-
-    try{hideRecents();}catch(_){}
-    try{closeSearchResultDetail();}catch(_){}
-    go('discover');
-    try{setMainNavActive('discover');}catch(_){}
-    try{showFeedHeader();bindFeedHeaderAutoHide();}catch(_){}
-
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      if(feed){
-        feed.scrollTop=0;
-        try{attachReelObserver();beginReelTracking(0);}catch(_){}
-        try{preloadPersonalisedImages(0,8);}catch(_){}
-      }
-      if(clicked)clicked.classList.remove('findai-v167-opening');
-      setTimeout(()=>{searchOpening=false;},140);
-    }));
-  };
-
-  /* If the user goes from Search reel straight back to the Search tab, clear
-     only the transient opening lock; the Search page itself stays mounted. */
-  document.addEventListener('pointerdown',event=>{
-    const btn=event.target.closest&&event.target.closest('.premium-bottom-nav button[data-tab="search"]');
-    if(!btn)return;
-    searchOpening=false;
-  },true);
+  /* Home/Search state ownership moved entirely to v168 below. */
 })();
 </script>
 
@@ -24749,6 +24563,14 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     return !!document.getElementById('findaiContextualReelV168')?.classList.contains('show');
   }
 
+  function ensurePersonalisedController(){
+    try{
+      if(!feedRequestController||feedRequestController.signal?.aborted){
+        feedRequestController=new AbortController();
+      }
+    }catch(_){ }
+  }
+
   function cloneFeedState(value){
     if(!value)return {};
     const out={...value};
@@ -24762,8 +24584,8 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
   function captureHome(){
     const feed=personalFeed();
     if(!feed)return false;
-    if(!Array.isArray(window.currentFeedItems)||!currentFeedItems.length)return false;
-    if(!window.feedState||String(feedState.source||'')!=='personalised')return false;
+    if(!Array.isArray(currentFeedItems)||!currentFeedItems.length)return false;
+    if(typeof feedState==='undefined'||!feedState||String(feedState.source||'')!=='personalised')return false;
     if(!feed.querySelector('.reel-card'))return false;
 
     homeState={
@@ -24787,8 +24609,8 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
   }
 
   function captureSearch(){
-    if(!Array.isArray(window.currentFeedItems)||!currentFeedItems.length)return false;
-    if(!window.feedState)return false;
+    if(!Array.isArray(currentFeedItems)||!currentFeedItems.length)return false;
+    if(typeof feedState==='undefined'||!feedState)return false;
     const source=String(feedState.source||'');
     if(source==='personalised'||source==='contextual-reel'||source==='search-reel')return false;
 
@@ -24812,7 +24634,10 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
 
   function hideContextualReel(){
     const layer=document.getElementById('findaiContextualReelV168');
-    if(layer)layer.classList.remove('show');
+    if(layer){
+      layer.classList.remove('show');
+      delete layer.dataset.contextOrigin;
+    }
     contextualItem=null;
     contextualData=null;
     window.__findaiExploreInjectedFeed=false;
@@ -24858,6 +24683,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     if(contextVisible()){
       hideContextualReel();
       restoreHomeGlobals();
+      ensurePersonalisedController();
       go('discover');
       try{setMainNavActive('discover');}catch(_){}
       const feed=personalFeed();
@@ -24877,6 +24703,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     /* Returning from Search / Messages / Profile. */
     if(homeState&&personalFeed()?.querySelector('.reel-card')){
       restoreHomeGlobals();
+      ensurePersonalisedController();
       go('discover');
       try{setMainNavActive('discover');}catch(_){}
       requestAnimationFrame(()=>{
@@ -24894,6 +24721,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     /* First-ever Home load only. */
     go('discover');
     if(personalFeed()?.querySelector('.reel-card')&&String(feedState&&feedState.source||'')==='personalised'){
+      ensurePersonalisedController();
       captureHome();
       return;
     }
@@ -24967,6 +24795,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     try{setMainNavActive('discover');}catch(_){}
     try{showFeedHeader();bindFeedHeaderAutoHide();}catch(_){}
 
+    layer.dataset.contextOrigin='search';
     layer.classList.add('show');
 
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
@@ -24981,6 +24810,8 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
   document.addEventListener('click',event=>{
     const button=event.target.closest&&event.target.closest('.premium-bottom-nav button[data-tab="search"]');
     if(!button||!contextVisible())return;
+    const layer=document.getElementById('findaiContextualReelV168');
+    if(String(layer?.dataset.contextOrigin||'')!=='search')return;
 
     event.preventDefault();
     event.stopPropagation();
@@ -26659,6 +26490,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
 
     out.innerHTML=renderReelCard(item,0,currentFeedData);
     out.scrollTop=0;
+    layer.dataset.contextOrigin='messages';
     layer.classList.add('show');
 
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
@@ -27659,6 +27491,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
 
     out.innerHTML=renderReelCard(item,0,currentFeedData);
     out.scrollTop=0;
+    layer.dataset.contextOrigin='profile';
     layer.classList.add('show');
 
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
@@ -28160,6 +27993,156 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
       return toastBeforeV178.apply(this,arguments);
     };
   }
+})();
+</script>
+
+
+<script id="findai-v180-functional-stability-script">
+(function(){
+  'use strict';
+
+  function layer(){return document.getElementById('findaiContextualReelV168');}
+  function layerVisible(){return !!layer()?.classList.contains('show');}
+  function personalFeed(){return document.getElementById('personalFeed');}
+
+  function ensureController(){
+    try{
+      if(!feedRequestController||feedRequestController.signal?.aborted){
+        feedRequestController=new AbortController();
+      }
+    }catch(_){ }
+  }
+
+  function primeHomeSnapshot(){
+    try{
+      if(String(document.body.dataset.activeTab||'')!=='discover')return;
+      if(layerVisible())return;
+      if(String(feedState&&feedState.source||'')!=='personalised')return;
+      if(!personalFeed()?.querySelector('.reel-card'))return;
+      const button=document.querySelector('.premium-bottom-nav button[data-tab="search"]');
+      if(!button)return;
+      let ev;
+      try{ev=new PointerEvent('pointerdown',{bubbles:true,cancelable:true,pointerType:'touch'});}
+      catch(_){ev=new Event('pointerdown',{bubbles:true,cancelable:true});}
+      button.dispatchEvent(ev);
+    }catch(_){ }
+  }
+
+  window.__wishwaveStableOpenContextualReel=function(item,data,origin){
+    if(!item)return false;
+    primeHomeSnapshot();
+
+    let overlay=layer();
+    if(!overlay){
+      const wrap=document.querySelector('#discover .discover-feed-wrap');
+      if(!wrap)return false;
+      overlay=document.createElement('div');
+      overlay.id='findaiContextualReelV168';
+      overlay.innerHTML='<div class="findai-v168-context-feed" id="findaiContextualFeedV168"></div>';
+      wrap.appendChild(overlay);
+    }
+    const out=document.getElementById('findaiContextualFeedV168');
+    if(!out)return false;
+
+    try{if(reelObserver)reelObserver.disconnect();}catch(_){ }
+    try{go('discover');setMainNavActive&&setMainNavActive('discover');}catch(_){ }
+
+    currentFeedItems=[item];
+    currentFeedData=data||{personalised:true};
+    feedState={
+      ...(feedState||{}),
+      source:'contextual-reel',
+      query:'',resolvedQuery:'',loading:false,hasMore:false,cursor:null
+    };
+    activeReelIndex=0;
+    window.__findaiExploreInjectedFeed=false;
+
+    out.innerHTML=renderReelCard(item,0,currentFeedData);
+    out.scrollTop=0;
+    overlay.dataset.contextOrigin=String(origin||'context');
+    overlay.classList.add('show');
+
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      out.scrollTop=0;
+      activeReelIndex=0;
+      try{beginReelTracking(0);}catch(_){ }
+    }));
+    return true;
+  };
+
+  /* Any legacy exact-home-reel caller now uses the non-destructive contextual layer. */
+  const stableItems=function(items,index,data){
+    const list=Array.isArray(items)?items.filter(Boolean):[];
+    if(!list.length)return false;
+    const chosen=Math.max(0,Math.min(list.length-1,Number(index)||0));
+    return window.__wishwaveStableOpenContextualReel(list[chosen],data||{personalised:true},'legacy-context');
+  };
+  window.findaiOpenItemsInHomeReelV155=stableItems;
+  window.findaiOpenItemsInHomeReelV158=stableItems;
+
+  /* Search called from a non-Search contextual item should dismiss only that layer,
+     then open Search normally. Search-origin contexts are handled by v168's restore path. */
+  const searchBefore=window.openSearchHome;
+  if(typeof searchBefore==='function'){
+    window.openSearchHome=function(){
+      const overlay=layer();
+      if(overlay?.classList.contains('show')){
+        const origin=String(overlay.dataset.contextOrigin||'');
+        if(origin==='search'){
+          const button=document.querySelector('.premium-bottom-nav button[data-tab="search"]');
+          if(button&&!window.__wishwaveRestoringSearch){
+            window.__wishwaveRestoringSearch=true;
+            try{button.click();}finally{window.__wishwaveRestoringSearch=false;}
+            return;
+          }
+        }else{
+          overlay.classList.remove('show');
+          delete overlay.dataset.contextOrigin;
+          window.__findaiExploreInjectedFeed=false;
+        }
+      }
+      return searchBefore.apply(this,arguments);
+    };
+  }
+
+  /* v168 owns Home restoration. This wrapper only makes sure Search's aborted
+     request controller cannot poison future Home pagination/background loads. */
+  const homeBefore=window.openForYou;
+  if(typeof homeBefore==='function'){
+    window.openForYou=function(){
+      const out=homeBefore.apply(this,arguments);
+      requestAnimationFrame(()=>{
+        try{
+          if(String(document.body.dataset.activeTab||'')==='discover'&&!layerVisible()){
+            if(String(feedState&&feedState.source||'')==='personalised')ensureController();
+            else if(!personalFeed()?.querySelector('.reel-card')){
+              ensureController();
+              loadPersonalisedFeed({forceNetwork:false});
+            }
+          }
+        }catch(_){ }
+      });
+      return out;
+    };
+  }
+
+  /* Defensive cleanup: abandoned swipe transforms must never survive a tab switch. */
+  function clearSwipeResidue(){
+    document.querySelectorAll('.findai-v132-swipe-surface').forEach(el=>{
+      el.classList.remove('findai-v132-current','findai-v132-target','findai-v132-settle','findai-v132-swipe-surface');
+      el.style.removeProperty('transform');
+      el.style.removeProperty('opacity');
+      el.style.removeProperty('pointer-events');
+    });
+  }
+  let lastTab=String(document.body.dataset.activeTab||'discover');
+  new MutationObserver(()=>{
+    const next=String(document.body.dataset.activeTab||'discover');
+    if(next===lastTab)return;
+    lastTab=next;
+    requestAnimationFrame(clearSwipeResidue);
+    if(next==='discover'&&!layerVisible()&&String(feedState&&feedState.source||'')==='personalised')ensureController();
+  }).observe(document.body,{attributes:true,attributeFilter:['data-active-tab']});
 })();
 </script>
 
