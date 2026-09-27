@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v182-search-stability">
+<meta name="findai-build" content="v186-search-native-reel">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -28832,7 +28832,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
   #discover #findaiContextualReelV168 .reel-gallery-count{right:22px!important}
 }
 </style>
-<script id="wishwave-v184-search-owned-reel-script">
+<script id="wishwave-v184-search-owned-reel-script" type="application/x-disabled">
 (function(){
   'use strict';
 
@@ -29326,6 +29326,382 @@ body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar.has-image>span,
     observeProfileAvatar();
     syncNavAvatar();
   }).observe(document.body,{childList:true,subtree:true});
+})();
+</script>
+
+
+<style id="wishwave-v186-search-native-reel-style">
+/* v186 — Search owns its reel viewer. It never activates #discover/Home. */
+#searchDetailOverlay.search-owned-v186{
+  position:fixed!important;
+  inset:0 auto 0 50%!important;
+  transform:translateX(-50%)!important;
+  width:min(100%,520px)!important;
+  height:100dvh!important;
+  max-height:100dvh!important;
+  z-index:9000!important;
+  background:#000!important;
+}
+#searchDetailOverlay.search-owned-v186 .search-detail-header{
+  position:absolute!important;
+  left:0!important;right:0!important;top:0!important;
+  z-index:60!important;
+  height:calc(var(--safe-top) + 54px)!important;
+  padding:var(--safe-top) 12px 0!important;
+  border:0!important;
+  background:linear-gradient(180deg,rgba(0,0,0,.62),rgba(0,0,0,.18) 72%,transparent)!important;
+  pointer-events:none!important;
+}
+#searchDetailOverlay.search-owned-v186 .search-detail-header button{
+  pointer-events:auto!important;
+  background:rgba(10,12,15,.64)!important;
+  border-color:rgba(255,255,255,.12)!important;
+  -webkit-backdrop-filter:blur(12px)!important;
+  backdrop-filter:blur(12px)!important;
+}
+#searchDetailOverlay.search-owned-v186 .search-detail-count{
+  color:#fff!important;
+  font-size:12px!important;
+  font-weight:760!important;
+  text-shadow:0 1px 6px rgba(0,0,0,.55)!important;
+}
+#searchDetailOverlay.search-owned-v186 .search-detail-feed{
+  display:flex!important;
+  flex-direction:column!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:0!important;
+  padding:0!important;
+  margin:0!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  scroll-snap-type:y mandatory!important;
+  overscroll-behavior-y:contain!important;
+  -webkit-overflow-scrolling:touch!important;
+  scrollbar-width:none!important;
+  background:#000!important;
+}
+#searchDetailOverlay.search-owned-v186 .search-detail-feed::-webkit-scrollbar{display:none!important}
+#searchDetailOverlay.search-owned-v186 .reel-card{
+  flex:0 0 100%!important;
+  width:100%!important;
+  height:100%!important;
+  min-height:100%!important;
+  max-height:none!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:0!important;
+  scroll-snap-align:start!important;
+  scroll-snap-stop:always!important;
+  background:#000!important;
+}
+#searchDetailOverlay.search-owned-v186 .first-market-strip{display:none!important}
+/* Bottom nav remains above the Search reel and Search remains visibly selected. */
+body>.nav.findai-five-nav.premium-bottom-nav,
+.app>.nav.findai-five-nav.premium-bottom-nav{z-index:9999!important}
+/* Search cards own vertical/tap gestures; the app tab swiper must not steal them. */
+#search .premium-explore-tile,
+#search .premium-ebay-card,
+#search .premium-result-card,
+#search .search-grid-card,
+#search .app-search-evidence,
+#searchResults .premium-result-card,
+#searchResults .premium-ebay-card{
+  touch-action:pan-y!important;
+  -webkit-user-select:none!important;
+  user-select:none!important;
+}
+</style>
+<script id="wishwave-v186-search-native-reel-script">
+(function(){
+  'use strict';
+
+  let returnState=null;
+  let touch=null;
+  let opening=false;
+  let lastOpenedAt=0;
+  let scrollRaf=0;
+
+  const overlay=()=>document.getElementById('searchDetailOverlay');
+  const reelFeed=()=>document.getElementById('searchDetailFeed');
+  const countNode=()=>document.getElementById('searchDetailCount');
+
+  function cloneFeedState(value){
+    if(!value)return {};
+    const out={...value};
+    if(value.seen instanceof Set)out.seen=new Set(value.seen);
+    if(value.familyCounts instanceof Map)out.familyCounts=new Map(value.familyCounts);
+    return out;
+  }
+  function keyOf(item){
+    if(!item)return '';
+    try{if(typeof listingKey==='function'){const k=listingKey(item);if(k)return String(k);}}catch(_){ }
+    try{if(typeof trackedKey==='function'){const k=trackedKey(item);if(k)return String(k);}}catch(_){ }
+    return String(item.marketplaceListingId||item.itemId||item.id||item.url||item.viewItemURL||item.title||'');
+  }
+  function cleanList(items){
+    const out=[],seen=new Set();
+    for(const item of (Array.isArray(items)?items:[])){
+      if(!item)continue;
+      const key=keyOf(item)||('v186-'+out.length);
+      if(seen.has(key))continue;
+      seen.add(key);out.push(item);
+    }
+    return out.slice(0,120);
+  }
+  function activeSearchScreen(){
+    if(document.getElementById('searchResults')?.classList.contains('active'))return 'searchResults';
+    return 'search';
+  }
+  function searchScroller(screen){
+    const root=document.getElementById(screen||activeSearchScreen());
+    if(!root)return null;
+    return root.querySelector('.premium-results-scroll,.premium-search-home-scroll,.premium-search-scroll,.search-scroll')||root;
+  }
+  function captureReturn(){
+    const screen=activeSearchScreen();
+    const scroller=searchScroller(screen);
+    returnState={
+      screen,
+      scroll:Number(scroller&&scroller.scrollTop)||0,
+      q:String(document.getElementById('q')?.value||''),
+      rq:String(document.getElementById('premiumResultQuery')?.value||''),
+      items:Array.isArray(currentFeedItems)?currentFeedItems.slice():[],
+      data:currentFeedData,
+      state:cloneFeedState(feedState),
+      active:Number(activeReelIndex)||0
+    };
+  }
+  function setSearchNav(){
+    try{if(typeof setMainNavActive==='function')setMainNavActive('search');}catch(_){ }
+    document.querySelectorAll('.premium-bottom-nav button[data-tab]').forEach(btn=>{
+      btn.classList.toggle('active',String(btn.dataset.tab||'')==='search');
+    });
+  }
+  function hideLegacyContext(){
+    const old=document.getElementById('findaiContextualReelV168');
+    if(old){
+      old.classList.remove('show');
+      delete old.dataset.contextOrigin;
+      delete old.dataset.contextTab;
+    }
+    window.__findaiExploreInjectedFeed=false;
+  }
+  function isOpen(){return !!overlay()?.classList.contains('search-owned-v186');}
+  function syncIndex(){
+    scrollRaf=0;
+    const feed=reelFeed();
+    if(!feed)return;
+    const cards=Array.from(feed.querySelectorAll('.reel-card'));
+    if(!cards.length)return;
+    const y=Number(feed.scrollTop)||0;
+    let best=0,dist=Infinity;
+    cards.forEach((card,i)=>{
+      const d=Math.abs((Number(card.offsetTop)||0)-y);
+      if(d<dist){dist=d;best=i;}
+    });
+    if(best!==activeReelIndex){
+      try{if(typeof finaliseReelTracking==='function')finaliseReelTracking();}catch(_){ }
+      activeReelIndex=best;
+      try{if(typeof beginReelTracking==='function')beginReelTracking(best);}catch(_){ }
+    }
+    const c=countNode();
+    if(c)c.textContent=(best+1)+' / '+cards.length;
+  }
+  function closeOwnedReel(){
+    const view=overlay(),feed=reelFeed();
+    if(!view||!isOpen())return false;
+    try{if(typeof finaliseReelTracking==='function')finaliseReelTracking();}catch(_){ }
+    if(feed){feed.onscroll=null;feed.innerHTML='';}
+    view.classList.remove('show','explore-reel-mode','search-owned-v186','findai-v133-context-reel','findai-v133-dragging');
+    view.style.removeProperty('transform');
+    if(returnState){
+      currentFeedItems=returnState.items.slice();
+      currentFeedData=returnState.data;
+      feedState=cloneFeedState(returnState.state);
+      activeReelIndex=returnState.active;
+      const q=document.getElementById('q');if(q)q.value=returnState.q||'';
+      const rq=document.getElementById('premiumResultQuery');if(rq)rq.value=returnState.rq||'';
+      const saved=returnState;
+      requestAnimationFrame(()=>{const scroller=searchScroller(saved.screen);if(scroller)scroller.scrollTop=saved.scroll||0;});
+    }
+    opening=false;
+    setSearchNav();
+    return true;
+  }
+  window.__wishwaveCloseSearchReelV186=closeOwnedReel;
+
+  function openList(items,index,data){
+    const list=cleanList(items);
+    if(!list.length)return false;
+    const chosen=Math.max(0,Math.min(list.length-1,Number(index)||0));
+    const selected=list[chosen];
+    if(!selected)return false;
+
+    opening=true;
+    captureReturn();
+    hideLegacyContext();
+    try{if(typeof findaiRememberRecentProduct==='function')findaiRememberRecentProduct(selected);}catch(_){ }
+
+    const view=overlay(),feed=reelFeed();
+    if(!view||!feed){opening=false;return false;}
+
+    /* Search remains the active screen underneath. There is deliberately no
+       go('discover'), openForYou(), or .screen activation of #discover here. */
+    const screen=activeSearchScreen();
+    document.body.dataset.activeTab=screen;
+    setSearchNav();
+
+    currentFeedItems=list.slice();
+    currentFeedData=data||{personalised:true};
+    feedState={...(feedState||{}),source:'search-reel-v186',loading:false,hasMore:false,cursor:null};
+    activeReelIndex=chosen;
+    try{if(reelObserver)reelObserver.disconnect();}catch(_){ }
+
+    feed.innerHTML=list.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');
+    feed.onscroll=()=>{if(!scrollRaf)scrollRaf=requestAnimationFrame(syncIndex);};
+    view.classList.add('explore-reel-mode','search-owned-v186','show');
+    const c=countNode();if(c)c.textContent=(chosen+1)+' / '+list.length;
+
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      const card=feed.querySelector('.reel-card[data-index="'+chosen+'"]');
+      feed.scrollTop=card?card.offsetTop:chosen*(feed.clientHeight||1);
+      activeReelIndex=chosen;
+      try{if(typeof beginReelTracking==='function')beginReelTracking(chosen);}catch(_){ }
+      try{if(typeof preloadPersonalisedImages==='function')preloadPersonalisedImages(Math.max(0,chosen-2),7);}catch(_){ }
+      opening=false;
+    }));
+    lastOpenedAt=Date.now();
+    return true;
+  }
+
+  function sectionById(id){
+    try{
+      if(typeof premiumDiscoverySectionById==='function')return premiumDiscoverySectionById(id);
+      return (Array.isArray(premiumDiscoverySections)?premiumDiscoverySections:[]).find(s=>String(s?.config?.id||s?.id||'')===String(id));
+    }catch(_){return null;}
+  }
+
+  /* Final global listing openers. Inline onclick calls now terminate here. */
+  window.openPremiumDiscoveryItem=function(sectionId,index){
+    const list=cleanList(sectionById(sectionId)?.items);
+    return openList(list,index,{personalised:true});
+  };
+  window.openPremiumResultItem=function(index){
+    const list=cleanList(typeof premiumResultItems!=='undefined'?premiumResultItems:[]);
+    return openList(list,index,(typeof premiumResultData!=='undefined'&&premiumResultData)||{personalised:true});
+  };
+  window.openPremiumEbayItem=function(index){
+    const list=cleanList(typeof premiumEbayItems!=='undefined'?premiumEbayItems:[]);
+    return openList(list,index,{personalised:true});
+  };
+  window.openSearchResultDetail=function(index){
+    const list=cleanList(Array.isArray(currentFeedItems)?currentFeedItems:[]);
+    return openList(list,index,currentFeedData||{personalised:true});
+  };
+
+  const oldClose=window.closeSearchResultDetail;
+  window.closeSearchResultDetail=function(){
+    if(isOpen())return closeOwnedReel();
+    if(typeof oldClose==='function')return oldClose.apply(this,arguments);
+  };
+
+  /* If any older Home wrapper fires during a Search listing tap, ignore it.
+     Intentional Home navigation closes the reel first in pointerdown below. */
+  const oldHome=window.openForYou;
+  if(typeof oldHome==='function'){
+    window.openForYou=function(){
+      const active=String(document.body.dataset.activeTab||'');
+      if((opening||isOpen())&&(active==='search'||active==='searchResults'))return;
+      return oldHome.apply(this,arguments);
+    };
+  }
+
+  function listingHost(target){
+    if(!target?.closest)return null;
+    const host=target.closest('#search .premium-explore-tile,#search .premium-ebay-card,#search .premium-result-card,#search .search-grid-card,#search .app-search-evidence,#searchResults .premium-result-card,#searchResults .premium-ebay-card');
+    if(!host)return null;
+    const control=target.closest('button,a,input,textarea,select,.premium-card-like,.premium-seller-action');
+    return control&&control!==host?null:host;
+  }
+  function resolveHost(host){
+    if(!host)return null;
+    let m=String(host.getAttribute('onclick')||'').match(/openPremiumDiscoveryItem\(['\"]([^'\"]+)['\"],\s*(\d+)\)/);
+    if(m){const list=cleanList(sectionById(m[1])?.items),i=Number(m[2]);if(list[i])return {list,index:i,data:{personalised:true}};}
+    m=String(host.getAttribute('onclick')||'').match(/openPremiumResultItem\((\d+)\)/);
+    if(m){const list=cleanList(typeof premiumResultItems!=='undefined'?premiumResultItems:[]),i=Number(m[1]);if(list[i])return {list,index:i,data:(typeof premiumResultData!=='undefined'&&premiumResultData)||{personalised:true}};}
+    m=String(host.getAttribute('onclick')||'').match(/openPremiumEbayItem\((\d+)\)/);
+    if(m){const list=cleanList(typeof premiumEbayItems!=='undefined'?premiumEbayItems:[]),i=Number(m[1]);if(list[i])return {list,index:i,data:{personalised:true}};}
+    m=String(host.getAttribute('onclick')||'').match(/openSearchResultDetail\((\d+)\)/);
+    if(m){const list=cleanList(Array.isArray(currentFeedItems)?currentFeedItems:[]),i=Number(m[1]);if(list[i])return {list,index:i,data:currentFeedData||{personalised:true}};}
+    const i=Number(host.dataset.gridIndex);
+    if(Number.isFinite(i)){
+      const list=cleanList(Array.isArray(currentFeedItems)?currentFeedItems:[]);
+      if(list[i])return {list,index:i,data:currentFeedData||{personalised:true}};
+    }
+    return null;
+  }
+
+  /* One iPhone tap path. We use pointer events so the same gesture cannot also
+     become a legacy synthetic click after a tiny diagonal movement. */
+  window.addEventListener('pointerdown',event=>{
+    const host=listingHost(event.target),resolved=resolveHost(host);
+    if(!host||!resolved||event.button>0){touch=null;return;}
+    touch={id:event.pointerId,host,resolved,x:event.clientX,y:event.clientY,moved:false};
+  },true);
+  window.addEventListener('pointermove',event=>{
+    if(!touch||touch.id!==event.pointerId)return;
+    if(Math.hypot(event.clientX-touch.x,event.clientY-touch.y)>11)touch.moved=true;
+  },true);
+  window.addEventListener('pointerup',event=>{
+    if(!touch||touch.id!==event.pointerId)return;
+    const state=touch;touch=null;
+    if(state.moved)return;
+    event.preventDefault();event.stopPropagation();
+    if(event.stopImmediatePropagation)event.stopImmediatePropagation();
+    state.host.dataset.v186Opened=String(Date.now());
+    openList(state.resolved.list,state.resolved.index,state.resolved.data);
+  },true);
+  window.addEventListener('pointercancel',()=>{touch=null;},true);
+
+  /* Kill the delayed synthetic click after our pointerup opened the reel. */
+  window.addEventListener('click',event=>{
+    const host=listingHost(event.target);if(!host)return;
+    if(Date.now()-Number(host.dataset.v186Opened||0)<1000||Date.now()-lastOpenedAt<650){
+      event.preventDefault();event.stopPropagation();
+      if(event.stopImmediatePropagation)event.stopImmediatePropagation();
+      return;
+    }
+    const resolved=resolveHost(host);if(!resolved)return;
+    event.preventDefault();event.stopPropagation();
+    if(event.stopImmediatePropagation)event.stopImmediatePropagation();
+    openList(resolved.list,resolved.index,resolved.data);
+  },true);
+
+  /* Bottom nav semantics while a Search reel is open. Search = back to Search.
+     Any other tab closes the overlay first, then its existing handler runs. */
+  window.addEventListener('pointerdown',event=>{
+    if(!isOpen())return;
+    const button=event.target?.closest?.('.premium-bottom-nav button[data-tab]');
+    if(!button)return;
+    const tab=String(button.dataset.tab||'');
+    if(tab==='search'){
+      event.preventDefault();event.stopPropagation();
+      if(event.stopImmediatePropagation)event.stopImmediatePropagation();
+      closeOwnedReel();
+      return;
+    }
+    closeOwnedReel();
+  },true);
+
+  const oldSearchHome=window.openSearchHome;
+  window.openSearchHome=function(){
+    if(isOpen()){closeOwnedReel();return;}
+    return typeof oldSearchHome==='function'?oldSearchHome.apply(this,arguments):undefined;
+  };
+
+  /* Clean up an obsolete contextual layer left behind by a previous build. */
+  hideLegacyContext();
 })();
 </script>
 
