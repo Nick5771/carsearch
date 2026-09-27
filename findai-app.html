@@ -3450,7 +3450,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
     <div class="account-sheet" onclick="event.stopPropagation()">
       <div class="account-grabber"></div>
       <div class="account-user-row">
-        <div class="account-menu-avatar" id="menuAvatar"><img alt=""><span>F</span></div>
+        <div class="account-menu-avatar" id="menuAvatar"><img alt=""><span><svg class="guest-profile-person-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg></span></div>
         <div class="account-user-copy"><b id="menuAccountName">WishWave user</b><span id="menuAccountEmail"></span></div>
       </div>
       <div class="account-menu-list">
@@ -3551,7 +3551,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
         </div>
 
         <div class="social-profile-hero">
-          <button class="social-profile-avatar" id="profileAvatar" onclick="document.getElementById('accountAvatarInput').click()" aria-label="Change profile photo"><img alt=""><span>F</span></button>
+          <button class="social-profile-avatar" id="profileAvatar" onclick="document.getElementById('accountAvatarInput').click()" aria-label="Change profile photo"><img alt=""><span><svg class="guest-profile-person-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg></span></button>
           <div class="social-profile-stats">
             <button type="button" onclick="setProfileTab('listings')"><b id="socialListingsCount">0</b><span>Listings</span></button>
             <button type="button" onclick="setProfileTab('sold')"><b id="socialSoldCount">0</b><span>Sold</span></button>
@@ -3856,11 +3856,25 @@ function accountInitials(name,email){
   if(parts.length>1) return `${parts[0][0]}${parts[parts.length-1][0]}`.toUpperCase();
   return (parts[0]&&parts[0][0]||String(email||'F')[0]||'F').toUpperCase();
 }
+function findaiDefaultAvatarSvg(extraClass=''){
+  const cls=String(extraClass||'').trim();
+  return '<svg class="findai-default-avatar-icon'+(cls?' '+cls:'')+'" viewBox="0 0 64 64" aria-hidden="true">'+
+    '<circle cx="32" cy="32" r="31" fill="#d9dbde"/>'+
+    '<circle cx="32" cy="24" r="10" fill="#f7f7f8"/>'+
+    '<path d="M15 50c1.9-10.4 9.6-16 17-16s15.1 5.6 17 16" fill="#f7f7f8"/>'+
+  '</svg>';
+}
+function findaiAvatarImgMarkup(src,alt=''){
+  const clean=String(src||'').trim();
+  return clean&&/^(?:https?:\/\/|data:image\/)/i.test(clean)
+    ?'<img src="'+escapeAttr(clean)+'" alt="'+escapeAttr(String(alt||''))+'">'
+    :findaiDefaultAvatarSvg();
+}
 function paintAccountAvatar(root,profile){
   if(!root) return;
   const img=root.querySelector('img');
   const initials=root.querySelector('span');
-  if(initials) initials.textContent=accountInitials(profile&&profile.name,profile&&profile.email);
+  if(initials) initials.innerHTML=findaiDefaultAvatarSvg();
   const avatar=safeUrl(profile&&profile.avatar)||String(profile&&profile.avatar||'');
   if(avatar&&/^(data:image\/|https?:\/\/)/.test(avatar)){
     if(img){img.src=avatar;img.style.objectPosition='50% 50%';img.style.transform='none';}
@@ -6629,7 +6643,7 @@ function wishwaveAvatarMarkup(meta,cls='reel-seller-avatar'){
     ?`<img src="${escapeAttr(src)}" alt="">`
     :'';
   const initial=escapeHTML(String(meta&&meta.displayName||meta&&meta.username||'W').charAt(0).toUpperCase()||'W');
-  return `<span class="${cls}">${img||`<span>${initial}</span>`}</span>`;
+  return `<span class="${cls}">${img||findaiDefaultAvatarSvg()}</span>`;
 }
 function wishwaveCommentCount(item){
   const values=[item&&item.commentCount,item&&item.commentsCount,item&&item.comment_count];
@@ -8249,7 +8263,7 @@ function renderAppMarketplaceListing(){
   const thumbs=images.map((src,index)=>`<button class="app-mp-thumb ${index===0?'active':''}" onclick="appMpSelectImage(${index})"><img src="${escapeAttr(src)}" alt="Product image"></button>`).join('');
   $('#appMpProductContent').innerHTML=`<div class="app-mp-gallery">${images[0]?`<img class="app-mp-main-image" id="appMpMainImage" src="${escapeAttr(images[0])}" alt="${escapeAttr(listing.title||'WishWave listing')}">`:'<div class="app-mp-loading">No image supplied</div>'}<div class="app-mp-image-price">${escapeHTML(appMpMoney(listing.price,listing.currency))}</div></div>${images.length>1?`<div class="app-mp-thumbs">${thumbs}</div>`:''}
     <div class="app-mp-source"><span class="app-mp-wordmark">WishWave</span><span>Marketplace listing</span></div><h1 class="app-mp-title">${escapeHTML(listing.title||'WishWave listing')}</h1>
-    <div class="app-mp-seller"><div class="app-mp-avatar">${escapeHTML(appMpInitial(sellerName))}</div><div class="app-mp-seller-copy"><b>${escapeHTML(sellerName)}</b>${reviewCount?`<span class="app-mp-seller-rating">★ ${rating.toFixed(1)} (${reviewCount})${sold?` · ${sold} sold`:``}</span>`:(sold?`<span>${sold} sold</span>`:``)}<span class="app-mp-seller-member">${escapeHTML(joined)}</span></div><button class="app-mp-message-pill" onclick="openAppMarketplaceMessages()">${viewer.isSeller?'Messages':'Message'}</button></div>
+    <div class="app-mp-seller"><div class="app-mp-avatar">${findaiAvatarImgMarkup(seller.avatarUrl||listing.sellerAvatar||'',sellerName)}</div><div class="app-mp-seller-copy"><b>${escapeHTML(sellerName)}</b>${reviewCount?`<span class="app-mp-seller-rating">★ ${rating.toFixed(1)} (${reviewCount})${sold?` · ${sold} sold`:``}</span>`:(sold?`<span>${sold} sold</span>`:``)}<span class="app-mp-seller-member">${escapeHTML(joined)}</span></div><button class="app-mp-message-pill" onclick="openAppMarketplaceMessages()">${viewer.isSeller?'Messages':'Message'}</button></div>
     <div class="app-mp-price">${escapeHTML(appMpMoney(listing.price,listing.currency))}</div><div class="app-mp-price-note">Secure checkout and tracked delivery through FindAI</div>
     <div class="app-mp-facts"><div class="app-mp-fact"><span>Condition</span><b>${escapeHTML(listing.condition||'Not specified')}</b></div><div class="app-mp-fact"><span>Delivery</span><b>${Number(listing.shippingCost)>0?escapeHTML(appMpMoney(listing.shippingCost,listing.currency)+' tracked shipping'):'Delivery details at checkout'}</b></div><div class="app-mp-fact"><span>Availability</span><b>${escapeHTML(appMpStatus(listing.status))}</b></div></div>
     <div class="app-mp-actions"><button class="app-mp-action primary" ${!available||viewer.isSeller?'disabled':''} onclick="appMpBuy()">${viewer.isSeller?'Your listing':String(listing.status)==='reserved'?'Reserved':'Buy It Now'}</button><button class="app-mp-action secondary" ${!offers?'disabled':''} onclick="openAppMarketplaceOfferInMessages()">${viewer.isSeller?'Manage offers':'Make offer'}</button><button class="app-mp-action tertiary" onclick="openAppMarketplaceMessages()">${viewer.isSeller?'Manage messages':'Message seller'}</button></div>
@@ -8324,7 +8338,7 @@ function renderAppMpConversationList(data,listingScoped,preselect){
     return;
   }
   $('#appMpInboxBody').innerHTML=search+'<div class="app-mp-conversation-list">'+appMpConversationList.map(c=>{
-    const image=c.listingImage?`<img src="${escapeAttr(c.listingImage)}" alt="">`:escapeHTML(appMpInitial(c.otherParty));
+    const image=findaiAvatarImgMarkup(c.otherPartyAvatar||c.avatarUrl||'',c.otherParty||'WishWave member');
     return `<button class="app-mp-conversation-card" onclick="appMpOpenConversation('${escapeAttr(c.id)}')"><span class="app-mp-conversation-avatar">${image}</span><span class="app-mp-conversation-copy"><b>${escapeHTML(c.otherParty||'WishWave member')}</b><span class="app-mp-conversation-preview">${escapeHTML(c.lastMessage||c.listingTitle||'WishWave listing')}</span></span><span class="app-mp-conversation-side"><span class="app-mp-conversation-time">${escapeHTML(appMpConversationTime(c.lastMessageAt))}</span>${Number(c.unreadCount)>0?`<span class="app-mp-unread">${Number(c.unreadCount)>99?'99+':Number(c.unreadCount)}</span>`:''}</span></button>`;
   }).join('')+'</div>';
   if(preselect)appMpOpenConversation(preselect);
@@ -11186,7 +11200,7 @@ window.addEventListener('load', function(){
     }
     document.getElementById('appMpInboxBody').innerHTML=search+'<div class="app-mp-conversation-list">'+appMpConversationList.map(function(c){
       var avatar=String(c.otherPartyAvatar||c.avatar||'').trim();
-      var image=avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':escapeHTML(appMpInitial(c.otherParty));
+      var image=avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':findaiDefaultAvatarSvg();
       return '<button class="app-mp-conversation-card" type="button" onclick="appMpOpenConversation(\''+escapeAttr(c.id)+'\')"><span class="app-mp-conversation-avatar">'+image+'</span><span class="app-mp-conversation-copy"><b>'+escapeHTML(c.otherParty||'WishWave member')+'</b><span class="app-mp-conversation-preview">'+escapeHTML(c.lastMessage||'Message')+'</span></span><span class="app-mp-conversation-side"><span class="app-mp-conversation-time">'+escapeHTML(appMpConversationTime(c.lastMessageAt))+'</span>'+(Number(c.unreadCount)>0?'<span class="app-mp-unread">'+(Number(c.unreadCount)>99?'99+':Number(c.unreadCount))+'</span>':'')+'</span></button>';
     }).join('')+'</div>';
     if(preselect)appMpOpenConversation(preselect);
@@ -13810,7 +13824,7 @@ function wishwaveCommentAvatar(comment){
   const src=String(comment&&comment.avatarUrl||'').trim();
   const label=String(comment&&comment.displayName||comment&&comment.username||'W');
   if(src&&/^https?:\/\//i.test(src))return '<span class="wishwave-comment-avatar"><img src="'+escapeAttr(src)+'" alt=""></span>';
-  return '<span class="wishwave-comment-avatar">'+escapeHTML(label.charAt(0).toUpperCase()||'W')+'</span>';
+  return '<span class="wishwave-comment-avatar">'+findaiDefaultAvatarSvg()+'</span>';
 }
 function wishwaveCommentTime(value){
   try{
@@ -13850,7 +13864,7 @@ function renderWishWaveComments(data){
     const avatar=String(profile.avatar||'').trim();
     const initial=String(profile.name||profile.email||'Y').trim().charAt(0).toUpperCase()||'Y';
     const avatarHtml='<span class="wishwave-comment-composer-avatar">'+
-      (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':escapeHTML(initial))+'</span>';
+      (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':findaiDefaultAvatarSvg())+'</span>';
     const reactionEmoji=['❤️','🙌','🔥','👏','😢','😍','😮','😂'];
     const reactions='<div class="wishwave-comment-reactions" aria-label="Quick reactions">'+reactionEmoji.map(emoji=>'<button type="button" data-reaction="'+emoji+'" onclick="insertWishWaveCommentReaction(this.dataset.reaction)" aria-label="Add '+emoji+'">'+emoji+'</button>').join('')+'</div>';
     const preview='<div class="wishwave-comment-attachment-preview'+(wishwavePendingCommentImage?' show':'')+'" id="wishwaveCommentAttachmentPreview">'+
@@ -14049,7 +14063,7 @@ function wishwavePublicAvatar(seller){
   const src=String(seller&&seller.avatarUrl||'').trim();
   const label=String(seller&&seller.displayName||seller&&seller.username||'W');
   if(src&&/^https?:\/\//i.test(src))return '<div class="wishwave-public-avatar"><img src="'+escapeAttr(src)+'" alt=""></div>';
-  return '<div class="wishwave-public-avatar">'+escapeHTML(label.charAt(0).toUpperCase()||'W')+'</div>';
+  return '<div class="wishwave-public-avatar">'+findaiDefaultAvatarSvg()+'</div>';
 }
 let wishwavePublicSellerData=null;
 let wishwavePublicSellerTab='listings';
@@ -14171,7 +14185,7 @@ function renderWishWavePublicProfile(){
       '<div class="social-profile-hero">'+
         '<div class="social-profile-avatar '+(avatar?'has-image':'')+'">'+
           (avatar?'<img src="'+escapeAttr(avatar)+'" alt="" style="display:block">':'')+
-          '<span>'+escapeHTML(String(seller.displayName||handle).charAt(0).toUpperCase()||'W')+'</span>'+
+          '<span>'+findaiDefaultAvatarSvg()+'</span>'+
         '</div>'+
         '<div class="social-profile-stats">'+
           '<button type="button"><b>'+escapeHTML(String(Number(seller.activeCount)||0))+'</b><span>Listings</span></button>'+
@@ -15781,7 +15795,7 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     const avatar=String(seller&&seller.avatarUrl||'').trim();
     if(avatar)return '<span class="premium-seller-avatar"><img src="'+escapeAttr(avatar)+'" alt="" loading="lazy" onerror="this.remove()"></span>';
     const label=String(seller&&seller.displayName||seller&&seller.username||'S').trim();
-    return '<span class="premium-seller-avatar">'+escapeHTML((label.charAt(0)||'S').toUpperCase())+'</span>';
+    return '<span class="premium-seller-avatar">'+findaiDefaultAvatarSvg()+'</span>';
   }
   function sellerRow(seller,index,scope){
     const username=String(seller.username||'').replace(/^@/,'');
@@ -16829,7 +16843,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     const avatar=String(seller&&seller.avatarUrl||'').trim();
     if(avatar)return '<span class="premium-seller-avatar"><img src="'+escapeAttr(avatar)+'" alt="" loading="lazy" onerror="this.remove()"></span>';
     const label=String(seller&&seller.displayName||seller&&seller.username||'P').trim();
-    return '<span class="premium-seller-avatar">'+escapeHTML((label.charAt(0)||'P').toUpperCase())+'</span>';
+    return '<span class="premium-seller-avatar">'+findaiDefaultAvatarSvg()+'</span>';
   }
   function liveProfileRow(s,index){
     const username=String(s.username||'').replace(/^@/,'');
@@ -17699,7 +17713,7 @@ html.findai-light .findai-settings-switch.on{background:#4d8cff}
     const sheet=settingsSheet();if(!sheet)return;const profile=getAccountProfile();
     sheet.innerHTML='<div class="findai-settings-page v136-settings">'+settingsHead('Settings and activity',false)+
       '<label class="findai-settings-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="7"/><path d="m16 16 4.3 4.3"/></svg><input type="search" placeholder="Search settings" oninput="filterFindAISettings(this.value)"></label>'+
-      (profile?'<div class="findai-settings-account-card"><div class="findai-settings-account-avatar">'+(profile.avatar?'<img src="'+escapeAttr(profile.avatar)+'" alt="">':escapeHTML(String(profile.name||'F').slice(0,1).toUpperCase()))+'</div><div class="findai-settings-account-copy"><b>'+escapeHTML(profile.name||'FindAI user')+'</b><span>'+(profile.username?'@'+escapeHTML(profile.username)+' · ':'')+escapeHTML(profile.email||'')+'</span></div></div>':'')+
+      (profile?'<div class="findai-settings-account-card"><div class="findai-settings-account-avatar">'+(profile.avatar?'<img src="'+escapeAttr(profile.avatar)+'" alt="">':findaiDefaultAvatarSvg())+'</div><div class="findai-settings-account-copy"><b>'+escapeHTML(profile.name||'FindAI user')+'</b><span>'+(profile.username?'@'+escapeHTML(profile.username)+' · ':'')+escapeHTML(profile.email||'')+'</span></div></div>':'')+
       '<section class="findai-settings-section"><div class="findai-settings-section-title">Your account</div>'+
         settingRow('Edit profile','Name, username, photo and bio',"closeAppSettings();openProfileEdit()",icons.profile)+
         settingRow('Login & security','Apple, Google or email',"findaiOpenSettingsPane('security')",icons.lock,profile?providerLabel(profile):'')+
@@ -18051,7 +18065,7 @@ html.findai-light .findai-settings-delete-box input{background:#fff;color:#111;b
       const rows=kind==='follow-requests'?(data.requests||[]):(data.accounts||[]);
       const root=document.getElementById('findaiControlList');if(!root)return;
       if(!rows.length){root.innerHTML='<div class="findai-settings-list-empty">No '+(kind==='follow-requests'?'follow requests':kind+' accounts')+'.</div>';return;}
-      root.innerHTML=rows.map(row=>'<div class="findai-settings-person"><div class="findai-settings-person-avatar">'+(row.avatarUrl?'<img src="'+escapeAttr(row.avatarUrl)+'" alt="">':escapeHTML(String(row.displayName||row.username||'F').charAt(0).toUpperCase()))+'</div><div class="findai-settings-person-copy"><b>'+escapeHTML(row.username)+'</b><span>'+escapeHTML(row.displayName||'')+'</span></div>'+(kind==='follow-requests'?'<span><button class="primary" onclick="findaiFollowRequestAction(\''+escapeAttr(row.username)+'\',\'approve\')">Approve</button> <button onclick="findaiFollowRequestAction(\''+escapeAttr(row.username)+'\',\'decline\')">Delete</button></span>':'<button onclick="findaiRemoveControl(\''+kind+'\',\''+escapeAttr(row.username)+'\')">'+(kind==='blocked'?'Unblock':'Unmute')+'</button>')+'</div>').join('');
+      root.innerHTML=rows.map(row=>'<div class="findai-settings-person"><div class="findai-settings-person-avatar">'+(row.avatarUrl?'<img src="'+escapeAttr(row.avatarUrl)+'" alt="">':findaiDefaultAvatarSvg())+'</div><div class="findai-settings-person-copy"><b>'+escapeHTML(row.username)+'</b><span>'+escapeHTML(row.displayName||'')+'</span></div>'+(kind==='follow-requests'?'<span><button class="primary" onclick="findaiFollowRequestAction(\''+escapeAttr(row.username)+'\',\'approve\')">Approve</button> <button onclick="findaiFollowRequestAction(\''+escapeAttr(row.username)+'\',\'decline\')">Delete</button></span>':'<button onclick="findaiRemoveControl(\''+kind+'\',\''+escapeAttr(row.username)+'\')">'+(kind==='blocked'?'Unblock':'Unmute')+'</button>')+'</div>').join('');
     }catch(e){const root=document.getElementById('findaiControlList');if(root)root.innerHTML='<div class="findai-settings-list-empty">'+escapeHTML(e.message||'Could not load this list')+'</div>';}
   }
   window.findaiRemoveControl=async function(kind,username){await marketplaceFetch('/social/controls',{method:'DELETE',body:JSON.stringify({kind,username})});findaiOpenSettingsPane(kind);};
@@ -18346,7 +18360,7 @@ html.findai-light .findai-settings-search-result{color:#111;border-bottom-color:
       '<label class="findai-settings-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="7"/><path d="m16 16 4.3 4.3"/></svg><input id="findaiSettingsSearchInput" type="search" placeholder="Search settings" autocomplete="off" oninput="filterFindAISettings(this.value)"></label>'+
       '<div class="findai-settings-search-results" id="findaiSettingsSearchResults"></div>'+
       '<div class="v138-settings-sections" id="findaiSettingsHomeSections">'+
-      (profile?'<div class="findai-settings-account-card"><div class="findai-settings-account-avatar">'+(profile.avatar?'<img src="'+escapeAttr(profile.avatar)+'" alt="">':escapeHTML(String(profile.name||'F').slice(0,1).toUpperCase()))+'</div><div class="findai-settings-account-copy"><b>'+escapeHTML(profile.name||'FindAI user')+'</b><span>'+escapeHTML(username||method)+'</span></div></div>':'')+
+      (profile?'<div class="findai-settings-account-card"><div class="findai-settings-account-avatar">'+(profile.avatar?'<img src="'+escapeAttr(profile.avatar)+'" alt="">':findaiDefaultAvatarSvg())+'</div><div class="findai-settings-account-copy"><b>'+escapeHTML(profile.name||'FindAI user')+'</b><span>'+escapeHTML(username||method)+'</span></div></div>':'')+
       '<section class="findai-settings-section"><div class="findai-settings-section-title">Your account</div>'+
         row('Edit profile','Name, username, photo and bio',"closeAppSettings();openProfileEdit()",'profile')+
         row('Login & security','Sign-in method and current session',"findaiOpenSettingsPane('security')",'lock',method)+
@@ -18885,7 +18899,7 @@ html.findai-light .findai-followers-empty b{color:#111214}
     const followClass=row.isFollowing||row.pending?' following':'';
     return '<div class="findai-follower-row'+(focused?' focused':'')+'" data-follower-username="'+escapeAttr(username)+'" role="button" tabindex="0" onclick="openOwnFollowerProfile(\''+escapeAttr(username)+'\',event)" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openOwnFollowerProfile(\''+escapeAttr(username)+'\',event)}">'+
       '<button class="findai-follower-avatar" type="button" onclick="openOwnFollowerProfile(\''+escapeAttr(username)+'\',event)" aria-label="Open '+escapeAttr(username)+' profile">'+
-        (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':escapeHTML(followerInitial(row)))+
+        (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':findaiDefaultAvatarSvg())+
       '</button>'+
       '<button class="findai-follower-copy" type="button" onclick="openOwnFollowerProfile(\''+escapeAttr(username)+'\',event)"><b>'+escapeHTML(row.displayName||username||'FindAI user')+'</b><span>'+escapeHTML(username?'@'+username:'')+'</span></button>'+
       (username?'<button class="findai-follower-view'+followClass+'" type="button" onclick="followOwnFollower(\''+escapeAttr(username)+'\',this,event)">'+escapeHTML(followLabel)+'</button>':'')+
@@ -21149,7 +21163,7 @@ html.findai-light .app>.nav.findai-five-nav.premium-bottom-nav button[data-tab].
     const initial=escapeHTML(appMpInitial(name));
     return '<span class="findai-chat-title-person">'+
       '<span class="findai-chat-title-avatar">'+
-        (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':initial)+
+        (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':findaiDefaultAvatarSvg())+
       '</span>'+
       '<span class="findai-chat-title-name">'+escapeHTML(name)+'</span>'+
     '</span>';
@@ -22726,7 +22740,7 @@ html.findai-light .nav-messages-badge{border-color:#f7f7f8!important}
       '<span class="findai-like-proof-avatar">'+
         (avatar
           ?'<img src="'+escapeAttr(avatar)+'" alt="" referrerpolicy="no-referrer">'
-          :escapeHTML(initial))+
+          :findaiDefaultAvatarSvg())+
       '</span>'+
       '<span class="findai-like-proof-heart">❤️</span>';
 
@@ -23623,7 +23637,7 @@ body.findai-recents-edge-dragging #search .premium-search-home-scroll{
 
     return '<div class="findai-first-message-profile">'+
       '<div class="findai-first-message-profile-avatar">'+
-        (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':initial)+
+        (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':findaiDefaultAvatarSvg())+
       '</div>'+
       '<div class="findai-first-message-profile-name">'+escapeHTML(name)+'</div>'+
       (username?'<div class="findai-first-message-profile-username">@'+escapeHTML(username)+'</div>':'')+
@@ -23685,7 +23699,7 @@ body.findai-recents-edge-dragging #search .premium-search-home-scroll{
     title.innerHTML=
       '<span class="findai-chat-title-person">'+
         '<span class="findai-chat-title-avatar">'+
-          (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':initial)+
+          (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':findaiDefaultAvatarSvg())+
         '</span>'+
         '<span class="findai-chat-title-name">'+escapeHTML(name)+'</span>'+
       '</span>';
@@ -25492,7 +25506,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     title.innerHTML=
       '<span class="findai-chat-title-person">'+
         '<span class="findai-chat-title-avatar">'+
-          (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':initial)+
+          (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':findaiDefaultAvatarSvg())+
         '</span>'+
         '<span class="findai-chat-title-name">'+escapeHTML(name)+'</span>'+
       '</span>';
@@ -25862,7 +25876,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
 
     return '<button type="button" class="findai-send-person'+(selected?' selected':'')+'" data-username="'+escapeAttr(username)+'">'+
       '<span class="findai-send-person-avatar">'+
-        (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':escapeHTML(name.charAt(0).toUpperCase()))+
+        (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':findaiDefaultAvatarSvg())+
       '</span>'+
       '<span class="findai-send-person-name">'+escapeHTML(name)+'</span>'+
     '</button>';
