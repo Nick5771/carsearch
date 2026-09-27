@@ -12158,10 +12158,26 @@ window.addEventListener('load', function(){
   }
   function notificationSecondaryText(n){
     const type=String(n.notification_type||'').toLowerCase();
-    const username=notificationActorUsername(n);
     const body=String(n.body||'').trim();
     if(type.includes('follow'))return '';
+    if(type.includes('comment'))return body;
     return body;
+  }
+  function notificationSecondaryMarkup(n,secondary){
+    const type=String(n.notification_type||'').toLowerCase();
+    const text=String(secondary||'').trim();
+    if(!text)return '';
+    if(type.includes('comment')){
+      return '<span class="findai-notification-secondary comment-preview"><span class="comment-label">Comment</span><span class="comment-body">'+escapeHTML(text)+'</span></span>';
+    }
+    return '<span class="findai-notification-secondary">'+escapeHTML(text)+'</span>';
+  }
+  function findaiNotificationDefaultAvatarMarkup(){
+    return '<svg class="findai-notification-avatar-icon" viewBox="0 0 64 64" aria-hidden="true">'+
+      '<circle cx="32" cy="32" r="31" fill="#d9dbde"/>'+
+      '<circle cx="32" cy="24" r="10" fill="#f7f7f8"/>'+
+      '<path d="M15 50c1.9-10.4 9.6-16 17-16s15.1 5.6 17 16" fill="#f7f7f8"/>'+
+    '</svg>';
   }
   function notificationBadge(type){
     const t=String(type||'').toLowerCase();
@@ -12192,13 +12208,13 @@ window.addEventListener('load', function(){
     const actorish=type.includes('follow')||type.includes('message')||type.includes('comment')||type.includes('like');
     if(actorish){
       return '<button type="button" class="findai-notification-avatar-wrap findai-notification-actor-avatar findai-notification-control" onclick="findaiNotificationOpenActor(event,'+index+')" aria-label="Open '+escapeAttr(actor||'profile')+' profile"><span class="findai-notification-avatar">'+
-        (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':escapeHTML(actorFirst))+
+        (avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':findaiNotificationDefaultAvatarMarkup())+
         '</span>'+notificationBadge(type)+'</button>';
     }
     if(image){
       return '<span class="findai-notification-product-wrap"><span class="findai-notification-product"><img src="'+escapeAttr(image)+'" alt=""></span>'+notificationBadge(type)+'</span>';
     }
-    return '<span class="findai-notification-avatar-wrap"><span class="findai-notification-avatar">'+escapeHTML(actorFirst)+'</span>'+notificationBadge(type)+'</span>';
+    return '<span class="findai-notification-avatar-wrap"><span class="findai-notification-avatar">'+findaiNotificationDefaultAvatarMarkup()+'</span>'+notificationBadge(type)+'</span>';
   }
   function notificationTitleMarkup(n,index,title){
     const actor=notificationActorName(n);
@@ -12261,7 +12277,7 @@ window.addEventListener('load', function(){
         notificationVisual(n,index)+
         '<span class="findai-notification-copy"><b>'+notificationTitleMarkup(n,index,title)+(unread?'<i class="findai-notification-unread"></i>':'')+
           (time?'<span class="findai-notification-meta">'+escapeHTML(time)+'</span>':'')+
-        '</b>'+(secondary?'<span>'+escapeHTML(secondary)+'</span>':'')+'</span>'+
+        '</b>'+notificationSecondaryMarkup(n,secondary)+'</span>'+
         notificationSide(n,index)+
       '</div>';
     };
@@ -12287,6 +12303,32 @@ window.addEventListener('load', function(){
     }
   };
 
+  let findaiNotificationUnfollowState=null;
+  window.findaiConfirmNotificationUnfollow=async function(){
+    const state=findaiNotificationUnfollowState;
+    findaiNotificationUnfollowState=null;
+    if(!state||!state.username)return;
+    try{
+      const data=await marketplaceFetch('/social/follow-user/'+encodeURIComponent(state.username),{method:'DELETE'});
+      const actorEmail=String(state.actorEmail||'').toLowerCase();
+      const actorUsername=String(state.actorUsername||'').replace(/^@+/,'').toLowerCase();
+      appNotificationCache.forEach(item=>{
+        const sameEmail=actorEmail&&String(item.actor_email||'').toLowerCase()===actorEmail;
+        const sameUser=actorUsername&&String(item.actor_username||'').replace(/^@+/,'').toLowerCase()===actorUsername;
+        if(sameEmail||sameUser){
+          item.viewer_is_following=!!data.isFollowing;
+          item.viewer_follow_pending=!!data.pending;
+        }
+      });
+      try{closeAppMpSheet();}catch(_){}
+      renderHomeNotifications();
+      try{if(typeof haptic==='function')haptic();}catch(_){}
+    }catch(error){
+      try{toast(error&&error.message||'Could not unfollow this account');}catch(_){}
+      renderHomeNotifications();
+    }
+  };
+
   window.findaiNotificationFollowBack=async function(event,index,button){
     if(event){event.preventDefault();event.stopPropagation();}
     const n=appNotificationCache[Number(index)];
@@ -12298,6 +12340,24 @@ window.addEventListener('load', function(){
     const alreadyPending=!!(n.viewer_follow_pending===true||Number(n.viewer_follow_pending||0));
 
     if(alreadyFollowing){
+      const label='@'+username;
+      findaiNotificationUnfollowState={
+        index:Number(index)||0,
+        username,
+        actorEmail:String(n.actor_email||''),
+        actorUsername:String(n.actor_username||username),
+      };
+      openAppMpSheet(
+        'Unfollow?',
+        '<div class="findai-unfollow-confirm">'+
+          '<b>Unfollow '+escapeHTML(label)+'?</b>'+
+          '<p>You will still be able to find their profile, but their activity will no longer be prioritised for you.</p>'+
+          '<div class="findai-unfollow-confirm-actions">'+
+            '<button type="button" class="danger" onclick="findaiConfirmNotificationUnfollow()">Unfollow</button>'+
+            '<button type="button" onclick="closeAppMpSheet()">Cancel</button>'+
+          '</div>'+
+        '</div>'
+      );
       try{if(typeof haptic==='function')haptic();}catch(_){}
       return;
     }
@@ -12577,6 +12637,8 @@ html.findai-light .findai-notification-group-title{color:#111214}
   .findai-notification-icon svg{width:17px!important;height:17px!important}
   .findai-notification-copy b{font-size:12px!important}
   .findai-notification-copy span{font-size:10px!important;margin-top:2px!important;-webkit-line-clamp:1!important}
+  .findai-notification-copy .findai-notification-secondary.comment-preview{font-size:11px!important;margin-top:5px!important;-webkit-line-clamp:2!important}
+  .findai-notification-copy .findai-notification-secondary.comment-preview .comment-label{font-size:9px!important}
   .findai-notification-time{font-size:8px!important;padding-top:2px!important}
   .findai-notification-empty{padding:27px 18px 30px!important;font-size:11px!important}
   .findai-notification-empty b{font-size:14px!important}
@@ -18574,6 +18636,27 @@ html.findai-light #discover .discover-notification-dot{
   line-height:1.32!important;
   -webkit-line-clamp:2!important;
 }
+.findai-notification-copy .findai-notification-secondary.comment-preview{
+  margin-top:6px!important;
+  color:#eef1f4!important;
+  font-size:13px!important;
+  line-height:1.35!important;
+  font-weight:650!important;
+  letter-spacing:-.1px!important;
+  -webkit-line-clamp:2!important;
+}
+.findai-notification-copy .findai-notification-secondary.comment-preview .comment-label{
+  color:#9097a2!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  margin-right:6px!important;
+  text-transform:uppercase!important;
+  letter-spacing:.4px!important;
+}
+.findai-notification-copy .findai-notification-secondary.comment-preview .comment-body{
+  color:#eef1f4!important;
+}
+.findai-notification-avatar-icon{width:100%!important;height:100%!important;display:block!important}
 .findai-notification-meta{
   display:inline!important;
   margin-left:5px!important;
