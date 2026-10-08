@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v199-installed-full-screen-height">
+<meta name="findai-build" content="v200-installed-flow-layout">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -30182,16 +30182,17 @@ html body .app #searchResults .premium-results-scroll,html body .app #profile .p
 }
 /* Installed iOS reports inset/clientHeight as screen minus the top safe area.
    Device measurements: innerHeight 644, 100vh 693, safe top 49.
-   Give the app an explicit full-screen height; keep browser tabs edge-anchored. */
+   Give the app a full-screen height in document flow. A fixed root is clipped
+   to the under-reported visual viewport on iOS; keep browser tabs edge-anchored. */
 html.wishwave-installed,html.wishwave-installed body{
-  height:100vh!important;min-height:0!important;max-height:none!important;
+  position:static!important;height:100vh!important;min-height:100vh!important;max-height:none!important;
 }
 html.wishwave-installed body .app{
-  top:0!important;bottom:auto!important;height:100vh!important;max-height:none!important;
+  position:relative!important;inset:auto!important;height:100vh!important;max-height:none!important;
 }
 @media(display-mode:standalone){
-  html,html body{height:100vh!important;min-height:0!important;max-height:none!important;}
-  html body .app{top:0!important;bottom:auto!important;height:100vh!important;max-height:none!important;}
+  html,html body{position:static!important;height:100vh!important;min-height:100vh!important;max-height:none!important;}
+  html body .app{position:relative!important;inset:auto!important;height:100vh!important;max-height:none!important;}
 }
 </style>
 
@@ -30256,6 +30257,7 @@ body.findai-premium-gallery-dragging .reel-gallery-track[style*="will-change: tr
       ['100vh height',round(probe.getBoundingClientRect().height)],
       ['Safe area top / bottom',safe.paddingTop+' / '+safe.paddingBottom],
       ['App top / bottom',round(a.top)+' / '+round(a.bottom)],
+      ['App positioning',getComputedStyle(app).position],
       ['Nav top / bottom',round(n.top)+' / '+round(n.bottom)],
       ['Inner viewport below nav',round(innerHeight-n.bottom)],
       ['Full screen below nav',round(probe.getBoundingClientRect().height-n.bottom)],
