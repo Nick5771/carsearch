@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v200-installed-flow-layout">
+<meta name="findai-build" content="v201-search-refresh-chat">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -24,6 +24,15 @@
 (function(){
   try{
     document.documentElement.classList.toggle('wishwave-installed',navigator.standalone===true||!!(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches));
+    // Route Search nav before older capture listeners can reopen Recents.
+    window.addEventListener('click',function(e){
+      if(!e.target.closest?.('.premium-bottom-nav button[data-tab="search"]'))return;
+      if(!document.getElementById('wishwave-v201-refresh-search-chat'))return;
+      e.preventDefault();e.stopImmediatePropagation();window.openSearchHome(false);
+    },true);
+    window.addEventListener('pointerdown',function(e){
+      if(e.target.closest?.('.premium-bottom-nav button[data-tab="search"]')&&document.getElementById('wishwave-v201-refresh-search-chat'))e.stopImmediatePropagation();
+    },true);
     var pref=localStorage.getItem('findai_theme')||'system';
     var resolved=(pref==='light'||pref==='dark')?pref:((window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');
     document.documentElement.classList.toggle('findai-light',resolved==='light');
@@ -15459,12 +15468,13 @@ if(typeof v116RenderMarketplaceListing==='function'){
   function renderExploreGrid(options={}){
     const root=document.getElementById('premiumDiscoverySections');if(!root)return;
     const section=premiumDiscoverySections[0],items=section&&section.items||[];
-    const replace=!!options.replace;
+    const replace=!!options.replace||root.dataset.refreshPending==='1';
     if(!items.length){
       if(replace)root.innerHTML='<div class="premium-explore-empty"><b>No products found</b>Try another search.</div>';
       else if(!root.querySelector('.premium-explore-grid'))root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
       return;
     }
+    delete root.dataset.refreshPending;
     let grid=root.querySelector('.premium-explore-grid');
     if(replace||!grid){
       root.innerHTML='';grid=document.createElement('div');grid.className='premium-explore-grid';root.appendChild(grid);
@@ -15543,6 +15553,15 @@ if(typeof v116RenderMarketplaceListing==='function'){
   let exploreLiveSearchTimer=null;
   let exploreLiveSearchSeq=0;
   let exploreLiveSearchQuery='';
+  window.resetPremiumExploreHome=function(force=false){
+    clearTimeout(exploreLiveSearchTimer);exploreLiveSearchSeq++;exploreGeneration++;exploreLiveSearchQuery='';
+    if(exploreLiveController){exploreLiveController.abort();exploreLiveController=null;}
+    exploreFilter='for-you';exploreLoading=false;setExploreInterpreting(false);
+    const input=document.getElementById('q');if(input)input.value='';
+    document.querySelectorAll('#premiumExploreChips [data-explore-filter]').forEach(b=>b.classList.toggle('active',b.dataset.exploreFilter==='for-you'));
+    if(!force)restoreBrowseSnapshot();else exploreBrowseSnapshot=null;
+    return renderPremiumDiscoverySections(force);
+  };
   function setExploreInterpreting(active){
     const screen=document.getElementById('search');if(screen)screen.classList.toggle('live-search-interpreting',!!active);
   }
@@ -15621,7 +15640,10 @@ if(typeof v116RenderMarketplaceListing==='function'){
     exploreInitialPromise=(async()=>{
       const generation=++exploreGeneration;if(force||!exploreLoadedFilter)exploreVisitSalt++;
       exploreLoading=false;seenExplore.clear();premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:[]}];exploreQueue=exploreConfigs(exploreFilter);
+      if(force&&root.querySelector('.premium-explore-grid'))root.dataset.refreshPending='1';
+      else {delete root.dataset.refreshPending;
       root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
+      }
       bindExploreScroll();await loadExploreMore(true);if(generation!==exploreGeneration)return;
       cacheExploreBrowseState();exploreLoadedFilter=exploreFilter;if(!premiumDiscoverySections[0].items.length)root.innerHTML='<div class="premium-explore-empty"><b>Products are refreshing</b>Try again in a moment.</div>';
     })();
@@ -16686,7 +16708,7 @@ html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .finda
       (rows.length?rows.map((row,index)=>'<div class="findai-recent-row" role="button" tabindex="0" onclick="openFindAIRecent('+index+',event)" onkeydown="if(event.key===\'Enter\'){openFindAIRecent('+index+',event)}">'+recentThumb(row)+'<span class="findai-recent-copy"><b>'+escapeHTML(row.label||'Recent')+'</b><span>'+escapeHTML(row.subtitle||'')+'</span></span><button class="findai-recent-remove" type="button" aria-label="Remove recent" onclick="removeFindAIRecent('+index+',event)">×</button></div>').join(''):'<div class="findai-recents-empty"><b>No recent searches</b>Your searches, profiles and products will appear here.</div>');
   }
   function recentsTop(){const search=document.getElementById('search'),header=search&&search.querySelector('.premium-search-home-header'),overlay=ensureRecentsOverlay();if(overlay&&header)overlay.style.top=Math.max(0,header.offsetHeight)+'px';}
-  function showRecents(){const search=document.getElementById('search'),q=document.getElementById('q');if(!search||!q||String(q.value||'').trim())return;search.classList.add('search-recents-visible');renderRecents();const overlay=ensureRecentsOverlay();if(overlay)overlay.classList.add('show');requestAnimationFrame(recentsTop);}
+  function showRecents(){const search=document.getElementById('search'),q=document.getElementById('q');if(search?.dataset.v201NavReset==='1')return;if(!search||!q||String(q.value||'').trim())return;search.classList.add('search-recents-visible');renderRecents();const overlay=ensureRecentsOverlay();if(overlay)overlay.classList.add('show');requestAnimationFrame(recentsTop);}
   function hideRecents(){const search=document.getElementById('search'),overlay=document.getElementById('findaiSearchRecents');if(search)search.classList.remove('search-recents-visible');if(overlay)overlay.classList.remove('show');}
   window.removeFindAIRecent=function(index,event){if(event){event.preventDefault();event.stopPropagation();}const rows=recentRows();rows.splice(Number(index)||0,1);safeWrite(RECENT_KEY,rows);renderRecents();};
   window.clearFindAIRecentSearches=function(event){if(event){event.preventDefault();event.stopPropagation();}safeWrite(RECENT_KEY,[]);renderRecents();};
@@ -16959,6 +16981,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
   /* ---------- 2. Deleting a Recent never kicks you out of Recents ---------- */
   function keepRecentsOpen(){
     const search=document.getElementById('search'),overlay=document.getElementById('findaiSearchRecents'),q=document.getElementById('q');
+    if(search?.dataset.v201NavReset==='1')return;
     if(search)search.classList.add('search-recents-visible');
     if(overlay){overlay.classList.add('show','findai-recents-lock');setTimeout(()=>overlay.classList.remove('findai-recents-lock'),180);}
     if(q&&!String(q.value||'').trim())try{q.focus({preventScroll:true});}catch(_){try{q.focus();}catch(__){}}
@@ -24776,6 +24799,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     openingSearchReel=false;
   }
 
+  window.__wishwaveCaptureHome=captureHome;
   /* Capture Home before any tab can replace the global search/feed state. */
   document.addEventListener('pointerdown',event=>{
     const nav=event.target.closest&&event.target.closest('.premium-bottom-nav button[data-tab]');
@@ -30278,6 +30302,131 @@ body.findai-premium-gallery-dragging .reel-gallery-track[style*="will-change: tr
   home.addEventListener('pointermove',e=>{if(Math.abs(e.clientX-startX)+Math.abs(e.clientY-startY)>12)cancel();},{passive:true});
   ['pointerup','pointercancel','lostpointercapture'].forEach(type=>home.addEventListener(type,cancel,{passive:true}));
   window.addEventListener('pagehide',cancel,{passive:true});
+})();
+</script>
+<style id="wishwave-v201-refresh-chat">
+html body .app:has(#appMpInbox.chat-open.show)>.premium-bottom-nav{visibility:hidden!important;pointer-events:none!important;}
+html body .app #appMpInbox.chat-open.show{
+  top:0!important;bottom:0!important;height:var(--wishwave-chat-height,100%)!important;
+  max-height:none!important;z-index:10000!important;background:#000!important;
+}
+html body .app #appMpInbox.chat-open .app-mp-header{
+  height:calc(env(safe-area-inset-top,0px) + 54px)!important;
+  min-height:calc(env(safe-area-inset-top,0px) + 54px)!important;
+  padding-top:env(safe-area-inset-top,0px)!important;padding-bottom:0!important;
+  flex-shrink:0!important;border-bottom:1px solid rgba(128,128,128,.12)!important;
+}
+html body .app #appMpInbox .app-mp-chat{display:flex!important;flex-direction:column!important;}
+html body .app #appMpInbox .app-mp-messages{flex:1 1 0!important;height:auto!important;min-height:0!important;padding:12px 12px 8px!important;scroll-behavior:auto!important;}
+html body .app #appMpInbox .app-mp-chat-head,html body .app #appMpInbox .app-mp-typing{flex:0 0 auto!important;}
+html body .app #appMpInbox .app-mp-typing:empty{display:none!important;}
+html body .app #appMpInbox.chat-open .app-mp-compose{
+  flex:0 0 auto!important;margin:6px 10px calc(8px + var(--wishwave-chat-safe,env(safe-area-inset-bottom,0px)))!important;
+  min-height:44px!important;padding:4px 6px!important;gap:8px!important;
+  border:0!important;border-radius:26px!important;background:#1c1d21!important;align-items:center!important;
+}
+html body .app #appMpInbox .app-mp-compose textarea{min-height:34px!important;max-height:110px!important;padding:7px 2px!important;font-size:16px!important;line-height:1.3!important;}
+html body .app #appMpInbox .app-mp-compose-plus{width:34px!important;height:34px!important;font-size:24px!important;background:#7250ff!important;flex-shrink:0!important;}
+html body .app #appMpInbox .app-mp-compose-send{width:34px!important;height:34px!important;background:transparent!important;color:#fff!important;flex-shrink:0!important;}
+html.findai-light body .app #appMpInbox.chat-open .app-mp-compose{background:#eceef1!important;}
+html.findai-light body .app #appMpInbox .app-mp-compose-send{color:#111!important;}
+.wishwave-refresh-indicator{position:absolute;top:calc(env(safe-area-inset-top,0px) + 56px);left:50%;z-index:11000;width:34px;height:34px;margin-left:-17px;border-radius:50%;background:#25272b;color:white;display:none;place-items:center;pointer-events:none;box-shadow:0 2px 10px #0005;}
+.wishwave-refresh-indicator.show{display:grid;}
+.wishwave-refresh-indicator span{width:17px;height:17px;border:2px solid #ffffff55;border-top-color:#fff;border-radius:50%;}
+.wishwave-refresh-indicator.busy span{animation:trackerSpin .65s linear infinite;}
+@media(prefers-reduced-motion:reduce){.wishwave-refresh-indicator.busy span{animation:none;}}
+</style>
+<script id="wishwave-v201-refresh-search-chat">
+(function(){
+  const oldSearch=window.openSearchHome;
+  let searchNavigation=0,pending=new Map(),gesture=null;
+  function dismissRecents(){
+    const search=document.getElementById('search'),overlay=document.getElementById('findaiSearchRecents');
+    search?.classList.remove('search-recents-visible','live-search-interpreting','people-search-mode');
+    if(search)search.dataset.v201NavReset='1';
+    if(overlay){overlay.classList.remove('show','findai-recents-lock','findai-recents-dragging','findai-recents-leaving');overlay.style.removeProperty('transform');overlay.style.removeProperty('opacity');overlay.style.removeProperty('transition');}
+    const q=document.getElementById('q');if(q){q.value='';q.blur();}
+  }
+  function indicator(){let el=document.getElementById('wishwaveRefreshIndicator');if(!el){el=document.createElement('div');el.id='wishwaveRefreshIndicator';el.className='wishwave-refresh-indicator';el.setAttribute('role','status');el.setAttribute('aria-label','Refreshing');el.innerHTML='<span></span>';document.querySelector('.app').appendChild(el);}return el;}
+  function shared(key,work){if(pending.has(key))return pending.get(key);const el=indicator();el.classList.add('show','busy');const promise=Promise.resolve().then(work).catch(error=>{if(error?.name!=='AbortError'&&typeof toast==='function')toast('Could not refresh. Please try again.');}).finally(()=>{pending.delete(key);if(!pending.size)el.classList.remove('show','busy');});pending.set(key,promise);return promise;}
+  window.openSearchHome=function(focus=false){
+    const same=['search','searchResults'].includes(String(document.body.dataset.activeTab||''));
+    const token=++searchNavigation;
+    if(document.body.dataset.activeTab==='discover')window.__wishwaveCaptureHome?.();
+    try{window.__wishwaveCloseSearchReelV186?.();}catch(_){}
+    try{closeSearchResultDetail();}catch(_){}
+    try{closeWishWavePublicProfile();}catch(_){}
+    dismissRecents();
+    const out=typeof oldSearch==='function'?oldSearch.call(this,false):undefined;
+    // An old contextual return may only close its layer. Always activate Search.
+    document.querySelectorAll('.screen.active').forEach(el=>el.classList.remove('active'));
+    document.getElementById('search')?.classList.add('active');document.body.dataset.activeTab='search';setMainNavActive('search');
+    dismissRecents();
+    const scroll=document.querySelector('#search .premium-search-home-scroll');if(scroll)scroll.scrollTop=0;
+    const work=shared('search',()=>window.resetPremiumExploreHome?window.resetPremiumExploreHome(same):renderPremiumDiscoverySections(same));
+    // Delayed old focus/recents callbacks must not undo the explicit nav reset.
+    [0,90,210].forEach(ms=>setTimeout(()=>{if(token===searchNavigation&&document.body.dataset.activeTab==='search'&&document.activeElement?.id!=='q')dismissRecents();},ms));
+    if(focus)setTimeout(()=>{if(token===searchNavigation){delete document.getElementById('search').dataset.v201NavReset;document.getElementById('q')?.focus({preventScroll:true});}},250);
+    return work;
+  };
+  document.addEventListener('pointerdown',e=>{if(e.target.closest('#q'))delete document.getElementById('search').dataset.v201NavReset;},true);
+  document.addEventListener('keydown',e=>{if(e.key==='Tab')delete document.getElementById('search').dataset.v201NavReset;},true);
+  async function refreshView(key){
+    if(key==='search')return window.resetPremiumExploreHome(true);
+    if(key==='discover'){try{finaliseReelTracking();}catch(_){}return loadPersonalisedFeed({forceNetwork:true});}
+    if(key==='profile'){await loadProfileMarketplaceData(true);paintSocialProfileHeader();renderSocialProfileContent();return;}
+    if(key==='messages'){
+      if(document.getElementById('appMpInbox')?.classList.contains('chat-open'))return appMpLoadMessages();
+      const data=await marketplaceFetch('/marketplace/conversations',{method:'GET'});
+      if(document.body.dataset.activeTab==='messages'&&!document.getElementById('appMpInbox')?.classList.contains('chat-open'))renderAppMpConversationList(data,false,'');return;
+    }
+    if(key==='notifications')return window.loadHomeNotifications?.();
+    if(key==='searchResults'){const q=document.getElementById('premiumResultQuery')?.value||'';return q?launchPremiumSearch(q):window.resetPremiumExploreHome(true);}
+    if(key==='publicProfile'){
+      const previous=wishwavePublicSellerData,id=previous?.seller?.id,tab=wishwavePublicSellerTab;if(!id)return;
+      const data=await marketplaceFetch('/marketplace/sellers/'+encodeURIComponent(id)+'/profile',{method:'GET'});
+      if(wishwavePublicSellerData===previous&&document.getElementById('wishwavePublicProfilePage')?.classList.contains('show')){wishwavePublicSellerData=data;renderWishWavePublicProfile();setWishWavePublicSellerTab(tab);}return;
+    }
+    if(key==='comments'){
+      const item=wishwaveCommentsItem,endpoint=item&&wishwaveCommentEndpoint(item);if(!endpoint)return;
+      const data=await marketplaceFetch(endpoint,{method:'GET'});if(wishwaveCommentsItem===item&&document.getElementById('appMpSheetBg')?.classList.contains('show')){const draft=document.getElementById('wishwaveCommentInput')?.value||'';renderWishWaveComments(data);const input=document.getElementById('wishwaveCommentInput');if(input){input.value=draft;input.dispatchEvent(new Event('input',{bubbles:true}));}}return;
+    }
+    if(key==='create')return window.appRefreshMarketplaceBadge?.();
+  }
+  window.wishwaveRefreshVisiblePage=function(key){return shared(key||currentKey(),()=>refreshView(key||currentKey()));};
+  function currentKey(){
+    if(document.querySelector('#appMpSheetBg.wishwave-comments-mode.show'))return 'comments';
+    if(document.querySelector('#wishwavePublicProfilePage.show'))return 'publicProfile';
+    if(document.querySelector('#createListingScreen.show'))return 'create';
+    if(document.querySelector('#appMpInbox.show'))return 'messages';
+    if(document.querySelector('#findaiNotificationPanel.show'))return 'notifications';
+    return String(document.body.dataset.activeTab||'discover');
+  }
+  function scrollHost(target){for(let el=target;el&&el!==document.body;el=el.parentElement){const css=getComputedStyle(el);if(/auto|scroll/.test(css.overflowY)&&el.scrollHeight>el.clientHeight+1)return el;}return document.querySelector('.screen.active .profile-scroll,.screen.active .premium-search-home-scroll,#appMpInbox.show .app-mp-messages,#appMpInbox.show .app-mp-conversation-list,.screen.active .reel-feed');}
+  function clear(){gesture=null;const el=document.getElementById('wishwaveRefreshIndicator');if(el&&!pending.size){el.classList.remove('show');el.style.removeProperty('transform');}}
+  document.addEventListener('touchstart',e=>{
+    if(e.touches.length!==1||pending.size||e.target.closest('input,textarea,select,button,.premium-bottom-nav,.app-mp-compose,[contenteditable],.findai-settings-sheet,#loginOverlay.show,.findai-settings-bg.show'))return;
+    const host=scrollHost(e.target);if(host&&host.scrollTop>1)return;
+    const t=e.touches[0];gesture={x:t.clientX,y:t.clientY,key:currentKey(),host,armed:false,distance:0};
+  },{passive:true});
+  document.addEventListener('touchmove',e=>{
+    if(!gesture)return;if(e.touches.length!==1||currentKey()!==gesture.key){clear();return;}
+    const t=e.touches[0],dx=t.clientX-gesture.x,dy=t.clientY-gesture.y;
+    if(!gesture.armed&&(Math.abs(dx)>12&&Math.abs(dx)>Math.abs(dy)||dy< -10)){clear();return;}
+    if(dy>12&&dy>Math.abs(dx)*1.4){gesture.armed=true;gesture.distance=Math.min(110,dy*.65);if(e.cancelable)e.preventDefault();const el=indicator();el.classList.add('show');el.style.transform='translateY('+gesture.distance+'px)';el.style.opacity=String(Math.min(1,gesture.distance/48));}
+  },{passive:false});
+  document.addEventListener('touchend',()=>{const g=gesture;clear();if(g?.armed&&g.distance>=55&&g.key===currentKey())window.wishwaveRefreshVisiblePage(g.key);},{passive:true});
+  document.addEventListener('touchcancel',clear,{passive:true});window.addEventListener('pagehide',clear,{passive:true});
+  function syncChatKeyboard(){
+    const inbox=document.getElementById('appMpInbox'),app=document.querySelector('.app');if(!inbox||!app)return;
+    const viewport=window.visualViewport,focused=document.activeElement?.closest('#appMpInbox textarea,#appMpInbox input');
+    const height=viewport?viewport.height+viewport.offsetTop:innerHeight;
+    const keyboard=!!focused&&app.getBoundingClientRect().height-height>120;
+    if(keyboard){inbox.style.setProperty('--wishwave-chat-height',Math.max(220,height-app.getBoundingClientRect().top)+'px');inbox.style.setProperty('--wishwave-chat-safe','0px');}
+    else{inbox.style.removeProperty('--wishwave-chat-height');inbox.style.removeProperty('--wishwave-chat-safe');}
+  }
+  window.visualViewport?.addEventListener('resize',syncChatKeyboard,{passive:true});
+  document.addEventListener('focusin',syncChatKeyboard);document.addEventListener('focusout',()=>setTimeout(syncChatKeyboard,100));
 })();
 </script>
 </body>
