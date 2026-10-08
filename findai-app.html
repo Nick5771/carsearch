@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v194-smooth-gestures-warm-followers">
+<meta name="findai-build" content="v195-consistent-bottom-nav-mount">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -13276,10 +13276,11 @@ html.findai-light .findai-notification-group-title{color:#111214}
 
 <script id="wishwave-v114-critical-ui-fixes-script">
 (function(){
-  /* Keep nav mounted once at body level and paint the OS-safe bottom behind it. */
+  /* The bar and reel use the same viewport container on every lifecycle event. */
   function wishwaveLockBottomNav(){
+    const app=document.querySelector('.app');
     const nav=document.querySelector('.nav.findai-five-nav.premium-bottom-nav');
-    if(nav&&nav.parentElement!==document.body)document.body.appendChild(nav);
+    if(app&&nav&&nav.parentElement!==app)app.appendChild(nav);
     let underlay=document.querySelector('.wishwave-bottom-underlay');
     if(!underlay){
       underlay=document.createElement('div');
