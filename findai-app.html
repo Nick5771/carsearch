@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v191-search-comments-parity">
+<meta name="findai-build" content="v192-attention-stable-feed">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -5538,12 +5538,13 @@ function openSearchHome(focus=true){
   feedState={query:'',resolvedQuery:'',source:'searchhome',loading:false,hasMore:false,seen:new Set()};
   const q=$('#q');if(q){q.value='';if(focus)setTimeout(()=>q.focus(),70);}
 }
-function preloadPersonalisedImages(start=0,count=12){
+const personalisedImageWarmSet=new Set();
+function preloadPersonalisedImages(start=0,count=3){
   if(feedState&&feedState.source!=='personalised')return;
-  const from=Math.max(0,Number(start)||0),to=Math.min(currentFeedItems.length,from+Math.max(1,Number(count)||12));
+  const from=Math.max(0,Number(start)||0),to=Math.min(currentFeedItems.length,from+Math.min(3,Math.max(1,Number(count)||3)));
   const work=()=>{
     for(let i=from;i<to;i++){
-      try{const plan=appImagePlan(currentFeedItems[i],i,currentFeedData);const src=plan&&plan.src;if(!src)continue;const img=new Image();img.decoding='async';img.referrerPolicy='no-referrer';img.src=src;}catch(_){}
+      try{const plan=appImagePlan(currentFeedItems[i],i,currentFeedData);const src=plan&&plan.src;if(!src||personalisedImageWarmSet.has(src))continue;personalisedImageWarmSet.add(src);if(personalisedImageWarmSet.size>120)personalisedImageWarmSet.delete(personalisedImageWarmSet.values().next().value);const img=new Image();img.decoding='async';img.referrerPolicy='no-referrer';img.src=src;}catch(_){}
     }
   };
   if('requestIdleCallback' in window)requestIdleCallback(work,{timeout:350});else setTimeout(work,0);
@@ -6755,7 +6756,7 @@ function renderReelCard(item,index,data){
   const sellerLabel=item.topRatedSeller ? 'Top-rated seller' : (seller || 'Live listing');
   const wishwave=isFindAIListing(item);
   const commentCount=wishwaveCommentCount(item);
-  return `<article class="reel-card" data-index="${index}" data-has-gallery="${gallery.length>1?'1':'0'}" aria-label="${escapeAttr(title)}" role="button" tabindex="0" onclick="if(reelGalleryConsumeClick(this,event))return;openDeal(${index},event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDeal(${index},event);}">
+  return `<article class="reel-card" data-recommendation-key="${escapeAttr(listingKey(item))}" data-index="${index}" data-has-gallery="${gallery.length>1?'1':'0'}" aria-label="${escapeAttr(title)}" role="button" tabindex="0" onclick="if(reelGalleryConsumeClick(this,event))return;openDeal(${index},event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDeal(${index},event);}">
     <div class="hero-stage reel-gallery-stage${image?' fill-solid':''}" data-horizontal-scroll="1" data-gallery-index="0" data-gallery-images="${escapeAttr(JSON.stringify(gallery))}"${image?` style="--hero-fill:#0a0b0d"`:''}>
       <div class="reel-gallery-track" data-gallery-track="1">
         ${gallery.length
@@ -6997,23 +6998,7 @@ function attachReelObserver(){
   $$('.reel-card',feed).forEach(card=>reelObserver.observe(card));
 }
 
-function teachSwipeOnce(count){
-  if(count<2 || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  try{
-    if(localStorage.getItem('fa_reel_taught')) return;
-    localStorage.setItem('fa_reel_taught','1');
-  }catch(_){}
-  const feed = appActiveFeedElement();
-  setTimeout(()=>{
-    feed.classList.add('teaching');
-    feed.scrollTo({top:28,behavior:'smooth'});
-    setTimeout(()=>{
-      feed.scrollTo({top:0,behavior:'smooth'});
-      setTimeout(()=>feed.classList.remove('teaching'),420);
-    },620);
-  },700);
-}
-
+function teachSwipeOnce(count){ /* No delayed automatic scrolling. */ }
 function openDeal(index,event){
   if(event) event.stopPropagation();
   const item = currentFeedItems[index];
@@ -7030,6 +7015,7 @@ async function shareItem(index,event){
   try{
     if(navigator.share) await navigator.share(shareData);
     else { await navigator.clipboard.writeText(shareData.url); toast('Listing link copied'); }
+    recordInterest(item._interestQuery||item.title,'share',8);
   }catch(_){ /* user cancelled */ }
 }
 async function toggleLike(index,event){
@@ -13099,39 +13085,7 @@ html.findai-light .findai-notification-group-title{color:#111214}
 </style>
 
 
-<script id="findai-v111-ios-standalone-bottom-fix-script">
-(function(){
-  function isStandalone(){
-    return window.matchMedia('(display-mode: standalone)').matches ||
-      window.navigator.standalone === true;
-  }
-
-  function mountStandaloneNav(){
-    if(!isStandalone()) return;
-    const nav=document.querySelector('.nav.findai-five-nav.premium-bottom-nav');
-    if(!nav) return;
-
-    /* Important: body is the containing block for a fixed element.
-       Do not leave this inside .app where older absolute-position rules interfere. */
-    if(nav.parentElement!==document.body) document.body.appendChild(nav);
-
-    nav.style.setProperty('position','fixed','important');
-    nav.style.setProperty('bottom','0px','important');
-    nav.style.setProperty('top','auto','important');
-    nav.style.setProperty('transform','translateX(-50%)','important');
-  }
-
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',mountStandaloneNav,{once:true});
-  }else{
-    mountStandaloneNav();
-  }
-
-  window.addEventListener('pageshow',mountStandaloneNav,{passive:true});
-  window.addEventListener('resize',mountStandaloneNav,{passive:true});
-  window.addEventListener('orientationchange',()=>setTimeout(mountStandaloneNav,80),{passive:true});
-})();
-</script>
+<!-- Standalone navigation uses the same app container as browser navigation. -->
 
 
 <style id="wishwave-v114-critical-ui-fixes">
@@ -13953,7 +13907,8 @@ async function submitWishWaveComment(event){
     return false;
   }
   if(window.__wishwaveCommentPosting)return false;
-  const id=wishwaveCommentMetricKey(wishwaveCommentsItem),endpoint=wishwaveCommentEndpoint(wishwaveCommentsItem);if(!id||!endpoint)return false;
+  const postingItem=wishwaveCommentsItem;
+  const id=wishwaveCommentMetricKey(postingItem),endpoint=wishwaveCommentEndpoint(postingItem);if(!id||!endpoint)return false;
 
   const previousData={
     comments:Array.isArray(wishwaveCommentsData&&wishwaveCommentsData.comments)?wishwaveCommentsData.comments.slice():[],
@@ -14003,6 +13958,7 @@ async function submitWishWaveComment(event){
     const data=await marketplaceFetch(endpoint,{
       method:'POST',body:JSON.stringify({body,imageUrl})
     });
+    recordInterest(postingItem._interestQuery||postingItem.title,'comment',10,{item:postingItem,category:interestCategory(postingItem.title),source:getSource(postingItem),sellerId:String(postingItem.sellerId||'')});
     wishwaveUpdateCommentMetric(id,data.commentCount);
     renderWishWaveComments(data);
     requestAnimationFrame(()=>{
@@ -16037,16 +15993,52 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
   const V125_BEHAVIOR_KEY='fa_behavior_profile_v125';
   const V125_DWELL_KEY='fa_dwell_history_v125';
   const V125_EVENT_WEIGHTS=Object.freeze({
-    search:10,scan:13,click:7,buy:12,like:15,unlike:-8,compare:10,track:13,tracker:6,
-    dwell:2,quickSkip:-.45,revisit:7,share:8,comment:10,sellerProfile:5,followSeller:18,unfollowSeller:-7,legacy:2.5
+    search:7,scan:10,click:7,buy:12,like:15,unlike:-8,compare:10,track:13,tracker:6,
+    dwell:2,quickSkip:-.45,revisit:4,share:8,comment:10,sellerProfile:5,followSeller:18,unfollowSeller:-7,legacy:2.5,galleryInspect:3
   });
-  const V125_REBALANCE_EVENTS=new Set(['search','scan','like','unlike','click','buy','compare','dwell','quickSkip','revisit','track','tracker','share','comment','sellerProfile','followSeller','unfollowSeller']);
+  const V125_REBALANCE_EVENTS=new Set(['search','scan','like','unlike','click','buy','compare','dwell','quickSkip','revisit','track','tracker','share','comment','sellerProfile','followSeller','unfollowSeller','galleryInspect']);
   let v125ActiveVisibleStartedAt=0;
   let v125ActiveMaxRatio=0;
   let v125AdaptiveRerankTimer=null;
   let v125FollowingFetchAt=0;
   let v125FollowingCache=[];
   const v125VisitCounts=new Map();
+  // v192: accumulate only qualified foreground attention, never wall-clock time.
+  let attention=null;
+  let attentionLastInput=performance.now();
+  const exposureRatios=new Map();
+  let feedLastScrollAt=0;
+  const attentionBlocked=()=>document.hidden||!!document.querySelector(
+    '.app-mp-sheet-bg.show,.account-overlay.show,#wishwavePublicProfilePage.show,#createListingScreen.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show,.findai-send-sheet-bg.show,#appMpInbox.show,.findai-settings-bg.show,#loginOverlay.show,#findaiNotificationPanel.show'
+  );
+  function attentionIsVisible(){
+    if(!attention||attentionBlocked()||attention.ratio<.68)return false;
+    const feed=appActiveFeedElement();
+    const card=feed&&feed.querySelector('.reel-card[data-index="'+activeReelIndex+'"]');
+    const image=card&&card.querySelector('.reel-gallery-slide[data-gallery-slide="0"] img');
+    return !!(feed&&feed.isConnected&&feed.getClientRects().length&&
+      (!image||(image.complete&&image.naturalWidth>0))&&
+      (!attention.feed||attention.feed===feed));
+  }
+  function tickAttention(){
+    const now=performance.now();
+    if(attention){
+      const dt=Math.min(750,Math.max(0,now-attention.lastTick));
+      const allowed=attentionIsVisible()&&now-attentionLastInput<20000;
+      if(allowed&&attention.wasAllowed)attention.ms+=dt;
+      attention.lastTick=now;attention.wasAllowed=allowed;
+      if(allowed&&attention.ms>=500&&!attention.viewRecorded){
+        attention.viewRecorded=true;recordWishWaveListingView(attention.item,'reels',false);
+      }
+    }
+  }
+  function noteAttentionInput(){tickAttention();attentionLastInput=performance.now();}
+  ['pointerdown','touchstart','keydown','wheel'].forEach(type=>
+    document.addEventListener(type,noteAttentionInput,{capture:true,passive:true}));
+  document.addEventListener('visibilitychange',()=>{if(attention){attention.lastTick=performance.now();attention.wasAllowed=false;}});
+  window.addEventListener('pagehide',()=>{tickAttention();finaliseReelTracking();});
+  setInterval(tickAttention,250);
+
 
   function v125SafeJson(storage,key,fallback){
     try{const parsed=JSON.parse(storage.getItem(key)||'null');return parsed&&typeof parsed==='object'?parsed:fallback;}catch(_){return fallback;}
@@ -16070,6 +16062,11 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     v125SaveJson(localStorage,V125_DWELL_KEY,h.slice(-40));
   }
 
+  let behaviorCache=null,sessionInterestCache=null,sessionInterestCacheAt=0;
+  window.addEventListener('storage',event=>{
+    if(event.key===V125_BEHAVIOR_KEY)behaviorCache=null;
+    if(event.key===V125_SESSION_TASTE_KEY)sessionInterestCache=null;
+  });
   function v125SessionTaste(){
     const raw=v125SafeJson(sessionStorage,V125_SESSION_TASTE_KEY,{});
     return raw&&typeof raw==='object'&&!Array.isArray(raw)?raw:{};
@@ -16085,18 +16082,24 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     current.weight=Math.max(-18,Math.min(65,carry+delta));current.lastAt=now;profile[cluster]=current;
     const trimmed=Object.entries(profile).sort((a,b)=>Number(b[1].lastAt||0)-Number(a[1].lastAt||0)).slice(0,28);
     v125SaveJson(sessionStorage,V125_SESSION_TASTE_KEY,Object.fromEntries(trimmed));
+    sessionInterestCache=null;
   }
   function v125SessionInterests(){
-    const now=Date.now();return Object.values(v125SessionTaste()).map(item=>{
+    const now=Date.now();
+    if(sessionInterestCache&&now-sessionInterestCacheAt<500)return sessionInterestCache;
+    sessionInterestCacheAt=now;
+    sessionInterestCache=Object.values(v125SessionTaste()).map(item=>{
       const age=Math.max(0,now-Number(item.lastAt||now));
       const score=(Number(item.weight)||0)*Math.pow(.5,age/(28*60*1000));
       return {...item,score};
     }).filter(x=>x.score>.2).sort((a,b)=>b.score-a.score);
+    return sessionInterestCache;
   }
 
   function v125BehaviorProfile(){
+    if(behaviorCache)return behaviorCache;
     const p=v125SafeJson(localStorage,V125_BEHAVIOR_KEY,{});
-    return {categories:p.categories||{},sources:p.sources||{},prices:p.prices||{},sellers:p.sellers||{}};
+    return behaviorCache={categories:p.categories||{},sources:p.sources||{},prices:p.prices||{},sellers:p.sellers||{}};
   }
   function v125PriceBucket(value){
     const p=Number(value)||0;if(p<=0)return '';
@@ -16135,7 +16138,7 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
   }
   function v125InferContext(query,event,explicit){
     if(explicit&&explicit.item)return explicit;
-    if(!['dwell','quickSkip','revisit','like','unlike','click','buy','compare','share','comment','sellerProfile','followSeller','unfollowSeller','track'].includes(String(event||'')))return explicit||null;
+    if(!['dwell','quickSkip','revisit','like','unlike','click','buy','compare','share','comment','sellerProfile','followSeller','unfollowSeller','track','galleryInspect'].includes(String(event||'')))return explicit||null;
     try{
       const item=currentFeedItems&&currentFeedItems[activeReelIndex];
       if(!item)return explicit||null;
@@ -16202,15 +16205,28 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
   };
 
   function v125RerenderTail(start){
-    if(feedState.source!=='personalised')return;const feed=appActiveFeedElement();if(!feed)return;
+    if(feedState.source!=='personalised')return;
+    const feed=appActiveFeedElement();if(!feed)return;
     const cards=Array.from(feed.querySelectorAll('.reel-card'));
-    cards.forEach(card=>{if(Number(card.dataset.index)>=start)card.remove();});
-    const html=currentFeedItems.slice(start).map((item,offset)=>renderReelCard(item,start+offset,currentFeedData)).join('');
-    if(html)feed.insertAdjacentHTML('beforeend',html);
-    attachReelObserver();preloadPersonalisedImages(start,12);
+    let changed=false;
+    for(let index=start;index<currentFeedItems.length;index++){
+      const item=currentFeedItems[index],key=listingKey(item);
+      const old=cards.find(card=>Number(card.dataset.index)===index);
+      // Keep unchanged nodes, their decoded images, and gallery positions.
+      if(old&&old.dataset.recommendationKey===key)continue;
+      const template=document.createElement('template');
+      template.innerHTML=renderReelCard(item,index,currentFeedData);
+      const card=template.content.firstElementChild;if(!card)continue;
+      card.dataset.recommendationKey=key;
+      if(old)old.replaceWith(card);else feed.appendChild(card);
+      changed=true;
+    }
+    cards.forEach(card=>{if(Number(card.dataset.index)>=currentFeedItems.length){card.remove();changed=true;}});
+    if(changed){attachReelObserver();preloadPersonalisedImages(activeReelIndex+1,3);}
   }
   function v125AdaptiveRerankTail(){
     if(feedState.source!=='personalised'||!currentFeedItems||currentFeedItems.length<5||!document.getElementById('discover')?.classList.contains('active'))return;
+    if(performance.now()-feedLastScrollAt<350||document.body.classList.contains('findai-premium-gallery-dragging')){clearTimeout(v125AdaptiveRerankTimer);v125AdaptiveRerankTimer=setTimeout(v125AdaptiveRerankTail,400);return;}
     const start=Math.min(currentFeedItems.length,Math.max(0,Number(activeReelIndex)||0)+2);
     if(start>=currentFeedItems.length-1)return;
     const head=currentFeedItems.slice(0,start),tail=currentFeedItems.slice(start);
@@ -16225,7 +16241,7 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
   function v125ScheduleAdaptiveRerank(event){
     if(feedState.source!=='personalised')return;
     clearTimeout(v125AdaptiveRerankTimer);
-    const delay=['like','compare','followSeller','search','revisit','buy'].includes(String(event||''))?90:220;
+    const delay=['like','compare','followSeller','search','revisit','buy','galleryInspect'].includes(String(event||''))?500:850;
     v125AdaptiveRerankTimer=setTimeout(v125AdaptiveRerankTail,delay);
   }
 
@@ -16259,71 +16275,100 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     return {event:'view',boost:0,ratio,baseline};
   }
 
+
   finaliseReelTracking=function(){
-    if(!activeReelTrackingKey||!currentFeedItems.length)return;
-    const item=currentFeedItems[activeReelIndex];if(!item)return;
-    if(v125ActiveMaxRatio<.68)return;
-    const started=v125ActiveVisibleStartedAt||activeReelStartedAt;
-    const elapsed=Math.max(0,Date.now()-started);
-    const onceKey=`v125:${activeReelTrackingKey}:${Math.floor(started/500)}`;
-    if(sessionDwellRecorded.has(onceKey))return;sessionDwellRecorded.add(onceKey);
-    if(elapsed>=250)v125RememberDwell(elapsed);
-    const signal=v125DwellSignal(elapsed),query=item._interestQuery||feedState.query||item.title;
+    tickAttention();
+    const state=attention;
+    attention=null;
+    if(!state||!state.item||state.recorded||state.ms<250)return;
+    state.recorded=true;
+    const elapsed=state.ms;
+    // Compute against the previous baseline before adding this exposure.
+    const signal=v125DwellSignal(elapsed);
+    v125RememberDwell(elapsed);
     if(signal.boost!==0){
-      const context=v125ContextFromItem(item);recordInterest(query,signal.event,signal.boost,context);
-      if(signal.boost>1&&normaliseQueryText(query)!==normaliseQueryText(item.title))recordInterest(item.title,'dwell',Math.min(4.5,signal.boost*.58),context);
+      const query=state.item._interestQuery||state.item.title||'';
+      // Passive dwell is capped below deliberate saves/follows.
+      recordInterest(query,signal.event,Math.min(4,signal.boost),v125ContextFromItem(state.item));
     }
   };
 
   beginReelTracking=function(index,ratio=1){
+    const item=currentFeedItems[Number(index)||0];
+    const key=item?listingKey(item):'';
+    if(attention&&attention.key===key&&attention.feed===appActiveFeedElement()){
+      tickAttention();attention.ratio=Math.max(0,Number(ratio)||0);return;
+    }
+    finaliseReelTracking();
     const previousKey=activeReelTrackingKey;
     activeReelIndex=Number(index)||0;activeReelStartedAt=Date.now();
-    const item=currentFeedItems[activeReelIndex];const key=item?listingKey(item):'';
     activeReelTrackingKey=key;v125ActiveMaxRatio=Math.max(0,Number(ratio)||0);
-    v125ActiveVisibleStartedAt=v125ActiveMaxRatio>=.68?Date.now():0;
+    v125ActiveVisibleStartedAt=Date.now();
+    attention={key,item,feed:appActiveFeedElement(),ratio:v125ActiveMaxRatio,
+      ms:0,lastTick:performance.now(),wasAllowed:false,recorded:false,gallery:new Set([0])};
+    attentionLastInput=performance.now();
     if(item){
-      notePersonalisedImpression(item);recordWishWaveListingView(item,'reels',false);
+      notePersonalisedImpression(item);
       if(key&&key!==previousKey){
         const visits=Number(v125VisitCounts.get(key)||0);v125VisitCounts.set(key,visits+1);
-        if(visits>0){
-          const q=item._interestQuery||feedState.query||item.title;
-          recordInterest(q,'revisit',Math.min(10,6+visits*1.25),v125ContextFromItem(item));
-        }
+        if(visits>0&&visits<3)recordInterest(item._interestQuery||item.title,'revisit',3,v125ContextFromItem(item));
       }
     }
   };
 
+  window.wishwaveRecordGalleryInspection=function(stage,index){
+    const state=attention;
+    if(!state||!stage||!attentionIsVisible())return;
+    const card=stage.closest('.reel-card');
+    if(!card||!state.feed.contains(card)||Number(card.dataset.index)!==activeReelIndex)return;
+    const n=Number(index)||0;if(state.gallery.has(n))return;
+    state.gallery.add(n);noteAttentionInput();
+    // One deliberate photo inspection reward per exposure.
+    if(state.gallery.size===2)
+      recordInterest(state.item._interestQuery||state.item.title,'galleryInspect',3,v125ContextFromItem(state.item));
+  };
+
   attachReelObserver=function(){
-    if(reelObserver)reelObserver.disconnect();const feed=appActiveFeedElement();if(!feed)return;
+    if(reelObserver)reelObserver.disconnect();
+    const feed=appActiveFeedElement();if(!feed)return;
+    exposureRatios.clear();
+    if(!feed.dataset.v192ScrollBound){
+      feed.dataset.v192ScrollBound='1';
+      feed.addEventListener('scroll',()=>{feedLastScrollAt=performance.now();noteAttentionInput();},{passive:true});
+    }
     reelObserver=new IntersectionObserver(entries=>{
-      const visible=entries.filter(entry=>entry.isIntersecting).sort((a,b)=>b.intersectionRatio-a.intersectionRatio)[0];if(!visible)return;
-      const index=Number(visible.target.dataset.index||0),ratio=Number(visible.intersectionRatio)||0;
-      if(index!==activeReelIndex){finaliseReelTracking();beginReelTracking(index,ratio);try{haptic();}catch(_){}}
-      else{
-        v125ActiveMaxRatio=Math.max(v125ActiveMaxRatio,ratio);
-        if(!v125ActiveVisibleStartedAt&&ratio>=.68)v125ActiveVisibleStartedAt=Date.now();
+      tickAttention();
+      for(const entry of entries)exposureRatios.set(entry.target,entry.isIntersecting?entry.intersectionRatio:0);
+      let best=null,bestRatio=0;
+      for(const [card,ratio] of exposureRatios){
+        if(!card.isConnected){exposureRatios.delete(card);continue;}
+        if(ratio>bestRatio){best=card;bestRatio=ratio;}
       }
-      const preloadDistance=(feedState&&feedState.source==='personalised')?12:5;
+      if(attention)attention.ratio=exposureRatios.get(feed.querySelector('.reel-card[data-index="'+activeReelIndex+'"]'))||0;
+      if(!best||bestRatio<.68)return;
+      const index=Number(best.dataset.index||0);
+      if(index!==activeReelIndex||!attention){
+        finaliseReelTracking();beginReelTracking(index,bestRatio);
+        try{haptic();}catch(_){}
+      }else attention.ratio=bestRatio;
+      const preloadDistance=feedState&&feedState.source==='personalised'?5:3;
       if(index>=currentFeedItems.length-preloadDistance)loadMoreListings();
-      if(feedState&&feedState.source==='personalised')preloadPersonalisedImages(index+1,10);
-    },{root:feed,threshold:[.35,.52,.68,.78,.88,.96]});
+      if(feedState&&feedState.source==='personalised')preloadPersonalisedImages(index+1,3);
+    },{root:feed,threshold:[0,.35,.52,.68,.78,.88,.96,1]});
     $$('.reel-card',feed).forEach(card=>reelObserver.observe(card));
   };
 
   /* Extra explicit engagement signals. */
   const v124OpenDeal=openDeal;
   openDeal=function(index,event){
-    const item=currentFeedItems[Number(index)||0];if(item)recordInterest(item._interestQuery||feedState.query||item.title,'buy',null,v125ContextFromItem(item));
     return v124OpenDeal(index,event);
   };
   const v124ShareItem=shareItem;
   shareItem=async function(index,event){
-    const item=currentFeedItems[Number(index)||0];if(item)recordInterest(item._interestQuery||item.title,'share',null,v125ContextFromItem(item));
     return v124ShareItem(index,event);
   };
   const v124SubmitWishWaveComment=submitWishWaveComment;
   submitWishWaveComment=async function(event){
-    const item=wishwaveCommentsItem;if(item)recordInterest(item._interestQuery||item.title,'comment',null,v125ContextFromItem(item));
     return v124SubmitWishWaveComment(event);
   };
   const v124OpenWishWaveSellerProfile=openWishWaveSellerProfile;
@@ -16643,13 +16688,13 @@ html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .finda
     }
   };
 
-  function readPriority(){const p=safeRead(PRIORITY_KEY,null);if(!p||!p.query||Date.now()-Number(p.at||0)>8*60*60*1000)return null;return p;}
+  function readPriority(){const p=safeRead(PRIORITY_KEY,null);if(!p||!p.query||Date.now()-Number(p.at||0)>45*60*1000)return null;return p;}
   function setPrioritySearch(query,force=false){
     const clean=String(query||'').trim();if(clean.length<2)return;
     if(!force&&clean===priorityRecordedQuery)return;priorityRecordedQuery=clean;
     const prior=readPriority();const items=prior&&String(prior.query).toLowerCase()===clean.toLowerCase()?prior.items||[]:[];
     safeWrite(PRIORITY_KEY,{query:clean,at:Date.now(),items});
-    try{if(typeof recordInterest==='function')recordInterest(clean,'search',28);}catch(_){}
+    try{if(typeof recordInterest==='function')recordInterest(clean,'search',5);}catch(_){}
   }
   function capturePriorityItems(){
     const q=String(document.getElementById('q')?.value||'').trim(),priority=readPriority();if(!q||!priority||q.toLowerCase()!==String(priority.query||'').toLowerCase())return;
@@ -16666,16 +16711,15 @@ html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .finda
   if(typeof scoredBeforeV130==='function')window.scoredInterests=function(limit=PERSONALISED_INTEREST_LIMIT){
     const base=scoredBeforeV130(Math.max(limit,PERSONALISED_INTEREST_LIMIT));const priority=readPriority();if(!priority)return base.slice(0,limit);
     const query=String(priority.query||'').trim(),cluster='priority_'+interestClusterKey(query);
-    const exact={id:'priority_search_v130',query,discoveryQuery:query,category:interestCategory(query),cluster,score:999,featured:true,_prioritySearch:true};
-    return [exact,...base.filter(x=>x&&x.cluster!==cluster&&String(x.query||'').toLowerCase()!==query.toLowerCase())].slice(0,limit);
+    const exact={id:'priority_search_v130',query,discoveryQuery:query,category:interestCategory(query),cluster,score:Math.max(1,14*Math.pow(.5,(Date.now()-Number(priority.at||Date.now()))/(15*60*1000))),featured:false,_prioritySearch:true};
+    return [exact,...base.filter(x=>x&&x.cluster!==cluster&&String(x.query||'').toLowerCase()!==query.toLowerCase())].sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0)).slice(0,limit);
   };
 
   function injectPriorityIntoHome(){
     const priority=readPriority();if(!priority||!Array.isArray(priority.items)||!priority.items.length||typeof currentFeedItems==='undefined'||!Array.isArray(currentFeedItems)||!currentFeedItems.length||!feedState||feedState.source!=='personalised')return false;
     const query=priority.query,existing=new Set(currentFeedItems.map(item=>listingKey(item)));const candidates=priority.items.filter(item=>item&&!existing.has(listingKey(item))).slice(0,3).map(item=>({...item,_interestQuery:query,_interestCategory:interestCategory(query),_interestCluster:'priority_'+interestClusterKey(query)}));
-    if(!candidates.length)return false;
-    let offset=Math.max(0,Number(activeReelIndex)||0)+2;for(let i=0;i<candidates.length;i++){const pos=Math.min(currentFeedItems.length,offset+i*3);currentFeedItems.splice(pos,0,candidates[i]);}
-    return true;
+    // Ranking chooses the next products; search never forces cards into Home.
+    return false;
   }
   function repaintHomeAfterPriority(){
     if(!injectPriorityIntoHome())return;const feed=document.getElementById('personalFeed');if(!feed)return;
@@ -16690,7 +16734,7 @@ html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .finda
     q.addEventListener('input',()=>{
       const clean=String(q.value||'').trim();
       clearTimeout(recentQueryTimer);clearTimeout(priorityTimer);
-      if(clean){recentWasTyping=true;hideRecents();priorityTimer=setTimeout(()=>setPrioritySearch(clean,false),190);recentQueryTimer=setTimeout(()=>rememberQuery(clean),650);}
+      if(clean){recentWasTyping=true;hideRecents();priorityTimer=setTimeout(()=>setPrioritySearch(clean,false),900);recentQueryTimer=setTimeout(()=>rememberQuery(clean),1100);}
       else{
         priorityRecordedQuery='';hideRecents();
         if(!recentWasTyping)showRecents();
@@ -17105,51 +17149,7 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
   const nav=()=>document.querySelector('.nav.findai-five-nav.premium-bottom-nav');
   const navButton=tab=>nav()?.querySelector('button[data-tab="'+tab+'"]');
 
-  /* 1) A single, strong selected-tab lens that physically travels between tabs. */
-  function ensureIndicator(){
-    const n=nav();if(!n)return null;let el=n.querySelector('.findai-v133-nav-indicator');
-    if(!el){el=document.createElement('span');el.className='findai-v133-nav-indicator';el.setAttribute('aria-hidden','true');n.prepend(el);}
-    return el;
-  }
-  function buttonCenter(tab){
-    const n=nav(),b=navButton(tab);if(!n||!b)return null;const nr=n.getBoundingClientRect(),br=b.getBoundingClientRect();
-    return br.left-nr.left+br.width/2;
-  }
-  function setIndicatorX(x,instant){
-    const el=ensureIndicator();if(!el||!Number.isFinite(x))return;
-    if(instant)el.style.transition='none';else el.style.removeProperty('transition');
-    el.style.transform='translate3d('+(x-el.offsetWidth/2)+'px,-50%,0)';el.style.opacity='1';
-    if(instant)requestAnimationFrame(()=>el.style.removeProperty('transition'));
-  }
-  function syncIndicator(tab=activeTab(),instant=false){const c=buttonCenter(tab);if(c!=null)setIndicatorX(c,instant)}
-  requestAnimationFrame(()=>syncIndicator(activeTab(),true));
-  addEventListener('resize',()=>syncIndicator(activeTab(),true),{passive:true});
-  const n=nav();if(n)new MutationObserver(()=>syncIndicator(activeTab(),false)).observe(n,{subtree:true,attributes:true,attributeFilter:['class']});
-  new MutationObserver(()=>syncIndicator(activeTab(),false)).observe(document.body,{attributes:true,attributeFilter:['data-active-tab']});
-
-  /* Move the grey lens with the user's finger. Window capture runs before the document-level pager. */
-  let lensGesture=null;
-  function gestureBlocked(target){return !!(target&&target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,.reel-card[data-has-gallery="1"],.reel-gallery-stage,[data-horizontal-scroll]'))}
-  function anyOverlay(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,#createListingScreen.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show,#findaiContextualReelV168.show')}
-  addEventListener('touchstart',e=>{
-    if(e.touches.length!==1||anyOverlay()||gestureBlocked(e.target))return;
-    const tab=activeTab(),i=NAV_TABS.indexOf(tab);if(i<0)return;const t=e.touches[0];
-    lensGesture={tab,index:i,x:t.clientX,y:t.clientY,startCenter:buttonCenter(tab),targetCenter:null,targetTab:null,active:false};
-  },{capture:true,passive:true});
-  addEventListener('touchmove',e=>{
-    if(!lensGesture||e.touches.length!==1)return;const t=e.touches[0],dx=t.clientX-lensGesture.x,dy=t.clientY-lensGesture.y;
-    if(!lensGesture.active){
-      if(Math.abs(dx)<8)return;if(Math.abs(dy)>Math.abs(dx)*.78){lensGesture=null;return;}
-      const dir=dx<0?1:-1,ti=lensGesture.index+dir;if(ti<0||ti>=NAV_TABS.length){lensGesture=null;return;}
-      lensGesture.targetTab=NAV_TABS[ti];lensGesture.targetCenter=buttonCenter(lensGesture.targetTab);lensGesture.active=true;
-    }
-    if(lensGesture.active&&lensGesture.startCenter!=null&&lensGesture.targetCenter!=null){
-      const width=document.querySelector('.app')?.clientWidth||innerWidth||1,p=Math.min(1,Math.abs(dx)/Math.max(1,width));
-      const eased=1-Math.pow(1-p,1.08),x=lensGesture.startCenter+(lensGesture.targetCenter-lensGesture.startCenter)*eased;setIndicatorX(x,true);
-    }
-  },{capture:true,passive:true});
-  const endLens=()=>{if(!lensGesture)return;lensGesture=null;setTimeout(()=>syncIndicator(activeTab(),false),34)};
-  addEventListener('touchend',endLens,{capture:true,passive:true});addEventListener('touchcancel',endLens,{capture:true,passive:true});
+  // Selection is rendered by the existing active-tab control; no second gesture listener.
 
   /* 2) Warm Search before the user asks for it. Persist a compact last-good grid across launches. */
   function usefulExploreItems(){
@@ -19524,6 +19524,8 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     track.style.transform='translate3d('+x+'px,0,0)';
   }
 
+  const settleTimers=new WeakMap();
+  function clearSettle(track){const timer=settleTimers.get(track);if(timer)clearTimeout(timer);settleTimers.delete(track);}
   function snap(stage,target,fromVelocity){
     const track=stage.querySelector('.reel-gallery-track');
     const list=images(stage);
@@ -19544,13 +19546,15 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     let duration=remaining/(speed*2.15);
     duration=Math.max(245,Math.min(345,duration));
 
+    clearSettle(track);
     translate(track,targetX,true,duration);
     setDots(stage,target,true);
-
-    setTimeout(()=>{
+    if(window.wishwaveRecordGalleryInspection)window.wishwaveRecordGalleryInspection(stage,target);
+    settleTimers.set(track,setTimeout(()=>{
+      settleTimers.delete(track);
       track.style.transition='';
       track.style.transform='translate3d('+targetX+'px,0,0)';
-    },duration+24);
+    },duration+24));
   }
 
   function renderDrag(){
@@ -19597,6 +19601,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     const startIndex=current(stage);
 
     warm(stage,startIndex);
+    clearSettle(track);
 
     track.style.transition='none';
     track.style.transform='translate3d('+(-startIndex*width)+'px,0,0)';
@@ -19629,7 +19634,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
 
     if(!g.axis&&(Math.abs(g.dx)>=AXIS_START||Math.abs(g.dy)>=AXIS_START)){
       /* Intentionally forgiving. A user's finger rarely moves perfectly flat. */
-      if(Math.abs(g.dx)>Math.abs(g.dy)*.72){
+      if(Math.abs(g.dx)>Math.abs(g.dy)*1.15){
         g.axis='x';
         document.body.classList.add('findai-premium-gallery-dragging');
         g.card.dataset.gallerySuppressClick='1';
@@ -19682,7 +19687,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     /* Paint the exact release position first. This removes the tiny visual
        discontinuity that can otherwise happen between the last touchmove
        frame and touchend. */
-    g.renderDx=g.dx;
+    g.renderDx=((g.startIndex===0&&g.dx>0)||(g.startIndex===g.list.length-1&&g.dx<0))?g.dx*EDGE_RESISTANCE:g.dx;
     translate(g.track,-g.startIndex*g.width+g.renderDx,false);
 
     const rawDx=g.dx;
@@ -19760,7 +19765,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
   window.addEventListener('resize',()=>{
     document.querySelectorAll('.reel-gallery-stage').forEach(stage=>{
       const track=stage.querySelector('.reel-gallery-track');
-      if(track)translate(track,-current(stage)*Math.max(1,stage.clientWidth),false);
+      if(track){clearSettle(track);translate(track,-current(stage)*Math.max(1,stage.clientWidth),false);}
     });
   },{passive:true});
 })();
@@ -25867,6 +25872,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
 
     button.disabled=false;
     if(sent){
+      try{recordInterest(sendItem.title,'share',8);}catch(_){}
       const names=recipients.slice(0,2).map(p=>p.displayName||p.username).filter(Boolean);
       closeFindAISendSheet();
       try{appRefreshMarketplaceBadge();}catch(_){}
@@ -25881,6 +25887,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     const url=sendItem.url||location.href;
     try{
       await navigator.clipboard.writeText(url);
+      recordInterest(sendItem.title,'share',4);
       toast('Link copied');
     }catch(_){}
   }
@@ -25894,6 +25901,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
           text:sendItem.title,
           url:sendItem.url||location.href
         });
+        recordInterest(sendItem.title,'share',8);
       }else{
         await copySendItemLink();
       }
@@ -25905,7 +25913,6 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     if(event){event.preventDefault();event.stopPropagation();}
     const item=currentFeedItems&&currentFeedItems[Number(index)||0];
     if(!item)return;
-    try{recordInterest(item._interestQuery||feedState.query||item.title,'share');}catch(_){}
     openFindAISendSheet(item);
   };
 
@@ -30000,6 +30007,56 @@ body>.nav.findai-five-nav.premium-bottom-nav,
   sync();
 })();
 </script>
+
+
+<style id="wishwave-v192-viewport-layout">
+:root{
+  --wishwave-tab-h:52px;
+  --wishwave-nav-safe:env(safe-area-inset-bottom,0px);
+  --wishwave-nav-total:calc(var(--wishwave-tab-h) + var(--wishwave-nav-safe));
+  --nav-h:var(--wishwave-tab-h);
+  --premium-nav-h:var(--wishwave-tab-h);
+  --fa-nav-total:var(--wishwave-nav-total);
+}
+html body .app{
+  position:fixed!important;inset:0!important;width:100%!important;
+  max-width:520px!important;height:100dvh!important;min-height:0!important;
+  max-height:100dvh!important;margin:0 auto!important;overflow:hidden!important;
+}
+html body .app>.nav.findai-five-nav.premium-bottom-nav{
+  position:absolute!important;left:0!important;right:0!important;top:auto!important;bottom:0!important;
+  width:100%!important;height:var(--wishwave-nav-total)!important;
+  min-height:var(--wishwave-nav-total)!important;max-height:var(--wishwave-nav-total)!important;
+  padding:0 6px var(--wishwave-nav-safe)!important;transform:none!important;
+  display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;align-items:start!important;
+  box-sizing:border-box!important;
+}
+html body .app>.nav.findai-five-nav.premium-bottom-nav button{
+  height:var(--wishwave-tab-h)!important;min-height:var(--wishwave-tab-h)!important;
+  max-height:var(--wishwave-tab-h)!important;align-self:start!important;transform:none!important;
+}
+html body .app #discover.screen{position:relative!important;padding-bottom:0!important;}
+html body .app #discover .discover-feed-wrap{inset:0!important;height:auto!important;}
+html body .app #discover #personalFeed .product-panel,
+html body #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .product-panel{
+  bottom:0!important;padding-bottom:calc(var(--wishwave-nav-total) + 6px)!important;
+}
+html body .app #discover .reel-actions-rail,
+html body #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-actions-rail{
+  bottom:calc(var(--wishwave-nav-total) + 6px)!important;
+}
+html body .wishwave-bottom-underlay{height:var(--wishwave-nav-total)!important;}
+html body .app #search.screen,html body .app #searchResults.screen,html body .app #profile.screen{
+  padding-bottom:var(--wishwave-nav-total)!important;
+}
+html body .app #search .premium-search-scroll,html body .app #search .premium-search-home-scroll,
+html body .app #searchResults .premium-results-scroll,html body .app #profile .profile-scroll{
+  padding-bottom:12px!important;
+}
+@media(prefers-reduced-motion:reduce){
+  .findai-v132-settle,.reel-gallery-track{transition-duration:.01ms!important;}
+}
+</style>
 
 </body>
 </html>
