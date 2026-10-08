@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v204-fluid-gestures-comments-refresh">
+<meta name="findai-build" content="v205-compositor-page-return">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -16328,6 +16328,7 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     const observedState=feedState;
     const initialScroll=feed.scrollTop;
     const observer=new IntersectionObserver(entries=>{
+      if(window.__wishwavePageMotion)return;
       if(reelObserver!==observer||feedState!==observedState||!feed.isConnected||!feed.getClientRects().length)return;
       tickAttention();
       for(const entry of entries)exposureRatios.set(entry.target,entry.isIntersecting?entry.intersectionRatio:0);
@@ -19821,6 +19822,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
 
   /* Load current + adjacent image before a visible reel is touched. */
   const observer=new IntersectionObserver(entries=>{
+    if(window.__wishwavePageMotion)return;
     for(const entry of entries){
       if(!entry.isIntersecting)continue;
       const stage=entry.target;
@@ -30597,27 +30599,39 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
     if(!g)return;g.observer?.disconnect();if(g.ended)g.root.removeEventListener('transitionend',g.ended);
     if(g.axis==='gallery')window.__wishwaveGalleryTouchV149?.('touchcancel',{changedTouches:[],stopPropagation(){},stopImmediatePropagation(){}});
     restore(g.root,g.styles);restore(g.under,g.underStyles);g.root.classList.remove('wishwave-page-return-drag');
+    g.frozen?.forEach(card=>card.classList.remove('wishwave-return-offscreen'));
+    window.__wishwavePageMotion=false;
+    if(!g.closed&&g.open())requestAnimationFrame(()=>{if(window.__wishwavePageMotion||!g.open())return;try{if(typeof attachReelObserver==='function'&&g.kind==='searchReel')attachReelObserver();}catch(_){}});
   }
-  function draw(){frame=0;const g=drag;if(!g||g.axis!=='back')return;translate(g.root,g.dx,g.base);if(g.under)translate(g.under,(-g.width+g.dx)*.16,g.underBase);}
+  function draw(){frame=0;const g=drag;if(!g||g.axis!=='back')return;translate(g.root,g.dx,g.base);}
   function activate(g){
+    window.__wishwavePageMotion=true;
     g.axis='back';g.styles=save(g.root);g.base=base(g.root);g.root.style.setProperty('transition','none','important');g.root.style.setProperty('will-change','transform','important');g.root.classList.add('wishwave-page-return-drag');
-    g.under=underPage(g);if(g.under){g.underStyles=save(g.under);g.underBase=base(g.under);g.under.style.setProperty('transition','none','important');g.under.style.setProperty('will-change','transform','important');}
+    g.under=underPage(g);
+    const feed=g.root.querySelector('.search-detail-feed,#searchDetailFeed'),height=feed?.clientHeight||0;
+    if(height){const top=feed.scrollTop,bottom=top+height;g.frozen=Array.from(feed.querySelectorAll('.reel-card')).filter(card=>card.offsetTop+card.offsetHeight<=top||card.offsetTop>=bottom);g.frozen.forEach(card=>card.classList.add('wishwave-return-offscreen'));}
     window.__wishwaveRefreshTouch?.('touchcancel',{touches:[]});
   }
   function finish(commit){
     const g=drag;if(!g||g.axis!=='back'){clean();return;}
     if(frame){cancelAnimationFrame(frame);draw();}
-    // Commit the last finger position before starting the release transition.
+    g.settling=true;blockClickUntil=Date.now()+350;clickRoot=g.root;
+    const remaining=commit?g.width-g.dx:g.dx;
+    let done=false;const complete=()=>{
+      if(done||drag!==g)return;done=true;
+      if(commit&&g.open()){g.closed=true;g.back();}
+      clean();
+    };
+    // A page already at its destination has no transitionend to wait for.
+    if(remaining<1){complete();return;}
     void g.root.offsetWidth;
-    g.settling=true;blockClickUntil=Date.now()+500;clickRoot=g.root;
     const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const duration=reduce?1:Math.round(Math.max(190,Math.min(320,(commit?g.width-g.dx:g.dx)/Math.max(1.2,Math.abs(g.velocity)*1.8))));
-    g.root.style.setProperty('transition','transform '+duration+'ms cubic-bezier(.22,.78,.25,1)','important');
-    if(g.under)g.under.style.setProperty('transition','transform '+duration+'ms cubic-bezier(.22,.78,.25,1)','important');
-    // The outgoing page remains mounted and opaque until it reaches the edge.
-    translate(g.root,commit?g.width:0,g.base);if(g.under)translate(g.under,commit?0:-g.width*.16,g.underBase);
-    let done=false;const complete=()=>{if(done||drag!==g)return;done=true;if(commit&&g.open())g.back();clean();};
-    g.ended=e=>{if(e.target===g.root&&e.propertyName==='transform')complete();};g.root.addEventListener('transitionend',g.ended);timer=setTimeout(complete,duration+45);
+    const speed=performance.now()-g.lastT>90?0:Math.abs(g.velocity);
+    const duration=reduce?1:Math.round(Math.max(80,Math.min(240,remaining/Math.max(1.1,speed))));
+    g.root.style.setProperty('transition','transform '+duration+'ms cubic-bezier(.25,.55,.45,1)','important');
+    translate(g.root,commit?g.width:0,g.base);
+    g.ended=e=>{if(e.target===g.root&&e.propertyName==='transform')complete();};
+    g.root.addEventListener('transitionend',g.ended);timer=setTimeout(complete,duration+32);
   }
   window.__wishwavePageTouch=function(type,e){
     if(type==='touchstart'){
@@ -30672,6 +30686,22 @@ html body .app:has(#appMpSheetBg.wishwave-comments-mode.show)>.premium-bottom-na
 html body .findai-comment-hold-overlay{z-index:12100!important;}
 .wishwave-pull-surface{overscroll-behavior-y:contain!important;backface-visibility:hidden;}
 html body .wishwave-refresh-indicator{z-index:12060!important;contain:layout paint;will-change:transform,opacity;}
+</style>
+
+<style id="wishwave-v205-page-return-rendering">
+html body #searchDetailOverlay.search-owned-v186.wishwave-page-return-drag{
+  contain:layout paint!important;isolation:isolate!important;
+  backface-visibility:hidden!important;-webkit-backface-visibility:hidden!important;
+}
+html body #searchDetailOverlay.search-owned-v186.wishwave-page-return-drag #searchDetailFeed{
+  overflow-y:hidden!important;scroll-snap-type:none!important;
+}
+html body #searchDetailOverlay.search-owned-v186 .wishwave-return-offscreen{content-visibility:hidden!important;}
+html body #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity.wishwave-page-return-drag .reel-social-icon svg,
+html body #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity.wishwave-page-return-drag .source-chip .ebay-logo{filter:none!important;}
+html body .app:has(.wishwave-page-return-drag)>.premium-bottom-nav{
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+}
 </style>
 
 </body>
