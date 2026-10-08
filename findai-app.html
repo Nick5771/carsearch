@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v205-compositor-page-return">
+<meta name="findai-build" content="v206-tile-expansion-five-tab-swipes">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -26,7 +26,7 @@
     document.documentElement.classList.toggle('wishwave-installed',navigator.standalone===true||!!(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches));
     // Route Search nav before older capture listeners can reopen Recents.
     ['touchstart','touchmove','touchend','touchcancel'].forEach(type=>window.addEventListener(type,e=>{
-      const handled=window.__wishwavePageTouch?.(type,e)||window.__wishwaveBackTouch?.(type,e)||window.__wishwaveRefreshTouch?.(type,e);
+      const handled=window.__wishwavePageTouch?.(type,e)||window.__wishwaveBackTouch?.(type,e)||window.__wishwaveTabTouch?.(type,e)||window.__wishwaveRefreshTouch?.(type,e);
       if(handled)e.stopImmediatePropagation();
     },{capture:true,passive:false}));
     window.addEventListener('click',function(e){
@@ -4229,9 +4229,9 @@ function resetCreateListingForm(){
   pendingListingImages=[];renderListingImagePreviews();
   const submit=$('#createListingSubmit');if(submit){submit.disabled=false;submit.textContent='Publish Listing';}
 }
-function openCreateListing(){
+function openCreateListing({preserveDraft=false}={}){
   const profile=getAccountProfile();if(!profile||!marketplaceSession()){openLogin();return;}
-  closeAccountMenu();resetCreateListingForm();
+  closeAccountMenu();if(!preserveDraft||!$('#createListingScreen').dataset.draftReady)resetCreateListingForm();$('#createListingScreen').dataset.draftReady='1';
   document.body.classList.add('creating-listing');
   $('#createListingScreen').classList.add('show');
   findaiSyncVisualViewport();
@@ -16968,12 +16968,14 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
   };
 
   /* ---------- 4. Instagram-like direct swipe navigation v132 ---------- */
-  const tabs=['discover','search','messages','profile'];
+  const tabs=['discover','search','create','messages','profile'];
   let swipe=null,swipeLocked=false,raf=0,settleTimer=0,settling=null,cleanupFrame=0;
-  function activeTab(){return String(document.body.dataset.activeTab||'discover');}
+  function activeTab(){return document.getElementById('createListingScreen')?.classList.contains('show')?'create':String(document.body.dataset.activeTab||'discover');}
   function idx(tab){return tabs.indexOf(tab);}
-  function visual(tab){if(tab==='messages')return document.getElementById('appMpInbox');return document.getElementById(tab);}
+  function visual(tab){if(tab==='create')return document.getElementById('createListingScreen');if(tab==='messages')return document.getElementById('appMpInbox');return document.getElementById(tab);}
   function openTab(tab){
+    if(tab!=='create'&&document.getElementById('createListingScreen')?.classList.contains('show'))closeCreateListing();
+    if(tab==='create')return openCreateListing({preserveDraft:true});
     if(tab==='discover')return openForYou();
     if(tab==='search'){
       const layer=document.getElementById('findaiContextualReelV168');
@@ -16986,90 +16988,111 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     if(tab==='messages')return openMessagesTab();
     if(tab==='profile')return openProfile();
   }
-  function blockedTarget(target){return !!(target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,#findaiContextualReelV168.show,.reel-card[data-has-gallery="1"],.reel-gallery-stage,[data-horizontal-scroll],#search .premium-explore-tile,#search .premium-ebay-card,#search .premium-result-card,#search .search-grid-card,#search .app-search-evidence,#searchResults .premium-result-card,#searchResults .premium-ebay-card'));}
-  function overlayOpen(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,#createListingScreen.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show');}
-  const originalSurfaceStyles=new WeakMap();
-  function prepSurface(el,kind){if(!el)return;if(!originalSurfaceStyles.has(el))originalSurfaceStyles.set(el,['transform','opacity','pointer-events'].map(key=>[key,el.style.getPropertyValue(key),el.style.getPropertyPriority(key)]));el.classList.add(kind,'findai-v132-swipe-surface');el.style.removeProperty('display');}
-  function clearSurface(el){if(!el)return;el.classList.remove('findai-v132-current','findai-v132-target','findai-v132-settle','findai-v132-swipe-surface');const saved=originalSurfaceStyles.get(el);if(saved){saved.forEach(([key,value,priority])=>value?el.style.setProperty(key,value,priority):el.style.removeProperty(key));originalSurfaceStyles.delete(el);}}
+  function blockedTarget(target,y){
+    if(target.closest('input,textarea,select,button,a,[contenteditable],.premium-bottom-nav,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,[data-horizontal-scroll]'))return true;
+    const card=target.closest('.reel-card'),stage=card?.querySelector('.reel-gallery-stage');
+    if(stage&&JSON.parse(stage.dataset.galleryImages||'[]').length>1){const detail=card.querySelector('.product-panel .title,.product-panel .price');const top=detail?.getBoundingClientRect().top;return top>0?y<top:!target.closest('.product-panel');}
+    return false;
+  }
+  function overlayOpen(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show,#loginOverlay.show,.findai-settings-bg.show');}
+  const originalSurfaceStyles=new WeakMap(),frozenTabCards=new WeakMap();
+  function prepSurface(el,kind){if(!el)return;if(!originalSurfaceStyles.has(el))originalSurfaceStyles.set(el,['transform','opacity','pointer-events','--wishwave-tab-settle-ms'].map(key=>[key,el.style.getPropertyValue(key),el.style.getPropertyPriority(key)]));el.classList.add(kind,'findai-v132-swipe-surface');el.style.removeProperty('display');const feed=el.querySelector('#personalFeed,#searchDetailFeed');if(feed?.clientHeight){const top=feed.scrollTop,bottom=top+feed.clientHeight;const hidden=[...feed.querySelectorAll('.reel-card')].filter(card=>card.offsetTop+card.offsetHeight<=top||card.offsetTop>=bottom);hidden.forEach(card=>card.classList.add('wishwave-return-offscreen'));frozenTabCards.set(el,hidden);}}
+  function clearSurface(el){if(!el)return;frozenTabCards.get(el)?.forEach(card=>card.classList.remove('wishwave-return-offscreen'));frozenTabCards.delete(el);el.classList.remove('findai-v132-current','findai-v132-target','findai-v132-settle','findai-v132-swipe-surface');const saved=originalSurfaceStyles.get(el);if(saved){saved.forEach(([key,value,priority])=>value?el.style.setProperty(key,value,priority):el.style.removeProperty(key));originalSurfaceStyles.delete(el);}}
   function cleanup(state,activate){
     if(settling&&settling!==state)return;
-    clearTimeout(settleTimer);settleTimer=0;settling=null;
+    clearTimeout(settleTimer);settleTimer=0;settling=null;window.__wishwaveTabSettling=false;
     if(state&&state.onSettled)state.current.removeEventListener('transitionend',state.onSettled);
     cancelAnimationFrame(raf);raf=0;
     const current=state&&state.current,target=state&&state.targetEl,targetTab=state&&state.targetTab;
     if(activate&&targetTab){
+      if(state.bridge)window.__wishwaveCloseSearchReelV186?.();
       if(activeTab()==='discover'&&targetTab!=='discover')window.__wishwaveCaptureHome?.();
       try{openTab(targetTab);}catch(_){}
     }
-    cleanupFrame=requestAnimationFrame(()=>{cleanupFrame=0;clearSurface(current);clearSurface(target);if(swipe===state)swipe=null;swipeLocked=false;});
+    cleanupFrame=requestAnimationFrame(()=>{cleanupFrame=0;clearSurface(current);clearSurface(target);if(swipe===state)swipe=null;swipeLocked=false;window.__wishwavePageMotion=false;});
   }
   function drawSwipe(){
     raf=0;if(!swipe||!swipe.active)return;
     const state=swipe,w=state.width||1,dx=state.dx;
-    state.current.style.setProperty('transform','translate3d('+dx+'px,0,0)','important');
+    state.current.style.setProperty('transform','translate3d('+dx+'px,0,0)'+(state.base?' '+state.base:''),'important');
     state.current.style.setProperty('opacity','1','important');
     const base=state.direction>0?w:-w;
     state.targetEl.style.setProperty('transform','translate3d('+(base+dx)+'px,0,0)','important');
   }
   function settle(commit){
-    if(!swipe||!swipe.active)return;const state=swipe,w=state.width;swipeLocked=true;
+    if(!swipe||!swipe.active)return;const state=swipe,w=state.width;swipeLocked=true;window.__wishwaveTabSettling=true;
     if(raf){cancelAnimationFrame(raf);raf=0;drawSwipe();}
     void state.current.offsetWidth;
+    const remaining=commit?w-Math.abs(state.dx):Math.abs(state.dx);
+    if(remaining<1){cleanup(state,commit);return;}
+    const duration=Math.round(Math.max(80,Math.min(260,remaining/Math.max(1.1,Math.abs(state.velocity)))));
+    [state.current,state.targetEl].forEach(el=>el.style.setProperty('--wishwave-tab-settle-ms',duration+'ms'));
     settling=state;
     state.onSettled=event=>{if(event.target===state.current&&event.propertyName==='transform')cleanup(state,commit);};
     state.current.addEventListener('transitionend',state.onSettled);
     state.current.classList.add('findai-v132-settle');state.targetEl.classList.add('findai-v132-settle');
     if(commit){
-      state.current.style.setProperty('transform','translate3d('+(state.direction>0?-w:w)+'px,0,0)','important');
+      state.current.style.setProperty('transform','translate3d('+(state.direction>0?-w:w)+'px,0,0)'+(state.base?' '+state.base:''),'important');
       state.current.style.setProperty('opacity','1','important');state.targetEl.style.setProperty('transform','translate3d(0,0,0)','important');
     }else{
-      state.current.style.setProperty('transform','translate3d(0,0,0)','important');state.current.style.setProperty('opacity','1','important');
+      state.current.style.setProperty('transform','translate3d(0,0,0)'+(state.base?' '+state.base:''),'important');state.current.style.setProperty('opacity','1','important');
       state.targetEl.style.setProperty('transform','translate3d('+(state.direction>0?w:-w)+'px,0,0)','important');
     }
-    settleTimer=setTimeout(()=>cleanup(state,commit),340);
+    settleTimer=setTimeout(()=>cleanup(state,commit),duration+32);
   }
   function cancelSwipe(){
     const state=swipe||settling;
     clearTimeout(settleTimer);settleTimer=0;
     if(state&&state.onSettled)state.current.removeEventListener('transitionend',state.onSettled);
-    cancelAnimationFrame(raf);raf=0;settling=null;swipe=null;swipeLocked=false;
+    cancelAnimationFrame(raf);raf=0;settling=null;swipe=null;swipeLocked=false;window.__wishwaveTabSettling=false;
     if(cleanupFrame){cancelAnimationFrame(cleanupFrame);cleanupFrame=0;}
-    if(state){clearSurface(state.current);clearSurface(state.targetEl);}
+    if(state){clearSurface(state.current);clearSurface(state.targetEl);}window.__wishwavePageMotion=false;
   }
   document.addEventListener('pointerdown',event=>{
     if(event.target.closest&&event.target.closest('.premium-bottom-nav button'))cancelSwipe();
   },true);
   window.addEventListener('pagehide',cancelSwipe);
   window.addEventListener('resize',cancelSwipe,{passive:true});
-  document.addEventListener('touchstart',function(event){
+  function tabStart(event,bridge){
     if(event.touches.length!==1){cancelSwipe();return;}
-    if(swipeLocked||overlayOpen()||blockedTarget(event.target))return;
-    const currentTab=activeTab(),i=idx(currentTab);if(i<0)return;const current=visual(currentTab);if(!current)return;
-    const t=event.touches[0];swipe={tab:currentTab,index:i,startX:t.clientX,startY:t.clientY,lastX:t.clientX,lastT:performance.now(),dx:0,velocity:0,current,targetEl:null,targetTab:null,direction:0,active:false,width:(document.querySelector('.app')?.clientWidth||window.innerWidth)};
-  },{capture:true,passive:true});
-  document.addEventListener('touchmove',function(event){
+    if(swipeLocked||(!bridge&&overlayOpen())||blockedTarget(event.target,event.touches[0].clientY))return;
+    const currentTab=bridge?.tab||activeTab(),i=idx(currentTab);if(i<0)return;const current=bridge?.root||visual(currentTab);if(!current)return;
+    const t=event.touches[0];swipe={tab:currentTab,index:i,startX:t.clientX,startY:t.clientY,lastX:t.clientX,lastT:performance.now(),dx:0,velocity:0,current,bridge,base:bridge?getComputedStyle(current).transform.replace(/^none$/,''):'',targetEl:null,targetTab:null,direction:0,active:false,width:(document.querySelector('.app')?.clientWidth||window.innerWidth)};
+  }
+  function tabMove(event){
     if(!swipe)return;if(event.touches.length!==1){cancelSwipe();return;}const t=event.touches[0],dx=t.clientX-swipe.startX,dy=t.clientY-swipe.startY,now=performance.now();
-    if(swipe.active&&activeTab()!==swipe.tab){cancelSwipe();return;}
+    if(swipe.active&&!swipe.bridge&&activeTab()!==swipe.tab){cancelSwipe();return;}
     if(!swipe.active){
       if(Math.abs(dx)<8)return;
       if(Math.abs(dy)>Math.abs(dx)*.78){swipe=null;return;}
       const direction=dx<0?1:-1,targetIndex=swipe.index+direction;if(targetIndex<0||targetIndex>=tabs.length){swipe=null;return;}
       const targetTab=tabs[targetIndex],targetEl=visual(targetTab);if(!targetEl){swipe=null;return;}
-      swipe.active=true;swipe.direction=direction;swipe.targetTab=targetTab;swipe.targetEl=targetEl;
+      window.__wishwaveGalleryTouchV149?.('touchcancel',{changedTouches:[],stopPropagation(){},stopImmediatePropagation(){}});
+      window.__wishwavePageMotion=true;swipe.active=true;swipe.direction=direction;swipe.targetTab=targetTab;swipe.targetEl=targetEl;
       prepSurface(swipe.current,'findai-v132-current');prepSurface(targetEl,'findai-v132-target');
       targetEl.style.setProperty('transform','translate3d('+(direction>0?swipe.width:-swipe.width)+'px,0,0)','important');targetEl.style.pointerEvents='none';
     }
     event.preventDefault();event.stopImmediatePropagation();
     swipe.velocity=swipe.velocity*.3+((t.clientX-swipe.lastX)/Math.max(1,now-swipe.lastT))*.7;swipe.lastX=t.clientX;swipe.lastT=now;swipe.dx=swipe.direction>0?Math.max(-swipe.width,Math.min(0,dx)):Math.min(swipe.width,Math.max(0,dx));
     if(!raf)raf=requestAnimationFrame(drawSwipe);
-  },{capture:true,passive:false});
-  document.addEventListener('touchend',function(event){
+  }
+  function tabEnd(event){
     if(!swipe)return;if(swipe.active)event.stopImmediatePropagation();
     if(!swipe.active){swipe=null;return;}
     const w=swipe.width,projected=swipe.dx+(swipe.velocity*120),commit=projected*(-swipe.direction)>w*.22||(swipe.velocity*(-swipe.direction)>.62&&Math.abs(swipe.dx)>24);
-    settle(commit);
-  },true);
-  document.addEventListener('touchcancel',function(){if(swipe&&swipe.active)settle(false);else swipe=null;},true);
+    blockTabClick=Date.now()+400;settle(commit);
+  }
+  let blockTabClick=0;
+  window.addEventListener('click',e=>{if(Date.now()<blockTabClick&&e.target.closest('.app,#searchDetailOverlay,#createListingScreen')){e.preventDefault();e.stopImmediatePropagation();}},true);
+  window.__wishwaveTabTouch=function(type,event,bridge){
+    if(swipeLocked&&type==='touchstart')return true;
+    if(type==='touchstart'){tabStart(event,bridge);return false;}
+    const claimed=!!swipe?.active||swipeLocked;
+    if(type==='touchmove'){tabMove(event);return !!swipe?.active||swipeLocked;}
+    if(type==='touchend')tabEnd(event);
+    if(type==='touchcancel'){if(swipe?.active)settle(false);else swipe=null;}
+    return claimed;
+  };
 })();
 </script>
 
@@ -29608,6 +29631,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     if(c)c.textContent=(best+1)+' / '+cards.length;
   }
   function closeOwnedReel(){
+    window.__wishwaveCancelReelOpen?.();
     const view=overlay(),feed=reelFeed();
     if(!view||!isOpen())return false;
     try{if(typeof finaliseReelTracking==='function')finaliseReelTracking();}catch(_){ }
@@ -29632,7 +29656,10 @@ body>.nav.findai-five-nav.premium-bottom-nav,
   }
   window.__wishwaveCloseSearchReelV186=closeOwnedReel;
 
-  function openList(items,index,data){
+  function openList(items,index,data,host){
+    window.__wishwaveCancelReelOpen?.();
+    host=host||document.activeElement?.closest('#search .premium-explore-tile,#searchResults .premium-result-card');
+    const tile=host?.getBoundingClientRect();
     const list=cleanList(items);
     if(!list.length)return false;
     const chosen=Math.max(0,Math.min(list.length-1,Number(index)||0));
@@ -29659,9 +29686,10 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     activeReelIndex=chosen;
     try{if(reelObserver)reelObserver.disconnect();}catch(_){ }
 
-    feed.innerHTML=list.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');
+    feed.innerHTML=list.map((item,i)=>i===chosen?renderReelCard(item,i,currentFeedData):'<article class="reel-card wishwave-reel-placeholder" data-index="'+i+'"></article>').join('');
     feed.onscroll=()=>{if(!scrollRaf)scrollRaf=requestAnimationFrame(syncIndex);};
     view.classList.add('explore-reel-mode','search-owned-v186','show');
+    if(tile?.width>0){view.classList.add('wishwave-reel-preparing');window.__wishwavePageMotion=true;}
     const c=countNode();if(c)c.textContent=(chosen+1)+' / '+list.length;
 
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
@@ -29669,8 +29697,13 @@ body>.nav.findai-five-nav.premium-bottom-nav,
       feed.scrollTop=card?card.offsetTop:chosen*(feed.clientHeight||1);
       activeReelIndex=chosen;
       try{if(typeof beginReelTracking==='function')beginReelTracking(chosen);}catch(_){ }
-      try{if(typeof preloadPersonalisedImages==='function')preloadPersonalisedImages(Math.max(0,chosen-2),7);}catch(_){ }
-      opening=false;
+      const finishOpening=()=>{
+        view.classList.remove('wishwave-reel-preparing');window.__wishwavePageMotion=false;opening=false;
+        const order=[];for(let step=1;step<list.length;step++){if(chosen+step<list.length)order.push(chosen+step);if(chosen-step>=0)order.push(chosen-step);}
+        function fill(){if(!isOpen()||currentFeedItems[chosen]!==selected)return;for(let n=0;n<2&&order.length;n++){const i=order.shift(),slot=feed.querySelector('.wishwave-reel-placeholder[data-index="'+i+'"]');if(slot)slot.outerHTML=renderReelCard(list[i],i,currentFeedData);}if(order.length)requestAnimationFrame(fill);}
+        requestAnimationFrame(fill);
+      };
+      if(tile&&tile.width>0)window.__wishwaveExpandSearchReel?.(view,tile,finishOpening);else finishOpening();
     }));
     lastOpenedAt=Date.now();
     return true;
@@ -29761,7 +29794,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     event.preventDefault();event.stopPropagation();
     if(event.stopImmediatePropagation)event.stopImmediatePropagation();
     state.host.dataset.v186Opened=String(Date.now());
-    openList(state.resolved.list,state.resolved.index,state.resolved.data);
+    openList(state.resolved.list,state.resolved.index,state.resolved.data,state.host);
   },true);
   window.addEventListener('pointercancel',()=>{touch=null;},true);
 
@@ -29776,7 +29809,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     const resolved=resolveHost(host);if(!resolved)return;
     event.preventDefault();event.stopPropagation();
     if(event.stopImmediatePropagation)event.stopImmediatePropagation();
-    openList(resolved.list,resolved.index,resolved.data);
+    openList(resolved.list,resolved.index,resolved.data,host);
   },true);
 
   /* Bottom nav semantics while a Search reel is open. Search = back to Search.
@@ -30597,6 +30630,7 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
   function clean(){
     const g=drag;drag=null;cancelAnimationFrame(frame);frame=0;clearTimeout(timer);timer=0;
     if(!g)return;g.observer?.disconnect();if(g.ended)g.root.removeEventListener('transitionend',g.ended);
+    if(g.axis==='tabs')window.__wishwaveTabTouch?.('touchcancel',{touches:[],target:g.root});
     if(g.axis==='gallery')window.__wishwaveGalleryTouchV149?.('touchcancel',{changedTouches:[],stopPropagation(){},stopImmediatePropagation(){}});
     restore(g.root,g.styles);restore(g.under,g.underStyles);g.root.classList.remove('wishwave-page-return-drag');
     g.frozen?.forEach(card=>card.classList.remove('wishwave-return-offscreen'));
@@ -30635,6 +30669,8 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
   }
   window.__wishwavePageTouch=function(type,e){
     if(type==='touchstart'){
+      if(window.__wishwaveTabSettling)return true;
+      window.__wishwaveCancelReelOpen?.();
       if(drag?.settling)return true;clean();
       if(e.touches.length!==1)return false;const surface=currentSurface(e.target);if(!surface)return false;
       const t=e.touches[0],card=e.target.closest('.reel-card'),stage=card?.querySelector('.reel-gallery-stage');
@@ -30656,15 +30692,17 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
         const gallery=g.kind==='searchReel'&&g.photoZone&&g.stage&&JSON.parse(g.stage.dataset.galleryImages||'[]').length>1;
         if(gallery&&(dx<0||g.photoIndex>0)){g.axis='gallery';window.__wishwaveGalleryTouchV149?.('touchstart',g.start);}
         else if(dx>0)activate(g);
+        else if(g.kind==='searchReel'&&!g.photoZone){g.axis='tabs';window.__wishwaveTabTouch?.('touchstart',g.start,{root:g.root,tab:'search'});}
         else {g.axis='ignore';return true;}
       }
       if(g.axis==='gallery'){window.__wishwaveGalleryTouchV149?.(type,e);return true;}
+      if(g.axis==='tabs'){window.__wishwaveTabTouch?.(type,e);return true;}
       if(g.axis!=='back')return true;
       g.dx=Math.max(0,Math.min(g.width,dx));g.velocity=g.velocity*.3+(t.clientX-g.lastX)/Math.max(1,now-g.lastT)*.7;g.lastX=t.clientX;g.lastT=now;
       if(!frame)frame=requestAnimationFrame(draw);if(e.cancelable)e.preventDefault();return true;
     }
     if(type==='touchend'||type==='touchcancel'){
-      if(g.axis==='gallery'){window.__wishwaveGalleryTouchV149?.(type,e);g.axis='';g.observer?.disconnect();drag=null;return true;}
+      if(g.axis==='gallery'||g.axis==='tabs'){if(g.axis==='gallery')window.__wishwaveGalleryTouchV149?.(type,e);else window.__wishwaveTabTouch?.(type,e);g.axis='';g.observer?.disconnect();drag=null;return true;}
       if(g.axis==='back'){const velocity=performance.now()-g.lastT>90?0:g.velocity;finish(type==='touchend'&&(g.dx+velocity*115>g.width*.28||(velocity>.65&&g.dx>28)));return true;}
       const claimed=!!g.axis;clean();return claimed;
     }
@@ -30703,6 +30741,50 @@ html body .app:has(.wishwave-page-return-drag)>.premium-bottom-nav{
   backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
 }
 </style>
+
+<style id="wishwave-v206-motion">
+html body .app .findai-v132-swipe-surface .wishwave-return-offscreen{content-visibility:hidden!important;}
+html body .app .findai-v132-swipe-surface{contain:layout paint!important;backface-visibility:hidden!important;}
+html body .app #createListingScreen.findai-v132-swipe-surface{display:flex!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-height:none!important;z-index:9500!important;}
+html body .app #createListingScreen.findai-v132-current{z-index:9501!important;}
+html body .app .findai-v132-swipe-surface.findai-v132-settle{transition:transform var(--wishwave-tab-settle-ms,240ms) cubic-bezier(.25,.55,.45,1)!important;}
+html body #searchDetailOverlay.findai-v132-swipe-surface.findai-v132-settle{transition:transform var(--wishwave-tab-settle-ms,240ms) cubic-bezier(.25,.55,.45,1)!important;}
+html body #searchDetailOverlay.wishwave-reel-preparing{visibility:hidden!important;}
+html body #searchDetailOverlay.wishwave-reel-expanding{transform-origin:0 0!important;will-change:transform,clip-path;contain:layout paint!important;overflow:hidden!important;}
+html body #searchDetailOverlay.wishwave-reel-expanding .product-panel,
+html body #searchDetailOverlay.wishwave-reel-expanding .reel-actions-rail,
+html body #searchDetailOverlay.wishwave-reel-expanding .wishwave-search-reel-topbar{animation:wishwaveReelControls 320ms ease-out both!important;}
+@keyframes wishwaveReelControls{0%,25%{opacity:0}100%{opacity:1}}
+</style>
+<script id="wishwave-v206-tile-expansion">
+(function(){
+  let current=null;
+  function cancel(){
+    const g=current;if(!g)return;current=null;cancelAnimationFrame(g.frame);clearTimeout(g.timer);g.view.removeEventListener('transitionend',g.end);
+    g.styles.forEach(([k,v,p])=>v?g.view.style.setProperty(k,v,p):g.view.style.removeProperty(k));g.view.classList.remove('wishwave-reel-expanding');window.__wishwavePageMotion=false;g.done();
+  }
+  window.__wishwaveCancelReelOpen=cancel;
+  window.__wishwaveExpandSearchReel=function(view,tile,done){
+    cancel();if(matchMedia('(prefers-reduced-motion:reduce)').matches){done();return;}
+    const rect=view.getBoundingClientRect(),scale=tile.width/rect.width;if(!Number.isFinite(scale)||scale<=0){done();return;}
+    const keys=['transform','transition','clip-path'];const styles=keys.map(k=>[k,view.style.getPropertyValue(k),view.style.getPropertyPriority(k)]);
+    const base=getComputedStyle(view).transform,original=base&&base!=='none'?base:'';
+    const g={view,styles,done,frame:0,timer:0};current=g;window.__wishwavePageMotion=true;
+    view.classList.add('wishwave-reel-expanding');
+    // CSS left:50% is the fixed anchor; subtract it before applying the scaled panel.
+    const anchor=rect.left+rect.width/2;
+    view.style.setProperty('transition','none','important');
+    view.style.setProperty('transform','translate3d('+(tile.left-anchor)+'px,'+(tile.top-rect.top)+'px,0) scale('+scale+')','important');
+    const bottom=Math.max(0,rect.height-tile.height/scale);
+    view.style.setProperty('clip-path','inset(0 0 '+bottom+'px 0 round 28px)','important');view.classList.remove('wishwave-reel-preparing');void view.offsetWidth;
+    g.end=e=>{if(e.target===view&&e.propertyName==='transform')cancel();};view.addEventListener('transitionend',g.end);
+    g.frame=requestAnimationFrame(()=>{
+      if(current!==g)return;view.style.setProperty('transition','transform 320ms cubic-bezier(.2,.7,.25,1),clip-path 320ms cubic-bezier(.2,.7,.25,1)','important');
+      view.style.setProperty('transform',original||'none','important');view.style.setProperty('clip-path','inset(0 0 0 0 round 0px)','important');g.timer=setTimeout(cancel,360);
+    });
+  };
+})();
+</script>
 
 </body>
 </html>
