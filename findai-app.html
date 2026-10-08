@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v193-home-return-bottom-bar">
+<meta name="findai-build" content="v194-smooth-gestures-warm-followers">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -4353,6 +4353,8 @@ function adaptListingImage(img){
   if(!img||!img.naturalWidth||!img.naturalHeight) return;
   const stage=img.closest('.hero-stage');
   if(!stage) return;
+  const slide=img.closest('.reel-gallery-slide');
+  if(slide&&Number(slide.dataset.gallerySlide)!==Number(stage.dataset.galleryIndex||0))return;
 
   /* Premium retail fill: ALWAYS show the whole product (contain, never cropped).
      Fill the surrounding space with the photo's own background colour, sampled
@@ -6831,7 +6833,11 @@ function appendFeedItems(items,data){
     return;
   }
   feed.insertAdjacentHTML('beforeend',items.map((item,index)=>renderReelCard(item,start+index,data)).join(''));
-  attachReelObserver();
+  if(reelObserver){
+    feed.querySelectorAll('.reel-card').forEach(card=>{
+      if(Number(card.dataset.index)>=start)reelObserver.observe(card);
+    });
+  }else attachReelObserver();
   preloadPersonalisedImages(start,Math.min(14,items.length));
 }
 async function loadMoreListings(){
@@ -16208,39 +16214,40 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     return v124PersonalisedItemScore(item,query,scope)+v125AdaptiveBoost(item);
   };
 
-  function v125RerenderTail(start){
+  function v125RerenderTail(start,end=currentFeedItems.length){
     if(feedState.source!=='personalised')return;
     const feed=appActiveFeedElement();if(!feed)return;
     const cards=Array.from(feed.querySelectorAll('.reel-card'));
+    const indexed=new Map(cards.map(card=>[Number(card.dataset.index),card]));
     let changed=false;
-    for(let index=start;index<currentFeedItems.length;index++){
+    for(let index=start;index<Math.min(end,currentFeedItems.length);index++){
       const item=currentFeedItems[index],key=listingKey(item);
-      const old=cards.find(card=>Number(card.dataset.index)===index);
+      const old=indexed.get(index);
       // Keep unchanged nodes, their decoded images, and gallery positions.
       if(old&&old.dataset.recommendationKey===key)continue;
       const template=document.createElement('template');
       template.innerHTML=renderReelCard(item,index,currentFeedData);
       const card=template.content.firstElementChild;if(!card)continue;
       card.dataset.recommendationKey=key;
-      if(old)old.replaceWith(card);else feed.appendChild(card);
+      if(old){if(reelObserver)reelObserver.unobserve(old);old.replaceWith(card);}else feed.appendChild(card);
+      if(reelObserver)reelObserver.observe(card);
       changed=true;
     }
     cards.forEach(card=>{if(Number(card.dataset.index)>=currentFeedItems.length){card.remove();changed=true;}});
-    if(changed){attachReelObserver();preloadPersonalisedImages(activeReelIndex+1,3);}
+    if(changed){if(!reelObserver)attachReelObserver();preloadPersonalisedImages(activeReelIndex+1,3);}
   }
   function v125AdaptiveRerankTail(){
     if(feedState.source!=='personalised'||!currentFeedItems||currentFeedItems.length<5||!document.getElementById('discover')?.classList.contains('active'))return;
     if(performance.now()-feedLastScrollAt<350||document.body.classList.contains('findai-premium-gallery-dragging')){clearTimeout(v125AdaptiveRerankTimer);v125AdaptiveRerankTimer=setTimeout(v125AdaptiveRerankTail,400);return;}
     const start=Math.min(currentFeedItems.length,Math.max(0,Number(activeReelIndex)||0)+2);
     if(start>=currentFeedItems.length-1)return;
-    const head=currentFeedItems.slice(0,start),tail=currentFeedItems.slice(start);
-    const ordered=[...tail].sort((a,b)=>{
-      const aq=a._interestQuery||a.title||'',bq=b._interestQuery||b.title||'';
-      return personalisedItemScore(b,bq,b._interestCluster||'tail')-personalisedItemScore(a,aq,a._interestCluster||'tail');
-    });
+    const end=Math.min(currentFeedItems.length,start+18);
+    const head=currentFeedItems.slice(0,start),tail=currentFeedItems.slice(start,end);
+    const ordered=tail.map(item=>({item,score:personalisedItemScore(item,item._interestQuery||item.title||'',item._interestCluster||'tail')}))
+      .sort((a,b)=>b.score-a.score).map(entry=>entry.item);
     const sequenced=sequencePersonalisedBatch(ordered,head,ordered.length);
-    currentFeedItems=head.concat(sequenced);
-    v125RerenderTail(start);
+    currentFeedItems=head.concat(sequenced,currentFeedItems.slice(end));
+    v125RerenderTail(start,end);
   }
   function v125ScheduleAdaptiveRerank(event){
     if(feedState.source!=='personalised')return;
@@ -16982,7 +16989,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
 
   /* ---------- 4. Instagram-like direct swipe navigation v132 ---------- */
   const tabs=['discover','search','messages','profile'];
-  let swipe=null,swipeLocked=false,raf=0;
+  let swipe=null,swipeLocked=false,raf=0,settleTimer=0,settling=null,cleanupFrame=0;
   function activeTab(){return String(document.body.dataset.activeTab||'discover');}
   function idx(tab){return tabs.indexOf(tab);}
   function visual(tab){if(tab==='messages')return document.getElementById('appMpInbox');return document.getElementById(tab);}
@@ -17004,6 +17011,9 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
   function prepSurface(el,kind){if(!el)return;el.classList.add(kind,'findai-v132-swipe-surface');el.style.removeProperty('display');}
   function clearSurface(el){if(!el)return;el.classList.remove('findai-v132-current','findai-v132-target','findai-v132-settle','findai-v132-swipe-surface');el.style.transform='';el.style.opacity='';el.style.pointerEvents='';}
   function cleanup(state,activate){
+    if(settling&&settling!==state)return;
+    clearTimeout(settleTimer);settleTimer=0;settling=null;
+    if(state&&state.onSettled)state.current.removeEventListener('transitionend',state.onSettled);
     cancelAnimationFrame(raf);raf=0;
     const current=state&&state.current,target=state&&state.targetEl,targetTab=state&&state.targetTab;
     if(activate&&targetTab){
@@ -17022,36 +17032,53 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
       }catch(_){ }
       try{openTab(targetTab);}catch(_){}
     }
-    requestAnimationFrame(()=>{clearSurface(current);clearSurface(target);swipe=null;swipeLocked=false;});
+    cleanupFrame=requestAnimationFrame(()=>{cleanupFrame=0;clearSurface(current);clearSurface(target);if(swipe===state)swipe=null;swipeLocked=false;});
   }
   function drawSwipe(){
     raf=0;if(!swipe||!swipe.active)return;
     const state=swipe,w=state.width||1,dx=state.dx;
     state.current.style.transform='translate3d('+dx+'px,0,0)';
-    state.current.style.opacity=String(1-Math.min(.045,Math.abs(dx)/w*.045));
+    state.current.style.opacity='1';
     const base=state.direction>0?w:-w;
     state.targetEl.style.transform='translate3d('+(base+dx)+'px,0,0)';
   }
   function settle(commit){
     if(!swipe||!swipe.active)return;const state=swipe,w=state.width;swipeLocked=true;
+    if(raf){cancelAnimationFrame(raf);raf=0;drawSwipe();}
+    settling=state;
+    state.onSettled=event=>{if(event.target===state.current&&event.propertyName==='transform')cleanup(state,commit);};
+    state.current.addEventListener('transitionend',state.onSettled);
     state.current.classList.add('findai-v132-settle');state.targetEl.classList.add('findai-v132-settle');
     if(commit){
       state.current.style.transform='translate3d('+(state.direction>0?-w:w)+'px,0,0)';
-      state.current.style.opacity='.985';state.targetEl.style.transform='translate3d(0,0,0)';
-      setTimeout(()=>cleanup(state,true),285);
+      state.current.style.opacity='1';state.targetEl.style.transform='translate3d(0,0,0)';
     }else{
       state.current.style.transform='translate3d(0,0,0)';state.current.style.opacity='1';
       state.targetEl.style.transform='translate3d('+(state.direction>0?w:-w)+'px,0,0)';
-      setTimeout(()=>cleanup(state,false),285);
     }
+    settleTimer=setTimeout(()=>cleanup(state,commit),340);
   }
+  function cancelSwipe(){
+    const state=swipe||settling;
+    clearTimeout(settleTimer);settleTimer=0;
+    if(state&&state.onSettled)state.current.removeEventListener('transitionend',state.onSettled);
+    cancelAnimationFrame(raf);raf=0;settling=null;swipe=null;swipeLocked=false;
+    if(cleanupFrame){cancelAnimationFrame(cleanupFrame);cleanupFrame=0;}
+    if(state){clearSurface(state.current);clearSurface(state.targetEl);}
+  }
+  document.addEventListener('pointerdown',event=>{
+    if(event.target.closest&&event.target.closest('.premium-bottom-nav button'))cancelSwipe();
+  },true);
+  window.addEventListener('pagehide',cancelSwipe);
+  window.addEventListener('resize',cancelSwipe,{passive:true});
   document.addEventListener('touchstart',function(event){
-    if(swipeLocked||overlayOpen()||event.touches.length!==1||blockedTarget(event.target))return;
+    if(event.touches.length!==1){cancelSwipe();return;}
+    if(swipeLocked||overlayOpen()||blockedTarget(event.target))return;
     const currentTab=activeTab(),i=idx(currentTab);if(i<0)return;const current=visual(currentTab);if(!current)return;
     const t=event.touches[0];swipe={tab:currentTab,index:i,startX:t.clientX,startY:t.clientY,lastX:t.clientX,lastT:performance.now(),dx:0,velocity:0,current,targetEl:null,targetTab:null,direction:0,active:false,width:(document.querySelector('.app')?.clientWidth||window.innerWidth)};
   },{capture:true,passive:true});
   document.addEventListener('touchmove',function(event){
-    if(!swipe||event.touches.length!==1)return;const t=event.touches[0],dx=t.clientX-swipe.startX,dy=t.clientY-swipe.startY,now=performance.now();
+    if(!swipe)return;if(event.touches.length!==1){cancelSwipe();return;}const t=event.touches[0],dx=t.clientX-swipe.startX,dy=t.clientY-swipe.startY,now=performance.now();
     if(!swipe.active){
       if(Math.abs(dx)<8)return;
       if(Math.abs(dy)>Math.abs(dx)*.78){swipe=null;return;}
@@ -18884,14 +18911,34 @@ html.findai-light .findai-followers-empty b{color:#111214}
   let ownFollowersTarget='';
   let followersEdgeGesture=null;
   let ownFollowersFetchedAt=0;
-  const OWN_FOLLOWERS_CACHE_KEY='findai_own_followers_v153';
-  try{
-    const saved=JSON.parse(sessionStorage.getItem(OWN_FOLLOWERS_CACHE_KEY)||'null');
-    if(saved&&Array.isArray(saved.followers)){
-      ownFollowersCache=saved.followers;
-      ownFollowersFetchedAt=Number(saved.at)||0;
-    }
-  }catch(_){}
+  let followersLimit=80,followersQuery='';
+  let ownFollowersReady=false,ownFollowersCount=0,followersOwner='',followersSession='',followersRequest=null,followersVersion=0;
+  function followerOwner(){
+    try{const p=getAccountProfile()||{};return String(p.id||p.email||p.username||'').toLowerCase();}catch(_){return '';}
+  }
+  function followersCacheKey(){return 'wishwave_followers_v194:'+encodeURIComponent(followersOwner);}
+  function syncFollowersIdentity(){
+    const owner=followerOwner(),session=marketplaceSession();
+    if(owner===followersOwner&&session===followersSession)return;
+    followersOwner=owner;followersSession=session;followersVersion++;
+    ownFollowersCache=[];ownFollowersFetchedAt=0;ownFollowersReady=false;ownFollowersCount=0;followersRequest=null;
+    if(!owner||!session)return;
+    try{
+      const saved=JSON.parse(localStorage.getItem(followersCacheKey())||'null');
+      if(saved&&Array.isArray(saved.followers)&&Date.now()-Number(saved.at)<86400000){
+        ownFollowersCache=saved.followers;ownFollowersFetchedAt=Number(saved.at)||0;
+        ownFollowersCount=Math.max(ownFollowersCache.length,Number(saved.count)||0);ownFollowersReady=true;
+      }
+    }catch(_){}
+  }
+  function saveFollowersCache(){
+    if(!followersOwner||!ownFollowersReady)return;
+    try{localStorage.setItem(followersCacheKey(),JSON.stringify({at:ownFollowersFetchedAt,count:ownFollowersCount,followers:ownFollowersCache}));}catch(_){}
+  }
+  function followersSkeleton(){
+    return '<div class="wishwave-followers-skeleton" aria-label="Followers" aria-busy="true">'+Array.from({length:6},()=>'<div class="wishwave-follower-placeholder"><i></i><span><b></b><em></em></span></div>').join('')+'</div>';
+  }
+  syncFollowersIdentity();
 
   function ensureOwnFollowersPage(){
     let page=document.getElementById('findaiOwnFollowersPage');
@@ -18915,9 +18962,13 @@ html.findai-light .findai-followers-empty b{color:#111214}
             '<input id="findaiFollowersSearch" type="search" autocomplete="off" placeholder="Search" oninput="renderOwnFollowersList(this.value)">'+
           '</label>'+
         '</div>'+
-        '<div class="findai-followers-list" id="findaiFollowersList"><div class="findai-followers-loading">Loading followers…</div></div>'+
+        '<div class="findai-followers-list" id="findaiFollowersList"></div>'+
       '</div>';
     document.getElementById('profile').appendChild(page);
+    const scroll=page.querySelector('#findaiFollowersScroll');
+    scroll.addEventListener('scroll',()=>{
+      if(scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<300&&page.querySelector('.wishwave-followers-more'))window.showMoreOwnFollowers();
+    },{passive:true});
 
     /* iOS-style edge swipe back. */
     page.addEventListener('touchstart',e=>{
@@ -18952,7 +19003,10 @@ html.findai-light .findai-followers-empty b{color:#111214}
 
   window.renderOwnFollowersList=function(query){
     const root=document.getElementById('findaiFollowersList');if(!root)return;
+    syncFollowersIdentity();
+    if(!ownFollowersReady){if(!root.querySelector('.wishwave-followers-skeleton'))root.innerHTML=followersSkeleton();return;}
     const q=String(query||'').trim().toLowerCase();
+    if(q!==followersQuery){followersQuery=q;followersLimit=80;}
     let rows=ownFollowersCache.filter(row=>{
       if(!q)return true;
       return (String(row.displayName||'')+' '+String(row.username||'')).toLowerCase().includes(q);
@@ -18961,9 +19015,29 @@ html.findai-light .findai-followers-empty b{color:#111214}
       const i=rows.findIndex(r=>String(r.username||'').replace(/^@+/,'').toLowerCase()===ownFollowersTarget.toLowerCase());
       if(i>0){const [target]=rows.splice(i,1);rows.unshift(target);}
     }
-    root.innerHTML=rows.length
-      ?rows.map(followerRowHtml).join('')
-      :'<div class="findai-followers-empty"><b>'+(q?'No matches':'No followers yet')+'</b>'+(q?'Try another name or username.':'When someone follows you, they’ll appear here.')+'</div>';
+    const hasMore=rows.length>followersLimit;
+    rows=rows.slice(0,followersLimit);
+    if(rows.length){
+      const existing=new Map([...root.querySelectorAll('.findai-follower-row')].map(node=>[node.dataset.followerUsername,node]));
+      const wanted=new Set();
+      rows.forEach((row,index)=>{
+        const key=String(row.username||'').replace(/^@+/,'');wanted.add(key);
+        const markup=followerRowHtml(row);let node=existing.get(key);
+        if(!node||node.__wishwaveMarkup!==markup){
+          if(!node||!node.querySelector('button:disabled')){
+            const template=document.createElement('template');template.innerHTML=markup;
+            const next=template.content.firstElementChild;next.__wishwaveMarkup=markup;
+            if(node)node.replaceWith(next);node=next;
+          }
+        }
+        if(root.children[index]!==node)root.insertBefore(node,root.children[index]||null);
+      });
+      [...root.children].forEach(node=>{if(!node.classList.contains('findai-follower-row')||!wanted.has(node.dataset.followerUsername))node.remove();});
+      if(hasMore){const more=document.createElement('button');more.className='wishwave-followers-more';more.type='button';more.textContent='Show more';more.addEventListener('click',window.showMoreOwnFollowers);root.appendChild(more);}
+    }else{
+      const markup='<div class="findai-followers-empty"><b>'+(q?'No matches':'No followers yet')+'</b>'+(q?'Try another name or username.':'When someone follows you, they’ll appear here.')+'</div>';
+      if(root.innerHTML!==markup)root.innerHTML=markup;
+    }
 
     if(!q&&ownFollowersTarget){
       requestAnimationFrame(()=>requestAnimationFrame(()=>{
@@ -18975,23 +19049,22 @@ html.findai-light .findai-followers-empty b{color:#111214}
       }));
     }
   };
+  window.showMoreOwnFollowers=function(){followersLimit+=80;renderOwnFollowersList(document.getElementById('findaiFollowersSearch')?.value||'');};
 
   async function loadOwnFollowersFast(force=false){
-    const fresh=ownFollowersCache.length&&Date.now()-ownFollowersFetchedAt<45000;
-    if(fresh&&!force)return {followers:ownFollowersCache,count:ownFollowersCache.length,cached:true};
-
+    syncFollowersIdentity();
+    if(!followersSession)return null;
+    const fresh=ownFollowersReady&&Date.now()-ownFollowersFetchedAt<45000;
+    if(fresh&&!force)return {followers:ownFollowersCache,count:ownFollowersCount,cached:true};
+    if(followersRequest)return followersRequest;
+    const owner=followersOwner,session=followersSession,version=followersVersion;
+    const pending=(async()=>{
     const data=await marketplaceFetch('/social/followers',{method:'GET'});
+    if(owner!==followerOwner()||session!==marketplaceSession()||version!==followersVersion)return null;
     ownFollowersCache=Array.isArray(data&&data.followers)?data.followers:[];
     ownFollowersFetchedAt=Date.now();
     const count=Math.max(0,Number(data&&data.count||ownFollowersCache.length));
-
-    try{
-      sessionStorage.setItem(OWN_FOLLOWERS_CACHE_KEY,JSON.stringify({
-        at:ownFollowersFetchedAt,
-        count,
-        followers:ownFollowersCache
-      }));
-    }catch(_){}
+    ownFollowersCount=count;ownFollowersReady=true;saveFollowersCache();
 
     const countEl=document.getElementById('findaiFollowersCount');
     if(countEl)countEl.textContent=profileMetricCompact(count);
@@ -19001,6 +19074,9 @@ html.findai-light .findai-followers-empty b{color:#111214}
       try{paintSocialProfileHeader();}catch(_){}
     }
     return {followers:ownFollowersCache,count,cached:false};
+    })();
+    followersRequest=pending;
+    try{return await pending;}finally{if(followersRequest===pending)followersRequest=null;}
   }
 
   window.prefetchOwnFollowersList=function(force=false){
@@ -19010,7 +19086,9 @@ html.findai-light .findai-followers-empty b{color:#111214}
 
   window.openOwnFollowersList=async function(targetUsername){
     if(!marketplaceSession()){openLogin();return;}
+    syncFollowersIdentity();
     const page=ensureOwnFollowersPage();
+    followersLimit=80;followersQuery='';
     ownFollowersTarget=String(targetUsername||'').replace(/^@+/,'').trim();
 
     const search=document.getElementById('findaiFollowersSearch');
@@ -19020,27 +19098,24 @@ html.findai-light .findai-followers-empty b{color:#111214}
     const countEl=document.getElementById('findaiFollowersCount');
 
     /* Paint session cache BEFORE the page animates in. */
-    if(ownFollowersCache.length){
+    if(ownFollowersReady){
       if(countEl){
-        let cachedCount=ownFollowersCache.length;
-        try{
-          const saved=JSON.parse(sessionStorage.getItem(OWN_FOLLOWERS_CACHE_KEY)||'null');
-          cachedCount=Math.max(cachedCount,Number(saved&&saved.count)||0);
-        }catch(_){}
-        countEl.textContent=profileMetricCompact(cachedCount);
+        countEl.textContent=profileMetricCompact(ownFollowersCount);
       }
       renderOwnFollowersList('');
     }else if(root){
-      root.innerHTML='<div class="findai-followers-loading"><div class="feed-more-spinner"></div><br>Loading followers…</div>';
+      root.innerHTML=followersSkeleton();
+      if(countEl)countEl.textContent='';
     }
 
     page.classList.add('show');
-
+    const openedSession=marketplaceSession();
     try{
       await loadOwnFollowersFast(false);
-      if(page.classList.contains('show'))renderOwnFollowersList('');
+      if(openedSession!==marketplaceSession()){closeOwnFollowersList();return;}
+      if(page.classList.contains('show'))renderOwnFollowersList(search?.value||'');
     }catch(error){
-      if(!ownFollowersCache.length&&root){
+      if(!ownFollowersReady&&root&&page.classList.contains('show')){
         root.innerHTML='<div class="findai-followers-empty"><b>Couldn’t load followers</b>'+escapeHTML(error&&error.message||'Try again in a moment.')+'</div>';
       }
     }
@@ -19052,10 +19127,28 @@ html.findai-light .findai-followers-empty b{color:#111214}
     ownFollowersTarget='';
   };
 
+  const signOutBefore=window.signOutAccount;
+  if(typeof signOutBefore==='function')window.signOutAccount=function(){
+    closeOwnFollowersList();
+    const result=signOutBefore.apply(this,arguments);
+    syncFollowersIdentity();
+    const root=document.getElementById('findaiFollowersList');if(root)root.replaceChildren();
+    return result;
+  };
+  const signInBefore=window.applyFindaiUser;
+  if(typeof signInBefore==='function')window.applyFindaiUser=function(){
+    closeOwnFollowersList();
+    const result=signInBefore.apply(this,arguments);
+    syncFollowersIdentity();prefetchOwnFollowersList(false);
+    return result;
+  };
+
 
   window.followOwnFollower=async function(username,button,event){
     if(event){event.preventDefault();event.stopPropagation();}
     const clean=String(username||'').replace(/^@+/,'').trim();if(!clean||!button)return;
+    syncFollowersIdentity();followersVersion++;
+    const session=marketplaceSession();
     const row=ownFollowersCache.find(r=>String(r.username||'').replace(/^@+/,'').toLowerCase()===clean.toLowerCase());
     const wasFollowing=!!(row&&row.isFollowing),wasPending=!!(row&&row.pending);
 
@@ -19082,11 +19175,14 @@ html.findai-light .findai-followers-empty b{color:#111214}
         method:cancelling?'DELETE':'POST'
       });
       if(row){row.isFollowing=!!data.isFollowing;row.pending=!!data.pending;}
+      if(session!==marketplaceSession())return;
+      saveFollowersCache();
       button.textContent=data.pending?'Requested':data.isFollowing?'Following':'Follow';
       button.classList.toggle('following',!!data.isFollowing||!!data.pending);
       try{if(typeof haptic==='function')haptic();}catch(_){}
     }catch(error){
       if(row){row.isFollowing=wasFollowing;row.pending=wasPending;}
+      if(session!==marketplaceSession())return;
       button.textContent=old;
       button.classList.toggle('following',wasFollowing||wasPending);
       try{toast(error&&error.message||'Could not update follow request');}catch(_){}
@@ -19104,16 +19200,8 @@ html.findai-light .findai-followers-empty b{color:#111214}
   const beforeProfileLoad=window.loadProfileMarketplaceData;
   if(typeof beforeProfileLoad==='function'){
     window.loadProfileMarketplaceData=async function(force){
+      prefetchOwnFollowersList(false);
       const out=await beforeProfileLoad.apply(this,arguments);
-      if(marketplaceSession()){
-        try{
-          const data=await marketplaceFetch('/social/followers',{method:'GET'});
-          if(typeof socialProfileSeller==='object'&&socialProfileSeller){
-            socialProfileSeller.followerCount=Math.max(0,Number(data&&data.count||0));
-            paintSocialProfileHeader();
-          }
-        }catch(_){}
-      }
       return out;
     };
   }
@@ -19459,7 +19547,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
 
   let gesture=null;
   let frame=0;
-  let countTimer=null;
+  const countTimers=new WeakMap();
   const loaded=new WeakSet();
 
   function images(stage){
@@ -19483,6 +19571,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     if(!img||loaded.has(img))return;
     const src=String(img.dataset.src||img.getAttribute('src')||'').trim();
     if(!src)return;
+    img.loading='eager';
     if(!img.getAttribute('src'))img.src=src;
     loaded.add(img);
 
@@ -19507,14 +19596,16 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     });
 
     warm(stage,index);
+    const selected=stage.querySelector('.reel-gallery-slide[data-gallery-slide="'+index+'"] .reel-gallery-image');
+    if(selected&&selected.complete&&typeof adaptListingImage==='function')adaptListingImage(selected);
 
     const count=stage.querySelector('.reel-gallery-count');
     if(count&&list.length>1){
       count.textContent=(index+1)+'/'+list.length;
       if(showCount){
         count.classList.add('show');
-        clearTimeout(countTimer);
-        countTimer=setTimeout(()=>count.classList.remove('show'),560);
+        clearTimeout(countTimers.get(count));
+        countTimers.set(count,setTimeout(()=>{count.classList.remove('show');countTimers.delete(count);},560));
       }
     }
   }
@@ -19531,6 +19622,17 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
 
   const settleTimers=new WeakMap();
   function clearSettle(track){const timer=settleTimers.get(track);if(timer)clearTimeout(timer);settleTimers.delete(track);}
+  function trackPosition(track,fallback){
+    try{
+      const value=getComputedStyle(track).transform;
+      if(value&&value!=='none'){
+        if(typeof DOMMatrixReadOnly==='function')return new DOMMatrixReadOnly(value).m41;
+        const values=value.match(/^matrix(3d)?\(([^)]+)\)$/);
+        if(values){const n=values[2].split(',').map(Number);const x=n[values[1]?12:4];if(Number.isFinite(x))return x;}
+      }
+    }catch(_){}
+    return fallback;
+  }
   function snap(stage,target,fromVelocity){
     const track=stage.querySelector('.reel-gallery-track');
     const list=images(stage);
@@ -19559,6 +19661,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
       settleTimers.delete(track);
       track.style.transition='';
       track.style.transform='translate3d('+targetX+'px,0,0)';
+      track.style.removeProperty('will-change');
     },duration+24));
   }
 
@@ -19574,8 +19677,8 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     const tryingPastLast=g.startIndex===list.length-1&&dx<0;
     if(tryingPastFirst||tryingPastLast)dx*=EDGE_RESISTANCE;
 
-    g.renderDx=dx;
-    g.track.style.transform='translate3d('+(-g.startIndex*g.width+dx)+'px,0,0)';
+    g.renderDx=g.offset+dx;
+    g.track.style.transform='translate3d('+(-g.startIndex*g.width+g.renderDx)+'px,0,0)';
   }
 
   function queueDrag(){
@@ -19590,7 +19693,8 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
   }
 
   function begin(e){
-    if(e.touches.length!==1||shouldIgnore(e.target))return;
+    if(e.touches.length!==1){if(gesture)finish(e,true);return;}
+    if(shouldIgnore(e.target))return;
 
     const card=e.target&&e.target.closest&&e.target.closest('.reel-card[data-has-gallery="1"]');
     if(!card)return;
@@ -19603,26 +19707,30 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     const t=e.touches[0];
     const now=performance.now();
     const width=Math.max(1,stage.clientWidth);
-    const startIndex=current(stage);
+    const position=trackPosition(track,-current(stage)*width);
+    const startIndex=Math.max(0,Math.min(list.length-1,Math.round(-position/width)));
 
     warm(stage,startIndex);
     clearSettle(track);
+    stage.dataset.v149Positioned='1';
 
     track.style.transition='none';
-    track.style.transform='translate3d('+(-startIndex*width)+'px,0,0)';
+    track.style.transform='translate3d('+position+'px,0,0)';
+    track.style.willChange='transform';
 
     gesture={
       card,stage,track,list,width,startIndex,
       x:t.clientX,y:t.clientY,
       lastX:t.clientX,lastT:now,
-      dx:0,dy:0,renderDx:0,
+      dx:0,dy:0,renderDx:position+startIndex*width,offset:position+startIndex*width,
       velocity:0,axis:'',
       startedAt:now
     };
   }
 
   function move(e){
-    if(!gesture||e.touches.length!==1)return;
+    if(!gesture)return;
+    if(e.touches.length!==1){finish(e,true);return;}
 
     const t=e.touches[0];
     const now=performance.now();
@@ -19644,6 +19752,8 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
         document.body.classList.add('findai-premium-gallery-dragging');
         g.card.dataset.gallerySuppressClick='1';
       }else if(Math.abs(g.dy)>Math.abs(g.dx)*1.22){
+        g.track.style.removeProperty('will-change');
+        snap(g.stage,g.startIndex,0);
         gesture=null;
         return;
       }
@@ -19680,6 +19790,8 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     document.body.classList.remove('findai-premium-gallery-dragging');
 
     if(g.axis!=='x'){
+      g.track.style.removeProperty('will-change');
+      snap(g.stage,g.startIndex,0);
       gesture=null;
       return;
     }
@@ -19692,7 +19804,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     /* Paint the exact release position first. This removes the tiny visual
        discontinuity that can otherwise happen between the last touchmove
        frame and touchend. */
-    g.renderDx=((g.startIndex===0&&g.dx>0)||(g.startIndex===g.list.length-1&&g.dx<0))?g.dx*EDGE_RESISTANCE:g.dx;
+    g.renderDx=g.offset+(((g.startIndex===0&&g.dx>0)||(g.startIndex===g.list.length-1&&g.dx<0))?g.dx*EDGE_RESISTANCE:g.dx);
     translate(g.track,-g.startIndex*g.width+g.renderDx,false);
 
     const rawDx=g.dx;
@@ -19732,7 +19844,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
   /* Load current + adjacent image before a visible reel is touched. */
   const observer=new IntersectionObserver(entries=>{
     for(const entry of entries){
-      if(!entry.isIntersecting||entry.intersectionRatio<.30)continue;
+      if(!entry.isIntersecting)continue;
       const stage=entry.target;
       const index=current(stage);
       const track=stage.querySelector('.reel-gallery-track');
@@ -19744,7 +19856,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
       }
       warm(stage,index);
     }
-  },{threshold:[.30,.55]});
+  },{rootMargin:'100% 0px',threshold:[0,.30,.55]});
 
   function bind(root=document){
     const found=[];
@@ -19755,7 +19867,6 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
       if(stage.dataset.v149Observed==='1')return;
       stage.dataset.v149Observed='1';
       observer.observe(stage);
-      warm(stage,current(stage));
     });
   }
 
@@ -21596,7 +21707,8 @@ html.findai-light .nav-messages-badge{border-color:#f7f7f8!important}
   async function warmFollowerCount(){
     if(!marketplaceSession())return;
     try{
-      const data=await marketplaceFetch('/social/followers',{method:'GET'});
+      const data=await prefetchOwnFollowersList(false);
+      if(!data)return;
       const count=Math.max(0,Number(data&&data.count||0));
       followerReady=true;
       saveFollowerCount(count);
@@ -24717,6 +24829,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
       feed.scrollTop=homeState.scroll||0;
       attachReelObserver();
       beginReelTracking(activeReelIndex);
+      schedulePersonalisedLaneRebalance('revisit');
     });
   }
 
@@ -30064,5 +30177,42 @@ html body .app #searchResults .premium-results-scroll,html body .app #profile .p
 }
 </style>
 
+<style id="wishwave-v194-smoothness">
+.findai-v132-swipe-surface{will-change:transform!important;opacity:1!important;}
+.findai-v132-settle{transition:transform .28s cubic-bezier(.22,1,.36,1)!important;}
+.reel-gallery-track{will-change:auto!important;transform-style:flat!important;-webkit-transform-style:flat!important;}
+.reel-gallery-slide{transform-style:flat!important;-webkit-transform-style:flat!important;}
+.reel-gallery-track[style*="will-change: transform"]{will-change:transform!important;}
+body.findai-premium-gallery-dragging .reel-gallery-track{will-change:auto!important;}
+body.findai-premium-gallery-dragging .reel-gallery-track[style*="will-change: transform"]{will-change:transform!important;}
+.wishwave-follower-placeholder{display:flex;align-items:center;gap:13px;padding:12px 16px;height:72px;}
+.wishwave-follower-placeholder i{width:46px;height:46px;border-radius:50%;background:rgba(128,128,128,.16);flex:none;}
+.wishwave-follower-placeholder span{display:grid;gap:9px;}
+.wishwave-follower-placeholder b,.wishwave-follower-placeholder em{display:block;width:120px;height:11px;background:rgba(128,128,128,.16);border-radius:6px;}
+.wishwave-follower-placeholder em{width:85px;}
+.wishwave-followers-more{display:block;margin:12px auto;padding:12px 24px;background:transparent;color:inherit;border:0;font:inherit;}
+@media(prefers-reduced-motion:reduce){
+  .findai-v132-settle,.reel-gallery-track,.findai-followers-page{transition-duration:.01ms!important;}
+}
+</style>
+<script id="wishwave-v194-profile-request-stability">
+(function(){
+  const previous=window.loadProfileMarketplaceData;
+  if(typeof previous!=='function')return;
+  let owner='',session='',pending=null,fetchedAt=0;
+  window.loadProfileMarketplaceData=function(force=false){
+    const profile=getAccountProfile()||{};
+    const next=String(profile.id||profile.email||profile.username||'').toLowerCase();
+    const token=marketplaceSession();
+    if(next!==owner||token!==session){owner=next;session=token;pending=null;fetchedAt=0;}
+    if(pending)return pending;
+    if(!force&&Date.now()-fetchedAt<30000)return Promise.resolve();
+    const work=Promise.resolve().then(()=>previous.apply(this,arguments));
+    pending=work;
+    work.then(()=>{if(pending===work)fetchedAt=Date.now();},()=>{}).finally(()=>{if(pending===work)pending=null;});
+    return work;
+  };
+})();
+</script>
 </body>
 </html>
