@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v203-interactive-page-return">
+<meta name="findai-build" content="v204-fluid-gestures-comments-refresh">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -5703,6 +5703,9 @@ async function v116RenderPersonalisedPreviewFallback(){
   try{const pool=await v116GetPreviewPool(false),seen=new Set(),items=[];for(const item of pool){if(!item||Number(item.price)<=0||!premiumProductImage(item))continue;const k=listingKey(item)||trackedKey(item)||String(item.itemId||item.url||item.title||'');if(!k||seen.has(k))continue;seen.add(k);items.push({...item,_interestQuery:item.searchQ||item.query||item.title||'Popular',_interestCluster:interestClusterKey(item.searchQ||item.query||item.title||'popular'),_interestCategory:interestCategory(item.searchQ||item.query||item.title||'popular')});if(items.length>=18)break;}if(!items.length)return false;renderPersonalisedFeed(items,{writeCache:false});return true;}catch(_){return false;}
 }
 async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
+  const retained=forceNetwork&&document.querySelector('#personalFeed .reel-card')?{
+    items:currentFeedItems.slice(),data:currentFeedData,state:feedState,active:activeReelIndex
+  }:null;
   if(feedRequestController) feedRequestController.abort();
   feedRequestController=new AbortController();
   go('discover');
@@ -5737,7 +5740,8 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
   const loadingState=feedState;
   const loadingController=feedRequestController;
   const stillOwnsFeed=()=>feedState===loadingState&&!loadingController.signal.aborted;
-  renderLoading();
+  if(!retained)renderLoading();
+  const keepRetained=()=>{if(!retained)return false;currentFeedItems=retained.items;currentFeedData=retained.data;feedState=retained.state;feedState.loading=false;activeReelIndex=retained.active;toast('Could not refresh. Your listings are still here.');return true;};
   
   try{
     markPersonalisedRefreshNow();
@@ -5774,6 +5778,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     }
     if(!stillOwnsFeed())return;
     if(!early.length){
+      if(keepRetained())return;
       if(await v116RenderPersonalisedPreviewFallback()){feedState.loading=false;return;}
       $('#personalFeed').innerHTML='<div class="feed-status"><div><b>Fresh listings are temporarily unavailable</b>Try again in a moment.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
       feedState.loading=false;return;
@@ -5799,6 +5804,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     })().catch(()=>{});
   }catch(error){
     if(!stillOwnsFeed()||(error&&error.name==='AbortError')) return;
+    if(keepRetained())return;
     if(await v116RenderPersonalisedPreviewFallback()){if(feedState.source==='personalised')feedState.loading=false;return;}
     $('#personalFeed').innerHTML='<div class="feed-status"><div><b>Fresh listings are temporarily unavailable</b>Try again in a moment.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
     if(feedState.source==='personalised')feedState.loading=false;
@@ -8306,7 +8312,7 @@ function renderAppMarketplaceListing(){
 function appMpSelectImage(index){const images=Array.isArray(appMpListing&&appMpListing.images)?appMpListing.images:[],img=images[index];if(img)$('#appMpMainImage').src=img;$$('.app-mp-thumb').forEach((el,i)=>el.classList.toggle('active',i===index));appMpSelectedImage=index;}
 async function appMpShareListing(){if(!appMpListing)return;const url='https://findai.ai/findai-app.html?listing='+encodeURIComponent(appMpId(appMpListing));try{if(navigator.share)await navigator.share({title:appMpListing.title||'WishWave listing',url});else{await navigator.clipboard.writeText(url);toast('Listing link copied');}}catch(_){}}
 async function appMpBuy(offerId){if(!appMpListing||!appMpRequireLogin())return;try{const data=await marketplaceFetch('/marketplace/checkout',{method:'POST',body:JSON.stringify({listingId:appMpId(appMpListing),offerId:offerId||''})});if(data.checkoutUrl)location.href=data.checkoutUrl;else throw new Error('Checkout is not available yet');}catch(error){toast(error.message||'Checkout could not be opened');}}
-function openAppMpSheet(title,html){$('#appMpSheetTitle').textContent=title;$('#appMpSheetBody').innerHTML=html||'';$('#appMpSheetBg').classList.add('show');setTimeout(syncAppMpSheetViewport,30);}
+function openAppMpSheet(title,html){const bg=$('#appMpSheetBg');bg.dataset.motionVersion=String(Number(bg.dataset.motionVersion||0)+1);bg.classList.remove('comments-dragging','comments-snapping','comments-dismissing');bg.style.removeProperty('--wishwave-comments-drag-y');if(title!=='Comments')bg.classList.remove('wishwave-comments-mode');$('#appMpSheetTitle').textContent=title;$('#appMpSheetBody').innerHTML=html||'';$('#appMpSheetBg').classList.add('show');setTimeout(syncAppMpSheetViewport,30);}
 function closeAppMpSheet(){clearInterval(appMpMessageTimer);appMpMessageTimer=null;const bg=$('#appMpSheetBg');if(bg)bg.classList.remove('show');document.documentElement.style.setProperty('--app-mp-keyboard-pad','0px');}
 function syncAppMpSheetViewport(){
   const bg=$('#appMpSheetBg');
@@ -8316,6 +8322,11 @@ function syncAppMpSheetViewport(){
   const vv=window.visualViewport;
   const viewportHeight=Math.max(320,Math.round(vv?vv.height:window.innerHeight));
   const keyboardPad=Math.max(0,Math.round((window.innerHeight||viewportHeight)-viewportHeight));
+  if(bg.classList.contains('wishwave-comments-mode')){
+    const focused=document.activeElement?.closest('#appMpSheetBg input,#appMpSheetBg textarea');
+    if(focused&&keyboardPad>120){bg.style.setProperty('--wishwave-comment-viewport',Math.max(220,viewportHeight+(vv?.offsetTop||0)-document.querySelector('.app').getBoundingClientRect().top)+'px');}
+    else bg.style.removeProperty('--wishwave-comment-viewport');
+  }
   document.documentElement.style.setProperty('--app-mp-keyboard-pad',keyboardPad+'px');
   if(sheet) sheet.style.maxHeight='calc('+viewportHeight+'px - 10px)';
   const active=document.activeElement;
@@ -14601,7 +14612,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     if(bg)bg.classList.remove('show');
     clearInterval(appMpMessageTimer);appMpMessageTimer=null;
     document.documentElement.style.setProperty('--app-mp-keyboard-pad','0px');
-    setTimeout(()=>{if(bg)bg.classList.remove('wishwave-comments-mode');},360);
+    setTimeout(()=>{if(bg&&!bg.classList.contains('show'))bg.classList.remove('wishwave-comments-mode');},360);
   };
 
   /* Better tactile feedback where supported. iOS simply ignores vibration. */
@@ -15011,10 +15022,11 @@ if(typeof v116RenderMarketplaceListing==='function'){
     if(event.target.closest('.wishwave-comment-form,input,textarea,button'))return;
     const list=panel.querySelector('.wishwave-comments-list');
     const fromHead=!!event.target.closest('.app-mp-sheet-head');
+    if(!fromHead)return;
     const t=event.touches[0];
     commentDrag={
       startY:t.clientY,startX:t.clientX,lastY:t.clientY,lastT:performance.now(),
-      velocity:0,dy:0,paintY:0,active:false,fromHead,list
+      velocity:0,dy:0,paintY:0,active:false,fromHead,list,version:layer.dataset.motionVersion
     };
   },{passive:true});
 
@@ -15039,19 +15051,22 @@ if(typeof v116RenderMarketplaceListing==='function'){
     queueCommentDrag(commentDrag.dy);
   },{passive:false});
 
-  function finishCommentDrag(){
+  function finishCommentDrag(event){
     if(!commentDrag)return;
     const layer=bg(),drag=commentDrag;commentDrag=null;
     if(commentDragRaf){cancelAnimationFrame(commentDragRaf);commentDragRaf=0;}
     if(!layer)return;
+    layer.style.setProperty('--wishwave-comments-drag-y',Math.max(0,drag.dy)+'px');
+    void sheet()?.offsetWidth;
     if(!drag.active){layer.style.removeProperty('--wishwave-comments-drag-y');return;}
-    const dismiss=drag.dy>105||(drag.dy>22&&drag.velocity>.52);
+    const dismiss=event?.type!=='touchcancel'&&(drag.dy>105||(drag.dy>22&&drag.velocity>.52));
     layer.classList.remove('comments-dragging');
     if(dismiss){
       layer.classList.add('comments-dismissing');
       layer.style.setProperty('--wishwave-comments-drag-y','calc(100dvh + 24px)');
       try{haptic();}catch(_){ }
       setTimeout(()=>{
+        if(layer.dataset.motionVersion!==drag.version)return;
         closeAppMpSheet();
         layer.classList.remove('comments-dismissing');
         layer.style.removeProperty('--wishwave-comments-drag-y');
@@ -15060,6 +15075,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
       layer.classList.add('comments-snapping');
       layer.style.setProperty('--wishwave-comments-drag-y','0px');
       setTimeout(()=>{
+        if(layer.dataset.motionVersion!==drag.version)return;
         layer.classList.remove('comments-snapping');
         layer.style.removeProperty('--wishwave-comments-drag-y');
       },285);
@@ -15406,7 +15422,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     const section=premiumDiscoverySections[0],items=section&&section.items||[];
     const replace=!!options.replace||root.dataset.refreshPending==='1';
     if(!items.length){
-      if(replace)root.innerHTML='<div class="premium-explore-empty"><b>No products found</b>Try another search.</div>';
+      if(replace&&!root.querySelector('.premium-explore-grid'))root.innerHTML='<div class="premium-explore-empty"><b>No products found</b>Try another search.</div>';
       else if(!root.querySelector('.premium-explore-grid'))root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
       return;
     }
@@ -15574,6 +15590,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     if(exploreInitialPromise&&exploreInitialPromiseFilter===exploreFilter&&!force)return exploreInitialPromise;
     exploreInitialPromiseFilter=exploreFilter;
     exploreInitialPromise=(async()=>{
+      const previous=force&&root.querySelector('.premium-explore-grid')?premiumDiscoverySections: null;
       const generation=++exploreGeneration;if(force||!exploreLoadedFilter)exploreVisitSalt++;
       exploreLoading=false;seenExplore.clear();premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:[]}];exploreQueue=exploreConfigs(exploreFilter);
       if(force&&root.querySelector('.premium-explore-grid'))root.dataset.refreshPending='1';
@@ -15581,6 +15598,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
       root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
       }
       bindExploreScroll();await loadExploreMore(true);if(generation!==exploreGeneration)return;
+      if(!premiumDiscoverySections[0].items.length&&previous){premiumDiscoverySections=previous;delete root.dataset.refreshPending;toast('Could not refresh. Your listings are still here.');}
       cacheExploreBrowseState();exploreLoadedFilter=exploreFilter;if(!premiumDiscoverySections[0].items.length)root.innerHTML='<div class="premium-explore-empty"><b>Products are refreshing</b>Try again in a moment.</div>';
     })();
     try{return await exploreInitialPromise;}finally{exploreInitialPromise=null;exploreInitialPromiseFilter='';}
@@ -16979,19 +16997,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     cancelAnimationFrame(raf);raf=0;
     const current=state&&state.current,target=state&&state.targetEl,targetTab=state&&state.targetTab;
     if(activate&&targetTab){
-      /* A swipe has no nav-button pointerdown, so explicitly fire the same
-         pre-navigation capture hook used by taps before leaving Home. */
-      try{
-        if(activeTab()==='discover'&&targetTab!=='discover'){
-          const navButton=document.querySelector('.premium-bottom-nav button[data-tab="'+targetTab+'"]');
-          if(navButton){
-            let ev;
-            try{ev=new PointerEvent('pointerdown',{bubbles:true,cancelable:true,pointerType:'touch'});}
-            catch(_){ev=new Event('pointerdown',{bubbles:true,cancelable:true});}
-            navButton.dispatchEvent(ev);
-          }
-        }
-      }catch(_){ }
+      if(activeTab()==='discover'&&targetTab!=='discover')window.__wishwaveCaptureHome?.();
       try{openTab(targetTab);}catch(_){}
     }
     cleanupFrame=requestAnimationFrame(()=>{cleanupFrame=0;clearSurface(current);clearSurface(target);if(swipe===state)swipe=null;swipeLocked=false;});
@@ -17007,6 +17013,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
   function settle(commit){
     if(!swipe||!swipe.active)return;const state=swipe,w=state.width;swipeLocked=true;
     if(raf){cancelAnimationFrame(raf);raf=0;drawSwipe();}
+    void state.current.offsetWidth;
     settling=state;
     state.onSettled=event=>{if(event.target===state.current&&event.propertyName==='transform')cleanup(state,commit);};
     state.current.addEventListener('transitionend',state.onSettled);
@@ -19769,6 +19776,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
        frame and touchend. */
     g.renderDx=g.offset+(((g.startIndex===0&&g.dx>0)||(g.startIndex===g.list.length-1&&g.dx<0))?g.dx*EDGE_RESISTANCE:g.dx);
     translate(g.track,-g.startIndex*g.width+g.renderDx,false);
+    void g.track.offsetWidth;
 
     const rawDx=g.dx;
     const distance=Math.abs(rawDx);
@@ -29601,7 +29609,9 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     const view=overlay(),feed=reelFeed();
     if(!view||!isOpen())return false;
     try{if(typeof finaliseReelTracking==='function')finaliseReelTracking();}catch(_){ }
-    if(feed){feed.onscroll=null;feed.innerHTML='';}
+    if(feed)feed.onscroll=null;
+    // Hide the offscreen surface first; dismantle its cards after Search has painted.
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{if(feed&&!isOpen())feed.replaceChildren();}));
     view.classList.remove('show','explore-reel-mode','search-owned-v186','findai-v133-context-reel','findai-v133-dragging');
     view.style.removeProperty('transform');
     if(returnState){
@@ -30293,7 +30303,13 @@ html.findai-light body .app #appMpInbox .app-mp-compose-send{color:#111!importan
     const q=document.getElementById('q');if(q){q.value='';q.blur();}
   }
   function indicator(){let el=document.getElementById('wishwaveRefreshIndicator');if(!el){el=document.createElement('div');el.id='wishwaveRefreshIndicator';el.className='wishwave-refresh-indicator';el.setAttribute('role','status');el.setAttribute('aria-label','Refreshing');el.innerHTML='<span>'+Array.from({length:12},(_,i)=>'<i style="--spoke:'+i+'"></i>').join('')+'</span>';document.querySelector('.app').appendChild(el);}return el;}
-  function shared(key,work){if(pending.has(key))return pending.get(key);const el=indicator();el.classList.add('show','busy');const promise=Promise.resolve().then(work).catch(error=>{if(error?.name!=='AbortError'&&typeof toast==='function')toast('Could not refresh. Please try again.');}).finally(()=>{pending.delete(key);if(!pending.size){el.classList.remove('show','busy');releasePull();}});pending.set(key,promise);return promise;}
+  function shared(key,work){
+    if(pending.has(key))return pending.get(key);
+    const promise=Promise.resolve().then(work).catch(error=>{if(error?.name!=='AbortError'&&typeof toast==='function')toast('Could not refresh. Please try again.');}).finally(()=>{
+      pending.delete(key);
+      if(pulled?.key===key){const wait=Math.max(0,240-(performance.now()-pulled.busyAt));clearTimeout(busyTimer);busyTimer=setTimeout(()=>releasePull(),wait);}
+    });pending.set(key,promise);return promise;
+  }
   window.openSearchHome=function(focus=false){
     const same=['search','searchResults'].includes(String(document.body.dataset.activeTab||''));
     const token=++searchNavigation;
@@ -30354,21 +30370,39 @@ html.findai-light body .app #appMpInbox .app-mp-compose-send{color:#111!importan
     for(let el=target;el&&root.contains(el);el=el.parentElement){const css=getComputedStyle(el);if(/auto|scroll/.test(css.overflowY)&&el.scrollHeight>el.clientHeight+1)return el;}
     return root.querySelector('.profile-scroll,.premium-search-home-scroll,.app-mp-messages,.app-mp-conversation-list,.reel-feed,.wishwave-comments-list,.wishwave-public-profile-scroll,.app-mp-inbox-body')||root;
   }
-  let pulled=null,returnTimer=0,finishReturn=null;
+  let pulled=null,returnTimer=0,busyTimer=0,paintFrame=0;
   function feedback(){try{const bridge=window.webkit?.messageHandlers?.findaiHaptic;if(bridge)bridge.postMessage('selection');else navigator.vibrate?.(12);}catch(_){}}
-  function releasePull(){
-    const g=pulled;pulled=null;if(!g)return;
-    g.host.style.transition='transform 260ms cubic-bezier(.2,.8,.2,1)';g.host.style.transform=g.transform;
-    clearTimeout(returnTimer);finishReturn=()=>{g.host.style.transition=g.transition;g.host.style.willChange=g.willChange;delete g.host.dataset.wishwavePullY;finishReturn=null;};returnTimer=setTimeout(()=>finishReturn?.(),280);
-    const el=document.getElementById('wishwaveRefreshIndicator');if(el){el.style.removeProperty('transform');el.style.removeProperty('opacity');}
+  function savedStyles(el){return ['transform','transition','will-change'].map(k=>[k,el.style.getPropertyValue(k),el.style.getPropertyPriority(k)]);}
+  function restoreStyles(el,values){values.forEach(([k,v,p])=>v?el.style.setProperty(k,v,p):el.style.removeProperty(k));}
+  function positionPull(g,distance){
+    g.distance=distance;g.host.style.setProperty('transform','translate3d(0,'+distance+'px,0)'+(g.base?' '+g.base:''),'important');
+    g.host.dataset.wishwavePullY=String(distance);
+    const el=indicator();el.classList.add('show');el.style.top=g.top+'px';
+    el.style.transform='translate3d(0,'+Math.max(0,distance/2-12)+'px,0)';el.style.opacity=String(Math.min(1,distance/36));
   }
-  function clear(){gesture=null;if(!pending.size){releasePull();const el=document.getElementById('wishwaveRefreshIndicator');el?.classList.remove('show','busy');}}
+  function paintPull(){paintFrame=0;if(pulled&&!pulled.returning)positionPull(pulled,pulled.nextDistance);}
+  function releasePull(immediate=false){
+    const g=pulled;if(!g)return;clearTimeout(busyTimer);cancelAnimationFrame(paintFrame);paintFrame=0;
+    const el=indicator();
+    const finish=()=>{if(pulled!==g)return;restoreStyles(g.host,g.styles);delete g.host.dataset.wishwavePullY;g.host.classList.remove('wishwave-pull-surface');pulled=null;el.classList.remove('show','busy');el.style.cssText='';};
+    clearTimeout(returnTimer);if(immediate){finish();return;}
+    g.returning=true;void g.host.offsetWidth;
+    g.host.style.setProperty('transition','transform 240ms cubic-bezier(.22,.78,.25,1)','important');
+    el.style.transition='transform 240ms cubic-bezier(.22,.78,.25,1),opacity 180ms ease';
+    positionPull(g,0);el.style.opacity='0';returnTimer=setTimeout(finish,250);
+  }
+  function clear(){gesture=null;if(pulled&&!pending.has(pulled.key))releasePull();}
   window.__wishwaveRefreshTouch=function(type,e){
     if(type==='touchstart'){
-      if(finishReturn){clearTimeout(returnTimer);finishReturn();}
-      if(e.touches.length!==1||pending.size||e.target.closest('input,textarea,select,.premium-bottom-nav,.app-mp-compose,[contenteditable],.findai-settings-sheet,#loginOverlay.show,.findai-settings-bg.show'))return false;
-      const host=scrollHost(e.target);if(!host||host.scrollTop>1)return false;
-      const t=e.touches[0];gesture={x:t.clientX,y:t.clientY,key:currentKey(),host,armed:false,distance:0,threshold:false};return false;
+      if(pulled?.returning)releasePull(true);
+      if(e.touches.length!==1||pending.size||e.target.closest('input,textarea,select,button,.premium-bottom-nav,.app-mp-compose,.app-mp-sheet-head,[contenteditable],.findai-settings-sheet,#loginOverlay.show,.findai-settings-bg.show'))return false;
+      if(document.querySelector('#searchDetailOverlay.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show'))return false;
+      const scroll=scrollHost(e.target);if(!scroll||scroll.scrollTop>1)return false;
+      const key=currentKey(),page=['discover','search','profile','searchResults'].includes(key)?document.getElementById(key):key==='messages'?document.getElementById('appMpInbox'):null;
+      const host=page||scroll,app=document.querySelector('.app'),box=app.getBoundingClientRect(),rect=host.getBoundingClientRect();
+      const safe=Math.max(0,(parseFloat(getComputedStyle(indicator()).top)||56)-56);
+      const top=page?safe:Math.max(safe,rect.top-box.top);
+      const t=e.touches[0];gesture={x:t.clientX,y:t.clientY,key:currentKey(),host,top,armed:false,distance:0,threshold:false};return false;
     }
     if(!gesture)return false;
     if(type==='touchcancel'){const armed=gesture.armed;clear();return armed;}
@@ -30376,34 +30410,26 @@ html.findai-light body .app #appMpInbox .app-mp-compose-send{color:#111!importan
       if(e.touches.length!==1||currentKey()!==gesture.key){clear();return false;}
       const t=e.touches[0],dx=t.clientX-gesture.x,dy=t.clientY-gesture.y;
       if(!gesture.armed&&(Math.abs(dx)>12&&Math.abs(dx)>Math.abs(dy)||dy< -10)){clear();return false;}
-      if(dy>12&&dy>Math.abs(dx)*1.4){
-        gesture.armed=true;gesture.distance=Math.min(130,Math.max(0,dy)*.58);
-        if(!pulled){const host=gesture.host;pulled={host,transform:host.style.transform,transition:host.style.transition,willChange:host.style.willChange};host.style.transition='none';host.style.willChange='transform';}
-        const host=gesture.host,rect=host.getBoundingClientRect(),app=document.querySelector('.app').getBoundingClientRect();
-        const base=rect.top-app.top-(parseFloat(host.dataset.wishwavePullY)||0);
-        host.dataset.wishwavePullY=String(gesture.distance);host.style.transform='translate3d(0,'+gesture.distance+'px,0)';
-        const el=indicator();el.classList.add('show');el.style.top=(base+gesture.distance/2-12)+'px';el.style.opacity=String(Math.min(1,gesture.distance/36));
-        el.querySelector('span').style.transform='rotate('+Math.min(270,dy*1.8)+'deg)';
-        if(gesture.distance>=56&&!gesture.threshold){gesture.threshold=true;feedback();}else if(gesture.distance<48)gesture.threshold=false;
+      if(gesture.armed||dy>10&&dy>Math.abs(dx)*1.4){
+        const g=gesture;g.armed=true;g.distance=140*(1-Math.exp(-Math.max(0,dy)/210));
+        if(!pulled){const base=getComputedStyle(g.host).transform;pulled={host:g.host,key:g.key,top:g.top,base:base&&base!=='none'?base:'',styles:savedStyles(g.host)};g.host.style.setProperty('transition','none','important');g.host.style.setProperty('will-change','transform','important');g.host.classList.add('wishwave-pull-surface');}
+        pulled.nextDistance=g.distance;if(!paintFrame)paintFrame=requestAnimationFrame(paintPull);
+        if(g.distance>=56&&!g.threshold){g.threshold=true;feedback();}else if(g.distance<48)g.threshold=false;
         if(e.cancelable)e.preventDefault();return true;
-      }
-      if(gesture.armed&&dy<=12){gesture.distance=0;gesture.host.style.transform='translate3d(0,0,0)';const el=indicator();el.style.opacity='0';return true;}
-      return false;
+      }return false;
     }
     if(type==='touchend'){
       const g=gesture;gesture=null;if(!g.armed)return false;
+      if(paintFrame){cancelAnimationFrame(paintFrame);paintPull();}
       if(g.distance>=56&&g.key===currentKey()){
-        g.host.style.transition='transform 180ms ease-out';g.host.style.transform='translate3d(0,64px,0)';
-        const el=indicator(),rect=g.host.getBoundingClientRect(),app=document.querySelector('.app').getBoundingClientRect();
-        el.style.top=(rect.top-app.top-g.distance+20)+'px';el.style.opacity='1';
+        const el=indicator();el.classList.add('busy');pulled.busyAt=performance.now();void g.host.offsetWidth;
+        g.host.style.setProperty('transition','transform 180ms cubic-bezier(.22,.78,.25,1)','important');el.style.transition='transform 180ms cubic-bezier(.22,.78,.25,1)';positionPull(pulled,64);
         window.wishwaveRefreshVisiblePage(g.key);
-      }else clear();
-      delete g.host.dataset.wishwavePullY;return true;
-    }
-    return false;
+      }else releasePull();return true;
+    }return false;
   };
-  window.addEventListener('pagehide',clear,{passive:true});
-  new MutationObserver(()=>{if(gesture&&currentKey()!==gesture.key)clear();if(pulled&&!pulled.host.isConnected)releasePull();}).observe(document.body,{attributes:true,attributeFilter:['data-active-tab'],subtree:false});
+  window.addEventListener('pagehide',()=>{gesture=null;releasePull(true);},{passive:true});
+  new MutationObserver(()=>{if(gesture&&currentKey()!==gesture.key)gesture=null;if(pulled&&(currentKey()!==pulled.key||!pulled.host.isConnected))releasePull(true);}).observe(document.body,{attributes:true,attributeFilter:['data-active-tab'],subtree:false});
   function syncChatKeyboard(){
     const inbox=document.getElementById('appMpInbox'),app=document.querySelector('.app');if(!inbox||!app)return;
     const viewport=window.visualViewport,focused=document.activeElement?.closest('#appMpInbox textarea,#appMpInbox input');
@@ -30581,6 +30607,8 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
   function finish(commit){
     const g=drag;if(!g||g.axis!=='back'){clean();return;}
     if(frame){cancelAnimationFrame(frame);draw();}
+    // Commit the last finger position before starting the release transition.
+    void g.root.offsetWidth;
     g.settling=true;blockClickUntil=Date.now()+500;clickRoot=g.root;
     const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
     const duration=reduce?1:Math.round(Math.max(190,Math.min(320,(commit?g.width-g.dx:g.dx)/Math.max(1.2,Math.abs(g.velocity)*1.8))));
@@ -30595,8 +30623,11 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
     if(type==='touchstart'){
       if(drag?.settling)return true;clean();
       if(e.touches.length!==1)return false;const surface=currentSurface(e.target);if(!surface)return false;
-      const t=e.touches[0],stage=e.target.closest('.reel-card')?.querySelector('.reel-gallery-stage');
-      drag={...surface,start:e,x:t.clientX,y:t.clientY,lastX:t.clientX,lastT:performance.now(),dx:0,velocity:0,axis:'',stage,width:surface.root.getBoundingClientRect().width||document.querySelector('.app').clientWidth||innerWidth};
+      const t=e.touches[0],card=e.target.closest('.reel-card'),stage=card?.querySelector('.reel-gallery-stage');
+      const details=card?.querySelector('.product-panel .title,.product-panel .reel-seller-row,.product-panel .price');
+      const boundary=details?.getBoundingClientRect().top;
+      const photoZone=!!stage&&(Number.isFinite(boundary)&&boundary>0?t.clientY<boundary:!e.target.closest('.product-panel'));
+      drag={...surface,start:e,x:t.clientX,y:t.clientY,lastX:t.clientX,lastT:performance.now(),dx:0,velocity:0,axis:'',stage,photoZone,photoIndex:Number(stage?.dataset.galleryIndex||0),width:surface.root.getBoundingClientRect().width||document.querySelector('.app').clientWidth||innerWidth};
       // Claim the child page before older window listeners can close it or page tabs.
       drag.observer=new MutationObserver(()=>{if(drag&&!drag.open())clean();});drag.observer.observe(surface.root,{attributes:true,attributeFilter:['class']});return true;
     }
@@ -30608,10 +30639,10 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
       if(!g.axis){
         if(Math.abs(dy)>8&&Math.abs(dy)>Math.abs(dx)*1.15){clean();return false;}
         if(Math.abs(dx)<7||Math.abs(dx)<Math.abs(dy)*1.2)return true;
-        if(dx<0){
-          if(g.kind==='searchReel'&&g.stage&&Number(g.stage.dataset.galleryCount||JSON.parse(g.stage.dataset.galleryImages||'[]').length)>1){g.axis='gallery';window.__wishwaveGalleryTouchV149?.('touchstart',g.start);}
-          else {g.axis='ignore';return true;}
-        }else activate(g);
+        const gallery=g.kind==='searchReel'&&g.photoZone&&g.stage&&JSON.parse(g.stage.dataset.galleryImages||'[]').length>1;
+        if(gallery&&(dx<0||g.photoIndex>0)){g.axis='gallery';window.__wishwaveGalleryTouchV149?.('touchstart',g.start);}
+        else if(dx>0)activate(g);
+        else {g.axis='ignore';return true;}
       }
       if(g.axis==='gallery'){window.__wishwaveGalleryTouchV149?.(type,e);return true;}
       if(g.axis!=='back')return true;
@@ -30630,6 +30661,18 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
   window.addEventListener('pagehide',clean);window.addEventListener('resize',clean,{passive:true});
 })();
 </script>
+
+<style id="wishwave-v204-stable-surfaces">
+html body .app-mp-sheet-bg.wishwave-comments-mode{inset:0!important;bottom:0!important;height:var(--wishwave-comment-viewport,100%)!important;z-index:12000!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}
+html body .app-mp-sheet-bg.wishwave-comments-mode .app-mp-sheet{height:min(78%,780px)!important;max-height:calc(100% - env(safe-area-inset-top,0px) - 24px)!important;transform:translate3d(0,104%,0)!important;}
+html body .app-mp-sheet-bg.wishwave-comments-mode.show .app-mp-sheet{transform:translate3d(0,var(--wishwave-comments-drag-y,0px),0)!important;}
+html body .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-composer{padding-bottom:8px!important;}
+html body .app-mp-sheet-bg.wishwave-comments-mode .app-mp-sheet-body{padding-bottom:calc(8px + env(safe-area-inset-bottom,0px))!important;}
+html body .app:has(#appMpSheetBg.wishwave-comments-mode.show)>.premium-bottom-nav{visibility:hidden!important;pointer-events:none!important;}
+html body .findai-comment-hold-overlay{z-index:12100!important;}
+.wishwave-pull-surface{overscroll-behavior-y:contain!important;backface-visibility:hidden;}
+html body .wishwave-refresh-indicator{z-index:12010!important;contain:layout paint;will-change:transform,opacity;}
+</style>
 
 </body>
 </html>
