@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v202-fluid-gestures-safe-headers">
+<meta name="findai-build" content="v203-interactive-page-return">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -26,7 +26,7 @@
     document.documentElement.classList.toggle('wishwave-installed',navigator.standalone===true||!!(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches));
     // Route Search nav before older capture listeners can reopen Recents.
     ['touchstart','touchmove','touchend','touchcancel'].forEach(type=>window.addEventListener(type,e=>{
-      const handled=window.__wishwaveBackTouch?.(type,e)||window.__wishwaveRefreshTouch?.(type,e);
+      const handled=window.__wishwavePageTouch?.(type,e)||window.__wishwaveBackTouch?.(type,e)||window.__wishwaveRefreshTouch?.(type,e);
       if(handled)e.stopImmediatePropagation();
     },{capture:true,passive:false}));
     window.addEventListener('click',function(e){
@@ -16969,8 +16969,9 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
   }
   function blockedTarget(target){return !!(target.closest&&target.closest('input,textarea,select,.premium-explore-chips,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,#findaiContextualReelV168.show,.reel-card[data-has-gallery="1"],.reel-gallery-stage,[data-horizontal-scroll],#search .premium-explore-tile,#search .premium-ebay-card,#search .premium-result-card,#search .search-grid-card,#search .app-search-evidence,#searchResults .premium-result-card,#searchResults .premium-ebay-card'));}
   function overlayOpen(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,#createListingScreen.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show');}
-  function prepSurface(el,kind){if(!el)return;el.classList.add(kind,'findai-v132-swipe-surface');el.style.removeProperty('display');}
-  function clearSurface(el){if(!el)return;el.classList.remove('findai-v132-current','findai-v132-target','findai-v132-settle','findai-v132-swipe-surface');el.style.transform='';el.style.opacity='';el.style.pointerEvents='';}
+  const originalSurfaceStyles=new WeakMap();
+  function prepSurface(el,kind){if(!el)return;if(!originalSurfaceStyles.has(el))originalSurfaceStyles.set(el,['transform','opacity','pointer-events'].map(key=>[key,el.style.getPropertyValue(key),el.style.getPropertyPriority(key)]));el.classList.add(kind,'findai-v132-swipe-surface');el.style.removeProperty('display');}
+  function clearSurface(el){if(!el)return;el.classList.remove('findai-v132-current','findai-v132-target','findai-v132-settle','findai-v132-swipe-surface');const saved=originalSurfaceStyles.get(el);if(saved){saved.forEach(([key,value,priority])=>value?el.style.setProperty(key,value,priority):el.style.removeProperty(key));originalSurfaceStyles.delete(el);}}
   function cleanup(state,activate){
     if(settling&&settling!==state)return;
     clearTimeout(settleTimer);settleTimer=0;settling=null;
@@ -16998,10 +16999,10 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
   function drawSwipe(){
     raf=0;if(!swipe||!swipe.active)return;
     const state=swipe,w=state.width||1,dx=state.dx;
-    state.current.style.transform='translate3d('+dx+'px,0,0)';
-    state.current.style.opacity='1';
+    state.current.style.setProperty('transform','translate3d('+dx+'px,0,0)','important');
+    state.current.style.setProperty('opacity','1','important');
     const base=state.direction>0?w:-w;
-    state.targetEl.style.transform='translate3d('+(base+dx)+'px,0,0)';
+    state.targetEl.style.setProperty('transform','translate3d('+(base+dx)+'px,0,0)','important');
   }
   function settle(commit){
     if(!swipe||!swipe.active)return;const state=swipe,w=state.width;swipeLocked=true;
@@ -17011,11 +17012,11 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     state.current.addEventListener('transitionend',state.onSettled);
     state.current.classList.add('findai-v132-settle');state.targetEl.classList.add('findai-v132-settle');
     if(commit){
-      state.current.style.transform='translate3d('+(state.direction>0?-w:w)+'px,0,0)';
-      state.current.style.opacity='1';state.targetEl.style.transform='translate3d(0,0,0)';
+      state.current.style.setProperty('transform','translate3d('+(state.direction>0?-w:w)+'px,0,0)','important');
+      state.current.style.setProperty('opacity','1','important');state.targetEl.style.setProperty('transform','translate3d(0,0,0)','important');
     }else{
-      state.current.style.transform='translate3d(0,0,0)';state.current.style.opacity='1';
-      state.targetEl.style.transform='translate3d('+(state.direction>0?w:-w)+'px,0,0)';
+      state.current.style.setProperty('transform','translate3d(0,0,0)','important');state.current.style.setProperty('opacity','1','important');
+      state.targetEl.style.setProperty('transform','translate3d('+(state.direction>0?w:-w)+'px,0,0)','important');
     }
     settleTimer=setTimeout(()=>cleanup(state,commit),340);
   }
@@ -17048,7 +17049,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
       const targetTab=tabs[targetIndex],targetEl=visual(targetTab);if(!targetEl){swipe=null;return;}
       swipe.active=true;swipe.direction=direction;swipe.targetTab=targetTab;swipe.targetEl=targetEl;
       prepSurface(swipe.current,'findai-v132-current');prepSurface(targetEl,'findai-v132-target');
-      targetEl.style.transform='translate3d('+(direction>0?swipe.width:-swipe.width)+'px,0,0)';targetEl.style.pointerEvents='none';
+      targetEl.style.setProperty('transform','translate3d('+(direction>0?swipe.width:-swipe.width)+'px,0,0)','important');targetEl.style.pointerEvents='none';
     }
     event.preventDefault();event.stopImmediatePropagation();
     swipe.velocity=swipe.velocity*.3+((t.clientX-swipe.lastX)/Math.max(1,now-swipe.lastT))*.7;swipe.lastX=t.clientX;swipe.lastT=now;swipe.dx=swipe.direction>0?Math.max(-swipe.width,Math.min(0,dx)):Math.min(swipe.width,Math.max(0,dx));
@@ -19797,6 +19798,13 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
       }
     },330);
   }
+
+  window.__wishwaveGalleryTouchV149=function(type,event){
+    if(type==='touchstart')begin(event);
+    else if(type==='touchmove')move(event);
+    else if(type==='touchend')finish(event,false);
+    else if(type==='touchcancel')finish(event,true);
+  };
 
   document.addEventListener('touchstart',begin,{capture:true,passive:true});
   document.addEventListener('touchmove',move,{capture:true,passive:false});
@@ -30508,6 +30516,117 @@ html.findai-light body .app #appMpInbox .app-mp-compose-send{background:#d9dce2!
     if(type==='touchcancel'){const active=back.active;finish(false);return active;}return false;
   };
   window.addEventListener('click',e=>{if(Date.now()<suppressUntil&&inbox()?.contains(e.target)){e.preventDefault();e.stopImmediatePropagation();}},true);
+  window.addEventListener('pagehide',clean);window.addEventListener('resize',clean,{passive:true});
+})();
+</script>
+
+<style id="wishwave-v203-page-motion">
+/* Page-specific styles must not hide or reflow an incoming tab during a drag. */
+html body .app #discover.findai-v132-swipe-surface,
+html body .app #search.findai-v132-swipe-surface,
+html body .app #profile.findai-v132-swipe-surface,
+html body .app #appMpInbox.findai-v132-swipe-surface{
+  display:flex!important;position:absolute!important;inset:0!important;
+  width:100%!important;height:100%!important;min-height:0!important;max-height:none!important;
+  margin:0!important;opacity:1!important;visibility:visible!important;
+  backface-visibility:hidden!important;-webkit-backface-visibility:hidden!important;
+}
+html body .app .findai-v132-swipe-surface.findai-v132-current{z-index:9501!important;}
+html body .app .findai-v132-swipe-surface.findai-v132-target{z-index:9500!important;}
+html body .app #appMpInbox.findai-v132-current{z-index:9501!important;}
+html body .app #appMpInbox.findai-v132-target{z-index:9500!important;}
+html body .app .findai-v132-swipe-surface.findai-v132-settle{
+  transition:transform 280ms cubic-bezier(.22,.78,.25,1)!important;
+}
+.wishwave-page-return-drag{will-change:transform!important;backface-visibility:hidden!important;-webkit-backface-visibility:hidden!important;}
+.wishwave-page-return-drag::after{content:"";position:absolute;left:-14px;top:0;bottom:0;width:14px;background:linear-gradient(90deg,transparent,#0003);pointer-events:none;}
+@media(prefers-reduced-motion:reduce){html body .app .findai-v132-swipe-surface.findai-v132-settle{transition-duration:1ms!important;}}
+</style>
+<script id="wishwave-v203-page-return">
+(function(){
+  let drag=null,frame=0,timer=0,blockClickUntil=0,clickRoot=null;
+  function currentSurface(target){
+    if(target.closest('.premium-bottom-nav,input,textarea,select,[contenteditable],.reel-social-action,.reel-compare-button,.premium-card-like,.wishwave-public-profile-tabs,.premium-explore-chips'))return null;
+    if(document.querySelector('.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,.findai-settings-bg.show,.wishwave-comment-media-viewer.show,#loginOverlay.show'))return null;
+    const profile=document.querySelector('#wishwavePublicProfilePage.show');
+    if(profile?.contains(target))return {root:profile,kind:'profile',open:()=>profile.classList.contains('show'),back:()=>window.closeWishWavePublicProfile()};
+    const reel=document.querySelector('#searchDetailOverlay.search-owned-v186.show');
+    if(reel?.contains(target))return {root:reel,kind:'searchReel',open:()=>reel.classList.contains('show')&&reel.classList.contains('search-owned-v186'),back:()=>window.__wishwaveCloseSearchReelV186()};
+    const recent=document.querySelector('#search.search-recents-visible #findaiSearchRecents.show');
+    if(recent?.contains(target))return {root:recent,kind:'recents',open:()=>recent.classList.contains('show'),back:()=>window.openSearchHome(false)};
+    return null;
+  }
+  function underPage(g){
+    const tab=String(document.body.dataset.activeTab||'discover');
+    const active=tab==='messages'?document.getElementById('appMpInbox'):document.getElementById(tab);
+    if(active&&active!==g.root&&!g.root.contains(active))return active;
+    return document.querySelector('.screen.active');
+  }
+  function save(el){return ['transform','transition','will-change'].map(key=>[key,el.style.getPropertyValue(key),el.style.getPropertyPriority(key)]);}
+  function restore(el,values){if(!el||!values)return;values.forEach(([key,value,priority])=>value?el.style.setProperty(key,value,priority):el.style.removeProperty(key));}
+  function base(el){const transform=getComputedStyle(el).transform;return transform&&transform!=='none'?transform:'';}
+  function translate(el,x,original){el.style.setProperty('transform','translate3d('+x+'px,0,0)'+(original?' '+original:''),'important');}
+  function clean(){
+    const g=drag;drag=null;cancelAnimationFrame(frame);frame=0;clearTimeout(timer);timer=0;
+    if(!g)return;g.observer?.disconnect();if(g.ended)g.root.removeEventListener('transitionend',g.ended);
+    if(g.axis==='gallery')window.__wishwaveGalleryTouchV149?.('touchcancel',{changedTouches:[],stopPropagation(){},stopImmediatePropagation(){}});
+    restore(g.root,g.styles);restore(g.under,g.underStyles);g.root.classList.remove('wishwave-page-return-drag');
+  }
+  function draw(){frame=0;const g=drag;if(!g||g.axis!=='back')return;translate(g.root,g.dx,g.base);if(g.under)translate(g.under,(-g.width+g.dx)*.16,g.underBase);}
+  function activate(g){
+    g.axis='back';g.styles=save(g.root);g.base=base(g.root);g.root.style.setProperty('transition','none','important');g.root.style.setProperty('will-change','transform','important');g.root.classList.add('wishwave-page-return-drag');
+    g.under=underPage(g);if(g.under){g.underStyles=save(g.under);g.underBase=base(g.under);g.under.style.setProperty('transition','none','important');g.under.style.setProperty('will-change','transform','important');}
+    window.__wishwaveRefreshTouch?.('touchcancel',{touches:[]});
+  }
+  function finish(commit){
+    const g=drag;if(!g||g.axis!=='back'){clean();return;}
+    if(frame){cancelAnimationFrame(frame);draw();}
+    g.settling=true;blockClickUntil=Date.now()+500;clickRoot=g.root;
+    const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const duration=reduce?1:Math.round(Math.max(190,Math.min(320,(commit?g.width-g.dx:g.dx)/Math.max(1.2,Math.abs(g.velocity)*1.8))));
+    g.root.style.setProperty('transition','transform '+duration+'ms cubic-bezier(.22,.78,.25,1)','important');
+    if(g.under)g.under.style.setProperty('transition','transform '+duration+'ms cubic-bezier(.22,.78,.25,1)','important');
+    // The outgoing page remains mounted and opaque until it reaches the edge.
+    translate(g.root,commit?g.width:0,g.base);if(g.under)translate(g.under,commit?0:-g.width*.16,g.underBase);
+    let done=false;const complete=()=>{if(done||drag!==g)return;done=true;if(commit&&g.open())g.back();clean();};
+    g.ended=e=>{if(e.target===g.root&&e.propertyName==='transform')complete();};g.root.addEventListener('transitionend',g.ended);timer=setTimeout(complete,duration+45);
+  }
+  window.__wishwavePageTouch=function(type,e){
+    if(type==='touchstart'){
+      if(drag?.settling)return true;clean();
+      if(e.touches.length!==1)return false;const surface=currentSurface(e.target);if(!surface)return false;
+      const t=e.touches[0],stage=e.target.closest('.reel-card')?.querySelector('.reel-gallery-stage');
+      drag={...surface,start:e,x:t.clientX,y:t.clientY,lastX:t.clientX,lastT:performance.now(),dx:0,velocity:0,axis:'',stage,width:surface.root.getBoundingClientRect().width||document.querySelector('.app').clientWidth||innerWidth};
+      // Claim the child page before older window listeners can close it or page tabs.
+      drag.observer=new MutationObserver(()=>{if(drag&&!drag.open())clean();});drag.observer.observe(surface.root,{attributes:true,attributeFilter:['class']});return true;
+    }
+    const g=drag;if(!g)return false;if(g.settling)return true;
+    if(!g.open()){clean();return false;}
+    if(type==='touchmove'){
+      if(e.touches.length!==1){if(g.axis==='back')finish(false);else clean();return true;}
+      const t=e.touches[0],dx=t.clientX-g.x,dy=t.clientY-g.y,now=performance.now();
+      if(!g.axis){
+        if(Math.abs(dy)>8&&Math.abs(dy)>Math.abs(dx)*1.15){clean();return false;}
+        if(Math.abs(dx)<7||Math.abs(dx)<Math.abs(dy)*1.2)return true;
+        if(dx<0){
+          if(g.kind==='searchReel'&&g.stage&&Number(g.stage.dataset.galleryCount||JSON.parse(g.stage.dataset.galleryImages||'[]').length)>1){g.axis='gallery';window.__wishwaveGalleryTouchV149?.('touchstart',g.start);}
+          else {g.axis='ignore';return true;}
+        }else activate(g);
+      }
+      if(g.axis==='gallery'){window.__wishwaveGalleryTouchV149?.(type,e);return true;}
+      if(g.axis!=='back')return true;
+      g.dx=Math.max(0,Math.min(g.width,dx));g.velocity=g.velocity*.3+(t.clientX-g.lastX)/Math.max(1,now-g.lastT)*.7;g.lastX=t.clientX;g.lastT=now;
+      if(!frame)frame=requestAnimationFrame(draw);if(e.cancelable)e.preventDefault();return true;
+    }
+    if(type==='touchend'||type==='touchcancel'){
+      if(g.axis==='gallery'){window.__wishwaveGalleryTouchV149?.(type,e);g.axis='';g.observer?.disconnect();drag=null;return true;}
+      if(g.axis==='back'){const velocity=performance.now()-g.lastT>90?0:g.velocity;finish(type==='touchend'&&(g.dx+velocity*115>g.width*.28||(velocity>.65&&g.dx>28)));return true;}
+      const claimed=!!g.axis;clean();return claimed;
+    }
+    return false;
+  };
+  window.addEventListener('pointerdown',e=>{if(e.target.closest('.premium-bottom-nav'))clean();},true);
+  window.addEventListener('click',e=>{if(Date.now()<blockClickUntil&&clickRoot?.contains(e.target)){e.preventDefault();e.stopImmediatePropagation();}},true);
   window.addEventListener('pagehide',clean);window.addEventListener('resize',clean,{passive:true});
 })();
 </script>
