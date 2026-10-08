@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v198-device-layout-check">
+<meta name="findai-build" content="v199-installed-full-screen-height">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -23,6 +23,7 @@
 <script>
 (function(){
   try{
+    document.documentElement.classList.toggle('wishwave-installed',navigator.standalone===true||!!(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches));
     var pref=localStorage.getItem('findai_theme')||'system';
     var resolved=(pref==='light'||pref==='dark')?pref:((window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');
     document.documentElement.classList.toggle('findai-light',resolved==='light');
@@ -30179,6 +30180,19 @@ html body .app #searchResults .premium-results-scroll,html body .app #profile .p
 @media(prefers-reduced-motion:reduce){
   .findai-v132-settle,.reel-gallery-track{transition-duration:.01ms!important;}
 }
+/* Installed iOS reports inset/clientHeight as screen minus the top safe area.
+   Device measurements: innerHeight 644, 100vh 693, safe top 49.
+   Give the app an explicit full-screen height; keep browser tabs edge-anchored. */
+html.wishwave-installed,html.wishwave-installed body{
+  height:100vh!important;min-height:0!important;max-height:none!important;
+}
+html.wishwave-installed body .app{
+  top:0!important;bottom:auto!important;height:100vh!important;max-height:none!important;
+}
+@media(display-mode:standalone){
+  html,html body{height:100vh!important;min-height:0!important;max-height:none!important;}
+  html body .app{top:0!important;bottom:auto!important;height:100vh!important;max-height:none!important;}
+}
 </style>
 
 <style id="wishwave-v194-smoothness">
@@ -30243,7 +30257,8 @@ body.findai-premium-gallery-dragging .reel-gallery-track[style*="will-change: tr
       ['Safe area top / bottom',safe.paddingTop+' / '+safe.paddingBottom],
       ['App top / bottom',round(a.top)+' / '+round(a.bottom)],
       ['Nav top / bottom',round(n.top)+' / '+round(n.bottom)],
-      ['Viewport below nav',round(innerHeight-n.bottom)],
+      ['Inner viewport below nav',round(innerHeight-n.bottom)],
+      ['Full screen below nav',round(probe.getBoundingClientRect().height-n.bottom)],
       ['Nav bottom padding',style.paddingBottom],
       ['Home centre from viewport bottom',round(innerHeight-(b.top+b.height/2))],
       ['Nav position / parent',style.position+' / '+nav.parentElement.className],
