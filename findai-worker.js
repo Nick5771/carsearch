@@ -25,7 +25,7 @@ const EPN_CAMPAIGN_ID = '5339155260';
 // deploy automatically invalidates old cached responses instead of serving stale
 // results for 5 minutes. It is also returned in meta, so you can confirm which
 // engine is actually live from DevTools rather than guessing.
-const ENGINE_VERSION = 'v176-wishwave-shopping-engine-v1-cloudflare-hotfix';
+const ENGINE_VERSION = 'v208-shared-engagement-ranking';
 // v120: restores live source progress metadata + search UX while preserving the Claude/eBay result fix.
 // v116: preserves owned retailer search while making eBay usage quota-safe and separating passive discovery from live shopper search.
 // EPN rotation IDs (mkrid) per marketplace. Only markets where eBay Partner
@@ -16391,7 +16391,7 @@ function tasteEventDelta(event, boost) {
   const hasCustom = boost !== null && boost !== undefined && boost !== '';
   const custom = hasCustom ? Number(boost) : NaN;
   if (Number.isFinite(custom)) return Math.max(-12, Math.min(25, custom));
-  return Number(TASTE_EVENT_WEIGHTS[String(event || '')]) || 1;
+  return TASTE_EVENT_WEIGHTS[String(event || '')] ?? 1;
 }
 async function tasteProfileForEmail(env, email) {
   await tasteEnsureSchema(env);
@@ -16399,7 +16399,7 @@ async function tasteProfileForEmail(env, email) {
     .bind(String(email).toLowerCase()).all();
   return ((rows && rows.results) || []).map(row => ({
     cluster:String(row.cluster || ''), query:String(row.query || ''), discoveryQuery:String(row.discovery_query || row.query || ''),
-    category:String(row.category || 'other'), weight:Number(row.weight) || 0.15, lastAt:Date.parse(String(row.last_at || '')) || Date.now()
+    category:String(row.category || 'other'), weight:Number(row.weight) || 0, lastAt:Date.parse(String(row.last_at || '')) || Date.now()
   }));
 }
 async function tasteSyncItem(env, email, source) {
@@ -16409,12 +16409,12 @@ async function tasteSyncItem(env, email, source) {
   const category = String(source.category || tasteCategoryForQuery(query)).slice(0, 40);
   const discovery = String(source.discoveryQuery || tasteDiscoveryForQuery(query, category)).trim().slice(0, 180) || query;
   const cluster = String(source.cluster || tasteClusterFor(query, category, discovery)).trim().slice(0, 260);
-  const weight = Math.max(0.15, Math.min(80, Number(source.weight) || 0.15));
+  const weight = Math.max(-40, Math.min(80, Number(source.weight) || 0));
   const parsed = Number(source.lastAt); const lastAt = Number.isFinite(parsed) && parsed > 0 ? new Date(parsed).toISOString() : new Date().toISOString();
   await env.DB.prepare(`INSERT INTO taste_interests (email, cluster, query, discovery_query, category, weight, last_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(email, cluster) DO UPDATE SET
-      weight=MAX(taste_interests.weight, excluded.weight),
+      weight=CASE WHEN excluded.last_at > taste_interests.last_at THEN excluded.weight ELSE taste_interests.weight END,
       query=CASE WHEN excluded.last_at >= taste_interests.last_at THEN excluded.query ELSE taste_interests.query END,
       discovery_query=CASE WHEN excluded.last_at >= taste_interests.last_at THEN excluded.discovery_query ELSE taste_interests.discovery_query END,
       category=CASE WHEN excluded.last_at >= taste_interests.last_at THEN excluded.category ELSE taste_interests.category END,
@@ -16429,12 +16429,12 @@ async function tasteApplyEvent(env, email, body) {
   const discovery = tasteDiscoveryForQuery(query, category) || query;
   const cluster = tasteClusterFor(query, category, discovery).slice(0, 260);
   const delta = tasteEventDelta(body && body.event, body && body.boost);
-  const insertWeight = Math.max(0.15, Math.min(80, delta));
+  const insertWeight = Math.max(-40, Math.min(80, delta));
   const now = new Date().toISOString();
   await env.DB.prepare(`INSERT INTO taste_interests (email, cluster, query, discovery_query, category, weight, last_at)
     VALUES (?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(email, cluster) DO UPDATE SET
-      weight=MAX(0.15, MIN(80.0, taste_interests.weight + ?)),
+      weight=MAX(-40.0, MIN(80.0, taste_interests.weight + ?)),
       query=excluded.query, discovery_query=excluded.discovery_query, category=excluded.category, last_at=excluded.last_at`)
     .bind(String(email).toLowerCase(), cluster, query, discovery, category, insertWeight, now, delta).run();
   return { cluster, query, discoveryQuery:discovery, category, delta };
@@ -20008,6 +20008,90 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
   };
 }
 
+// v208: shared engagement is separate from personal taste and public view counters.
+let sharedSchemaPromise=null,sharedCleanupAt=0;
+async function sharedEnsureSchema(env){
+  if(!env.DB)throw new Error('Recommendation database unavailable');
+  if(!sharedSchemaPromise)sharedSchemaPromise=env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS recommendation_exposures (
+      listing_key TEXT NOT NULL, viewer_key TEXT NOT NULL, day TEXT NOT NULL,
+      dwell_ms INTEGER NOT NULL DEFAULT 0, engaged INTEGER NOT NULL DEFAULT 0,
+      skipped INTEGER NOT NULL DEFAULT 0, liked INTEGER NOT NULL DEFAULT 0,
+      shared INTEGER NOT NULL DEFAULT 0, compared INTEGER NOT NULL DEFAULT 0,
+      clicked INTEGER NOT NULL DEFAULT 0, commented INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY(listing_key,viewer_key,day))`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS recommendation_exposure_day ON recommendation_exposures(day)')
+  ]).catch(error=>{sharedSchemaPromise=null;throw error;});
+  await sharedSchemaPromise;
+  if(Date.now()-sharedCleanupAt>3600000){
+    sharedCleanupAt=Date.now();
+    await env.DB.prepare('DELETE FROM recommendation_exposures WHERE day < ?')
+      .bind(new Date(Date.now()-30*86400000).toISOString().slice(0,10)).run();
+  }
+}
+function sharedCleanKey(value){
+  const key=String(value||'').trim().toLowerCase();
+  return key.length>=3&&key.length<=500&&!/[\u0000-\u001f]/.test(key)?key:'';
+}
+function sharedCleanEvent(input){
+  if(!input||typeof input!=='object')return null;
+  const key=sharedCleanKey(input.key);if(!key)return null;
+  const ms=Math.max(0,Math.min(30000,Math.round(Number(input.dwellMs)||0)));
+  const flag=name=>input[name]===true?1:0;
+  const unliked=flag('unliked'),liked=flag('liked'),shared=flag('shared'),compared=flag('compared'),clicked=flag('clicked'),commented=flag('commented');
+  if(ms<250&&!(liked||unliked||shared||compared||clicked||commented))return null;
+  return {key,ms,liked,unliked,shared,compared,clicked,commented,engaged:ms>=3000?1:0,skipped:ms>=250&&ms<900?1:0};
+}
+function sharedListingScore(row){
+  const n=Math.max(0,Number(row.n)||0);if(n<5)return 0;
+  // Fixed priors stabilise small samples. Each shopper contributes at most once
+  // per listing/day; a click + like does not create two successful impressions.
+  const rate=(count,prior)=>(Math.max(0,Number(count)||0)+20*prior)/(n+20);
+  const confidence=n/(n+40);
+  const lift=12*(rate(row.engaged,.35)-.35)+24*(rate(row.intent,.06)-.06)
+    -8*(rate(row.skipped,.30)-.30);
+  return Math.round(Math.max(-6,Math.min(12,lift*confidence))*100)/100;
+}
+async function sharedRecommendationRoute(request,env,url){
+  if(!env.DB)return jsonResp({error:'Recommendations unavailable'},503,{'Cache-Control':'no-store'});
+  if(Number(request.headers.get('content-length')||0)>60000)return jsonResp({error:'Batch too large'},413);
+  if(await rateLimited(env,request,'shared-recommendations',90,60))return tooManyResp(60);
+  let body;try{const raw=await request.text();if(raw.length>60000)return jsonResp({error:'Batch too large'},413);body=JSON.parse(raw);}catch(_){return jsonResp({error:'Invalid JSON'},400);}
+  await sharedEnsureSchema(env);
+  if(url.pathname==='/recommendations/scores'){
+    const keys=[...new Set((Array.isArray(body.keys)?body.keys:[]).map(sharedCleanKey).filter(Boolean))].slice(0,100);
+    if(!keys.length)return jsonResp({version:208,scores:{}},200,{'Cache-Control':'no-store'});
+    const since=new Date(Date.now()-7*86400000).toISOString().slice(0,10);
+    const rows=await env.DB.prepare(`SELECT listing_key,COUNT(*) AS n,SUM(engaged) AS engaged,
+      SUM(CASE WHEN liked+shared+compared+clicked+commented>0 THEN 1 ELSE 0 END) AS intent,
+      SUM(CASE WHEN skipped=1 AND engaged=0 AND liked+shared+compared+clicked+commented=0 THEN 1 ELSE 0 END) AS skipped
+      FROM recommendation_exposures WHERE day>=? AND listing_key IN (${keys.map(()=>'?').join(',')}) GROUP BY listing_key`).bind(since,...keys).all();
+    const scores={};for(const row of rows.results||[])scores[row.listing_key]={boost:sharedListingScore(row),exposures:Number(row.n)||0};
+    return jsonResp({version:208,scores},200,{'Cache-Control':'no-store'});
+  }
+  const visitor=String(body.visitor||'');if(!/^[a-zA-Z0-9_-]{16,80}$/.test(visitor))return jsonResp({error:'Visitor required'},400);
+  // Authenticated identities are deduplicated across devices. Guests are tied to
+  // a request IP for daily deduplication; rotating guest IDs cannot multiply votes.
+  // This intentionally undercounts guests sharing a network. Raw identities are not stored.
+  let identity='guest:'+String(request.headers.get('CF-Connecting-IP')||'unknown');
+  if(request.headers.get('Authorization')){
+    const auth=await requireUser(request,env);if(auth.fail)return auth.fail;identity='user:'+auth.email.toLowerCase();
+  }
+  const salt=String(env.RECOMMENDATION_HASH_SECRET||env.SESSION_SECRET||'wishwave-recommendation-v208');
+  const bytes=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(salt+'|'+identity));
+  const viewer=Array.from(new Uint8Array(bytes),n=>n.toString(16).padStart(2,'0')).join('');
+  const events=(Array.isArray(body.events)?body.events:[]).slice(0,40).map(sharedCleanEvent).filter(Boolean);
+  const day=new Date().toISOString().slice(0,10);
+  if(events.length)await env.DB.batch(events.map(e=>env.DB.prepare(`INSERT INTO recommendation_exposures
+    (listing_key,viewer_key,day,dwell_ms,engaged,skipped,liked,shared,compared,clicked,commented)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(listing_key,viewer_key,day) DO UPDATE SET
+    dwell_ms=MAX(dwell_ms,excluded.dwell_ms),engaged=MAX(engaged,excluded.engaged),skipped=MAX(skipped,excluded.skipped),
+    liked=CASE WHEN ?=1 THEN 0 ELSE MAX(liked,excluded.liked) END,shared=MAX(shared,excluded.shared),compared=MAX(compared,excluded.compared),
+    clicked=MAX(clicked,excluded.clicked),commented=MAX(commented,excluded.commented)`)
+    .bind(e.key,viewer,day,e.ms,e.engaged,e.skipped,e.liked,e.shared,e.compared,e.clicked,e.commented,e.unliked)));
+  return jsonResp({ok:true,version:208,accepted:events.length},200,{'Cache-Control':'no-store'});
+}
+
 export default {
   // Needs a KV namespace bound as CACHE and a Cron Trigger (e.g. */15 * * * *) in the dashboard.
   async scheduled(event, env, ctx) {
@@ -20357,6 +20441,8 @@ export default {
   async handle(request, env, ctx) {
     try {
       const url = new URL(request.url);
+
+      if(request.method==='POST'&&['/recommendations/engagement','/recommendations/scores'].includes(url.pathname))return await sharedRecommendationRoute(request,env,url);
 
       // WishWave Shopping Engine v1 diagnostics. This lets us confirm which
       // connectors are live before touching the frontend, and shows Amazon readiness

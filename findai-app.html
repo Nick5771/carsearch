@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v207-search-reset-safe-gallery-count">
+<meta name="findai-build" content="v208-shared-engagement-ranking">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -5068,11 +5068,11 @@ function mergeSharedTasteProfile(remote){
     const category=String(source.category||interestCategory(query));
     const discoveryQuery=String(source.discoveryQuery||deriveDiscoveryQuery(query)||query);
     const cluster=String(source.cluster||`${category}:${normaliseQueryText(discoveryQuery)}`);
-    const incoming={id:source.id||`shared_${cluster}`,query,discoveryQuery,category,cluster,weight:clamp(Number(source.weight)||.15,.15,80),lastAt:Number(source.lastAt)||Date.now(),events:source.events||{}};
+    const incoming={id:source.id||`shared_${cluster}`,query,discoveryQuery,category,cluster,weight:clamp(Number(source.weight)||0,-40,80),lastAt:Number(source.lastAt)||Date.now(),events:source.events||{}};
     const existing=byCluster.get(cluster);
     if(!existing){byCluster.set(cluster,incoming);continue;}
-    existing.weight=Math.max(Number(existing.weight)||0,Number(incoming.weight)||0);
-    if((Number(incoming.lastAt)||0)>=(Number(existing.lastAt)||0)){
+    if((Number(incoming.lastAt)||0)>(Number(existing.lastAt)||0)){
+      existing.weight=incoming.weight;
       existing.query=incoming.query;existing.discoveryQuery=incoming.discoveryQuery;existing.category=incoming.category;existing.lastAt=incoming.lastAt;
     }
     byCluster.set(cluster,existing);
@@ -5134,7 +5134,7 @@ function recordInterest(query,event='search',customBoost=null){
   item.discoveryQuery=discoveryQuery||item.discoveryQuery||clean;
   item.category=category;
   item.cluster=cluster;
-  item.weight=clamp((Number(item.weight)||0)+boost,.15,80);
+  item.weight=clamp((Number(item.weight)||0)+boost,-40,80);
   item.lastAt=now;
   item.events=item.events||{};
   item.events[event]=(Number(item.events[event])||0)+1;
@@ -5165,7 +5165,8 @@ function scoredInterests(limit=PERSONALISED_INTEREST_LIMIT){
   const profile=getInterestProfile().map(item=>{
     const ageDays=Math.max(0,(now-(Number(item.lastAt)||now))/86400000);
     const decay=Math.pow(.5,ageDays/45);
-    const score=(Number(item.weight)||1)*decay+Math.max(0,2-ageDays*.08);
+    const weight=Number(item.weight)||0;
+    const score=weight*decay+(weight>0?Math.max(0,2-ageDays*.08):0);
     return {...item,score};
   }).filter(item=>item.score>.12).sort((a,b)=>b.score-a.score);
   const discovery=featuredColdStart(1.1,'broad-cold-start');
@@ -5364,6 +5365,7 @@ function preparePersonalisedLaneItems(raw,lane){
   /* Keep AliExpress out of the main For You feed (quality/brand consistency).
      It can still appear in explicit search/tracker results elsewhere. */
   const valid=(Array.isArray(raw)?raw:[]).filter(item=>item&&Number(item.price)>0&&getSource(item)!=='aliexpress');
+  window.wishwaveFetchSharedScores?.(valid);
   const ranked=[...valid].sort((a,b)=>personalisedItemScore(b,lane.query,lane.cluster)-personalisedItemScore(a,lane.query,lane.cluster));
   const preferred=ranked.filter(item=>personalisedSeenInfo(item).count<2);
   const repeatFallback=ranked.filter(item=>personalisedSeenInfo(item).count>=2);
@@ -16145,6 +16147,7 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     v125RecordSessionTaste(query,boost*sessionMultiplier);
     const resolved=v125InferContext(query,name,context);
     if(resolved)v125RecordBehavior(resolved,name,boost);
+    if(resolved?.item)window.wishwaveSharedSignal?.(resolved.item,name);
     if(V125_REBALANCE_EVENTS.has(name))v125ScheduleAdaptiveRerank(name);
   };
 
@@ -16189,9 +16192,10 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
   }
   const v124PersonalisedItemScore=personalisedItemScore;
   personalisedItemScore=function(item,query,scope=''){
-    return v124PersonalisedItemScore(item,query,scope)+v125AdaptiveBoost(item);
+    return v124PersonalisedItemScore(item,query,scope)+v125AdaptiveBoost(item)+(window.wishwaveSharedBoost?.(item)||0);
   };
 
+  window.wishwaveScheduleRankingRefresh=()=>v125ScheduleAdaptiveRerank('shared');
   function v125RerenderTail(start,end=currentFeedItems.length){
     if(feedState.source!=='personalised')return;
     const feed=appActiveFeedElement();if(!feed)return;
@@ -16272,6 +16276,7 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     if(!state||!state.item||state.recorded||state.ms<250)return;
     state.recorded=true;
     const elapsed=state.ms;
+    window.wishwaveSharedExposure?.(state.item,elapsed);
     // Compute against the previous baseline before adding this exposure.
     const signal=v125DwellSignal(elapsed);
     v125RememberDwell(elapsed);
@@ -30790,5 +30795,64 @@ html body .app #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity 
   top:calc(var(--safe-top) + 72px)!important;
 }
 </style>
+<script id="wishwave-v208-shared-ranking">
+(function(){
+  'use strict';
+  const scores=new Map(),waiting=new Set(),outbox=new Map();
+  let available=false,cooldown=0,scoreTimer=0,flushTimer=0,reading=false,sending=false;
+  function enabled(){return window.findaiAppPreferences?.().personalized!==false;}
+  function visitor(){
+    try{let id=localStorage.getItem('wishwave_recommendation_visitor_v208');if(!id){id=crypto.randomUUID().replace(/-/g,'');localStorage.setItem('wishwave_recommendation_visitor_v208',id);}return id;}catch(_){return null;}
+  }
+  async function request(path,body){
+    const response=await fetch(WORKER_BASE+path,{method:'POST',headers:marketplaceHeaders(),body:JSON.stringify(body),keepalive:true});
+    if(!response.ok)throw new Error('Recommendation service unavailable');
+    const data=await response.json();if(data.version!==208)throw new Error('Recommendation version unavailable');return data;
+  }
+  function fail(){available=false;cooldown=Date.now()+60000;outbox.clear();}
+  async function readScores(){
+    scoreTimer=0;if(!enabled()||reading||Date.now()<cooldown)return;
+    const keys=[...waiting].slice(0,100);if(!keys.length)return;keys.forEach(k=>waiting.delete(k));reading=true;
+    try{
+      const data=await request('/recommendations/scores',{keys});available=true;
+      for(const key of keys){const row=data.scores?.[key];scores.set(key,{at:Date.now(),boost:Math.max(-6,Math.min(12,Number(row?.boost)||0))});}
+      while(scores.size>600)scores.delete(scores.keys().next().value);
+      window.wishwaveScheduleRankingRefresh?.();scheduleFlush();
+    }catch(_){fail();}finally{reading=false;if(waiting.size&&Date.now()>=cooldown)scoreTimer=setTimeout(readScores,300);}
+  }
+  window.wishwaveFetchSharedScores=function(items){
+    if(!enabled()||Date.now()<cooldown)return;
+    for(const item of items||[]){const key=listingKey(item);const cached=scores.get(key);if(key&&key.length<=500&&(!cached||Date.now()-cached.at>120000))waiting.add(key);}
+    while(waiting.size>200)waiting.delete(waiting.values().next().value);
+    if(!scoreTimer&&!reading)scoreTimer=setTimeout(readScores,120);
+  };
+  window.wishwaveSharedBoost=function(item){return enabled()?(scores.get(listingKey(item))?.boost||0):0;};
+  function queue(item,patch){
+    if(!enabled()||Date.now()<cooldown||!item)return;
+    const key=listingKey(item);if(!key||key.length>500)return;
+    const old=outbox.get(key)||{key,dwellMs:0};outbox.set(key,{...old,...patch,dwellMs:Math.max(old.dwellMs,Number(patch.dwellMs)||0)});
+    while(outbox.size>80)outbox.delete(outbox.keys().next().value);
+    if(!available)window.wishwaveFetchSharedScores([item]);else scheduleFlush();
+  }
+  function scheduleFlush(){if(!flushTimer&&outbox.size)flushTimer=setTimeout(flush,3000);}
+  async function flush(){
+    clearTimeout(flushTimer);flushTimer=0;
+    if(!enabled()){outbox.clear();return;}
+    if(!available||sending||!outbox.size)return;
+    const id=visitor();if(!id)return;
+    const events=[...outbox.values()].slice(0,40);events.forEach(e=>outbox.delete(e.key));sending=true;
+    try{await request('/recommendations/engagement',{visitor:id,events});}catch(_){fail();}finally{sending=false;if(outbox.size)scheduleFlush();}
+  }
+  window.wishwaveSharedExposure=(item,ms)=>{if(Number(ms)>=250)queue(item,{dwellMs:Math.min(30000,Number(ms)||0)});};
+  window.wishwaveSharedSignal=function(item,event){
+    const names={like:'liked',track:'liked',share:'shared',compare:'compared',click:'clicked',comment:'commented',unlike:'unliked'};
+    const name=names[event];if(name)queue(item,{[name]:true});
+  };
+  window.addEventListener('pagehide',flush);
+  document.addEventListener('visibilitychange',()=>{if(document.hidden){finaliseReelTracking();flush();}});
+  window.wishwaveSharedRankingStatus=()=>({available,cachedListings:scores.size,queued:outbox.size});
+})();
+</script>
+
 </body>
 </html>
