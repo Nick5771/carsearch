@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v206-tile-expansion-five-tab-swipes">
+<meta name="findai-build" content="v207-search-reset-safe-gallery-count">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -8467,7 +8467,7 @@ window.addEventListener('orientationchange',()=>setTimeout(findaiSyncVisualViewp
 findaiSyncVisualViewport();
 document.addEventListener('click',function(event){
   if(document.body.dataset.activeTab!=='search')return;
-  const search=$('#search');if(!search||!event.target.closest('#search'))return;
+  const search=$('#search');if(!search||!event.target.closest('#search .premium-search-bar'))return;
   if(event.target.closest('button,a,input,textarea,.app-chat-drawer-overlay,.app-chat-result-shell'))return;
   appChatTryFocus();
 },{passive:true});
@@ -16738,13 +16738,8 @@ html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .finda
     q.addEventListener('blur',()=>{setTimeout(()=>{
       if(document.activeElement===q)return;
       if(String(q.value||'').trim()){hideRecents();return;}
-      const search=document.getElementById('search'),overlay=ensureRecentsOverlay();
-      if(search&&search.classList.contains('active')){
-        search.classList.add('search-recents-visible');
-        renderRecents();
-        if(overlay)overlay.classList.add('show');
-        requestAnimationFrame(recentsTop);
-      }
+      // Blur must never reopen Recents after navigation or a listing tap.
+      // Existing Recents stay visible until an explicit dismissal; focus opens them.
     },110);});
   }
 
@@ -30786,5 +30781,14 @@ html body #searchDetailOverlay.wishwave-reel-expanding .wishwave-search-reel-top
 })();
 </script>
 
+<style id="wishwave-v207-safe-gallery-count">
+/* Gallery cards start at the viewport top, including the iPhone safe area.
+   Clear the 52px header and the bell's larger invisible touch target. */
+html body .app #discover .reel-gallery-count,
+html body .app #discover #findaiContextualReelV168 .reel-gallery-count,
+html body .app #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-gallery-count{
+  top:calc(var(--safe-top) + 72px)!important;
+}
+</style>
 </body>
 </html>
