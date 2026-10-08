@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v197-edge-anchored-app-viewport">
+<meta name="findai-build" content="v198-device-layout-check">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -30216,6 +30216,51 @@ body.findai-premium-gallery-dragging .reel-gallery-track[style*="will-change: tr
     work.then(()=>{if(pending===work)fetchedAt=Date.now();},()=>{}).finally(()=>{if(pending===work)pending=null;});
     return work;
   };
+})();
+</script>
+<script id="wishwave-v198-device-layout-check">
+(function(){
+  let hold=0,startX=0,startY=0;
+  const home=document.querySelector('.premium-bottom-nav button[data-tab="discover"]');
+  if(!home)return;
+  function cancel(){clearTimeout(hold);hold=0;}
+  function show(){
+    if(document.getElementById('wishwaveLayoutCheck'))return;
+    const app=document.querySelector('.app'),nav=document.querySelector('.premium-bottom-nav');
+    const probe=document.createElement('div');
+    probe.style.cssText='position:fixed;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);height:100vh;width:0;';
+    document.body.appendChild(probe);
+    const safe=getComputedStyle(probe),a=app.getBoundingClientRect(),n=nav.getBoundingClientRect(),b=home.getBoundingClientRect(),style=getComputedStyle(nav);
+    const round=x=>Math.round(Number(x)*10)/10;
+    const values=[
+      ['Build',document.querySelector('meta[name="findai-build"]').content],
+      ['Installed mode',!!(navigator.standalone||matchMedia('(display-mode: standalone)').matches)],
+      ['Screen',screen.width+' × '+screen.height],
+      ['Inner viewport',innerWidth+' × '+innerHeight],
+      ['Visual viewport',window.visualViewport?round(visualViewport.width)+' × '+round(visualViewport.height)+'; top '+round(visualViewport.offsetTop):'Unavailable'],
+      ['Document height',document.documentElement.clientHeight],
+      ['100vh height',round(probe.getBoundingClientRect().height)],
+      ['Safe area top / bottom',safe.paddingTop+' / '+safe.paddingBottom],
+      ['App top / bottom',round(a.top)+' / '+round(a.bottom)],
+      ['Nav top / bottom',round(n.top)+' / '+round(n.bottom)],
+      ['Viewport below nav',round(innerHeight-n.bottom)],
+      ['Nav bottom padding',style.paddingBottom],
+      ['Home centre from viewport bottom',round(innerHeight-(b.top+b.height/2))],
+      ['Nav position / parent',style.position+' / '+nav.parentElement.className],
+      ['Status bar mode',document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]').content]
+    ];
+    probe.remove();
+    const layer=document.createElement('div');layer.id='wishwaveLayoutCheck';layer.setAttribute('role','dialog');layer.setAttribute('aria-label','Device layout check');
+    layer.style.cssText='position:fixed!important;inset:0!important;z-index:2147483647!important;background:rgba(0,0,0,.94)!important;color:#fff!important;padding:calc(18px + env(safe-area-inset-top,0px)) 16px 16px!important;overflow:auto!important;font:13px/1.6 -apple-system,sans-serif!important;';
+    const title=document.createElement('h2');title.textContent='WishWave layout check';title.style.cssText='font-size:20px;margin:0 0 8px;color:#fff';layer.appendChild(title);
+    const hint=document.createElement('p');hint.textContent='Screenshot this panel to diagnose the bottom gap. These measurements stay on your device.';layer.appendChild(hint);
+    const pre=document.createElement('pre');pre.textContent=values.map(([k,v])=>k+': '+v).join('\n');pre.style.cssText='white-space:pre-wrap;font:12px/1.7 monospace;color:#fff;';layer.appendChild(pre);
+    const close=document.createElement('button');close.textContent='Close';close.style.cssText='padding:12px 24px;background:#fff;color:#000;border:0;border-radius:12px;font:inherit;';close.addEventListener('click',()=>layer.remove());layer.appendChild(close);document.body.appendChild(layer);
+  }
+  home.addEventListener('pointerdown',e=>{if(e.button!==0)return;cancel();startX=e.clientX;startY=e.clientY;hold=setTimeout(show,1500);},{passive:true});
+  home.addEventListener('pointermove',e=>{if(Math.abs(e.clientX-startX)+Math.abs(e.clientY-startY)>12)cancel();},{passive:true});
+  ['pointerup','pointercancel','lostpointercapture'].forEach(type=>home.addEventListener(type,cancel,{passive:true}));
+  window.addEventListener('pagehide',cancel,{passive:true});
 })();
 </script>
 </body>
