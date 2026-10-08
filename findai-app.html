@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v192-attention-stable-feed">
+<meta name="findai-build" content="v193-home-return-bottom-bar">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -5718,6 +5718,9 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     return;
   }
 
+  const loadingState=feedState;
+  const loadingController=feedRequestController;
+  const stillOwnsFeed=()=>feedState===loadingState&&!loadingController.signal.aborted;
   renderLoading();
   
   try{
@@ -5753,7 +5756,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
       if(next&&next.timeout)break;
       if(next&&next.value&&next.value.items&&next.value.items.length)early.push(next.value);
     }
-    if(feedState.source!=='personalised')return;
+    if(!stillOwnsFeed())return;
     if(!early.length){
       if(await v116RenderPersonalisedPreviewFallback()){feedState.loading=false;return;}
       $('#personalFeed').innerHTML='<div class="feed-status"><div><b>Fresh listings are temporarily unavailable</b>Try again in a moment.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
@@ -5771,7 +5774,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     // the first reel is already interactive while slower marketplaces finish.
     (async function(){
       const rest=await Promise.all(Array.from(pending).map(index=>lanePromises[index]));
-      if(feedState.source!=='personalised')return;
+      if(!stillOwnsFeed())return;
       const restLanes=rest.filter(entry=>entry&&entry.value&&entry.value.items&&entry.value.items.length).map(entry=>entry.value);
       const incoming=deferredEarly.concat(interleavePersonalised(restLanes,44));
       const fresh=sequencePersonalisedBatch(incoming,currentFeedItems,44);
@@ -5779,7 +5782,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
       else writePersonalisedCache();
     })().catch(()=>{});
   }catch(error){
-    if(error&&error.name==='AbortError') return;
+    if(!stillOwnsFeed()||(error&&error.name==='AbortError')) return;
     if(await v116RenderPersonalisedPreviewFallback()){if(feedState.source==='personalised')feedState.loading=false;return;}
     $('#personalFeed').innerHTML='<div class="feed-status"><div><b>Fresh listings are temporarily unavailable</b>Try again in a moment.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
     if(feedState.source==='personalised')feedState.loading=false;
@@ -5803,10 +5806,11 @@ async function backgroundRefreshPersonalisedFeed(){
     if(lane.hasMore||lane.variantIndex<lane.variants.length-1) chosen.push(lane);
   }
   if(!chosen.length) return;
+  const loadingState=feedState;
   feedState.loading=true;
   try{
     const settled=await Promise.allSettled(chosen.map(fetchPersonalisedLane));
-    if(feedState.source!=='personalised') return;
+    if(feedState!==loadingState||feedState.source!=='personalised') return;
     const incoming=interleavePersonalised(settled.filter(result=>result.status==='fulfilled').map(result=>result.value),20);
     const fresh=sequencePersonalisedBatch(incoming,currentFeedItems,20);
     if(!fresh.length) return;
@@ -5820,7 +5824,7 @@ async function backgroundRefreshPersonalisedFeed(){
       /* The timestamp prevents retry storms; the next normal refresh can try again. */
     }
   }finally{
-    if(feedState.source==='personalised') feedState.loading=false;
+    if(feedState===loadingState)feedState.loading=false;
   }
 }
 function refreshPersonalisedPresentationOnForeground(){
@@ -5863,11 +5867,12 @@ async function loadMorePersonalisedListings(){
     if(!chosen.length) return;
   }
   feedState.laneCursor=(start+Math.max(1,chosen.length))%lanes.length;
+  const loadingState=feedState;
   feedState.loading=true;
   showFeedLoader();
   try{
     const settled=await Promise.allSettled(chosen.map(fetchPersonalisedLane));
-    if(feedState.source!=='personalised') return;
+    if(feedState!==loadingState||feedState.source!=='personalised') return;
     const incoming=interleavePersonalised(settled.filter(result=>result.status==='fulfilled').map(result=>result.value),20);
     const fresh=sequencePersonalisedBatch(incoming,currentFeedItems,20);
     if(fresh.length){
@@ -5875,10 +5880,9 @@ async function loadMorePersonalisedListings(){
       writePersonalisedCache();
     }
   }catch(error){
-    if(!(error&&error.name==='AbortError')) feedState.noNewPages+=1;
+    if(feedState===loadingState&&!(error&&error.name==='AbortError')) feedState.noNewPages+=1;
   }finally{
-    hideFeedLoader();
-    if(feedState.source==='personalised') feedState.loading=false;
+    if(feedState===loadingState){hideFeedLoader();feedState.loading=false;}
   }
 }
 function showFeedHeader(){
@@ -9720,7 +9724,7 @@ function clearMobileSearchResults(){backToPremiumSearch();}
   renderAppChatDrawerRecents();
   openForYou();
 
-  setTimeout(()=>appHandleLaunchDeepLink().catch(()=>{}),90);
+  setTimeout(()=>{if(typeof appHandleLaunchDeepLink==='function')Promise.resolve(appHandleLaunchDeepLink()).catch(()=>{});},90);
   const later=(fn,delay)=>{
     if('requestIdleCallback' in window){requestIdleCallback(()=>{try{fn();}catch(_){}},{timeout:delay+900});}
     else setTimeout(()=>{try{fn();}catch(_){}},delay);
@@ -16336,7 +16340,10 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
       feed.dataset.v192ScrollBound='1';
       feed.addEventListener('scroll',()=>{feedLastScrollAt=performance.now();noteAttentionInput();},{passive:true});
     }
-    reelObserver=new IntersectionObserver(entries=>{
+    const observedState=feedState;
+    const initialScroll=feed.scrollTop;
+    const observer=new IntersectionObserver(entries=>{
+      if(reelObserver!==observer||feedState!==observedState||!feed.isConnected||!feed.getClientRects().length)return;
       tickAttention();
       for(const entry of entries)exposureRatios.set(entry.target,entry.isIntersecting?entry.intersectionRatio:0);
       let best=null,bestRatio=0;
@@ -16352,9 +16359,10 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
         try{haptic();}catch(_){}
       }else attention.ratio=bestRatio;
       const preloadDistance=feedState&&feedState.source==='personalised'?5:3;
-      if(index>=currentFeedItems.length-preloadDistance)loadMoreListings();
+      if(index>=currentFeedItems.length-preloadDistance&&Math.abs(feed.scrollTop-initialScroll)>4)loadMoreListings();
       if(feedState&&feedState.source==='personalised')preloadPersonalisedImages(index+1,3);
     },{root:feed,threshold:[0,.35,.52,.68,.78,.88,.96,1]});
+    reelObserver=observer;
     $$('.reel-card',feed).forEach(card=>reelObserver.observe(card));
   };
 
@@ -17298,10 +17306,7 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
       return;
     }
     if(tab==='discover'){
-      const feed=document.getElementById('personalFeed');if(feed)feed.scrollTo({top:0,behavior:'smooth'});
-      try{finaliseReelTracking()}catch(_){}
-      try{rotatePersonalisedSessionSeed()}catch(_){}
-      try{if(typeof loadPersonalisedFeed==='function')await loadPersonalisedFeed({forceNetwork:true});else openForYou();}catch(_){openForYou();}
+      openForYou();
       return;
     }
     if(tab==='messages'){
@@ -24616,7 +24621,8 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     currentFeedData=homeState.data;
     feedState=cloneFeedState(homeState.state);
     feedState.source='personalised';
-    activeReelIndex=homeState.active;
+    feedState.loading=false;
+    activeReelIndex=Math.max(0,Math.min(currentFeedItems.length-1,homeState.active));
     return true;
   }
 
@@ -24669,6 +24675,11 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     }
   },true);
 
+  document.addEventListener('click',event=>{
+    const button=event.target.closest&&event.target.closest('.premium-bottom-nav button[data-tab]');
+    if(button&&button.dataset.tab!=='discover'&&document.body.dataset.activeTab==='discover'&&!contextVisible())captureHome();
+  },true);
+
   /* Keep a lightweight up-to-date Home snapshot while Home is actually visible. */
   let snapshotTimer=0;
   function scheduleHomeSnapshot(){
@@ -24687,46 +24698,35 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
   setTimeout(captureHome,700);
   setTimeout(captureHome,1500);
 
+
+  let homeResumeFrame=0;
+  function resumeHome(){
+    if(homeResumeFrame)cancelAnimationFrame(homeResumeFrame);
+    finaliseReelTracking();
+    if(feedRequestController)feedRequestController.abort();
+    if(reelObserver)reelObserver.disconnect();
+    restoreHomeGlobals();
+    ensurePersonalisedController();
+    hideFeedLoader();
+    go('discover');
+    homeResumeFrame=requestAnimationFrame(()=>{
+      homeResumeFrame=0;
+      if(document.body.dataset.activeTab!=='discover'||contextVisible())return;
+      const feed=personalFeed();
+      if(!feed||!homeState)return;
+      feed.scrollTop=homeState.scroll||0;
+      attachReelObserver();
+      beginReelTracking(activeReelIndex);
+    });
+  }
+
   /* =========================================================
      2. HOME — no network refresh merely because the user taps Home.
      ========================================================= */
   window.openForYou=function(){
-    /* Search result reel -> actual Home. */
-    if(contextVisible()){
-      hideContextualReel();
-      restoreHomeGlobals();
-      ensurePersonalisedController();
-      go('discover');
-      try{setMainNavActive('discover');}catch(_){}
-      const feed=personalFeed();
-      if(feed&&homeState){
-        requestAnimationFrame(()=>{
-          feed.scrollTop=homeState.scroll||0;
-          try{
-            if(reelObserver)reelObserver.disconnect();
-            attachReelObserver();
-            beginReelTracking(activeReelIndex);
-          }catch(_){}
-        });
-      }
-      return;
-    }
-
-    /* Returning from Search / Messages / Profile. */
+    if(contextVisible())hideContextualReel();
     if(homeState&&personalFeed()?.querySelector('.reel-card')){
-      restoreHomeGlobals();
-      ensurePersonalisedController();
-      go('discover');
-      try{setMainNavActive('discover');}catch(_){}
-      requestAnimationFrame(()=>{
-        const feed=personalFeed();
-        if(feed)feed.scrollTop=homeState.scroll||0;
-        try{
-          if(reelObserver)reelObserver.disconnect();
-          attachReelObserver();
-          beginReelTracking(activeReelIndex);
-        }catch(_){}
-      });
+      resumeHome();
       return;
     }
 
@@ -28129,7 +28129,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
         try{
           if(String(document.body.dataset.activeTab||'')==='discover'&&!layerVisible()){
             if(String(feedState&&feedState.source||'')==='personalised')ensureController();
-            else if(!personalFeed()?.querySelector('.reel-card')){
+            else if(!feedState.loading&&!personalFeed()?.querySelector('.reel-card')){
               ensureController();
               loadPersonalisedFeed({forceNetwork:false});
             }
@@ -30011,12 +30011,12 @@ body>.nav.findai-five-nav.premium-bottom-nav,
 
 <style id="wishwave-v192-viewport-layout">
 :root{
-  --wishwave-tab-h:52px;
-  --wishwave-nav-safe:env(safe-area-inset-bottom,0px);
+  --wishwave-tab-h:48px;
+  --wishwave-nav-safe:max(0px,calc(env(safe-area-inset-bottom,0px) - 12px));
   --wishwave-nav-total:calc(var(--wishwave-tab-h) + var(--wishwave-nav-safe));
   --nav-h:var(--wishwave-tab-h);
   --premium-nav-h:var(--wishwave-tab-h);
-  --fa-nav-total:var(--wishwave-nav-total);
+  --fa-nav-total:var(--wishwave-nav-total)!important;
 }
 html body .app{
   position:fixed!important;inset:0!important;width:100%!important;
@@ -30034,6 +30034,12 @@ html body .app>.nav.findai-five-nav.premium-bottom-nav{
 html body .app>.nav.findai-five-nav.premium-bottom-nav button{
   height:var(--wishwave-tab-h)!important;min-height:var(--wishwave-tab-h)!important;
   max-height:var(--wishwave-tab-h)!important;align-self:start!important;transform:none!important;
+}
+html body .app>.nav.findai-five-nav.premium-bottom-nav .nav-icon-shell{
+  width:40px!important;height:40px!important;
+}
+html body .app>.nav.findai-five-nav.premium-bottom-nav button.active .nav-icon-shell{
+  width:44px!important;height:44px!important;
 }
 html body .app #discover.screen{position:relative!important;padding-bottom:0!important;}
 html body .app #discover .discover-feed-wrap{inset:0!important;height:auto!important;}
