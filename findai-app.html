@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v221-create-footer-layer">
+<meta name="findai-build" content="v222-keyboard-background-isolation">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -8508,7 +8508,9 @@ document.addEventListener('focusin',event=>{
   if(!event.target||!event.target.closest||!event.target.closest('#createListingScreen'))return;
   setTimeout(()=>{
     findaiSyncVisualViewport();
-    try{event.target.scrollIntoView({block:'center',inline:'nearest',behavior:'smooth'});}catch(_){}
+    // The form owns its scrolling; scrolling an input into the document can
+    // pan the installed iOS viewport and expose the reel behind the form.
+    window.wishwaveSyncKeyboardBackdrop?.();
   },120);
 });
 window.addEventListener('resize',findaiSyncVisualViewport,{passive:true});
@@ -32199,6 +32201,62 @@ html body.keyboard-open .app #createListingScreen .wishwave-listing-publish-foot
     }
     return previous?.(target)||null;
   };
+})();
+</script>
+
+
+<style id="wishwave-v222-keyboard-backdrop-style">
+#wishwaveKeyboardBackdrop{position:fixed!important;left:0!important;right:0!important;margin:0!important;pointer-events:none!important;z-index:2147483000!important;background:#08090b!important;contain:strict;}
+#wishwaveKeyboardBackdrop[hidden]{display:none!important;}
+html.findai-light #wishwaveKeyboardBackdrop{background:#f7f7f8!important;}
+</style>
+<script id="wishwave-v222-keyboard-backdrop">
+(function(){
+  const mask=document.createElement('div');mask.id='wishwaveKeyboardBackdrop';mask.hidden=true;mask.setAttribute('aria-hidden','true');document.body.appendChild(mask);
+  let baseline=0,frame=0,active=false,editing=false;
+  function editable(el){return !!el?.matches?.('textarea,[contenteditable="true"],input:not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="range"]):not([type="color"])');}
+  function layoutBottom(){return Math.max(innerHeight||0,document.documentElement.clientHeight||0,document.querySelector('.app')?.getBoundingClientRect().bottom||0,typeof findaiStableViewportHeight==='number'?findaiStableViewportHeight:0);}
+  function keepCreateFieldVisible(){
+    const field=document.activeElement,root=document.getElementById('createListingScreen');
+    if(!editable(field)||!root?.classList.contains('show')||!root.contains(field))return;
+    const scroll=root.querySelector('.marketplace-scroll');if(!scroll)return;
+    const box=field.getBoundingClientRect(),wrap=scroll.getBoundingClientRect();
+    if(!wrap.height)return;
+    const bottom=wrap.bottom-16,top=wrap.top+16;
+    if(box.bottom>bottom)scroll.scrollTop+=box.bottom-bottom;
+    else if(box.top<top)scroll.scrollTop-=top-box.top;
+  }
+  function sync(){
+    frame=0;const vv=window.visualViewport;
+    if(!vv){mask.hidden=true;return;}
+    const height=Math.max(0,vv.height),top=Math.max(0,vv.offsetTop||0),focused=editable(document.activeElement);
+    // A pinch changes the visual viewport too; it is not a keyboard opening.
+    if((vv.scale||1)>1.05){mask.hidden=true;return;}
+    const full=layoutBottom();
+    if(!active&&!editing&&!focused)baseline=full;
+    baseline=Math.max(baseline,full,height+top);
+    const occluded=Math.max(0,baseline-height-top);
+    const keyboard=(focused||editing||active)&&occluded>120;
+    active=keyboard;
+    if(keyboard){
+      mask.style.top=Math.round(height+top)+'px';mask.style.height=Math.ceil(occluded)+'px';mask.hidden=false;
+      keepCreateFieldVisible();
+    }else{
+      mask.hidden=true;mask.style.removeProperty('top');mask.style.removeProperty('height');
+      if(!focused){editing=false;baseline=full;}
+    }
+  }
+  function schedule(){if(!frame)frame=requestAnimationFrame(sync);}
+  window.wishwaveSyncKeyboardBackdrop=sync;
+  document.addEventListener('focusin',e=>{if(editable(e.target)){if(!active)baseline=Math.max(baseline,layoutBottom());editing=true;sync();}});
+  document.addEventListener('focusout',schedule);
+  window.visualViewport?.addEventListener('resize',schedule,{passive:true});
+  window.visualViewport?.addEventListener('scroll',schedule,{passive:true});
+  window.addEventListener('resize',schedule,{passive:true});
+  window.addEventListener('orientationchange',()=>{baseline=0;schedule();},{passive:true});
+  window.addEventListener('pageshow',schedule,{passive:true});
+  window.addEventListener('pagehide',()=>{mask.hidden=true;active=false;editing=false;baseline=0;cancelAnimationFrame(frame);frame=0;},{passive:true});
+  sync();
 })();
 </script>
 
