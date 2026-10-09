@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v223-live-listing-preview">
+<meta name="findai-build" content="v224-compact-create-editor">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -3638,6 +3638,20 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
           <div class="wishwave-draft-reel"></div><span class="wishwave-draft-badge">Draft preview</span>
           <button class="wishwave-draft-expand" type="button" onclick="wishwaveSetCreateMode('preview')" aria-label="Expand listing preview">⤢</button>
         </div></div>
+        <div class="wishwave-listing-details">
+          <label class="marketplace-field"><span>Title</span><input id="listingItemName" maxlength="120" autocomplete="off" placeholder="What are you selling?" required></label>
+          <label class="marketplace-field wishwave-listing-price"><span>Asking price</span><div class="price-input-wrap"><input id="listingPrice" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" required></div></label>
+          <label class="marketplace-field"><span>Description</span><textarea id="listingItemDescription" maxlength="2000" placeholder="Describe the item, its condition and what’s included." required></textarea></label>
+          <fieldset class="marketplace-field marketplace-fieldset">
+            <legend>Condition</legend>
+            <div class="condition-options" role="radiogroup" aria-label="Item condition">
+              <button class="condition-option active" type="button" data-condition="New" onclick="selectListingCondition('New')">New</button>
+              <button class="condition-option" type="button" data-condition="Used" onclick="selectListingCondition('Used')">Used</button>
+              <button class="condition-option" type="button" data-condition="New (Other)" onclick="selectListingCondition('New (Other)')">New (Other)</button>
+            </div>
+            <input id="listingCondition" type="hidden" value="New">
+          </fieldset>
+        </div>
         <div class="wishwave-listing-photos">
           <div class="wishwave-listing-photo-head"><span>Photos</span><span id="listingPhotoCount">0/6</span></div>
           <div class="wishwave-listing-photo-rail" data-horizontal-scroll="true">
@@ -3649,20 +3663,6 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
           </div>
           <input id="listingImageInput" type="file" accept="image/*" multiple hidden onchange="listingImagesPicked(event)">
           <p class="wishwave-listing-photo-tip">Your first photo is the cover. Add up to 6.</p>
-        </div>
-        <div class="wishwave-listing-details">
-          <label class="marketplace-field"><span>Title</span><input id="listingItemName" maxlength="120" autocomplete="off" placeholder="What are you selling?" required></label>
-          <label class="marketplace-field"><span>Description</span><textarea id="listingItemDescription" maxlength="2000" placeholder="Describe the item, its condition and what’s included." required></textarea></label>
-          <fieldset class="marketplace-field marketplace-fieldset">
-            <legend>Condition</legend>
-            <div class="condition-options" role="radiogroup" aria-label="Item condition">
-              <button class="condition-option active" type="button" data-condition="New" onclick="selectListingCondition('New')">New</button>
-              <button class="condition-option" type="button" data-condition="Used" onclick="selectListingCondition('Used')">Used</button>
-              <button class="condition-option" type="button" data-condition="New (Other)" onclick="selectListingCondition('New (Other)')">New (Other)</button>
-            </div>
-            <input id="listingCondition" type="hidden" value="New">
-          </fieldset>
-          <label class="marketplace-field wishwave-listing-price"><span>Asking price</span><div class="price-input-wrap"><input id="listingPrice" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" required></div></label>
         </div>
       </form>
     </div>
@@ -32364,6 +32364,34 @@ html.findai-light #createListingScreen .wishwave-create-mode button[aria-pressed
   window.wishwaveSyncCreatePreview(true);
 })();
 </script>
+
+
+<style id="wishwave-v224-compact-create">
+/* Keep Edit useful before there are photos; the full Preview retains its own sizing. */
+#createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-preview{height:180px;max-height:28vh;}
+#createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-preview:has(.wishwave-draft-empty){height:88px;max-height:none;border:1px dashed #ffffff28;}
+#createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-preview:has(.wishwave-draft-empty) .product-panel,
+#createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-preview:has(.wishwave-draft-empty) .wishwave-draft-badge,
+#createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-preview:has(.wishwave-draft-empty) .wishwave-draft-expand{display:none!important;}
+#createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-empty{padding:0;gap:5px;font-size:12px;}
+#createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-empty span{font-size:25px;}
+#createListingScreen:not(.preview-mode):has(.wishwave-draft-empty) .wishwave-listing-photos{display:none;}
+#createListingScreen .marketplace-form{gap:12px!important;}
+#createListingScreen .wishwave-listing-details>.marketplace-field{padding:12px 14px!important;gap:5px!important;}
+#createListingScreen .marketplace-field textarea{min-height:52px!important;}
+#createListingScreen .wishwave-listing-photo-head{margin-bottom:8px;}
+#createListingScreen .listing-image-preview{width:66px!important;min-width:66px!important;height:72px!important;border-radius:10px!important;}
+#createListingScreen .listing-image-picker{width:64px!important;min-width:64px!important;flex-basis:64px!important;min-height:72px!important;height:72px!important;border-radius:10px!important;padding:6px!important;gap:4px!important;}
+#createListingScreen .listing-image-picker svg{width:21px!important;height:21px!important;}
+#createListingScreen .listing-image-picker b{font-size:10px!important;}
+#createListingScreen .wishwave-listing-photo-slot{height:72px;width:44px;border-radius:10px;}
+#createListingScreen .wishwave-listing-photo-tip{margin-top:6px;font-size:10px;}
+#createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-reel .product-panel{padding:38px 14px 24px!important;}
+#createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-reel .title{font-size:15px!important;}
+#createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-reel .price{font-size:22px!important;}
+#createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-description{display:none;}
+html.findai-light #createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-preview:has(.wishwave-draft-empty){border-color:#c9cdd5;}
+</style>
 
 </body>
 </html>
