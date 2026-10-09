@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v224-compact-create-editor">
+<meta name="findai-build" content="v225-photo-canvas-real-reel">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -3635,23 +3635,9 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
     <div class="marketplace-scroll">
       <form class="marketplace-form" id="createListingForm" onsubmit="return submitCreateListing(event)">
         <div id="wishwaveCreateCompactSlot"><div id="wishwaveDraftPreview" class="wishwave-draft-preview" aria-label="Live listing preview">
-          <div class="wishwave-draft-reel"></div><span class="wishwave-draft-badge">Draft preview</span>
+          <div class="wishwave-draft-reel"></div><span class="wishwave-draft-badge">Live preview</span>
           <button class="wishwave-draft-expand" type="button" onclick="wishwaveSetCreateMode('preview')" aria-label="Expand listing preview">⤢</button>
         </div></div>
-        <div class="wishwave-listing-details">
-          <label class="marketplace-field"><span>Title</span><input id="listingItemName" maxlength="120" autocomplete="off" placeholder="What are you selling?" required></label>
-          <label class="marketplace-field wishwave-listing-price"><span>Asking price</span><div class="price-input-wrap"><input id="listingPrice" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" required></div></label>
-          <label class="marketplace-field"><span>Description</span><textarea id="listingItemDescription" maxlength="2000" placeholder="Describe the item, its condition and what’s included." required></textarea></label>
-          <fieldset class="marketplace-field marketplace-fieldset">
-            <legend>Condition</legend>
-            <div class="condition-options" role="radiogroup" aria-label="Item condition">
-              <button class="condition-option active" type="button" data-condition="New" onclick="selectListingCondition('New')">New</button>
-              <button class="condition-option" type="button" data-condition="Used" onclick="selectListingCondition('Used')">Used</button>
-              <button class="condition-option" type="button" data-condition="New (Other)" onclick="selectListingCondition('New (Other)')">New (Other)</button>
-            </div>
-            <input id="listingCondition" type="hidden" value="New">
-          </fieldset>
-        </div>
         <div class="wishwave-listing-photos">
           <div class="wishwave-listing-photo-head"><span>Photos</span><span id="listingPhotoCount">0/6</span></div>
           <div class="wishwave-listing-photo-rail" data-horizontal-scroll="true">
@@ -3663,6 +3649,21 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
           </div>
           <input id="listingImageInput" type="file" accept="image/*" multiple hidden onchange="listingImagesPicked(event)">
           <p class="wishwave-listing-photo-tip">Your first photo is the cover. Add up to 6.</p>
+        </div>
+        <div class="wishwave-listing-details">
+          <label class="marketplace-field"><span>Title</span><input id="listingItemName" maxlength="120" autocomplete="off" placeholder="What are you selling?" required></label>
+          <label class="marketplace-field wishwave-listing-price"><span>Asking price</span><div class="price-input-wrap"><input id="listingPrice" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" required></div></label>
+          <fieldset class="marketplace-field marketplace-fieldset">
+            <legend>Condition</legend>
+            <div class="condition-options" role="radiogroup" aria-label="Item condition">
+              <button class="condition-option active" type="button" data-condition="New" onclick="selectListingCondition('New')">New</button>
+              <button class="condition-option" type="button" data-condition="Used" onclick="selectListingCondition('Used')">Used</button>
+              <button class="condition-option" type="button" data-condition="New (Other)" onclick="selectListingCondition('New (Other)')">New (Other)</button>
+            </div>
+            <input id="listingCondition" type="hidden" value="New">
+          </fieldset>
+          <label class="marketplace-field"><span>Description</span><textarea id="listingItemDescription" maxlength="2000" placeholder="Describe the item, its condition and what’s included." required></textarea></label>
+
         </div>
       </form>
     </div>
@@ -32282,7 +32283,7 @@ html body .app #createListingScreen .marketplace-scroll{padding-top:14px!importa
 #createListingScreen .wishwave-draft-track{display:flex;height:100%;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;}
 #createListingScreen .wishwave-draft-track::-webkit-scrollbar{display:none;}
 #createListingScreen .wishwave-draft-track>.reel-gallery-slide{flex:0 0 100%;width:100%;height:100%;position:relative;scroll-snap-align:center;}
-#createListingScreen .wishwave-draft-track img{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-height:none!important;object-fit:contain!important;transform:none!important;}
+#createListingScreen .wishwave-draft-track img{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-height:none!important;object-fit:contain!important;transform:none!important;padding:0!important;}
 #createListingScreen .wishwave-draft-reel .product-panel{position:absolute!important;left:0!important;right:0!important;bottom:0!important;width:100%!important;margin:0!important;padding:60px 18px 30px!important;background:linear-gradient(transparent,#000c)!important;pointer-events:none;color:#fff!important;}
 #createListingScreen .wishwave-draft-reel .title{font-size:17px!important;line-height:1.2!important;margin:5px 0!important;color:#fff!important;}
 #createListingScreen .wishwave-draft-reel .price{font-size:25px!important;color:#fff!important;}
@@ -32318,7 +32319,7 @@ html.findai-light #createListingScreen .wishwave-create-mode button[aria-pressed
   const root=document.getElementById('createListingScreen'),preview=document.getElementById('wishwaveDraftPreview'),host=preview.querySelector('.wishwave-draft-reel');
   let photoIndex=0,editScroll=0;
   const value=id=>String(document.getElementById(id)?.value||'').trim();
-  function draft(){return {itemId:'wishwave-unpublished-draft',marketplaceListingId:'wishwave-unpublished-draft',_findaiMarketplace:true,source:'wishwave',title:value('listingItemName')||'Your listing title',description:value('listingItemDescription'),price:Number(value('listingPrice'))||0,currency:window.findaiV137Prefs?.().currency||'AUD',condition:value('listingCondition'),images:[],sellerName:getAccountProfile()?.name||'You'};}
+  function draft(){return {itemId:'wishwave-unpublished-draft',marketplaceListingId:'wishwave-unpublished-draft',_findaiMarketplace:true,source:'wishwave',title:value('listingItemName')||'Your listing title',description:value('listingItemDescription'),price:Number(value('listingPrice'))||0,currency:window.findaiV137Prefs?.().currency||'AUD',condition:value('listingCondition'),images:[],sellerName:getAccountProfile()?.name||'You',sellerUsername:getAccountProfile()?.username||'',sellerAvatar:getAccountProfile()?.avatar||''};}
   function updateText(){
     const item=draft();host.querySelector('.title').textContent=item.title;
     host.querySelector('.price').textContent=item.price>0?money(item.price,item.currency).replace(/\s+(AUD|USD|NZD|CAD|GBP|EUR)$/,''):'$—';
@@ -32333,11 +32334,11 @@ html.findai-light #createListingScreen .wishwave-create-mode button[aria-pressed
       card.removeAttribute('role');card.removeAttribute('tabindex');card.removeAttribute('data-index');card.removeAttribute('data-recommendation-key');
       card.querySelectorAll('*').forEach(el=>{for(const attr of [...el.attributes])if(attr.name.startsWith('on'))el.removeAttribute(attr.name);});
       card.removeAttribute('onclick');card.removeAttribute('onkeydown');
-      card.querySelectorAll('.reel-social-label,.listing-meta,.wishwave-reel-brand,.reel-seller-row,.wishwave-reel-seller,.first-market-strip').forEach(el=>el.remove());
-      card.querySelectorAll('.reel-social-action').forEach(el=>{el.disabled=true;el.tabIndex=-1;el.setAttribute('aria-hidden','true');});
-      const stage=card.querySelector('.reel-gallery-stage');stage.className='wishwave-draft-gallery';stage.replaceChildren();stage.setAttribute('data-horizontal-scroll','true');
+      card.querySelectorAll('.reel-social-label,.listing-meta,.first-market-strip').forEach(el=>el.remove());
+      card.querySelectorAll('.reel-social-action,.reel-seller-row').forEach(el=>{el.disabled=true;el.tabIndex=-1;el.setAttribute('aria-hidden','true');});
+      const stage=card.querySelector('.reel-gallery-stage');stage.className='hero-stage wishwave-draft-gallery';stage.replaceChildren();stage.setAttribute('data-horizontal-scroll','true');
       const track=document.createElement('div');track.className='wishwave-draft-track';track.setAttribute('data-horizontal-scroll','true');
-      for(const src of pendingListingImages){const slide=document.createElement('div');slide.className='reel-gallery-slide';const img=document.createElement('img');img.src=src;img.alt='Draft photo '+(track.children.length+1);img.decoding='async';slide.appendChild(img);track.appendChild(slide);}
+      for(const src of pendingListingImages){const slide=document.createElement('div');slide.className='reel-gallery-slide';const img=document.createElement('img');img.className='hero-image fit-contain';img.src=src;img.alt='Draft photo '+(track.children.length+1);img.decoding='async';slide.appendChild(img);track.appendChild(slide);}
       if(!pendingListingImages.length){const add=document.createElement('button');add.type='button';add.className='wishwave-draft-empty';add.innerHTML='<span>＋</span>Add photos to preview your reel';add.onclick=()=>document.getElementById('listingImageInput').click();track.appendChild(add);}
       stage.appendChild(track);photoIndex=Math.min(photoIndex,Math.max(0,pendingListingImages.length-1));const dots=document.createElement('div');dots.className='wishwave-draft-dots';dots.innerHTML=pendingListingImages.length>1?pendingListingImages.map((_,i)=>'<i class="'+(i===photoIndex?'active':'')+'"></i>').join(''):'';card.appendChild(dots);
       const desc=document.createElement('div');desc.className='wishwave-draft-description';card.querySelector('.product-panel').appendChild(desc);
@@ -32391,6 +32392,127 @@ html.findai-light #createListingScreen .wishwave-create-mode button[aria-pressed
 #createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-reel .price{font-size:22px!important;}
 #createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-description{display:none;}
 html.findai-light #createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-preview:has(.wishwave-draft-empty){border-color:#c9cdd5;}
+</style>
+
+
+<style id="wishwave-v225-photo-canvas">
+/* Photo-first editor, with its thumbnails directly under the live canvas. */
+html body .app #createListingScreen:not(.preview-mode) .marketplace-scroll{padding:12px 16px 16px!important;}
+#createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-preview{height:270px;max-height:36vh;border-radius:13px;}
+#createListingScreen .wishwave-listing-photo-head,#createListingScreen .wishwave-listing-photo-tip{display:none;}
+#createListingScreen .wishwave-listing-details>.marketplace-field{display:grid!important;grid-template-columns:74px minmax(0,1fr);align-items:center;padding:11px 13px!important;gap:8px!important;}
+#createListingScreen .marketplace-field>span{font-size:12px!important;font-weight:500!important;}
+#createListingScreen .marketplace-field legend{float:none;width:auto;margin:0!important;grid-column:1;}
+#createListingScreen .condition-options{grid-column:2;clear:none;gap:5px!important;}
+#createListingScreen .condition-option{font-size:10px!important;height:34px!important;min-height:34px!important;border-radius:18px!important;}
+#createListingScreen .marketplace-field textarea{min-height:46px!important;font-size:16px!important;}
+html body .app #createListingScreen .price-input-wrap input{font-size:16px!important;letter-spacing:0;height:27px!important;padding-left:28px!important;}
+#createListingScreen .price-input-wrap:before{font-size:16px!important;}
+#createListingScreen #wishwaveCreateCompactSlot .wishwave-reel-brand,
+#createListingScreen #wishwaveCreateCompactSlot .reel-seller-row{display:none!important;}
+#createListingScreen .wishwave-draft-description{display:none!important;}
+/* Exact Home image treatment. */
+#createListingScreen.preview-mode .wishwave-draft-reel .hero-stage{
+  position:absolute!important;inset:0!important;overflow:hidden!important;background:var(--hero-fill,#0a0b0d)!important;
+}
+#createListingScreen.preview-mode .wishwave-draft-reel .hero-stage::after{
+  content:""!important;position:absolute!important;inset:0!important;z-index:2!important;pointer-events:none!important;
+  background:linear-gradient(180deg,rgba(5,6,7,.34) 0%,rgba(5,6,7,0) 17%,rgba(5,6,7,0) 60%,rgba(5,6,7,.30) 80%,rgba(5,6,7,.90) 100%)!important;
+}
+#createListingScreen.preview-mode .wishwave-draft-reel .hero-stage.fill-light::after{
+  background:linear-gradient(180deg,rgba(5,6,7,.10) 0%,rgba(5,6,7,0) 14%,rgba(5,6,7,0) 66%,rgba(0,0,0,.06) 82%,rgba(0,0,0,.14) 100%)!important;
+}
+#createListingScreen.preview-mode .wishwave-draft-reel .hero-image,
+#createListingScreen.preview-mode .wishwave-draft-reel .reel-gallery-slide .hero-image{
+  position:absolute!important;top:50%!important;left:50%!important;z-index:1!important;
+  width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;
+  transform:translate(-50%,-50%)!important;object-fit:contain!important;object-position:center center!important;
+  padding:0!important;filter:none!important;-webkit-mask-image:none!important;mask-image:none!important;
+}
+
+/* Exact Home information hierarchy. */
+#createListingScreen.preview-mode .wishwave-draft-reel .product-panel{
+  position:absolute!important;left:0!important;right:0!important;bottom:0!important;z-index:4!important;
+  padding:64px 17px calc(var(--wishwave-tab-h) + env(safe-area-inset-bottom,0px) + 10px)!important;
+  box-sizing:border-box!important;
+  background:linear-gradient(180deg,rgba(5,6,7,0) 0%,rgba(5,6,7,.26) 27%,rgba(5,6,7,.73) 58%,rgba(5,6,7,.94) 80%,rgba(5,6,7,.98) 100%)!important;
+}
+#createListingScreen.preview-mode .wishwave-draft-reel .source-chip{
+  position:static!important;display:flex!important;width:max-content!important;max-width:88%!important;
+  min-height:0!important;margin:0 0 10px!important;padding:0!important;gap:7px!important;
+  border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;
+  backdrop-filter:none!important;-webkit-backdrop-filter:none!important;color:#fff!important;
+  font-size:20px!important;line-height:1!important;overflow:visible!important;text-overflow:clip!important;
+}
+#createListingScreen.preview-mode .wishwave-draft-reel .source-chip .source-brand{
+  font-size:20px!important;font-weight:800!important;letter-spacing:-.3px!important;color:#fff!important;
+  text-shadow:0 1px 6px rgba(0,0,0,.55)!important;
+}
+#createListingScreen.preview-mode .wishwave-draft-reel .source-chip .retailer-source{display:inline-flex!important;align-items:center!important;gap:6px!important}
+#createListingScreen.preview-mode .wishwave-draft-reel .source-chip .retailer-source-logo{width:18px!important;height:18px!important;object-fit:contain!important;border-radius:3px!important}
+#createListingScreen.preview-mode .wishwave-draft-reel .source-chip .retailer-source-name{font-weight:800!important;color:#fff!important}
+#createListingScreen.preview-mode .wishwave-draft-reel .source-chip .ebay-logo{height:24px!important;width:auto!important;display:block!important;object-fit:contain!important;filter:drop-shadow(0 1px 5px rgba(0,0,0,.35))!important}
+#createListingScreen.preview-mode .wishwave-draft-reel .title{
+  margin:0!important;max-width:calc(100% - 58px)!important;color:#f7f8fa!important;
+  font-size:18.5px!important;font-weight:520!important;line-height:1.1!important;letter-spacing:-.35px!important;
+  display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important;
+}
+#createListingScreen.preview-mode .wishwave-draft-reel .price-action-row{margin-top:9px!important;gap:10px!important}
+#createListingScreen.preview-mode .wishwave-draft-reel .listing-price-copy{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:3px!important;min-width:0!important;flex:1!important}
+#createListingScreen.preview-mode .wishwave-draft-reel .price-line{display:flex!important;align-items:baseline!important;gap:10px!important;flex-wrap:wrap!important}
+#createListingScreen.preview-mode .wishwave-draft-reel .price{font-size:25px!important;font-weight:620!important;line-height:.98!important;letter-spacing:-.6px!important;white-space:nowrap!important}
+#createListingScreen.preview-mode .wishwave-draft-reel .condition-badge{
+  color:#fff!important;font-size:14px!important;font-weight:750!important;letter-spacing:-.2px!important;
+  line-height:1.15!important;text-shadow:0 1px 5px rgba(0,0,0,.6)!important;white-space:nowrap!important;
+}
+#createListingScreen.preview-mode .wishwave-draft-reel .listing-meta{margin-top:2px!important;color:#aab0b9!important;font-size:11px!important;font-weight:500!important}
+
+/* Exact Home social rail: glyphs only — no Search-detail circles/plates. */
+#createListingScreen.preview-mode .wishwave-draft-reel .reel-actions-rail{
+  position:absolute!important;right:10px!important;bottom:calc(var(--wishwave-tab-h) + env(safe-area-inset-bottom,0px) + 8px)!important;
+  z-index:12!important;display:flex!important;flex-direction:column!important;align-items:center!important;gap:13px!important;
+}
+#createListingScreen.preview-mode .wishwave-draft-reel button.reel-social-action{
+  -webkit-appearance:none!important;appearance:none!important;-webkit-tap-highlight-color:transparent!important;
+  width:50px!important;min-height:53px!important;padding:0!important;border:0!important;border-radius:0!important;
+  background:transparent!important;background-image:none!important;box-shadow:none!important;outline:0!important;
+  color:#fff!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:4px!important;
+  text-shadow:0 1px 7px rgba(0,0,0,.8)!important;
+}
+#createListingScreen.preview-mode .wishwave-draft-reel .reel-social-icon,
+#createListingScreen.preview-mode .wishwave-draft-reel .reel-social-action.like .reel-social-icon,
+#createListingScreen.preview-mode .wishwave-draft-reel .reel-social-action.like.active .reel-social-icon{
+  width:auto!important;height:auto!important;min-width:0!important;min-height:0!important;
+  border:0!important;border-radius:0!important;background:transparent!important;background-image:none!important;
+  box-shadow:none!important;outline:0!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+  display:grid!important;place-items:center!important;overflow:visible!important;
+}
+#createListingScreen.preview-mode .wishwave-draft-reel .reel-social-icon::before,
+#createListingScreen.preview-mode .wishwave-draft-reel .reel-social-icon::after,
+#createListingScreen.preview-mode .wishwave-draft-reel button.reel-social-action::before,
+#createListingScreen.preview-mode .wishwave-draft-reel button.reel-social-action::after{content:none!important;display:none!important}
+#createListingScreen.preview-mode .wishwave-draft-reel .reel-social-action svg{
+  width:29px!important;height:29px!important;color:#fff!important;
+  filter:drop-shadow(0 1px 4px rgba(0,0,0,.55)) drop-shadow(0 2px 10px rgba(0,0,0,.4))!important;
+}
+#createListingScreen.preview-mode .wishwave-draft-reel .reel-social-action.comment .reel-social-icon svg{width:28px!important;height:28px!important}
+#createListingScreen.preview-mode .wishwave-draft-reel .reel-social-label{
+  color:#fff!important;text-shadow:0 1px 5px rgba(0,0,0,.7)!important;font-size:9.5px!important;font-weight:700!important;line-height:1!important;
+}
+#createListingScreen.preview-mode .wishwave-draft-reel .reel-like-count,
+#createListingScreen.preview-mode .wishwave-draft-reel .reel-comment-count{font-size:12px!important;line-height:1!important;font-weight:820!important}
+#createListingScreen.preview-mode .wishwave-draft-reel .reel-social-action.like.active svg{color:#ff3045!important;fill:#ff3045!important;stroke:#ff3045!important}
+
+
+/* The preview footer takes the place of the published reel's navigation bar. */
+#createListingScreen.preview-mode .wishwave-draft-reel .product-panel{padding-bottom:24px!important;padding-right:64px!important;}
+#createListingScreen.preview-mode .wishwave-draft-reel .reel-actions-rail{bottom:26px!important;opacity:1;}
+#createListingScreen.preview-mode .wishwave-draft-reel .wishwave-reel-brand{color:white!important;}
+#createListingScreen.preview-mode .wishwave-draft-reel .reel-seller-row{pointer-events:none;color:white!important;}
+#createListingScreen.preview-mode .wishwave-draft-reel .reel-seller-row .reel-seller-avatar img{position:static!important;width:100%!important;height:100%!important;object-fit:cover!important;transform:none!important;}
+#createListingScreen.preview-mode .wishwave-draft-dots{bottom:auto;top:69%;z-index:5;}
+#createListingScreen .wishwave-back-edit{padding:7px 12px;margin:8px 16px;}
+@media(max-width:360px){#createListingScreen .wishwave-listing-details>.marketplace-field{grid-template-columns:66px minmax(0,1fr);}#createListingScreen .condition-option{font-size:9px!important;}}
 </style>
 
 </body>
