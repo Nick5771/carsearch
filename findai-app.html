@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v217-search-submit-feedback">
+<meta name="findai-build" content="v218-taste-relevance-liked-reels">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -3791,7 +3791,7 @@ const MAX_INTERESTS = 40;
 const PERSONALISED_INTEREST_LIMIT = 6;
 const PERSONALISED_LANE_LIMIT = 8;
 const PERSONALISED_LOAD_MORE_LANES = 3;
-const PERSONALISED_CACHE_KEY = 'fa_personalised_feed_cache_v10';
+const PERSONALISED_CACHE_KEY = 'fa_personalised_feed_cache_v11';
 const PERSONALISED_CACHE_TTL = 10 * 60 * 1000;
 const PERSONALISED_CACHE_STALE_TTL = 24 * 60 * 60 * 1000;
 const PERSONALISED_REQUEST_BUDGET_KEY = 'fa_personalised_request_count_v1';
@@ -3799,7 +3799,7 @@ const PERSONALISED_SESSION_REQUEST_BUDGET = 5000;
 const PERSONALISED_SEEN_KEY = 'fa_personalised_seen_v1';
 const PERSONALISED_SEEN_TTL = 14 * 24 * 60 * 60 * 1000;
 const PERSONALISED_SEEN_LIMIT = 300;
-const PERSONALISED_LANE_STATE_KEY = 'fa_personalised_lane_state_v2';
+const PERSONALISED_LANE_STATE_KEY = 'fa_personalised_lane_state_v3';
 const PERSONALISED_LANE_STATE_TTL = 12 * 60 * 60 * 1000;
 const PERSONALISED_LAST_REFRESH_KEY = 'fa_personalised_last_refresh_v1';
 const PERSONALISED_BACKGROUND_REFRESH_TTL = 10 * 60 * 1000;
@@ -4815,7 +4815,7 @@ function personalisedSeenPenalty(item){
 function personalisedItemScore(item,query,scope=''){
   const relevance=listingRelevanceScore(item,query);
   const jitter=(seededUnit(personalisedSessionSeed,`${scope}|${listingKey(item)}`)-.5)*7;
-  const featuredBoost=(item&&item._interestFeatured)?60:0;
+  const featuredBoost=0;
   return relevance-personalisedSeenPenalty(item)+jitter+featuredBoost;
 }
 
@@ -5165,7 +5165,20 @@ function bootstrapInterestProfile(){
 function scoredInterests(limit=PERSONALISED_INTEREST_LIMIT){
   bootstrapInterestProfile();
   const now=Date.now();
-  const profile=getInterestProfile().map(item=>{
+  const savedGroups=new Map();
+  for(const item of getTracked().slice(0,120)){
+    if(!item?.title)continue;
+    const query=deriveDiscoveryQuery(item.title)||item.title,category=interestCategory(query),cluster=interestClusterKey(query,category);
+    const old=savedGroups.get(cluster);
+    if(old)old.count++;else savedGroups.set(cluster,{query,discoveryQuery:query,category,cluster,count:1});
+  }
+  const combined=getInterestProfile().map(item=>({...item}));
+  for(const saved of savedGroups.values()){
+    const baseline=Math.min(40,10+saved.count*4),old=combined.find(item=>item.cluster===saved.cluster);
+    if(old){old.weight=Math.max(Number(old.weight)||0,baseline);old._savedAffinity=true;}
+    else combined.push({...saved,id:'saved_'+saved.cluster,weight:baseline,lastAt:now,events:{},_savedAffinity:true});
+  }
+  const profile=combined.map(item=>{
     const ageDays=Math.max(0,(now-(Number(item.lastAt)||now))/86400000);
     const decay=Math.pow(.5,ageDays/45);
     const weight=Number(item.weight)||0;
@@ -5184,17 +5197,19 @@ function scoredInterests(limit=PERSONALISED_INTEREST_LIMIT){
   if(strength>=45)personalTarget=Math.min(3,limit-1);
   if(strength>=90)personalTarget=Math.max(1,limit-1);
 
+  const hasIntent=profile.some(item=>item._savedAffinity||['search','like','scan','track','tracker'].some(name=>Number(item.events?.[name])>0));
+  if(hasIntent)personalTarget=Math.max(1,limit-1);
   const personal=[];const categoryCounts=new Map();
   for(const interest of profile){
     if(personal.length>=personalTarget)break;
     const category=interest.category||interestCategory(interest.query);
     const count=Number(categoryCounts.get(category)||0);
-    if(count>=2)continue; // preserve taste breadth without banning two strong sneaker/LEGO interests
+    if(count>=Math.max(2,limit-1))continue; // Distinct preferences within one category remain useful.
     personal.push(interest);categoryCounts.set(category,count+1);
   }
   const discoverySelected=[];
   for(const starter of discovery){
-    if(discoverySelected.length>=Math.max(0,limit-personal.length))break;
+    if(discoverySelected.length>=(hasIntent&&personal.length?1:Math.max(0,limit-personal.length)))break;
     if(personal.some(item=>item.cluster===starter.cluster)||discoverySelected.some(item=>item.cluster===starter.cluster))continue;
     if(personal.some(item=>item.category===starter.category)||discoverySelected.some(item=>item.category===starter.category))continue;
     discoverySelected.push(starter);
@@ -5224,7 +5239,7 @@ function interestQueryVariants(interest){
     return [...new Set([interest.discoveryQuery,interest.query].map(value=>String(value||'').trim()).filter(Boolean))];
   }
   const categoryVariants=CATEGORY_EXPLORATION_QUERIES[category]||CATEGORY_EXPLORATION_QUERIES.other;
-  return [...new Set([interest.discoveryQuery,interest.query,...categoryVariants].map(value=>String(value||'').trim()).filter(Boolean))];
+  return [...new Set([interest._prioritySearch?interest.query:interest.discoveryQuery,interest.query].map(value=>String(value||'').trim()).filter(Boolean))];
 }
 function recommendationFamilyKey(item){
   const title=String(item&&item.title||'');
@@ -5239,7 +5254,7 @@ function recommendationFamilyKey(item){
 function newPersonalisedLane(interest){
   const variants=interestQueryVariants(interest);
   const cluster=interest.cluster||interestClusterKey(interest.query);
-  const variantIndex=interest._prioritySearch?0:(variants.length?Math.floor(seededUnit(personalisedSessionSeed,`variant:${cluster}`)*variants.length):0);
+  const variantIndex=0;
   return {
     id:interest.id||interest.cluster,
     originalQuery:interest.query,
@@ -5367,7 +5382,12 @@ function writePersonalisedCache(){
 function preparePersonalisedLaneItems(raw,lane){
   /* Keep AliExpress out of the main For You feed (quality/brand consistency).
      It can still appear in explicit search/tracker results elsewhere. */
-  const valid=(Array.isArray(raw)?raw:[]).filter(item=>item&&Number(item.price)>0&&getSource(item)!=='aliexpress');
+  const tokens=importantQueryTokens(lane.query);
+  const valid=(Array.isArray(raw)?raw:[]).filter(item=>{
+    if(!item||Number(item.price)<=0||getSource(item)==='aliexpress')return false;
+    if(lane.featured||!tokens.length)return true;
+    const title=normaliseQueryText(item.title||'');return tokens.filter(token=>title.includes(token)).length/tokens.length>=.5;
+  });
   window.wishwaveFetchSharedScores?.(valid);
   const ranked=[...valid].sort((a,b)=>personalisedItemScore(b,lane.query,lane.cluster)-personalisedItemScore(a,lane.query,lane.cluster));
   const preferred=ranked.filter(item=>personalisedSeenInfo(item).count<2);
@@ -5390,7 +5410,7 @@ function interleavePersonalised(laneResults,maxItems=48){
     ...entry,
     queue:[...entry.items],
     used:0,
-    priority:index<2?2:1
+    priority:entry.lane.featured?1:4
   }));
   if(!lanes.length) return [];
   const schedule=[];
@@ -5434,6 +5454,7 @@ function sequencePersonalisedBatch(items,existingItems=[],maxItems=60){
     const recent=[...history,...output].slice(-4);
     return recent.reduce((sum,item)=>sum+(personalisedSequenceCategory(item)===category?1:0),0);
   };
+  const knownIntent=getTracked().length>0||getInterestProfile().some(x=>Number(x.events?.search)>0||Number(x.events?.like)>0);
   let guard=0;
   while(remaining.length&&output.length<maxItems&&guard<1000){
     guard++;
@@ -5443,13 +5464,17 @@ function sequencePersonalisedBatch(items,existingItems=[],maxItems=60){
     const hasOtherCluster=remaining.some(entry=>personalisedSequenceCluster(entry.item)!==lastCluster);
     const hasOtherCategory=remaining.some(entry=>personalisedSequenceCategory(entry.item)!==lastCategory);
     const hasUnderusedCategory=remaining.some(entry=>recentCategoryCount(personalisedSequenceCategory(entry.item))<2);
+    const noveltyBlocked=knownIntent&&[...history,...output].slice(-5).some(x=>x._interestFeatured);
+    if(noveltyBlocked&&remaining.every(x=>x.item._interestFeatured))break;
     let bestIndex=0,bestScore=Infinity;
     for(let i=0;i<remaining.length;i++){
       const entry=remaining[i],cluster=personalisedSequenceCluster(entry.item),category=personalisedSequenceCategory(entry.item);
-      let score=entry.index*.12;
-      if(lastCluster&&cluster===lastCluster&&hasOtherCluster) score+=1000;
-      if(lastCategory&&category===lastCategory&&hasOtherCategory) score+=180;
-      if(recentCategoryCount(category)>=2&&hasUnderusedCategory) score+=90;
+      if(noveltyBlocked&&entry.item._interestFeatured)continue;
+      let score=entry.index*.12-personalisedItemScore(entry.item,entry.item._interestQuery||entry.item.title||'',cluster);
+      if(lastCluster&&cluster===lastCluster&&hasOtherCluster)score+=8;
+      if(lastCategory&&category===lastCategory&&hasOtherCategory)score+=3;
+      if(recentCategoryCount(category)>=2&&hasUnderusedCategory)score+=3;
+      if(entry.item._interestFeatured&&remaining.some(x=>!x.item._interestFeatured)&&[...history,...output].slice(-5).some(x=>x._interestFeatured))score+=500;
       if(score<bestScore){bestScore=score;bestIndex=i;}
     }
     output.push(remaining.splice(bestIndex,1)[0].item);
@@ -5705,8 +5730,22 @@ function renderPersonalisedFeed(items,{writeCache=true}={}){
      More listings are fetched only when the user actually scrolls near the end. */
 }
 async function v116RenderPersonalisedPreviewFallback(){
-  try{const pool=await v116GetPreviewPool(false),seen=new Set(),items=[];for(const item of pool){if(!item||Number(item.price)<=0||!premiumProductImage(item))continue;const k=listingKey(item)||trackedKey(item)||String(item.itemId||item.url||item.title||'');if(!k||seen.has(k))continue;seen.add(k);items.push({...item,_interestQuery:item.searchQ||item.query||item.title||'Popular',_interestCluster:interestClusterKey(item.searchQ||item.query||item.title||'popular'),_interestCategory:interestCategory(item.searchQ||item.query||item.title||'popular')});if(items.length>=18)break;}if(!items.length)return false;renderPersonalisedFeed(items,{writeCache:false});return true;}catch(_){return false;}
+  try{
+    const interests=scoredInterests().filter(x=>!x.featured),known=interests.length>0;
+    const pool=(known?getTracked():[]).concat(await v116GetPreviewPool(false)),seen=new Set(),items=[];
+    const ranked=pool.filter(item=>item&&Number(item.price)>0&&premiumProductImage(item)).sort((a,b)=>personalisedItemScore(b,b.title||'','fallback')-personalisedItemScore(a,a.title||'','fallback'));
+    for(const item of ranked){
+      const interest=interests.find(x=>{const tokens=importantQueryTokens(x.discoveryQuery||x.query);const title=normaliseQueryText(item.title||'');return tokens.length&&tokens.filter(t=>title.includes(t)).length/tokens.length>=.5;});
+      if(known&&!interest)continue;
+      const key=listingKey(item)||trackedKey(item);if(!key||seen.has(key))continue;seen.add(key);
+      const query=interest?.query||item.query||item.title;
+      items.push({...item,_interestQuery:query,_interestCluster:interest?.cluster||interestClusterKey(query),_interestCategory:interest?.category||interestCategory(query)});
+      if(items.length>=18)break;
+    }
+    if(!items.length)return false;renderPersonalisedFeed(items,{writeCache:false});return true;
+  }catch(_){return false;}
 }
+
 async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
   const retained=forceNetwork&&document.querySelector('#personalFeed .reel-card')?{
     items:currentFeedItems.slice(),data:currentFeedData,state:feedState,active:activeReelIndex
@@ -5884,7 +5923,7 @@ async function loadMorePersonalisedListings(){
   if(!chosen.length){
     const featuredLanes=featuredColdStart(0.6,'infinite-topup-'+getPersonalisedRequestCount()).map(newPersonalisedLane);
     const known=new Set(lanes.map(l=>l.cluster));
-    const additions=featuredLanes.filter(l=>!known.has(l.cluster)).slice(0,PERSONALISED_LOAD_MORE_LANES);
+    const additions=lanes.some(l=>l.featured)?[]:featuredLanes.filter(l=>!known.has(l.cluster)).slice(0,1);
     lanes.slice(0,PERSONALISED_LOAD_MORE_LANES).forEach(lane=>{
       lane.variantIndex=0;lane.query=lane.variants[0]||lane.query;
       lane.page=0;lane.cursor=null;lane.hasMore=true;lane.noNewPages=0;
@@ -7060,7 +7099,7 @@ async function toggleLike(index,event){
   const key=trackedKey(item);
   let liked=getTracked();
   const existing=liked.findIndex(entry=>entry.key===key);
-  const interestQuery=item._interestQuery||deriveDiscoveryQuery(item.title)||item.title;
+  const interestQuery=deriveDiscoveryQuery(item.title)||item._interestQuery||item.title;
   if(existing>=0){
     liked.splice(existing,1);
     recordInterest(interestQuery,'unlike');
@@ -16223,9 +16262,28 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     return ranked.slice(0,limit);
   };
 
+  let savedTasteRaw=null,savedTasteCache=[],persistentTasteRaw=null,persistentTasteCache=[];
+  function savedTasteQueries(){
+    const raw=localStorage.getItem('fa_tracked_v2')||'';
+    if(raw!==savedTasteRaw){savedTasteRaw=raw;savedTasteCache=[...new Set(getTracked().slice(0,120).map(x=>deriveDiscoveryQuery(x.title||'')).filter(Boolean))].slice(0,20);}
+    return savedTasteCache;
+  }
+  function persistentTasteInterests(){
+    const raw=localStorage.getItem(INTEREST_PROFILE_KEY)||'';
+    if(raw!==persistentTasteRaw){persistentTasteRaw=raw;persistentTasteCache=getInterestProfile().filter(x=>Number(x.weight)>0).sort((a,b)=>Number(b.weight)-Number(a.weight)).slice(0,10);}
+    return persistentTasteCache;
+  }
   function v125AdaptiveBoost(item){
-    if(!item)return 0;const p=v125BehaviorProfile();
+    if(!item||window.findaiAppPreferences?.().personalized===false)return 0;const p=v125BehaviorProfile();
     const ctx=v125ContextFromItem(item)||{};let boost=0;
+    const actualTitle=String(item.title||'');
+    for(const interest of persistentTasteInterests()){
+      const similarity=interestTokenSimilarity(interest.discoveryQuery||interest.query,actualTitle);
+      boost+=Math.min(12,Math.log1p(Number(interest.weight))*3)*similarity;
+    }
+    const savedQueries=savedTasteQueries();
+    const savedMatch=savedQueries.reduce((best,query)=>Math.max(best,interestTokenSimilarity(query,actualTitle)),0);
+    boost+=savedMatch*24;
     boost+=Math.max(-12,Math.min(18,v125BehaviorEntryScore(p.categories[String(ctx.category||'').toLowerCase()],28)*.85));
     boost+=Math.max(-7,Math.min(9,v125BehaviorEntryScore(p.sources[String(ctx.source||'').toLowerCase()],35)*.55));
     boost+=Math.max(-7,Math.min(10,v125BehaviorEntryScore(p.prices[String(ctx.priceBucket||'').toLowerCase()],42)*.60));
@@ -16611,7 +16669,8 @@ html.findai-light .wishwave-comment-attachment-preview{background:#f0f1f3;border
 
 <style id="findai-v129-search-comments-style">
 #search .premium-search-bar{position:relative}
-#search .wishwave-search-status{height:20px;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:3px;font-size:11px;color:#acb0b8;visibility:hidden;pointer-events:none}
+#search .premium-search-home-header{position:relative}
+#search .wishwave-search-status{position:absolute;left:0;right:0;bottom:-23px;height:22px;display:flex;align-items:center;justify-content:center;gap:6px;margin:0;font-size:11px;color:#acb0b8;background:rgba(10,11,13,.92);z-index:4;visibility:hidden;pointer-events:none}
 #search.live-search-interpreting .wishwave-search-status{visibility:visible}
 .wishwave-search-status-spinner{width:11px;height:11px;box-sizing:border-box;border:1.5px solid rgba(255,255,255,.22);border-top-color:#f4f6f8;border-radius:50%;animation:findaiSearchInterpret .65s linear infinite}
 @media(prefers-reduced-motion:reduce){.wishwave-search-status-spinner{animation:none}}
@@ -28743,7 +28802,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
       if(seen.has(k))return;
       seen.add(k);out.push(item);
     });
-    return out.slice(0,80);
+    return out;
   }
   function indexOfItem(list,item){
     const i=(list||[]).findIndex(x=>sameItem(x,item));
@@ -28809,7 +28868,15 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     activeReelIndex=chosen;
     window.__findaiExploreInjectedFeed=false;
 
-    out.innerHTML=list.map((entry,i)=>renderReelCard(entry,i,currentFeedData)).join('');
+    const placeholder=i=>'<article class="reel-card wishwave-reel-placeholder" data-index="'+i+'" data-reel-placeholder="1" aria-hidden="true"></article>';
+    const paintAround=index=>{
+      for(const node of Array.from(out.children)){
+        const i=Number(node.dataset.index),near=Math.abs(i-index)<=2;
+        if(near&&node.dataset.reelPlaceholder){const template=document.createElement('template');template.innerHTML=renderReelCard(list[i],i,currentFeedData);node.replaceWith(template.content.firstElementChild);}
+        else if(!near&&!node.dataset.reelPlaceholder&&list.length>7){const template=document.createElement('template');template.innerHTML=placeholder(i);node.replaceWith(template.content.firstElementChild);}
+      }
+    };
+    out.innerHTML=list.map((entry,i)=>Math.abs(i-chosen)<=2?renderReelCard(entry,i,currentFeedData):placeholder(i)).join('');
     layer.dataset.contextOrigin=String(origin||'context');
     layer.dataset.contextTab=String(owner||'discover');
     layer.classList.add('show');
@@ -28825,6 +28892,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
         const d=Math.abs((Number(card.offsetTop)||0)-y);
         if(d<bestDistance){bestDistance=d;best=i;}
       });
+      paintAround(best);
       if(best!==activeReelIndex){
         try{finaliseReelTracking();}catch(_){ }
         activeReelIndex=best;
@@ -28903,10 +28971,10 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     window.__wishwaveOpenTabOwnedReel(list,index,{personalised:true,profileContext:true},'profile-v183','profile');
   };
   window.openProfileLikedItem=function(index){
-    const list=cleanList(typeof getTracked==='function'?getTracked():[]);
-    if(!list.length)return;
+    const original=typeof getTracked==='function'?getTracked():[],selected=original[Math.max(0,Number(index)||0)],list=cleanList(original);
+    if(!selected||!list.length)return;
     rememberProfileReturn('liked');
-    window.__wishwaveOpenTabOwnedReel(list,index,{personalised:true,profileContext:true,likedContext:true},'profile-v183','profile');
+    window.__wishwaveOpenTabOwnedReel(list,indexOfItem(list,selected),{personalised:true,profileContext:true,likedContext:true},'profile-v183','profile');
   };
 
   /* Tapping Profile while its reel is open means "back to my profile", not Home. */
@@ -32001,5 +32069,9 @@ html body .app .findai-v132-swipe-surface{filter:none!important;backdrop-filter:
   }
 })();
 </script>
+<style id="wishwave-v218-reel-placeholder-style">
+#findaiContextualFeedV168 .wishwave-reel-placeholder{flex:0 0 100%;min-height:100%;height:100%;scroll-snap-align:start;pointer-events:none;background:#000;contain:strict}
+html.findai-light #search .wishwave-search-status{background:rgba(248,248,248,.96);color:#555}
+</style>
 </body>
 </html>
