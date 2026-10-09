@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v215-messages-create-swipe-handoff">
+<meta name="findai-build" content="v216-search-intent-recommendations">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -5238,7 +5238,7 @@ function recommendationFamilyKey(item){
 function newPersonalisedLane(interest){
   const variants=interestQueryVariants(interest);
   const cluster=interest.cluster||interestClusterKey(interest.query);
-  const variantIndex=variants.length?Math.floor(seededUnit(personalisedSessionSeed,`variant:${cluster}`)*variants.length):0;
+  const variantIndex=interest._prioritySearch?0:(variants.length?Math.floor(seededUnit(personalisedSessionSeed,`variant:${cluster}`)*variants.length):0);
   return {
     id:interest.id||interest.cluster,
     originalQuery:interest.query,
@@ -15306,7 +15306,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
         out.push({
           id:'taste_'+cluster.replace(/[^a-z0-9]+/gi,'_').slice(0,28),
           title:'For You',
-          queries:[...new Set(variants)].slice(0,4),
+          queries:interest._prioritySearch?[interest.query]:[...new Set(variants)].slice(0,4),
           _findaiTaste:true,
           _findaiInterest:interest
         });
@@ -15364,12 +15364,27 @@ if(typeof v116RenderMarketplaceListing==='function'){
      finishes. New browse inventory is appended only when the user reaches the
      bottom; a typed query swaps the grid once after its own result is ready. */
   let exploreLoadedFilter='';
+  let exploreLoadedTaste='';
+  function exploreTasteSignature(){
+    if(exploreFilter!=='for-you')return '';
+    try{return scoredInterests(10).filter(x=>x&&!x.featured).slice(0,4).map(x=>normaliseQueryText(x.query)).join('|');}catch(_){return '';}
+  }
+  window.wishwaveExploreTasteSignature=exploreTasteSignature;
   let exploreInitialPromise=null;
   let exploreInitialPromiseFilter='';
   let exploreLiveController=null;
   let exploreBrowseSnapshot=null;
   const exploreBrowseCache=new Map();
 
+  window.wishwaveExploreCacheState=()=>({filter:exploreFilter,taste:exploreLoadedTaste,searching:!!exploreLiveSearchQuery});
+  window.wishwaveHydrateExploreCache=function(data){
+    if(exploreLiveSearchQuery||data.filter!==exploreFilter||data.tasteSignature!==exploreTasteSignature())return false;
+    if(premiumDiscoverySections[0]?.items?.length)return false;
+    premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:data.items.slice()}];
+    exploreLoadedFilter=exploreFilter;exploreLoadedTaste=data.tasteSignature;
+    seenExplore.clear();data.items.forEach(item=>seenExplore.add(exploreItemKey(item)));
+    renderExploreGrid({replace:true});cacheExploreBrowseState();return true;
+  };
   function exploreFamilyKey(item){
     const text=String(item&&item.title||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
     if(!text)return 'misc';
@@ -15464,14 +15479,17 @@ if(typeof v116RenderMarketplaceListing==='function'){
   async function loadExploreConfig(config,pool,generation){
     const queryUsed=premiumRotateArray(config.queries||[config.title||'products'],premiumDiscoveryHash()+String(config.id||'x').length+exploreVisitSalt*19)[0]||config.title||'products';
     let items=v116PreviewItemsForConfig(config,pool);
-    if(items.length<6&&queryUsed){
+    const exactIntent=!!config._findaiInterest?._prioritySearch;
+    if((exactIntent||items.length<6)&&queryUsed){
       try{
         const result=await fetchProductResults(queryUsed,{page:1,limit:16,preserveExact:true,skipResolve:true,passive:true});
         const live=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings:[];
-        items=items.concat(live.filter(x=>Number(x&&x.price)>0&&premiumProductImage(x)));
+        const useful=live.filter(x=>Number(x&&x.price)>0&&premiumProductImage(x));
+        items=exactIntent?useful.concat(items):items.concat(useful);
       }catch(_){}
     }
     if(generation!==exploreGeneration)return [];
+    if(exactIntent){const tokens=queryTokens(queryUsed);items=items.filter(item=>tokens.length&&tokens.filter(t=>normaliseQueryText(item.title||'').includes(t)).length/tokens.length>=.5);}
     items=items.map(item=>({...item,_interestQuery:item._interestQuery||queryUsed,_interestCategory:item._interestCategory||interestCategory(queryUsed),_interestCluster:item._interestCluster||interestClusterKey(queryUsed)}));
     if(exploreFilter==='for-you'&&typeof personalisedItemScore==='function')items.sort((a,b)=>personalisedItemScore(b,b._interestQuery||queryUsed,'search-explore')-personalisedItemScore(a,a._interestQuery||queryUsed,'search-explore'));
     return capExploreFamilies(items,2).slice(0,8);
@@ -15482,6 +15500,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     const pool=await v116GetPreviewPool(false);
     const batch=exploreQueue.splice(0,Math.min(initial?10:5,exploreQueue.length));
     const groups=await Promise.all(batch.map(config=>loadExploreConfig(config,pool,generation)));
+    if(window.__wishwavePageMotion)await window.wishwaveWaitForMotion?.();
     /* If the user started typing while this browse batch was in flight, the
        batch is stale. Never append browse products into live-search results. */
     if(generation!==exploreGeneration||exploreLiveSearchQuery){exploreLoading=false;return;}
@@ -15539,21 +15558,21 @@ if(typeof v116RenderMarketplaceListing==='function'){
   function cacheExploreBrowseState(){
     if(exploreFilter==='people'||exploreLiveSearchQuery)return;
     const section=premiumDiscoverySections[0],items=section&&Array.isArray(section.items)?section.items:[];if(!items.length)return;
-    exploreBrowseCache.set(exploreFilter,{items:items.slice(),queue:exploreQueue.slice(),seen:[...seenExplore]});
+    exploreBrowseCache.set(exploreFilter,{items:items.slice(),queue:exploreQueue.slice(),seen:[...seenExplore],taste:exploreLoadedTaste});
   }
   function snapshotBrowseIfNeeded(){
     if(exploreBrowseSnapshot||exploreLiveSearchQuery)return;
     const cached=exploreBrowseCache.get(exploreFilter),section=premiumDiscoverySections[0];
-    const source=cached||{items:section&&Array.isArray(section.items)?section.items.slice():[],queue:exploreQueue.slice(),seen:[...seenExplore]};
-    exploreBrowseSnapshot={filter:exploreFilter,items:(source.items||[]).slice(),queue:(source.queue||[]).slice(),seen:[...(source.seen||[])]};
+    const source=cached||{items:section&&Array.isArray(section.items)?section.items.slice():[],queue:exploreQueue.slice(),seen:[...seenExplore],taste:exploreLoadedTaste};
+    exploreBrowseSnapshot={filter:exploreFilter,items:(source.items||[]).slice(),queue:(source.queue||[]).slice(),seen:[...(source.seen||[])],taste:source.taste};
   }
   function restoreBrowseSnapshot(){
     const cached=(exploreBrowseSnapshot&&exploreBrowseSnapshot.filter===exploreFilter)?exploreBrowseSnapshot:exploreBrowseCache.get(exploreFilter);
     exploreLiveSearchQuery='';setExploreInterpreting(false);
-    if(!cached||!Array.isArray(cached.items)||!cached.items.length){exploreBrowseSnapshot=null;exploreLoadedFilter='';renderPremiumDiscoverySections(true);return;}
+    if(!cached||cached.taste!==exploreTasteSignature()||!Array.isArray(cached.items)||!cached.items.length){exploreBrowseSnapshot=null;exploreLoadedFilter='';renderPremiumDiscoverySections(true);return;}
     premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:cached.items.slice()}];
     exploreQueue=(cached.queue||[]).slice();seenExplore.clear();(cached.seen||[]).forEach(k=>seenExplore.add(k));
-    renderExploreGrid({replace:true});exploreBrowseSnapshot=null;
+    exploreLoadedTaste=cached.taste;renderExploreGrid({replace:true});exploreBrowseSnapshot=null;
   }
   async function runExploreLiveSearch(query,immediate=false){
     const clean=String(query||'').trim();
@@ -15579,6 +15598,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
       const display=diversifyExploreItems(capExploreFamilies(unique,3)).slice(0,90);
       premiumDiscoverySections=[{config:{id:'explore',title:'Search'},items:display}];exploreQueue=[];exploreLoading=false;seenExplore.clear();display.forEach(item=>{const key=exploreItemKey(item);if(key)seenExplore.add(key);});
       renderExploreGrid({replace:true});
+      window.wishwaveAcceptSearchResults?.(clean,display);
       if(seq===exploreLiveSearchSeq)setExploreInterpreting(false);
     }catch(error){if(seq===exploreLiveSearchSeq)setExploreInterpreting(false);if(error&&error.name==='AbortError')return;}
   }
@@ -15602,6 +15622,8 @@ if(typeof v116RenderMarketplaceListing==='function'){
     const root=document.getElementById('premiumDiscoverySections');if(!root)return;
     if(exploreFilter==='people'&&window.loadPremiumPeopleDiscovery)return window.loadPremiumPeopleDiscovery(document.getElementById('q')&&document.getElementById('q').value||'');
     const typed=String(document.getElementById('q')&&document.getElementById('q').value||'').trim();if(typed){runExploreLiveSearch(typed,true);return;}
+    const taste=exploreTasteSignature();
+    if(exploreLoadedTaste!==taste)force=true;
     if(!force&&premiumDiscoverySections[0]&&premiumDiscoverySections[0].items&&premiumDiscoverySections[0].items.length){
       if(!exploreLoadedFilter)exploreLoadedFilter=exploreFilter;
       return;
@@ -15617,8 +15639,9 @@ if(typeof v116RenderMarketplaceListing==='function'){
       root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
       }
       bindExploreScroll();await loadExploreMore(true);if(generation!==exploreGeneration)return;
-      if(!premiumDiscoverySections[0].items.length&&previous){premiumDiscoverySections=previous;delete root.dataset.refreshPending;toast('Could not refresh. Your listings are still here.');}
-      cacheExploreBrowseState();exploreLoadedFilter=exploreFilter;if(!premiumDiscoverySections[0].items.length)root.innerHTML='<div class="premium-explore-empty"><b>Products are refreshing</b>Try again in a moment.</div>';
+      const restoredPrevious=!premiumDiscoverySections[0].items.length&&previous;
+      if(restoredPrevious){premiumDiscoverySections=previous;delete root.dataset.refreshPending;toast('Could not refresh. Your listings are still here.');}
+      if(!restoredPrevious)exploreLoadedTaste=taste;cacheExploreBrowseState();exploreLoadedFilter=exploreFilter;if(!premiumDiscoverySections[0].items.length)root.innerHTML='<div class="premium-explore-empty"><b>Products are refreshing</b>Try again in a moment.</div>';
     })();
     try{return await exploreInitialPromise;}finally{exploreInitialPromise=null;exploreInitialPromiseFilter='';}
   };
@@ -16235,6 +16258,8 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     cards.forEach(card=>{if(Number(card.dataset.index)>=currentFeedItems.length){card.remove();changed=true;}});
     if(changed){if(!reelObserver)attachReelObserver();preloadPersonalisedImages(activeReelIndex+1,3);}
   }
+  window.wishwaveRenderRecommendationTail=v125RerenderTail;
+  window.wishwaveRecommendationScrollIdle=()=>performance.now()-feedLastScrollAt>=400;
   function v125AdaptiveRerankTail(){
     if(feedState.source!=='personalised'||!currentFeedItems||currentFeedItems.length<5||!document.getElementById('discover')?.classList.contains('active'))return;
     if(performance.now()-feedLastScrollAt<350||document.body.classList.contains('findai-premium-gallery-dragging')){clearTimeout(v125AdaptiveRerankTimer);v125AdaptiveRerankTimer=setTimeout(v125AdaptiveRerankTail,400);return;}
@@ -16707,42 +16732,68 @@ html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .finda
   function readPriority(){const p=safeRead(PRIORITY_KEY,null);if(!p||!p.query||Date.now()-Number(p.at||0)>45*60*1000)return null;return p;}
   function setPrioritySearch(query,force=false){
     const clean=String(query||'').trim();if(clean.length<2)return;
-    if(!force&&clean===priorityRecordedQuery)return;priorityRecordedQuery=clean;
+    if(!personalizationAllowed())return;
+    if(!force&&clean===priorityRecordedQuery&&readPriority())return;priorityRecordedQuery=clean;
     const prior=readPriority();const items=prior&&String(prior.query).toLowerCase()===clean.toLowerCase()?prior.items||[]:[];
     safeWrite(PRIORITY_KEY,{query:clean,at:Date.now(),items});
     try{if(typeof recordInterest==='function')recordInterest(clean,'search',5);}catch(_){}
   }
-  function capturePriorityItems(){
-    const q=String(document.getElementById('q')?.value||'').trim(),priority=readPriority();if(!q||!priority||q.toLowerCase()!==String(priority.query||'').toLowerCase())return;
-    const section=(typeof premiumDiscoverySections!=='undefined'&&premiumDiscoverySections&&premiumDiscoverySections[0])||null,items=section&&Array.isArray(section.items)?section.items:[];if(!items.length)return;
-    const exact=items.filter(item=>{
-      try{return interestTokenSimilarity(q,String(item.title||item._interestQuery||''))>.18||String(item.title||'').toLowerCase().includes(q.toLowerCase());}catch(_){return true;}
-    }).slice(0,10).map(compactItem);
-    if(exact.length)safeWrite(PRIORITY_KEY,{query:q,at:Date.now(),items:exact});
-  }
-  const discoveryRoot=document.getElementById('premiumDiscoverySections');if(discoveryRoot)new MutationObserver(()=>{clearTimeout(priorityTimer);priorityTimer=setTimeout(capturePriorityItems,70);}).observe(discoveryRoot,{childList:true,subtree:true});
 
   /* Search intent is deliberately much stronger than a passive impression. */
   const scoredBeforeV130=window.scoredInterests;
   if(typeof scoredBeforeV130==='function')window.scoredInterests=function(limit=PERSONALISED_INTEREST_LIMIT){
-    const base=scoredBeforeV130(Math.max(limit,PERSONALISED_INTEREST_LIMIT));const priority=readPriority();if(!priority)return base.slice(0,limit);
+    const base=scoredBeforeV130(Math.max(limit,PERSONALISED_INTEREST_LIMIT));const priority=readPriority();if(!personalizationAllowed()||!priority)return base.slice(0,limit);
     const query=String(priority.query||'').trim(),cluster='priority_'+interestClusterKey(query);
     const exact={id:'priority_search_v130',query,discoveryQuery:query,category:interestCategory(query),cluster,score:Math.max(1,14*Math.pow(.5,(Date.now()-Number(priority.at||Date.now()))/(15*60*1000))),featured:false,_prioritySearch:true};
     return [exact,...base.filter(x=>x&&x.cluster!==cluster&&String(x.query||'').toLowerCase()!==query.toLowerCase())].sort((a,b)=>(Number(b.score)||0)-(Number(a.score)||0)).slice(0,limit);
   };
 
+  let recommendationTimer=0;
+  const appliedHomeIntent=new WeakMap();
+  function personalizationAllowed(){return window.findaiAppPreferences?.().personalized!==false;}
+  window.wishwaveAcceptSearchResults=function(query,items){
+    if(!personalizationAllowed())return;
+    setPrioritySearch(query,false);
+    const priority=readPriority();
+    if(!priority||normaliseQueryText(priority.query)!==normaliseQueryText(query))return;
+    const tokens=queryTokens(query);
+    const exact=(items||[]).filter(item=>{
+      const title=normaliseQueryText(item.title||'');
+      return tokens.length&&tokens.filter(t=>title.includes(t)).length/ tokens.length>=.5;
+    }).slice(0,10).map(compactItem);
+    safeWrite(PRIORITY_KEY,{query,at:priority.at,items:exact});
+    scheduleHomeSearchIntent();
+  };
   function injectPriorityIntoHome(){
-    const priority=readPriority();if(!priority||!Array.isArray(priority.items)||!priority.items.length||typeof currentFeedItems==='undefined'||!Array.isArray(currentFeedItems)||!currentFeedItems.length||!feedState||feedState.source!=='personalised')return false;
-    const query=priority.query,existing=new Set(currentFeedItems.map(item=>listingKey(item)));const candidates=priority.items.filter(item=>item&&!existing.has(listingKey(item))).slice(0,3).map(item=>({...item,_interestQuery:query,_interestCategory:interestCategory(query),_interestCluster:'priority_'+interestClusterKey(query)}));
-    // Ranking chooses the next products; search never forces cards into Home.
-    return false;
+    const priority=readPriority();
+    if(!personalizationAllowed()||!priority?.items?.length||feedState?.source!=='personalised'||!currentFeedItems?.length||document.body.dataset.activeTab!=='discover')return false;
+    if(window.__wishwavePageMotion||feedState.loading||document.body.classList.contains('wishwave-photo-zooming')||document.body.classList.contains('findai-premium-gallery-dragging')||!window.wishwaveRecommendationScrollIdle?.()){scheduleHomeSearchIntent();return false;}
+    const feed=document.getElementById('personalFeed');if(!feed?.querySelector('.reel-card'))return false;
+    const stamp=priority.at+':'+priority.query;
+    if(appliedHomeIntent.get(feed)===stamp)return false;
+    const start=Math.min(currentFeedItems.length,Math.max(0,Number(activeReelIndex)||0)+2);
+    const head=currentFeedItems.slice(0,start),protectedKeys=new Set(head.map(listingKey));
+    const query=priority.query,seen=new Set();
+    const candidates=priority.items.filter(item=>{
+      const key=listingKey(item);if(!key||protectedKeys.has(key)||seen.has(key)||Number(item.price)<=0||!premiumProductImage(item))return false;seen.add(key);return true;
+    }).slice(0,3).map(item=>({...item,_interestQuery:query,_interestCategory:interestCategory(query),_interestCluster:'priority_'+interestClusterKey(query)}));
+    if(!candidates.length)return false;
+    const selected=new Set(candidates.map(listingKey)),tail=currentFeedItems.slice(start).filter(item=>!selected.has(listingKey(item)));
+    // At most three exact matches, spaced among the existing discovery products.
+    const mixed=[];for(const item of candidates){mixed.push(item,...tail.splice(0,2));}mixed.push(...tail);
+    const scroll=feed.scrollTop;
+    currentFeedItems=head.concat(mixed);
+    candidates.forEach(item=>feedState.seen?.add(listingKey(item)));
+    window.wishwaveRenderRecommendationTail?.(start);
+    feed.scrollTop=scroll;
+    appliedHomeIntent.set(feed,stamp);
+    window.__wishwaveCaptureHome?.();
+    return true;
   }
-  function repaintHomeAfterPriority(){
-    if(!injectPriorityIntoHome())return;const feed=document.getElementById('personalFeed');if(!feed)return;
-    const keep=Math.max(0,Number(activeReelIndex)||0);feed.innerHTML=currentFeedItems.map((item,i)=>renderReelCard(item,i,currentFeedData)).join('');attachReelObserver();preloadPersonalisedImages(Math.max(0,keep-2),12);requestAnimationFrame(()=>{const card=feed.querySelector('.reel-card[data-index="'+keep+'"]');if(card)feed.scrollTop=card.offsetTop;beginReelTracking(keep);});
-  }
+  function scheduleHomeSearchIntent(){clearTimeout(recommendationTimer);recommendationTimer=setTimeout(injectPriorityIntoHome,450);}
+  window.wishwaveApplyRecentSearchToHome=injectPriorityIntoHome;
   const openForYouV130=window.openForYou;
-  window.openForYou=function(){const result=openForYouV130.apply(this,arguments);setTimeout(repaintHomeAfterPriority,0);return result;};
+  window.openForYou=function(){const result=openForYouV130.apply(this,arguments);scheduleHomeSearchIntent();return result;};
 
   const q=document.getElementById('q');
   if(q){
@@ -16750,7 +16801,7 @@ html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .finda
     q.addEventListener('input',()=>{
       const clean=String(q.value||'').trim();
       clearTimeout(recentQueryTimer);clearTimeout(priorityTimer);
-      if(clean){recentWasTyping=true;hideRecents();priorityTimer=setTimeout(()=>setPrioritySearch(clean,false),900);recentQueryTimer=setTimeout(()=>rememberQuery(clean),1100);}
+      if(clean){recentWasTyping=true;hideRecents();recentQueryTimer=setTimeout(()=>rememberQuery(clean),1100);}
       else{
         priorityRecordedQuery='';hideRecents();
         if(!recentWasTyping)showRecents();
@@ -17202,11 +17253,12 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
     try{const s=premiumDiscoverySections&&premiumDiscoverySections[0];return s&&Array.isArray(s.items)?s.items.filter(Boolean):[]}catch(_){return []}
   }
   function cacheSearch(){
-    const items=usefulExploreItems();if(!items.length)return;
+    const items=usefulExploreItems(),state=window.wishwaveExploreCacheState?.();if(!items.length||!state||state.searching)return;
     try{
       localStorage.setItem(SEARCH_CACHE_KEY,JSON.stringify({
         at:now(),
-        filter:String(exploreFilter||'for-you'),
+        filter:state.filter,
+        tasteSignature:state.taste,
         items:items.slice(0,48)
       }));
     }catch(_){ }
@@ -17215,19 +17267,9 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
     const root=document.getElementById('premiumDiscoverySections');if(!root)return false;
     const data=safeJSON(localStorage.getItem(SEARCH_CACHE_KEY)||'',null);
     if(!data||!Array.isArray(data.items)||!data.items.length)return false;
-    const cachedFilter=String(data.filter||'for-you');
-    if(cachedFilter!==String(exploreFilter||'for-you'))return false;
-    try{
-      if(!usefulExploreItems().length){
-        premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:data.items.slice()}];
-        exploreLoadedFilter=String(exploreFilter||'for-you');
-        seenExplore.clear();
-        data.items.forEach(item=>{try{const key=exploreItemKey(item);if(key)seenExplore.add(key)}catch(_){}});
-        if(typeof renderExploreGrid==='function')renderExploreGrid({replace:true});
-        document.getElementById('search')?.classList.add('findai-v133-warm');
-        return true;
-      }
-    }catch(_){ }
+    try{if(window.wishwaveHydrateExploreCache?.(data)){
+      document.getElementById('search')?.classList.add('findai-v133-warm');return true;
+    }}catch(_){}
     return false;
   }
   hydrateSearchCache();
@@ -17239,7 +17281,7 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
   function warmSearch(){
     if(activeTab()==='search')return;
     try{
-      const existing=usefulExploreItems();if(existing.length){preloadSearchImages();cacheSearch();return;}
+      const existing=usefulExploreItems(),state=window.wishwaveExploreCacheState?.();if(existing.length&&state?.taste===window.wishwaveExploreTasteSignature?.()){preloadSearchImages();cacheSearch();return;}
       Promise.resolve(typeof renderPremiumDiscoverySections==='function'&&renderPremiumDiscoverySections(false)).then(()=>{cacheSearch();preloadSearchImages();document.getElementById('search')?.classList.add('findai-v133-warm')}).catch(()=>{});
     }catch(_){ }
   }
@@ -31907,5 +31949,15 @@ html body .app .findai-v132-swipe-surface{filter:none!important;backdrop-filter:
 })();
 </script>
 
+<script id="wishwave-v216-search-home-resume">
+(function(){
+  const open=window.openForYou;
+  window.openForYou=function(){
+    const result=open.apply(this,arguments);
+    setTimeout(()=>window.wishwaveApplyRecentSearchToHome?.(),450);
+    return result;
+  };
+})();
+</script>
 </body>
 </html>
