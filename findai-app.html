@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v213-photo-inspection-zoom">
+<meta name="findai-build" content="v214-comments-keyboard-layout">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -13827,15 +13827,29 @@ function renderWishWaveComments(data){
   }else{
     composer='<div class="wishwave-comments-empty wishwave-comments-signin"><button type="button" onclick="closeAppMpSheet();openLogin()">Sign in to comment</button></div>';
   }
-  root.innerHTML='<div class="wishwave-comments-shell"><div class="wishwave-comments-list">'+rows+'</div>'+composer+'</div>';
+  // Keep the focused composer mounted during background loads, posting and likes.
+  const version=document.getElementById('appMpSheetBg')?.dataset.motionVersion||'';
+  const renderKey=wishwaveCommentMetricKey(wishwaveCommentsItem||{})+':'+version+':'+signedIn;
+  const previousList=root.querySelector('.wishwave-comments-list');
+  const retained=!!previousList&&root.dataset.commentsRenderKey===renderKey;
+  const previousScroll=previousList?.scrollTop||0;
+  const atEnd=!previousList||previousList.scrollHeight-previousList.clientHeight-previousScroll<40;
+  if(retained){
+    previousList.innerHTML=rows;
+    const attachment=root.querySelector('#wishwaveCommentAttachmentPreview');
+    if(attachment){attachment.classList.toggle('show',!!wishwavePendingCommentImage);const img=attachment.querySelector('img');if(img)img.src=wishwavePendingCommentImage||'';}
+  }else{
+    root.innerHTML='<div class="wishwave-comments-shell"><div class="wishwave-comments-list">'+rows+'</div>'+composer+'</div>';
+    root.dataset.commentsRenderKey=renderKey;
+  }
   const commentInput=root.querySelector('#wishwaveCommentInput');
   const commentSend=root.querySelector('.wishwave-comment-send');
   if(commentInput&&commentSend){
     const syncSend=()=>commentSend.classList.toggle('has-content',!!String(commentInput.value||'').trim()||!!wishwavePendingCommentImage);
-    commentInput.addEventListener('input',syncSend,{passive:true});
+    if(!retained)commentInput.addEventListener('input',syncSend,{passive:true});
     syncSend();
   }
-  setTimeout(()=>{const list=root.querySelector('.wishwave-comments-list');if(list)list.scrollTop=list.scrollHeight;},20);
+  setTimeout(()=>{const list=root.querySelector('.wishwave-comments-list');if(list)list.scrollTop=atEnd?list.scrollHeight:previousScroll;},20);
 }
 
 async function openWishWaveComments(index,event){
@@ -20009,10 +20023,15 @@ body.findai-premium-gallery-dragging .reel-card{
   }
 
   function isCurrent(item){
-    return wishwaveCommentsItem===item;
+    const bg=document.getElementById('appMpSheetBg');
+    return wishwaveCommentsItem===item&&bg?.classList.contains('show')&&bg.classList.contains('wishwave-comments-mode');
   }
 
-  function openShell(item){
+  function openShell(item,event){
+    const card=event?.target?.closest?.('.reel-card'),stage=card?.querySelector('.reel-gallery-stage');
+    const selected=stage?.querySelector('.reel-gallery-slide[data-gallery-slide="'+Number(stage.dataset.galleryIndex||0)+'"] img');
+    const commentsLayer=document.getElementById('appMpSheetBg');
+    if(commentsLayer)commentsLayer.dataset.commentPreview=selected?.currentSrc||selected?.src||item.image||item.images?.[0]||'';
     wishwaveCommentsItem=item;
     wishwavePendingCommentImage='';
     const key=keyFor(item);
@@ -20041,7 +20060,7 @@ body.findai-premium-gallery-dragging .reel-card{
     const item=currentFeedItems[Number(index)||0];
     if(!item)return;
 
-    openShell(item);
+    openShell(item,event);
     const key=keyFor(item);
     try{
       const data=await fetchComments(item,false);
@@ -30955,29 +30974,55 @@ html body .app #appMpInbox.wishwave-chat-back-drag,html body .app #appMpInbox.wi
 </style>
 <script id="wishwave-v210-control-routing">
 (function(){
-  let baseline=0,version='';
-  window.wishwaveSyncCommentViewport=function(){
-    const bg=document.getElementById('appMpSheetBg');if(!bg?.classList.contains('show')||!bg.classList.contains('wishwave-comments-mode'))return;
-    const vv=window.visualViewport,height=Math.max(220,Math.round(vv?.height||innerHeight)),top=Math.max(0,Math.round(vv?.offsetTop||0));
-    const next=bg.dataset.motionVersion||'',focused=!!document.activeElement?.closest('#appMpSheetBg input:not([type=file]),#appMpSheetBg textarea');
-    if(next!==version){version=next;baseline=Math.max(height,(typeof findaiStableViewportHeight==='number'?findaiStableViewportHeight:0),document.documentElement.clientHeight||0,innerHeight);}
-    if(!focused&&height>baseline)baseline=height;
-    const keyboard=focused&&baseline-height>100;
-    bg.classList.toggle('wishwave-comment-keyboard',keyboard);
-    bg.style.setProperty('--wishwave-comment-viewport',height+'px');bg.style.setProperty('--wishwave-comment-top',top+'px');
-    document.documentElement.style.setProperty('--app-mp-keyboard-pad','0px');
-    const sheet=bg.querySelector('.app-mp-sheet');sheet?.style.removeProperty('max-height');
-  };
-  const bg=document.getElementById('appMpSheetBg');
-  if(bg)new MutationObserver(()=>{
-    if(!bg.classList.contains('show')){if(bg.classList.contains('wishwave-comment-keyboard'))bg.classList.remove('wishwave-comment-keyboard');bg.querySelector('.wishwave-comment-listing-preview')?.remove();return;}
-    if(!bg.classList.contains('wishwave-comments-mode'))return;
-    window.wishwaveSyncCommentViewport();
+  let baseline=0,version='',safeTop=null;
+  const bg=document.getElementById('appMpSheetBg'),home=bg?.parentElement;
+  function setVar(name,value){if(bg.style.getPropertyValue(name)!==value)bg.style.setProperty(name,value);}
+  function preview(){
     const item=typeof wishwaveCommentsItem!=='undefined'?wishwaveCommentsItem:null;
-    const src=String(item?.image||item?.images?.[0]||'');
-    if(src&&!bg.querySelector('.wishwave-comment-listing-preview')){const img=document.createElement('img');img.className='wishwave-comment-listing-preview';img.alt='';img.setAttribute('aria-hidden','true');img.src=src;bg.prepend(img);}
+    const src=bg.dataset.commentPreview||String(item?.image||item?.images?.[0]||'');
+    let img=bg.querySelector('.wishwave-comment-listing-preview');
+    if(!src){img?.remove();return;}
+    if(!img){img=document.createElement('img');img.className='wishwave-comment-listing-preview';img.alt='Listing photo';img.setAttribute('aria-hidden','true');bg.prepend(img);}
+    if(img.getAttribute('src')!==src)img.src=src;
+  }
+  window.wishwaveSyncCommentViewport=function(){
+    if(!bg?.classList.contains('show')||!bg.classList.contains('wishwave-comments-mode'))return;
+    // Escape any transformed/contained app ancestor so Safari keyboard positioning
+    // has one viewport coordinate system, including Search-owned reel overlays.
+    if(bg.parentElement!==document.body)document.body.appendChild(bg);
+    if(!document.body.classList.contains('wishwave-comments-open'))document.body.classList.add('wishwave-comments-open');
+    const vv=window.visualViewport,height=Math.max(180,Math.round(vv?.height||innerHeight)),top=Math.max(0,Math.round(vv?.offsetTop||0));
+    const next=bg.dataset.motionVersion||'';
+    if(next!==version){version=next;baseline=Math.max(height,(typeof findaiStableViewportHeight==='number'?findaiStableViewportHeight:0),document.documentElement.clientHeight||0,innerHeight);}
+    if(height>baseline)baseline=height;
+    // Keep keyboard mode during blur/keyboard-dismiss animation until viewport grows.
+    const keyboard=baseline-height>100;
+    let probe=bg.querySelector('.wishwave-comment-safe-probe');
+    if(!probe){probe=document.createElement('div');probe.className='wishwave-comment-safe-probe';probe.style.cssText='position:absolute;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px)';bg.appendChild(probe);}
+    if(safeTop===null)safeTop=Math.max(0,parseFloat(getComputedStyle(probe).paddingTop)||0);
+    const safe=safeTop;
+    const sheetHeight=Math.max(100,Math.min(Math.round(height*(keyboard?.52:.64)),height-safe-32,780));
+    if(bg.classList.contains('wishwave-comment-keyboard')!==keyboard)bg.classList.toggle('wishwave-comment-keyboard',keyboard);
+    setVar('--wishwave-comment-viewport',height+'px');setVar('--wishwave-comment-top',top+'px');
+    setVar('--wishwave-comment-sheet-height',sheetHeight+'px');setVar('--wishwave-comment-safe-top',safe+'px');
+    setVar('--wishwave-comment-preview-height',Math.max(0,height-sheetHeight-safe-24)+'px');
+    setVar('--wishwave-comment-occluded',Math.max(0,baseline-height-top)+'px');
+    document.documentElement.style.setProperty('--app-mp-keyboard-pad','0px');
+    bg.querySelector('.app-mp-sheet')?.style.removeProperty('max-height');preview();
+  };
+  if(bg)new MutationObserver(()=>{
+    const comments=bg.classList.contains('wishwave-comments-mode'),shown=bg.classList.contains('show');
+    if(!shown){
+      if(document.body.classList.contains('wishwave-comments-open'))document.body.classList.remove('wishwave-comments-open');
+      bg.querySelector('#wishwaveCommentInput')?.blur();
+      if(bg.classList.contains('wishwave-comment-keyboard'))bg.classList.remove('wishwave-comment-keyboard');
+      bg.querySelector('.wishwave-comment-listing-preview')?.remove();return;
+    }
+    if(!comments){if(document.body.classList.contains('wishwave-comments-open'))document.body.classList.remove('wishwave-comments-open');if(home&&bg.parentElement!==home)home.appendChild(bg);return;}
+    window.wishwaveSyncCommentViewport();
   }).observe(bg,{attributes:true,attributeFilter:['class','data-motion-version']});
   document.addEventListener('focusin',e=>{if(e.target.closest('#appMpSheetBg'))window.wishwaveSyncCommentViewport();});
+  window.addEventListener('orientationchange',()=>{safeTop=null;setTimeout(()=>window.wishwaveSyncCommentViewport(),120);});
   window.wishwaveOpenCreateTab=function(){
     if(!appMpRequireLogin())return;
     const inbox=document.getElementById('appMpInbox');
@@ -31079,6 +31124,70 @@ body.wishwave-photo-zooming .reel-gallery-dots,body.wishwave-photo-zooming .reel
   document.addEventListener('visibilitychange',()=>{if(document.hidden)cleanup();});
 })();
 </script>
+
+<style id="wishwave-v214-comments-layout">
+html body .app-mp-sheet-bg.wishwave-comments-mode{
+ background:#000!important;overflow:visible!important;isolation:isolate!important;
+ display:flex!important;align-items:flex-end!important;box-sizing:border-box!important;
+}
+html body .app-mp-sheet-bg.wishwave-comments-mode::after{
+ content:"";position:absolute;left:0;right:0;top:100%;height:var(--wishwave-comment-occluded,0px);
+ background:#171a1e;pointer-events:none;
+}
+html body .app-mp-sheet-bg.wishwave-comments-mode .app-mp-sheet,
+html body .app-mp-sheet-bg.wishwave-comments-mode.wishwave-comment-keyboard .app-mp-sheet{
+ height:var(--wishwave-comment-sheet-height,64%)!important;max-height:none!important;
+ border-radius:24px 24px 0 0!important;border:0!important;background:#171a1e!important;
+ contain:layout paint!important;
+}
+html body .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-listing-preview{
+ top:calc(var(--wishwave-comment-safe-top,env(safe-area-inset-top,0px)) + 12px)!important;
+ bottom:auto!important;left:50%!important;transform:translateX(-50%)!important;
+ height:var(--wishwave-comment-preview-height,28vh)!important;width:calc(100% - 40px)!important;
+ max-width:76%!important;object-fit:contain!important;border-radius:14px!important;
+}
+html body .app-mp-sheet-bg.wishwave-comments-mode .app-mp-sheet-head{
+ flex:0 0 48px!important;min-height:48px!important;height:48px!important;box-sizing:border-box!important;
+ padding:20px 40px 8px!important;border-bottom:0!important;
+}
+html body .app-mp-sheet-bg.wishwave-comments-mode.wishwave-comment-keyboard .app-mp-sheet-head{
+ flex-basis:24px!important;min-height:24px!important;height:24px!important;padding:0!important;
+}
+html body .app-mp-sheet-bg.wishwave-comment-keyboard .app-mp-sheet-head h3{display:none!important;}
+html body .app-mp-sheet-bg.wishwave-comments-mode .app-mp-sheet-body{padding:0!important;}
+html body .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comments-list{
+ flex:1 1 0!important;min-height:0!important;padding:4px 16px 12px!important;
+ overscroll-behavior:contain!important;
+}
+html body .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-swipe-body,
+html body .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-composer,
+html body .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-form{background:#171a1e!important;}
+html body .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-composer{
+ padding:0 14px env(safe-area-inset-bottom,0px)!important;border-top:1px solid #ffffff09!important;
+}
+html body .app-mp-sheet-bg.wishwave-comment-keyboard .wishwave-comment-composer{padding-bottom:0!important;}
+html body .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-reactions{
+ display:flex!important;justify-content:space-between!important;gap:4px!important;
+ padding:8px 0 4px!important;min-height:36px!important;border:0!important;box-sizing:border-box!important;
+}
+html body .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-reactions button{font-size:25px!important;padding:2px!important;}
+html body .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-form{
+ grid-template-columns:34px 28px minmax(0,1fr) 32px!important;gap:6px!important;
+ border:0!important;padding:6px 0 8px!important;min-height:56px!important;box-sizing:border-box!important;
+}
+html body .app-mp-sheet-bg.wishwave-comments-mode #wishwaveCommentInput{
+ height:40px!important;min-height:40px!important;font-size:16px!important;line-height:normal!important;
+ background:#171a1e!important;border:1px solid #363a40!important;padding:0 12px!important;
+}
+html body .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-copy p{font-size:14px!important;line-height:1.4!important;}
+body.wishwave-comments-open .premium-bottom-nav{visibility:hidden!important;pointer-events:none!important;}
+html.findai-light body .app-mp-sheet-bg.wishwave-comments-mode .app-mp-sheet,
+html.findai-light body .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-swipe-body,
+html.findai-light body .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-composer,
+html.findai-light body .app-mp-sheet-bg.wishwave-comments-mode .wishwave-comment-form{background:#fff!important;}
+html.findai-light body .app-mp-sheet-bg.wishwave-comments-mode::after{background:#fff;}
+html.findai-light body .app-mp-sheet-bg.wishwave-comments-mode #wishwaveCommentInput{background:#f2f3f5!important;border-color:#ddd!important;}
+</style>
 
 </body>
 </html>
