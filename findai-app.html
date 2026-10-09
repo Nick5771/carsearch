@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v211-selected-comment-compare-icons">
+<meta name="findai-build" content="v212-listing-photo-pinch-zoom">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -26,7 +26,7 @@
     document.documentElement.classList.toggle('wishwave-installed',navigator.standalone===true||!!(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches));
     // Route Search nav before older capture listeners can reopen Recents.
     ['touchstart','touchmove','touchend','touchcancel'].forEach(type=>window.addEventListener(type,e=>{
-      const handled=window.__wishwavePageTouch?.(type,e)||window.__wishwaveBackTouch?.(type,e)||window.__wishwaveTabTouch?.(type,e)||window.__wishwaveRefreshTouch?.(type,e);
+      const handled=window.__wishwaveZoomTouch?.(type,e)||window.__wishwavePageTouch?.(type,e)||window.__wishwaveBackTouch?.(type,e)||window.__wishwaveTabTouch?.(type,e)||window.__wishwaveRefreshTouch?.(type,e);
       if(handled)e.stopImmediatePropagation();
     },{capture:true,passive:false}));
     window.addEventListener('click',function(e){
@@ -30988,6 +30988,93 @@ html body .app #appMpInbox.wishwave-chat-back-drag,html body .app #appMpInbox.wi
     window.__wishwaveInboxRequest=(window.__wishwaveInboxRequest||0)+1;
     openCreateListing({preserveDraft:true});
   };
+})();
+</script>
+
+<style id="wishwave-v212-photo-zoom">
+body.wishwave-photo-zooming .reel-gallery-dots,body.wishwave-photo-zooming .reel-gallery-count{opacity:0!important;transition:opacity .15s}
+.reel-gallery-stage.wishwave-photo-zoom-stage{touch-action:none!important;}
+</style>
+<script id="wishwave-v212-photo-zoom-script">
+(function(){
+  let zoom=null,frame=0,settleTimer=0,suppressUntil=0;
+  const props=['transform','transform-origin','transition','will-change'];
+  const distance=t=>Math.hypot(t[1].clientX-t[0].clientX,t[1].clientY-t[0].clientY);
+  const middle=t=>({x:(t[0].clientX+t[1].clientX)/2,y:(t[0].clientY+t[1].clientY)/2});
+  const clamp=(v,min,max)=>Math.max(min,Math.min(max,v));
+  function cap(img,box){
+    const nw=img.naturalWidth,nh=img.naturalHeight;
+    if(!nw||!nh)return 1;
+    const fitted=Math.min(box.width/nw,box.height/nh);
+    return clamp(1/(Math.max(.001,fitted)*Math.max(1,devicePixelRatio||1)),1,3);
+  }
+  function draw(){frame=0;if(!zoom)return;
+    const z=zoom;
+    z.img.style.setProperty('transform',z.base+' translate3d('+z.x+'px,'+z.y+'px,0) scale('+z.scale+')','important');
+  }
+  function cleanup(){
+    clearTimeout(settleTimer);if(frame)cancelAnimationFrame(frame);frame=0;
+    const z=zoom;if(!z)return;
+    z.img.removeEventListener('transitionend',transitionDone);
+    for(const [key,value,priority] of z.saved){if(value)z.img.style.setProperty(key,value,priority);else z.img.style.removeProperty(key);}
+    z.stage.classList.remove('wishwave-photo-zoom-stage');
+    document.body.classList.remove('wishwave-photo-zooming');zoom=null;suppressUntil=performance.now()+150;
+  }
+  function transitionDone(e){if(e.target===zoom?.img&&e.propertyName==='transform')cleanup();}
+  function release(){
+    const z=zoom;if(!z||z.settling)return;
+    if(frame)cancelAnimationFrame(frame);frame=0;draw();z.settling=true;suppressUntil=performance.now()+400;
+    z.img.getBoundingClientRect();
+    const duration=matchMedia('(prefers-reduced-motion: reduce)').matches?0:220;
+    z.img.style.setProperty('transition','transform '+duration+'ms cubic-bezier(.2,.75,.2,1)','important');
+    z.img.style.setProperty('transform',z.base,'important');
+    z.img.addEventListener('transitionend',transitionDone);settleTimer=setTimeout(cleanup,duration+60);
+  }
+  function begin(e){
+    if(e.touches.length!==2||window.__wishwavePageMotion||window.__wishwaveTabSettling)return false;
+    const stage=e.target.closest?.('.reel-gallery-stage');if(!stage)return false;
+    if(e.target.closest('button,a,input,textarea,.reel-social-actions,.product-panel'))return false;
+    const index=Number(stage.dataset.galleryIndex||0);
+    const img=stage.querySelector('.reel-gallery-slide[data-gallery-slide="'+index+'"] img');
+    if(!img||!img.complete||!img.naturalWidth)return false;
+    const box=img.getBoundingClientRect();if(!box.width||!box.height)return false;
+    const limit=cap(img,box);if(limit<=1.01)return false;
+    const cancel={target:e.target,touches:[],changedTouches:[],stopPropagation(){},stopImmediatePropagation(){}};
+    window.__wishwavePageTouch?.('touchcancel',cancel);window.__wishwaveBackTouch?.('touchcancel',cancel);
+    window.__wishwaveTabTouch?.('touchcancel',cancel);window.__wishwaveRefreshTouch?.('touchcancel',cancel);
+    window.__wishwaveGalleryTouchV149?.('touchcancel',cancel);
+    const computed=getComputedStyle(img),mid=middle(e.touches),d=distance(e.touches);if(d<2)return false;
+    zoom={img,stage,box,limit,base:computed.transform==='none'?'':computed.transform,
+      saved:props.map(key=>[key,img.style.getPropertyValue(key),img.style.getPropertyPriority(key)]),
+      origin:mid,distance:d,scale:1,x:0,y:0,last:null,settling:false};
+    img.style.setProperty('transform-origin','50% 50%','important');img.style.setProperty('transition','none','important');img.style.setProperty('will-change','transform','important');
+    stage.classList.add('wishwave-photo-zoom-stage');document.body.classList.add('wishwave-photo-zooming');suppressUntil=Infinity;return true;
+  }
+  window.__wishwaveZoomTouch=function(type,e){
+    if(type==='touchstart'&&!zoom){if(!begin(e))return false;}
+    const z=zoom;if(!z)return false;
+    if(e.cancelable)e.preventDefault();
+    if(z.settling)return true;
+    if(!z.img.isConnected){cleanup();return true;}
+    if(type==='touchcancel'){release();return true;}
+    if(type==='touchend'&&!e.touches.length){release();return true;}
+    if(e.touches.length>=2){
+      const mid=middle(e.touches);
+      if(z.last){z.origin={x:mid.x-(z.x+(mid.x-z.box.left-z.box.width/2)*(z.scale-1))/z.scale,y:mid.y-(z.y+(mid.y-z.box.top-z.box.height/2)*(z.scale-1))/z.scale};z.distance=distance(e.touches)/z.scale;z.last=null;}
+      z.scale=clamp(distance(e.touches)/z.distance,1,z.limit);
+      z.x=mid.x-z.origin.x-(z.origin.x-z.box.left-z.box.width/2)*(z.scale-1);
+      z.y=mid.y-z.origin.y-(z.origin.y-z.box.top-z.box.height/2)*(z.scale-1);
+    }else if(e.touches.length===1){
+      const t=e.touches[0];if(z.last){z.x+=t.clientX-z.last.x;z.y+=t.clientY-z.last.y;}z.last={x:t.clientX,y:t.clientY};
+    }
+    const maxX=z.box.width*(z.scale-1)/2,maxY=z.box.height*(z.scale-1)/2;
+    z.x=clamp(z.x,-maxX,maxX);z.y=clamp(z.y,-maxY,maxY);
+    if(!frame)frame=requestAnimationFrame(draw);return true;
+  };
+  window.addEventListener('click',e=>{if((zoom||performance.now()<suppressUntil)&&e.target.closest?.('.reel-gallery-stage')){e.preventDefault();e.stopImmediatePropagation();}},true);
+  window.addEventListener('pagehide',cleanup);window.addEventListener('blur',()=>{if(zoom)release();});
+  window.addEventListener('resize',()=>{if(zoom)release();});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)cleanup();});
 })();
 </script>
 
