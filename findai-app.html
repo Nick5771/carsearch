@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v216-search-intent-recommendations">
+<meta name="findai-build" content="v217-search-submit-feedback">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -3171,11 +3171,12 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
     <header class="premium-search-home-header">
       <form class="premium-search-bar" onsubmit="return handlePremiumExploreSubmit(event)">
         <svg class="premium-search-glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>
-        <input id="q" type="search" placeholder="Search FindAI" enterkeyhint="search" autocomplete="off" autocapitalize="sentences" oninput="handlePremiumExploreInput(this.value)" onsearch="handlePremiumExploreInput(this.value)">
+        <input id="q" type="search" placeholder="Search FindAI" enterkeyhint="search" autocomplete="off" autocapitalize="sentences" oninput="handlePremiumExploreInput(this.value)" onsearch="wishwaveSearchFieldAction(event)">
         <button class="premium-search-scan" type="button" onclick="go('scan')" aria-label="Scan a product">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 8V5.8A.8.8 0 0 1 5.8 5H8M16 5h2.2a.8.8 0 0 1 .8.8V8M19 16v2.2a.8.8 0 0 1-.8.8H16M8 19H5.8a.8.8 0 0 1-.8-.8V16"/><circle cx="12" cy="12" r="3"/></svg>
         </button>
       </form>
+      <div class="wishwave-search-status" id="wishwaveSearchStatus" role="status" aria-live="polite" aria-atomic="true"><span class="wishwave-search-status-spinner" aria-hidden="true"></span><span id="wishwaveSearchStatusText"></span></div>
       <div class="premium-explore-chips" id="premiumExploreChips" role="tablist" aria-label="FindAI discovery">
         <button type="button" class="active" data-explore-filter="for-you">For You</button>
         <button type="button" data-explore-filter="people">People</button>
@@ -15298,15 +15299,16 @@ if(typeof v116RenderMarketplaceListing==='function'){
       const out=[],seen=new Set();
       for(const interest of interests){
         const cluster=String(interest.cluster||interestClusterKey(interest.query)||'').trim();
-        if(!cluster||seen.has(cluster))continue;
-        seen.add(cluster);
+        const queryKey=normaliseQueryText(interest.query);
+        if(!cluster||seen.has(queryKey))continue;
+        seen.add(queryKey);
         const variants=(typeof interestQueryVariants==='function'?interestQueryVariants(interest):[interest.discoveryQuery,interest.query])
           .map(x=>String(x||'').trim()).filter(Boolean);
         if(!variants.length)continue;
         out.push({
           id:'taste_'+cluster.replace(/[^a-z0-9]+/gi,'_').slice(0,28),
           title:'For You',
-          queries:interest._prioritySearch?[interest.query]:[...new Set(variants)].slice(0,4),
+          queries:[...new Set([interest.query,interest.discoveryQuery].map(x=>String(x||'').trim()).filter(Boolean))].slice(0,2),
           _findaiTaste:true,
           _findaiInterest:interest
         });
@@ -15328,10 +15330,9 @@ if(typeof v116RenderMarketplaceListing==='function'){
     const add=config=>{if(!config)return;const key=String(config.id||config.title||Math.random());if(used.has(key))return;used.add(key);mixed.push(config);};
     // Keep taste strong but deliberately preserve broad exploration so Search never
     // becomes trapped in only the last one or two Home/Reels interests.
-    add(taste[0]); add(discovery[0]); add(discovery[1]);
-    add(taste[1]); add(discovery[2]); add(discovery[3]);
-    add(taste[2]); add(discovery[4]); add(discovery[5]);
-    add(taste[3]);
+    add(taste[0]); add(discovery[0]); add(taste[1]);
+    add(discovery[1]); add(taste[2]); add(discovery[2]);
+    add(taste[3]); add(discovery[3]); add(discovery[4]); add(discovery[5]);
     discovery.slice(6).forEach(add);
     return mixed.slice(0,14);
   }
@@ -15477,7 +15478,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     root.classList.remove('premium-explore-refreshing');
   }
   async function loadExploreConfig(config,pool,generation){
-    const queryUsed=premiumRotateArray(config.queries||[config.title||'products'],premiumDiscoveryHash()+String(config.id||'x').length+exploreVisitSalt*19)[0]||config.title||'products';
+    const queryUsed=(config._findaiTaste?(config.queries||[])[0]:premiumRotateArray(config.queries||[config.title||'products'],premiumDiscoveryHash()+String(config.id||'x').length+exploreVisitSalt*19)[0])||config.title||'products';
     let items=v116PreviewItemsForConfig(config,pool);
     const exactIntent=!!config._findaiInterest?._prioritySearch;
     if((exactIntent||items.length<6)&&queryUsed){
@@ -15510,6 +15511,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
       seenExplore.add(key);incoming.push(item);
     }
     const mixed=diversifyExploreItems(incoming);
+    if(initial&&exploreFilter==='for-you'){const lead=groups[0]?.find(item=>incoming.some(x=>exploreItemKey(x)===exploreItemKey(item)));if(lead){const index=mixed.findIndex(x=>exploreItemKey(x)===exploreItemKey(lead));if(index>0)mixed.unshift(...mixed.splice(index,1));}}
     const target=premiumDiscoverySections[0].items;target.push(...mixed);
     exploreLoading=false;renderExploreGrid({replace:false});cacheExploreBrowseState();
   }
@@ -15552,8 +15554,19 @@ if(typeof v116RenderMarketplaceListing==='function'){
     if(!force)restoreBrowseSnapshot();else exploreBrowseSnapshot=null;
     return renderPremiumDiscoverySections(force);
   };
+  let interpretingTimer=0,interpretingStarted=0;
   function setExploreInterpreting(active){
-    const screen=document.getElementById('search');if(screen)screen.classList.toggle('live-search-interpreting',!!active);
+    clearTimeout(interpretingTimer);
+    const screen=document.getElementById('search'),text=document.getElementById('wishwaveSearchStatusText');
+    if(active){
+      if(!screen?.classList.contains('live-search-interpreting'))interpretingStarted=performance.now();
+      screen?.classList.add('live-search-interpreting');screen?.setAttribute('aria-busy','true');
+      if(text)text.textContent='Searching…';return;
+    }
+    const clear=()=>{screen?.classList.remove('live-search-interpreting');screen?.setAttribute('aria-busy','false');if(text)text.textContent='';};
+    const hasQuery=!!String(document.getElementById('q')?.value||'').trim();
+    const remaining=hasQuery?Math.max(0,180-(performance.now()-interpretingStarted)):0;
+    if(remaining)interpretingTimer=setTimeout(clear,remaining);else clear();
   }
   function cacheExploreBrowseState(){
     if(exploreFilter==='people'||exploreLiveSearchQuery)return;
@@ -16598,14 +16611,14 @@ html.findai-light .wishwave-comment-attachment-preview{background:#f0f1f3;border
 
 <style id="findai-v129-search-comments-style">
 #search .premium-search-bar{position:relative}
-#search.live-search-interpreting .premium-search-bar:after{
-  content:"";position:absolute;right:52px;top:50%;width:12px;height:12px;margin-top:-6px;border:1.7px solid rgba(255,255,255,.22);border-top-color:#f4f6f8;border-radius:50%;animation:findaiSearchInterpret .52s linear infinite;pointer-events:none
-}
-#search.live-search-interpreting .premium-search-bar input{padding-right:18px}
+#search .wishwave-search-status{height:20px;display:flex;align-items:center;justify-content:center;gap:6px;margin-top:3px;font-size:11px;color:#acb0b8;visibility:hidden;pointer-events:none}
+#search.live-search-interpreting .wishwave-search-status{visibility:visible}
+.wishwave-search-status-spinner{width:11px;height:11px;box-sizing:border-box;border:1.5px solid rgba(255,255,255,.22);border-top-color:#f4f6f8;border-radius:50%;animation:findaiSearchInterpret .65s linear infinite}
+@media(prefers-reduced-motion:reduce){.wishwave-search-status-spinner{animation:none}}
 #search.live-search-interpreting .premium-search-glass{color:#f1f3f6}
 @keyframes findaiSearchInterpret{to{transform:rotate(360deg)}}
 .wishwave-comment-form .wishwave-comment-send svg{width:22px!important;height:22px!important}
-html.findai-light #search.live-search-interpreting .premium-search-bar:after{border-color:rgba(0,0,0,.18);border-top-color:#111}
+html.findai-light .wishwave-search-status-spinner{border-color:rgba(0,0,0,.18);border-top-color:#111}
 </style>
 <style id="findai-v130-social-navigation-search-style">
 /* v130 — Instagram-style social navigation, recents and comment interactions. */
@@ -31957,6 +31970,35 @@ html body .app .findai-v132-swipe-surface{filter:none!important;backdrop-filter:
     setTimeout(()=>window.wishwaveApplyRecentSearchToHome?.(),450);
     return result;
   };
+})();
+</script>
+<script id="wishwave-v217-search-return">
+(function(){
+  const input=document.getElementById('q'),form=input?.form;
+  const submit=window.handlePremiumExploreSubmit;
+  let lastQuery='',lastSubmit=-Infinity;
+  window.handlePremiumExploreSubmit=function(event){
+    event?.preventDefault?.();
+    const query=String(input?.value||'').trim(),now=performance.now();
+    input?.blur();
+    const search=document.getElementById('search');
+    search?.classList.remove('search-recents-visible');document.getElementById('findaiSearchRecents')?.classList.remove('show');
+    if(query===lastQuery&&now-lastSubmit<250)return false;
+    lastQuery=query;lastSubmit=now;
+    return submit.call(this,event);
+  };
+  window.wishwaveSearchFieldAction=function(event){
+    if(String(input?.value||'').trim())return window.handlePremiumExploreSubmit(event);
+    return window.handlePremiumExploreInput('');
+  };
+  input?.addEventListener('keydown',event=>{
+    if(event.key!=='Enter'||event.isComposing||event.keyCode===229)return;
+    event.preventDefault();event.stopImmediatePropagation();
+    window.handlePremiumExploreSubmit(event);
+  },true);
+  if(form&&!form.querySelector('[type="submit"]')){
+    const button=document.createElement('button');button.type='submit';button.hidden=true;button.tabIndex=-1;button.setAttribute('aria-label','Search');form.appendChild(button);
+  }
 })();
 </script>
 </body>
