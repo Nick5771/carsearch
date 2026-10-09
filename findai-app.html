@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v226-create-edge-to-edge">
+<meta name="findai-build" content="v227-photo-first-delivery">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -3652,19 +3652,30 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
         </div>
         <div class="wishwave-listing-details">
           <label class="marketplace-field"><span>Title</span><input id="listingItemName" maxlength="120" autocomplete="off" placeholder="What are you selling?" required></label>
-          <label class="marketplace-field wishwave-listing-price"><span>Asking price</span><div class="price-input-wrap"><input id="listingPrice" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" required></div></label>
-          <fieldset class="marketplace-field marketplace-fieldset">
-            <legend>Condition</legend>
-            <div class="condition-options" role="radiogroup" aria-label="Item condition">
-              <button class="condition-option active" type="button" data-condition="New" onclick="selectListingCondition('New')">New</button>
-              <button class="condition-option" type="button" data-condition="Used" onclick="selectListingCondition('Used')">Used</button>
-              <button class="condition-option" type="button" data-condition="New (Other)" onclick="selectListingCondition('New (Other)')">New (Other)</button>
+          <label class="marketplace-field wishwave-listing-price"><span>Price</span><div class="price-input-wrap"><input id="listingPrice" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" required></div></label>
+          <div class="marketplace-field marketplace-fieldset wishwave-condition-row">
+            <span id="listingConditionLabel">Condition</span>
+            <div class="condition-options" role="radiogroup" aria-labelledby="listingConditionLabel">
+              <button class="condition-option active" type="button" role="radio" aria-checked="true" data-condition="New" onclick="selectListingCondition('New')">New</button>
+              <button class="condition-option" type="button" role="radio" aria-checked="false" data-condition="Used" onclick="selectListingCondition('Used')">Used</button>
+              <button class="condition-option" type="button" role="radio" aria-checked="false" data-condition="Like new" onclick="selectListingCondition('Like new')">Like new</button>
             </div>
             <input id="listingCondition" type="hidden" value="New">
-          </fieldset>
+          </div>
           <label class="marketplace-field"><span>Description</span><textarea id="listingItemDescription" maxlength="2000" placeholder="Describe the item, its condition and what’s included." required></textarea></label>
 
         </div>
+        <section class="wishwave-listing-delivery" aria-labelledby="listingDeliveryTitle">
+          <h3 id="listingDeliveryTitle">Delivery</h3><p>Choose how buyers receive it</p>
+          <div class="wishwave-delivery-options" role="radiogroup" aria-label="Delivery method">
+            <button type="button" role="radio" aria-checked="false" data-delivery="shipping" onclick="wishwaveSelectDelivery('shipping')">Shipping</button>
+            <button type="button" role="radio" aria-checked="false" data-delivery="pickup" onclick="wishwaveSelectDelivery('pickup')">Pickup</button>
+            <button type="button" role="radio" aria-checked="false" data-delivery="both" onclick="wishwaveSelectDelivery('both')">Both</button>
+          </div>
+          <input id="listingDeliveryMode" type="hidden" value="">
+          <label class="wishwave-delivery-field" id="listingShippingRow" hidden><span>Shipping fee</span><div class="wishwave-shipping-input"><span aria-hidden="true">$</span><input id="listingShippingFee" type="number" inputmode="decimal" min="0" max="100000" step="0.01" placeholder="0.00" aria-label="Shipping fee"><button type="button" id="listingFreeShipping" aria-pressed="false" onclick="wishwaveSetFreeShipping()">Free</button></div></label>
+          <label class="wishwave-delivery-field" id="listingPickupRow" hidden><span>Pickup area</span><input id="listingPickupArea" maxlength="120" autocomplete="off" placeholder="Suburb or city" aria-label="Pickup area"></label>
+        </section>
       </form>
     </div>
     <div class="wishwave-listing-publish-footer"><button class="create-listing-submit" id="createListingSubmit" form="createListingForm" type="submit">Publish Listing</button></div>
@@ -4244,7 +4255,7 @@ function resetCreateListingForm(){
   const condition=$('#listingCondition');if(condition) condition.value='New';
   $$('.condition-option').forEach(button=>button.classList.toggle('active',button.dataset.condition==='New'));
   pendingListingImages=[];renderListingImagePreviews();
-  const submit=$('#createListingSubmit');if(submit){submit.disabled=false;submit.textContent='Publish Listing';}
+  const submit=$('#createListingSubmit');if(submit){delete submit.dataset.publishing;submit.disabled=true;submit.textContent='Publish Listing';}
 }
 function openCreateListing({preserveDraft=false,focus=false}={}){
   const profile=getAccountProfile();if(!profile||!marketplaceSession()){openLogin();return;}
@@ -4261,7 +4272,7 @@ function closeCreateListing(){
   findaiSyncVisualViewport();
 }
 function selectListingCondition(value){
-  const allowed=['New','Used','New (Other)'];const selected=allowed.includes(value)?value:'New';
+  const allowed=['New','Used','Like new','New (Other)'];const selected=allowed.includes(value)?value:'New';
   const field=$('#listingCondition');if(field)field.value=selected;
   $$('.condition-option').forEach(button=>button.classList.toggle('active',button.dataset.condition===selected));
 }
@@ -4288,11 +4299,12 @@ async function submitCreateListing(event){
   const profile=getAccountProfile();if(!profile||!marketplaceSession()){closeCreateListing();openLogin();return false;}
   const name=String($('#listingItemName').value||'').trim();const description=String($('#listingItemDescription').value||'').trim();const condition=String($('#listingCondition').value||'New');const price=Number($('#listingPrice').value);
   if(!name){toast('Add an item name');return false;}if(!description){toast('Add an item description');return false;}if(!Number.isFinite(price)||price<=0){toast('Enter a valid price');return false;}if(!pendingListingImages.length){toast('Add at least one item image');return false;}
-  const submit=$('#createListingSubmit');if(submit){submit.disabled=true;submit.textContent='Uploading images…';}
+  const delivery=wishwaveListingDeliveryPayload();if(!delivery){toast('Choose delivery and add its details');return false;}
+  const submit=$('#createListingSubmit');if(submit){submit.dataset.publishing='1';submit.disabled=true;submit.textContent='Uploading images…';}
   try{
     const uploaded=await marketplaceFetch('/marketplace/images',{method:'POST',body:JSON.stringify({images:pendingListingImages,displayName:profile.name||'WishWave seller',country:(window.findaiV137Prefs?window.findaiV137Prefs().region:'AU')})});
     if(submit) submit.textContent='Publishing…';
-    const created=await marketplaceFetch('/marketplace/listings',{method:'POST',body:JSON.stringify({title:name,description,condition,itemPrice:Number(price.toFixed(2)),currency:(window.findaiV137Prefs?window.findaiV137Prefs().currency:'AUD'),shippingMode:'free',shippingMinor:0,offersEnabled:(window.findaiV137Prefs?window.findaiV137Prefs().sellerAllowOffers!==false:true),imageUrls:uploaded.imageUrls||[],displayName:profile.name||'WishWave seller',publish:true})});
+    const created=await marketplaceFetch('/marketplace/listings',{method:'POST',body:JSON.stringify({title:name,description,condition,itemPrice:Number(price.toFixed(2)),currency:(window.findaiV137Prefs?window.findaiV137Prefs().currency:'AUD'),...delivery,offersEnabled:(window.findaiV137Prefs?window.findaiV137Prefs().sellerAllowOffers!==false:true),imageUrls:uploaded.imageUrls||[],displayName:profile.name||'WishWave seller',publish:true})});
     const current=getMarketplaceListings();
     const createdId=created&&created.listing&&(created.listing.marketplaceListingId||created.listing.itemId||created.listing.id);
     const nextListings=created&&created.listing?[created.listing,...current.filter(item=>(item.marketplaceListingId||item.itemId||item.id)!==createdId)]:current.slice();
@@ -4312,7 +4324,7 @@ async function submitCreateListing(event){
     toast('Listing published');
     try{renderAccountProfile();}catch(_){}
     setTimeout(async()=>{try{await loadProfileMarketplaceData(true);}catch(_){ }},1800);
-  }catch(error){toast(String(error&&error.message||'Could not publish listing'));if(submit){submit.disabled=false;submit.textContent='Publish Listing';}}
+  }catch(error){toast(String(error&&error.message||'Could not publish listing'));if(submit){delete submit.dataset.publishing;submit.textContent='Publish Listing';wishwaveSyncCreateDelivery();}}
   return false;
 }
 async function openMyListings(){
@@ -4720,6 +4732,8 @@ function getTrust(item){
 }
 function getShippingText(item){
   if(!item) return 'Shipping shown by seller';
+  if(item.deliveryMode==='pickup')return 'Pickup'+(item.pickupArea?' · '+item.pickupArea:'');
+  if(item.deliveryMode==='both')return (Number(item.shippingCost)>0?money(item.shippingCost,item.currency||'AUD')+' shipping':'Free shipping')+' · Pickup available';
 
   // Retailer APIs (especially eBay) can return shipping as an object. Never
   // stringify that object into the UI (which produces "[object Object]" or
@@ -8359,17 +8373,17 @@ function renderAppMarketplaceListing(){
   $('#appMpProductContent').innerHTML=`<div class="app-mp-gallery">${images[0]?`<img class="app-mp-main-image" id="appMpMainImage" src="${escapeAttr(images[0])}" alt="${escapeAttr(listing.title||'WishWave listing')}">`:'<div class="app-mp-loading">No image supplied</div>'}<div class="app-mp-image-price">${escapeHTML(appMpMoney(listing.price,listing.currency))}</div></div>${images.length>1?`<div class="app-mp-thumbs">${thumbs}</div>`:''}
     <div class="app-mp-source"><span class="app-mp-wordmark">WishWave</span><span>Marketplace listing</span></div><h1 class="app-mp-title">${escapeHTML(listing.title||'WishWave listing')}</h1>
     <div class="app-mp-seller"><div class="app-mp-avatar">${findaiAvatarImgMarkup(seller.avatarUrl||listing.sellerAvatar||'',sellerName)}</div><div class="app-mp-seller-copy"><b>${escapeHTML(sellerName)}</b>${reviewCount?`<span class="app-mp-seller-rating">★ ${rating.toFixed(1)} (${reviewCount})${sold?` · ${sold} sold`:``}</span>`:(sold?`<span>${sold} sold</span>`:``)}<span class="app-mp-seller-member">${escapeHTML(joined)}</span></div><button class="app-mp-message-pill" onclick="openAppMarketplaceMessages()">${viewer.isSeller?'Messages':'Message'}</button></div>
-    <div class="app-mp-price">${escapeHTML(appMpMoney(listing.price,listing.currency))}</div><div class="app-mp-price-note">Secure checkout and tracked delivery through FindAI</div>
-    <div class="app-mp-facts"><div class="app-mp-fact"><span>Condition</span><b>${escapeHTML(listing.condition||'Not specified')}</b></div><div class="app-mp-fact"><span>Delivery</span><b>${Number(listing.shippingCost)>0?escapeHTML(appMpMoney(listing.shippingCost,listing.currency)+' tracked shipping'):'Delivery details at checkout'}</b></div><div class="app-mp-fact"><span>Availability</span><b>${escapeHTML(appMpStatus(listing.status))}</b></div></div>
-    <div class="app-mp-actions"><button class="app-mp-action primary" ${!available||viewer.isSeller?'disabled':''} onclick="appMpBuy()">${viewer.isSeller?'Your listing':String(listing.status)==='reserved'?'Reserved':'Buy It Now'}</button><button class="app-mp-action secondary" ${!offers?'disabled':''} onclick="openAppMarketplaceOfferInMessages()">${viewer.isSeller?'Manage offers':'Make offer'}</button><button class="app-mp-action tertiary" onclick="openAppMarketplaceMessages()">${viewer.isSeller?'Manage messages':'Message seller'}</button></div>
+    <div class="app-mp-price">${escapeHTML(appMpMoney(listing.price,listing.currency))}</div><div class="app-mp-price-note">${listing.deliveryMode==='pickup'?'Arrange pickup with the seller':listing.deliveryMode==='both'?'Shipping or pickup available':'Secure checkout through WishWave'}</div>
+    <div class="app-mp-facts"><div class="app-mp-fact"><span>Condition</span><b>${escapeHTML(listing.condition||'Not specified')}</b></div><div class="app-mp-fact"><span>Delivery</span><b>${escapeHTML(getShippingText(listing))}</b></div><div class="app-mp-fact"><span>Availability</span><b>${escapeHTML(appMpStatus(listing.status))}</b></div></div>
+    <div class="app-mp-actions"><button class="app-mp-action primary" ${!available||viewer.isSeller?'disabled':''} onclick="appMpBuy()">${viewer.isSeller?'Your listing':String(listing.status)==='reserved'?'Reserved':listing.deliveryMode==='pickup'?'Arrange pickup':'Buy It Now'}</button><button class="app-mp-action secondary" ${!offers?'disabled':''} onclick="openAppMarketplaceOfferInMessages()">${viewer.isSeller?'Manage offers':'Make offer'}</button><button class="app-mp-action tertiary" onclick="openAppMarketplaceMessages()">${viewer.isSeller?'Manage messages':'Message seller'}</button></div>
     <div class="app-mp-protection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 4v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V7l8-4z"/><path d="M8.5 12.5l2.2 2.2 4.8-5"/></svg><div><b>FindAI Buyer Protection</b><span>Pay and message inside FindAI and use tracked delivery to remain eligible for protection.</span></div></div>
     <section class="app-mp-section"><h3>About this item</h3><div class="app-mp-description">${escapeHTML(listing.description||'The seller has not added a description yet.')}</div></section>
     ${recentReviews.length?`<section class="app-mp-section"><h3>Seller feedback</h3><div class="app-mp-feedback-list">${recentReviews.map(review=>`<div class="verified-review"><div class="verified-review-head"><span class="verified-review-stars">${escapeHTML(appStars(review.rating))}</span><span class="verified-review-badge">✓ Verified purchase</span></div>${review.comment?`<p>${escapeHTML(review.comment)}</p>`:''}</div>`).join('')}</div></section>`:''}
-    <section class="app-mp-section"><h3>Item details</h3><div class="app-mp-detail-grid"><div class="app-mp-detail"><span>Condition</span><b>${escapeHTML(listing.condition||'Not specified')}</b></div><div class="app-mp-detail"><span>Location</span><b>${escapeHTML(listing.sellerCountry||seller.country||'Australia')}</b></div><div class="app-mp-detail"><span>Listed</span><b>${escapeHTML(appMpDate(listing.publishedAt||listing.createdAt)||'Recently')}</b></div><div class="app-mp-detail"><span>Item number</span><b>${escapeHTML(appMpId(listing))}</b></div></div></section>`;
+    <section class="app-mp-section"><h3>Item details</h3><div class="app-mp-detail-grid"><div class="app-mp-detail"><span>Condition</span><b>${escapeHTML(listing.condition||'Not specified')}</b></div><div class="app-mp-detail"><span>Location</span><b>${escapeHTML(listing.pickupArea||listing.sellerCountry||seller.country||'Australia')}</b></div><div class="app-mp-detail"><span>Listed</span><b>${escapeHTML(appMpDate(listing.publishedAt||listing.createdAt)||'Recently')}</b></div><div class="app-mp-detail"><span>Item number</span><b>${escapeHTML(appMpId(listing))}</b></div></div></section>`;
 }
 function appMpSelectImage(index){const images=Array.isArray(appMpListing&&appMpListing.images)?appMpListing.images:[],img=images[index];if(img)$('#appMpMainImage').src=img;$$('.app-mp-thumb').forEach((el,i)=>el.classList.toggle('active',i===index));appMpSelectedImage=index;}
 async function appMpShareListing(){if(!appMpListing)return;const url='https://findai.ai/findai-app.html?listing='+encodeURIComponent(appMpId(appMpListing));try{if(navigator.share)await navigator.share({title:appMpListing.title||'WishWave listing',url});else{await navigator.clipboard.writeText(url);toast('Listing link copied');}}catch(_){}}
-async function appMpBuy(offerId){if(!appMpListing||!appMpRequireLogin())return;try{const data=await marketplaceFetch('/marketplace/checkout',{method:'POST',body:JSON.stringify({listingId:appMpId(appMpListing),offerId:offerId||''})});if(data.checkoutUrl)location.href=data.checkoutUrl;else throw new Error('Checkout is not available yet');}catch(error){toast(error.message||'Checkout could not be opened');}}
+async function appMpBuy(offerId){if(!appMpListing||!appMpRequireLogin())return;if(appMpListing.deliveryMode==='pickup'){openAppMarketplaceMessages();return;}try{const data=await marketplaceFetch('/marketplace/checkout',{method:'POST',body:JSON.stringify({listingId:appMpId(appMpListing),offerId:offerId||''})});if(data.checkoutUrl)location.href=data.checkoutUrl;else throw new Error('Checkout is not available yet');}catch(error){toast(error.message||'Checkout could not be opened');}}
 function openAppMpSheet(title,html){const bg=$('#appMpSheetBg');bg.dataset.motionVersion=String(Number(bg.dataset.motionVersion||0)+1);bg.classList.remove('comments-dragging','comments-snapping','comments-dismissing');bg.style.removeProperty('--wishwave-comments-drag-y');if(title!=='Comments')bg.classList.remove('wishwave-comments-mode');$('#appMpSheetTitle').textContent=title;$('#appMpSheetBody').innerHTML=html||'';$('#appMpSheetBg').classList.add('show');setTimeout(syncAppMpSheetViewport,30);}
 function closeAppMpSheet(){clearInterval(appMpMessageTimer);appMpMessageTimer=null;const bg=$('#appMpSheetBg');if(bg)bg.classList.remove('show');document.documentElement.style.setProperty('--app-mp-keyboard-pad','0px');}
 function syncAppMpSheetViewport(){
@@ -32339,7 +32353,7 @@ html.findai-light #createListingScreen .wishwave-create-mode button[aria-pressed
       const stage=card.querySelector('.reel-gallery-stage');stage.className='hero-stage wishwave-draft-gallery';stage.replaceChildren();stage.setAttribute('data-horizontal-scroll','true');
       const track=document.createElement('div');track.className='wishwave-draft-track';track.setAttribute('data-horizontal-scroll','true');
       for(const src of pendingListingImages){const slide=document.createElement('div');slide.className='reel-gallery-slide';const img=document.createElement('img');img.className='hero-image fit-contain';img.src=src;img.alt='Draft photo '+(track.children.length+1);img.decoding='async';slide.appendChild(img);track.appendChild(slide);}
-      if(!pendingListingImages.length){const add=document.createElement('button');add.type='button';add.className='wishwave-draft-empty';add.innerHTML='<span>＋</span>Add photos to preview your reel';add.onclick=()=>document.getElementById('listingImageInput').click();track.appendChild(add);}
+      if(!pendingListingImages.length){const add=document.createElement('button');add.type='button';add.className='wishwave-draft-empty';add.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5l1.5-2h5L16 5h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h3Z"/><circle cx="12" cy="12.5" r="4"/></svg><b>Add your first photo</b><small>Your reel preview appears here</small>';add.onclick=()=>document.getElementById('listingImageInput').click();track.appendChild(add);}
       stage.appendChild(track);photoIndex=Math.min(photoIndex,Math.max(0,pendingListingImages.length-1));const dots=document.createElement('div');dots.className='wishwave-draft-dots';dots.innerHTML=pendingListingImages.length>1?pendingListingImages.map((_,i)=>'<i class="'+(i===photoIndex?'active':'')+'"></i>').join(''):'';card.appendChild(dots);
       const desc=document.createElement('div');desc.className='wishwave-draft-description';card.querySelector('.product-panel').appendChild(desc);
       host.replaceChildren(card);photoIndex=Math.min(photoIndex,Math.max(0,pendingListingImages.length-1));track.addEventListener('scroll',syncPhoto,{passive:true});requestAnimationFrame(()=>{track.scrollLeft=photoIndex*track.clientWidth;syncPhoto();});
@@ -32536,5 +32550,99 @@ html body .app #createListingScreen .wishwave-draft-track img.hero-image{object-
 #createListingScreen .wishwave-draft-expand{top:8px;right:12px;width:28px;height:28px;font-size:19px;}
 </style>
 
+<style id="wishwave-v227-photo-first-delivery">
+html body .app #createListingScreen{--create-surface:#121418;--create-border:#ffffff13;--create-muted:#858b96;--create-text:#f4f5f7;background:#08090b!important;color:var(--create-text);}
+html.findai-light body .app #createListingScreen{--create-surface:#f2f3f6;--create-border:#dfe2e7;--create-muted:#7a808b;--create-text:#15171b;background:#fff!important;}
+html body .app #createListingScreen .marketplace-form{gap:12px!important;width:100%!important;max-width:none!important;padding:0!important;}
+html body .app #createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-preview{height:clamp(210px,28vh,260px)!important;max-height:none!important;border-radius:0!important;border:0!important;}
+html body .app #createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-preview:has(.wishwave-draft-empty){height:180px!important;margin:0 16px!important;border:1px dashed #ffffff24!important;border-radius:14px!important;background:var(--create-surface)!important;}
+html body .app #createListingScreen .wishwave-draft-preview:has(.wishwave-draft-empty) .hero-stage::after{content:none!important;display:none!important;}
+html body .app #createListingScreen .wishwave-draft-preview:has(.wishwave-draft-empty) .product-panel,
+html body .app #createListingScreen .wishwave-draft-preview:has(.wishwave-draft-empty) .reel-actions-rail,
+html body .app #createListingScreen .wishwave-draft-preview:has(.wishwave-draft-empty) .reel-seller-row,
+html body .app #createListingScreen .wishwave-draft-preview:has(.wishwave-draft-empty) .wishwave-draft-badge,
+html body .app #createListingScreen .wishwave-draft-preview:has(.wishwave-draft-empty) .wishwave-draft-expand{display:none!important;}
+html body .app #createListingScreen .wishwave-draft-empty{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:9px!important;padding:20px!important;background:var(--create-surface)!important;color:var(--create-text)!important;}
+html body .app #createListingScreen .wishwave-draft-empty svg{width:30px;height:30px;color:#acb2bc;margin-bottom:2px;}
+html body .app #createListingScreen .wishwave-draft-empty b{font-size:15px;font-weight:600;letter-spacing:-.2px;}
+html body .app #createListingScreen .wishwave-draft-empty small{font-size:11px;color:var(--create-muted);}
+html body .app #createListingScreen .wishwave-listing-details{display:flex!important;flex-direction:column!important;border:1px solid var(--create-border)!important;border-radius:14px!important;background:var(--create-surface)!important;overflow:hidden!important;gap:0!important;padding:0!important;}
+html body .app #createListingScreen .wishwave-listing-details>.marketplace-field{display:grid!important;grid-template-columns:78px minmax(0,1fr)!important;align-items:center!important;gap:8px!important;min-height:47px!important;margin:0!important;padding:10px 13px!important;border:0!important;border-radius:0!important;border-bottom:1px solid var(--create-border)!important;background:transparent!important;box-sizing:border-box!important;}
+html body .app #createListingScreen .wishwave-listing-details>.marketplace-field:last-child{border-bottom:0!important;min-height:64px!important;align-items:start!important;}
+html body .app #createListingScreen .marketplace-field>span{font-size:12px!important;font-weight:500!important;line-height:24px!important;color:#b2b7c0!important;}
+html body .app #createListingScreen .marketplace-field input,html body .app #createListingScreen .marketplace-field textarea{width:100%!important;min-width:0!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:var(--create-text)!important;font-size:16px!important;line-height:24px!important;}
+html body .app #createListingScreen .marketplace-field input{height:26px!important;}
+html body .app #createListingScreen .marketplace-field textarea{height:44px!important;min-height:44px!important;resize:none!important;}
+html body .app #createListingScreen .marketplace-field input::placeholder,html body .app #createListingScreen .marketplace-field textarea::placeholder{font-size:12px!important;color:var(--create-muted)!important;opacity:1!important;}
+html body .app #createListingScreen .price-input-wrap{width:100%!important;min-width:0!important;border:0!important;background:transparent!important;}
+html body .app #createListingScreen .price-input-wrap input{padding-left:19px!important;}
+html body .app #createListingScreen .price-input-wrap::before{font-size:16px!important;left:0!important;}
+html body .app #createListingScreen .condition-options{display:flex!important;gap:5px!important;width:100%!important;}
+html body .app #createListingScreen .condition-option{flex:1!important;min-width:0!important;height:29px!important;min-height:29px!important;padding:0 4px!important;border:1px solid #ffffff16!important;border-radius:16px!important;background:#ffffff06!important;color:#aab0ba!important;font-size:10px!important;font-weight:500!important;white-space:nowrap!important;}
+html body .app #createListingScreen .condition-option.active{border-color:#f4f5f7!important;background:#f4f5f7!important;color:#16181c!important;}
+html body .app #createListingScreen .listing-image-preview,html body .app #createListingScreen .listing-image-picker{width:54px!important;min-width:54px!important;height:54px!important;min-height:54px!important;flex-basis:54px!important;border-radius:9px!important;}
+html body .app #createListingScreen .wishwave-listing-photo-slot{width:44px!important;height:54px!important;}
+html body .app #createListingScreen .listing-image-picker{padding:4px!important;}
+html body .app #createListingScreen .listing-image-picker b{font-size:9px!important;}
+html body .app #createListingScreen .wishwave-listing-delivery{margin:0 16px!important;padding:13px!important;border:1px solid var(--create-border);border-radius:14px;background:var(--create-surface);}
+html body .app #createListingScreen .wishwave-listing-delivery h3{margin:0 0 4px;font-size:13px;line-height:18px;font-weight:600;color:var(--create-text);}
+html body .app #createListingScreen .wishwave-listing-delivery>p{margin:0 0 11px;font-size:11px;line-height:15px;color:var(--create-muted);}
+html body .app #createListingScreen .wishwave-delivery-options{display:flex;gap:7px;}
+html body .app #createListingScreen .wishwave-delivery-options button{flex:1;height:32px;border:1px solid #ffffff1a;border-radius:18px;background:transparent;color:#aab0ba;font-size:11px;font-weight:500;}
+html body .app #createListingScreen .wishwave-delivery-options button[aria-checked="true"]{background:#f4f5f7;color:#15171b;border-color:#f4f5f7;}
+html body .app #createListingScreen .wishwave-delivery-field{display:grid;grid-template-columns:90px minmax(0,1fr);gap:8px;align-items:center;min-height:43px;padding-top:8px;margin-top:8px;border-top:1px solid var(--create-border);font-size:12px;color:#b2b7c0;}
+html body .app #createListingScreen .wishwave-delivery-field[hidden]{display:none!important;}
+html body .app #createListingScreen .wishwave-delivery-field input{min-width:0;width:100%;height:30px;padding:0;border:0;background:transparent;color:var(--create-text);font-size:16px;outline:none;}
+html body .app #createListingScreen .wishwave-delivery-field input::placeholder{font-size:12px;color:var(--create-muted);}
+html body .app #createListingScreen .wishwave-shipping-input{display:flex;align-items:center;gap:4px;min-width:0;}
+html body .app #createListingScreen .wishwave-shipping-input>span{font-size:16px;color:var(--create-text);}
+html body .app #createListingScreen #listingFreeShipping{flex:0 0 auto;padding:5px 8px;border:1px solid #ffffff1a;border-radius:8px;background:transparent;color:#b2b7c0;font-size:10px;}
+html body .app #createListingScreen #listingFreeShipping[aria-pressed="true"]{background:#f4f5f7;color:#15171b;}
+html body .app #createListingScreen .wishwave-listing-publish-footer{padding:10px 16px calc(12px + env(safe-area-inset-bottom,0px))!important;background:#08090b!important;border-top:0!important;}
+html body .app #createListingScreen .create-listing-submit{height:49px!important;border-radius:14px!important;font-size:14px!important;font-weight:650!important;margin:0!important;}
+html body .app #createListingScreen .create-listing-submit:disabled{background:#25272d!important;color:#666b75!important;box-shadow:none!important;opacity:1!important;transform:none!important;}
+html.findai-light body .app #createListingScreen .wishwave-listing-publish-footer{background:#fff!important;}
+html.findai-light body .app #createListingScreen .wishwave-delivery-options button,html.findai-light body .app #createListingScreen .condition-option,html.findai-light body .app #createListingScreen #listingFreeShipping{border-color:#d6d9df!important;}
+html.findai-light body .app #createListingScreen #wishwaveCreateCompactSlot .wishwave-draft-preview:has(.wishwave-draft-empty){border-color:#d6d9df!important;}
+html body .app #createListingScreen .wishwave-delivery-field:focus-within{border-top-color:#ffffff50;}
+</style>
+<script id="wishwave-v227-create-delivery">
+(function(){
+ const root=document.getElementById('createListingScreen'),form=document.getElementById('createListingForm'),submit=document.getElementById('createListingSubmit');
+ const field=id=>document.getElementById(id);
+ window.wishwaveListingDeliveryPayload=function(){
+   const deliveryMode=field('listingDeliveryMode').value;
+   if(!['shipping','pickup','both'].includes(deliveryMode))return null;
+   const pickupArea=deliveryMode==='shipping'?'':field('listingPickupArea').value.trim();
+   const raw=field('listingShippingFee').value.trim(),fee=deliveryMode==='pickup'?0:Number(raw);
+   if(deliveryMode!=='shipping'&&!pickupArea)return null;
+   if(deliveryMode!=='pickup'&&(!raw||!Number.isFinite(fee)||fee<0||fee>100000))return null;
+   return {deliveryMode,pickupArea,shippingMode:fee>0?'flat':'free',shippingMinor:Math.round(fee*100)};
+ };
+ window.wishwaveSyncCreateDelivery=function(){
+   const mode=field('listingDeliveryMode').value,shipping=mode==='shipping'||mode==='both',pickup=mode==='pickup'||mode==='both';
+   field('listingShippingRow').hidden=!shipping;field('listingPickupRow').hidden=!pickup;
+   field('listingShippingFee').disabled=!shipping;field('listingShippingFee').required=shipping;
+   field('listingPickupArea').disabled=!pickup;field('listingPickupArea').required=pickup;
+   root.querySelectorAll('[data-delivery]').forEach(button=>button.setAttribute('aria-checked',String(button.dataset.delivery===mode)));
+   root.querySelectorAll('.condition-option').forEach(button=>button.setAttribute('aria-checked',String(button.dataset.condition===field('listingCondition').value)));
+   field('listingFreeShipping').setAttribute('aria-pressed',String(shipping&&field('listingShippingFee').value.trim()!==''&&Number(field('listingShippingFee').value)===0));
+   const ready=field('listingItemName').value.trim().length>=3&&field('listingItemDescription').value.trim().length>0&&Number(field('listingPrice').value)>0&&form.checkValidity()&&pendingListingImages.length>0&&!!window.wishwaveListingDeliveryPayload();
+   submit.disabled=submit.dataset.publishing==='1'||!ready;
+   root.dataset.deliveryReady=String(!!window.wishwaveListingDeliveryPayload());
+ };
+ window.wishwaveSelectDelivery=function(mode){
+   if(!['shipping','pickup','both'].includes(mode))return;
+   field('listingDeliveryMode').value=mode;window.wishwaveSyncCreateDelivery();
+ };
+ window.wishwaveSetFreeShipping=function(){field('listingShippingFee').value='0';window.wishwaveSyncCreateDelivery();};
+ form.addEventListener('input',window.wishwaveSyncCreateDelivery);
+ form.addEventListener('change',window.wishwaveSyncCreateDelivery);
+ const photos=window.renderListingImagePreviews;window.renderListingImagePreviews=function(){const out=photos.apply(this,arguments);window.wishwaveSyncCreateDelivery();return out;};
+ const reset=window.resetCreateListingForm;window.resetCreateListingForm=function(){const out=reset.apply(this,arguments);field('listingDeliveryMode').value='';field('listingShippingFee').value='';field('listingPickupArea').value='';delete submit.dataset.publishing;window.wishwaveSyncCreateDelivery();return out;};
+ const condition=window.selectListingCondition;window.selectListingCondition=function(){const out=condition.apply(this,arguments);window.wishwaveSyncCreateDelivery();return out;};
+ window.wishwaveSyncCreateDelivery();
+})();
+</script>
 </body>
 </html>

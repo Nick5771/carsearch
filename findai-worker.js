@@ -17288,6 +17288,8 @@ async function marketplaceSetup(env) {
     ['marketplace_sellers','dispatch_city','TEXT'],
     ['marketplace_sellers','dispatch_region','TEXT'],
     ['marketplace_listings','shipping_mode',"TEXT NOT NULL DEFAULT 'flat'"],
+    ['marketplace_listings','delivery_mode',"TEXT NOT NULL DEFAULT 'shipping'"],
+    ['marketplace_listings','pickup_area','TEXT'],
     ['marketplace_listings','shipping_carrier','TEXT'],
     ['marketplace_listings','shipping_service','TEXT'],
     ['marketplace_listings','parcel_weight_oz','INTEGER'],
@@ -17620,6 +17622,8 @@ function mpListingItem(row) {
     condition: String(row.condition_label || ''),
     category: String(row.category || ''),
     shippingMode: mpShippingMode(row.shipping_mode),
+    deliveryMode: ['shipping','pickup','both'].includes(row.delivery_mode) ? row.delivery_mode : 'shipping',
+    pickupArea: String(row.pickup_area || ''),
     shippingCarrier: String(row.shipping_carrier || ''),
     shippingService: String(row.shipping_service || ''),
     package: {
@@ -21826,7 +21830,11 @@ export default {
         try {
           let body = {}; try { body = await request.json(); } catch (_) {}
           const sellerCountry = String(body.country || detectCountry(request) || 'AU').toUpperCase();
-          const shippingMode = mpShippingMode(body.shippingMode);
+          const deliveryMode = body.deliveryMode === undefined ? 'shipping' : String(body.deliveryMode);
+          if (!['shipping','pickup','both'].includes(deliveryMode)) return jsonResp({error:'Choose Shipping, Pickup or Both'},400);
+          const pickupArea = deliveryMode === 'shipping' ? '' : mpCleanText(body.pickupArea,120);
+          if (deliveryMode !== 'shipping' && !pickupArea) return jsonResp({error:'Add your pickup area'},400);
+          const shippingMode = deliveryMode === 'pickup' ? 'free' : mpShippingMode(body.shippingMode);
           const listingCurrency = mpSafeCurrency(body.currency, cfg.currency);
           const shippingMinor = shippingMode === 'flat' ? mpReadMinor(body, 'shippingMinor', 'shipping', 0) : 0;
           const dispatchPostalCode = mpPostalCode(body.dispatchPostalCode, sellerCountry);
@@ -21843,7 +21851,7 @@ export default {
           const lengthIn = Math.max(0, Number(body.parcelLengthIn) || 0);
           const widthIn = Math.max(0, Number(body.parcelWidthIn) || 0);
           const heightIn = Math.max(0, Number(body.parcelHeightIn) || 0);
-          if (title.length < 3 || itemMinor < 1 || itemMinor > 1000000000 || shippingMinor < 0) return jsonResp({ error: 'Valid title and price required' }, 400);
+          if (title.length < 3 || !Number.isSafeInteger(itemMinor) || itemMinor < 1 || itemMinor > 1000000000 || !Number.isSafeInteger(shippingMinor) || shippingMinor < 0 || shippingMinor > 10000000) return jsonResp({ error: 'Valid title and price required' }, 400);
           if (shippingMode === 'flat' && shippingMinor < 1) return jsonResp({ error: 'Enter a flat shipping price or choose Free shipping' }, 400);
           if (offersEnabled && minimumOfferMinor && (minimumOfferMinor < 1 || minimumOfferMinor >= itemMinor)) return jsonResp({ error: 'Minimum offer must be below the Buy Now price' }, 400);
           if (shippingMode === 'calculated') {
@@ -21862,8 +21870,8 @@ export default {
              (id, seller_id, product_id, canonical_key, title, description, category, condition_label,
               currency, item_price_minor, shipping_minor, shipping_mode, shipping_carrier, shipping_service,
               parcel_weight_oz, parcel_length_in, parcel_width_in, parcel_height_in, offers_enabled, minimum_offer_minor,
-              quantity, status, image_urls_json, created_at, updated_at, published_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+              quantity, status, image_urls_json, created_at, updated_at, published_at, delivery_mode, pickup_area)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(id, seller.id, Number.isInteger(Number(body.productId)) ? Number(body.productId) : null,
             mpCleanText(body.canonicalKey,180) || mpCanonicalKey(title + ' ' + description), title, description,
             mpCleanText(body.category,80), mpCleanText(body.condition,80), listingCurrency,
@@ -21873,7 +21881,7 @@ export default {
             weightOz || null, lengthIn || null, widthIn || null, heightIn || null,
             offersEnabled ? 1 : 0, minimumOfferMinor || null,
             Math.max(1,Math.min(99,Math.round(Number(body.quantity)||1))), status,
-            mpJson(imageUrls), now, now, status === 'active' ? now : null).run();
+            mpJson(imageUrls), now, now, status === 'active' ? now : null, deliveryMode, pickupArea).run();
           await mpBumpCatalogueVersion(env);
           const row = await env.DB.prepare(
             `SELECT l.*, s.display_name, s.country AS seller_country FROM marketplace_listings l
@@ -23431,6 +23439,7 @@ export default {
           let checkoutShippingService = String(listing.shipping_service || '');
           const destinationCountry = String(body.destinationCountry || 'US').toUpperCase();
           const destinationPostalCode = mpPostalCode(body.destinationPostalCode, destinationCountry);
+          if (listing.delivery_mode === 'pickup') return jsonResp({error:'This listing is pickup only. Message the seller to arrange pickup.'},422);
           const shippingMode = mpShippingMode(listing.shipping_mode);
           if (shippingMode === 'free') checkoutShippingMinor = 0;
           if (shippingMode === 'calculated') {
