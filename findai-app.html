@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v212-listing-photo-pinch-zoom">
+<meta name="findai-build" content="v213-photo-inspection-zoom">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -31006,7 +31006,9 @@ body.wishwave-photo-zooming .reel-gallery-dots,body.wishwave-photo-zooming .reel
     const nw=img.naturalWidth,nh=img.naturalHeight;
     if(!nw||!nh)return 1;
     const fitted=Math.min(box.width/nw,box.height/nh);
-    return clamp(1/(Math.max(.001,fitted)*Math.max(1,devicePixelRatio||1)),1,3);
+    // Screen density must not disable inspection on iPhone Retina displays.
+    // Use source-to-displayed-photo ratio for the ceiling, with a usable 2x floor.
+    return clamp(1/Math.max(.001,fitted),2,3);
   }
   function draw(){frame=0;if(!zoom)return;
     const z=zoom;
