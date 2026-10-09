@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v219-compact-create-listing">
+<meta name="findai-build" content="v220-create-publish-swipe-back">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -4293,7 +4293,7 @@ async function submitCreateListing(event){
       try{localStorage.removeItem(PERSONALISED_CACHE_KEY);}catch(_){}
       try{if(feedState&&feedState.seen)feedState.seen.delete(listingKey(created.listing));}catch(_){}
     }
-    closeCreateListing();
+    closeCreateListing({published:true});
     resetCreateListingForm();
     go('profile');
     socialProfileTab='listings';
@@ -17607,13 +17607,13 @@ html.findai-light .premium-bottom-nav button.active .nav-icon-shell{background:r
 
   /* A bottom-nav tap always dismisses what is floating above the app first.
      This is synchronous so Comments / sign-in / sheets never remain over the new tab. */
-  function dismissTransientUI(){
+  function dismissTransientUI({preserveCreate=false}={}){
     try{if(typeof closeFindAICommentActions==='function')closeFindAICommentActions(true);}catch(_){}
     try{if(typeof closeWishWaveCommentMedia==='function')closeWishWaveCommentMedia();}catch(_){}
     try{if(typeof closeLogin==='function')closeLogin();}catch(_){}
     try{if(typeof closeAccountMenu==='function')closeAccountMenu();}catch(_){}
     try{if(typeof appClosePro==='function')appClosePro();}catch(_){}
-    try{if(typeof closeCreateListing==='function')closeCreateListing();}catch(_){}
+    try{if(!preserveCreate&&typeof closeCreateListing==='function')closeCreateListing({navigation:true});}catch(_){}
     try{if(typeof closeWishWavePublicProfile==='function')closeWishWavePublicProfile();}catch(_){}
     try{
       const detail=document.getElementById('searchDetailOverlay');
@@ -17658,7 +17658,7 @@ html.findai-light .premium-bottom-nav button.active .nav-icon-shell{background:r
   let lastTab=String(document.body.dataset.activeTab||'discover');
   new MutationObserver(()=>{
     const next=String(document.body.dataset.activeTab||'discover');
-    if(next!==lastTab){lastTab=next;dismissTransientUI();}
+    if(next!==lastTab){lastTab=next;const create=document.getElementById('createListingScreen');dismissTransientUI({preserveCreate:!!(create?.classList.contains('show')&&create.dataset.returnTab===next)});}
   }).observe(document.body,{attributes:true,attributeFilter:['data-active-tab']});
 })();
 </script>
@@ -30775,7 +30775,7 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
 (function(){
   let drag=null,frame=0,timer=0,blockClickUntil=0,clickRoot=null;
   function currentSurface(target){
-    if(target.closest('.premium-bottom-nav,input,textarea,select,[contenteditable],.reel-social-action,.reel-compare-button,.premium-card-like,.wishwave-public-profile-tabs,.premium-explore-chips'))return null;
+    if(target.closest('.premium-bottom-nav,input,textarea,select,[contenteditable],.reel-social-action,.reel-compare-button,.premium-card-like,.wishwave-public-profile-tabs,.premium-explore-chips,[data-horizontal-scroll]'))return null;
     if(document.querySelector('.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,.wishwave-comment-media-viewer.show,#loginOverlay.show'))return null;
     const extra=window.__wishwaveChildSurface?.(target);if(extra?.kind==='createListingScreen')return null;if(extra)return extra;
     const profile=document.querySelector('#wishwavePublicProfilePage.show');
@@ -30801,7 +30801,7 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
     if(!g)return;g.observer?.disconnect();if(g.ended)g.root.removeEventListener('transitionend',g.ended);
     if(g.axis==='tabs')window.__wishwaveTabTouch?.('touchcancel',{touches:[],target:g.root});
     if(g.axis==='gallery')window.__wishwaveGalleryTouchV149?.('touchcancel',{changedTouches:[],stopPropagation(){},stopImmediatePropagation(){}});
-    restore(g.root,g.styles);restore(g.under,g.underStyles);g.root.classList.remove('wishwave-page-return-drag');
+    restore(g.root,g.styles);restore(g.under,g.underStyles);g.root.classList.remove('wishwave-page-return-drag');g.releaseUnder?.(g.closed);
     g.frozen?.forEach(card=>card.classList.remove('wishwave-return-offscreen'));
     window.__wishwavePageMotion=false;
     if(!g.closed&&g.open())requestAnimationFrame(()=>{if(window.__wishwavePageMotion||!g.open())return;try{if(typeof attachReelObserver==='function'&&g.kind==='searchReel')attachReelObserver();}catch(_){}});
@@ -30810,7 +30810,7 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
   function activate(g){
     window.__wishwavePageMotion=true;
     g.axis='back';g.styles=save(g.root);g.base=base(g.root);g.root.style.setProperty('transition','none','important');g.root.style.setProperty('will-change','transform','important');g.root.classList.add('wishwave-page-return-drag');
-    g.under=underPage(g);
+    g.under=g.prepareUnder?.()||underPage(g);
     const feed=g.root.querySelector('.search-detail-feed,#searchDetailFeed'),height=feed?.clientHeight||0;
     if(height){const top=feed.scrollTop,bottom=top+height;g.frozen=Array.from(feed.querySelectorAll('.reel-card')).filter(card=>card.offsetTop+card.offsetHeight<=top||card.offsetTop>=bottom);g.frozen.forEach(card=>card.classList.add('wishwave-return-offscreen'));}
     window.__wishwaveRefreshTouch?.('touchcancel',{touches:[]});
@@ -30836,6 +30836,7 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
     g.ended=e=>{if(e.target===g.root&&e.propertyName==='transform')complete();};
     g.root.addEventListener('transitionend',g.ended);timer=setTimeout(complete,duration+32);
   }
+  window.__wishwaveResetPageReturn=function(){clean();blockClickUntil=0;clickRoot=null;};
   window.wishwaveSlidePageBack=function(surface){
     if(drag?.settling)return;clean();const root=surface.root;
     drag={...surface,dx:0,velocity:0,lastT:performance.now(),width:root.getBoundingClientRect().width||document.querySelector('.app').clientWidth||innerWidth};
@@ -32143,6 +32144,51 @@ html.findai-light #createListingScreen .marketplace-field:focus-within{backgroun
     if(picker){picker.hidden=count>=6;picker.querySelector('b').textContent=count?'Add more':'Add photos';}
   };
   window.renderListingImagePreviews();
+})();
+</script>
+
+
+<style id="wishwave-v220-create-composer">
+html body .app:has(#createListingScreen.show) .premium-bottom-nav{visibility:hidden!important;pointer-events:none!important;}
+html body.wishwave-create-returning .app:has(#createListingScreen.show) .premium-bottom-nav{visibility:visible!important;pointer-events:none!important;}
+html body .app #createListingScreen .wishwave-listing-publish-footer{padding-bottom:calc(12px + env(safe-area-inset-bottom,0px))!important;}
+html body.keyboard-open .app #createListingScreen .wishwave-listing-publish-footer{padding-bottom:12px!important;}
+</style>
+<script id="wishwave-v220-create-return">
+(function(){
+  let origin='discover',opening=false;
+  const root=()=>document.getElementById('createListingScreen');
+  const tab=()=>document.getElementById('appMpInbox')?.classList.contains('show')?'messages':String(document.body.dataset.activeTab||'discover');
+  function capture(){if(!root()?.classList.contains('show')){const current=tab();origin=['discover','search','messages','profile'].includes(current)?current:'discover';}}
+  const open=window.openCreateListing,openTab=window.wishwaveOpenCreateTab,close=window.closeCreateListing;
+  window.openCreateListing=function(...args){if(!opening)capture();if(!root()?.classList.contains('show'))window.__wishwaveResetPageReturn?.();const result=open.apply(this,args);if(root()?.classList.contains('show'))root().dataset.returnTab=origin;return result;};
+  window.wishwaveOpenCreateTab=function(...args){capture();opening=true;try{return openTab.apply(this,args);}finally{opening=false;}};
+  window.closeCreateListing=function(options={}){
+    const wasOpen=root()?.classList.contains('show');
+    const result=close.call(this);
+    document.body.classList.remove('wishwave-create-returning');
+    if(!wasOpen||options?.published||options?.navigation)return result;
+    if(origin==='messages')window.openMessagesTab();
+    else {go(origin);setMainNavActive(origin);}
+    return result;
+  };
+  const previous=window.__wishwaveChildSurface;
+  window.__wishwaveChildSurface=function(target){
+    const view=root();
+    if(view?.classList.contains('show')&&view.contains(target)){
+      let under=null,shown=false;
+      return {root:view,kind:'createComposer',open:()=>view.classList.contains('show'),back:()=>window.closeCreateListing(),
+        prepareUnder(){
+          under=document.getElementById(origin==='messages'?'appMpInbox':origin);
+          document.body.classList.add('wishwave-create-returning');
+          if(origin==='messages'&&under){window.__wishwavePrepareTab?.('messages');shown=under.classList.contains('show');under.classList.add('show');}
+          return under;
+        },
+        releaseUnder(committed){document.body.classList.remove('wishwave-create-returning');if(!committed&&origin==='messages'&&under&&!shown)under.classList.remove('show');}
+      };
+    }
+    return previous?.(target)||null;
+  };
 })();
 </script>
 
