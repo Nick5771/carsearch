@@ -25,7 +25,7 @@ const EPN_CAMPAIGN_ID = '5339155260';
 // deploy automatically invalidates old cached responses instead of serving stale
 // results for 5 minutes. It is also returned in meta, so you can confirm which
 // engine is actually live from DevTools rather than guessing.
-const ENGINE_VERSION = 'v214-stockx-colourway-variety';
+const ENGINE_VERSION = 'v215-marketplace-sources-profile-reels';
 // v120: restores live source progress metadata + search UX while preserving the Claude/eBay result fix.
 // v116: preserves owned retailer search while making eBay usage quota-safe and separating passive discovery from live shopper search.
 // EPN rotation IDs (mkrid) per marketplace. Only markets where eBay Partner
@@ -4082,7 +4082,7 @@ async function findAILearnedQueryCorrection(query,country,env){
 // are direct HTTP fetches controlled by FindAI.
 const WEB_DISCOVERY_VERSION = 'v20-availability-safe';
 const AUTHORITY_RESOLVER_VERSION = 'v67-adaptive-global-resolver';
-const HOME_PREVIEW_VERSION = 'v54-availability-safe';
+const HOME_PREVIEW_VERSION = 'v55-marketplace-only';
 // Retailer prices move, so successful web offers refresh several times a day.
 // Failed discovery is retried much sooner than v1 so one blocked/weak search does not
 // hide the wider web for hours.
@@ -6574,7 +6574,7 @@ async function webIndexUpsertRetailerIdentity(item,market,host,env) {
     .bind(host,name,role,tier,logo,now,now).run(); } catch(_) {}
 }
 function webIndexOfferFromRow(row) {
-  if(!row)return null;
+  if(!row||!wishwaveAllowedShoppingListing({url:row.product_url,source:row.retailer_name}))return null;
   const availability=String(row.availability||'unknown');
   if(webDiscoveryAvailabilityUnavailable(availability))return null;
   // v67 and earlier silently stored missing availability as `in_stock`. HTML fallback
@@ -8169,9 +8169,9 @@ async function findAIFetchSpecialistResults(query,intent,country,env,ctx=null) {
   const q=String(query||'').trim(); if(!q)return [];
   const category=webDiscoveryQueryCategory(q), explicit=String(intent&&intent.source||'').toLowerCase();
   const wantsStockX=explicit==='stockx' || (!explicit && !!wishwaveShoppingStockxCategory(q));
-  const wantsDiscogs=explicit==='discogs' || (!explicit && category==='music');
+  const wantsDiscogs=false;
   const wantsEtsy=explicit==='etsy' || (!explicit && findAIEtsyRelevantQuery(intent&&intent.original||q));
-  const wantsBrickLink=explicit==='bricklink' || (!explicit && category==='lego');
+  const wantsBrickLink=false;
   const jobs=[];
   // Fetch a broader selection; the interactive request returns priced cards
   // promptly while waitUntil finishes caching the remaining colourways.
@@ -8239,6 +8239,7 @@ function mergeWebDiscoveryResults(baseItems, webItems, intent, maxItems=120, que
     return String(item.source||'').toLowerCase()+'|'+String(item.itemId||item.title||'').toLowerCase();
   };
   for(const item of ([]).concat(Array.isArray(baseItems)?baseItems:[],Array.isArray(webItems)?webItems:[])){
+    if(!wishwaveAllowedShoppingListing(item))continue;
     const k=keyOf(item); if(!k||seen.has(k))continue; seen.add(k); all.push(item);
   }
   // Cross-check retailer-web prices against the other live results for the same market and
@@ -11555,7 +11556,7 @@ async function webIndexPassivePreviewItems(country,env,maxItems=72){
       if(img&&!webDiscoveryLooksLikeRetailBrandImage(img,logo)&&!productImages.has(String(row.product_key||'')))productImages.set(String(row.product_key||''),img);
     }
     for(const row of (r.results||[])){
-      let item=webIndexOfferFromRow(row);if(!item||!item.url||!(Number(item.price)>0))continue;
+      let item=webIndexOfferFromRow(row);if(!wishwaveAllowedShoppingListing(item)||!item.url||!(Number(item.price)>0))continue;
       if(!item.image){
         const role=String(item.retailerRole||'');const borrowed=productImages.get(String(row.product_key||''))||'';
         if(borrowed&&['manufacturer','major_retailer','specialist'].includes(role))item={...item,image:borrowed,_borrowedProductImage:true,webImageStatus:'borrowed'};
@@ -11730,7 +11731,7 @@ async function buildPreviewsPool(country, env){
   const out=[],seen=new Set(),titleSeen=new Set();
   // Interleave two verified-retailer cards with one marketplace card. The browser still
   // shuffles/rotates the pool, but this guarantees cached retailers are a real part of it.
-  const retail=[...(retailerItems||[])],market=[...ebay];
+  const retail=(retailerItems||[]).filter(wishwaveAllowedShoppingListing),market=[...ebay];
   let ri=0,mi=0;
   while(out.length<120&&(ri<retail.length||mi<market.length)){
     for(let k=0;k<2&&ri<retail.length;k++,ri++){
@@ -19893,8 +19894,20 @@ function wishwaveShoppingSourcePriority(key){
     ali:58
   })[key]||68;
 }
+function wishwaveAllowedShoppingListing(item){
+  if(!item)return false;
+  const source=String(item.source||item.marketplace||item.platform||'').toLowerCase();
+  const id=String(item.marketplaceListingId||item.itemId||item.id||'');
+  if(item._findaiMarketplace||id.startsWith('lst_')||['findai','wishwave','findai marketplace','wishwave marketplace'].includes(source))return true;
+  const url=String(item.url||item.itemWebUrl||item.webUrl||item.link||'');
+  if(url){try{
+    const host=new URL(url).hostname.toLowerCase();
+    return /(?:^|\.)ebay\.(?:com(?:\.[a-z]{2})?|co\.[a-z]{2}|[a-z]{2})$/.test(host)||/(?:^|\.)(?:stockx\.com|etsy\.com|aliexpress\.(?:com|us))$/.test(host);
+  }catch(_){return false;}}
+  return ['ebay','stockx','ali','aliexpress','etsy'].includes(source);
+}
 function wishwaveShoppingNormaliseItem(raw,query,country,adapterKey){
-  if(!raw||typeof raw!=='object')return null;
+  if(!raw||typeof raw!=='object'||!wishwaveAllowedShoppingListing(raw))return null;
   const item={...raw};
   const sourceKey=adapterKey||wishwaveShoppingSourceKey(item);
   const title=String(item.title||item.name||'').replace(/\s+/g,' ').trim();
@@ -20176,11 +20189,6 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
       {enabled:mpPublicMarketplaceEnabled(env)});
   }
 
-  if(!explicitSource&&env&&env.DB){
-    addJob('retailer','Indexed retailers','findai.ai','retailer',passive?600:950,
-      ()=>ownedInternalSearch(env,effective,c,Math.min(40,limit),false));
-  }
-
   const specialistEligible=should('stockx')||(!explicitSource&&!passive);
   if(specialistEligible){
     addJob('specialists','Specialists','stockx.com','specialist',
@@ -20191,11 +20199,6 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
         c,env,ctx
       )
     );
-  }
-
-  if(should('amazon')&&wishwaveAmazonAdapterConfigured(env)){
-    addJob('amazon','Amazon',wishwaveAmazonHost(c),'marketplace',passive?1800:4500,
-      ()=>wishwaveAmazonSearchAdapter(effective,c,env,Math.min(limit,30)));
   }
 
   const runs=await Promise.all(jobs);
@@ -28485,7 +28488,7 @@ export default {
           try {
             const kv = await env.CACHE.get(`previews:${HOME_PREVIEW_VERSION}:${pvCountry}`, 'json');
             if (kv && kv.items && kv.items.length)
-              return jsonResp({ items: shuffle(kv.items), total: kv.items.length, country: pvCountry, cached: 'kv' }, 200, { 'Cache-Control': 'public, max-age=300' });
+              return jsonResp({ items: shuffle(kv.items.filter(wishwaveAllowedShoppingListing)), total: kv.items.filter(wishwaveAllowedShoppingListing).length, country: pvCountry, cached: 'kv' }, 200, { 'Cache-Control': 'public, max-age=300' });
           } catch (_) {}
         }
         // 2) Per-colo edge cache.
