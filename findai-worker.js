@@ -25,7 +25,7 @@ const EPN_CAMPAIGN_ID = '5339155260';
 // deploy automatically invalidates old cached responses instead of serving stale
 // results for 5 minutes. It is also returned in meta, so you can confirm which
 // engine is actually live from DevTools rather than guessing.
-const ENGINE_VERSION = 'v210-stockx-reliable-footwear';
+const ENGINE_VERSION = 'v211-stockx-jordan-alias';
 // v120: restores live source progress metadata + search UX while preserving the Claude/eBay result fix.
 // v116: preserves owned retailer search while making eBay usage quota-safe and separating passive discovery from live shopper search.
 // EPN rotation IDs (mkrid) per marketplace. Only markets where eBay Partner
@@ -3906,7 +3906,7 @@ function normalizeKeywords(kw) {
     s = s.replace(/\bnike\s+nike\b/gi, 'nike'); // collapse if the user already said "nike"
   }
   // A couple of other common shorthands that help eBay land the right item.
-  s = s.replace(/\bjordan\s?(ones|one|1s|1)\b/gi, ' air jordan 1 ')
+  s = s.replace(/\b(?:nike\s+)?(?:air\s+)?jordan\s?(ones|one|1s|1)\b/gi, ' air jordan 1 ')
        .replace(/\bnike\s+air jordan\b/gi, 'air jordan');
   return s.replace(/\s+/g, ' ').trim();
 }
@@ -13148,6 +13148,9 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
   limit=Math.max(1,Math.min(8,Number(limit)||3));
   currency=String(currency||'USD').toUpperCase();
   term=String(term||'').replace(/\b(?:yeezys|jordans|dunks|\d{1,4}s)\b/gi,w=>w.slice(0,-1));
+  // StockX calls these "Jordan 1", while the intent parser expands shopper
+  // shorthand to "Air Jordan 1". Treat the brand aliases as the same identity.
+  term=term.replace(/\b(?:nike\s+)?air\s+(?=jordan\b)|\bnike\s+(?=jordan\b)/gi,'');
   const key = `stockx-footwear-v2:${currency}:${limit}:${term.toLowerCase().slice(0, 120)}`;
   if (env.CACHE) {
     try { const cached = await env.CACHE.get(key, 'json'); if (cached && cached.items) return cached.items.slice(0, limit); } catch (_) {}
@@ -19804,6 +19807,7 @@ function wishwaveShoppingSourceKey(item){
 function wishwaveShoppingTokens(value){
   const stop=new Set(['the','a','an','and','or','for','with','of','to','in','on','at','by','from','new','sale','buy','shoes','shoe','sneakers','sneaker','trainers','trainer','footwear']);
   return [...new Set(String(value||'').toLowerCase()
+    .replace(/\b(?:nike\s+)?air\s+(?=jordan\b)|\bnike\s+(?=jordan\b)/g,'')
     .normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
     .replace(/[^a-z0-9]+/g,' ').split(/\s+/)
     .filter(x=>(x.length>1||/^\d$/.test(x))&&!stop.has(x))

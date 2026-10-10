@@ -17,6 +17,9 @@ function runtime(products,market){
  r.calls.length=0;out=await r.ctx.stockxSearch('Jordan 1 Low','AUD',r.env,1);assert.equal(out[0].price,180);assert(!r.calls.some(x=>x.includes('/priced/market-data')));pass('Reuse per-product ask cache for a different search phrase');
  r=runtime([p('wrong','Jordan 4 High'),p('right','Jordan 1 Low')],()=>[{lowestAskAmount:'200'}]);
  out=await r.ctx.stockxSearch('jordan 1','AUD',r.env,1);assert.equal(out[0]._pid,'right');pass('Keep single-digit models in catalogue relevance gate');
+ out=await r.ctx.stockxSearch('Nike Air Jordan 1','AUD',r.env,1);assert.equal(out[0]._pid,'right');
+ assert.equal(r.ctx.wishwaveShoppingQueryCoverage({title:'Jordan 1 Low'},'Nike Air Jordan 1'),1);pass('Match canonical Air Jordan query to StockX Jordan title');
+ for(const q of ['Jordan 1','Air Jordan 1','Nike Air Jordan 1','AJ1'])assert.equal(r.ctx.parseSearchIntent(q).keywords,'air jordan 1');pass('Normalize Jordan aliases without duplicating Air');
  r=runtime([p('yeezy','adidas Yeezy Boost 350 V2')],()=>[{lowestAskAmount:'220'}]);
  out=await r.ctx.stockxSearch('yeezy 350s shoes','AUD',r.env,1);assert.equal(out.length,1);assert(r.calls[0].includes('yeezy%20350%20shoes'));pass('Normalize plural model aliases and ignore footwear descriptor for relevance');
  for(const q of ['Asics Gel Kayano 14','Hoka Clifton 9','Puma Suede','Converse Chuck Taylor','Vans Old Skool','Reebok Club C','Saucony Jazz','Salomon XT-6','On Cloud 5','Adidas Sambas'])assert.equal(r.ctx.wishwaveShoppingStockxCategory(q),'sneakers');pass('Route additional footwear brands to StockX');
