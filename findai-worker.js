@@ -25,7 +25,7 @@ const EPN_CAMPAIGN_ID = '5339155260';
 // deploy automatically invalidates old cached responses instead of serving stale
 // results for 5 minutes. It is also returned in meta, so you can confirm which
 // engine is actually live from DevTools rather than guessing.
-const ENGINE_VERSION = 'v211-stockx-jordan-alias';
+const ENGINE_VERSION = 'v212-stockx-stable-images';
 // v120: restores live source progress metadata + search UX while preserving the Claude/eBay result fix.
 // v116: preserves owned retailer search while making eBay usage quota-safe and separating passive discovery from live shopper search.
 // EPN rotation IDs (mkrid) per marketplace. Only markets where eBay Partner
@@ -8179,7 +8179,7 @@ async function findAIFetchSpecialistResults(query,intent,country,env,ctx=null) {
   // return a deeper set; normal search returns the strongest match and lets its 6h cache make the
   // next request instant.
   if(wantsStockX){
-    const stockxLimit=explicit==='stockx'?8:1;
+    const stockxLimit=explicit==='stockx'?8:3;
     const stockxBudget=explicit==='stockx'?7000:5300;
     const stockxRun=stockxSearch(q,currencyFor(country),env,stockxLimit,ctx).catch(error=>({_stockxError:String(error&&error.message||error)}));
     jobs.push(promiseWithin(stockxRun,stockxBudget,null).then(rows=>{
@@ -13151,7 +13151,7 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
   // StockX calls these "Jordan 1", while the intent parser expands shopper
   // shorthand to "Air Jordan 1". Treat the brand aliases as the same identity.
   term=term.replace(/\b(?:nike\s+)?air\s+(?=jordan\b)|\bnike\s+(?=jordan\b)/gi,'');
-  const key = `stockx-footwear-v2:${currency}:${limit}:${term.toLowerCase().slice(0, 120)}`;
+  const key = `stockx-footwear-images-v3:${currency}:${limit}:${term.toLowerCase().slice(0, 120)}`;
   if (env.CACHE) {
     try { const cached = await env.CACHE.get(key, 'json'); if (cached && cached.items) return cached.items.slice(0, limit); } catch (_) {}
   }
@@ -13163,7 +13163,10 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
   const wait = (ms) => new Promise(res => setTimeout(res, ms));
   const imageFromUrlKey = (uk) => {
     if (!uk) return '';
-    const pretty = String(uk).split('-').map(s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s).join('-');
+    // StockX CDN filenames are case-sensitive: OG/SP/SB/ASICS must retain
+    // their capitals. Title-casing these to Og/Sp produced 404 images.
+    const acronyms=new Set(['OG','SP','SB','SE','GS','QS','NRG','PRM','TD','PS','US','UK','EU','ASICS','UCS','GT','XT']);
+    const pretty = String(uk).split('-').map(s => acronyms.has(s.toUpperCase())?s.toUpperCase():(s ? s.charAt(0).toUpperCase() + s.slice(1) : s)).join('-');
     // First frame of StockX's 360 spin = the front-facing white-background studio
     // shot. Its path is fully deterministic from the urlKey, unlike the old
     // "{Title}-Product.jpg" filename which 404s for a large share of products.
@@ -13233,6 +13236,13 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
     // imgix StockX studio image (white bg via imgix params).
     const c1 = imageFromUrlKey(p.urlKey);
     const stockxImage = c1 ? (c1 + '?auto=format,compress&q=90&w=1600') : '';
+    const titleFile=String(p.title||p.name||p.productName||'').replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-|-$/g,'');
+    const legacyFile=String(p.urlKey||'').split('-').map(s=>s?s.charAt(0).toUpperCase()+s.slice(1):s).join('-');
+    const imageFallbacks=[...new Set([
+      titleFile?'https://images.stockx.com/images/'+titleFile+'-Product.jpg?auto=format,compress&q=90&w=1600':'',
+      legacyFile?'https://images.stockx.com/images/'+legacyFile+'-Product.jpg?auto=format,compress&q=90&w=1600':'',
+      c1?'https://images.stockx.com/360/'+c1.split('/').pop().replace(/-Product\.jpg$/,'')+'/Images/'+c1.split('/').pop().replace(/-Product\.jpg$/,'')+'/Lv2/img01.jpg?auto=format,compress&w=1600':''
+    ].filter(u=>u&&u!==stockxImage))];
 
     let lowestAsk = null, highestBid = null, mktCurrency = null;
     // Try per-product price cache first.
@@ -13283,6 +13293,7 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
       stockxImage,
       image:stockxImage,
       images:stockxImage?[stockxImage]:[],
+      imageFallbacks,
       condition:'New',
       shippingNote:'Excl. shipping',
       _stockx:true,
