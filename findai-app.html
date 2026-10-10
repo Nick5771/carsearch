@@ -7045,7 +7045,7 @@ function getTracked(){
   try{
     const raw = JSON.parse(localStorage.getItem('fa_tracked_v2') || '[]');
     if(!Array.isArray(raw))return [];
-    return raw.map(item=>Object.assign({},item,{key:trackedKey(item)}));
+    return raw.filter(wishwaveAllowedListing).map(item=>Object.assign({},item,{key:trackedKey(item)}));
   }catch(_){ return []; }
 }
 function refreshTrackedHeartUI(){

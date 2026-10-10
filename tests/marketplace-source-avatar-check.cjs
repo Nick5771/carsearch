@@ -9,6 +9,7 @@ for(const item of allowed){assert(ctx.wishwaveAllowedShoppingListing(item));asse
 for(const item of blocked){assert(!ctx.wishwaveAllowedShoppingListing(item));assert(!front.wishwaveAllowedListing(item));}
 assert.equal(ctx.wishwaveShoppingNormaliseItem({...blocked[0],title:'Puma shoe',price:100},'shoe','AU','retailer'),null);
 assert.equal(ctx.webIndexOfferFromRow({product_url:'https://au.puma.com/shoe',retailer_name:'Puma',price:100}),null);
+const saved=vm.createContext({URL,localStorage:{getItem:()=>JSON.stringify([blocked[0],allowed[0],blocked[1],allowed[1]])},trackedKey:item=>item.url});vm.runInContext(extract('wishwaveAllowedListing')+'\n'+extract('getTracked'),saved);assert.equal(saved.getTracked().length,2);assert.equal(saved.getTracked()[1].source,'StockX');console.log('PASS cached Likes are filtered consistently before tile and click indices are assigned');
 console.log('PASS frontend and backend admit only the four external marketplaces plus WishWave user listings, including legacy indexed offers');
 const avatar=vm.createContext({document:{addEventListener(){}},escapeAttr:s=>s,escapeHTML:s=>s,getAccountProfile:()=>({username:'nick',avatar:'https://example.com/current.jpg'}),socialProfileListings:[{itemId:'lst_123'}]});
 vm.runInContext(['findaiDefaultAvatarSvg','findaiAvatarLoadError','findaiAvatarImgMarkup','wishwaveSellerMeta','wishwaveAvatarMarkup'].map(extract).join('\n'),avatar);
