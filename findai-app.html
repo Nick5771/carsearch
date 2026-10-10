@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v232-square-listing-editor">
+<meta name="findai-build" content="v233-fluid-photo-swipes">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -19742,7 +19742,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     [index,index+1,index-1].forEach(i=>{if(all[i])loadSlide(all[i]);});
   }
 
-  function setDots(stage,index,showCount){
+  function setDots(stage,index,showCount,deferWarm=false){
     const list=images(stage);
     if(!list.length)return;
     index=Math.max(0,Math.min(list.length-1,index));
@@ -19752,9 +19752,9 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
       dot.classList.toggle('active',i===index);
     });
 
-    warm(stage,index);
+    if(!deferWarm)warm(stage,index);
     const selected=stage.querySelector('.reel-gallery-slide[data-gallery-slide="'+index+'"] .reel-gallery-image');
-    if(selected&&selected.complete&&typeof adaptListingImage==='function')adaptListingImage(selected);
+    if(!deferWarm&&selected&&selected.complete&&typeof adaptListingImage==='function')adaptListingImage(selected);
 
     const count=stage.querySelector('.reel-gallery-count');
     if(count&&list.length>1){
@@ -19778,7 +19778,11 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
   }
 
   const settleTimers=new WeakMap();
-  function clearSettle(track){const timer=settleTimers.get(track);if(timer)clearTimeout(timer);settleTimers.delete(track);}
+  const settleAnimations=new WeakMap();
+  function clearSettle(track){
+    const timer=settleTimers.get(track);if(timer)clearTimeout(timer);settleTimers.delete(track);
+    const animation=settleAnimations.get(track);if(animation){animation.onfinish=null;animation.cancel();settleAnimations.delete(track);}
+  }
   function trackPosition(track,fallback){
     try{
       const value=getComputedStyle(track).transform;
@@ -19798,28 +19802,46 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
 
     const currentX=gesture&&gesture.stage===stage
       ? (-gesture.startIndex*width + gesture.renderDx)
-      : (-current(stage)*width);
+      : trackPosition(track,-current(stage)*width);
 
     const targetX=-target*width;
     const remaining=Math.abs(targetX-currentX);
 
-    /* Fast release = faster settle. Slow drag = slightly softer settle.
-       Keep it short; long CSS "smooth" animations are what made v146/v148
-       feel unlike Instagram. */
-    const speed=Math.max(.30,Math.abs(fromVelocity||0));
-    let duration=remaining/(speed*2.15);
-    duration=Math.max(245,Math.min(345,duration));
-
     clearSettle(track);
-    translate(track,targetX,true,duration);
-    setDots(stage,target,true);
-    if(window.wishwaveRecordGalleryInspection)window.wishwaveRecordGalleryInspection(stage,target);
-    settleTimers.set(track,setTimeout(()=>{
+    track.style.willChange='transform';
+    const done=()=>{
       settleTimers.delete(track);
-      track.style.transition='';
-      track.style.transform='translate3d('+targetX+'px,0,0)';
+      const animation=settleAnimations.get(track);settleAnimations.delete(track);
+      track.style.transition='none';track.style.transform='translate3d('+targetX+'px,0,0)';
+      if(animation){animation.onfinish=null;animation.cancel();}
       track.style.removeProperty('will-change');
-    },duration+24));
+      warm(stage,target);
+      if(window.wishwaveRecordGalleryInspection)window.wishwaveRecordGalleryInspection(stage,target);
+    };
+    const reduced=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    if(remaining<.25||reduced){translate(track,targetX,false);setDots(stage,target,true,true);done();return;}
+    if(typeof track.animate==='function'){
+      // Explicit starting keyframe avoids a synchronous layout flush at release.
+      // Critically damped motion carries the finger velocity into a monotonic settle.
+      const omega=.030,delta=currentX-targetX,direction=Math.sign(targetX-currentX);
+      const velocity=direction*Math.min(Math.max(0,direction*(fromVelocity||0)),remaining*omega);
+      const coefficient=velocity+omega*delta;
+      const position=t=>targetX+(delta+coefficient*t)*Math.exp(-omega*t);
+      let duration=100;
+      while(duration<420&&Math.abs(position(duration)-targetX)>.2)duration+=8;
+      const keyframes=Array.from({length:49},(_,i)=>({
+        transform:'translate3d('+(i===48?targetX:position(duration*i/48))+'px,0,0)',offset:i/48
+      }));
+      track.style.transition='none';track.style.transform='translate3d('+targetX+'px,0,0)';
+      const animation=track.animate(keyframes,{duration,easing:'linear',fill:'both'});
+      settleAnimations.set(track,animation);animation.onfinish=done;
+    }else{
+      // Older engines retain the same interruptible transform transition.
+      const duration=Math.max(110,Math.min(280,remaining/Math.max(.9,Math.abs(fromVelocity||0)*2)));
+      translate(track,targetX,true,duration);
+      settleTimers.set(track,setTimeout(done,duration+24));
+    }
+    setDots(stage,target,true,true);
   }
 
   function renderDrag(){
@@ -19963,11 +19985,10 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
        frame and touchend. */
     g.renderDx=g.offset+(((g.startIndex===0&&g.dx>0)||(g.startIndex===g.list.length-1&&g.dx<0))?g.dx*EDGE_RESISTANCE:g.dx);
     translate(g.track,-g.startIndex*g.width+g.renderDx,false);
-    void g.track.offsetWidth;
 
     const rawDx=g.dx;
     const distance=Math.abs(rawDx);
-    const velocity=g.velocity;
+    const velocity=performance.now()-g.lastT>90?0:g.velocity;
     const projected=rawDx+velocity*PROJECTION_MS;
 
     const commits=!cancelled&&(
@@ -32889,6 +32910,21 @@ html body .app #createListingScreen #listingFreeShipping{
 }
 html body .app #createListingScreen #listingFreeShipping[aria-pressed="true"]{color:#15171b!important;}
 html body .app #createListingScreen .wishwave-shipping-free #listingFreeShipping{color:#fff!important;}
+</style>
+
+
+<style id="wishwave-v233-compact-reel-actions">
+html body .app #discover .reel-actions-rail,
+html body #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-actions-rail,
+html body .app #createListingScreen.preview-mode .wishwave-draft-reel .reel-actions-rail{
+ gap:6px!important;justify-content:flex-start!important;
+}
+html body .app #discover button.reel-social-action,
+html body #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity button.reel-social-action,
+html body .app #createListingScreen.preview-mode .wishwave-draft-reel button.reel-social-action{
+ flex:0 0 48px!important;height:48px!important;min-height:48px!important;max-height:48px!important;
+ margin:0!important;padding:0!important;gap:3px!important;
+}
 </style>
 
 </body>
