@@ -1,0 +1,22 @@
+const fs=require('fs'),assert=require('assert'),{JSDOM,VirtualConsole}=require('./test-runtime/node_modules/jsdom');
+const src=fs.readFileSync(__dirname+'/findai-app.html','utf8'),errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>{if(!e.message.includes('Could not parse CSS'))errors.push(e.message)});
+for(const m of src.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi))new Function(m[1]);
+const dom=new JSDOM(src,{url:'https://wishwave.test',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:vc,beforeParse(w){w.matchMedia=()=>({matches:false,addEventListener(){},addListener(){}});w.IntersectionObserver=class{observe(){}unobserve(){}disconnect(){}};w.ResizeObserver=class{observe(){}disconnect(){}};w.fetch=async()=>({ok:true,json:async()=>({items:[],listings:[],conversations:[]}),text:async()=>''});w.scrollTo=()=>{};w.HTMLElement.prototype.scrollTo=function(){};w.HTMLElement.prototype.scrollIntoView=function(){};}});
+const w=dom.window,wait=ms=>new Promise(r=>setTimeout(r,ms));
+(async()=>{await wait(500);
+const q=w.document.getElementById('q'),form=q.form,search=w.document.getElementById('search'),status=w.document.getElementById('wishwaveSearchStatus'),text=w.document.getElementById('wishwaveSearchStatusText');
+w.go('search');q.value='Porsche 911';q.focus();let calls=[];w.calls=calls;
+w.eval("fetchProductResults=(query)=>{calls.push(query);return new Promise(r=>window.finishSearch=r)}");
+const event=new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true});q.dispatchEvent(event);
+assert(event.defaultPrevented);assert.notEqual(w.document.activeElement,q,'Return must dismiss keyboard focus');assert.deepEqual(calls,['Porsche 911']);assert(search.classList.contains('live-search-interpreting'));assert.equal(text.textContent,'Searching…');assert(!form.contains(status),'spinner belongs below the search field');assert.equal(status.previousElementSibling,form);assert(!src.includes('#search.live-search-interpreting .premium-search-bar:after{'));
+// Safari can emit search and submit immediately after Return: only one product request.
+q.dispatchEvent(new w.Event('search',{bubbles:true}));form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));assert.equal(calls.length,1);
+w.finishSearch({data:{listings:[{itemId:'porsche',title:'Porsche 911 Carrera',price:55000,source:'ebay',image:'https://images.test/porsche.jpg'}]}});await wait(250);assert(!search.classList.contains('live-search-interpreting'));assert.equal(search.getAttribute('aria-busy'),'false');assert.equal(text.textContent,'');
+q.value='MacBook';q.focus();q.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',isComposing:true,bubbles:true,cancelable:true}));assert.equal(calls.length,1,'IME composition must not submit');assert.equal(w.document.activeElement,q);
+// Native form submit and search action both dismiss focus and show feedback.
+form.dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));assert.equal(calls[1],'MacBook');assert.notEqual(w.document.activeElement,q);w.finishSearch({data:{listings:[]}});await wait(250);
+q.value='';q.dispatchEvent(new w.Event('search',{bubbles:true}));await wait(30);assert(!search.classList.contains('live-search-interpreting'));assert(!text.textContent);
+// For You starts with an interest candidate and queries distinct interests exactly.
+w.wishwaveAcceptSearchResults('Porsche 911',[{itemId:'p2',title:'Porsche 911 Turbo',price:50000,image:'https://images.test/p2.jpg',source:'ebay'}]);
+w.eval("recordInterest('MacBook','search',7);v116GetPreviewPool=async()=>[];fetchProductResults=async(query)=>{calls.push(query);return {data:{listings:[{itemId:'candidate-'+query,title:query,price:1000,image:'https://images.test/candidate.jpg',source:'ebay'}]}}}");calls.length=0;await w.resetPremiumExploreHome(true);assert(calls.includes('Porsche 911'));assert(calls.includes('MacBook'));assert.equal(calls.filter(x=>x==='Porsche 911').length,1,'priority and long-term query lanes must not duplicate');
+const first=search.querySelector('.premium-explore-tile');assert(first,'For You must render products');assert.equal(errors.length,0,JSON.stringify(errors));console.log('PASS: actual Return/native form/search-event submission, keyboard blur, duplicate iOS event suppression, IME safety, below-field status with busy lifecycle, clear-search cleanup, stronger exact and distinct Explore interest retrieval; all inline scripts compile');w.close();})().catch(e=>{console.error(e);w.close();process.exitCode=1});
