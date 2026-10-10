@@ -13138,6 +13138,7 @@ async function stockxImageFor(urlKey, env) {
 }
 
 async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
+  const deadline=Date.now()+5000;
   limit=Math.max(1,Math.min(8,Number(limit)||3));
   currency=String(currency||'USD').toUpperCase();
   const key = `stockx-restored-v1:${currency}:${limit}:${String(term || '').toLowerCase().slice(0, 120)}`;
@@ -13161,7 +13162,7 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
 
   let products = [];
   try {
-    const sr = await fetch('https://api.stockx.com/v2/catalog/search?query=' + encodeURIComponent(term) + '&pageNumber=1&pageSize=' + Math.max(limit * 4, 10), { headers });
+    const sr = await fetch('https://api.stockx.com/v2/catalog/search?query=' + encodeURIComponent(term) + '&pageNumber=1&pageSize=' + Math.max(limit * 4, 10), { headers,signal:AbortSignal.timeout(2500) });
     if (!sr.ok) throw new Error('StockX catalogue request failed ('+sr.status+')');
     const sd = await sr.json();
     // Handle multiple possible response shapes.
@@ -13231,9 +13232,10 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
     }
     // Not cached -> fetch live now (paced for the 1/sec limit).
     if (lowestAsk == null && highestBid == null) {
+      if(deadline-Date.now()<1400)break;
       await wait(1100);
       try {
-        const mr = await fetch('https://api.stockx.com/v2/catalog/products/' + encodeURIComponent(pid) + '/market-data?currencyCode=' + encodeURIComponent(currency), { headers });
+        const mr = await fetch('https://api.stockx.com/v2/catalog/products/' + encodeURIComponent(pid) + '/market-data?currencyCode=' + encodeURIComponent(currency), { headers,signal:AbortSignal.timeout(Math.max(1,Math.min(1600,deadline-Date.now()))) });
         if (!mr.ok) throw new Error('StockX market request failed ('+mr.status+')');
         if (mr.ok) {
           const md = await mr.json();
@@ -13283,7 +13285,8 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
   }
 
   if (env.CACHE && items.length) {
-    try { await env.CACHE.put(key, JSON.stringify({ items }), { expirationTtl: 21600 }); } catch (_) {}
+    const save=env.CACHE.put(key, JSON.stringify({ items }), { expirationTtl: 21600 }).catch(()=>{});
+    if(ctx&&typeof ctx.waitUntil==='function')ctx.waitUntil(save);else await save;
   }
 
   return items.slice(0, limit);
