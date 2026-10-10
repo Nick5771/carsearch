@@ -25,7 +25,7 @@ const EPN_CAMPAIGN_ID = '5339155260';
 // deploy automatically invalidates old cached responses instead of serving stale
 // results for 5 minutes. It is also returned in meta, so you can confirm which
 // engine is actually live from DevTools rather than guessing.
-const ENGINE_VERSION = 'v209-stockx-search-order';
+const ENGINE_VERSION = 'v210-stockx-reliable-footwear';
 // v120: restores live source progress metadata + search UX while preserving the Claude/eBay result fix.
 // v116: preserves owned retailer search while making eBay usage quota-safe and separating passive discovery from live shopper search.
 // EPN rotation IDs (mkrid) per marketplace. Only markets where eBay Partner
@@ -8180,8 +8180,13 @@ async function findAIFetchSpecialistResults(query,intent,country,env,ctx=null) {
   // next request instant.
   if(wantsStockX){
     const stockxLimit=explicit==='stockx'?8:1;
-    const stockxBudget=explicit==='stockx'?7000:5000;
-    jobs.push(promiseWithin(stockxSearch(q,currencyFor(country),env,stockxLimit,ctx),stockxBudget,[]).then(rows=>(rows||[]).map(x=>Object.assign(x,{_stockx:true,source:'StockX'}))));
+    const stockxBudget=explicit==='stockx'?7000:5300;
+    const stockxRun=stockxSearch(q,currencyFor(country),env,stockxLimit,ctx).catch(error=>({_stockxError:String(error&&error.message||error)}));
+    jobs.push(promiseWithin(stockxRun,stockxBudget,null).then(rows=>{
+      if(rows===null)throw new Error('StockX search timed out');
+      if(rows._stockxError)throw new Error(rows._stockxError);
+      return (rows||[]).map(x=>Object.assign(x,{_stockx:true,source:'StockX'}));
+    }));
   }
   if(wantsDiscogs)jobs.push(promiseWithin(searchDiscogs(q,country,env,explicit==='discogs'?8:3),5000,[]).then(rows=>(rows||[]).map(x=>Object.assign(x,{_discogs:true,source:'Discogs'}))));
   if(wantsEtsy)jobs.push(promiseWithin(searchEtsy(q,env,explicit==='etsy'?8:3),5000,[]).then(rows=>(rows||[]).map(x=>Object.assign(x,{_etsy:true,source:'Etsy'}))));
@@ -8189,6 +8194,7 @@ async function findAIFetchSpecialistResults(query,intent,country,env,ctx=null) {
   if(!jobs.length)return [];
   const settled=await Promise.allSettled(jobs),out=[];
   for(const row of settled)if(row.status==='fulfilled'&&Array.isArray(row.value))out.push(...row.value);
+  if(!out.length){const failed=settled.find(row=>row.status==='rejected');if(failed)throw failed.reason;}
   return out;
 }
 
@@ -13141,7 +13147,8 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
   const deadline=Date.now()+5000;
   limit=Math.max(1,Math.min(8,Number(limit)||3));
   currency=String(currency||'USD').toUpperCase();
-  const key = `stockx-restored-v1:${currency}:${limit}:${String(term || '').toLowerCase().slice(0, 120)}`;
+  term=String(term||'').replace(/\b(?:yeezys|jordans|dunks|\d{1,4}s)\b/gi,w=>w.slice(0,-1));
+  const key = `stockx-footwear-v2:${currency}:${limit}:${term.toLowerCase().slice(0, 120)}`;
   if (env.CACHE) {
     try { const cached = await env.CACHE.get(key, 'json'); if (cached && cached.items) return cached.items.slice(0, limit); } catch (_) {}
   }
@@ -13175,9 +13182,9 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
   // "lego hogwarts" must contain "hogwarts", not just "lego". Short tokens like
   // "rf" are kept (2+ chars) because they carry the real intent.
   const normT = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-  const STOPT = new Set(['the','and','for','with','new','set','box','size','men','mens','womens','women','kids']);
+  const STOPT = new Set(['the','and','for','with','new','set','box','size','men','mens','womens','women','kids','shoes','shoe','sneakers','sneaker','trainers','trainer']);
   const sing = (w) => w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w;
-  const toksT = (s) => normT(s).split(' ').filter(w => w.length >= 2 && !STOPT.has(w)).map(sing);
+  const toksT = (s) => normT(s).split(' ').filter(w => (w.length >= 2 || /^\d$/.test(w)) && !STOPT.has(w)).map(sing);
   const qToks = toksT(term);
   const relevant = products.filter(p => {
     const title = p.title || p.name || p.productName || '';
@@ -13199,11 +13206,11 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
     if (seenModel.has(key)) continue;
     seenModel.add(key);
     varied.push(p);
-    if (varied.length >= limit) break;
+    if (varied.length >= Math.max(limit,3)) break;
   }
-  const chosen = varied.slice(0, limit);
+  const chosen = varied;
   if (!chosen.length) {
-    if (env.CACHE) { try { await env.CACHE.put(key, JSON.stringify({ items: [] }), { expirationTtl: 600 }); } catch (_) {} }
+    if (env.CACHE) { try { await env.CACHE.put(key, JSON.stringify({ items: [] }), { expirationTtl: 90 }); } catch (_) {} }
     return [];
   }
 
@@ -13214,7 +13221,9 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
   // Lowest Ask + Highest Bid inline (slower first search, but the price is
   // always shown). Per-product price is cached 6h so repeat searches are fast.
   const items = [];
+  let lastMarketError=null;
   for (const p of chosen) {
+    if(items.length>=limit)break;
     const pid = p.productId || p.id || p.uuid;
     if (!pid) continue;
     const styleId = String(p.styleId || p.styleID || '').trim();
@@ -13254,10 +13263,10 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
           }
           if (asks.length) lowestAsk = Math.min.apply(null, asks);
           if (env.CACHE) {
-            try { await env.CACHE.put('stockxprice:' + currency + ':' + pid, JSON.stringify({ lowestAsk, highestBid, currency: mktCurrency || currency }), { expirationTtl: 21600 }); } catch (_) {}
+            try { await env.CACHE.put('stockxprice-restored-v1:' + currency + ':' + pid, JSON.stringify({ lowestAsk, highestBid, currency: mktCurrency || currency }), { expirationTtl: 21600 }); } catch (_) {}
           }
         }
-      } catch (e) { console.warn('[StockX] market data unavailable'); if(!items.length)throw e; }
+      } catch (e) { console.warn('[StockX] market data unavailable'); lastMarketError=e; }
     }
 
     // A bid is not a purchase price. Only publish cards with a real positive ask.
@@ -13288,6 +13297,7 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
     const save=env.CACHE.put(key, JSON.stringify({ items }), { expirationTtl: 21600 }).catch(()=>{});
     if(ctx&&typeof ctx.waitUntil==='function')ctx.waitUntil(save);else await save;
   }
+  if(!items.length&&lastMarketError)throw lastMarketError;
 
   return items.slice(0, limit);
 }
@@ -19792,12 +19802,12 @@ function wishwaveShoppingSourceKey(item){
   return 'retailer';
 }
 function wishwaveShoppingTokens(value){
-  const stop=new Set(['the','a','an','and','or','for','with','of','to','in','on','at','by','from','new','sale','buy']);
+  const stop=new Set(['the','a','an','and','or','for','with','of','to','in','on','at','by','from','new','sale','buy','shoes','shoe','sneakers','sneaker','trainers','trainer','footwear']);
   return [...new Set(String(value||'').toLowerCase()
     .normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
     .replace(/[^a-z0-9]+/g,' ').split(/\s+/)
     .filter(x=>(x.length>1||/^\d$/.test(x))&&!stop.has(x))
-    .map(x=>({dunks:'dunk',yeezys:'yeezy',jordans:'jordan',sneakers:'sneaker',trainers:'trainer'})[x]||(/^\d{3,4}s$/.test(x)?x.slice(0,-1):x)))].slice(0,20);
+    .map(x=>({dunks:'dunk',yeezys:'yeezy',jordans:'jordan'})[x]||(/^\d{1,4}s$/.test(x)?x.slice(0,-1):x)))].slice(0,20);
 }
 function wishwaveShoppingProductKey(item){
   const title=String(item&&item.title||'');
@@ -19830,6 +19840,7 @@ function wishwaveShoppingStockxCategory(query){
   const q=String(query||'');
   const category=webDiscoveryQueryCategory(q);
   if(category==='sneakers')return 'sneakers';
+  if(/\b(?:asics|hoka|puma|converse|vans|reebok|saucony|salomon|on\s+(?:cloud|running)|ultraboost|gel[- ]?kayano|gel[- ]?nyc|sambas?|gazelles?|shoes?|footwear)\b/i.test(q))return 'sneakers';
   if(['lego','cards','collectibles'].includes(category)||/\b(?:kaws|bearbrick|funko|hot wheels)\b/i.test(q))return 'collectibles';
   if(/\b(?:supreme|bape|a bathing ape|fear of god|essentials|stussy|palace|off[- ]white|streetwear)\b/i.test(q))return 'streetwear';
   return '';
@@ -20096,7 +20107,8 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
       const t=Date.now();
       try{
         const fallback={items:[],error:'timed out',_wishwaveTimeout:true};
-        const result=await promiseWithin(Promise.resolve().then(runner),budget,fallback);
+        const attempt=Promise.resolve().then(runner).catch(error=>({items:[],status:'failed',error:String(error&&error.message||error)}));
+        const result=await promiseWithin(attempt,budget,fallback);
         const items=Array.isArray(result)?result:(Array.isArray(result&&result.items)?result.items:[]);
         return {
           key,label,host,kind,items,
@@ -20136,7 +20148,7 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
   const specialistEligible=should('stockx')||(!explicitSource&&!passive);
   if(specialistEligible){
     addJob('specialists','Specialists','stockx.com','specialist',
-      explicitSource==='stockx'?6200:(wishwaveShoppingStockxCategory(effective)?3600:2100),
+      explicitSource==='stockx'?6200:(wishwaveShoppingStockxCategory(effective)?5500:2100),
       ()=>findAIFetchSpecialistResults(
         effective,
         explicitSource==='stockx'?{...(intent||{}),source:'stockx'}:intent,
@@ -20210,8 +20222,8 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
       }
       if(bySource.size){
         for(const [key,row] of bySource)appendActivity(row.name,row.host,'specialist','returned',row.count,'',run.elapsedMs,key);
-      }else if(category==='sneakers'||explicitSource==='stockx'){
-        appendActivity('StockX','stockx.com','specialist',run.error?'failed':'checked',0,run.error,run.elapsedMs,'stockx');
+      }else if(wishwaveShoppingStockxCategory(effective)||explicitSource==='stockx'){
+        appendActivity('StockX','stockx.com','specialist',run.status==='timeout'?'timeout':(run.error?'failed':'checked'),0,run.error,run.elapsedMs,'stockx');
       }
       continue;
     }
