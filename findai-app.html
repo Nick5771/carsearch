@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v227-photo-first-delivery">
+<meta name="findai-build" content="v228-create-reel-polish">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -3635,7 +3635,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
     <div class="marketplace-scroll">
       <form class="marketplace-form" id="createListingForm" onsubmit="return submitCreateListing(event)">
         <div id="wishwaveCreateCompactSlot"><div id="wishwaveDraftPreview" class="wishwave-draft-preview" aria-label="Live listing preview">
-          <div class="wishwave-draft-reel"></div><span class="wishwave-draft-badge">Live preview</span>
+          <div class="wishwave-draft-reel"></div>
           <button class="wishwave-draft-expand" type="button" onclick="wishwaveSetCreateMode('preview')" aria-label="Expand listing preview">⤢</button>
         </div></div>
         <div class="wishwave-listing-photos">
@@ -3652,7 +3652,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
         </div>
         <div class="wishwave-listing-details">
           <label class="marketplace-field"><span>Title</span><input id="listingItemName" maxlength="120" autocomplete="off" placeholder="What are you selling?" required></label>
-          <label class="marketplace-field wishwave-listing-price"><span>Price</span><div class="price-input-wrap"><input id="listingPrice" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" required></div></label>
+          <label class="marketplace-field wishwave-listing-price"><span>Price</span><div class="price-input-wrap"><span class="wishwave-price-prefix" aria-hidden="true">$</span><input id="listingPrice" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="0.00" required></div></label>
           <div class="marketplace-field marketplace-fieldset wishwave-condition-row">
             <span id="listingConditionLabel">Condition</span>
             <div class="condition-options" role="radiogroup" aria-labelledby="listingConditionLabel">
@@ -3678,7 +3678,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
         </section>
       </form>
     </div>
-    <div class="wishwave-listing-publish-footer"><button class="create-listing-submit" id="createListingSubmit" form="createListingForm" type="submit">Publish Listing</button></div>
+    <div class="wishwave-listing-publish-footer"><button class="create-listing-submit" id="createListingSubmit" form="createListingForm" type="submit">Post</button></div>
   </section>
 
   <section class="marketplace-screen" id="myListingsScreen" aria-label="My listings">
@@ -4255,7 +4255,7 @@ function resetCreateListingForm(){
   const condition=$('#listingCondition');if(condition) condition.value='New';
   $$('.condition-option').forEach(button=>button.classList.toggle('active',button.dataset.condition==='New'));
   pendingListingImages=[];renderListingImagePreviews();
-  const submit=$('#createListingSubmit');if(submit){delete submit.dataset.publishing;submit.disabled=true;submit.textContent='Publish Listing';}
+  const submit=$('#createListingSubmit');if(submit){delete submit.dataset.publishing;submit.disabled=true;submit.textContent='Post';}
 }
 function openCreateListing({preserveDraft=false,focus=false}={}){
   const profile=getAccountProfile();if(!profile||!marketplaceSession()){openLogin();return;}
@@ -4324,7 +4324,7 @@ async function submitCreateListing(event){
     toast('Listing published');
     try{renderAccountProfile();}catch(_){}
     setTimeout(async()=>{try{await loadProfileMarketplaceData(true);}catch(_){ }},1800);
-  }catch(error){toast(String(error&&error.message||'Could not publish listing'));if(submit){delete submit.dataset.publishing;submit.textContent='Publish Listing';wishwaveSyncCreateDelivery();}}
+  }catch(error){toast(String(error&&error.message||'Could not publish listing'));if(submit){delete submit.dataset.publishing;submit.textContent='Post';wishwaveSyncCreateDelivery();}}
   return false;
 }
 async function openMyListings(){
@@ -32348,7 +32348,7 @@ html.findai-light #createListingScreen .wishwave-create-mode button[aria-pressed
       card.removeAttribute('role');card.removeAttribute('tabindex');card.removeAttribute('data-index');card.removeAttribute('data-recommendation-key');
       card.querySelectorAll('*').forEach(el=>{for(const attr of [...el.attributes])if(attr.name.startsWith('on'))el.removeAttribute(attr.name);});
       card.removeAttribute('onclick');card.removeAttribute('onkeydown');
-      card.querySelectorAll('.reel-social-label,.listing-meta,.first-market-strip').forEach(el=>el.remove());
+      card.querySelectorAll('.listing-meta,.first-market-strip').forEach(el=>el.remove());
       card.querySelectorAll('.reel-social-action,.reel-seller-row').forEach(el=>{el.disabled=true;el.tabIndex=-1;el.setAttribute('aria-hidden','true');});
       const stage=card.querySelector('.reel-gallery-stage');stage.className='hero-stage wishwave-draft-gallery';stage.replaceChildren();stage.setAttribute('data-horizontal-scroll','true');
       const track=document.createElement('div');track.className='wishwave-draft-track';track.setAttribute('data-horizontal-scroll','true');
@@ -32644,5 +32644,47 @@ html body .app #createListingScreen .wishwave-delivery-field:focus-within{border
  window.wishwaveSyncCreateDelivery();
 })();
 </script>
+
+<style id="wishwave-v228-create-reel-polish">
+/* A normal flex prefix cannot overlap or obscure the entered price. */
+html body .app #createListingScreen .price-input-wrap{display:flex!important;align-items:center!important;gap:8px!important;position:static!important;}
+html body .app #createListingScreen .price-input-wrap::before{content:none!important;display:none!important;}
+html body .app #createListingScreen .wishwave-price-prefix{flex:0 0 auto!important;color:var(--create-text)!important;font-size:16px!important;font-weight:500!important;line-height:26px!important;}
+html body .app #createListingScreen .price-input-wrap #listingPrice{flex:1 1 0!important;width:0!important;min-width:0!important;min-height:26px!important;height:26px!important;padding:0!important;margin:0!important;font-size:16px!important;font-weight:400!important;letter-spacing:0!important;line-height:26px!important;appearance:textfield!important;-moz-appearance:textfield!important;}
+#createListingScreen #listingPrice::-webkit-inner-spin-button,#createListingScreen #listingPrice::-webkit-outer-spin-button{appearance:none;margin:0;}
+/* Edit shows the complete photo above a separate, readable listing caption. */
+html body .app #createListingScreen:not(.preview-mode) #wishwaveCreateCompactSlot .wishwave-draft-preview:not(:has(.wishwave-draft-empty)){height:clamp(260px,34vh,300px)!important;max-height:none!important;}
+html body .app #createListingScreen:not(.preview-mode) .wishwave-draft-gallery:not(:has(.wishwave-draft-empty)){inset:0 0 86px!important;height:calc(100% - 86px)!important;}
+html body .app #createListingScreen:not(.preview-mode) .wishwave-draft-gallery::after{display:none!important;content:none!important;}
+html body .app #createListingScreen .wishwave-draft-track img.hero-image{top:0!important;left:0!important;right:0!important;bottom:0!important;transform:none!important;object-fit:contain!important;object-position:center center!important;}
+html body .app #createListingScreen:not(.preview-mode) .wishwave-draft-reel .product-panel{height:86px!important;padding:10px 16px!important;background:#08090b!important;box-sizing:border-box!important;}
+html body .app #createListingScreen:not(.preview-mode) .wishwave-draft-reel .title{margin:0!important;font-size:14px!important;line-height:17px!important;max-width:100%!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important;}
+html body .app #createListingScreen:not(.preview-mode) .wishwave-draft-reel .price-action-row{margin-top:5px!important;}
+html body .app #createListingScreen:not(.preview-mode) .wishwave-draft-reel .price{font-size:22px!important;line-height:24px!important;}
+html body .app #createListingScreen:not(.preview-mode) .wishwave-draft-reel .condition-badge{font-size:12px!important;line-height:16px!important;}
+html body .app #createListingScreen .wishwave-draft-badge{display:none!important;}
+/* In Preview the switch shares the safe-area header row with Back. */
+html body .app #createListingScreen.preview-mode .marketplace-header{height:calc(var(--safe-top) + 40px)!important;flex:0 0 auto!important;}
+html body .app #createListingScreen.preview-mode .marketplace-header h2{display:none!important;}
+html body .app #createListingScreen.preview-mode .wishwave-create-mode{position:absolute!important;top:calc(var(--safe-top) + 3px)!important;left:52px!important;right:16px!important;z-index:20!important;margin:0!important;padding:3px!important;}
+html body .app #createListingScreen.preview-mode .wishwave-create-mode button{height:28px!important;}
+html body .app #createListingScreen.preview-mode .wishwave-create-full-preview{padding:0!important;min-height:0!important;flex:1 1 0!important;overflow:hidden!important;}
+html body .app #createListingScreen.preview-mode .wishwave-listing-publish-footer{padding-top:8px!important;}
+html body .app #createListingScreen.preview-mode .create-listing-submit{height:44px!important;}
+/* Same Home SVGs and label layout; explicit sizing prevents inflated disabled controls. */
+html body .app #createListingScreen.preview-mode .wishwave-draft-reel .reel-actions-rail{top:auto!important;bottom:16px!important;right:10px!important;height:auto!important;min-height:0!important;gap:13px!important;margin:0!important;padding:0!important;justify-content:flex-start!important;}
+html body .app #createListingScreen.preview-mode .wishwave-draft-reel button.reel-social-action{flex:0 0 53px!important;width:50px!important;min-width:50px!important;height:53px!important;min-height:53px!important;max-height:53px!important;margin:0!important;padding:0!important;gap:4px!important;opacity:1!important;line-height:1!important;appearance:none!important;}
+html body .app #createListingScreen.preview-mode .wishwave-draft-reel .reel-social-icon{flex:0 0 auto!important;transform:none!important;}
+html body .app #createListingScreen.preview-mode .wishwave-draft-reel .reel-social-label{font-size:9.5px!important;line-height:1!important;}
+html body .app #createListingScreen.preview-mode .wishwave-draft-reel .reel-like-count,
+html body .app #createListingScreen.preview-mode .wishwave-draft-reel .reel-comment-count{font-size:12px!important;font-weight:820!important;}
+html body .app #createListingScreen.preview-mode .wishwave-draft-reel .product-panel{padding-bottom:16px!important;}
+html body .app #createListingScreen:not(.preview-mode) .marketplace-scroll{flex:1 1 0!important;min-height:0!important;overflow-y:auto!important;padding-bottom:24px!important;scroll-padding-bottom:24px!important;}
+@media(max-height:740px){
+ html body .app #createListingScreen.preview-mode .wishwave-draft-reel .reel-actions-rail{gap:9px!important;right:8px!important;}
+ html body .app #createListingScreen.preview-mode .wishwave-draft-reel button.reel-social-action{flex-basis:48px!important;width:46px!important;min-width:46px!important;height:48px!important;min-height:48px!important;max-height:48px!important;gap:2px!important;}
+}
+</style>
+
 </body>
 </html>
