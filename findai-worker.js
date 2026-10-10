@@ -13137,6 +13137,250 @@ async function stockxImageFor(urlKey, env) {
   return '';
 }
 
+async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
+  limit=Math.max(1,Math.min(8,Number(limit)||3));
+  currency=String(currency||'USD').toUpperCase();
+  const key = `stockx-restored-v1:${currency}:${limit}:${String(term || '').toLowerCase().slice(0, 120)}`;
+  if (env.CACHE) {
+    try { const cached = await env.CACHE.get(key, 'json'); if (cached && cached.items) return cached.items.slice(0, limit); } catch (_) {}
+  }
+  const token = await getStockxToken(env);
+  if (!token) throw new Error('StockX connection unavailable');
+  const apiKey = env.STOCKX_API_KEY;
+  if (!apiKey) throw new Error('StockX API configuration unavailable');
+  const headers = { 'Authorization': 'Bearer ' + token, 'x-api-key': apiKey, 'Content-Type': 'application/json' };
+  const wait = (ms) => new Promise(res => setTimeout(res, ms));
+  const imageFromUrlKey = (uk) => {
+    if (!uk) return '';
+    const pretty = String(uk).split('-').map(s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s).join('-');
+    // First frame of StockX's 360 spin = the front-facing white-background studio
+    // shot. Its path is fully deterministic from the urlKey, unlike the old
+    // "{Title}-Product.jpg" filename which 404s for a large share of products.
+    return 'https://images.stockx.com/images/' + pretty + '-Product.jpg';
+  };
+
+  let products = [];
+  try {
+    const sr = await fetch('https://api.stockx.com/v2/catalog/search?query=' + encodeURIComponent(term) + '&pageNumber=1&pageSize=' + Math.max(limit * 4, 10), { headers });
+    if (!sr.ok) throw new Error('StockX catalogue request failed ('+sr.status+')');
+    const sd = await sr.json();
+    // Handle multiple possible response shapes.
+    products = (sd && (sd.products || sd.results || sd.data)) || [];
+    if (!Array.isArray(products)) products = [];
+  } catch (e) { console.warn('[StockX] catalogue unavailable'); throw e; }
+
+  // RELEVANCE GATE: EVERY meaningful word the user typed must appear in the
+  // product title. "nike rf" must match BOTH "nike" AND "rf" (not just any Nike);
+  // "lego hogwarts" must contain "hogwarts", not just "lego". Short tokens like
+  // "rf" are kept (2+ chars) because they carry the real intent.
+  const normT = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const STOPT = new Set(['the','and','for','with','new','set','box','size','men','mens','womens','women','kids']);
+  const sing = (w) => w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w;
+  const toksT = (s) => normT(s).split(' ').filter(w => w.length >= 2 && !STOPT.has(w)).map(sing);
+  const qToks = toksT(term);
+  const relevant = products.filter(p => {
+    const title = p.title || p.name || p.productName || '';
+    const tTok = toksT(title);
+    // ALL query tokens must be present (a number like "350" counts too).
+    return qToks.length > 0 && qToks.every(w => tTok.includes(w));
+  });
+
+  // VARIETY: never show two near-identical products (e.g. two Travis Scott
+  // Jordan 1 Lows). Key on the model + first distinguishing words so each card
+  // is a genuinely different shoe.
+  const seenModel = new Set();
+  const varied = [];
+  for (const p of relevant) {
+    const t = toksT(p.title || '');
+    // Drop the query words themselves; what's left is what makes it distinct.
+    const distinct = t.filter(w => !qToks.includes(w)).slice(0, 2).join('-');
+    const key = String(p.productId||p.id||p.uuid||distinct||(p.title||'').toLowerCase());
+    if (seenModel.has(key)) continue;
+    seenModel.add(key);
+    varied.push(p);
+    if (varied.length >= limit) break;
+  }
+  const chosen = varied.slice(0, limit);
+  if (!chosen.length) {
+    if (env.CACHE) { try { await env.CACHE.put(key, JSON.stringify({ items: [] }), { expirationTtl: 600 }); } catch (_) {} }
+    return [];
+  }
+
+  // Build cards IMMEDIATELY from the catalog search - no market-data wait, no
+  // page scraping in the critical path. Prices come from a per-product price
+  // cache if we've fetched them before; otherwise the card shows "market" and
+  // Build cards WITH live prices. Per your call, we always fetch the real
+  // Lowest Ask + Highest Bid inline (slower first search, but the price is
+  // always shown). Per-product price is cached 6h so repeat searches are fast.
+  const items = [];
+  for (const p of chosen) {
+    const pid = p.productId || p.id || p.uuid;
+    if (!pid) continue;
+    const styleId = String(p.styleId || p.styleID || '').trim();
+    // imgix StockX studio image (white bg via imgix params).
+    const c1 = imageFromUrlKey(p.urlKey);
+    const stockxImage = c1 ? (c1 + '?auto=format,compress&q=90&w=1600') : '';
+
+    let lowestAsk = null, highestBid = null, mktCurrency = null;
+    // Try per-product price cache first.
+    if (env.CACHE) {
+      try {
+        const pc = await env.CACHE.get('stockxprice-restored-v1:' + currency + ':' + pid, 'json');
+        if (pc) { lowestAsk = pc.lowestAsk || null; highestBid = pc.highestBid || null; mktCurrency = pc.currency || null; }
+      } catch (_) {}
+    }
+    // Not cached -> fetch live now (paced for the 1/sec limit).
+    if (lowestAsk == null && highestBid == null) {
+      await wait(1100);
+      try {
+        const mr = await fetch('https://api.stockx.com/v2/catalog/products/' + encodeURIComponent(pid) + '/market-data?currencyCode=' + encodeURIComponent(currency), { headers });
+        if (!mr.ok) throw new Error('StockX market request failed ('+mr.status+')');
+        if (mr.ok) {
+          const md = await mr.json();
+          const rows = Array.isArray(md) ? md : [md];
+          const asks = [];
+          for (const row of rows) {
+            if (!row) continue;
+            if (!mktCurrency && row.currencyCode) mktCurrency = row.currencyCode;
+            const nest = row.standardMarketData || row.flexMarketData || row.directMarketData || {};
+            const askRaw = row.lowestAskAmount != null ? row.lowestAskAmount : (nest.lowestAsk != null ? nest.lowestAsk : nest.lowestAskAmount);
+            const bidRaw = row.highestBidAmount != null ? row.highestBidAmount : nest.highestBidAmount;
+            const ask = askRaw != null ? Number(askRaw) : null;
+            const bid = bidRaw != null ? Number(bidRaw) : null;
+            if (ask && ask > 0) asks.push(ask);
+            if (bid && (!highestBid || bid > highestBid)) highestBid = bid;
+          }
+          if (asks.length) lowestAsk = Math.min.apply(null, asks);
+          if (env.CACHE) {
+            try { await env.CACHE.put('stockxprice:' + currency + ':' + pid, JSON.stringify({ lowestAsk, highestBid, currency: mktCurrency || currency }), { expirationTtl: 21600 }); } catch (_) {}
+          }
+        }
+      } catch (e) { console.warn('[StockX] market data unavailable'); if(!items.length)throw e; }
+    }
+
+    // A bid is not a purchase price. Only publish cards with a real positive ask.
+    if(!(Number(lowestAsk)>0))continue;
+    items.push({
+      source: 'StockX',
+      itemId: 'stockx_' + pid,
+      _pid: pid,
+      styleId,                         // for exact SKU matching against eBay MPN
+      title: p.title || p.name || p.productName || '',
+      stockxImage,
+      image:stockxImage,
+      images:stockxImage?[stockxImage]:[],
+      condition:'New',
+      shippingNote:'Excl. shipping',
+      _stockx:true,
+      colorway: String((p.productAttributes && p.productAttributes.colorway) || ''),
+      url: p.urlKey ? ('https://stockx.com/' + p.urlKey) : 'https://stockx.com',
+      price: lowestAsk,
+      currency: mktCurrency || currency,
+      lowestAsk,
+      highestBid,
+      stockx: true,
+    });
+  }
+
+  if (env.CACHE && items.length) {
+    try { await env.CACHE.put(key, JSON.stringify({ items }), { expirationTtl: 21600 }); } catch (_) {}
+  }
+
+  return items.slice(0, limit);
+}
+
+
+async function stockxCatalogSuggest(term, env, limit = 8) {
+  const key = `stockxsuggest-restored-v1:${String(term || '').toLowerCase().slice(0, 60)}`;
+  if (env.CACHE) {
+    try { const cached = await env.CACHE.get(key, 'json'); if (cached) return cached; } catch (_) {}
+  }
+  const token = await getStockxToken(env);
+  const apiKey = env.STOCKX_API_KEY;
+  if (!token || !apiKey) return [];
+  const headers = { 'Authorization': 'Bearer ' + token, 'x-api-key': apiKey, 'Content-Type': 'application/json' };
+  const imageFromUrlKey = (uk) => {
+    if (!uk) return '';
+    const pretty = String(uk).split('-').map(s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s).join('-');
+    // 360 first-frame studio shot (deterministic path) + imgix sizing/white-bg.
+    return 'https://images.stockx.com/360/' + pretty + '/Images/' + pretty + '/Lv2/img01.jpg?fit=fill&bg=FFFFFF&w=300&h=214&auto=format,compress&q=80';
+  };
+  // Older flat "-Product.jpg" format - a different CDN path that sometimes
+  // succeeds when the 360 path 404s (and vice versa). Returned as a second
+  // candidate so the frontend can try both before falling back to a listing
+  // photo, rather than giving up after one URL.
+  const imageFromUrlKey2 = (uk) => {
+    if (!uk) return '';
+    const pretty = String(uk).split('-').map(s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s).join('-');
+    return 'https://images.stockx.com/images/' + pretty + '-Product.jpg?fit=fill&bg=FFFFFF&w=300&h=214&auto=format,compress&q=80';
+  };
+  let products = [];
+  try {
+    const sr = await fetch('https://api.stockx.com/v2/catalog/search?query=' + encodeURIComponent(term) + '&pageNumber=1&pageSize=40', { headers });
+    if (!sr.ok) return [];
+    const sd = await sr.json();
+    products = (sd && (sd.products || sd.results || sd.data)) || [];
+    if (!Array.isArray(products)) products = [];
+  } catch (_) { return []; }
+
+  // Same relevance gate as stockxSearch: every meaningful query word must
+  // appear in the title. "yeezy zebra" must contain BOTH "yeezy" and "zebra" -
+  // this is what keeps "Yeezy x Gap Hoodie" and "Yeezy Zyon" out of the
+  // dropdown when someone specifically typed "zebra".
+  const normT = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const STOPT = new Set(['the', 'and', 'for', 'with', 'new', 'set', 'box', 'size']);
+  const sing = (w) => w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w;
+  const toksT = (s) => normT(s).split(' ').filter(w => w.length >= 2 && !STOPT.has(w)).map(sing);
+  const qToks = toksT(term);
+  const qMentionsKids = /\b(kid|infant|toddler|gs|ps|td)\b/i.test(term);
+
+  let relevant = products.filter(p => {
+    const title = p.title || p.name || p.productName || '';
+    const tTok = toksT(title);
+    return qToks.length > 0 && qToks.every(w => tTok.includes(w));
+  });
+
+  // Push kids/infant variants to the back unless the user actually asked for
+  // them - "yeezy zebra" should surface the adult shoe first, not the infant
+  // size run, even though both technically match every token.
+  relevant.sort((a, b) => {
+    const aKid = /\b(kids?|infants?|toddler)\b/i.test(a.title || '') ? 1 : 0;
+    const bKid = /\b(kids?|infants?|toddler)\b/i.test(b.title || '') ? 1 : 0;
+    if (!qMentionsKids && aKid !== bKid) return aKid - bKid;
+    return 0; // otherwise keep StockX's own relevance/popularity ordering
+  });
+
+  // Dynamic result count: a very specific query (4+ words, e.g. "yeezy boost
+  // 350 v2 onyx") means the person knows the exact shoe, so a short tight list
+  // is enough. A broad query ("yeezy", "yeezy 350") means they're browsing the
+  // range, so show the full set of matches (up to 10) rather than just 3.
+  const dynamicLimit = qToks.length >= 4 ? Math.min(limit, 5) : Math.min(limit, 10);
+
+  const out = relevant.slice(0, dynamicLimit).map(p => ({
+    pid: p.productId || p.id || p.uuid || '',
+    title: p.title || p.name || p.productName || '',
+    styleId: String(p.styleId || p.styleID || '').trim(),
+    colorway: String((p.productAttributes && p.productAttributes.colorway) || ''),
+    brand: String(p.brand || (p.productAttributes && p.productAttributes.brand) || '').trim(),
+    urlKey: String(p.urlKey || '').trim(),   // carried through so the detail page can resolve the REAL studio photo
+    _guess1: imageFromUrlKey(p.urlKey),      // reconstructed CDN guess - kept only as a fallback candidate now
+    _guess2: imageFromUrlKey2(p.urlKey)      // alternate CDN guess - second fallback candidate
+  })).filter(p => p.pid && p.title);
+
+  // Resolve the REAL image (og:image from the actual StockX product page) in
+  // parallel for every suggestion - this is what actually fixes inconsistent
+  // dropdown images. stockxImageFor caches each result 7 days per urlKey, so
+  // this is slow only the very first time any given product is ever looked
+  // up anywhere in the app; every repeat is a cache hit. The guessed CDN URLs
+  // become fallback candidates instead of the primary source.
+  for(const p of out){p.image=p._guess2;p.image2=p._guess1;delete p._guess1;delete p._guess2;}
+
+
+  if (env.CACHE) { try { await env.CACHE.put(key, JSON.stringify(out), { expirationTtl: 3600 }); } catch (_) {} }
+  return out;
+}
+
+
 // A REAL eBay photo for a query, cached 7 days in KV. This is what gives the
 // suggest dropdown the same reliable image the detail page shows, without
 // running a full searchListings on every keystroke: one light Browse call the
@@ -27773,9 +28017,10 @@ export default {
         }
         try {
           const items = await stockxSearch(q, currencyFor(country), env, limit, ctx);
-          return jsonResp({ items }, 200, { 'Cache-Control': 'public, max-age=1800' });
-        } catch (_) {
-          return jsonResp({ items: [] }, 200);
+          return jsonResp({ items }, 200, { 'Cache-Control':items.length?'public, max-age=1800':'no-store' });
+        } catch (e) {
+          console.warn('[StockX] search endpoint unavailable');
+          return jsonResp({ items: [], error:'StockX temporarily unavailable', sourceStatus:'unavailable' }, 503, {'Cache-Control':'no-store'});
         }
       }
 
