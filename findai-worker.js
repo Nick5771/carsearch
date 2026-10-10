@@ -25,7 +25,7 @@ const EPN_CAMPAIGN_ID = '5339155260';
 // deploy automatically invalidates old cached responses instead of serving stale
 // results for 5 minutes. It is also returned in meta, so you can confirm which
 // engine is actually live from DevTools rather than guessing.
-const ENGINE_VERSION = 'v208-shared-engagement-ranking';
+const ENGINE_VERSION = 'v209-stockx-search-order';
 // v120: restores live source progress metadata + search UX while preserving the Claude/eBay result fix.
 // v116: preserves owned retailer search while making eBay usage quota-safe and separating passive discovery from live shopper search.
 // EPN rotation IDs (mkrid) per marketplace. Only markets where eBay Partner
@@ -19796,7 +19796,7 @@ function wishwaveShoppingTokens(value){
   return [...new Set(String(value||'').toLowerCase()
     .normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
     .replace(/[^a-z0-9]+/g,' ').split(/\s+/)
-    .filter(x=>x.length>1&&!stop.has(x))
+    .filter(x=>(x.length>1||/^\d$/.test(x))&&!stop.has(x))
     .map(x=>({dunks:'dunk',yeezys:'yeezy',jordans:'jordan',sneakers:'sneaker',trainers:'trainer'})[x]||(/^\d{3,4}s$/.test(x)?x.slice(0,-1):x)))].slice(0,20);
 }
 function wishwaveShoppingProductKey(item){
@@ -19902,7 +19902,7 @@ function wishwaveShoppingScore(item,query,country,intent){
   let score=coverage*620 + wishwaveShoppingSourcePriority(sourceKey);
   // Specialist reputation helps only after every meaningful model/variant word
   // matches. Explicit condition/source/sort instructions always take precedence.
-  if(sourceKey==='stockx'&&coverage>=.999&&!(intent&&intent.source)&&
+  if(sourceKey==='stockx'&&coverage>=.999&&!productListingMismatch(item,query)&&!(intent&&intent.source)&&
      !(intent&&['price_asc','price_desc','newest'].includes(String(intent.sort||'')))&&
      !(intent&&['used','refurbished'].includes(String(intent.condition||'').toLowerCase()))){
     const specialistCategory=wishwaveShoppingStockxCategory(query);
@@ -29032,13 +29032,9 @@ export default {
         }
       }
 
-      // If StockX returned a valid sneaker offer, make that specialist result the hero. The
-      // remaining ranking still determines the rest of the grid. This is conditional on a real
-      // StockX response — FindAI never fabricates a StockX card when the API is unavailable.
-      if(webDiscoveryQueryCategory(correctedQuery||effectiveQuery)==='sneakers'&&mergedItems.length){
-        const sx=mergedItems.findIndex(x=>x&&(x._stockx||x.stockx||String(x.source||'').toLowerCase()==='stockx')&&Number(x.price)>0);
-        if(sx>0){const hero=mergedItems.splice(sx,1)[0];mergedItems.unshift(hero);}
-      }
+      // The merged ranker handles specialist priority together with relevance
+      // and explicit sort/condition instructions. Do not force a StockX hero
+      // afterwards: that would undo price order and promote weaker variants.
       if (conditionPreference !== 'any') {
         mergedItems = mergedItems.filter(item => itemMatchesRequestedCondition(item, conditionPreference));
       }

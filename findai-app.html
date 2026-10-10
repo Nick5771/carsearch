@@ -15682,8 +15682,12 @@ if(typeof v116RenderMarketplaceListing==='function'){
       let items=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings.slice():[];
       items=items.filter(item=>item&&Number(item.price)>0&&premiumProductImage(item)).map(item=>({...item,_interestQuery:clean,_interestCategory:interestCategory(clean),_interestCluster:'live-'+interestClusterKey(clean)}));
       const unique=[],seen=new Set();for(const item of items){const key=exploreItemKey(item);if(!key||seen.has(key))continue;seen.add(key);unique.push(item);}
-      if(typeof personalisedItemScore==='function')unique.sort((a,b)=>personalisedItemScore(b,clean,'search-live')-personalisedItemScore(a,clean,'search-live'));
-      const display=diversifyExploreItems(capExploreFamilies(unique,3)).slice(0,90);
+      // Typed searches already have source/relevance and explicit price/condition
+      // ordering from the server. Browse personalization and family shuffling
+      // must not bury StockX or undo a shopper's "cheapest" instruction.
+      const serverRanked=unique.some(item=>item._shoppingRank!=null&&Number.isFinite(Number(item._shoppingRank))||Number(item._findaiAuthorityRank)>0);
+      if(!serverRanked&&typeof personalisedItemScore==='function')unique.sort((a,b)=>personalisedItemScore(b,clean,'search-live')-personalisedItemScore(a,clean,'search-live'));
+      const display=(serverRanked?unique:diversifyExploreItems(capExploreFamilies(unique,3))).slice(0,90);
       premiumDiscoverySections=[{config:{id:'explore',title:'Search'},items:display}];exploreQueue=[];exploreLoading=false;seenExplore.clear();display.forEach(item=>{const key=exploreItemKey(item);if(key)seenExplore.add(key);});
       renderExploreGrid({replace:true});
       window.wishwaveAcceptSearchResults?.(clean,display);
