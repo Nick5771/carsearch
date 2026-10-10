@@ -25,7 +25,7 @@ const EPN_CAMPAIGN_ID = '5339155260';
 // deploy automatically invalidates old cached responses instead of serving stale
 // results for 5 minutes. It is also returned in meta, so you can confirm which
 // engine is actually live from DevTools rather than guessing.
-const ENGINE_VERSION = 'v213-stockx-photo-fallbacks';
+const ENGINE_VERSION = 'v214-stockx-colourway-variety';
 // v120: restores live source progress metadata + search UX while preserving the Claude/eBay result fix.
 // v116: preserves owned retailer search while making eBay usage quota-safe and separating passive discovery from live shopper search.
 // EPN rotation IDs (mkrid) per marketplace. Only markets where eBay Partner
@@ -8173,13 +8173,10 @@ async function findAIFetchSpecialistResults(query,intent,country,env,ctx=null) {
   const wantsEtsy=explicit==='etsy' || (!explicit && findAIEtsyRelevantQuery(intent&&intent.original||q));
   const wantsBrickLink=explicit==='bricklink' || (!explicit && category==='lego');
   const jobs=[];
-  // Normal sneaker search needs ONE authoritative StockX card quickly. Asking StockX for two
-  // uncached products used to require two paced market-data calls, while the outer search killed
-  // the whole specialist lane before the first one could finish. Explicit StockX searches still
-  // return a deeper set; normal search returns the strongest match and lets its 6h cache make the
-  // next request instant.
+  // Fetch a broader selection; the interactive request returns priced cards
+  // promptly while waitUntil finishes caching the remaining colourways.
   if(wantsStockX){
-    const stockxLimit=explicit==='stockx'?8:3;
+    const stockxLimit=8;
     const stockxBudget=explicit==='stockx'?7000:5300;
     const stockxRun=stockxSearch(q,currencyFor(country),env,stockxLimit,ctx).catch(error=>({_stockxError:String(error&&error.message||error)}));
     jobs.push(promiseWithin(stockxRun,stockxBudget,null).then(rows=>{
@@ -13144,19 +13141,24 @@ async function stockxImageFor(urlKey, env) {
 }
 
 async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
-  const deadline=Date.now()+5000;
+  const started=Date.now();
+  const background=!!(ctx&&typeof ctx.waitUntil==='function');
+  const deadline=started+(background?24000:5000);
   limit=Math.max(1,Math.min(8,Number(limit)||3));
   currency=String(currency||'USD').toUpperCase();
   term=String(term||'').replace(/\b(?:yeezys|jordans|dunks|\d{1,4}s)\b/gi,w=>w.slice(0,-1));
   // StockX calls these "Jordan 1", while the intent parser expands shopper
   // shorthand to "Air Jordan 1". Treat the brand aliases as the same identity.
   term=term.replace(/\b(?:nike\s+)?air\s+(?=jordan\b)|\bnike\s+(?=jordan\b)/gi,'');
-  const key = `stockx-footwear-images-v4:${currency}:${limit}:${term.toLowerCase().slice(0, 120)}`;
+  const key = `stockx-colourways-v5:${currency}:${limit}:${term.toLowerCase().slice(0, 120)}`;
   if (env.CACHE) {
     try { const cached = await env.CACHE.get(key, 'json'); if (cached && cached.items) return cached.items.slice(0, limit); } catch (_) {}
   }
+  const lastGoodKey='stockx-colourways-lastgood-v1:'+currency+':'+term.toLowerCase().slice(0,120);
+  let lastGood=[];
+  if(env.CACHE){try{const saved=await env.CACHE.get(lastGoodKey,'json');lastGood=Array.isArray(saved&&saved.items)?saved.items:[];}catch(_){}}
   const token = await getStockxToken(env);
-  if (!token) throw new Error('StockX connection unavailable');
+  if (!token){if(lastGood.length)return lastGood.slice(0,limit);throw new Error('StockX connection unavailable');}
   const apiKey = env.STOCKX_API_KEY;
   if (!apiKey) throw new Error('StockX API configuration unavailable');
   const headers = { 'Authorization': 'Bearer ' + token, 'x-api-key': apiKey, 'Content-Type': 'application/json' };
@@ -13175,13 +13177,13 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
 
   let products = [];
   try {
-    const sr = await fetch('https://api.stockx.com/v2/catalog/search?query=' + encodeURIComponent(term) + '&pageNumber=1&pageSize=' + Math.max(limit * 4, 10), { headers,signal:AbortSignal.timeout(2500) });
+    const sr = await fetch('https://api.stockx.com/v2/catalog/search?query=' + encodeURIComponent(term) + '&pageNumber=1&pageSize=' + Math.max(limit * 6, 20), { headers,signal:AbortSignal.timeout(2500) });
     if (!sr.ok) throw new Error('StockX catalogue request failed ('+sr.status+')');
     const sd = await sr.json();
     // Handle multiple possible response shapes.
     products = (sd && (sd.products || sd.results || sd.data)) || [];
     if (!Array.isArray(products)) products = [];
-  } catch (e) { console.warn('[StockX] catalogue unavailable'); throw e; }
+  } catch (e) { console.warn('[StockX] catalogue unavailable'); if(lastGood.length)return lastGood.slice(0,limit);throw e; }
 
   // RELEVANCE GATE: EVERY meaningful word the user typed must appear in the
   // product title. "nike rf" must match BOTH "nike" AND "rf" (not just any Nike);
@@ -13212,22 +13214,20 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
     if (seenModel.has(key)) continue;
     seenModel.add(key);
     varied.push(p);
-    if (varied.length >= Math.max(limit,3)) break;
+    if (varied.length >= Math.max(limit*2,6)) break;
   }
   const chosen = varied;
   if (!chosen.length) {
+    if(lastGood.length)return lastGood.slice(0,limit);
     if (env.CACHE) { try { await env.CACHE.put(key, JSON.stringify({ items: [] }), { expirationTtl: 90 }); } catch (_) {} }
     return [];
   }
 
-  // Build cards IMMEDIATELY from the catalog search - no market-data wait, no
-  // page scraping in the critical path. Prices come from a per-product price
-  // cache if we've fetched them before; otherwise the card shows "market" and
-  // Build cards WITH live prices. Per your call, we always fetch the real
-  // Lowest Ask + Highest Bid inline (slower first search, but the price is
-  // always shown). Per-product price is cached 6h so repeat searches are fast.
+  // Keep StockX catalogue relevance order. Distinct product IDs/colourways
+  // remain separate cards; only positive asking prices become listings.
   const items = [];
   let lastMarketError=null;
+  const buildCards=async()=>{
   for (const p of chosen) {
     if(items.length>=limit)break;
     const pid = p.productId || p.id || p.uuid;
@@ -13313,12 +13313,27 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
   }
 
   if (env.CACHE && items.length) {
-    const save=env.CACHE.put(key, JSON.stringify({ items }), { expirationTtl: 21600 }).catch(()=>{});
-    if(ctx&&typeof ctx.waitUntil==='function')ctx.waitUntil(save);else await save;
+    await Promise.all([
+      env.CACHE.put(key,JSON.stringify({items}),{expirationTtl:21600}),
+      env.CACHE.put(lastGoodKey,JSON.stringify({items}),{expirationTtl:21600})
+    ]).catch(()=>{});
   }
+  if(!items.length&&lastGood.length)return lastGood.slice(0,limit);
   if(!items.length&&lastMarketError)throw lastMarketError;
-
-  return items.slice(0, limit);
+  return items.slice(0,limit);
+  };
+  const building=buildCards();
+  if(!background)return building;
+  // Register before returning so Cloudflare keeps the paced price requests alive.
+  ctx.waitUntil(building.catch(()=>{}));
+  const finished=await promiseWithin(building.then(rows=>({rows})),Math.max(1,5000-(Date.now()-started)),null);
+  if(finished)return finished.rows;
+  if(items.length){
+    return items.slice(0,limit);
+  }
+  if(lastGood.length)return lastGood.slice(0,limit);
+  if(lastMarketError)throw lastMarketError;
+  throw new Error('StockX prices are still loading');
 }
 
 
@@ -19905,7 +19920,7 @@ function wishwaveShoppingNormaliseItem(raw,query,country,adapterKey){
     (shippingObject.shippingCost&&shippingObject.shippingCost.value)
   );
   const rawShippingCost=item.shippingCost!=null?item.shippingCost:structuredShippingCost;
-  item.shippingCost=Number.isFinite(Number(rawShippingCost))?Math.max(0,Number(rawShippingCost)):null;
+  item.shippingCost=rawShippingCost!=null&&Number.isFinite(Number(rawShippingCost))?Math.max(0,Number(rawShippingCost)):null;
 
   const shippingString=value=>{
     if(typeof value!=='string')return '';
@@ -20014,6 +20029,7 @@ function wishwaveShoppingDiversityOrder(items,intent,limit){
       const it=list[i],key=String(it._shoppingSource||'retailer');
       const count=counts.get(key)||0;
       const same=key===last;
+      if(key==='stockx'&&last==='stockx'&&list.some((other,j)=>!used.has(j)&&other._shoppingSource!=='stockx'&&Number(other._shoppingCoverage)>=.999&&Number(other._shoppingRank)>=Number(it._shoppingRank)-450))continue;
       let adjusted=Number(it._shoppingRank||0) - count*34 - (same?streak*46:0);
       // Only use diversity as a tie-breaker. Never let an obviously weaker item
       // jump hundreds of relevance points just because it is from another shop.

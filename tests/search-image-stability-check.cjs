@@ -15,5 +15,5 @@ const img={src:'https://images.stockx.com/bad.jpg',style:{},getAttribute:k=>attr
 ctx.appRetailerImgError(img,'StockX','','premium-explore-image-placeholder');assert.equal(img.src,'https://images.stockx.com/alt1.jpg');assert.equal(replacement,null);
 ctx.appRetailerImgError(img,'StockX','','premium-explore-image-placeholder');assert.equal(img.src,'https://images.stockx.com/alt2.jpg');assert.equal(replacement,null);
 ctx.appRetailerImgError(img,'StockX','','premium-explore-image-placeholder');assert.equal(replacement.kind,'placeholder');assert.equal(tile.style.display,undefined);assert(tile.clickable);assert.equal(tile.price,200);
-assert(html.includes('item.imageFallbacks].forEach'));assert(html.includes("'images','imageFallbacks','condition'"));
+assert(html.includes('includeFallbacks?item.imageFallbacks:null].forEach'));assert(html.includes("'images','imageFallbacks','condition'"));
 console.log('PASS: Search tiles retry alternative images; exhausted images replace only the image; listing position, price and click target remain; image fallbacks survive saved search items');

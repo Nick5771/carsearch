@@ -4441,7 +4441,7 @@ document.addEventListener('keydown',event=>{
   closeLogin();closeAccountMenu();closeProfile();
 });
 
-function collectImageCandidates(item){
+function collectImageCandidates(item,includeFallbacks=true){
   if(!item) return [];
   const candidates=[];
   const push=(value,meta={})=>{
@@ -4465,7 +4465,7 @@ function collectImageCandidates(item){
     item.mainImage,item.mainImageUrl,item.galleryURL,item.galleryUrl,item.image,item.stockxImage,item.photo,item.photoUrl,
     item.thumbnailUrl,item.thumbnail,item.picture
   ].forEach(value=>push(value));
-  [item.images,item.imageUrls,item.galleryImages,item.additionalImages,item.photos,item.thumbnailImages,item.imageFallbacks].forEach(group=>{
+  [item.images,item.imageUrls,item.galleryImages,item.additionalImages,item.photos,item.thumbnailImages,includeFallbacks?item.imageFallbacks:null].forEach(group=>{
     if(Array.isArray(group)) group.forEach(value=>push(value));
   });
   return candidates;
@@ -6822,7 +6822,8 @@ function reelGalleryImages(item,index,data,plan){
     seen.add(key);out.push(upgraded);
   };
   if(plan&&plan.src)add(plan.src);
-  collectImageCandidates(item).forEach(candidate=>add(candidate&&candidate.url));
+  if(getSource(item)==='stockx'||item&&item._stockx)return out.slice(0,1);
+  collectImageCandidates(item,false).forEach(candidate=>add(candidate&&candidate.url));
   if(!out.length&&plan&&Array.isArray(plan.alts))plan.alts.forEach(add);
   return out.slice(0,6);
 }
@@ -13050,20 +13051,34 @@ html.findai-light .findai-notification-group-title{color:#111214}
 (function(){
   function markFreeShipping(root){
     const scope=root&&root.querySelectorAll?root:document;
-    const selectors='.listing-meta,.shipping,.search-detail-meta div,.app-search-evidence-meta,.app-chat-grid-meta,.scan-grid-meta,.premium-card-meta,.premium-result-meta';
-    scope.querySelectorAll(selectors).forEach(el=>{
+    const selectors='.listing-meta,.shipping,.search-detail-meta div,.app-search-evidence-meta,.app-chat-grid-meta,.scan-grid-meta,.premium-card-meta,.premium-result-meta,.search-grid-meta,.app-mp-fact b,.wishwave-free-shipping-copy';
+    const nodes=[...(scope.matches&&scope.matches(selectors)?[scope]:[]),...scope.querySelectorAll(selectors)];
+    nodes.forEach(el=>{
       const value=String(el.textContent||'').trim();
-      if(/^free\s+shipping$/i.test(value))el.classList.add('findai-free-shipping');
-      else if(/free\s+shipping/i.test(value)&&el.children.length===0)el.classList.add('findai-free-shipping');
+      if(!/free\s+(?:shipping|postage|delivery)/i.test(value))return;
+      el.classList.add('findai-free-shipping');
+      if(el.querySelector('.wishwave-delivery-icon'))return;
+      const walker=document.createTreeWalker(el,NodeFilter.SHOW_TEXT);
+      let node;
+      while((node=walker.nextNode())){
+        const match=/free\s+(?:shipping|postage|delivery)/i.exec(node.nodeValue||'');
+        if(!match)continue;
+        const label=node.splitText(match.index);
+        const holder=document.createElement('span');
+        holder.innerHTML=wishwaveDeliveryMarkup('');
+        label.parentNode.insertBefore(holder.firstElementChild,label);
+        break;
+      }
     });
   }
   markFreeShipping(document);
   const observer=new MutationObserver(records=>{
     for(const record of records){
-      for(const node of record.addedNodes){if(node.nodeType===1)markFreeShipping(node);}
+      if(record.type==='characterData')markFreeShipping(record.target.parentElement);
+      for(const node of record.addedNodes){if(node.nodeType===1)markFreeShipping(node);else if(node.nodeType===3)markFreeShipping(node.parentElement);}
     }
   });
-  observer.observe(document.body,{childList:true,subtree:true});
+  observer.observe(document.body,{childList:true,characterData:true,subtree:true});
 
   /* Nav belongs inside .app exactly once. No viewport maths. */
   function lockNavToCanvas(){
@@ -15664,7 +15679,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     exploreQueue=(cached.queue||[]).slice();seenExplore.clear();(cached.seen||[]).forEach(k=>seenExplore.add(k));
     exploreLoadedTaste=cached.taste;renderExploreGrid({replace:true});exploreBrowseSnapshot=null;
   }
-  async function runExploreLiveSearch(query,immediate=false){
+  async function runExploreLiveSearch(query,immediate=false,refresh=false){
     const clean=String(query||'').trim();
     if(exploreFilter==='people'){if(window.loadPremiumPeopleDiscovery)window.loadPremiumPeopleDiscovery(clean);return;}
     if(!clean){exploreLiveSearchSeq++;if(exploreLiveController){try{exploreLiveController.abort();}catch(_){}}restoreBrowseSnapshot();return;}
@@ -15673,7 +15688,8 @@ if(typeof v116RenderMarketplaceListing==='function'){
        the live results while the user is trying to tap a listing. */
     exploreGeneration++;
     exploreLoading=false;
-    setExploreInterpreting(true);snapshotBrowseIfNeeded();
+    if(!refresh)setExploreInterpreting(true);snapshotBrowseIfNeeded();
+    const previousStockx=exploreLiveSearchQuery===clean?(premiumDiscoverySections[0]?.items||[]).filter(item=>getSource(item)==='stockx'):[];
     const seq=++exploreLiveSearchSeq;exploreLiveSearchQuery=clean;
     if(exploreLiveController){try{exploreLiveController.abort();}catch(_){}}
     exploreLiveController=new AbortController();
@@ -15682,6 +15698,8 @@ if(typeof v116RenderMarketplaceListing==='function'){
       if(seq!==exploreLiveSearchSeq||exploreFilter==='people')return;
       const current=String(document.getElementById('q')&&document.getElementById('q').value||'').trim();if(current!==clean)return;
       let items=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings.slice():[];
+      const health=result&&result.data&&result.data.meta&&result.data.meta.sourceHealth&&result.data.meta.sourceHealth.stockx;
+      if(previousStockx.length&&!items.some(item=>getSource(item)==='stockx')&&health&&['failed','timeout'].includes(health.status))items=[...previousStockx,...items];
       items=items.filter(item=>item&&Number(item.price)>0&&premiumProductImage(item)).map(item=>({...item,_interestQuery:clean,_interestCategory:interestCategory(clean),_interestCluster:'live-'+interestClusterKey(clean)}));
       const unique=[],seen=new Set();for(const item of items){const key=exploreItemKey(item);if(!key||seen.has(key))continue;seen.add(key);unique.push(item);}
       // Typed searches already have source/relevance and explicit price/condition
@@ -15693,6 +15711,13 @@ if(typeof v116RenderMarketplaceListing==='function'){
       premiumDiscoverySections=[{config:{id:'explore',title:'Search'},items:display}];exploreQueue=[];exploreLoading=false;seenExplore.clear();display.forEach(item=>{const key=exploreItemKey(item);if(key)seenExplore.add(key);});
       renderExploreGrid({replace:true});
       window.wishwaveAcceptSearchResults?.(clean,display);
+      // One quiet refresh retrieves the broader colourway set after the worker
+      // completes paced price lookups. The sequence guard prevents stale edits.
+      const activity=result&&result.data&&(result.data.sourceActivity||result.data.meta&&result.data.meta.sourceActivity)||[];
+      const stockxActive=activity.some(row=>/stockx/i.test(String(row.name||row.label||row.source||row.host||'')));
+      if(!refresh&&stockxActive&&display.filter(item=>getSource(item)==='stockx').length<8){
+        setTimeout(()=>{if(seq===exploreLiveSearchSeq&&exploreLiveSearchQuery===clean)runExploreLiveSearch(clean,true,true);},10000);
+      }
       if(seq===exploreLiveSearchSeq)setExploreInterpreting(false);
     }catch(error){if(seq===exploreLiveSearchSeq)setExploreInterpreting(false);if(error&&error.name==='AbortError')return;}
   }
@@ -15702,7 +15727,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     if(exploreFilter==='people'){setExploreInterpreting(!!clean);exploreLiveSearchTimer=setTimeout(async()=>{try{if(window.loadPremiumPeopleDiscovery)await window.loadPremiumPeopleDiscovery(clean);}finally{setExploreInterpreting(false);}},70);return;}
     if(!clean){setExploreInterpreting(false);runExploreLiveSearch('',true);return;}
     setExploreInterpreting(true);
-    exploreLiveSearchTimer=setTimeout(()=>runExploreLiveSearch(clean,false),75);
+    exploreLiveSearchTimer=setTimeout(()=>runExploreLiveSearch(clean,false),350);
   };
   window.handlePremiumExploreSubmit=function(event){
     if(event&&event.preventDefault)event.preventDefault();
