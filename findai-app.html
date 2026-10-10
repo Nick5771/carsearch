@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v233-fluid-photo-swipes">
+<meta name="findai-build" content="v234-preserve-shopping-source-order">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -6350,6 +6350,10 @@ function strongScanListing(item,query){
 function rankListings(items,query,source='search'){
   const relevance=item=>listingRelevanceScore(item,query);
   if(source!=='scan') {
+    // The shopping engine already interleaves relevant sources. Re-sorting by
+    // literal words penalises aliases such as "350s" versus "350" and buries
+    // StockX behind duplicate marketplace offers. Keep the complete server order.
+    if((items||[]).some(item=>Number.isFinite(Number(item&&item._shoppingRank))&&item&&item._shoppingRank!=null))return [...items];
     // /search already applies FindAI's universal authority + relevance ranking after
     // every source is merged. Preserve that server order instead of re-sorting Apple,
     // major retailers and marketplaces back into a simple keyword order on the phone.
