@@ -22,6 +22,8 @@ function runtime(products,market){
  for(const q of ['Jordan 1','Air Jordan 1','Nike Air Jordan 1','AJ1'])assert.equal(r.ctx.parseSearchIntent(q).keywords,'air jordan 1');pass('Normalize Jordan aliases without duplicating Air');
  r=runtime([{productId:'jordan-image',title:'Jordan 1 Retro Low OG SP',urlKey:'air-jordan-1-retro-low-og-sp'}],()=>[{lowestAskAmount:'200'}]);
  out=await r.ctx.stockxSearch('Jordan 1','AUD',r.env,1);assert(out[0].image.includes('OG-SP-Product.jpg'));assert(out[0].imageFallbacks.length>0);assert.equal(out[0].images.length,1);pass('Preserve CDN acronym case and separate image fallbacks from gallery photos');
+ r=runtime([{productId:'chicago',title:'Jordan 1 Retro High OG Chicago Lost and Found',urlKey:'air-jordan-1-retro-high-og-chicago-reimagined-lost-and-found'}],()=>[{lowestAskAmount:'200'}]);
+ out=await r.ctx.stockxSearch('Jordan 1','AUD',r.env,1);assert(out[0].imageFallbacks[0].includes('/360/'));assert(out[0].imageFallbacks.some(u=>u.includes('/Air-Jordan-1-Retro-High-OG-Chicago-Reimagined-Product.jpg')));pass('Include real 360 photos and older Chicago CDN filename');
  r=runtime([p('yeezy','adidas Yeezy Boost 350 V2')],()=>[{lowestAskAmount:'220'}]);
  out=await r.ctx.stockxSearch('yeezy 350s shoes','AUD',r.env,1);assert.equal(out.length,1);assert(r.calls[0].includes('yeezy%20350%20shoes'));pass('Normalize plural model aliases and ignore footwear descriptor for relevance');
  for(const q of ['Asics Gel Kayano 14','Hoka Clifton 9','Puma Suede','Converse Chuck Taylor','Vans Old Skool','Reebok Club C','Saucony Jazz','Salomon XT-6','On Cloud 5','Adidas Sambas'])assert.equal(r.ctx.wishwaveShoppingStockxCategory(q),'sneakers');pass('Route additional footwear brands to StockX');

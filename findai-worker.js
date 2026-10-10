@@ -25,7 +25,7 @@ const EPN_CAMPAIGN_ID = '5339155260';
 // deploy automatically invalidates old cached responses instead of serving stale
 // results for 5 minutes. It is also returned in meta, so you can confirm which
 // engine is actually live from DevTools rather than guessing.
-const ENGINE_VERSION = 'v212-stockx-stable-images';
+const ENGINE_VERSION = 'v213-stockx-photo-fallbacks';
 // v120: restores live source progress metadata + search UX while preserving the Claude/eBay result fix.
 // v116: preserves owned retailer search while making eBay usage quota-safe and separating passive discovery from live shopper search.
 // EPN rotation IDs (mkrid) per marketplace. Only markets where eBay Partner
@@ -13151,7 +13151,7 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
   // StockX calls these "Jordan 1", while the intent parser expands shopper
   // shorthand to "Air Jordan 1". Treat the brand aliases as the same identity.
   term=term.replace(/\b(?:nike\s+)?air\s+(?=jordan\b)|\bnike\s+(?=jordan\b)/gi,'');
-  const key = `stockx-footwear-images-v3:${currency}:${limit}:${term.toLowerCase().slice(0, 120)}`;
+  const key = `stockx-footwear-images-v4:${currency}:${limit}:${term.toLowerCase().slice(0, 120)}`;
   if (env.CACHE) {
     try { const cached = await env.CACHE.get(key, 'json'); if (cached && cached.items) return cached.items.slice(0, limit); } catch (_) {}
   }
@@ -13238,10 +13238,15 @@ async function stockxSearch(term, currency, env, limit = 3, ctx = null) {
     const stockxImage = c1 ? (c1 + '?auto=format,compress&q=90&w=1600') : '';
     const titleFile=String(p.title||p.name||p.productName||'').replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-|-$/g,'');
     const legacyFile=String(p.urlKey||'').split('-').map(s=>s?s.charAt(0).toUpperCase()+s.slice(1):s).join('-');
+    const imageBase=c1.split('/').pop().replace(/-Product\.jpg$/,'');
+    // Chicago's renamed "Lost and Found" URL still uses the older Reimagined
+    // filename on StockX's CDN. Keep this alternate tied to that same product.
+    const olderImageBase=imageBase.replace(/-Lost-And-Found$/,'');
     const imageFallbacks=[...new Set([
+      c1?'https://images.stockx.com/360/'+imageBase+'/Images/'+imageBase+'/Lv2/img01.jpg?auto=format,compress&w=1600':'',
+      olderImageBase!==imageBase?'https://images.stockx.com/images/'+olderImageBase+'-Product.jpg?auto=format,compress&q=90&w=1600':'',
       titleFile?'https://images.stockx.com/images/'+titleFile+'-Product.jpg?auto=format,compress&q=90&w=1600':'',
-      legacyFile?'https://images.stockx.com/images/'+legacyFile+'-Product.jpg?auto=format,compress&q=90&w=1600':'',
-      c1?'https://images.stockx.com/360/'+c1.split('/').pop().replace(/-Product\.jpg$/,'')+'/Images/'+c1.split('/').pop().replace(/-Product\.jpg$/,'')+'/Lv2/img01.jpg?auto=format,compress&w=1600':''
+      legacyFile?'https://images.stockx.com/images/'+legacyFile+'-Product.jpg?auto=format,compress&q=90&w=1600':''
     ].filter(u=>u&&u!==stockxImage))];
 
     let lowestAsk = null, highestBid = null, mktCurrency = null;
