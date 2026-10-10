@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v230-quality-reel-preview">
+<meta name="findai-build" content="v231-centred-full-width-reels">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -6856,7 +6856,7 @@ function renderReelCard(item,index,data){
   const sellerLabel=item.topRatedSeller ? 'Top-rated seller' : (seller || 'Live listing');
   const wishwave=isFindAIListing(item);
   const commentCount=wishwaveCommentCount(item);
-  return `<article class="reel-card${wishwave?' wishwave-quality-reel':''}" data-recommendation-key="${escapeAttr(listingKey(item))}" data-index="${index}" data-has-gallery="${gallery.length>1?'1':'0'}" aria-label="${escapeAttr(title)}" role="button" tabindex="0" onclick="if(reelGalleryConsumeClick(this,event))return;openDeal(${index},event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDeal(${index},event);}">
+  return `<article class="reel-card wishwave-quality-reel" data-recommendation-key="${escapeAttr(listingKey(item))}" data-index="${index}" data-has-gallery="${gallery.length>1?'1':'0'}" aria-label="${escapeAttr(title)}" role="button" tabindex="0" onclick="if(reelGalleryConsumeClick(this,event))return;openDeal(${index},event)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openDeal(${index},event);}">
     <div class="hero-stage reel-gallery-stage${image?' fill-solid':''}" data-horizontal-scroll="1" data-gallery-index="0" data-gallery-images="${escapeAttr(JSON.stringify(gallery))}"${image?` style="--hero-fill:#0a0b0d"`:''}>
       <div class="reel-gallery-track" data-gallery-track="1">
         ${gallery.length
@@ -32365,7 +32365,7 @@ html.findai-light #createListingScreen .wishwave-create-mode button[aria-pressed
       const desc=document.createElement('div');desc.className='wishwave-draft-description';card.querySelector('.product-panel').appendChild(desc);
       host.replaceChildren(card);photoIndex=Math.min(photoIndex,Math.max(0,pendingListingImages.length-1));track.addEventListener('scroll',syncPhoto,{passive:true});requestAnimationFrame(()=>{track.scrollLeft=photoIndex*track.clientWidth;syncPhoto();});
     }
-    updateText();window.wishwaveQueueQualityFrames?.();
+    updateText();
   };
   window.wishwaveSetCreateMode=function(mode){
     const full=mode==='preview',scroll=root.querySelector('.marketplace-scroll');
@@ -32375,7 +32375,7 @@ html.findai-light #createListingScreen .wishwave-create-mode button[aria-pressed
     root.querySelector('.wishwave-create-full-preview').hidden=!full;
     document.getElementById(full?'wishwaveCreateFullSlot':'wishwaveCreateCompactSlot').appendChild(preview);
     preview.classList.remove('wishwave-preview-enter');void preview.offsetWidth;preview.classList.add('wishwave-preview-enter');
-    requestAnimationFrame(()=>{const track=host.querySelector('.wishwave-draft-track');if(track)track.scrollLeft=photoIndex*track.clientWidth;if(!full)scroll.scrollTop=editScroll;window.wishwaveQueueQualityFrames?.();});
+    requestAnimationFrame(()=>{const track=host.querySelector('.wishwave-draft-track');if(track)track.scrollLeft=photoIndex*track.clientWidth;if(!full)scroll.scrollTop=editScroll;});
   };
   root.querySelector('#createListingForm').addEventListener('input',()=>window.wishwaveSyncCreatePreview());
   const photos=window.renderListingImagePreviews;window.renderListingImagePreviews=function(){const out=photos.apply(this,arguments);window.wishwaveSyncCreatePreview(true);return out;};
@@ -32767,16 +32767,16 @@ html.findai-light body .app #createListingScreen .wishwave-free-shipping-copy.fi
 
 <style id="wishwave-v230-quality-reel-preview">
 /* Shared product frame: black surroundings, a complete sharp photo, clear metadata below. */
-html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel{background:#000!important;--wishwave-photo-top:64px;--wishwave-photo-bottom:260px;}
+html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel{background:#000!important;}
 html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .hero-stage,
 html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .reel-gallery-slide{background:#000!important;--hero-fill:#000!important;}
 html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .hero-stage::before,
 html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .hero-stage::after{content:none!important;display:none!important;}
 html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .reel-gallery-track,
-html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .wishwave-draft-track{position:absolute!important;inset:var(--wishwave-photo-top) 0 var(--wishwave-photo-bottom) 0!important;height:auto!important;}
-html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .reel-gallery-slide img.hero-image{position:absolute!important;inset:0!important;top:0!important;left:16px!important;right:58px!important;width:calc(100% - 74px)!important;height:100%!important;max-width:100%!important;max-height:100%!important;transform:none!important;object-fit:contain!important;object-position:center!important;padding:0!important;filter:none!important;-webkit-mask-image:none!important;mask-image:none!important;}
+html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .wishwave-draft-track{position:absolute!important;inset:0!important;height:auto!important;}
+html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .reel-gallery-slide img.hero-image{position:absolute!important;inset:0!important;top:0!important;left:0!important;right:0!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important;transform:none!important;object-fit:contain!important;object-position:center!important;padding:0!important;filter:none!important;-webkit-mask-image:none!important;mask-image:none!important;}
 html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .product-panel{background:#000!important;padding-top:10px!important;}
-html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .reel-gallery-dots{bottom:calc(var(--wishwave-photo-bottom) - 8px)!important;}
+html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .reel-gallery-dots{bottom:calc(var(--wishwave-nav-total,60px) + 156px)!important;}
 /* Composer chrome has one black backdrop, including the empty state and safe-area footer. */
 html body .app #createListingScreen{background:#000!important;--create-text:#f4f5f7;--create-surface:#000;--create-muted:#858b96;--create-border:#ffffff24;color:#fff!important;}
 html body .app #createListingScreen .marketplace-header,
@@ -32795,7 +32795,7 @@ html body .app #createListingScreen .wishwave-create-mode button{color:#969ba5!i
 html body .app #createListingScreen .wishwave-create-mode button[aria-pressed="true"]{background:#f4f5f7!important;color:#08090b!important;}
 html body .app #createListingScreen .create-listing-submit{background:#f4f5f7!important;color:#08090b!important;}
 html body .app #createListingScreen .create-listing-submit:disabled{background:#24272d!important;color:#777c85!important;}
-html body .app #createListingScreen.preview-mode .wishwave-quality-reel{--wishwave-photo-top:48px;--wishwave-photo-bottom:150px;}
+html body .app #createListingScreen.preview-mode .wishwave-quality-reel{}
 html body .app #createListingScreen.preview-mode .wishwave-preview-wordmark{display:block!important;position:absolute!important;top:12px!important;left:17px!important;z-index:5;font-size:22px!important;line-height:26px!important;font-weight:850!important;letter-spacing:-.6px!important;color:#fff!important;}
 html body .app #createListingScreen:not(.preview-mode) .wishwave-preview-wordmark{display:none!important;}
 html body .app #createListingScreen.preview-mode .wishwave-draft-reel .product-panel{display:block!important;padding:8px 70px 12px 17px!important;background:#000!important;}
@@ -32810,28 +32810,60 @@ html body .app #createListingScreen.preview-mode .wishwave-draft-empty{padding:0
 html body .app #createListingScreen.preview-mode .wishwave-draft-empty b{font-size:20px!important;}
 html body .app #createListingScreen.preview-mode .wishwave-draft-empty small{font-size:12px!important;color:#858b96!important;}
 html body .app #createListingScreen:not(.preview-mode) .wishwave-quality-reel .wishwave-draft-track{inset:0!important;}
-html body .app #createListingScreen.preview-mode .wishwave-draft-dots{top:auto!important;bottom:calc(var(--wishwave-photo-bottom) - 8px)!important;}
+html body .app #createListingScreen.preview-mode .wishwave-draft-dots{top:auto!important;bottom:calc(var(--wishwave-nav-total,60px) + 156px)!important;}
 html body .app #createListingScreen .listing-meta.findai-free-shipping,
 html body .app #createListingScreen .wishwave-free-shipping-copy.findai-free-shipping{color:#34c759!important;}
 
 html body .app #createListingScreen:not(.preview-mode) .wishwave-quality-reel.wishwave-quality-reel .reel-gallery-slide img.hero-image{left:0!important;right:0!important;width:100%!important;}
 </style>
-<script id="wishwave-v230-quality-frame-measurements">
-(function(){
- let frame=0;const observed=new WeakSet();
- function measure(card){
-  const panel=card.querySelector('.product-panel');if(!panel)return;
-  const height=panel.getBoundingClientRect().height;
-  if(height>0){const bottom=Math.ceil(height+10)+'px';if(card.style.getPropertyValue('--wishwave-photo-bottom')!==bottom)card.style.setProperty('--wishwave-photo-bottom',bottom);}
- }
- const resize=new ResizeObserver(entries=>{for(const entry of entries){const card=entry.target.closest('.wishwave-quality-reel');if(card)measure(card);}});
- function scan(){frame=0;document.querySelectorAll('.wishwave-quality-reel').forEach(card=>{const panel=card.querySelector('.product-panel');if(panel&&!observed.has(panel)){observed.add(panel);resize.observe(panel);}measure(card);});}
- function queue(){if(!frame)frame=requestAnimationFrame(scan);}
- window.wishwaveQueueQualityFrames=queue;
- new MutationObserver(queue).observe(document.querySelector('.app'),{childList:true,subtree:true});
- window.addEventListener('resize',queue,{passive:true});queue();
-})();
-</script>
+
+
+
+<style id="wishwave-v231-centred-full-width-reels">
+/* Every source uses the same entire reel canvas; controls overlay the media. */
+html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .hero-stage{
+ position:absolute!important;inset:0!important;width:100%!important;height:100%!important;background:#000!important;
+}
+html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .reel-gallery-track,
+html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .wishwave-draft-track{
+ inset:0!important;width:100%!important;height:100%!important;
+}
+html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .reel-gallery-slide img.hero-image{
+ inset:0!important;top:0!important;left:0!important;right:0!important;bottom:0!important;width:100%!important;height:100%!important;
+ transform:none!important;object-fit:contain!important;object-position:center center!important;
+}
+html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .hero-stage::after{
+ display:block!important;content:""!important;position:absolute!important;inset:0!important;z-index:2!important;pointer-events:none!important;
+ background:linear-gradient(180deg,#0004 0%,transparent 18%,transparent 62%,#0003 83%,#0008 100%)!important;
+}
+html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .product-panel{
+ background:linear-gradient(transparent,#0009)!important;padding-top:20px!important;
+}
+/* Preview's media canvas is the same full viewport as Home. Header and Post overlay it. */
+html body .app #createListingScreen.preview-mode .wishwave-create-full-preview{
+ position:absolute!important;inset:0!important;width:100%!important;height:100%!important;z-index:1!important;
+}
+html body .app #createListingScreen.preview-mode #wishwaveCreateFullSlot{height:100%!important;width:100%!important;}
+html body .app #createListingScreen.preview-mode .marketplace-header{position:relative!important;z-index:20!important;background:transparent!important;}
+html body .app #createListingScreen.preview-mode .wishwave-listing-publish-footer{position:absolute!important;bottom:0!important;left:0!important;right:0!important;z-index:20!important;}
+html body .app #createListingScreen.preview-mode .wishwave-preview-wordmark{top:calc(var(--safe-top) + 50px)!important;}
+html body .app #createListingScreen.preview-mode .wishwave-draft-reel .product-panel{
+ background:linear-gradient(transparent,#0009)!important;padding-top:20px!important;padding-bottom:calc(var(--wishwave-nav-total,60px) + 6px)!important;
+}
+html body .app #createListingScreen.preview-mode .wishwave-draft-reel .reel-actions-rail{bottom:calc(var(--wishwave-nav-total,60px) + 6px)!important;}
+html body .app #createListingScreen.preview-mode .wishwave-draft-dots{bottom:calc(var(--wishwave-nav-total,60px) + 156px)!important;}
+/* Edit has one compact header and a dedicated bounded photo section above the form. */
+html body .app #createListingScreen:not(.preview-mode) .marketplace-header{height:calc(var(--safe-top) + 40px)!important;flex:0 0 auto!important;}
+html body .app #createListingScreen:not(.preview-mode) .marketplace-header h2{display:none!important;}
+html body .app #createListingScreen:not(.preview-mode) .wishwave-create-mode{position:absolute!important;top:calc(var(--safe-top) + 3px)!important;left:52px!important;right:16px!important;z-index:20!important;margin:0!important;padding:3px!important;}
+html body .app #createListingScreen:not(.preview-mode) .wishwave-create-mode button{height:28px!important;}
+html body .app #createListingScreen:not(.preview-mode) #wishwaveCreateCompactSlot .wishwave-draft-preview.wishwave-draft-preview{
+ height:144px!important;max-height:none!important;margin:12px 16px 0!important;border:1px solid #ffffff24!important;border-radius:12px!important;
+}
+html body .app #createListingScreen:not(.preview-mode) .wishwave-quality-reel.wishwave-quality-reel .hero-stage::after{content:none!important;display:none!important;}
+html body .app #createListingScreen:not(.preview-mode) .wishwave-draft-empty{background:#000!important;padding:12px!important;}
+html body .app #createListingScreen:not(.preview-mode) .wishwave-listing-photos{padding-top:2px!important;}
+</style>
 
 </body>
 </html>
