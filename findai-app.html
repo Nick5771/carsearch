@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v228-create-reel-polish">
+<meta name="findai-build" content="v229-automatic-photo-composer">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -3673,7 +3673,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
             <button type="button" role="radio" aria-checked="false" data-delivery="both" onclick="wishwaveSelectDelivery('both')">Both</button>
           </div>
           <input id="listingDeliveryMode" type="hidden" value="">
-          <label class="wishwave-delivery-field" id="listingShippingRow" hidden><span>Shipping fee</span><div class="wishwave-shipping-input"><span aria-hidden="true">$</span><input id="listingShippingFee" type="number" inputmode="decimal" min="0" max="100000" step="0.01" placeholder="0.00" aria-label="Shipping fee"><button type="button" id="listingFreeShipping" aria-pressed="false" onclick="wishwaveSetFreeShipping()">Free</button></div></label>
+          <label class="wishwave-delivery-field" id="listingShippingRow" hidden><span>Shipping fee</span><div class="wishwave-shipping-input"><span aria-hidden="true">$</span><input id="listingShippingFee" type="number" inputmode="decimal" min="0" max="100000" step="0.01" placeholder="0.00" aria-label="Shipping fee"><span class="wishwave-free-shipping-copy findai-free-shipping">Free shipping</span><button type="button" id="listingFreeShipping" aria-pressed="false" onclick="wishwaveToggleFreeShipping()">Free</button></div></label>
           <label class="wishwave-delivery-field" id="listingPickupRow" hidden><span>Pickup area</span><input id="listingPickupArea" maxlength="120" autocomplete="off" placeholder="Suburb or city" aria-label="Pickup area"></label>
         </section>
       </form>
@@ -4292,7 +4292,7 @@ async function listingImagesPicked(event){
     else if(failed)toast(failed===1?'One image could not be added':failed+' images could not be added');
   }catch(_){toast('One of those images could not be added');}
 }
-function renderListingImagePreviews(){const grid=$('#listingImageGrid');if(!grid)return;grid.innerHTML=pendingListingImages.map((src,index)=>`<div class="listing-image-preview"><img src="${src}" alt="Listing image ${index+1}"><button type="button" onclick="removeListingImage(${index})" aria-label="Remove image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div>`).join('');}
+function renderListingImagePreviews(){const grid=$('#listingImageGrid');if(!grid)return;grid.innerHTML=pendingListingImages.map((src,index)=>`<div class="wishwave-photo-thumb"><div class="listing-image-preview"><img src="${src}" alt="Listing image ${index+1}"><button type="button" onclick="removeListingImage(${index})" aria-label="Remove image"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button></div><span class="wishwave-photo-caption">${index===0?'Cover':''}</span></div>`).join('');}
 function removeListingImage(index){pendingListingImages.splice(index,1);renderListingImagePreviews();}
 async function submitCreateListing(event){
   event.preventDefault();
@@ -4392,6 +4392,7 @@ async function deleteMarketplaceListing(id){
   try{await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id),{method:'DELETE'});const listings=getMarketplaceListings().filter(item=>(item.marketplaceListingId||item.itemId||item.id)!==id);saveMarketplaceListings(listings);forgetOwnedListingForFeed(id);renderMyListingsCards(listings);try{renderAccountProfile();}catch(_){}toast('Listing deleted');}catch(error){toast(error.message||'Could not delete listing');}
 }
 
+function wishwaveDeliveryMarkup(text){return '<svg class="wishwave-delivery-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h11v12H3zM14 9h4l3 4v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg><span>'+escapeHTML(text)+'</span>';}
 function adaptListingImage(img){
   if(!img||!img.naturalWidth||!img.naturalHeight) return;
   const stage=img.closest('.hero-stage');
@@ -6859,7 +6860,7 @@ function renderReelCard(item,index,data){
       <div class="reel-gallery-track" data-gallery-track="1">
         ${gallery.length
           ? gallery.map((src,galleryIndex)=>`<div class="reel-gallery-slide" data-gallery-slide="${galleryIndex}">
-              <img class="hero-image fit-contain reel-gallery-image" ${galleryIndex===0?`src="${escapeAttr(src)}"`:`data-src="${escapeAttr(src)}"`} data-fallback="${galleryIndex===0?escapeAttr(fallbackImage):''}" data-image-alts="${galleryIndex===0?appImageAltAttr(plan.alts):'[]'}" alt="${escapeAttr(title)}" loading="${galleryIndex===0&&index<3?'eager':'lazy'}" decoding="async" ${galleryIndex===0&&index===0?'fetchpriority="high"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">
+              <img class="hero-image fit-contain reel-gallery-image" ${galleryIndex===0?`src="${escapeAttr(src)}"`:`data-src="${escapeAttr(src)}"`} data-fallback="${galleryIndex===0?escapeAttr(fallbackImage):''}" data-image-alts="${galleryIndex===0?appImageAltAttr(plan.alts):'[]'}" alt="${escapeAttr(title)}" loading="${galleryIndex===0&&index<3?'eager':'lazy'}" decoding="async" ${galleryIndex===0&&index===0?'fetchpriority="high"':''} ${wishwave&&src.startsWith(WORKER+'/product-media/')?'crossorigin="anonymous"':''} referrerpolicy="no-referrer" onload="adaptListingImage(this)" onerror="imageFailed(this)">
             </div>`).join('')
           : `<div class="reel-gallery-slide"><div class="image-fallback" style="display:grid">${reelImagePlaceholder(item)}</div></div>`}
       </div>
@@ -6892,7 +6893,7 @@ function renderReelCard(item,index,data){
             <span class="price">${escapeHTML(money(price,currency))}</span>
             ${condition?`<span class="condition-badge">${escapeHTML(condition)}</span>`:''}
           </div>
-          ${shipping?`<div class="listing-meta ${/^free\s+shipping$/i.test(shipping)?'findai-free-shipping':''}">${escapeHTML(shipping)}</div>`:''}
+          ${shipping?`<div class="listing-meta ${/^free\s+shipping(?:\s*·|$)/i.test(shipping)?'findai-free-shipping':''}">${wishwave?wishwaveDeliveryMarkup(shipping):escapeHTML(shipping)}</div>`:''}
         </div>
       </div>
       ${index===0 && feedState.source!=='personalised' ? renderFirstListingMarketStrip(currentFeedItems,data) : ''}
@@ -32333,14 +32334,15 @@ html.findai-light #createListingScreen .wishwave-create-mode button[aria-pressed
   const root=document.getElementById('createListingScreen'),preview=document.getElementById('wishwaveDraftPreview'),host=preview.querySelector('.wishwave-draft-reel');
   let photoIndex=0,editScroll=0;
   const value=id=>String(document.getElementById(id)?.value||'').trim();
-  function draft(){return {itemId:'wishwave-unpublished-draft',marketplaceListingId:'wishwave-unpublished-draft',_findaiMarketplace:true,source:'wishwave',title:value('listingItemName')||'Your listing title',description:value('listingItemDescription'),price:Number(value('listingPrice'))||0,currency:window.findaiV137Prefs?.().currency||'AUD',condition:value('listingCondition'),images:[],sellerName:getAccountProfile()?.name||'You',sellerUsername:getAccountProfile()?.username||'',sellerAvatar:getAccountProfile()?.avatar||''};}
+  function draft(){const delivery=window.wishwavePreviewDeliveryPayload?.();return {...(delivery?{...delivery,shippingCost:delivery.shippingMinor/100}:{}),itemId:'wishwave-unpublished-draft',marketplaceListingId:'wishwave-unpublished-draft',_findaiMarketplace:true,source:'wishwave',title:value('listingItemName')||'Your listing title',description:value('listingItemDescription'),price:Number(value('listingPrice'))||0,currency:window.findaiV137Prefs?.().currency||'AUD',condition:value('listingCondition'),images:[],sellerName:getAccountProfile()?.name||'You',sellerUsername:getAccountProfile()?.username||'',sellerAvatar:getAccountProfile()?.avatar||''};}
   function updateText(){
     const item=draft();host.querySelector('.title').textContent=item.title;
     host.querySelector('.price').textContent=item.price>0?money(item.price,item.currency).replace(/\s+(AUD|USD|NZD|CAD|GBP|EUR)$/,''):'$—';
     const condition=host.querySelector('.condition-badge');if(condition)condition.textContent=item.condition;
     host.querySelector('.wishwave-draft-description').textContent=item.description;
+    const meta=host.querySelector('.listing-meta');if(meta){const delivery=window.wishwavePreviewDeliveryPayload?.();meta.hidden=!delivery;meta.classList.toggle('findai-free-shipping',!!delivery&&delivery.deliveryMode!=='pickup'&&delivery.shippingMinor===0);const text=delivery?getShippingText(item):'';if(meta.dataset.deliveryText!==text){meta.dataset.deliveryText=text;meta.innerHTML=text?wishwaveDeliveryMarkup(text):'';}}
   }
-  function syncPhoto(){const track=host.querySelector('.wishwave-draft-track');if(track?.clientWidth){photoIndex=Math.round(track.scrollLeft/track.clientWidth);host.querySelectorAll('.wishwave-draft-dots i').forEach((dot,i)=>dot.classList.toggle('active',i===photoIndex));}}
+  function syncPhoto(){const track=host.querySelector('.wishwave-draft-track');if(track?.clientWidth){photoIndex=Math.max(0,Math.min(pendingListingImages.length-1,Math.round(track.scrollLeft/track.clientWidth)));const stage=host.querySelector('.wishwave-draft-gallery');stage.dataset.galleryIndex=String(photoIndex);const img=track.children[photoIndex]?.querySelector('img');if(img?.complete)adaptListingImage(img);host.querySelectorAll('.wishwave-draft-dots i').forEach((dot,i)=>dot.classList.toggle('active',i===photoIndex));}}
   window.wishwaveSyncCreatePreview=function(rebuild=false){
     if(rebuild||!host.firstElementChild){
       const template=document.createElement('template');template.innerHTML=renderReelCard(draft(),-1,{});
@@ -32348,11 +32350,11 @@ html.findai-light #createListingScreen .wishwave-create-mode button[aria-pressed
       card.removeAttribute('role');card.removeAttribute('tabindex');card.removeAttribute('data-index');card.removeAttribute('data-recommendation-key');
       card.querySelectorAll('*').forEach(el=>{for(const attr of [...el.attributes])if(attr.name.startsWith('on'))el.removeAttribute(attr.name);});
       card.removeAttribute('onclick');card.removeAttribute('onkeydown');
-      card.querySelectorAll('.listing-meta,.first-market-strip').forEach(el=>el.remove());
+      card.querySelectorAll('.first-market-strip').forEach(el=>el.remove());
       card.querySelectorAll('.reel-social-action,.reel-seller-row').forEach(el=>{el.disabled=true;el.tabIndex=-1;el.setAttribute('aria-hidden','true');});
       const stage=card.querySelector('.reel-gallery-stage');stage.className='hero-stage wishwave-draft-gallery';stage.replaceChildren();stage.setAttribute('data-horizontal-scroll','true');
       const track=document.createElement('div');track.className='wishwave-draft-track';track.setAttribute('data-horizontal-scroll','true');
-      for(const src of pendingListingImages){const slide=document.createElement('div');slide.className='reel-gallery-slide';const img=document.createElement('img');img.className='hero-image fit-contain';img.src=src;img.alt='Draft photo '+(track.children.length+1);img.decoding='async';slide.appendChild(img);track.appendChild(slide);}
+      for(const src of pendingListingImages){const slide=document.createElement('div');slide.className='reel-gallery-slide';slide.dataset.gallerySlide=String(track.children.length);const img=document.createElement('img');img.className='hero-image fit-contain';img.addEventListener('load',()=>{if(stage.isConnected)adaptListingImage(img);});img.src=src;img.alt='Draft photo '+(track.children.length+1);img.decoding='async';slide.appendChild(img);track.appendChild(slide);}
       if(!pendingListingImages.length){const add=document.createElement('button');add.type='button';add.className='wishwave-draft-empty';add.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5l1.5-2h5L16 5h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h3Z"/><circle cx="12" cy="12.5" r="4"/></svg><b>Add your first photo</b><small>Your reel preview appears here</small>';add.onclick=()=>document.getElementById('listingImageInput').click();track.appendChild(add);}
       stage.appendChild(track);photoIndex=Math.min(photoIndex,Math.max(0,pendingListingImages.length-1));const dots=document.createElement('div');dots.className='wishwave-draft-dots';dots.innerHTML=pendingListingImages.length>1?pendingListingImages.map((_,i)=>'<i class="'+(i===photoIndex?'active':'')+'"></i>').join(''):'';card.appendChild(dots);
       const desc=document.createElement('div');desc.className='wishwave-draft-description';card.querySelector('.product-panel').appendChild(desc);
@@ -32610,6 +32612,12 @@ html body .app #createListingScreen .wishwave-delivery-field:focus-within{border
 (function(){
  const root=document.getElementById('createListingScreen'),form=document.getElementById('createListingForm'),submit=document.getElementById('createListingSubmit');
  const field=id=>document.getElementById(id);
+ window.wishwavePreviewDeliveryPayload=function(){
+   const deliveryMode=field('listingDeliveryMode').value;if(!['shipping','pickup','both'].includes(deliveryMode))return null;
+   const raw=field('listingShippingFee').value.trim(),fee=deliveryMode==='pickup'?0:Number(raw);
+   if(deliveryMode!=='pickup'&&(!raw||!Number.isFinite(fee)||fee<0||fee>100000))return null;
+   return {deliveryMode,pickupArea:deliveryMode==='shipping'?'':field('listingPickupArea').value.trim(),shippingMode:fee>0?'flat':'free',shippingMinor:Math.round(fee*100)};
+ };
  window.wishwaveListingDeliveryPayload=function(){
    const deliveryMode=field('listingDeliveryMode').value;
    if(!['shipping','pickup','both'].includes(deliveryMode))return null;
@@ -32630,16 +32638,19 @@ html body .app #createListingScreen .wishwave-delivery-field:focus-within{border
    const ready=field('listingItemName').value.trim().length>=3&&field('listingItemDescription').value.trim().length>0&&Number(field('listingPrice').value)>0&&form.checkValidity()&&pendingListingImages.length>0&&!!window.wishwaveListingDeliveryPayload();
    submit.disabled=submit.dataset.publishing==='1'||!ready;
    root.dataset.deliveryReady=String(!!window.wishwaveListingDeliveryPayload());
+   const selectedFree=shipping&&field('listingShippingFee').dataset.freeSelected==='1'&&Number(field('listingShippingFee').value)===0;field('listingShippingRow').classList.toggle('wishwave-shipping-free',selectedFree);field('listingFreeShipping').textContent=selectedFree?'Edit':'Free';
+   window.wishwaveSyncCreatePreview?.();
  };
  window.wishwaveSelectDelivery=function(mode){
    if(!['shipping','pickup','both'].includes(mode))return;
    field('listingDeliveryMode').value=mode;window.wishwaveSyncCreateDelivery();
  };
- window.wishwaveSetFreeShipping=function(){field('listingShippingFee').value='0';window.wishwaveSyncCreateDelivery();};
+ window.wishwaveSetFreeShipping=function(){field('listingShippingFee').value='0';field('listingShippingFee').dataset.freeSelected='1';window.wishwaveSyncCreateDelivery();};
+ window.wishwaveToggleFreeShipping=function(){if(field('listingShippingFee').dataset.freeSelected==='1'){delete field('listingShippingFee').dataset.freeSelected;field('listingShippingFee').value='';window.wishwaveSyncCreateDelivery();requestAnimationFrame(()=>field('listingShippingFee').focus({preventScroll:true}));}else window.wishwaveSetFreeShipping();};
  form.addEventListener('input',window.wishwaveSyncCreateDelivery);
  form.addEventListener('change',window.wishwaveSyncCreateDelivery);
  const photos=window.renderListingImagePreviews;window.renderListingImagePreviews=function(){const out=photos.apply(this,arguments);window.wishwaveSyncCreateDelivery();return out;};
- const reset=window.resetCreateListingForm;window.resetCreateListingForm=function(){const out=reset.apply(this,arguments);field('listingDeliveryMode').value='';field('listingShippingFee').value='';field('listingPickupArea').value='';delete submit.dataset.publishing;window.wishwaveSyncCreateDelivery();return out;};
+ const reset=window.resetCreateListingForm;window.resetCreateListingForm=function(){const out=reset.apply(this,arguments);field('listingDeliveryMode').value='';field('listingShippingFee').value='';delete field('listingShippingFee').dataset.freeSelected;field('listingPickupArea').value='';delete submit.dataset.publishing;window.wishwaveSyncCreateDelivery();return out;};
  const condition=window.selectListingCondition;window.selectListingCondition=function(){const out=condition.apply(this,arguments);window.wishwaveSyncCreateDelivery();return out;};
  window.wishwaveSyncCreateDelivery();
 })();
@@ -32685,6 +32696,68 @@ html body .app #createListingScreen:not(.preview-mode) .marketplace-scroll{flex:
  html body .app #createListingScreen.preview-mode .wishwave-draft-reel button.reel-social-action{flex-basis:48px!important;width:46px!important;min-width:46px!important;height:48px!important;min-height:48px!important;max-height:48px!important;gap:2px!important;}
 }
 </style>
+
+<style id="wishwave-v229-automatic-photo-composer">
+.wishwave-delivery-icon{width:14px;height:14px;display:inline-block;vertical-align:-3px;margin-right:6px;}
+html.findai-light body .app #createListingScreen.preview-mode .wishwave-draft-reel .listing-meta.findai-free-shipping{color:#16883f!important;}
+
+/* The composer is bounded by the visible viewport, independent of the underlying tab. */
+html body.creating-listing:not(.keyboard-open) .app #createListingScreen.show{
+ inset:auto!important;left:0!important;top:var(--wishwave-create-top,0px)!important;bottom:auto!important;
+ height:var(--wishwave-create-height,100%)!important;max-height:var(--wishwave-create-height,100%)!important;min-height:0!important;
+}
+html body .app #createListingScreen .wishwave-listing-publish-footer{flex:0 0 auto!important;min-height:0!important;box-sizing:border-box!important;padding:8px 16px calc(10px + env(safe-area-inset-bottom,0px))!important;}
+html body.keyboard-open .app #createListingScreen .wishwave-listing-publish-footer{padding-bottom:8px!important;}
+html body .app #createListingScreen .create-listing-submit{height:44px!important;}
+html body .app #createListingScreen .wishwave-create-full-preview{min-height:0!important;}
+html body .app #createListingScreen #wishwaveCreateFullSlot{flex:1 1 0!important;min-height:0!important;overflow:hidden!important;}
+/* Edit prioritises its fields. The complete image uses the same automatic fit as Home. */
+html body .app #createListingScreen:not(.preview-mode) #wishwaveCreateCompactSlot .wishwave-draft-preview:not(:has(.wishwave-draft-empty)){
+ height:clamp(150px,22vh,190px)!important;max-height:none!important;border-radius:12px!important;margin:0 16px!important;
+}
+html body .app #createListingScreen:not(.preview-mode) .wishwave-draft-gallery:not(:has(.wishwave-draft-empty)){inset:0!important;height:100%!important;}
+html body .app #createListingScreen:not(.preview-mode) .wishwave-draft-reel .product-panel{display:none!important;}
+html body .app #createListingScreen .wishwave-draft-expand{display:none!important;}
+html body .app #createListingScreen .wishwave-draft-gallery{background:var(--hero-fill,#0a0b0d)!important;}
+html body .app #createListingScreen .wishwave-draft-gallery .reel-gallery-slide{background:var(--hero-fill,#0a0b0d)!important;}
+html body .app #createListingScreen .marketplace-form{gap:10px!important;}
+/* The cover caption is beneath the picture, and has no white overlay plate. */
+html body .app #createListingScreen .wishwave-photo-thumb{flex:0 0 56px;width:56px;display:flex;flex-direction:column;align-items:center;gap:4px;}
+html body .app #createListingScreen .wishwave-photo-thumb .listing-image-preview{flex:0 0 auto!important;width:56px!important;min-width:56px!important;height:56px!important;min-height:56px!important;border-radius:9px!important;margin:0!important;}
+html body .app #createListingScreen .listing-image-preview:first-child::after{content:none!important;display:none!important;}
+html body .app #createListingScreen .wishwave-photo-thumb:first-child .listing-image-preview{outline:1.5px solid #f4f5f7;outline-offset:-1.5px;}
+html body .app #createListingScreen .wishwave-photo-caption{display:block;height:13px;line-height:13px;font-size:10px;font-weight:500;color:#aeb4be;text-align:center;}
+html body .app #createListingScreen .listing-image-picker{width:56px!important;min-width:56px!important;flex-basis:56px!important;height:56px!important;min-height:56px!important;}
+/* Delivery is part of the same price metadata as a published reel. */
+html body .app #createListingScreen.preview-mode .wishwave-draft-reel .listing-meta{display:block!important;margin-top:5px!important;font-size:11px!important;font-weight:500!important;line-height:16px!important;color:#b7bdc6!important;}
+html body .app #createListingScreen .wishwave-draft-reel .listing-meta[hidden]{display:none!important;}
+html body .app #createListingScreen.preview-mode .wishwave-draft-reel .listing-meta.findai-free-shipping{color:#34c759!important;font-weight:700!important;}
+html body .app #createListingScreen .wishwave-free-shipping-copy{display:none;font-size:12px;line-height:22px;white-space:nowrap;flex:1;}
+html body .app #createListingScreen .wishwave-shipping-free .wishwave-free-shipping-copy{display:block;}
+html body .app #createListingScreen .wishwave-shipping-free .wishwave-shipping-input>span[aria-hidden],html body .app #createListingScreen .wishwave-shipping-free #listingShippingFee{display:none!important;}
+html body .app #createListingScreen .wishwave-shipping-free #listingFreeShipping{background:transparent!important;color:#aeb4be!important;}
+html.findai-light body .app #createListingScreen .wishwave-free-shipping-copy.findai-free-shipping{color:#16883f!important;}
+</style>
+<script id="wishwave-v229-visible-create-viewport">
+(function(){
+ const root=document.getElementById('createListingScreen');let frame=0;
+ function sync(){
+   frame=0;if(!root.classList.contains('show'))return;
+   const vv=window.visualViewport;if(vv&&(vv.scale||1)>1.05)return;
+   const app=document.querySelector('.app').getBoundingClientRect();
+   const appHeight=app.height||innerHeight,visualTop=vv?Math.max(0,vv.offsetTop||0):0;
+   const top=Math.max(0,visualTop-app.top),visible=vv?vv.height:innerHeight;
+   const height=Math.max(0,Math.min(appHeight-top,visible));
+   root.style.setProperty('--wishwave-create-top',top+'px');root.style.setProperty('--wishwave-create-height',height+'px');
+ }
+ function queue(){if(!frame)frame=requestAnimationFrame(sync);}
+ window.wishwaveSyncCreateViewport=sync;
+ const open=window.openCreateListing;window.openCreateListing=function(){const result=open.apply(this,arguments);sync();return result;};
+ new MutationObserver(queue).observe(root,{attributes:true,attributeFilter:['class']});
+ window.addEventListener('resize',queue,{passive:true});window.addEventListener('orientationchange',queue,{passive:true});
+ window.visualViewport?.addEventListener('resize',queue,{passive:true});window.visualViewport?.addEventListener('scroll',queue,{passive:true});
+})();
+</script>
 
 </body>
 </html>

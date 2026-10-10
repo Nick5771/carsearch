@@ -18046,7 +18046,7 @@ const FindAIProductGraph = (() => {
     if(!key||key.includes('..'))return new Response('Not found',{status:404});
     const obj=await env.PRODUCT_MEDIA.get(key);
     if(!obj)return new Response('Not found',{status:404});
-    const h=new Headers({'Cache-Control':'public, max-age=31536000, immutable'});
+    const h=new Headers({'Cache-Control':'public, max-age=31536000, immutable','Access-Control-Allow-Origin':'*'});
     try{ obj.writeHttpMetadata(h); }catch(_){}
     try{ if(obj.httpEtag)h.set('ETag',obj.httpEtag); }catch(_){}
     return new Response(obj.body,{status:200,headers:h});
