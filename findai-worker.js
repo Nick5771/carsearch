@@ -25,7 +25,7 @@ const EPN_CAMPAIGN_ID = '5339155260';
 // deploy automatically invalidates old cached responses instead of serving stale
 // results for 5 minutes. It is also returned in meta, so you can confirm which
 // engine is actually live from DevTools rather than guessing.
-const ENGINE_VERSION = 'v216-continuous-discovery-pages';
+const ENGINE_VERSION = 'v235-ebay-shared-quota-gateway';
 // v120: restores live source progress metadata + search UX while preserving the Claude/eBay result fix.
 // v116: preserves owned retailer search while making eBay usage quota-safe and separating passive discovery from live shopper search.
 // EPN rotation IDs (mkrid) per marketplace. Only markets where eBay Partner
@@ -92,7 +92,17 @@ function corsFor(request) {
 }
 
 function jsonResp(data, status = 200, extraHeaders = {}) {
-  return new Response(JSON.stringify(data), { status, headers: { ...CORS, ...extraHeaders } });
+    let remaining=Infinity;
+  const body=JSON.stringify(data,(key,value)=>{
+    if(Array.isArray(value))return value.filter(item=>!item||!Number(item._ebayFetchedAt)||Number(item._ebayFetchedAt)+21600000>Date.now());
+    if(value&&typeof value==='object'&&Number(value._ebayFetchedAt)>0)remaining=Math.min(remaining,Math.floor((Number(value._ebayFetchedAt)+21600000-Date.now())/1000)-5);
+    return value;
+  });
+  const headers={...CORS,...extraHeaders};
+  if(Number.isFinite(remaining)&&headers['Cache-Control']){
+    headers['Cache-Control']=remaining<=0?'no-store':headers['Cache-Control'].replace(/(max-age|s-maxage|stale-while-revalidate)=(\d+)/g,(_,name,seconds)=>name+'='+Math.min(Number(seconds),remaining));
+  }
+  return new Response(body,{status,headers});
 }
 
 // Admin/setup/diagnostic endpoints are gated behind one production secret: ADMIN_KEY.
@@ -571,6 +581,230 @@ function homePoolCountry(country) {
 }
 
 // ── eBay OAuth token ──────────────────────────────────────────────────────
+// ── WishWave shared eBay gateway ────────────────────────────────────────────
+// Every Browse request must pass this boundary. CACHE serves the read-heavy path;
+// D1 atomic reservations/leases coordinate cache misses across Worker isolates.
+const WW_EBAY_SCHEMA = new WeakMap();
+const WW_EBAY_STATE = new WeakMap();
+function ebayGatewayConfig(env={}) {
+  const integer=(value,min,max,fallback)=>Number.isFinite(Number(value))&&String(value??'').trim()!==''?Math.max(min,Math.min(max,Math.floor(Number(value)))):fallback;
+  const approved=integer(env.EBAY_DAILY_CALL_LIMIT,0,100000000,5000);
+  const headroom=integer(env.EBAY_BUDGET_HEADROOM_PERCENT,0,50,10);
+  const usable=Math.floor(approved*(100-headroom)/100);
+  return {approved,usable,headroom,
+    backgroundPercent:integer(env.EBAY_BACKGROUND_PERCENT,0,40,15),
+    enrichmentPercent:integer(env.EBAY_ENRICHMENT_PERCENT,0,20,5),
+    burstPercent:integer(env.EBAY_BUDGET_BURST_PERCENT,5,100,25),
+    blockSize:integer(env.EBAY_RESERVATION_BLOCK_SIZE,1,64,approved>=100000?16:1),
+    searchFreshSeconds:integer(env.EBAY_SEARCH_FRESH_SECONDS,300,18000,14400),
+    // Five minutes are reserved for downstream response-cache TTLs.
+    maxAgeSeconds:21300};
+}
+function ebayTrafficEnv(env,trafficClass){return {...env,WISHWAVE_EBAY_TRAFFIC_CLASS:env&&env.WISHWAVE_EBAY_TRAFFIC_CLASS==='background'?'background':trafficClass};}
+function ebayGatewayState(env){
+  const scope=env&&env.DB||env;
+  let state=WW_EBAY_STATE.get(scope);
+  if(!state){state={tokens:new Map(),allocations:new Map(),denied:new Map(),pending:new Map(),memory:new Map(),bytes:0,blockedUntil:0};WW_EBAY_STATE.set(scope,state);}
+  return state;
+}
+async function ensureEbayGatewaySchema(env){
+  if(!env||!env.DB)throw new Error('ebay_budget_storage_unavailable');
+  let ready=WW_EBAY_SCHEMA.get(env.DB);
+  if(!ready){ready=(async()=>{
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS wishwave_ebay_budget (
+      day TEXT PRIMARY KEY,used INTEGER NOT NULL DEFAULT 0,
+      background INTEGER NOT NULL DEFAULT 0,enrichment INTEGER NOT NULL DEFAULT 0,
+      blocked_until INTEGER NOT NULL DEFAULT 0,updated_at INTEGER NOT NULL DEFAULT 0)` ).run();
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS wishwave_ebay_provider (id INTEGER PRIMARY KEY CHECK(id=1),blocked_until INTEGER NOT NULL DEFAULT 0)` ).run();
+    await env.DB.prepare(`CREATE TABLE IF NOT EXISTS wishwave_ebay_refresh_leases (
+      cache_key TEXT PRIMARY KEY,lease_until INTEGER NOT NULL,updated_at INTEGER NOT NULL)` ).run();
+    await env.DB.prepare(`CREATE INDEX IF NOT EXISTS idx_wishwave_ebay_lease_expiry ON wishwave_ebay_refresh_leases(lease_until)` ).run();
+  })();WW_EBAY_SCHEMA.set(env.DB,ready);ready.catch(()=>WW_EBAY_SCHEMA.delete(env.DB));}
+  await ready;
+}
+function ebayPacedLimit(limit,config,now){
+  const fraction=(now%86400000)/86400000;
+  return Math.floor(limit*(config.burstPercent/100+(1-config.burstPercent/100)*fraction));
+}
+async function reserveEbayCalls(env,trafficClass='foreground',now=null){
+  const state=ebayGatewayState(env),prior=state.allocations.get(trafficClass)||Promise.resolve();
+  const work=prior.catch(()=>{}).then(()=>reserveEbayCallsAtomic(env,trafficClass,now??Date.now()));
+  state.allocations.set(trafficClass,work);
+  try{return await work;}finally{if(state.allocations.get(trafficClass)===work)state.allocations.delete(trafficClass);}
+}
+async function reserveEbayCallsAtomic(env,trafficClass='foreground',now=Date.now()){
+  const cfg=ebayGatewayConfig(env),day=new Date(now).toISOString().slice(0,10);
+  const state=ebayGatewayState(env);
+  if(!cfg.usable)return {ok:false,reason:'disabled'};
+  if(state.blockedUntil>now)return {ok:false,reason:'provider_cooldown'};
+  const lane=trafficClass==='background'?'background':trafficClass==='enrichment'?'enrichment':'foreground';
+  const tokenKey=day+':'+lane+':'+JSON.stringify(cfg);
+  const denied=state.denied.get(tokenKey);
+  if(denied&&denied.until>now)return {ok:false,reason:denied.reason};
+  const balance=state.tokens.get(tokenKey);
+  // Blocks expire each minute and at UTC rollover. Lost reservations are deliberately
+  // never refunded: a crashed isolate cannot allow another isolate to overspend.
+  if(balance&&balance.until>now&&balance.left>0){balance.left--;return {ok:true,reserved:false};}
+  try{
+    await ensureEbayGatewaySchema(env);
+    const paced=ebayPacedLimit(cfg.usable,cfg,now);
+    const backgroundCap=ebayPacedLimit(Math.floor(cfg.usable*cfg.backgroundPercent/100),cfg,now);
+    const enrichmentCap=ebayPacedLimit(Math.floor(cfg.usable*cfg.enrichmentPercent/100),cfg,now);
+    const attempt=async amount=>{
+      const countBackground=lane==='background'?amount:0,countEnrichment=lane==='enrichment'?amount:0;
+      // One UPSERT, one primary-key row. SQLite performs the limit check and increment
+      // atomically; KV get/put counters would not be safe under concurrent requests.
+      return await env.DB.prepare(`INSERT INTO wishwave_ebay_budget(day,used,background,enrichment,blocked_until,updated_at)
+        SELECT ?,?,?,?,?,? WHERE ?<=? AND ?<=? AND ?<=? AND COALESCE((SELECT blocked_until FROM wishwave_ebay_provider WHERE id=1),0)<=?
+        ON CONFLICT(day) DO UPDATE SET used=used+excluded.used,
+          background=background+excluded.background,enrichment=enrichment+excluded.enrichment,updated_at=excluded.updated_at
+        WHERE used+excluded.used<=? AND background+excluded.background<=? AND enrichment+excluded.enrichment<=? AND blocked_until<=?
+        RETURNING used,background,enrichment,blocked_until`)
+        .bind(day,amount,countBackground,countEnrichment,0,now,amount,paced,countBackground,backgroundCap,countEnrichment,enrichmentCap,now,
+          paced,backgroundCap,enrichmentCap,now).first();
+    };
+    let amount=cfg.blockSize,row=await attempt(amount);
+    if(!row&&amount>1){amount=1;row=await attempt(amount);}
+    if(!row){state.denied.set(tokenKey,{until:now+30000,reason:'quota_or_pacing'});return {ok:false,reason:'quota_or_pacing'};}
+    state.tokens.set(tokenKey,{left:amount-1,until:Math.min(now+60000,Date.parse(day+'T00:00:00Z')+86400000)});
+    // Bound old config/day keys without invalidating any current reservation.
+    if(state.tokens.size>16)for(const [key,value] of state.tokens)if(value.until<=now)state.tokens.delete(key);
+    if(state.denied.size>32)for(const [key,value] of state.denied)if(value.until<=now)state.denied.delete(key);
+    return {ok:true,reserved:true,used:Number(row.used)};
+  }catch(error){console.warn('eBay budget unavailable; serving cache only');return {ok:false,reason:'budget_unavailable'};}
+}
+async function ebayRefreshLease(env,key,now){
+  try{
+    await ensureEbayGatewaySchema(env);
+    const row=await env.DB.prepare(`INSERT INTO wishwave_ebay_refresh_leases(cache_key,lease_until,updated_at) VALUES(?,?,?)
+      ON CONFLICT(cache_key) DO UPDATE SET lease_until=excluded.lease_until,updated_at=excluded.updated_at
+      WHERE lease_until<=? RETURNING cache_key`).bind(key,now+90000,now,now).first();
+    return !!row;
+  }catch(_){return false;}
+}
+function ebayGatewayResponse(entry,state='cache'){
+  const headers=new Headers(entry.headers||{});
+  headers.set('X-WishWave-Ebay-State',state);
+  headers.set('X-WishWave-Ebay-Fetched-At',String(entry.fetchedAt));
+  return new Response(entry.body,{status:entry.status||200,headers});
+}
+function ebayGatewayDeferred(reason){
+  return new Response(JSON.stringify({errors:[{message:'Fresh eBay results are temporarily unavailable',errorId:'wishwave_'+reason}]}),{
+    status:503,headers:{'Content-Type':'application/json','Retry-After':'60','X-WishWave-Ebay-State':reason}});
+}
+function ebayGatewayRemember(state,key,entry,now){
+  const prior=state.memory.get(key);if(prior){state.bytes-=prior.size;state.memory.delete(key);}
+  const size=entry.body.length*2;
+  if(size>1048576)return;
+  state.memory.delete(key);state.memory.set(key,{entry,until:Math.min(now+60000,entry.expiresAt),size});state.bytes+=size;
+  while(state.bytes>8388608||state.memory.size>32){const [old,value]=state.memory.entries().next().value;state.memory.delete(old);state.bytes-=value.size;}
+}
+async function ebayGatewayCacheRead(env,state,key,now){
+  const mem=state.memory.get(key);
+  if(mem&&mem.until>now)return mem.entry;
+  if(mem){state.memory.delete(key);state.bytes-=mem.size;}
+  try{
+    const entry=env.CACHE&&await env.CACHE.get(key,'json');
+    if(entry&&typeof entry.body==='string'&&entry.fetchedAt<=now&&entry.expiresAt>now&&now-entry.fetchedAt<21300000){
+      ebayGatewayRemember(state,key,entry,now);return entry;
+    }
+  }catch(_){}
+  return null;
+}
+async function ebayGatewayCooldown(env,response,now){
+  const retry=response.headers.get('Retry-After');
+  let seconds=Number(retry);
+  if(!Number.isFinite(seconds)||seconds<=0)seconds=Math.max(0,(Date.parse(retry)-now)/1000)||900;
+  seconds=Math.max(60,Math.min(86400,Math.ceil(seconds)));
+  const until=now+seconds*1000,state=ebayGatewayState(env);state.blockedUntil=until;state.tokens.clear();
+  try{
+    await ensureEbayGatewaySchema(env);
+    const day=new Date(now).toISOString().slice(0,10);
+    await env.DB.prepare(`INSERT INTO wishwave_ebay_budget(day,blocked_until,updated_at) VALUES(?,?,?)
+      ON CONFLICT(day) DO UPDATE SET blocked_until=MAX(blocked_until,excluded.blocked_until),updated_at=excluded.updated_at`)
+      .bind(day,until,now).run();
+    await env.DB.prepare(`INSERT INTO wishwave_ebay_provider(id,blocked_until) VALUES(1,?)
+      ON CONFLICT(id) DO UPDATE SET blocked_until=MAX(blocked_until,excluded.blocked_until)`).bind(until).run();
+  }catch(_){}
+}
+async function ebayBrowseFetch(env,input,options={},settings={}){
+  const url=new URL(String(input));
+  if(url.origin!=='https://api.ebay.com'||!url.pathname.startsWith('/buy/browse/'))throw new Error('Unexpected eBay gateway endpoint');
+  const headers=new Headers(options.headers||{}),body=String(options.body||'');
+  // No OAuth token, raw image or user identifier is put in cache keys or leases.
+  const identity=JSON.stringify([options.method||'GET',url.href,headers.get('X-EBAY-C-MARKETPLACE-ID')||'',headers.get('X-EBAY-C-ENDUSERCTX')||'',body]);
+  const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(identity))),x=>x.toString(16).padStart(2,'0')).join('');
+  const key='wishwave:ebay:browse:v1:'+digest,state=ebayGatewayState(env),now=Date.now();
+  const cached=await ebayGatewayCacheRead(env,state,key,now);
+  if(cached&&cached.freshUntil>now)return ebayGatewayResponse(cached);
+  const ongoing=state.pending.get(key);
+  if(ongoing)return (await ongoing).clone();
+  const work=(async()=>{
+    const cfg=ebayGatewayConfig(env),lane=env.WISHWAVE_EBAY_TRAFFIC_CLASS||settings.trafficClass||'foreground';
+    const denied=state.denied.get(new Date(now).toISOString().slice(0,10)+':'+lane+':'+JSON.stringify(cfg));
+    if(state.blockedUntil>now||denied&&denied.until>now||!cfg.usable)return ebayGatewayFallback(cached,'quota_cache',ebayGatewayDeferred('quota_or_pacing'));
+    if(!(await ebayRefreshLease(env,key,now))){
+      if(cached&&cached.expiresAt>Date.now())return ebayGatewayResponse(cached,'refresh_shared');
+      // Another region owns this refresh. Briefly wait for its shared result;
+      // never race it with another upstream request if KV propagation is delayed.
+      for(const delay of [150,350,650]){
+        await new Promise(resolve=>setTimeout(resolve,delay));
+        const shared=await ebayGatewayCacheRead(env,state,key,Date.now());
+        if(shared)return ebayGatewayResponse(shared,'refresh_shared');
+      }
+      return ebayGatewayDeferred('refresh_pending');
+    }
+    const trafficClass=env.WISHWAVE_EBAY_TRAFFIC_CLASS||settings.trafficClass||'foreground';
+    const reservation=await reserveEbayCalls(env,trafficClass);
+    if(!reservation.ok){
+      // No upstream call occurred: do not let a depleted background lane hold
+      // the lease and prevent a foreground shopper from fetching this query.
+      try{await env.DB.prepare('DELETE FROM wishwave_ebay_refresh_leases WHERE cache_key=? AND lease_until=?').bind(key,now+90000).run();}catch(_){}
+      return ebayGatewayFallback(cached,'quota_cache',ebayGatewayDeferred(reservation.reason));
+    }
+    try{
+      const response=await fetchWithTimeout(url.href,options,settings.timeoutMs||4000);
+      if(response.status===429)await ebayGatewayCooldown(env,response,Date.now());
+      if(!response.ok)return ebayGatewayFallback(cached,'provider_cache',response);
+      const text=await response.text();
+      let data;try{data=JSON.parse(text);}catch(_){return ebayGatewayFallback(cached,'provider_cache',ebayGatewayDeferred('invalid_response'));}
+      const fetchedAt=Date.now(),cfg=ebayGatewayConfig(env);
+      const isSearch=url.pathname.includes('/item_summary/'),empty=isSearch&&Array.isArray(data.itemSummaries)&&!data.itemSummaries.length;
+      const freshSeconds=empty?300:(isSearch?cfg.searchFreshSeconds:900);
+      const ageSeconds=empty?300:cfg.maxAgeSeconds;
+      const entry={body:text,status:response.status,headers:{'Content-Type':'application/json'},fetchedAt,
+        freshUntil:fetchedAt+freshSeconds*1000,expiresAt:fetchedAt+ageSeconds*1000};
+      ebayGatewayRemember(state,key,entry,fetchedAt);
+      if(env.CACHE)try{await env.CACHE.put(key,JSON.stringify(entry),{expirationTtl:ageSeconds});}catch(_){}
+      return ebayGatewayResponse(entry,'live');
+    }catch(_){return ebayGatewayFallback(cached,'provider_cache',ebayGatewayDeferred('provider_unavailable'));}
+  })();
+  state.pending.set(key,work);
+  try{return (await work).clone();}finally{state.pending.delete(key);}
+}
+function ebayGatewayFallback(entry,state,fallback){return entry&&entry.expiresAt>Date.now()?ebayGatewayResponse(entry,state):fallback;}
+async function ebayGatewayStatus(env){
+  const config=ebayGatewayConfig(env),now=Date.now(),day=new Date(now).toISOString().slice(0,10);
+  await ensureEbayGatewaySchema(env);
+  const usage=await env.DB.prepare('SELECT * FROM wishwave_ebay_budget WHERE day=?').bind(day).first();
+  const provider=await env.DB.prepare('SELECT blocked_until FROM wishwave_ebay_provider WHERE id=1').first();
+  return {config,day,window:'UTC calendar day',reservedCalls:Number(usage&&usage.used)||0,
+    backgroundReserved:Number(usage&&usage.background)||0,enrichmentReserved:Number(usage&&usage.enrichment)||0,
+    pacedAvailableNow:Math.max(0,ebayPacedLimit(config.usable,config,now)-(Number(usage&&usage.used)||0)),
+    remainingDaily:Math.max(0,config.usable-(Number(usage&&usage.used)||0)),
+    blockedUntil:Math.max(Number(usage&&usage.blocked_until)||0,Number(provider&&provider.blocked_until)||0),
+    accounting:'Reservations include failed requests and unused isolate blocks; external eBay callers are not counted.'};
+}
+async function ebayGatewayMaintenance(env){
+  await ensureEbayGatewaySchema(env);
+  const now=Date.now(),cutoff=new Date(now-7*86400000).toISOString().slice(0,10);
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM wishwave_ebay_budget WHERE day<?').bind(cutoff),
+    env.DB.prepare('DELETE FROM wishwave_ebay_refresh_leases WHERE lease_until<?').bind(now-900000)
+  ]);
+}
+// ── End shared eBay gateway ─────────────────────────────────────────────────
+
 let ebayToken = null;
 let ebayTokenExpiry = 0;
 let ebayTokenPromise = null;
@@ -806,31 +1040,39 @@ function isCleanNewLegoListing(item, product, marketFloor){
 }
 
 async function searchEbay(keywords, country, maxPrice, env, agOnly = false, sortOverride = '', sourceOffset = 0) {
+  keywords=String(keywords||'').replace(/\s+/g,' ').trim().toLowerCase();
+  country=String(country||'US').toUpperCase();if(country==='GB')country='UK';
+  sourceOffset=Math.max(0,Math.floor(Number(sourceOffset)||0));
+  if(!keywords||sourceOffset>=10000)return {items:[],total:0};
   // Cache eBay responses. Without this, every product-page view and every search
   // hit eBay live, which exhausted the Browse API daily quota (5,000 calls) and
   // returned 429 "Too many requests" — emptying every grid regardless of our
-  // filtering. Results are cached 6h per query; on a 429 we serve the last good
-  // cached response (kept 48h) rather than showing nothing.
-  const ck = 'ebaysearch:' + country + ':' + (maxPrice || '') + ':' + (agOnly ? 'ag' : '') + ':' + (sortOverride || '') + ':' + String(keywords).toLowerCase().trim();
+  // filtering. Results are shared per query/window; on a 429 we serve the last good
+  // cached response within the six-hour listing freshness window.
+  const ck = 'ebaysearch:v235:' + country + ':' + (maxPrice || '') + ':' + (agOnly ? 'ag' : '') + ':' + (sortOverride || '') + ':' + String(keywords).toLowerCase().trim();
   const pageKey=sourceOffset?ck+':offset:'+sourceOffset:ck;
   const staleKey = pageKey + ':stale';
   if (env && env.CACHE) {
-    try { const hit = await env.CACHE.get(pageKey, 'json'); if (hit && Array.isArray(hit.items)) return hit; } catch (_) {}
+    try { const hit = await env.CACHE.get(pageKey, 'json'); if (hit && Array.isArray(hit.items) && Number(hit.ebayFetchedAt)>Date.now()-21300000) return hit; } catch (_) {}
   }
   const result = await searchEbayUncached(keywords, country, maxPrice, env, agOnly, sortOverride, sourceOffset);
   if (env && env.CACHE) {
     try {
-      if (!result.error && result.items && result.items.length) {
-        await env.CACHE.put(pageKey, JSON.stringify(result), { expirationTtl: 21600 });        // 6h fresh
-        await env.CACHE.put(staleKey, JSON.stringify(result), { expirationTtl: 172800 }); // 48h fallback
-      } else if (result.error) {
-        // eBay failed (likely 429). Serve the last good response if we have one.
-        const stale = await env.CACHE.get(staleKey, 'json');
-        if (stale && Array.isArray(stale.items) && stale.items.length) {
-          return { items: stale.items, total: stale.items.length, error: null, stale: true };
+      if (!result.error && Array.isArray(result.items)) {
+        const fetchedAt=Number(result.ebayFetchedAt)||Date.now();
+        result.ebayFetchedAt=fetchedAt;
+        const remaining=Math.min(result.items.length?21300:300,Math.floor((fetchedAt+21300000-Date.now())/1000));
+        if(remaining>=60){
+          const fresh=Math.min(result.items.length?ebayGatewayConfig(env).searchFreshSeconds:300,remaining);
+          await env.CACHE.put(pageKey,JSON.stringify(result),{expirationTtl:fresh});
+          await env.CACHE.put(staleKey,JSON.stringify(result),{expirationTtl:remaining});
         }
+      } else if (result.error) {
+        const stale=await env.CACHE.get(staleKey,'json');
+        if(stale&&Array.isArray(stale.items)&&Number(stale.ebayFetchedAt)>Date.now()-21300000)
+          return {...stale,error:null,stale:true,status:stale.items.length?'returned':'checked',ebayCacheState:'quota_cache'};
       }
-    } catch (_) {}
+    }catch(_){}
   }
   return result;
 }
@@ -881,11 +1123,11 @@ async function searchEbayUncached(keywords, country, maxPrice, env, agOnly = fal
     if (typeof EPN_MKRID !== 'undefined' && EPN_MKRID[country]) {
       headers['X-EBAY-C-ENDUSERCTX'] = `affiliateCampaignId=${EPN_CAMPAIGN_ID}`;
     }
-    const res = await fetchWithTimeout(url, { headers }, 3200);
+    const res = await ebayBrowseFetch(env,url,{headers},{timeoutMs:3200});
 
     if (!res.ok) {
       const err = await res.text();
-      return { error: `eBay Browse API ${res.status}: ${err.substring(0, 200)}` };
+      return {items:[],total:0,status:res.status===503?'quota_deferred':'failed',error:`eBay Browse API ${res.status}: ${err.substring(0,200)}`};
     }
 
     const data = await res.json();
@@ -908,6 +1150,7 @@ async function searchEbayUncached(keywords, country, maxPrice, env, agOnly = fal
         const agEligible = qPrograms.includes('AUTHENTICITY_GUARANTEE');
         return {
           source: 'eBay',
+          _ebayFetchedAt:Number(res.headers.get('X-WishWave-Ebay-Fetched-At'))||Date.now(),
           marketplaceId: marketplace,
           itemId:   item.itemId || '',
           title:    (item.title || '').replace(/[\u2014\u2013]/g, '-'),
@@ -974,6 +1217,9 @@ async function searchEbayUncached(keywords, country, maxPrice, env, agOnly = fal
         };
       }),
       total: totalResults,
+      ebayFetchedAt:Number(res.headers.get('X-WishWave-Ebay-Fetched-At'))||Date.now(),
+      status:items.length?'returned':'checked',
+      ebayCacheState:res.headers.get('X-WishWave-Ebay-State')||'live',
     };
   } catch (e) {
     return { error: String(e.message || e) };
@@ -985,6 +1231,7 @@ async function searchEbayUncached(keywords, country, maxPrice, env, agOnly = fal
 // getItem request. We only call this for the small final Best Deals shortlist and cache each
 // item for six hours, so the feature does not turn a feed refresh into hundreds of eBay calls.
 async function getEbayBestDealSignals(item, country, env) {
+  env=ebayTrafficEnv(env,'enrichment');
   const opts = Array.isArray(item && item.buyingOptions) ? item.buyingOptions.map(x => String(x).toUpperCase()) : [];
   const summaryBestOffer = opts.includes('BEST_OFFER');
   const summarySold = Number(item && item.estimatedSoldQuantity);
@@ -1012,7 +1259,7 @@ async function getEbayBestDealSignals(item, country, env) {
   try {
     const token = await getEbayToken(env);
     const ep = `https://api.ebay.com/buy/browse/v1/item/${encodeURIComponent(item.itemId)}`;
-    const res = await fetch(ep, {
+    const res = await ebayBrowseFetch(env,ep, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'X-EBAY-C-MARKETPLACE-ID': marketplace,
@@ -1136,7 +1383,7 @@ async function searchEbayByImage(imageBase64, country, env, limit = HYBRID_SCAN_
     const safeLimit = Math.max(1, Math.min(200, Number(limit) || HYBRID_SCAN_LIMIT));
     const endpoint = 'https://api.ebay.com/buy/browse/v1/item_summary/search_by_image' +
       '?limit=' + safeLimit + '&offset=0';
-    const response = await fetch(endpoint, {
+    const response = await ebayBrowseFetch(env,endpoint, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -1158,6 +1405,7 @@ async function searchEbayByImage(imageBase64, country, env, limit = HYBRID_SCAN_
     return {
       items: raw.map((item, index) => ({
         ...mapEbayImageSummary(item, chosen.marketplace, chosen.country),
+        _ebayFetchedAt:Number(response.headers.get('X-WishWave-Ebay-Fetched-At'))||Date.now(),
         _visualRank: index
       })),
       total: Number(data && data.total) || raw.length,
@@ -1181,7 +1429,7 @@ async function searchEbayKeywordBestMatch(query, country, env, limit = HYBRID_SC
       '?q=' + encodeURIComponent(clean) +
       '&limit=' + safeLimit +
       '&offset=0';
-    const response = await fetch(endpoint, {
+    const response = await ebayBrowseFetch(env,endpoint, {
       headers: {
         Authorization: `Bearer ${token}`,
         'X-EBAY-C-MARKETPLACE-ID': chosen.marketplace,
@@ -1201,6 +1449,7 @@ async function searchEbayKeywordBestMatch(query, country, env, limit = HYBRID_SC
     return {
       items: raw.map((item, index) => ({
         ...mapEbayImageSummary(item, chosen.marketplace, chosen.country),
+        _ebayFetchedAt:Number(response.headers.get('X-WishWave-Ebay-Fetched-At'))||Date.now(),
         _visualMatch: false,
         _keywordFallback: true,
         _visualRank: index
@@ -4083,7 +4332,7 @@ async function findAILearnedQueryCorrection(query,country,env){
 // are direct HTTP fetches controlled by FindAI.
 const WEB_DISCOVERY_VERSION = 'v20-availability-safe';
 const AUTHORITY_RESOLVER_VERSION = 'v67-adaptive-global-resolver';
-const HOME_PREVIEW_VERSION = 'v55-marketplace-only';
+const HOME_PREVIEW_VERSION = 'v235-shared-fresh-inventory';
 // Retailer prices move, so successful web offers refresh several times a day.
 // Failed discovery is retried much sooner than v1 so one blocked/weak search does not
 // hide the wider web for hours.
@@ -11714,6 +11963,7 @@ async function buildIndexedBestDeals(country,env,maxItems=72){
 }
 
 async function buildPreviewsPool(country, env){
+  env=ebayTrafficEnv(env,'background');
   // Passive homepage surfaces never invoke external general-web discovery. They consume only
   // already-verified D1 retailer offers plus the existing eBay feed.
   const retailerPromise=webIndexPassivePreviewItems(country,env,72);
@@ -13454,7 +13704,7 @@ async function ebayImageFor(query, env) {
     const base = 'https://api.ebay.com/buy/browse/v1/item_summary/search?q=' + encodeURIComponent(query) + '&limit=20';
     const pick = async (u, stage) => {
       try {
-        const res = await fetch(u, { headers: hdr });
+        const res = await ebayBrowseFetch(env,u,{headers:hdr},{trafficClass:'enrichment'});
         if (!res.ok) {
           console.error('[LEGO image] eBay Browse failed', stage, res.status, (await res.text()).slice(0, 300));
           return '';
@@ -14126,7 +14376,7 @@ async function findAIEbayCompactStatus(row,env){
   if(!token)return {ok:false,status:0,error:'no_token'};
   const ep='https://api.ebay.com/buy/browse/v1/item/'+encodeURIComponent(String(row.item_id))+'?fieldgroups=COMPACT';
   try{
-    const r=await fetch(ep,{headers:{Authorization:'Bearer '+token,'X-EBAY-C-MARKETPLACE-ID':String(row.marketplace_id||'EBAY_US'),'Content-Type':'application/json'}});
+    const r=await ebayBrowseFetch(ebayTrafficEnv(env,'background'),ep,{headers:{Authorization:'Bearer '+token,'X-EBAY-C-MARKETPLACE-ID':String(row.marketplace_id||'EBAY_US'),'Content-Type':'application/json'}});
     if(!r.ok)return {ok:false,status:r.status,error:'http_'+r.status};
     const d=await r.json();
     const av=Array.isArray(d&&d.estimatedAvailabilities)?d.estimatedAvailabilities[0]:(d&&d.estimatedAvailability)||{};
@@ -15256,15 +15506,16 @@ function scoreLegoListing(item, setNumber, marketValue) {
 async function ebayVerifyReal(item, env) {
   const id = item && (item.itemId || item.legacyItemId || item.id);
   if (!id || !env) return { ok: true, checked: false };
-  const cacheKey = 'ebayverify:' + id;
+  const cacheKey = 'ebayverify:v235:' + id;
   if (env.CACHE) { try { const c = await env.CACHE.get(cacheKey, 'json'); if (c) return c; } catch (_) {} }
-  let verdict = { ok: true, checked: true };
+  let verdict = { ok: true, checked: false };
   try {
     const token = await getEbayToken(env);
     const ep = `https://api.ebay.com/buy/browse/v1/item/${encodeURIComponent(id)}`;
     const marketplaceId = String((item && item.marketplaceId) || 'EBAY_US');
-    const r = await fetch(ep, { headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': marketplaceId } });
+    const r = await ebayBrowseFetch(env,ep, { headers: { Authorization: `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': marketplaceId } });
     if (r.ok) {
+      verdict={ok:true,checked:true};
       const d = await r.json();
       const hay = [d.title, d.shortDescription, d.description, JSON.stringify(d.localizedAspects || []), (d.brand || '')].join(' ').toLowerCase();
       if (/not\s*(?:an?\s*)?official|this\s*is\s*not\s*lego|unbranded|compatible\s*(?:with|building)|non[-\s]?lego|\bmock\b|generic\s*(?:brick|block)|not\s*associated\s*with\s*lego/.test(hay)) {
@@ -15276,7 +15527,7 @@ async function ebayVerifyReal(item, env) {
       }
     }
   } catch (e) { logErr('ebayVerifyReal', e); }
-  if (env.CACHE) { try { await env.CACHE.put(cacheKey, JSON.stringify(verdict), { expirationTtl: 86400 }); } catch (_) {} }
+  if (verdict.checked && env.CACHE) { try { await env.CACHE.put(cacheKey, JSON.stringify(verdict), { expirationTtl: 21600 }); } catch (_) {} }
   return verdict;
 }
 
@@ -19682,6 +19933,7 @@ const FindAIOwnedSearch={
 // A shopper should always get eBay + FindAI-owned retailer inventory quickly; deeper
 // discovery continues in the background and can enrich future searches.
 async function findAIFastShoppingSearch(query,country,env,ctx,opts={}){
+  if(opts.passive)env=ebayTrafficEnv(env,'background');
   const started=Date.now();
   const q=String(query||'').replace(/\s+/g,' ').trim().slice(0,180);
   const c=webDiscoveryCountry(country||'AU');
@@ -19897,6 +20149,7 @@ function wishwaveShoppingSourcePriority(key){
 }
 function wishwaveAllowedShoppingListing(item){
   if(!item)return false;
+  if(Number(item._ebayFetchedAt)>0&&Number(item._ebayFetchedAt)+21600000<=Date.now())return false;
   const source=String(item.source||item.marketplace||item.platform||'').toLowerCase();
   const id=String(item.marketplaceListingId||item.itemId||item.id||'');
   if(item._findaiMarketplace||id.startsWith('lst_')||['findai','wishwave','findai marketplace','wishwave marketplace'].includes(source))return true;
@@ -20129,6 +20382,7 @@ function wishwaveShoppingEngineStatus(env,country='AU'){
   };
 }
 async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
+  if(opts.passive)env=ebayTrafficEnv(env,'background');
   const started=Date.now();
   const raw=String(query||'').replace(/\s+/g,' ').trim().slice(0,180);
   const c=webDiscoveryCountry(country||'AU');
@@ -20159,6 +20413,9 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
       try{
         const fallback={items:[],error:'timed out',_wishwaveTimeout:true};
         const attempt=Promise.resolve().then(runner).catch(error=>({items:[],status:'failed',error:String(error&&error.message||error)}));
+        // A UI deadline must not cancel a paid-for provider request before its
+        // shared cache write completes. Other users can reuse the completed batch.
+        if(ctx&&ctx.waitUntil)ctx.waitUntil(attempt.then(()=>{}));
         const result=await promiseWithin(attempt,budget,fallback);
         const items=Array.isArray(result)?result:(Array.isArray(result&&result.items)?result.items:[]);
         return {
@@ -20331,6 +20588,33 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
   };
 }
 
+// Compile each public shopping window once, then slice it into pages. Ranking of
+// an individual user's feed remains client-side; this cache contains no accounts,
+// likes, private listings or per-user recommendations.
+async function wishwaveSharedShoppingWindow(query,country,env,ctx,opts={}){
+  if(!env||!env.CACHE||typeof crypto==='undefined')return wishwaveShoppingEngineSearch(query,country,env,ctx,opts);
+  const identity=JSON.stringify([ENGINE_VERSION,String(query).replace(/\s+/g,' ').trim().toLowerCase(),String(country).toUpperCase(),String(opts.maxPrice||''),Number(opts.sourceOffset)||0,!!opts.passive,Number(opts.limit)||400]);
+  const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(identity))),x=>x.toString(16).padStart(2,'0')).join('');
+  const key='wishwave:shopping:window:v1:'+digest,state=ebayGatewayState(env),now=Date.now();
+  const cached=await ebayGatewayCacheRead(env,state,key,now);
+  if(cached)try{return JSON.parse(cached.body);}catch(_){}
+  const pending=state.pending.get(key);if(pending)return pending;
+  const work=(async()=>{
+    const full=await wishwaveShoppingEngineSearch(query,country,env,ctx,opts);
+    const items=Array.isArray(full.items)?full.items:[];
+    const partial=Object.values(full.sourceHealth||{}).some(source=>['failed','timeout','quota_deferred','refresh_pending'].includes(source.status));
+    let ttl=items.length&&!partial?90:5;
+    for(const item of items){const at=Number(item._ebayFetchedAt);if(at>0)ttl=Math.min(ttl,Math.floor((at+21600000-Date.now())/1000)-5);}
+    if(ttl>0){
+      const entry={body:JSON.stringify(full),status:200,fetchedAt:Date.now(),expiresAt:Date.now()+ttl*1000};
+      ebayGatewayRemember(state,key,entry,Date.now());
+      if(ttl>=60)try{await env.CACHE.put(key,JSON.stringify(entry),{expirationTtl:ttl});}catch(_){}
+    }
+    return full;
+  })();state.pending.set(key,work);
+  try{return await work;}finally{state.pending.delete(key);}
+}
+
 // v208: shared engagement is separate from personal taste and public view counters.
 let sharedSchemaPromise=null,sharedCleanupAt=0;
 async function sharedEnsureSchema(env){
@@ -20418,6 +20702,8 @@ async function sharedRecommendationRoute(request,env,url){
 export default {
   // Needs a KV namespace bound as CACHE and a Cron Trigger (e.g. */15 * * * *) in the dashboard.
   async scheduled(event, env, ctx) {
+    env=ebayTrafficEnv(env,'background');
+    try{await ebayGatewayMaintenance(env);}catch(e){logErr('eBay gateway maintenance',e);}
     // Quota-safe passive warmup: rotate one major market per 15-minute tick instead of
     // rebuilding all four at once. Each market is still refreshed roughly hourly, while
     // cached marketplace searches remain available between warmups.
@@ -20764,6 +21050,11 @@ export default {
   async handle(request, env, ctx) {
     try {
       const url = new URL(request.url);
+      if(url.searchParams.get('bestdeals')==='1')env=ebayTrafficEnv(env,'background');
+      if(url.pathname==='/admin/ebay/quota'&&request.method==='GET'){
+        if(!adminOK(url,env,request))return jsonResp({error:'unauthorized'},403,{'Cache-Control':'no-store'});
+        return jsonResp(await ebayGatewayStatus(env),200,{'Cache-Control':'no-store'});
+      }
 
       if(request.method==='POST'&&['/recommendations/engagement','/recommendations/scores'].includes(url.pathname))return await sharedRecommendationRoute(request,env,url);
 
@@ -20787,7 +21078,7 @@ export default {
         const limit=Math.max(4,Math.min(80,Number((request.method==='GET'?url.searchParams.get('limit'):body.limit)||40)));
         const maxPrice=String((request.method==='GET'?url.searchParams.get('maxPrice'):body.maxPrice)||'').trim();
         const passive=(request.method==='GET'?url.searchParams.get('passive')==='1':!!body.passive);
-        const out=await wishwaveShoppingEngineSearch(query,country,env,ctx,{limit,maxPrice,passive});
+        const out=await wishwaveSharedShoppingWindow(query,country,env,ctx,{limit,maxPrice,passive});
         return jsonResp(out,200,{'Cache-Control':out.items.length?'public, max-age=30, s-maxage=45':'no-store'});
       }
 
@@ -20801,7 +21092,7 @@ export default {
         const maxPrice=String((request.method==='GET'?url.searchParams.get('maxPrice'):body.maxPrice)||'').trim();
         const limit=Number((request.method==='GET'?url.searchParams.get('limit'):body.limit)||40);
         const passive=(request.method==='GET'?url.searchParams.get('passive')==='1':!!body.passive);
-        const out=await wishwaveShoppingEngineSearch(query,country,env,ctx,{maxPrice,limit,passive});
+        const out=await wishwaveSharedShoppingWindow(query,country,env,ctx,{maxPrice,limit,passive});
         return jsonResp(out,200,{'Cache-Control':out.items.length?'public, max-age=45, s-maxage=60':'no-store'});
       }
 
@@ -25964,7 +26255,7 @@ export default {
         const windowOffset=offsetCursor?Math.min(400,Number(offsetCursor[2])):offset-sourceOffset;
         const explicit=String(body&&body.country||'').trim().toUpperCase();
         const country=explicit||requestedCountry(request,url);
-        const full=await wishwaveShoppingEngineSearch(query,country,env,ctx,{limit:400,sourceOffset,passive:!!body.passive,maxPrice:body&&body.maxPrice});
+        const full=await wishwaveSharedShoppingWindow(query,country,env,ctx,{limit:400,sourceOffset,passive:!!body.passive,maxPrice:body&&body.maxPrice});
         const listings=full.items.slice(windowOffset,windowOffset+limit);
         const moreInWindow=windowOffset+listings.length<full.items.length;
         const hasMore=moreInWindow||!!full.ebayHasMore;
@@ -27295,7 +27586,7 @@ export default {
           const tsMarketplace = EBAY_MARKETPLACES[tsCountry] || 'EBAY_AU';
           const token = await getEbayToken(env);
           const ep = `https://api.ebay.com/buy/browse/v1/item/${encodeURIComponent(itemId)}`;
-          const res = await fetch(ep, {
+          const res = await ebayBrowseFetch(env,ep, {
             headers: { 'Authorization': `Bearer ${token}`, 'X-EBAY-C-MARKETPLACE-ID': tsMarketplace, 'Content-Type': 'application/json' },
           });
           if (!res.ok) {
