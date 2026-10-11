@@ -33630,9 +33630,12 @@ html:not(.findai-light) body #appThemeOverlay.findai-settings-full .app-theme-sh
 /* Compact source avatars: the marketplace identity, never a verification claim. */
 html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168) .source-chip .wishwave-market-badge{display:inline-flex!important;align-items:center!important;gap:8px!important;background:none!important;padding:0!important;color:inherit!important;line-height:1!important;}
 html body .wishwave-market-avatar{width:30px!important;height:30px!important;min-width:30px!important;display:grid!important;place-items:center!important;border-radius:50%!important;background:#08090b!important;overflow:hidden!important;text-shadow:none!important;}
+html body .wishwave-market-badge[data-marketplace="ebay"] .wishwave-market-avatar{background:#fff!important;}
 html body .wishwave-market-avatar svg{width:21px!important;height:21px!important;display:block!important;}
 html body .wishwave-market-avatar .app-ebay-wordmark{font-size:13px!important;letter-spacing:-.8px!important;line-height:1!important;}
 html body .wishwave-market-name{font-size:16px!important;font-weight:650!important;letter-spacing:-.2px!important;}
+html body .wishwave-market-identity{display:inline-flex!important;align-items:center!important;margin-left:-3px!important;color:inherit!important;}
+html body .wishwave-market-identity svg{width:15px!important;height:15px!important;display:block!important;}
 html body #wishwaveMainNav.nav.findai-five-nav.premium-bottom-nav .nav-create-action .nav-create-shell{width:46px!important;min-width:46px!important;height:32px!important;min-height:32px!important;border:0!important;border-radius:999px!important;background:#24262a!important;box-shadow:none!important;}
 html body #wishwaveMainNav.nav.findai-five-nav.premium-bottom-nav .nav-create-action .nav-create-shell svg{width:22px!important;height:22px!important;stroke:#fff!important;}
 html.findai-light body #wishwaveMainNav.nav.findai-five-nav.premium-bottom-nav .nav-create-action .nav-create-shell{background:#eceef0!important;}
@@ -33714,7 +33717,8 @@ html body #appMpProduct .app-mp-section{margin:14px 18px!important;padding:16px 
     const key=typeof appKnownBrandForItem==='function'?appKnownBrandForItem(item,source):String(source||'').toLowerCase();
     if((key==='stockx'||key==='ebay')&&!isFindAIListing(item)){
       const icon=key==='ebay'?EBAY_LOGO_SVG:'<svg viewBox="161 0 40 40" aria-hidden="true"><path d="m186.401 27.5001 14.6 12.4999v-10l-11.673-9.9944 11.673-10.0056v-10l-20.4 17.4859v-4.986l-14.6-12.4999v10l11.673 9.9944-11.673 10.0056v10l20.4-17.4856z" fill="#00a86b"/></svg>';
-      return '<span class="wishwave-market-badge" data-marketplace="'+key+'"><span class="wishwave-market-avatar" aria-hidden="true">'+icon+'</span><span class="wishwave-market-name">'+(key==='ebay'?'eBay':'StockX')+'</span></span>';
+      const identity='<span class="wishwave-market-identity" role="img" aria-label="Recognised marketplace" title="Recognised marketplace · individual items are not verified by WishWave"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m12 1.5 3.2 2.1 3.8.5.5 3.8 2.1 3.1-2.1 3.2-.5 3.8-3.8.5-3.2 2.1-3.2-2.1-3.8-.5-.5-3.8L1.5 12l2.1-3.1.5-3.8 3.8-.5L12 1.5Z"/><path d="m7.5 12 3 3 6-6" fill="none" stroke="var(--bg,#0c0d0f)" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+      return '<span class="wishwave-market-badge" data-marketplace="'+key+'"><span class="wishwave-market-avatar" aria-hidden="true">'+icon+'</span><span class="wishwave-market-name">'+(key==='ebay'?'eBay':'StockX')+'</span>'+identity+'</span>';
     }
     return original.apply(this,arguments);
   };

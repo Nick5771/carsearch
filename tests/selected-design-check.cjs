@@ -16,13 +16,16 @@ const w=dom.window,wait=ms=>new Promise(r=>setTimeout(r,ms));
     const node=w.document.createElement('div');node.innerHTML=w.sourceMarkup(source,{source,url:source==='ebay'?'https://www.ebay.com/itm/1':'https://stockx.com/nike-dunk'});
     assert.equal(node.querySelector('.wishwave-market-badge').dataset.marketplace,source);
     assert(node.querySelector('.wishwave-market-avatar'));assert(!node.textContent.includes('✓'));
+    assert.equal(node.querySelector('.wishwave-market-identity').getAttribute('aria-label'),'Recognised marketplace');
+    assert(node.querySelector('.wishwave-market-identity').title.includes('individual items are not verified'));
   }
   assert(!w.sourceMarkup('findai',{id:'lst_one',source:'findai'}).includes('wishwave-market-badge'));
   assert(w.document.querySelector('.wishwave-profile-dashboard svg'));
   const cache=w.findaiNotificationState.getCache();cache.splice(0);
   const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);yesterday.setHours(12,0,0,0);
-  cache.push({id:'social',notification_type:'follow',actor_username:'alex',actor_display_name:'Alex',created_at:new Date().toISOString()},
-    {id:'order',notification_type:'order_shipped',title:'Your order has shipped',created_at:new Date().toISOString(),listing_id:'lst_one'},
+  const todayStamp=new Date().toISOString();
+  cache.push({id:'social',notification_type:'follow',actor_username:'alex',actor_display_name:'Alex',created_at:todayStamp},
+    {id:'order',notification_type:'order_shipped',title:'Your order has shipped',created_at:todayStamp,listing_id:'lst_one'},
     {id:'comment',notification_type:'comment',actor_username:'sam',actor_display_name:'Sam',body:'Looks great',created_at:yesterday.toISOString(),image_url:'https://images.test/a.jpg'});
   w.notices=cache.slice();w.eval("marketplaceFetch=async(path)=>path.includes('notifications/summary')?{notifications:notices}:path.includes('profile/me')?{profile:{username:'nick',displayName:'Nick'}}:{};");
   w.findaiNotificationState.render();
