@@ -33371,11 +33371,10 @@ html.findai-light body :is(#discover,#searchDetailOverlay,#createListingScreen) 
 html.findai-light body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-card :is(.listing-meta,.listing-meta.findai-free-shipping,.reel-seller-copy small){color:#555c66!important;text-shadow:none!important;}
 html.findai-light body .wishwave-promote-button{background:#16181c!important;color:#fff!important;}
 html.findai-light body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-card .view-deal{background:#16181c!important;color:#fff!important;}
-/* Rail controls can straddle a photograph and white caption: a small solid white
-   backing gives each icon consistent contrast without washing out the image. */
+/* Plain outlined controls match the light interface. */
 html.findai-light body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-actions-rail .reel-social-action{color:#16181c!important;text-shadow:none!important;}
-html.findai-light body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-actions-rail .reel-social-icon{background:rgba(255,255,255,.96)!important;border-radius:50%!important;box-shadow:0 1px 5px #0002!important;color:#16181c!important;padding:4px!important;}
-html.findai-light body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-actions-rail :is(.reel-social-label,.reel-like-count,.reel-comment-count){background:#fff!important;color:#16181c!important;border-radius:4px;padding:2px 3px;text-shadow:none!important;}
+html.findai-light body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-actions-rail .reel-social-icon{background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;color:#16181c!important;padding:0!important;}
+html.findai-light body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-actions-rail :is(.reel-social-label,.reel-like-count,.reel-comment-count){background:transparent!important;color:#16181c!important;border-radius:0;padding:0!important;text-shadow:none!important;}
 html.findai-light body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-social-action.like.active .reel-social-icon{color:#ff3045!important;}
 html.findai-light body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-gallery-dots{filter:drop-shadow(0 1px 2px #0009);}
 html.findai-light body #createListingScreen.preview-mode .wishwave-preview-wordmark{color:#16181c!important;text-shadow:0 0 4px #fff!important;}
@@ -33451,5 +33450,39 @@ html.findai-light body .app-mp-sheet-bg.wishwave-comments-mode :is(.app-mp-sheet
 html.findai-light body .app-mp-sheet-bg.wishwave-comments-mode :is(.wishwave-comment-head b,.wishwave-comment-copy p,.wishwave-comment-reactions button,.wishwave-comment-send){color:var(--ink)!important;}
 html.findai-light body .app-mp-sheet-bg.wishwave-comments-mode #wishwaveCommentInput{color:var(--ink)!important;background:#f3f4f6!important;border-color:var(--line)!important;}
 </style>
+
+<style id="wishwave-light-reel-fit">
+html.findai-light body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-actions-rail .reel-social-action svg{color:#16181c!important;stroke:#16181c!important;fill:none!important;filter:none!important;}
+html.findai-light body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-actions-rail .reel-social-action.like.active svg{color:#ff3045!important;stroke:#ff3045!important;fill:#ff3045!important;}
+html.findai-light body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-actions-rail .reel-social-icon::before,
+html.findai-light body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-actions-rail .reel-social-icon::after{content:none!important;background:none!important;box-shadow:none!important;}
+html.findai-light body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-card .listing-meta.findai-free-shipping,
+html.findai-light body .app #createListingScreen.preview-mode .wishwave-draft-reel .listing-meta.findai-free-shipping{color:#16883f!important;}
+html.findai-light body .app #discover #personalFeed .reel-card .product-panel,
+html.findai-light body .app #discover #findaiContextualReelV168 .reel-card .product-panel,
+html.findai-light body #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-card .product-panel{bottom:0!important;padding-bottom:calc(var(--wishwave-nav-total,60px) + 14px)!important;}
+/* A solid caption needs its own space; contain the whole photo above it. */
+html.findai-light body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .hero-stage{
+ inset:calc(var(--safe-top,0px) + 52px) 0 var(--wishwave-light-caption-height,240px)!important;height:auto!important;
+}
+html.findai-light body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .reel-gallery-dots,
+html.findai-light body .app #createListingScreen.preview-mode .wishwave-draft-dots{bottom:calc(var(--wishwave-light-caption-height,240px) + 8px)!important;}
+/* Edit has a bounded square photo and no overlaid caption. */
+html.findai-light body .app #createListingScreen:not(.preview-mode) .wishwave-quality-reel.wishwave-quality-reel .hero-stage{inset:0!important;}
+</style>
+<script id="wishwave-light-reel-fit-script">
+(function(){
+ const panels=new Set();let frame=0;
+ function measure(panel){const card=panel.closest('.reel-card');if(!card||!document.documentElement.classList.contains('findai-light'))return;const height=Math.ceil(panel.getBoundingClientRect().height);if(height>0)card.style.setProperty('--wishwave-light-caption-height',height+'px');}
+ const resize=typeof ResizeObserver==='function'?new ResizeObserver(entries=>entries.forEach(e=>measure(e.target))):null;
+ function bind(){frame=0;for(const panel of panels)if(!panel.isConnected){resize?.unobserve?.(panel);panels.delete(panel);}document.querySelectorAll('#discover .reel-card .product-panel,#searchDetailOverlay .reel-card .product-panel,#createListingScreen.preview-mode .reel-card .product-panel').forEach(panel=>{if(!panels.has(panel)){panels.add(panel);resize?.observe(panel);}measure(panel);});}
+ function schedule(){if(!frame)frame=requestAnimationFrame(bind);}
+ new MutationObserver(records=>{if(records.some(r=>r.type==='characterData'||r.target.closest?.('.product-panel')||[...r.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('.reel-card,.product-panel')||n.querySelector?.('.reel-card,.product-panel')))))schedule();}).observe(document.body,{childList:true,subtree:true,characterData:true});
+ new MutationObserver(schedule).observe(document.documentElement,{attributes:true,attributeFilter:['class']});
+ const composer=document.getElementById('createListingScreen');if(composer)new MutationObserver(schedule).observe(composer,{attributes:true,attributeFilter:['class']});
+ window.addEventListener('resize',schedule,{passive:true});window.addEventListener('pageshow',schedule);schedule();
+})();
+</script>
+
 </body>
 </html>
