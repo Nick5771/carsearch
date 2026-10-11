@@ -4,7 +4,7 @@
 <meta name="findai-build" content="v234-preserve-shopping-source-order">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#111214">
 <meta name="robots" content="noindex, follow">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -45,7 +45,7 @@
     document.documentElement.setAttribute('data-findai-theme',resolved);
     document.documentElement.style.colorScheme=resolved;
     var meta=document.querySelector('meta[name="theme-color"]');
-    if(meta)meta.setAttribute('content',resolved==='light'?'#ffffff':'#000000');
+    if(meta)meta.setAttribute('content',resolved==='light'?'#ffffff':'#111214');
     var statusMeta=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
     if(statusMeta)statusMeta.setAttribute('content',resolved==='light'?'default':'black-translucent');
   }catch(_){}
@@ -66,11 +66,11 @@
 </script>
 <style>
   :root{
-    --bg:#050607;
-    --surface:#0b0d10;
-    --surface-2:#111419;
-    --surface-3:#171a20;
-    --ink:#f7f8fa;
+    --bg:#111214;
+    --surface:#1a1c20;
+    --surface-2:#202228;
+    --surface-3:#282b32;
+    --ink:#f1f2f4;
     --muted:#979da7;
     --muted-2:#686f79;
     --line:rgba(255,255,255,.09);
@@ -10135,7 +10135,7 @@ function applyAppTheme(pref){
   root.classList.toggle('findai-light',resolved==='light');
   root.setAttribute('data-findai-theme',resolved);
   root.style.colorScheme=resolved;
-  var meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.setAttribute('content',resolved==='light'?'#ffffff':'#050607');
+  var meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.setAttribute('content',resolved==='light'?'#ffffff':'#111214');
   var statusMeta=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');if(statusMeta)statusMeta.setAttribute('content',resolved==='light'?'default':'black-translucent');
   document.querySelectorAll('[data-app-theme-choice]').forEach(function(button){button.classList.toggle('active',button.getAttribute('data-app-theme-choice')===p);});
 }
@@ -13734,19 +13734,20 @@ html.findai-light .findai-notification-group-title{color:#111214}
 
 <script id="wishwave-v115-profile-social-ui-script">
 (function(){
-  function forceBlackInstalledGutter(){
+  function syncInstalledThemeGutter(){
     try{
       const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
       if(!standalone)return;
       const meta=document.querySelector('meta[name="theme-color"]');
-      if(meta)meta.setAttribute('content','#000000');
-      document.documentElement.style.backgroundColor='#000';
-      document.body.style.backgroundColor='#000';
+      const colour=document.documentElement.classList.contains('findai-light')?'#ffffff':'#111214';
+      if(meta)meta.setAttribute('content',colour);
+      document.documentElement.style.backgroundColor=colour;
+      document.body.style.backgroundColor=colour;
     }catch(_){}
   }
-  forceBlackInstalledGutter();
-  window.addEventListener('pageshow',forceBlackInstalledGutter,{passive:true});
-  window.addEventListener('resize',forceBlackInstalledGutter,{passive:true});
+  syncInstalledThemeGutter();
+  window.addEventListener('pageshow',syncInstalledThemeGutter,{passive:true});
+  window.addEventListener('resize',syncInstalledThemeGutter,{passive:true});
 
   /* Multiple-account safe sign-in. Never copy one account's custom avatar/name
      into a different Google account. */
@@ -33259,9 +33260,9 @@ html.findai-light body #wwDashboard{--wwd-ink:#16181c;--wwd-muted:#656b75;--wwd-
 #wwDashboard .wwd-top>h1:last-child{grid-column:2;}
 #wwDashboard .wwd-identity{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--wwd-line);}
 #wwDashboard .wwd-owner{display:flex;align-items:center;gap:9px;min-width:0;font-size:13px;}
-#wwDashboard .wwd-owner-copy{min-width:0;}#wwDashboard .wwd-owner-copy b{display:block;font-size:13px;font-weight:650;overflow:hidden;text-overflow:ellipsis;max-width:130px;white-space:nowrap;}
+#wwDashboard .wwd-owner-copy{min-width:0;}#wwDashboard .wwd-owner-copy b{display:block;font-size:13px;font-weight:650;overflow:hidden;text-overflow:ellipsis;max-width:110px;white-space:nowrap;}
 #wwDashboard .wwd-owner-copy small{display:block;margin-top:3px;font-size:11px;color:var(--wwd-muted);}
-#wwDashboard .wwd-avatar{width:38px;height:38px;flex:0 0 38px;border-radius:50%;background:var(--wwd-field);overflow:hidden;display:grid;place-items:center;}
+#wwDashboard .wwd-avatar{width:52px;height:52px;flex:0 0 52px;border-radius:50%;background:var(--wwd-field);overflow:hidden;display:grid;place-items:center;}
 #wwDashboard .wwd-avatar img{width:100%;height:100%;object-fit:cover;}
 #wwDashboard .wwd-tabs{display:flex;gap:14px;align-self:stretch;flex:0 0 auto;}
 #wwDashboard .wwd-tabs button{position:relative;border:0;border-radius:0;background:none;padding:8px 3px;margin:0;color:var(--wwd-muted);font-size:12px!important;}
@@ -33306,7 +33307,7 @@ html.findai-light body #wwDashboard{--wwd-ink:#16181c;--wwd-muted:#656b75;--wwd-
 html.findai-light body #wwDashboard .wwd-cta{color:#fff;}
 #wwDashboard .wwd-field{display:block;color:var(--wwd-muted);font-size:12px;margin:15px 0;}
 #wwDashboard .wwd-field input{width:100%;margin-top:7px;background:var(--wwd-field);color:var(--wwd-ink);border:1px solid var(--wwd-line);border-radius:8px;padding:11px;}
-@media(max-width:350px){#wwDashboard{padding-left:15px;padding-right:15px;}#wwDashboard .wwd-identity{gap:8px;}#wwDashboard .wwd-tabs{gap:10px;}#wwDashboard .wwd-owner-copy b{max-width:95px;}#wwDashboard .wwd-avatar{width:32px;height:32px;flex-basis:32px;}}
+@media(max-width:350px){#wwDashboard{padding-left:15px;padding-right:15px;}#wwDashboard .wwd-identity{gap:8px;}#wwDashboard .wwd-tabs{gap:10px;}#wwDashboard .wwd-owner-copy b{max-width:95px;}#wwDashboard .wwd-avatar{width:44px;height:44px;flex-basis:44px;}}
 </style>
 <section id="wwDashboard" hidden aria-label="Your dashboard"><div class="wwd-wrap" id="wwdContent"></div></section>
 <script id="wishwave-dashboard">
@@ -33490,6 +33491,42 @@ html.findai-light body .app #createListingScreen:not(.preview-mode) .wishwave-qu
  window.addEventListener('resize',schedule,{passive:true});window.addEventListener('pageshow',schedule);schedule();
 })();
 </script>
+
+
+<style id="wishwave-soft-dark-appearance">
+/* Charcoal chrome applies only to Dark, including System when the device is dark. */
+html:not(.findai-light){--bg:#111214;--surface:#1a1c20;--surface-2:#202228;--surface-3:#282b32;--ink:#f1f2f4;--muted:#a1a6af;--muted-2:#858c97;--line:#2d3037;--line-strong:#414650;background:#111214!important;}
+html:not(.findai-light) body,html:not(.findai-light) body .app{background:#111214!important;color:#f1f2f4;}
+html:not(.findai-light) body :is(.screen,.profile-screen,.feed-wrap,.discover-feed-wrap,.reel-feed,.premium-search-home-scroll,.premium-search-home-header,.premium-results-header,.mobile-search-header,.search-header,#wishwaveKeyboardBackdrop,#findaiContextualReelV168,#findaiContextualFeedV168,.findai-search-recents,.findai-swipe-preview){background:#111214!important;}
+html:not(.findai-light) body #wishwaveMainNav.nav.findai-five-nav.premium-bottom-nav{background:#111214!important;border-top:1px solid #2d3037!important;box-shadow:none!important;}
+html:not(.findai-light) body #wishwaveMainNav.nav::before,html:not(.findai-light) body #wishwaveMainNav.nav::after{background:#111214!important;box-shadow:none!important;}
+html:not(.findai-light) body #wishwaveMainNav.nav .nav-create-shell{background:#1a1c20!important;border-color:#414650!important;}
+html:not(.findai-light) body #discover .discover-social-topbar,
+html:not(.findai-light) body #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .search-detail-header{background:linear-gradient(180deg,#111214 0%,rgba(17,18,20,.94) 70%,rgba(17,18,20,0) 100%)!important;}
+html:not(.findai-light) body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel,
+html:not(.findai-light) body #searchDetailOverlay.search-owned-v186,
+html:not(.findai-light) body #searchDetailOverlay.search-owned-v186 .search-detail-feed{background:#111214!important;}
+html:not(.findai-light) body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel :is(.hero-stage,.reel-gallery-slide){background:#111214!important;--hero-fill:#111214!important;}
+html:not(.findai-light) body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .product-panel{background:#111214!important;color:#f1f2f4!important;}
+html:not(.findai-light) body :is(#discover,#searchDetailOverlay,#createListingScreen) .product-panel :is(.title,.price,.reel-seller-copy b,.wishwave-reel-brand){color:#f1f2f4!important;}
+html:not(.findai-light) body #profile :is(#profileSignedIn,#profileSignedOut,.social-profile,.social-profile-topbar,.social-profile-hero,.social-profile-content,.profile-scroll,.social-profile-tabs,.social-profile-grid,.guest-profile-posts,.guest-profile-signin){background:#111214!important;border-color:#2d3037!important;}
+html:not(.findai-light) body #profile .social-profile-actions button{background:#1a1c20!important;color:#f1f2f4!important;border-color:#2d3037!important;}
+html:not(.findai-light) body :is(.wishwave-public-profile-page,.wishwave-public-profile-scroll,.wishwave-public-profile,.wishwave-public-profile-topbar){background:#111214!important;color:#f1f2f4!important;}
+html:not(.findai-light) body :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone){background:#111214!important;color:#f1f2f4!important;}
+html:not(.findai-light) body :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) :is(.app-mp-header,.app-mp-inbox-body,.app-mp-conversation-list,.app-mp-conversation-card,.app-mp-chat,.app-mp-chat-head,.app-mp-messages,.app-mp-typing,.app-mp-compose){background:#111214!important;border-color:#2d3037!important;}
+html:not(.findai-light) body :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) :is(.app-mp-instagram-search,.app-mp-compose textarea,.app-mp-chat-listing){background:#1a1c20!important;color:#f1f2f4!important;border-color:#2d3037!important;}
+html:not(.findai-light) body :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .app-mp-bubble:not(.mine){background:#202228!important;color:#f1f2f4!important;border-color:#2d3037!important;}
+html:not(.findai-light) body .app #createListingScreen{--create-text:#f1f2f4;--create-surface:#1a1c20;--create-muted:#a1a6af;--create-border:#2d3037;background:#111214!important;}
+html:not(.findai-light) body .app #createListingScreen :is(.marketplace-header,.marketplace-scroll,.wishwave-create-full-preview,.wishwave-listing-publish-footer,.wishwave-draft-preview,.wishwave-draft-reel,.wishwave-draft-gallery){background:#111214!important;border-color:#2d3037!important;}
+html:not(.findai-light) body .app #createListingScreen :is(.wishwave-draft-empty,.wishwave-listing-details,.wishwave-listing-delivery,.listing-image-picker,.wishwave-create-mode){background:#1a1c20!important;border-color:#2d3037!important;}
+html:not(.findai-light) body .app #createListingScreen:not(.preview-mode) .wishwave-draft-empty{background:#1a1c20!important;}
+html:not(.findai-light) body :is(.marketplace-screen,.marketplace-header,.marketplace-scroll,.app-mp-detail,.app-mp-section,.app-mp-sheet,.findai-settings-page,.findai-settings-detail,.findai-settings-header,.profile-edit-sheet,.account-sheet){background:#111214!important;color:#f1f2f4!important;border-color:#2d3037!important;}
+html:not(.findai-light) body :is(.findai-settings-row,.findai-settings-account-card,.findai-settings-select,.profile-edit-field input,.profile-edit-field textarea,.app-mp-field input,.app-mp-field textarea,.app-mp-field select){background:#1a1c20!important;color:#f1f2f4!important;border-color:#2d3037!important;}
+html:not(.findai-light) body #wwDashboard{--wwd-ink:#f1f2f4;--wwd-muted:#a1a6af;--wwd-line:#2d3037;--wwd-field:#1a1c20;background:#111214!important;color:#f1f2f4!important;}
+html:not(.findai-light) body #wwPromotion{background:#111214!important;color:#f1f2f4!important;}
+html:not(.findai-light) body #wwPromotion :is(.wwp-budget-row input,.wwp-custom input,.wwp-custom select,.wwp-options button,.wwp-notice){background:#1a1c20!important;color:#f1f2f4!important;border-color:#414650!important;}
+html:not(.findai-light) body #wwPromotion .wwp-options button[aria-pressed="true"]{background:#f1f2f4!important;color:#111214!important;border-color:#f1f2f4!important;}
+</style>
 
 </body>
 </html>
