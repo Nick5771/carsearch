@@ -6908,7 +6908,7 @@ function reelGalleryConsumeClick(article,event){
 
 function wishwavePromotionButton(item){
   try{
-    if(!item||!getAccountProfile()||!isFindAIListing(item)||String(item.status||'active')!=='active')return '';
+    if(!item||!getAccountProfile()||String(item.status||'active').toLowerCase()!=='active')return '';
     const id=String(appMpId(item)||'');if(!id)return '';
     let own=null;try{own=profileOwnedListingById(id);}catch(_){own=getMarketplaceListings().find(row=>String(appMpId(row)||'')===id);}
     if(!own)return '';
@@ -33148,7 +33148,15 @@ html.findai-light body #wishwaveMainNav button[data-tab].active{color:#111214!im
 
 
 <style id="wishwave-promotion-style">
-html body .wishwave-promote-button{display:block!important;width:100%!important;height:48px!important;margin:14px 0 0!important;border:0!important;border-radius:13px!important;background:#fff!important;color:#000!important;font-size:15px!important;font-weight:750!important;text-shadow:none!important;cursor:pointer;}
+/* Profile-owned reels reserve the same navigation space as Home. */
+html body .app #discover #findaiContextualReelV168 .reel-card:has(.wishwave-promote-button) .product-panel{
+ bottom:0!important;padding-bottom:calc(var(--wishwave-nav-total,60px) + 10px)!important;padding-right:18px!important;
+}
+html body .app #discover #findaiContextualReelV168 .reel-card:has(.wishwave-promote-button) .wishwave-promote-button{
+ display:block!important;visibility:visible!important;position:relative!important;z-index:15!important;pointer-events:auto!important;
+}
+
+html body .wishwave-promote-button{display:block!important;width:100%!important;height:40px!important;margin:12px 0 0!important;border:0!important;border-radius:11px!important;background:#fff!important;color:#000!important;font-size:14px!important;font-weight:750!important;text-shadow:none!important;cursor:pointer;}
 html body .app #discover .reel-card:has(.wishwave-promote-button) .reel-actions-rail,
 html body #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-card:has(.wishwave-promote-button) .reel-actions-rail{bottom:calc(var(--wishwave-nav-total,60px) + 70px)!important;}
 html body #findaiContextualReelV168 .reel-card:has(.wishwave-promote-button) .reel-actions-rail{bottom:calc(var(--wishwave-nav-total,60px) + 70px)!important;}
@@ -33204,7 +33212,7 @@ html body #findaiContextualReelV168 .reel-card:has(.wishwave-promote-button) .re
   let state=null,returnFocus=null;
   const root=document.getElementById('wwPromotion'),content=document.getElementById('wwpContent');
   function owned(item){
-    if(!item||!getAccountProfile()||!isFindAIListing(item)||String(item.status||'active')!=='active')return false;
+    if(!item||!getAccountProfile()||String(item.status||'active').toLowerCase()!=='active')return false;
     const id=String(appMpId(item)||'');if(!id)return false;
     return !!profileOwnedListingById(id);
   }
