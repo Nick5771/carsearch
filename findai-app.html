@@ -3598,7 +3598,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
 
         <div class="social-profile-actions">
           <button type="button" onclick="openProfileEdit()">Edit profile</button>
-          <button type="button" onclick="shareFindAIProfile()">Share profile</button>
+          <button type="button" onclick="openWishWaveDashboard()">Dashboard</button>
         </div>
 
 
@@ -9672,8 +9672,8 @@ function saveFindAIProfileEdit(event){
 async function shareFindAIProfile(){
   const profile=getAccountProfile();if(!profile)return;
   const username=findaiProfileUsername(profile);
-  const url='https://findai.ai/findai-app.html';
-  const share={title:(profile.name||'WishWave profile')+' on FindAI',text:`Find me on FindAI as ${username}`,url};
+  const url='https://findai.ai/findai-app.html?profile='+encodeURIComponent(username);
+  const share={title:(profile.name||'WishWave profile')+' on WishWave',text:`Find me on WishWave as ${username}`,url};
   try{
     if(navigator.share)await navigator.share(share);
     else{await navigator.clipboard.writeText(`${share.text} — ${url}`);toast('Profile link copied');}
@@ -33242,6 +33242,103 @@ html body #findaiContextualReelV168 .reel-card:has(.wishwave-promote-button) .re
   window.openWishWavePromotion=function(id){const item=profileOwnedListingById(id);if(!owned(item)){toast('You can only promote your own active listings');return;}returnFocus=document.activeElement;state={item,budget:20,days:3,audience:'smart',keywords:'',location:'AU'};try{const d=JSON.parse(localStorage.getItem(key())||'null');if(d){state.budget=Math.max(5,Math.min(100,Number(d.budget)||20));state.days=Math.max(1,Math.min(30,Number(d.days)||3));state.audience=d.audience==='custom'?'custom':'smart';state.keywords=String(d.keywords||'').slice(0,200);state.location=d.location==='all'?'all':'AU';}}catch(_){}root.hidden=false;render();root.scrollTop=0;content.querySelector('.wwp-back').focus();};
   window.closeWishWavePromotion=function(){root.hidden=true;state=null;if(returnFocus&&returnFocus.isConnected)returnFocus.focus();};
   document.addEventListener('keydown',e=>{if(root.hidden)return;if(e.key==='Escape'){e.preventDefault();closeWishWavePromotion();}if(e.key==='Tab'){const nodes=[...root.querySelectorAll('button,input,select')].filter(n=>!n.closest('[hidden]'));const first=nodes[0],last=nodes[nodes.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
+})();
+</script>
+
+<style id="wishwave-dashboard-style">
+#wwDashboard{position:fixed;inset:0;z-index:9000;background:#000;color:#fff;overflow-y:auto;overscroll-behavior:contain;padding:calc(env(safe-area-inset-top,0px) + 12px) 18px calc(var(--wishwave-nav-total,70px) + 20px);font-family:inherit;}
+#wwDashboard[hidden],#wwDashboard [hidden]{display:none!important;}
+#wwDashboard *{box-sizing:border-box;}
+#wwDashboard .wwd-wrap{max-width:520px;margin:auto;}
+#wwDashboard button,#wwDashboard select,#wwDashboard input{font-family:inherit!important;font-size:14px!important;line-height:1.3!important;color:inherit;}
+#wwDashboard button{cursor:pointer;}
+#wwDashboard .wwd-top{display:flex;align-items:center;gap:10px;margin-bottom:18px;}
+#wwDashboard h1{font-size:23px;line-height:1.2;margin:0;flex:1;}
+#wwDashboard .wwd-back,#wwDashboard .wwd-more{border:0;background:none;padding:0;min-width:30px;height:40px;font-size:26px!important;}
+#wwDashboard .wwd-period{background:#161616;border:1px solid #333;border-radius:11px;padding:9px 8px;font-size:12px!important;max-width:122px;}
+#wwDashboard .wwd-tabs{display:flex;padding:3px;background:#1b1b1b;border:1px solid #333;border-radius:13px;gap:3px;margin-bottom:16px;}
+#wwDashboard .wwd-tabs button{flex:1;border:0;padding:9px;margin:0;border-radius:10px;background:transparent;color:#bbb;font-weight:650;}
+#wwDashboard .wwd-tabs button[aria-pressed="true"]{background:#fff;color:#000;}
+#wwDashboard .wwd-owner{display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:14px;font-weight:650;}
+#wwDashboard .wwd-avatar{width:34px;height:34px;border-radius:50%;background:#ddd;color:#111;overflow:hidden;display:grid;place-items:center;}
+#wwDashboard .wwd-avatar img{width:100%;height:100%;object-fit:cover;}
+#wwDashboard .wwd-card{background:linear-gradient(135deg,#202020,#141414);border:1px solid #333;border-radius:16px;margin-bottom:12px;overflow:hidden;}
+#wwDashboard .wwd-hero{text-align:center;padding:22px 12px 19px;}
+#wwDashboard .wwd-hero span{font-size:13px;color:#ccc;}
+#wwDashboard .wwd-hero strong{display:block;font-size:37px;line-height:1.2;letter-spacing:-1px;margin:7px 0;}
+#wwDashboard .wwd-muted{color:#aaa;font-size:12px;line-height:1.5;}
+#wwDashboard .wwd-stats{display:flex;border-top:1px solid #333;padding:13px 4px;}
+#wwDashboard .wwd-stats button,#wwDashboard .wwd-stats div{flex:1;text-align:center;border:0;border-right:1px solid #444;border-radius:0;background:none;padding:0 5px;color:#fff;}
+#wwDashboard .wwd-stats>:last-child{border-right:0;}
+#wwDashboard .wwd-stats b{display:block;font-size:20px;margin-bottom:4px;}
+#wwDashboard .wwd-stats span{font-size:11px;color:#bbb;}
+#wwDashboard .wwd-pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+#wwDashboard .wwd-metric{padding:13px 12px;}.wwd-metric b{display:block;margin-top:6px;font-size:20px;}
+#wwDashboard .wwd-section-head{display:flex;align-items:center;justify-content:space-between;padding:13px 12px 8px;}
+#wwDashboard h2{font-size:16px;line-height:1.2;margin:0;}
+#wwDashboard .wwd-link{border:0;background:none;padding:4px;color:#bbb;font-size:12px!important;}
+#wwDashboard .wwd-row{display:flex;align-items:center;gap:10px;padding:12px;border:0;border-top:1px solid #2e2e2e;width:100%;background:none;text-align:left;}
+#wwDashboard .wwd-row img{width:48px;height:48px;object-fit:contain;background:#eee;border-radius:8px;flex:0 0 48px;}
+#wwDashboard .wwd-row .wwd-copy{flex:1;min-width:0;}
+#wwDashboard .wwd-row b{font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+#wwDashboard .wwd-row small{display:block;font-size:11px;color:#aaa;margin-top:4px;}
+#wwDashboard .wwd-value{text-align:right;font-size:13px;font-weight:650;}
+#wwDashboard .wwd-empty{padding:20px 14px;color:#aaa;font-size:13px;line-height:1.5;}
+#wwDashboard .wwd-navrow{width:100%;display:flex;align-items:center;gap:10px;padding:14px 12px;border:1px solid #333;background:#161616;border-radius:12px;margin:10px 0;text-align:left;}
+#wwDashboard .wwd-navrow span{flex:1;}
+#wwDashboard .wwd-navrow svg{width:20px;height:20px;flex:0 0 20px;}
+#wwDashboard .wwd-tools{display:flex;gap:9px;padding:9px 12px 13px;}
+#wwDashboard .wwd-tools button{flex:1;border:1px solid #444;border-radius:10px;background:none;padding:12px 8px;font-size:12px!important;}
+#wwDashboard .wwd-notice{margin:10px 0 14px;font-size:12px;line-height:1.5;color:#aaa;}
+#wwDashboard .wwd-error{padding:12px;border:1px solid #555;border-radius:12px;font-size:12px;margin-bottom:12px;}
+#wwDashboard .wwd-item-pick{display:flex;align-items:center;gap:10px;border-bottom:1px solid #333;padding:12px 0;font-size:14px;}
+#wwDashboard .wwd-item-pick input{accent-color:white;width:18px;height:18px;}
+#wwDashboard .wwd-cta{width:100%;background:#fff;color:#000;border:0;border-radius:12px;height:44px;font-weight:700;margin:16px 0 4px;}
+#wwDashboard .wwd-field{display:block;color:#bbb;font-size:12px;margin:15px 0;}
+#wwDashboard .wwd-field input{width:100%;margin-top:7px;background:#171717;border:1px solid #444;border-radius:10px;padding:12px;}
+</style>
+<section id="wwDashboard" hidden aria-label="Your dashboard"><div class="wwd-wrap" id="wwdContent"></div></section>
+<script id="wishwave-dashboard">
+(function(){
+  const root=document.getElementById('wwDashboard'),out=document.getElementById('wwdContent');
+  document.querySelector('.app')?.appendChild(root);
+  let state=null,request=0,returnFocus=null;
+  const esc=v=>escapeHTML(String(v==null?'':v));
+  const icon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v4M23 12h-4"/></svg>';
+  function period(row){if(state.period==='all')return true;const d=new Date(row.completedAt||row.deliveredAt||row.updatedAt||row.createdAt||row.publishedAt||0),n=new Date();if(!Number.isFinite(d.getTime()))return false;if(state.period==='30')return d.getTime()>=Date.now()-30*86400000;return d.getFullYear()===n.getFullYear()&&d.getMonth()===n.getMonth();}
+  function moneyGroups(rows,field){const sums=new Map();rows.forEach(r=>{const c=String(r.currency||'AUD').toUpperCase();sums.set(c,(sums.get(c)||0)+Math.max(0,Number(r[field])||0));});return sums.size?[...sums].map(([c,v])=>appMpMoney(v,c)).join(' · '):appMpMoney(0,'AUD');}
+  function id(item){return String(appMpId(item)||'');}
+  function rows(items,type){return items.map((x,i)=>{const image=x.image||(x.images||[])[0]||'',status=String(x.status||'active').replace(/_/g,' ');return '<button type="button" class="wwd-row" data-wwd-action="'+(type==='order'?'order':'listing')+'" data-id="'+escapeAttr(type==='order'?x.id:id(x))+'">'+(image?'<img src="'+escapeAttr(image)+'" alt="" referrerpolicy="no-referrer">':'')+'<span class="wwd-copy"><b>'+esc(x.title||'Listing')+'</b><small>'+esc(status)+(x.createdAt?' · '+esc(appMpDate(x.createdAt)):'')+'</small></span><span class="wwd-value">'+esc(appMpMoney(type==='order'?x.itemPrice:x.price,x.currency||'AUD'))+'<small>›</small></span></button>';}).join('');}
+  function heading(title,action){return '<div class="wwd-section-head"><h2>'+title+'</h2>'+(action?'<button type="button" class="wwd-link" data-wwd-action="'+action+'">See all ›</button>':'')+'</div>';}
+  function header(title){return '<header class="wwd-top"><button type="button" class="wwd-back" data-wwd-action="'+(state.page==='main'?'close':'back')+'" aria-label="Back">‹</button><h1>'+title+'</h1>'+(state.page==='main'?'<select class="wwd-period" id="wwdPeriod" aria-label="Reporting period"><option value="month">This month</option><option value="30">Last 30 days</option><option value="all">All time</option></select><button type="button" class="wwd-more" data-wwd-action="menu" aria-label="Dashboard options">⋯</button>':'')+'</header>';}
+  function owner(){const p=getAccountProfile(),name=findaiProfileUsername(p)||p.name||'Your account';return '<div class="wwd-owner"><span class="wwd-avatar">'+(p.avatar?'<img src="'+escapeAttr(p.avatar)+'" alt="" referrerpolicy="no-referrer" onerror="this.replaceWith(document.createTextNode(\'N\'))">':esc(name.charAt(0).toUpperCase()))+'</span>'+esc(name)+'</div>';}
+  function metric(label,value,note){return '<div class="wwd-card wwd-metric"><span class="wwd-muted">'+label+'</span><b>'+esc(value)+'</b>'+(note?'<small class="wwd-muted">'+note+'</small>':'')+'</div>';}
+  function selling(){
+    const orders=state.orders.filter(period),completed=orders.filter(o=>o.status==='completed'),active=state.listings.filter(x=>x.status==='active'),sold=state.listings.filter(x=>x.status==='sold');
+    const views=state.listings.reduce((v,x)=>v+profileListingViewCount(x),0),convos=state.conversations.filter(x=>x.viewerRole==='seller'||state.listings.some(l=>id(l)===String(x.listingId||'')));
+    return '<div class="wwd-card"><div class="wwd-hero"><span>Sales revenue</span><strong>'+esc(state.orderError?'—':moneyGroups(completed,'itemPrice'))+'</strong><span class="wwd-muted">'+(state.loading?'Updating…':state.orderError?'Order data unavailable':completed.length+' completed sale'+(completed.length===1?'':'s'))+'</span></div><div class="wwd-stats">'+[[active.length,'Active','active'],[sold.length,'Sold','sold'],[state.orderError?'—':orders.length,'Orders','orders']].map(x=>'<button type="button" data-wwd-action="'+x[2]+'"><b>'+x[0]+'</b><span>'+x[1]+'</span></button>').join('')+'</div></div><div class="wwd-pair">'+metric('Available earnings','—','Balance unavailable')+metric('Pending earnings','—','Balance unavailable')+'</div><div class="wwd-card">'+heading('Recent sales','sales')+(completed.length?rows(completed.slice(0,3),'order'):'<div class="wwd-empty">'+(state.orderError?'Could not load sales.':'No completed sales in this period.')+'</div>')+'</div><div class="wwd-card">'+heading('Listing performance')+'<div class="wwd-stats"><div><b>'+views.toLocaleString()+'</b><span>All-time listing views</span></div><button type="button" data-wwd-action="messages"><b>'+(state.conversationError?'—':convos.length)+'</b><span>Listing conversations</span></button></div></div><button type="button" class="wwd-navrow" data-wwd-action="promotions">'+icon+'<span>Promotions</span>›</button>';
+  }
+  function creator(){return '<div class="wwd-card"><div class="wwd-hero"><span>Affiliate earnings</span><strong>—</strong><span class="wwd-muted">Commission tracking not connected</span></div></div><div class="wwd-pair">'+metric('Pending','—')+metric('Paid','—')+'</div><div class="wwd-card"><div class="wwd-stats">'+['Clicks','Purchases','Conversion'].map(x=>'<div><b>—</b><span>'+x+'</span></div>').join('')+'</div></div><div class="wwd-card">'+heading('Sharing tools')+'<div class="wwd-tools"><button type="button" data-wwd-action="links">↗ Create link</button><button type="button" data-wwd-action="collection">▱ Share collection</button></div></div><p class="wwd-notice">Share your finds now. Affiliate commissions will require programme activation and marketplace approval.</p><div class="wwd-card">'+heading('Top-performing finds')+'<div class="wwd-empty">Attributed purchases will appear here once tracking is connected.</div></div><button type="button" class="wwd-navrow" data-wwd-action="payouts"><span>Payout history</span>›</button>';}
+  function toolItems(){const seen=new Set();return [...state.listings,...getTracked()].filter(x=>{const k=id(x)||getListingUrl(x);if(!k||seen.has(k))return false;seen.add(k);return true;}).slice(0,60);}
+  function page(){
+    if(state.page==='menu')return '<button type="button" class="wwd-navrow" data-wwd-action="share-profile"><span>Share profile</span>↗</button><button type="button" class="wwd-navrow" data-wwd-action="refresh"><span>Refresh dashboard</span>↻</button>';
+    if(state.page==='payouts')return '<div class="wwd-card wwd-empty">No affiliate payout history is available. Commission tracking is not connected.</div>';
+    if(['links','collection'].includes(state.page)){state.tools=toolItems();return '<p class="wwd-notice">These are regular sharing links. Affiliate commissions are not active.</p>'+(state.page==='collection'?'<label class="wwd-field">Collection name<input id="wwdCollectionName" maxlength="80" value="'+escapeAttr(state.collectionName||'My finds')+'"></label>':'')+(state.tools.length?state.tools.map((x,i)=>state.page==='collection'?'<label class="wwd-item-pick"><input type="checkbox" data-tool-index="'+i+'" '+(state.selected.has(i)?'checked':'')+'>'+esc(x.title||'Listing')+'</label>':'<button type="button" class="wwd-navrow" data-wwd-action="share-link" data-index="'+i+'"><span>'+esc(x.title||'Listing')+'</span>↗</button>').join(''):'<div class="wwd-empty">Add a listing or save some finds to share them here.</div>')+(state.page==='collection'&&state.tools.length?'<button type="button" class="wwd-cta" data-wwd-action="share-collection">Share selected finds</button>':'');}
+    if(state.page==='order'){const o=state.orders.find(x=>x.id===state.orderId);if(!o)return '<div class="wwd-empty">Order unavailable.</div>';return '<div class="wwd-card">'+heading(esc(o.title||'Order'))+'<div class="wwd-empty">Status: '+esc(String(o.status||'').replace(/_/g,' '))+'<br>Item: '+esc(appMpMoney(o.itemPrice,o.currency))+'<br>Shipping: '+esc(appMpMoney(o.shipping,o.currency))+'<br>Buyer total: '+esc(appMpMoney(o.total,o.currency))+'<br>'+esc(o.trackingNumber?'Tracking: '+o.trackingNumber:'')+'</div></div><button type="button" class="wwd-navrow" data-wwd-action="messages"><span>Open messages</span>›</button>';}
+    let items,type='listing';if(state.page==='active')items=state.listings.filter(x=>x.status==='active');else if(state.page==='sold')items=state.listings.filter(x=>x.status==='sold');else if(state.page==='promotions')items=state.listings.filter(x=>x.status==='active');else{type='order';items=state.orders.filter(period).filter(x=>state.page!=='sales'||x.status==='completed');}
+    if(state.page==='promotions')return '<p class="wwd-notice">Choose a listing to set up a promotion.</p>'+(items.length?items.map(x=>'<button type="button" class="wwd-navrow" data-wwd-action="promote" data-id="'+escapeAttr(id(x))+'"><span>'+esc(x.title||'Listing')+'</span>›</button>').join(''):'<div class="wwd-empty">No active listings to promote.</div>');
+    return '<div class="wwd-card">'+(items.length?rows(items,type):'<div class="wwd-empty">'+((state.page==='orders'||state.page==='sales')&&state.orderError?'Orders could not be loaded.':'Nothing here yet.')+'</div>')+'</div>';
+  }
+  function render(){if(!state||root.hidden)return;const titles={main:'Dashboard',active:'Active listings',sold:'Sold listings',orders:'Orders',sales:'Completed sales',promotions:'Promotions',links:'Create link',collection:'Share collection',payouts:'Payout history',order:'Order details',menu:'Dashboard options'};out.innerHTML=header(titles[state.page]||'Dashboard')+(state.page==='main'?'<div class="wwd-tabs"><button type="button" data-wwd-action="selling" aria-pressed="'+(state.mode==='selling')+'">Selling</button><button type="button" data-wwd-action="creator" aria-pressed="'+(state.mode==='creator')+'">Creator</button></div>'+owner()+(state.error?'<div class="wwd-error">'+esc(state.error)+' <button type="button" class="wwd-link" data-wwd-action="refresh">Retry</button></div>':'')+(state.mode==='selling'?selling():creator()):page());const select=out.querySelector('#wwdPeriod');if(select){select.value=state.period;select.onchange=()=>{state.period=select.value;render();};}}
+  async function load(){const token=++request,email=getAccountProfile()?.email,session=marketplaceSession();state.loading=true;render();const results=await Promise.allSettled([loadMarketplaceListings(),marketplaceFetch('/marketplace/orders',{method:'GET'}),marketplaceFetch('/marketplace/conversations',{method:'GET'})]);if(!state||token!==request||root.hidden||email!==getAccountProfile()?.email||session!==marketplaceSession())return;state.loading=false;state.error='';if(results[0].status==='fulfilled')state.listings=results[0].value||[];else state.error='Listings could not be refreshed.';state.orderError=results[1].status!=='fulfilled';state.orders=state.orderError?[]:(results[1].value.orders||[]).filter(x=>x.relationship==='seller');state.conversationError=results[2].status!=='fulfilled';state.conversations=state.conversationError?[]:results[2].value.conversations||[];if(state.orderError)state.error+=(state.error?' ':'')+'Orders could not be loaded.';render();}
+  async function share(data){try{if(navigator.share)await navigator.share(data);else{await navigator.clipboard.writeText([data.text,data.url].filter(Boolean).join('\n'));toast('Copied to clipboard');}}catch(e){if(e.name!=='AbortError')toast('Could not share. Please try again.');}}
+  function link(x){return isFindAIListing(x)?'https://findai.ai/findai-app.html?listing='+encodeURIComponent(id(x)):getListingUrl(x);}
+  root.addEventListener('change',e=>{if(e.target.matches('[data-tool-index]')){const i=Number(e.target.dataset.toolIndex);if(e.target.checked)state.selected.add(i);else state.selected.delete(i);}});
+  root.addEventListener('click',async e=>{const b=e.target.closest('[data-wwd-action]');if(!b||!state)return;const a=b.dataset.wwdAction;if(a==='close'){closeWishWaveDashboard();return;}if(a==='back'){state.page='main';render();root.scrollTop=0;return;}if(a==='selling'||a==='creator'){state.mode=a;render();return;}if(a==='refresh'){state.page='main';await load();return;}if(a==='share-profile'){shareFindAIProfile();return;}if(a==='messages'){closeWishWaveDashboard();openAppMarketplaceInbox();return;}if(a==='promote'){openWishWavePromotion(b.dataset.id);return;}if(a==='listing'){const item=state.listings.find(x=>id(x)===b.dataset.id);if(item){closeWishWaveDashboard();const list=socialProfileListings.filter(x=>item.status==='sold'?x.status==='sold':x.status!=='sold');const index=list.findIndex(x=>id(x)===id(item));if(index>=0)openProfileListingItem(index,item.status==='sold'?'sold':'listings');else openAppMarketplaceListing(item);}return;}if(a==='share-link'){const x=state.tools[Number(b.dataset.index)];if(x)await share({title:x.title||'WishWave find',url:link(x)});return;}if(a==='share-collection'){const chosen=[...state.selected].map(i=>state.tools[i]).filter(Boolean);if(!chosen.length){toast('Choose at least one find');return;}state.collectionName=out.querySelector('#wwdCollectionName').value.trim()||'My finds';await share({title:state.collectionName,text:state.collectionName+'\n\n'+chosen.map(x=>x.title+'\n'+link(x)).join('\n\n')});return;}if(a==='order')state.orderId=b.dataset.id;state.page=a;render();root.scrollTop=0;});
+  window.openWishWaveDashboard=function(){if(!getAccountProfile()||!marketplaceSession()){openLogin();return;}returnFocus=document.activeElement;state={mode:'selling',page:'main',period:'month',listings:getMarketplaceListings().slice(),orders:[],conversations:[],selected:new Set(),loading:true,error:'',orderError:true,conversationError:true};root.hidden=false;root.scrollTop=0;render();out.querySelector('.wwd-back').focus();load();};
+  window.closeWishWaveDashboard=function(){request++;root.hidden=true;state=null;if(returnFocus?.isConnected)returnFocus.focus();};
+  document.addEventListener('click',e=>{if(!root.hidden&&e.target.closest('#wishwaveMainNav button[data-tab]'))closeWishWaveDashboard();},true);
+  document.addEventListener('keydown',e=>{if(!root.hidden&&e.key==='Escape'&&document.getElementById('wwPromotion').hidden){e.preventDefault();if(state.page==='main')closeWishWaveDashboard();else{state.page='main';render();}}});
 })();
 </script>
 
