@@ -25,7 +25,7 @@ const EPN_CAMPAIGN_ID = '5339155260';
 // deploy automatically invalidates old cached responses instead of serving stale
 // results for 5 minutes. It is also returned in meta, so you can confirm which
 // engine is actually live from DevTools rather than guessing.
-const ENGINE_VERSION = 'v215-marketplace-sources-profile-reels';
+const ENGINE_VERSION = 'v216-continuous-discovery-pages';
 // v120: restores live source progress metadata + search UX while preserving the Claude/eBay result fix.
 // v116: preserves owned retailer search while making eBay usage quota-safe and separating passive discovery from live shopper search.
 // EPN rotation IDs (mkrid) per marketplace. Only markets where eBay Partner
@@ -805,22 +805,23 @@ function isCleanNewLegoListing(item, product, marketFloor){
   return true;
 }
 
-async function searchEbay(keywords, country, maxPrice, env, agOnly = false, sortOverride = '') {
+async function searchEbay(keywords, country, maxPrice, env, agOnly = false, sortOverride = '', sourceOffset = 0) {
   // Cache eBay responses. Without this, every product-page view and every search
   // hit eBay live, which exhausted the Browse API daily quota (5,000 calls) and
   // returned 429 "Too many requests" — emptying every grid regardless of our
   // filtering. Results are cached 6h per query; on a 429 we serve the last good
   // cached response (kept 48h) rather than showing nothing.
   const ck = 'ebaysearch:' + country + ':' + (maxPrice || '') + ':' + (agOnly ? 'ag' : '') + ':' + (sortOverride || '') + ':' + String(keywords).toLowerCase().trim();
-  const staleKey = ck + ':stale';
+  const pageKey=sourceOffset?ck+':offset:'+sourceOffset:ck;
+  const staleKey = pageKey + ':stale';
   if (env && env.CACHE) {
-    try { const hit = await env.CACHE.get(ck, 'json'); if (hit && Array.isArray(hit.items)) return hit; } catch (_) {}
+    try { const hit = await env.CACHE.get(pageKey, 'json'); if (hit && Array.isArray(hit.items)) return hit; } catch (_) {}
   }
-  const result = await searchEbayUncached(keywords, country, maxPrice, env, agOnly, sortOverride);
+  const result = await searchEbayUncached(keywords, country, maxPrice, env, agOnly, sortOverride, sourceOffset);
   if (env && env.CACHE) {
     try {
       if (!result.error && result.items && result.items.length) {
-        await env.CACHE.put(ck, JSON.stringify(result), { expirationTtl: 21600 });        // 6h fresh
+        await env.CACHE.put(pageKey, JSON.stringify(result), { expirationTtl: 21600 });        // 6h fresh
         await env.CACHE.put(staleKey, JSON.stringify(result), { expirationTtl: 172800 }); // 48h fallback
       } else if (result.error) {
         // eBay failed (likely 429). Serve the last good response if we have one.
@@ -840,7 +841,7 @@ const EBAY_MARKET_CURRENCY = {
   HK:'HKD', MY:'MYR', PH:'PHP', TH:'THB', TW:'TWD', VN:'VND'
 };
 
-async function searchEbayUncached(keywords, country, maxPrice, env, agOnly = false, sortOverride = '') {
+async function searchEbayUncached(keywords, country, maxPrice, env, agOnly = false, sortOverride = '', sourceOffset = 0) {
   try {
     const token = await getEbayToken(env);
     const marketplace = EBAY_MARKETPLACES[country] || 'EBAY_US';
@@ -864,7 +865,7 @@ async function searchEbayUncached(keywords, country, maxPrice, env, agOnly = fal
 
     const url = `https://api.ebay.com/buy/browse/v1/item_summary/search` +
       `?q=${encodeURIComponent(fullQuery)}` +
-      `&limit=200` +
+      `&limit=200&offset=${Math.max(0,Math.floor(Number(sourceOffset)||0))}` +
       sortParam +
       category +
       filterParam;
@@ -20131,8 +20132,9 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
   const started=Date.now();
   const raw=String(query||'').replace(/\s+/g,' ').trim().slice(0,180);
   const c=webDiscoveryCountry(country||'AU');
-  const limit=Math.max(4,Math.min(80,Number(opts.limit)||40));
+  const limit=Math.max(4,Math.min(400,Number(opts.limit)||40));
   const passive=!!opts.passive;
+  const sourceOffset=Math.max(0,Math.floor(Number(opts.sourceOffset)||0));
   const maxPrice=String(opts.maxPrice||'').trim();
   if(!raw)return {
     items:[],listings:[],total:0,country:c,error:'Missing query',
@@ -20174,23 +20176,23 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
 
   if(should('ebay')){
     addJob('ebay','eBay',findAISourceIconEbayHost(c),'marketplace',passive?1700:4400,
-      ()=>searchEbay(effective,c,maxPrice,env,false,intent&&intent.sort==='newest'?'newlyListed':''));
+      ()=>searchEbay(effective,c,maxPrice,env,false,intent&&intent.sort==='newest'?'newlyListed':'',sourceOffset));
   }
 
   const aliEligible=explicitSource==='ali'||(!explicitSource&&!webDiscoveryQueryBrand(effective)&&!findAIExplicitResaleQuery(effective));
-  if(should('ali')&&aliEligible){
+  if(!sourceOffset&&should('ali')&&aliEligible){
     addJob('ali','AliExpress','aliexpress.com','marketplace',passive?900:1700,
       ()=>searchAliExpress(effective,c,env,Math.min(limit,32)));
   }
 
   if(should('wishwave')&&env&&env.DB){
     addJob('wishwave','WishWave','findai.ai','marketplace',passive?500:850,
-      async()=>({items:await mpSearchPublicListings(env,effective,Math.min(40,limit),0)}),
+      async()=>({items:await mpSearchPublicListings(env,effective,Math.min(40,limit),sourceOffset)}),
       {enabled:mpPublicMarketplaceEnabled(env)});
   }
 
   const specialistEligible=should('stockx')||(!explicitSource&&!passive);
-  if(specialistEligible){
+  if(!sourceOffset&&specialistEligible){
     addJob('specialists','Specialists','stockx.com','specialist',
       explicitSource==='stockx'?6200:(wishwaveShoppingStockxCategory(effective)?5500:2100),
       ()=>findAIFetchSpecialistResults(
@@ -20301,6 +20303,7 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
 
   return {
     items:finalItems,listings:finalItems,total:finalItems.length,country:c,
+    ebayHasMore:Number(ebayRun?.meta?.total||0)>sourceOffset+200,
     marketplaceMatchCount:Number(ebayRun&&ebayRun.meta&&ebayRun.meta.total||0)+Number(wishwaveRun&&wishwaveRun.items.length||0),
     ebayCount:Number(ebayRun&&ebayRun.items.length||0),
     wishwaveCount:Number(wishwaveRun&&wishwaveRun.items.length||0),
@@ -25955,13 +25958,18 @@ export default {
         if(!query)return jsonResp({error:'Missing query',listings:[],total:0},400);
         const page=Math.max(1,Math.min(20,Number(body.page)||1));
         const limit=Math.max(4,Math.min(40,Number(body.limit)||24));
-        const offset=Math.max(0,Number.isFinite(Number(body.offset))?Number(body.offset):(page-1)*limit);
+        const offsetCursor=String(body.cursor||'').match(/^window:(\d+):(\d+)$/);
+        const offset=Math.max(0,Math.min(9800,Number.isFinite(Number(body.offset))?Number(body.offset):(page-1)*limit));
+        const sourceOffset=offsetCursor?Math.min(9800,Number(offsetCursor[1])):Math.floor(offset/200)*200;
+        const windowOffset=offsetCursor?Math.min(400,Number(offsetCursor[2])):offset-sourceOffset;
         const explicit=String(body&&body.country||'').trim().toUpperCase();
         const country=explicit||requestedCountry(request,url);
-        const full=await wishwaveShoppingEngineSearch(query,country,env,ctx,{limit:Math.max(40,offset+limit),passive:!!body.passive,maxPrice:body&&body.maxPrice});
-        const listings=full.items.slice(offset,offset+limit);
-        const hasMore=offset+listings.length<full.items.length;
-        return jsonResp({query,listings,total:full.items.length,marketplaceMatchCount:full.marketplaceMatchCount,page,limit,hasMore,nextCursor:hasMore?String(page+1):null,country:full.country,searchNarrative:full.searchNarrative,sourceActivity:Array.isArray(full.sourceActivity)?full.sourceActivity:[],meta:{ebayCount:full.ebayCount,wishwaveCount:full.wishwaveCount,aliCount:full.aliCount,sourceActivity:Array.isArray(full.sourceActivity)?full.sourceActivity:[],sourceHealth:full.sourceHealth,searchMode:full.searchMode,shoppingEngineVersion:full.shoppingEngineVersion,amazon:full.amazon,dedupe:full.dedupe,serverElapsedMs:full.serverElapsedMs}},200,{'Cache-Control':full.items.length?'public, max-age=30, s-maxage=45':'no-store'});
+        const full=await wishwaveShoppingEngineSearch(query,country,env,ctx,{limit:400,sourceOffset,passive:!!body.passive,maxPrice:body&&body.maxPrice});
+        const listings=full.items.slice(windowOffset,windowOffset+limit);
+        const moreInWindow=windowOffset+listings.length<full.items.length;
+        const hasMore=moreInWindow||!!full.ebayHasMore;
+        const nextCursor=moreInWindow?'window:'+sourceOffset+':'+(windowOffset+listings.length):'window:'+(sourceOffset+200)+':0';
+        return jsonResp({query,listings,total:full.items.length,marketplaceMatchCount:full.marketplaceMatchCount,page,limit,hasMore,nextCursor:hasMore?nextCursor:null,country:full.country,searchNarrative:full.searchNarrative,sourceActivity:Array.isArray(full.sourceActivity)?full.sourceActivity:[],meta:{ebayCount:full.ebayCount,wishwaveCount:full.wishwaveCount,aliCount:full.aliCount,sourceActivity:Array.isArray(full.sourceActivity)?full.sourceActivity:[],sourceHealth:full.sourceHealth,searchMode:full.searchMode,shoppingEngineVersion:full.shoppingEngineVersion,amazon:full.amazon,dedupe:full.dedupe,serverElapsedMs:full.serverElapsedMs}},200,{'Cache-Control':full.items.length?'public, max-age=30, s-maxage=45':'no-store'});
       }
 
       // ── Market Watch: look up an item ─ POST /tracker/search ────────────────

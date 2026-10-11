@@ -3816,7 +3816,7 @@ const MAX_INTERESTS = 40;
 const PERSONALISED_INTEREST_LIMIT = 6;
 const PERSONALISED_LANE_LIMIT = 8;
 const PERSONALISED_LOAD_MORE_LANES = 3;
-const PERSONALISED_CACHE_KEY = 'fa_personalised_feed_cache_v13_variety';
+const PERSONALISED_CACHE_KEY = 'fa_personalised_feed_cache_v14_balanced_pages';
 const PERSONALISED_CACHE_TTL = 10 * 60 * 1000;
 const PERSONALISED_CACHE_STALE_TTL = 24 * 60 * 60 * 1000;
 const PERSONALISED_REQUEST_BUDGET_KEY = 'fa_personalised_request_count_v1';
@@ -3824,7 +3824,7 @@ const PERSONALISED_SESSION_REQUEST_BUDGET = 5000;
 const PERSONALISED_SEEN_KEY = 'fa_personalised_seen_v1';
 const PERSONALISED_SEEN_TTL = 14 * 24 * 60 * 60 * 1000;
 const PERSONALISED_SEEN_LIMIT = 300;
-const PERSONALISED_LANE_STATE_KEY = 'fa_personalised_lane_state_v3';
+const PERSONALISED_LANE_STATE_KEY = 'fa_personalised_lane_state_v4_balanced_pages';
 const PERSONALISED_LANE_STATE_TTL = 12 * 60 * 60 * 1000;
 const PERSONALISED_LAST_REFRESH_KEY = 'fa_personalised_last_refresh_v1';
 const PERSONALISED_BACKGROUND_REFRESH_TTL = 10 * 60 * 1000;
@@ -5256,18 +5256,18 @@ function scoredInterests(limit=PERSONALISED_INTEREST_LIMIT){
   if(strength>=90)personalTarget=Math.max(1,limit-1);
 
   const hasIntent=profile.some(item=>item._savedAffinity||['search','like','scan','track','tracker'].some(name=>Number(item.events?.[name])>0));
-  if(hasIntent)personalTarget=Math.max(1,limit-1);
+  personalTarget=Math.min(personalTarget,Math.max(1,Math.floor(limit/2)));
   const personal=[];const categoryCounts=new Map();
   for(const interest of profile){
     if(personal.length>=personalTarget)break;
     const category=interest.category||interestCategory(interest.query);
     const count=Number(categoryCounts.get(category)||0);
-    if(count>=Math.max(2,limit-1))continue; // Distinct preferences within one category remain useful.
+    if(count>=2)continue; // Distinct preferences within one category remain useful.
     personal.push(interest);categoryCounts.set(category,count+1);
   }
   const discoverySelected=[];
   for(const starter of discovery){
-    if(discoverySelected.length>=(hasIntent&&personal.length?1:Math.max(0,limit-personal.length)))break;
+    if(discoverySelected.length>=Math.max(0,limit-personal.length))break;
     if(personal.some(item=>item.cluster===starter.cluster)||discoverySelected.some(item=>item.cluster===starter.cluster))continue;
     if(personal.some(item=>item.category===starter.category)||discoverySelected.some(item=>item.category===starter.category))continue;
     discoverySelected.push(starter);
@@ -5450,15 +5450,16 @@ function preparePersonalisedLaneItems(raw,lane){
   const ranked=[...valid].sort((a,b)=>personalisedItemScore(b,lane.query,lane.cluster)-personalisedItemScore(a,lane.query,lane.cluster));
   const preferred=ranked.filter(item=>personalisedSeenInfo(item).count<2);
   const repeatFallback=ranked.filter(item=>personalisedSeenInfo(item).count>=2);
-  const fresh=[];
+  const fresh=[],batchFamilies=new Map();
   for(const original of [...preferred,...repeatFallback]){
     const key=listingKey(original);
     if(feedState.seen.has(key)) continue;
     const family=wishwaveProductFamily(original);
-    const familyCount=Number(feedState.familyCounts.get(family)||0);
+    const familyCount=Number(batchFamilies.get(family)||0);
     if(familyCount>=2) continue;
     feedState.seen.add(key);
-    feedState.familyCounts.set(family,familyCount+1);
+    batchFamilies.set(family,familyCount+1);
+    feedState.familyCounts.set(family,Number(feedState.familyCounts.get(family)||0)+1);
     fresh.push({...original,_interestQuery:lane.originalQuery,_interestCluster:lane.cluster,_interestCategory:lane.category,_interestFeatured:!!lane.featured,_recommendationFamily:family});
   }
   return fresh;
@@ -5516,7 +5517,11 @@ function wishwaveProductFamily(item){
     ['porsche',/\bporsche\b/],['ferrari',/\bferrari\b/],['lamborghini',/\blamborghini\b/],
     ['rolex',/\brolex\b/],['omega',/\bomega\b/],['iphone',/\biphone\b/]
   ])if(pattern.test(title))return wishwaveProductCategory(item)+':'+key;
-  return recommendationFamilyKey(item);
+  const words=title.replace(/[^a-z0-9]+/g,' ').split(/\s+/).filter(x=>x&&!/^(new|used|sealed|genuine|authentic|official|free|shipping|delivery|bundle|with|for|the|and|black|white|red|blue|green|pink|grey|gray|size|mens|womens)$/.test(x));
+  const set=title.match(/\b\d{4,6}\b/);
+  if(wishwaveProductCategory(item)==='lego'&&set)return 'lego:set:'+set[0];
+  // Model names are shared across colours, sizes and seller wording.
+  return wishwaveProductCategory(item)+':'+words.slice(0,4).join(' ');
 }
 function sequencePersonalisedBatch(items,existingItems=[],maxItems=60){
   const remaining=(Array.isArray(items)?items:[]).filter(Boolean);
@@ -5537,6 +5542,7 @@ function sequencePersonalisedBatch(items,existingItems=[],maxItems=60){
   return output;
 }
 let wishwaveReelDiscoveryPromise=null;
+let wishwaveReelDiscoveryKey='';
 function wishwaveReelPool(){
   let cached=[];try{const c=JSON.parse(localStorage.getItem(PERSONALISED_CACHE_KEY)||'null');if(Date.now()-Number(c&&c.savedAt||0)<PERSONALISED_CACHE_STALE_TTL)cached=c.items||[];}catch(_){}
   return [...cached,...(Array.isArray(currentFeedItems)?currentFeedItems:[]),...(Array.isArray(premiumDiscoverySections)?premiumDiscoverySections.flatMap(x=>x.items||[]):[])].filter(wishwaveAllowedListing);
@@ -5559,16 +5565,18 @@ function wishwaveMixedSearchReel(items,index,pool=wishwaveReelPool()){
   }
   return [selected,...sequencePersonalisedBatch(candidates,[selected],79)];
 }
-function wishwaveWarmReelDiscovery(selected){
-  if(wishwaveReelDiscoveryPromise)return wishwaveReelDiscoveryPromise;
+function wishwaveWarmReelDiscovery(selected,page=1){
+  const requestKey=wishwaveProductCategory(selected)+':'+page;
+  if(wishwaveReelDiscoveryPromise&&wishwaveReelDiscoveryKey===requestKey)return wishwaveReelDiscoveryPromise;
+  wishwaveReelDiscoveryKey=requestKey;
   const category=wishwaveProductCategory(selected),chosen=[],categories=new Set([category]);
   const interests=window.findaiAppPreferences?.().personalized===false?[]:scoredInterests();
-  for(const lane of [...interests,...featuredColdStart(1,'reel-variety')]){
+  for(const lane of [...interests,...featuredColdStart(1,'reel-variety-'+Math.floor((page-1)/3))]){
     if(categories.has(lane.category))continue;categories.add(lane.category);chosen.push(lane);if(chosen.length===4)break;
   }
   wishwaveReelDiscoveryPromise=Promise.all(chosen.map(async lane=>{
     if(!consumePersonalisedRequestBudget())return [];
-    try{const result=await fetchProductResults(lane.query,{limit:8,passive:true,skipResolve:true});return (result.data?.listings||result.data?.items||[]).filter(wishwaveAllowedListing).map(x=>({...x,_interestCategory:lane.category,_interestCluster:lane.cluster,_interestQuery:lane.query}));}catch(_){return [];}
+    try{const result=await fetchProductResults(lane.query,{page:1+(page-1)%3,limit:12,passive:true,skipResolve:true});return (result.data?.listings||result.data?.items||[]).filter(wishwaveAllowedListing).map(x=>({...x,_interestCategory:lane.category,_interestCluster:lane.cluster,_interestQuery:lane.query}));}catch(_){return [];}
   })).then(lists=>lists.flat()).finally(()=>{wishwaveReelDiscoveryPromise=null;});
   return wishwaveReelDiscoveryPromise;
 }
@@ -5863,7 +5871,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     restorePersonalisedLaneState(lanes,cached.lanes);
     for(const item of cached.items){
       feedState.seen.add(listingKey(item));
-      const family=recommendationFamilyKey(item);
+      const family=wishwaveProductFamily(item);
       feedState.familyCounts.set(family,(feedState.familyCounts.get(family)||0)+1);
     }
     renderPersonalisedFeed(freshenPersonalisedItems(cached.items),{writeCache:false});
@@ -5921,7 +5929,8 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     const earlyMixed=sequencePersonalisedBatch(interleavePersonalised(early,24),[],24);
     // If only one category won the race, show just two cards until another lane
     // arrives instead of presenting a long block of one product family.
-    const firstPaint=early.length===1?earlyMixed.slice(0,2):earlyMixed.slice(0,12);
+    const earlyCategories=new Set(earlyMixed.map(wishwaveProductCategory));
+    const firstPaint=earlyCategories.size===1?earlyMixed.slice(0,2):earlyMixed.slice(0,12);
     const deferredEarly=earlyMixed.slice(firstPaint.length);
     renderPersonalisedFeed(firstPaint);
     feedState.loading=false;
@@ -5934,7 +5943,12 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
       const restLanes=rest.filter(entry=>entry&&entry.value&&entry.value.items&&entry.value.items.length).map(entry=>entry.value);
       const incoming=deferredEarly.concat(interleavePersonalised(restLanes,44));
       const fresh=sequencePersonalisedBatch(incoming,currentFeedItems,44);
-      if(fresh.length){appendFeedItems(fresh,currentFeedData);writePersonalisedCache();}
+      if(fresh.length){
+        const start=Math.min(currentFeedItems.length,Math.max(0,activeReelIndex)+1);
+        const head=currentFeedItems.slice(0,start),tail=currentFeedItems.slice(start).concat(fresh);
+        currentFeedItems=head.concat(sequencePersonalisedBatch(tail,head,tail.length));
+        window.wishwaveRenderRecommendationTail?.(start);writePersonalisedCache();
+      }
       else writePersonalisedCache();
     })().catch(()=>{});
   }catch(error){
@@ -5996,51 +6010,38 @@ function refreshPersonalisedPresentationOnForeground(){
   loadPersonalisedFeed({forceNetwork:false});
 }
 async function loadMorePersonalisedListings(){
-  if(feedState.source!=='personalised'||feedState.loading||!$('#discover').classList.contains('active')) return;
-  let lanes=Array.isArray(feedState.interests)?feedState.interests:[];
-  if(!lanes.length||getPersonalisedRequestCount()>=PERSONALISED_SESSION_REQUEST_BUDGET) return;
-
-  let chosen=[];
-  const start=Math.max(0,Number(feedState.laneCursor)||0)%lanes.length;
-  for(let offset=0;offset<lanes.length&&chosen.length<PERSONALISED_LOAD_MORE_LANES;offset++){
-    const lane=lanes[(start+offset)%lanes.length];
-    const canLoad=lane.hasMore||lane.variantIndex<lane.variants.length-1;
-    if(canLoad) chosen.push(lane);
-  }
-  /* If every lane is exhausted but we still have request budget, keep the feed
-     alive (Instagram/TikTok never dead-end): recycle the strongest lanes back to
-     page 1, and fold in fresh discovery lanes so new shopping areas keep appearing.
-     personalisedSeenInfo demotion + the seen-set stop the same items repeating. */
-  if(!chosen.length){
-    const featuredLanes=featuredColdStart(0.6,'infinite-topup-'+getPersonalisedRequestCount()).map(newPersonalisedLane);
-    const known=new Set(lanes.map(l=>l.cluster));
-    const additions=lanes.some(l=>l.featured)?[]:featuredLanes.filter(l=>!known.has(l.cluster)).slice(0,1);
-    lanes.slice(0,PERSONALISED_LOAD_MORE_LANES).forEach(lane=>{
-      lane.variantIndex=0;lane.query=lane.variants[0]||lane.query;
-      lane.page=0;lane.cursor=null;lane.hasMore=true;lane.noNewPages=0;
-      chosen.push(lane);
-    });
-    if(additions.length){ feedState.interests=lanes=lanes.concat(additions); chosen.push(...additions); }
-    if(!chosen.length) return;
-  }
-  feedState.laneCursor=(start+Math.max(1,chosen.length))%lanes.length;
-  const loadingState=feedState;
-  feedState.loading=true;
-  showFeedLoader();
+  if(feedState.source!=='personalised'||feedState.loading||!$('#discover').classList.contains('active'))return;
+  const state=feedState;state.loading=true;
   try{
-    const settled=await Promise.allSettled(chosen.map(fetchPersonalisedLane));
-    if(feedState!==loadingState||feedState.source!=='personalised') return;
-    const incoming=interleavePersonalised(settled.filter(result=>result.status==='fulfilled').map(result=>result.value),20);
-    const fresh=sequencePersonalisedBatch(incoming,currentFeedItems,20);
-    if(fresh.length){
-      appendFeedItems(fresh,currentFeedData);
-      writePersonalisedCache();
+    for(let attempt=0;attempt<3;attempt++){
+      if(feedState!==state||state.source!=='personalised')return;
+      let lanes=Array.isArray(state.interests)?state.interests:[];
+      const usable=lanes.filter(l=>l.hasMore||l.variantIndex<l.variants.length-1);
+      const candidates=usable.slice(state.laneCursor||0).concat(usable.slice(0,state.laneCursor||0));
+      const chosen=[],categories=new Set();
+      for(const lane of candidates){if(categories.has(lane.category))continue;categories.add(lane.category);chosen.push(lane);if(chosen.length===3)break;}
+      // Exhausted or single-category pools acquire fresh discovery queries instead
+      // of recycling page one of the strongest interest indefinitely.
+      const cycle=state.discoveryCycle=(Number(state.discoveryCycle)||0)+1;
+      const known=new Set(lanes.map(l=>l.query));
+      for(const seed of featuredColdStart(.7,'continuous-'+cycle)){
+        if(chosen.length>=3)break;
+        if(categories.has(seed.category)||known.has(seed.query))continue;
+        const lane=newPersonalisedLane(seed);lanes.push(lane);chosen.push(lane);categories.add(lane.category);known.add(lane.query);
+      }
+      state.interests=lanes;state.laneCursor=(Number(state.laneCursor||0)+3)%Math.max(1,usable.length);
+      if(!chosen.length)continue;
+      const settled=await Promise.allSettled(chosen.map(fetchPersonalisedLane));
+      if(feedState!==state||state.source!=='personalised')return;
+      const incoming=interleavePersonalised(settled.filter(x=>x.status==='fulfilled').map(x=>x.value),36);
+      const fresh=sequencePersonalisedBatch(incoming,currentFeedItems,36);
+      if(fresh.length){
+        document.getElementById('wishwaveHomeMoreRetry')?.remove();
+        appendFeedItems(fresh,currentFeedData);writePersonalisedCache();return;
+      }
     }
-  }catch(error){
-    if(feedState===loadingState&&!(error&&error.name==='AbortError')) feedState.noNewPages+=1;
-  }finally{
-    if(feedState===loadingState){hideFeedLoader();feedState.loading=false;}
-  }
+    if(feedState===state&&!document.getElementById('wishwaveHomeMoreRetry'))$('#personalFeed')?.insertAdjacentHTML('beforeend','<div id="wishwaveHomeMoreRetry" class="feed-status"><button class="retry-btn" onclick="this.parentElement.remove();loadMorePersonalisedListings()">Find more products</button></div>');
+  }finally{if(feedState===state)state.loading=false;}
 }
 function showFeedHeader(){
   const search=$('#search');
@@ -6480,6 +6481,7 @@ function extractPagination(data,rawCount,limit){
 async function fetchProductResults(query,{
   page=1,cursor=null,limit=FEED_BATCH_SIZE,preserveExact=false,skipResolve=false,signal=null,useTracker=false,passive=false
 }={}){
+  limit=Math.max(4,Math.min(40,Number(limit)||FEED_BATCH_SIZE));
   let resolvedQuery=String(query || '').trim();
   // The general shopping endpoint already understands natural commands and does
   // exact LEGO/product resolution itself. Only tracker mode needs the extra
@@ -15441,6 +15443,8 @@ if(typeof v116RenderMarketplaceListing==='function'){
   let exploreGeneration=0;
   let exploreQueue=[];
   let exploreLoading=false;
+  let exploreLivePage=null;
+  let exploreEmptyBatches=0;
   let exploreBound=false;
   let exploreVisitSalt=0;
   const seenExplore=new Set();
@@ -15635,11 +15639,12 @@ if(typeof v116RenderMarketplaceListing==='function'){
   }
   async function loadExploreConfig(config,pool,generation){
     const queryUsed=(config._findaiTaste?(config.queries||[])[0]:premiumRotateArray(config.queries||[config.title||'products'],premiumDiscoveryHash()+String(config.id||'x').length+exploreVisitSalt*19)[0])||config.title||'products';
-    let items=v116PreviewItemsForConfig(config,pool);
+    let items=config._page?[]:v116PreviewItemsForConfig(config,pool);
     const exactIntent=!!config._findaiInterest?._prioritySearch;
-    if((exactIntent||items.length<6)&&queryUsed){
+    if((config._forceLive||config._page||exactIntent||items.length<6)&&queryUsed){
       try{
-        const result=await fetchProductResults(queryUsed,{page:1,limit:16,preserveExact:true,skipResolve:true,passive:true});
+        const result=await fetchProductResults(queryUsed,{page:(config._page||0)+1,cursor:config._cursor||null,limit:16,preserveExact:true,skipResolve:true,passive:true});
+        config._page=(config._page||0)+1;config._cursor=result.nextCursor;config._more=result.hasMore;
         const live=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings:[];
         const useful=live.filter(x=>Number(x&&x.price)>0&&premiumProductImage(x));
         items=exactIntent?useful.concat(items):items.concat(useful);
@@ -15652,8 +15657,14 @@ if(typeof v116RenderMarketplaceListing==='function'){
     return capExploreFamilies(items,2).slice(0,8);
   }
   async function loadExploreMore(initial=false){
-    if(exploreLoading||!exploreQueue.length||exploreLiveSearchQuery)return;
+    if(exploreLoading||exploreLiveSearchQuery)return;
+    if(!exploreQueue.length&&exploreEmptyBatches<3){
+      exploreVisitSalt++;
+      exploreQueue=featuredColdStart(.7,'explore-next-'+exploreVisitSalt).map(lane=>({id:'next_'+lane.cluster,queries:[lane.query],_forceLive:true}));
+    }
+    if(!exploreQueue.length)return;
     exploreLoading=true;const generation=exploreGeneration;
+    try{
     const pool=await v116GetPreviewPool(false);
     const batch=exploreQueue.splice(0,Math.min(initial?10:5,exploreQueue.length));
     const groups=await Promise.all(batch.map(config=>loadExploreConfig(config,pool,generation)));
@@ -15666,17 +15677,21 @@ if(typeof v116RenderMarketplaceListing==='function'){
       const key=exploreItemKey(item);if(!key||seenExplore.has(key)||!premiumProductImage(item)||Number(item.price)<=0)continue;
       seenExplore.add(key);incoming.push(item);
     }
-    const mixed=diversifyExploreItems(incoming);
+    batch.filter(config=>config._more!==false).forEach(config=>{config._forceLive=true;exploreQueue.push(config);});
+    exploreEmptyBatches=incoming.length?0:exploreEmptyBatches+1;
+    const mixed=sequencePersonalisedBatch(incoming,premiumDiscoverySections[0]?.items||[],incoming.length);
     if(initial&&exploreFilter==='for-you'){const lead=groups[0]?.find(item=>incoming.some(x=>exploreItemKey(x)===exploreItemKey(item)));if(lead){const index=mixed.findIndex(x=>exploreItemKey(x)===exploreItemKey(lead));if(index>0)mixed.unshift(...mixed.splice(index,1));}}
     const target=premiumDiscoverySections[0].items;target.push(...mixed);
     exploreLoading=false;renderExploreGrid({replace:false});cacheExploreBrowseState();
+    if(!incoming.length&&exploreQueue.length&&exploreEmptyBatches<3)setTimeout(()=>loadExploreMore(false),100);
+    }finally{if(generation===exploreGeneration)exploreLoading=false;}
   }
   function bindExploreScroll(){
     if(exploreBound)return;exploreBound=true;
     const scroll=document.querySelector('#search .premium-search-home-scroll');if(!scroll)return;
     scroll.addEventListener('scroll',()=>{
-      if(exploreFilter==='people'||exploreLiveSearchQuery)return;
-      if(scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<scroll.clientHeight*2.4)loadExploreMore(false);
+      if(exploreFilter==='people')return;
+      if(scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<scroll.clientHeight*2.4){if(exploreLiveSearchQuery)loadExploreLiveMore();else loadExploreMore(false);}
     },{passive:true});
   }
   function setExploreFilter(filter){
@@ -15772,6 +15787,8 @@ if(typeof v116RenderMarketplaceListing==='function'){
       const serverRanked=unique.some(item=>item._shoppingRank!=null&&Number.isFinite(Number(item._shoppingRank))||Number(item._findaiAuthorityRank)>0);
       if(!serverRanked&&typeof personalisedItemScore==='function')unique.sort((a,b)=>personalisedItemScore(b,clean,'search-live')-personalisedItemScore(a,clean,'search-live'));
       const display=(serverRanked?unique:diversifyExploreItems(capExploreFamilies(unique,3))).slice(0,90);
+      if(refresh&&exploreLivePage?.page>1)return;
+      exploreLivePage={query:clean,page:1,cursor:result.nextCursor,hasMore:result.hasMore,loading:false,emptyPages:0};
       premiumDiscoverySections=[{config:{id:'explore',title:'Search'},items:display}];exploreQueue=[];exploreLoading=false;seenExplore.clear();display.forEach(item=>{const key=exploreItemKey(item);if(key)seenExplore.add(key);});
       renderExploreGrid({replace:true});
       window.wishwaveAcceptSearchResults?.(clean,display);
@@ -15785,6 +15802,24 @@ if(typeof v116RenderMarketplaceListing==='function'){
       if(seq===exploreLiveSearchSeq)setExploreInterpreting(false);
     }catch(error){if(seq===exploreLiveSearchSeq)setExploreInterpreting(false);if(error&&error.name==='AbortError')return;}
   }
+  async function loadExploreLiveMore(){
+    const state=exploreLivePage,seq=exploreLiveSearchSeq;
+    if(!state||state.loading||!state.hasMore||state.query!==exploreLiveSearchQuery)return;
+    state.loading=true;
+    try{
+      for(let attempt=0;attempt<3&&state.hasMore;attempt++){
+        const result=await fetchProductResults(state.query,{page:state.page+1,cursor:state.cursor,limit:60,preserveExact:true,skipResolve:true});
+        if(seq!==exploreLiveSearchSeq||state.query!==exploreLiveSearchQuery||String(document.getElementById('q')?.value||'').trim()!==state.query)return;
+        state.page++;state.cursor=result.nextCursor;state.hasMore=result.hasMore;
+        const fresh=(result.data?.listings||[]).filter(item=>wishwaveAllowedListing(item)&&Number(item.price)>0&&premiumProductImage(item)&&!seenExplore.has(exploreItemKey(item)));
+        fresh.forEach(item=>seenExplore.add(exploreItemKey(item)));
+        premiumDiscoverySections[0].items.push(...fresh);renderExploreGrid({replace:false});
+        if(fresh.length)return;
+      }
+    }catch(_){/* Keep the cursor retryable after a network failure. */}
+    finally{state.loading=false;}
+  }
+  window.wishwaveLoadMoreExplore=function(){return exploreLiveSearchQuery?loadExploreLiveMore():loadExploreMore(false);};
   window.runPremiumLiveSearch=runExploreLiveSearch;
   window.handlePremiumExploreInput=function(value){
     clearTimeout(exploreLiveSearchTimer);const clean=String(value||'').trim();
@@ -15816,7 +15851,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     exploreInitialPromise=(async()=>{
       const previous=force&&root.querySelector('.premium-explore-grid')?premiumDiscoverySections: null;
       const generation=++exploreGeneration;if(force||!exploreLoadedFilter)exploreVisitSalt++;
-      exploreLoading=false;seenExplore.clear();premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:[]}];exploreQueue=exploreConfigs(exploreFilter);
+      exploreLoading=false;exploreEmptyBatches=0;seenExplore.clear();premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:[]}];exploreQueue=exploreConfigs(exploreFilter);
       if(force&&root.querySelector('.premium-explore-grid'))root.dataset.refreshPending='1';
       else {delete root.dataset.refreshPending;
       root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
@@ -29848,6 +29883,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
   let opening=false;
   let lastOpenedAt=0;
   let scrollRaf=0;
+  let moreReels=null;
 
   const overlay=()=>document.getElementById('searchDetailOverlay');
   const reelFeed=()=>document.getElementById('searchDetailFeed');
@@ -29934,13 +29970,14 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     }
     const c=countNode();
     if(c)c.textContent=(best+1)+' / '+cards.length;
+    if(best>=cards.length-5)moreReels?.();
   }
   function closeOwnedReel(){
     window.__wishwaveCancelReelOpen?.();
     const view=overlay(),feed=reelFeed();
     if(!view||!isOpen())return false;
     try{if(typeof finaliseReelTracking==='function')finaliseReelTracking();}catch(_){ }
-    if(feed)feed.onscroll=null;
+    if(feed)feed.onscroll=null;moreReels=null;
     // Hide the offscreen surface first; dismantle its cards after Search has painted.
     requestAnimationFrame(()=>requestAnimationFrame(()=>{if(feed&&!isOpen())feed.replaceChildren();}));
     view.classList.remove('show','explore-reel-mode','search-owned-v186','findai-v133-context-reel','findai-v133-dragging');
@@ -29989,7 +30026,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
 
     currentFeedItems=list.slice();
     currentFeedData=data||{personalised:true};
-    feedState={...(feedState||{}),source:'search-reel-v186',loading:false,hasMore:false,cursor:null};
+    feedState={...(feedState||{}),source:'search-reel-v186',loading:false,hasMore:true,cursor:null};
     activeReelIndex=chosen;
     try{if(reelObserver)reelObserver.disconnect();}catch(_){ }
 
@@ -30013,6 +30050,24 @@ body>.nav.findai-five-nav.premium-bottom-nav,
       if(tile&&tile.width>0)window.__wishwaveExpandSearchReel?.(view,tile,finishOpening);else finishOpening();
     }));
     const sessionItems=currentFeedItems;
+    let nextPage=2,loadingMore=false,emptyMore=0;
+    moreReels=async function(){
+      if(loadingMore||!isOpen()||currentFeedItems!==sessionItems||emptyMore>=3)return;
+      loadingMore=true;
+      try{
+        for(let attempt=0;attempt<3;attempt++){
+          const pool=await wishwaveWarmReelDiscovery(selected,nextPage++);
+          if(!isOpen()||currentFeedItems!==sessionItems)return;
+          const seen=new Set(sessionItems.map(keyOf));
+          const fresh=sequencePersonalisedBatch(pool.filter(x=>{const key=keyOf(x);if(seen.has(key))return false;seen.add(key);return true;}),sessionItems,36);
+          if(!fresh.length){emptyMore++;continue;}
+          emptyMore=0;const start=list.length;
+          list.push(...fresh);sessionItems.push(...fresh);
+          feed.insertAdjacentHTML('beforeend',fresh.map((item,i)=>renderReelCard(item,start+i,currentFeedData)).join(''));
+          if(c)c.textContent=(activeReelIndex+1)+' / '+list.length;return;
+        }
+      }finally{loadingMore=false;}
+    };
     wishwaveWarmReelDiscovery(selected).then(pool=>{
       if(!pool.length||!isOpen()||currentFeedItems!==sessionItems)return;
       // Protect the visible item and the next two cards, including gallery state.
