@@ -3244,13 +3244,12 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
   <section id="discover" class="screen active">
     <header class="discover-social-topbar" aria-label="FindAI home">
       <div class="discover-social-brand">WishWave</div>
-      <div class="discover-social-title">For You</div>
-      <button class="discover-notification-button" id="homeNotificationButton" type="button" onclick="openHomeNotifications()" aria-label="Notifications">
+      <div class="wishwave-home-feed-tabs" role="tablist" aria-label="Home feed"><button type="button" role="tab" aria-selected="true" data-home-feed="for-you" onclick="wishwaveSetHomeFeed('for-you')">For you</button><button type="button" role="tab" aria-selected="false" data-home-feed="following" onclick="wishwaveSetHomeFeed('following')">Following</button></div>
+      <button class="discover-notification-button" id="homeMessageButton" type="button" onclick="openMessagesTab()" aria-label="Messages">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M18 8a6 6 0 0 0-12 0c0 6.7-2.7 7-3 9h18c-.3-2-3-2.3-3-9"/>
-          <path d="M10 21h4"/>
+          <path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 9.1 9.1 0 0 1-4-.9L3 21l1.9-5.5a9.1 9.1 0 0 1-.9-4A8.5 8.5 0 0 1 12.5 3 8.5 8.5 0 0 1 21 11.5Z"/>
         </svg>
-        <span class="discover-notification-dot" id="homeNotificationDot" aria-hidden="true"></span>
+        <span class="nav-messages-badge" id="navMessagesBadge" aria-hidden="true"></span>
       </button>
     </header>
     <div class="feed-wrap discover-feed-wrap">
@@ -3395,7 +3394,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
     </div>
   </section>
 
-  <!-- Bottom navigation — Home / Search / Create / Messages / Profile -->
+  <!-- Bottom navigation — Home / Search / Create / Notifications / Profile -->
   <nav id="wishwaveMainNav" class="nav findai-five-nav premium-bottom-nav" aria-label="Main navigation">
     <button class="active" data-tab="discover" onclick="openForYou()" aria-label="Home">
       <span class="nav-icon-shell">
@@ -3415,10 +3414,10 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
       </span>
     </button>
 
-    <button data-tab="messages" onclick="openMessagesTab()" aria-label="Messages">
+    <button data-tab="notifications" onclick="wishwaveOpenNotificationTab()" aria-label="Notifications">
       <span class="nav-icon-shell">
-        <svg class="nav-messages-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 9.1 9.1 0 0 1-4-.9L3 21l1.9-5.5a9.1 9.1 0 0 1-.9-4A8.5 8.5 0 0 1 12.5 3 8.5 8.5 0 0 1 21 11.5Z"/></svg>
-        <span class="nav-messages-badge" id="navMessagesBadge" aria-hidden="true"></span>
+        <svg class="nav-notifications-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 6.7-2.7 7-3 9h18c-.3-2-3-2.3-3-9M10 21h4"/></svg>
+        <span class="nav-messages-badge" id="navNotificationsBadge" aria-hidden="true"></span>
       </span>
     </button>
 
@@ -3598,7 +3597,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
         </div>
 
         <div class="social-profile-actions">
-          <button type="button" onclick="openProfileEdit()">Edit profile</button>
+          <button type="button" class="wishwave-edit-profile" onclick="openProfileEdit()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5 4 4M4 20l4-1 12-12a2.8 2.8 0 0 0-4-4L4 15v5Z"/></svg><span>Edit profile</span></button>
           <button type="button" class="wishwave-profile-dashboard" onclick="openWishWaveDashboard()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 20v-7M12 20V4M19 20V9"/></svg><span>Dashboard</span></button>
         </div>
 
@@ -17316,7 +17315,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
   };
 
   /* ---------- 4. Instagram-like direct swipe navigation v132 ---------- */
-  const tabs=['discover','search','create','messages','profile'];
+  const tabs=['discover','search','create','notifications','profile'];
   let swipe=null,swipeLocked=false,raf=0,settleTimer=0,settling=null,cleanupFrame=0;
   function activeTab(){return document.getElementById('createListingScreen')?.classList.contains('show')?'create':String(document.body.dataset.activeTab||'discover');}
   function idx(tab){return tabs.indexOf(tab);}
@@ -17333,6 +17332,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
       }
       return openSearchHome(false);
     }
+    if(tab==='notifications')return wishwaveOpenNotificationTab();
     if(tab==='messages')return openMessagesTab();
     if(tab==='profile')return openProfile();
   }
@@ -17517,7 +17517,7 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
 </style>
 <script id="findai-v133-navigation-performance-script">
 (function(){
-  const NAV_TABS=['discover','search','messages','profile'];
+  const NAV_TABS=['discover','search','notifications','profile'];
   const SEARCH_CACHE_KEY='findai_v133_search_cache';
   const PROFILE_CACHE_PREFIX='findai_v133_profile_cache:';
   const now=()=>Date.now();
@@ -33926,6 +33926,133 @@ html body .app:has(#wwCheckout.show) #wishwaveMainNav{visibility:visible!importa
  document.getElementById('wishwaveMainNav')?.addEventListener('click',()=>{if(root.classList.contains('show'))closeAppMarketplaceListing();});
 })();
 </script>
+
+
+<style id="wishwave-social-reference-style">
+/* Selected chat and settings references, with the existing controls preserved. */
+html:not(.findai-light) body #appThemeOverlay.findai-settings-full .app-theme-sheet,html:not(.findai-light) body #appThemeOverlay .wishwave-reference-settings{background:#17181a!important;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone){--chat-bg:#17181a;--chat-in:#2b2c30;--chat-line:#33353a;--chat-ink:#f5f5f6;background:var(--chat-bg)!important;color:var(--chat-ink)!important;}
+html.findai-light body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone){--chat-bg:#fff;--chat-in:#eef0f2;--chat-line:#e3e5e8;--chat-ink:#141619;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone).chat-open :is(.app-mp-header,.app-mp-inbox-body,.app-mp-chat,.app-mp-messages,.app-mp-typing){background:var(--chat-bg)!important;color:var(--chat-ink)!important;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone).chat-open .app-mp-header{height:calc(var(--safe-top,0px) + 76px)!important;min-height:calc(var(--safe-top,0px) + 76px)!important;padding:var(--safe-top,0px) 14px 0 8px!important;display:grid!important;grid-template-columns:36px minmax(0,1fr) 34px!important;gap:10px!important;border-bottom:1px solid var(--chat-line)!important;}
+html body .app :is(#appMpInboxTitle,[data-inbox-preview-id="appMpInboxTitle"]) .findai-chat-title-person{gap:12px!important;}
+html body .app :is(#appMpInboxTitle,[data-inbox-preview-id="appMpInboxTitle"]) .findai-chat-title-avatar{position:relative!important;width:44px!important;height:44px!important;min-width:44px!important;overflow:visible!important;background:var(--chat-in)!important;}
+html body .app :is(#appMpInboxTitle,[data-inbox-preview-id="appMpInboxTitle"]) .findai-chat-title-avatar img{width:100%!important;height:100%!important;border-radius:50%!important;object-fit:cover!important;}
+.wishwave-chat-identity-copy{min-width:0;display:flex;flex-direction:column;gap:3px;}
+html body .app :is(#appMpInboxTitle,[data-inbox-preview-id="appMpInboxTitle"]) .findai-chat-title-name{font-size:17px!important;font-weight:600!important;line-height:1.2!important;color:var(--chat-ink)!important;}
+.wishwave-chat-presence{font-size:13px;font-weight:400;color:#a4a7ad;}
+.wishwave-chat-online-dot{position:absolute;right:-1px;bottom:0;width:10px;height:10px;border:2px solid var(--chat-bg);border-radius:50%;background:#42ce79;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone).chat-open .app-mp-header-spacer{display:flex!important;align-items:center!important;justify-content:center!important;width:34px!important;min-width:34px!important;}
+.wishwave-chat-menu{width:34px;height:38px;border:0;background:none;color:inherit;display:grid;place-items:center;}
+.wishwave-chat-menu svg{width:23px;height:23px;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone).chat-open :is(.app-mp-chat-head,.findai-v169-chat-profile){display:none!important;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone).chat-open .app-mp-chat{display:flex!important;flex-direction:column!important;min-height:0!important;flex:1!important;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .app-mp-messages{flex:1!important;min-height:0!important;overflow-y:auto!important;padding:24px 20px 12px!important;display:flex!important;flex-direction:column!important;gap:0!important;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .findai-v173-message-row{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:5px!important;margin:0 0 20px!important;flex-shrink:0;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .findai-v173-message-row.outgoing{align-items:flex-end!important;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .findai-v173-message-avatar{display:none!important;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .app-mp-bubble{max-width:78%!important;padding:12px 15px!important;border:0!important;border-radius:21px 21px 21px 5px!important;background:var(--chat-in)!important;color:var(--chat-ink)!important;font-size:15px!important;line-height:1.4!important;font-weight:400!important;box-shadow:none!important;margin:0!important;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .app-mp-bubble.mine{background:#f1f1f2!important;color:#141518!important;border-radius:21px 21px 5px 21px!important;margin-left:auto!important;}
+html.findai-light body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .app-mp-bubble.mine{background:#202226!important;color:#fff!important;}
+.wishwave-chat-timestamp{font-size:11px;color:#999da5;line-height:1.3;padding:0 1px;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .app-mp-bubble.has-image:not(.has-shared-item){padding:0!important;background:transparent!important;border-radius:10px!important;overflow:visible!important;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .app-mp-message-image{border-radius:10px!important;max-height:250px!important;object-fit:cover!important;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone).chat-open .app-mp-compose{display:flex!important;gap:10px!important;align-items:flex-end!important;background:transparent!important;border:0!important;border-radius:0!important;box-shadow:none!important;margin:0!important;padding:10px 16px calc(12px + var(--safe-bottom,0px))!important;min-height:64px!important;flex-shrink:0!important;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .app-mp-message-field{flex:1!important;min-width:0!important;background:var(--chat-in)!important;border:1px solid var(--chat-line)!important;border-radius:24px!important;overflow:hidden!important;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .app-mp-compose textarea{background:transparent!important;color:var(--chat-ink)!important;padding:11px 13px!important;font-size:15px!important;min-height:42px!important;border:0!important;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .app-mp-compose-plus{width:42px!important;height:42px!important;border-radius:50%!important;background:var(--chat-in)!important;color:var(--chat-ink)!important;border:1px solid var(--chat-line)!important;flex:0 0 42px!important;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .app-mp-compose-send{width:30px!important;height:42px!important;border:0!important;background:transparent!important;color:var(--chat-ink)!important;flex:0 0 30px!important;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .app-mp-compose-send svg{width:23px!important;height:23px!important;}
+html body #discover .discover-social-topbar{height:calc(var(--safe-top,0px) + 94px)!important;grid-template-columns:1fr auto!important;grid-template-rows:46px 40px!important;align-content:start!important;}
+html body #discover .discover-social-brand{grid-row:1;grid-column:1;}
+html body #discover #homeMessageButton{grid-row:1;grid-column:2;position:relative!important;}
+html body #discover .wishwave-home-feed-tabs{grid-row:2;grid-column:1/-1;justify-self:center;display:flex;gap:25px;pointer-events:auto;}
+.wishwave-home-feed-tabs button{position:relative;border:0;background:none;color:#b7bac0;font:inherit;font-size:15px;font-weight:500;padding:9px 0 10px;cursor:pointer;}
+.wishwave-home-feed-tabs button[aria-selected="true"]{color:#fff;}
+.wishwave-home-feed-tabs button[aria-selected="true"]::after{content:'';position:absolute;bottom:1px;left:0;right:0;height:2px;background:currentColor;border-radius:2px;}
+html.findai-light .wishwave-home-feed-tabs button[aria-selected="true"]{color:#141619;}
+html body #wishwaveMainNav button[data-tab="notifications"] .nav-icon-shell{background:none!important;border:0!important;box-shadow:none!important;}
+html body #wishwaveMainNav button[data-tab="notifications"].active svg{fill:currentColor!important;}
+.wishwave-header-message{position:relative;border:0;background:none;color:inherit;width:38px;height:38px;display:grid;place-items:center;flex:0 0 38px;}
+.wishwave-header-message svg{width:25px;height:25px;}
+html body .wishwave-edit-profile{display:flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;}
+.wishwave-edit-profile svg{width:16px;height:16px;flex:0 0 auto;}
+html body #appThemeOverlay .wishwave-reference-settings{padding:0 20px 28px!important;}
+html body #appThemeOverlay .wishwave-reference-settings .findai-settings-head{padding-left:0!important;padding-right:0!important;}
+html body #appThemeOverlay .wishwave-reference-settings .findai-settings-search{margin:2px 0 22px!important;border-radius:12px!important;min-height:44px!important;background:var(--surface,#202226)!important;border:1px solid var(--line,#303238)!important;}
+html body #appThemeOverlay .wishwave-reference-settings .findai-settings-account-card{padding:0 0 24px!important;margin:0!important;border-bottom:1px solid var(--line,#303238)!important;border-radius:0!important;gap:18px!important;cursor:pointer;}
+html body #appThemeOverlay .wishwave-reference-settings .findai-settings-account-avatar{width:76px!important;height:76px!important;min-width:76px!important;border-radius:50%!important;overflow:hidden!important;}
+html body #appThemeOverlay .wishwave-reference-settings .findai-settings-account-copy b{font-size:22px!important;font-weight:600!important;}
+html body #appThemeOverlay .wishwave-reference-settings .findai-settings-account-copy span{font-size:14px!important;margin-top:5px!important;}
+html body #appThemeOverlay .wishwave-reference-settings .findai-settings-section{padding:15px 0 12px!important;margin:0!important;background:transparent!important;border-radius:0!important;border:0!important;border-bottom:1px solid var(--line,#303238)!important;}
+html body #appThemeOverlay .wishwave-reference-settings .findai-settings-section-title{font-size:16px!important;font-weight:600!important;text-transform:none!important;letter-spacing:0!important;padding:5px 0 10px!important;}
+html body #appThemeOverlay .wishwave-reference-settings .findai-settings-row{min-height:56px!important;padding:10px 0!important;border-bottom:1px solid var(--line,#303238)!important;grid-template-columns:28px minmax(0,1fr) 18px!important;gap:15px!important;border-radius:0!important;}
+html body #appThemeOverlay .wishwave-reference-settings .findai-settings-row:last-child{border-bottom:0!important;}
+html body #appThemeOverlay .wishwave-reference-settings .findai-settings-row b{font-size:16px!important;font-weight:400!important;}
+html body #appThemeOverlay .wishwave-reference-settings .findai-settings-row small{display:none!important;}
+html body #appThemeOverlay .wishwave-reference-settings .findai-settings-row svg{width:23px!important;height:23px!important;}
+html body #appThemeOverlay .wishwave-reference-settings .findai-settings-row .chev{width:17px!important;height:17px!important;}
+html body #appThemeOverlay .wishwave-reference-settings .wishwave-settings-theme{margin:2px 0 12px 43px;}
+html body #appThemeOverlay .wishwave-reference-settings .wishwave-settings-theme .app-theme-choice{font-size:14px!important;font-weight:500!important;height:38px!important;}
+html body #appThemeOverlay .wishwave-reference-settings .wishwave-settings-theme .app-theme-choice.active{background:#f5f5f6!important;color:#101114!important;}
+html.findai-light body #appThemeOverlay .wishwave-reference-settings .wishwave-settings-theme .app-theme-choice.active{background:#202226!important;color:#fff!important;}
+</style>
+<script id="wishwave-social-reference-script">
+(function(){
+ 'use strict';
+ const svg=(paths)=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+paths+'</svg>';
+ const bubbleIcon=svg('<path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5 9.1 9.1 0 0 1-4-.9L3 21l1.9-5.5a9.1 9.1 0 0 1-.9-4A8.5 8.5 0 0 1 12.5 3 8.5 8.5 0 0 1 21 11.5Z"/>');
+ function messageButton(){const b=document.createElement('button');b.type='button';b.className='wishwave-header-message';b.setAttribute('aria-label','Messages');b.innerHTML=bubbleIcon;b.onclick=()=>openMessagesTab();return b;}
+ const notificationScreen=document.createElement('section');notificationScreen.id='notifications';notificationScreen.className='screen';notificationScreen.setAttribute('aria-label','Notifications');document.querySelector('.app').appendChild(notificationScreen);
+ const notificationOpen=window.openHomeNotifications,notificationClose=window.closeHomeNotifications;
+ window.wishwaveOpenNotificationTab=function(){if(document.getElementById('findaiNotificationPanel')?.classList.contains('show')){setMainNavActive('notifications');return;}go('notifications');document.body.dataset.activeTab='notifications';setMainNavActive('notifications');const result=notificationOpen();const head=document.querySelector('#findaiNotificationPanel .findai-notification-panel-head');if(head&&!head.querySelector('.wishwave-header-message'))head.appendChild(messageButton());return result;};
+ window.openHomeNotifications=window.wishwaveOpenNotificationTab;
+ window.closeHomeNotifications=function(){const was=document.body.dataset.activeTab==='notifications';const out=notificationClose.apply(this,arguments);if(was)openForYou();return out;};
+ const previousGo=window.go;
+ window.go=function(tab){if(tab!=='notifications')notificationClose();return previousGo.apply(this,arguments);};
+ const messagesOpen=window.openMessagesTab;
+ let messageOrigin='discover';
+ window.openMessagesTab=function(){if(document.body.dataset.activeTab!=='messages')messageOrigin=document.body.dataset.activeTab||'discover';notificationClose();return messagesOpen.apply(this,arguments);};
+ const inboxBack=window.appMpInboxBack;
+ window.appMpInboxBack=function(){if(document.getElementById('appMpInbox')?.classList.contains('chat-open'))return inboxBack.apply(this,arguments);if(messageOrigin==='notifications')return wishwaveOpenNotificationTab();if(messageOrigin==='profile')return openProfile();if(messageOrigin==='search')return openSearchHome(false);return openForYou();};
+ window.setHomeNotificationState=function(count){const unread=Math.max(0,Number(count)||0),button=document.querySelector('#wishwaveMainNav [data-tab="notifications"]'),dot=document.getElementById('navNotificationsBadge');if(button){button.classList.toggle('has-unread',unread>0);button.setAttribute('aria-label',unread?'Notifications — '+unread+' unread':'Notifications');}if(dot){dot.classList.toggle('show',unread>0);dot.style.display=unread?'block':'none';}};
+ const oldBadge=window.appRefreshMarketplaceBadge;
+ if(oldBadge)window.appRefreshMarketplaceBadge=async function(){const out=await oldBadge.apply(this,arguments);const badge=document.getElementById('navMessagesBadge');document.querySelectorAll('.wishwave-header-message').forEach(b=>b.classList.toggle('has-unread',!!badge?.classList.contains('show')));return out;};
+ const profileHeader=document.querySelector('#profileSignedIn .social-profile-topbar');if(profileHeader)profileHeader.insertBefore(messageButton(),profileHeader.querySelector('.social-settings-button'));
+ const searchHeader=document.querySelector('.premium-search-home-header');if(searchHeader){const top=document.createElement('div');top.className='wishwave-search-social-header';top.innerHTML='<b>WishWave</b>';top.appendChild(messageButton());searchHeader.prepend(top);}
+ // Keep the original searchable settings catalogue and pane actions.
+ const settingsHome=window.findaiOpenSettingsHome;
+ window.findaiOpenSettingsHome=function(){const out=settingsHome.apply(this,arguments),root=document.querySelector('#appThemeOverlay .findai-settings-page');if(!root)return out;root.classList.add('wishwave-reference-settings');const heading=root.querySelector('.findai-settings-head');if(heading){const title=heading.querySelector('b,h2,h1');if(title)title.textContent='Settings';heading.querySelector(':scope > span')?.remove();heading.appendChild(messageButton());}const sections=[...root.querySelectorAll('.findai-settings-section')];sections.forEach((section,i)=>{const title=section.querySelector('.findai-settings-section-title');if(title)title.textContent=['Account','Preferences','Help'][i]||title.textContent;});const account=root.querySelector('.findai-settings-account-card');if(account){account.setAttribute('role','button');account.tabIndex=0;account.setAttribute('aria-label','Edit profile');account.onclick=()=>{closeAppSettings();openProfileEdit();};account.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();account.click();}};}const appearance=[...root.querySelectorAll('.findai-settings-row')].find(r=>r.textContent.includes('Appearance'));if(appearance&&sections[1]){sections[1].appendChild(appearance);const choices=document.createElement('div');choices.className='wishwave-settings-theme app-theme-segment';choices.setAttribute('aria-label','Appearance');choices.innerHTML=['dark','light','system'].map(t=>'<button type="button" class="app-theme-choice" data-app-theme-choice="'+t+'" onclick="setAppTheme(\''+t+'\')">'+t[0].toUpperCase()+t.slice(1)+'</button>').join('');sections[1].appendChild(choices);}applyAppTheme();return out;};
+ // Preserve conversation metadata for offers while removing the visual item strip.
+ const messageHeader=window.appMpRenderMessageHeader;
+ window.appMpRenderMessageHeader=function(c,presence){const out=messageHeader.apply(this,arguments),party=appMpCurrentConversation||c,title=document.getElementById('appMpInboxTitle');if(!party||!title)return out;const copy=document.createElement('span');copy.className='wishwave-chat-identity-copy';const name=title.querySelector('.findai-chat-title-name');if(name)copy.appendChild(name);const status=document.createElement('span');status.className='wishwave-chat-presence';status.textContent=presence?appMpPresenceText(presence):'Private conversation';copy.appendChild(status);const person=title.querySelector('.findai-chat-title-person');if(person)person.appendChild(copy);if(presence?.online){const dot=document.createElement('span');dot.className='wishwave-chat-online-dot';title.querySelector('.findai-chat-title-avatar')?.appendChild(dot);}const head=document.getElementById('appMpChatHead');if(head)head.replaceChildren();const spacer=document.querySelector('#appMpInbox .app-mp-header-spacer');if(spacer){spacer.innerHTML='<button type="button" class="wishwave-chat-menu" onclick="wishwaveChatMenu()" aria-label="Conversation options">'+svg('<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>')+'</button>';}return out;};
+ window.wishwaveChatMenu=function(){openAppMpSheet('Conversation','<div class="app-mp-actions"><button class="app-mp-action tertiary" onclick="closeAppMpSheet();findaiOpenCurrentChatProfileV178()">View profile</button>'+(appMpCurrentConversation?.listingId?'<button class="app-mp-action tertiary" onclick="closeAppMpSheet();appMpOpenConversationListing()">View listing</button>':'')+'</div>');};
+ const timeline=window.appMpMessageTimeline;
+ window.appMpMessageTimeline=function(messages){const t=document.createElement('template');t.innerHTML=timeline.apply(this,arguments);const map=new Map((messages||[]).filter(Boolean).map(m=>[String(m.id||''),m]));t.content.querySelectorAll('.findai-v173-message-row').forEach(row=>{const bubble=row.querySelector('[data-message-id]'),m=map.get(bubble?.dataset.messageId);if(!m?.createdAt)return;const time=document.createElement('time');time.className='wishwave-chat-timestamp';time.dateTime=m.createdAt;time.textContent=appMpMessageTime(m.createdAt);row.appendChild(time);});return t.innerHTML;};
+ // Separate Following from discovery; guard against background discovery refreshes.
+ let feedMode='for-you',request=0,homeSnapshot=null,followingItems=null;
+ const personalRender=window.renderPersonalisedFeed;
+ window.renderPersonalisedFeed=function(items,options){if(feedMode==='following')return;return personalRender.apply(this,arguments);};
+ function setFeedSelection(){document.getElementById('discover').dataset.homeFeed=feedMode;document.querySelectorAll('[data-home-feed]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.homeFeed===feedMode)));}
+ window.wishwaveSetHomeFeed=async function(mode,refresh=false){mode=mode==='following'?'following':'for-you';if(mode==='following'&&!appMpRequireLogin())return;if(mode===feedMode&&!refresh)return;if(mode==='following'&&feedMode!=='following'){homeSnapshot={items:[...currentFeedItems],data:currentFeedData,state:{...feedState},scroll:document.getElementById('personalFeed').scrollTop};}feedMode=mode;const id=++request;setFeedSelection();go('discover');const feed=document.getElementById('personalFeed');if(mode==='for-you'){if(homeSnapshot?.items.length){Object.assign(feedState,homeSnapshot.state);feedState.source='personalised';personalRender(homeSnapshot.items,{writeCache:false});feed.scrollTop=homeSnapshot.scroll;}else{feedState.source='personalised';loadPersonalisedFeed({forceNetwork:false});}return;}feedState.source='following';feed.innerHTML='<div class="app-mp-loading"><div><div class="app-mp-spinner"></div>Loading followed listings</div></div>';try{const data=await marketplaceFetch('/marketplace/following/feed?limit=60',{method:'GET'});if(id!==request||feedMode!=='following')return;const items=(Array.isArray(data.items)?data.items:[]).filter(wishwaveAllowedListing);followingItems=items;currentFeedItems=items;currentFeedData={following:true};feedState.source='following';activeReelIndex=0;if(!items.length){feed.innerHTML='<div class="feed-status"><div><b>No listings from people you follow yet</b>Follow sellers to see their new listings here.</div></div>';return;}feed.innerHTML=items.map((item,index)=>renderReelCard(item,index,currentFeedData)).join('');feed.scrollTop=0;attachReelObserver();beginReelTracking(0);preloadPersonalisedImages(0,8);}catch(e){if(id!==request)return;feed.innerHTML='<div class="feed-status"><div><b>Could not load followed listings</b>'+escapeHTML(e.message||'Try again in a moment.')+'</div></div>';}};
+ const recentIntent=window.wishwaveApplyRecentSearchToHome;if(recentIntent)window.wishwaveApplyRecentSearchToHome=function(){if(feedMode==='following')return;return recentIntent.apply(this,arguments);};
+
+ const homeOpen=window.openForYou;
+ window.openForYou=function(){if(feedMode!=='following')return homeOpen.apply(this,arguments);go('discover');if(followingItems){currentFeedItems=followingItems;currentFeedData={following:true};feedState.source='following';const feed=document.getElementById('personalFeed');feed.innerHTML=followingItems.length?followingItems.map((item,index)=>renderReelCard(item,index,currentFeedData)).join(''):'<div class="feed-status"><div><b>No listings from people you follow yet</b>Follow sellers to see their new listings here.</div></div>';activeReelIndex=0;attachReelObserver();if(followingItems.length)beginReelTracking(0);}return;};
+ const refreshPage=window.wishwaveRefreshVisiblePage;
+ if(refreshPage)window.wishwaveRefreshVisiblePage=function(key){if((key==='discover'||!key&&document.body.dataset.activeTab==='discover')&&feedMode==='following')return wishwaveSetHomeFeed('following',true);return refreshPage.apply(this,arguments);};
+ setFeedSelection();setHomeNotificationState(typeof appNotificationUnread==='number'?appNotificationUnread:0);
+})();
+</script>
+<style id="wishwave-social-header-layout">
+html body #profileSignedIn .social-profile-topbar>div:first-child{flex:1!important;}
+html body #discover #navMessagesBadge{font-size:0!important;width:6px!important;min-width:6px!important;height:6px!important;top:4px!important;right:2px!important;}
+html body #appThemeOverlay .wishwave-reference-settings .findai-settings-head{grid-template-columns:38px 1fr 38px!important;}
+.wishwave-search-social-header{display:flex;align-items:center;justify-content:space-between;padding:0 0 10px;color:inherit;}
+.wishwave-search-social-header b{font-size:22px;font-weight:650;letter-spacing:-.4px;}
+.wishwave-header-message.has-unread::after{content:'';position:absolute;right:4px;top:4px;width:6px;height:6px;border-radius:50%;background:#ff3045;}
+html body #appThemeOverlay .wishwave-reference-settings .findai-settings-head .wishwave-header-message{margin-left:auto!important;}
+</style>
 
 </body>
 </html>
