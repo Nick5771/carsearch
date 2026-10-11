@@ -6966,6 +6966,7 @@ function renderReelCard(item,index,data){
           ${shipping?`<div class="listing-meta ${/^free\s+shipping(?:\s*·|$)/i.test(shipping)?'findai-free-shipping':''}">${wishwave?wishwaveDeliveryMarkup(shipping):escapeHTML(shipping)}</div>`:''}
         </div>
       </div>
+      ${wishwavePromotionButton(item)}
       ${index===0 && feedState.source!=='personalised' ? renderFirstListingMarketStrip(currentFeedItems,data) : ''}
     </div>
   </article>`;
@@ -8446,6 +8447,7 @@ function renderAppMarketplaceListing(){
     <div class="app-mp-seller"><div class="app-mp-avatar">${findaiAvatarImgMarkup(seller.avatarUrl||listing.sellerAvatar||'',sellerName)}</div><div class="app-mp-seller-copy"><b>${escapeHTML(sellerName)}</b>${reviewCount?`<span class="app-mp-seller-rating">★ ${rating.toFixed(1)} (${reviewCount})${sold?` · ${sold} sold`:``}</span>`:(sold?`<span>${sold} sold</span>`:``)}<span class="app-mp-seller-member">${escapeHTML(joined)}</span></div><button class="app-mp-message-pill" onclick="openAppMarketplaceMessages()">${viewer.isSeller?'Messages':'Message'}</button></div>
     <div class="app-mp-price">${escapeHTML(appMpMoney(listing.price,listing.currency))}</div><div class="app-mp-price-note">${listing.deliveryMode==='pickup'?'Arrange pickup with the seller':listing.deliveryMode==='both'?'Shipping or pickup available':'Secure checkout through WishWave'}</div>
     <div class="app-mp-facts"><div class="app-mp-fact"><span>Condition</span><b>${escapeHTML(listing.condition||'Not specified')}</b></div><div class="app-mp-fact"><span>Delivery</span><b>${escapeHTML(getShippingText(listing))}</b></div><div class="app-mp-fact"><span>Availability</span><b>${escapeHTML(appMpStatus(listing.status))}</b></div></div>
+    ${viewer.isSeller?wishwavePromotionButton(listing):''}
     <div class="app-mp-actions"><button class="app-mp-action primary" ${!available||viewer.isSeller?'disabled':''} onclick="appMpBuy()">${viewer.isSeller?'Your listing':String(listing.status)==='reserved'?'Reserved':listing.deliveryMode==='pickup'?'Arrange pickup':'Buy It Now'}</button><button class="app-mp-action secondary" ${!offers?'disabled':''} onclick="openAppMarketplaceOfferInMessages()">${viewer.isSeller?'Manage offers':'Make offer'}</button><button class="app-mp-action tertiary" onclick="openAppMarketplaceMessages()">${viewer.isSeller?'Manage messages':'Message seller'}</button></div>
     <div class="app-mp-protection"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l8 4v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V7l8-4z"/><path d="M8.5 12.5l2.2 2.2 4.8-5"/></svg><div><b>FindAI Buyer Protection</b><span>Pay and message inside FindAI and use tracked delivery to remain eligible for protection.</span></div></div>
     <section class="app-mp-section"><h3>About this item</h3><div class="app-mp-description">${escapeHTML(listing.description||'The seller has not added a description yet.')}</div></section>
@@ -33134,6 +33136,61 @@ html body #wishwaveMainNav button[data-tab].active .nav-search-icon{stroke-width
 html.findai-light body #wishwaveMainNav button[data-tab]{color:#737984!important;}
 html.findai-light body #wishwaveMainNav button[data-tab].active{color:#111214!important;}
 </style>
+
+
+<style id="wishwave-promotion-style">
+html body .wishwave-promote-button{display:block!important;width:100%!important;height:48px!important;margin:14px 0 0!important;border:0!important;border-radius:13px!important;background:#fff!important;color:#000!important;font-size:15px!important;font-weight:750!important;text-shadow:none!important;cursor:pointer;}
+html body .reel-card:has(.wishwave-promote-button) .reel-actions-rail{bottom:76px!important;}
+#wwPromotion{position:fixed;inset:0;z-index:25000;background:#000;color:#fff;overflow-y:auto;overscroll-behavior:contain;font-family:inherit;}
+#wwPromotion[hidden]{display:none!important;}
+#wwPromotion *{box-sizing:border-box;}
+#wwPromotion [hidden]{display:none!important;}
+.wwp-wrap{max-width:520px;margin:auto;padding:calc(env(safe-area-inset-top,0px) + 12px) 22px calc(env(safe-area-inset-bottom,0px) + 24px);}
+.wwp-head{display:flex;align-items:center;gap:20px;margin-bottom:24px;}.wwp-head h1{font-size:22px;margin:0;}.wwp-back{background:none;color:#fff;border:0;font-size:30px;width:36px;height:44px;cursor:pointer;}
+.wwp-product{display:flex;align-items:center;gap:14px;padding-bottom:24px;border-bottom:1px solid #303030;}.wwp-product img{width:68px;height:68px;object-fit:contain;background:#eee;border-radius:12px;}.wwp-product b{font-size:17px;display:block;}.wwp-muted{color:#aaa;font-size:13px;line-height:1.5;}.wwp-product p{margin:5px 0 0;}
+.wwp-reach{padding:24px 0 12px;}.wwp-reach strong{display:block;font-size:34px;letter-spacing:-1px;margin:7px 0;}.wwp-description{font-size:16px;line-height:1.5;margin:10px 0 26px;}
+.wwp-section{margin:25px 0;}.wwp-section h2{font-size:17px;margin:0 0 14px;}.wwp-budget-row{display:flex;justify-content:space-between;align-items:center;}.wwp-budget-row input{width:105px;background:#202020;color:#fff;border:1px solid #444;border-radius:12px;padding:12px;font:700 18px inherit;}
+#wwpBudgetSlider{width:100%;accent-color:#fff;margin:18px 0 9px;}.wwp-limits{display:flex;justify-content:space-between;color:#aaa;font-size:12px;}.wwp-options{display:flex;gap:8px;}.wwp-options button{flex:1;min-height:44px;border:1px solid #383838;border-radius:12px;background:#111;color:#fff;font:600 13px inherit;cursor:pointer;}.wwp-options button[aria-pressed="true"]{background:#fff;color:#000;border-color:#fff;}
+.wwp-audiences button{padding:15px 12px;text-align:left;}.wwp-audiences small{display:block;font-size:12px;font-weight:400;margin-top:6px;line-height:1.4;opacity:.7;}.wwp-custom{display:grid;gap:10px;margin-top:14px;}.wwp-custom input,.wwp-custom select{width:100%;background:#151515;color:#fff;border:1px solid #444;border-radius:10px;padding:12px;font:inherit;}.wwp-custom label{font-size:13px;color:#aaa;}.wwp-footer{border-top:1px solid #303030;padding-top:20px;margin-top:26px;}.wwp-footer p{margin:0 0 12px;}.wwp-footer button{width:100%;height:50px;border:0;border-radius:13px;background:#fff;color:#000;font-size:16px;font-weight:750;cursor:pointer;}.wwp-footer small{display:block;text-align:center;margin-top:12px;color:#aaa;font-size:12px;}.wwp-review dl{display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:14px;}.wwp-review dd{margin:0;text-align:right;}.wwp-notice{padding:16px;background:#151515;border-radius:12px;color:#bbb;line-height:1.5;font-size:14px;}
+</style>
+<section id="wwPromotion" hidden role="dialog" aria-modal="true" aria-label="Promote listing"><div class="wwp-wrap" id="wwpContent"></div></section>
+<script id="wishwave-promotion">
+(function(){
+  let state=null,returnFocus=null;
+  const root=document.getElementById('wwPromotion'),content=document.getElementById('wwpContent');
+  function owned(item){
+    if(!item||!getAccountProfile()||!isFindAIListing(item)||String(item.status||'active')!=='active')return false;
+    const id=String(appMpId(item)||'');if(!id)return false;
+    return !!profileOwnedListingById(id);
+  }
+  window.wishwavePromotionButton=function(item){return owned(item)?'<button type="button" class="wishwave-promote-button" data-promotion-id="'+escapeAttr(appMpId(item))+'" onclick="event.preventDefault();event.stopPropagation();openWishWavePromotion(this.dataset.promotionId)">Promote listing</button>':'';};
+  function key(){return 'wishwave_promotion_draft_v1:'+getAccountProfile().email+':'+appMpId(state.item);}
+  function save(){try{localStorage.setItem(key(),JSON.stringify({budget:state.budget,days:state.days,audience:state.audience,keywords:state.keywords,location:state.location}));return true;}catch(_){return false;}}
+  function summary(){return 'A$'+state.budget+' total · '+state.days+' day'+(state.days===1?'':'s');}
+  function product(){const item=state.item,img=item.image||(item.images||[])[0]||'';return '<div class="wwp-product">'+(img?'<img src="'+escapeAttr(img)+'" alt="" referrerpolicy="no-referrer">':'')+'<div><b>'+escapeHTML(item.title||'Your listing')+'</b><p class="wwp-muted">'+escapeHTML(appMpMoney(item.price,item.currency||'AUD'))+' · Your listing</p></div></div>';}
+  function header(title){return '<header class="wwp-head"><button type="button" class="wwp-back" aria-label="Back">‹</button><h1>'+title+'</h1></header>';}
+  function render(){
+    content.innerHTML=header('Promote listing')+product()+'<div class="wwp-reach"><span class="wwp-muted">Estimated views</span><strong>Coming soon</strong><span class="wwp-muted">Reach estimates will reflect available shoppers.</span></div><p class="wwp-description">Reach shoppers searching for products like yours.</p><div class="wwp-section"><div class="wwp-budget-row"><h2>Total budget</h2><label>A$ <input id="wwpBudget" type="number" min="5" max="100" step="1" aria-label="Total budget in Australian dollars" value="'+state.budget+'"></label></div><input id="wwpBudgetSlider" type="range" min="5" max="100" step="1" aria-label="Adjust total budget" value="'+state.budget+'"><div class="wwp-limits"><span>A$5</span><span>A$100</span></div></div><div class="wwp-section"><h2>Duration</h2><div class="wwp-options" id="wwpDays">'+[1,3,7,'custom'].map(d=>'<button type="button" data-days="'+d+'" aria-pressed="'+(d===state.days||d==='custom'&&![1,3,7].includes(state.days))+'">'+(d==='custom'?'Custom':d+' day'+(d===1?'':'s'))+'</button>').join('')+'</div><div class="wwp-custom" '+([1,3,7].includes(state.days)?'hidden':'')+' id="wwpCustomDays"><label>Number of days<input id="wwpDayInput" type="number" min="1" max="30" value="'+state.days+'"></label></div></div><div class="wwp-section"><h2>Audience</h2><div class="wwp-options wwp-audiences">'+['smart','custom'].map(a=>'<button type="button" data-audience="'+a+'" aria-pressed="'+(state.audience===a)+'">'+(a==='smart'?'Smart match<small>Similar searches &amp; interests</small>':'Custom<small>Choose your audience</small>')+'</button>').join('')+'</div><div class="wwp-custom" '+(state.audience==='smart'?'hidden':'')+' id="wwpCustomAudience"><label>Searches and interests<input id="wwpKeywords" maxlength="200" placeholder="For example: monitors, gaming setups" value="'+escapeAttr(state.keywords)+'"></label><label>Location<select id="wwpLocation"><option value="AU">Australia</option><option value="all">All available locations</option></select></label></div></div><footer class="wwp-footer"><p id="wwpSummary">'+summary()+'</p><button type="button" id="wwpReview">Review promotion</button><small>Review details before payment.</small></footer>';
+    content.querySelector('.wwp-back').onclick=window.closeWishWavePromotion;
+    const num=content.querySelector('#wwpBudget'),slider=content.querySelector('#wwpBudgetSlider');
+    function budget(v){state.budget=Math.max(5,Math.min(100,Math.round(Number(v)||5)));num.value=slider.value=state.budget;content.querySelector('#wwpSummary').textContent=summary();}
+    num.onchange=()=>budget(num.value);slider.oninput=()=>budget(slider.value);
+    content.querySelectorAll('[data-days]').forEach(b=>b.onclick=()=>{state.days=b.dataset.days==='custom'?Math.max(2,state.days===3?2:state.days):Number(b.dataset.days);render();});
+    content.querySelector('#wwpDayInput').onchange=e=>{state.days=Math.max(1,Math.min(30,Math.round(Number(e.target.value)||1)));e.target.value=state.days;content.querySelector('#wwpSummary').textContent=summary();};
+    content.querySelectorAll('[data-audience]').forEach(b=>b.onclick=()=>{state.audience=b.dataset.audience;render();});
+    content.querySelector('#wwpKeywords').oninput=e=>state.keywords=e.target.value;
+    const loc=content.querySelector('#wwpLocation');loc.value=state.location;loc.onchange=()=>state.location=loc.value;
+    content.querySelector('#wwpReview').onclick=()=>{budget(num.value);if(state.audience==='custom'&&!state.keywords.trim()){content.querySelector('#wwpKeywords').focus();toast('Add searches or interests for your audience');return;}review();};
+  }
+  function review(){
+    content.innerHTML=header('Review promotion')+product()+'<div class="wwp-review"><dl><dt>Total budget</dt><dd>A$'+state.budget+'</dd><dt>Duration</dt><dd>'+state.days+' days</dd><dt>Audience</dt><dd>'+escapeHTML(state.audience==='smart'?'Smart match':state.keywords)+'</dd><dt>Location</dt><dd>'+escapeHTML(state.audience==='smart'?'Matched shoppers':state.location==='AU'?'Australia':'All available locations')+'</dd></dl></div><p class="wwp-notice">Paid promotions are coming soon. You can save your setup now. No payment will be taken and your listing will not be promoted yet.</p><footer class="wwp-footer"><button type="button" id="wwpSave">Save promotion draft</button><small>You can change these settings later.</small></footer>';
+    root.scrollTop=0;content.querySelector('.wwp-back').onclick=render;content.querySelector('#wwpSave').onclick=()=>{if(save()){toast('Promotion draft saved');closeWishWavePromotion();}else toast('Could not save the draft on this device');};
+  }
+  window.openWishWavePromotion=function(id){const item=profileOwnedListingById(id);if(!owned(item)){toast('You can only promote your own active listings');return;}returnFocus=document.activeElement;state={item,budget:20,days:3,audience:'smart',keywords:'',location:'AU'};try{const d=JSON.parse(localStorage.getItem(key())||'null');if(d){state.budget=Math.max(5,Math.min(100,Number(d.budget)||20));state.days=Math.max(1,Math.min(30,Number(d.days)||3));state.audience=d.audience==='custom'?'custom':'smart';state.keywords=String(d.keywords||'').slice(0,200);state.location=d.location==='all'?'all':'AU';}}catch(_){}root.hidden=false;render();root.scrollTop=0;content.querySelector('.wwp-back').focus();};
+  window.closeWishWavePromotion=function(){root.hidden=true;state=null;if(returnFocus&&returnFocus.isConnected)returnFocus.focus();};
+  document.addEventListener('keydown',e=>{if(root.hidden)return;if(e.key==='Escape'){e.preventDefault();closeWishWavePromotion();}if(e.key==='Tab'){const nodes=[...root.querySelectorAll('button,input,select')].filter(n=>!n.closest('[hidden]'));const first=nodes[0],last=nodes[nodes.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
+})();
+</script>
 
 </body>
 </html>
