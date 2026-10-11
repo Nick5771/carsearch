@@ -6951,7 +6951,7 @@ function renderReelCard(item,index,data){
         <span class="reel-social-label reel-like-count">${itemLikeLabel(item)}</span>
       </button>
       <button class="reel-social-action comment" data-comment-listing="${escapeAttr(wishwaveCommentMetricKey(item))}" onclick="openWishWaveComments(${index},event)" aria-label="Comments">
-        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5c-5.25 0-9.5 3.35-9.5 7.5s4.25 7.5 9.5 7.5c1.75 0 3.39-.37 4.79-1.02L21 20l-1.02-4.05A6.63 6.63 0 0 0 21.5 11c0-4.15-4.25-7.5-9.5-7.5Z"/></svg></span>
+        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 19a8.2 8.2 0 1 1 4 0l-2 3-2-3Z"/></svg></span>
         <span class="reel-social-label reel-comment-count">${commentCount>0?escapeHTML(String(commentCount)):''}</span>
       </button>
       <button class="reel-social-action compare" onclick="compareItem(${index},event)" aria-label="Compare prices for this product">
@@ -17362,6 +17362,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
   function drawSwipe(){
     raf=0;if(!swipe||!swipe.active)return;
     const state=swipe,w=state.width||1,dx=state.dx;
+    window.wishwaveNavSwipeProgress?.(state.tab,state.targetTab,Math.min(1,Math.abs(dx)/w));
     state.current.style.setProperty('transform','translate3d('+dx+'px,0,0)'+(state.base?' '+state.base:''),'important');
     state.current.style.setProperty('opacity','1','important');
     const base=state.direction>0?w:-w;
@@ -17372,8 +17373,9 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     if(raf){cancelAnimationFrame(raf);raf=0;drawSwipe();}
     void state.current.offsetWidth;
     const remaining=commit?w-Math.abs(state.dx):Math.abs(state.dx);
-    if(remaining<1){cleanup(state,commit);return;}
+    if(remaining<1){window.wishwaveNavSwipeSettle?.(commit?state.targetTab:state.tab,0);cleanup(state,commit);return;}
     const duration=Math.round(Math.max(80,Math.min(260,remaining/Math.max(1.1,Math.abs(state.velocity)))));
+    window.wishwaveNavSwipeSettle?.(commit?state.targetTab:state.tab,duration);
     [state.current,state.targetEl].forEach(el=>el.style.setProperty('--wishwave-tab-settle-ms',duration+'ms'));
     settling=state;
     state.onSettled=event=>{if(event.target===state.current&&event.propertyName==='transform')cleanup(state,commit);};
@@ -17389,6 +17391,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     settleTimer=setTimeout(()=>cleanup(state,commit),duration+32);
   }
   function cancelSwipe(){
+    window.wishwaveNavSwipeReset?.();
     const state=swipe||settling;
     clearTimeout(settleTimer);settleTimer=0;
     if(state&&state.onSettled)state.current.removeEventListener('transitionend',state.onSettled);
@@ -34057,7 +34060,7 @@ html body #appThemeOverlay .wishwave-reference-settings .findai-settings-head .w
 
 
 <style id="wishwave-capsule-navigation-a">
-:root{--wishwave-tab-h:52px;--wishwave-nav-gap:max(4px,calc(env(safe-area-inset-bottom,0px) - 4px));--wishwave-nav-total:calc(var(--wishwave-tab-h) + var(--wishwave-nav-gap));--nav-h:var(--wishwave-tab-h);--premium-nav-h:var(--wishwave-tab-h);--fa-nav-total:var(--wishwave-nav-total)!important;}
+:root{--wishwave-tab-h:52px;--wishwave-nav-gap:max(2px,calc(env(safe-area-inset-bottom,0px) - 6px));--wishwave-nav-total:calc(var(--wishwave-tab-h) + var(--wishwave-nav-gap));--nav-h:var(--wishwave-tab-h);--premium-nav-h:var(--wishwave-tab-h);--fa-nav-total:var(--wishwave-nav-total)!important;}
 html body .app>#wishwaveMainNav.nav.findai-five-nav.premium-bottom-nav{left:12px!important;right:12px!important;bottom:var(--wishwave-nav-gap)!important;width:calc(100% - 24px)!important;height:52px!important;min-height:52px!important;max-height:52px!important;padding:0 6px!important;border:1px solid #292b30!important;border-radius:999px!important;background:#16181b!important;box-shadow:0 4px 14px #0003!important;display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;align-items:center!important;overflow:visible!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}
 html body .app>#wishwaveMainNav.nav::before,html body .app>#wishwaveMainNav.nav::after{display:none!important;}
 html body .app>.wishwave-bottom-underlay{display:none!important;}
@@ -34075,5 +34078,35 @@ html.findai-light body .app>#wishwaveMainNav.nav.findai-five-nav.premium-bottom-
 html.findai-light body .app>#wishwaveMainNav.nav.findai-five-nav.premium-bottom-nav .nav-create-action .nav-create-shell svg{stroke:#141619!important;}
 @media(prefers-reduced-motion:reduce){html body .app>#wishwaveMainNav.nav .nav-icon-shell{transition:none!important;}}
 </style>
+
+<style id="wishwave-sliding-navigation">
+html body .app>#wishwaveMainNav.nav.findai-five-nav.premium-bottom-nav>button{position:relative!important;z-index:1!important;}
+html body .app>#wishwaveMainNav.nav.findai-five-nav.premium-bottom-nav>button[data-tab].active .nav-icon-shell{background:transparent!important;}
+#wishwaveMainNav .wishwave-nav-selection{position:absolute;left:0;top:5px;height:40px;width:54px;border-radius:999px;background:#272a2f;pointer-events:none;z-index:0;will-change:transform;transition:transform var(--ww-nav-motion,320ms) cubic-bezier(.22,1,.36,1),width var(--ww-nav-motion,320ms) cubic-bezier(.22,1,.36,1);}
+#wishwaveMainNav[data-nav-drag="true"] .wishwave-nav-selection{transition:none!important;}
+html.findai-light #wishwaveMainNav .wishwave-nav-selection{background:#e0e3e7;}
+html body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-social-action.comment .reel-social-icon svg{transform:none!important;}
+@media(prefers-reduced-motion:reduce){#wishwaveMainNav .wishwave-nav-selection{transition:none!important;}}
+</style>
+<script id="wishwave-sliding-navigation-script">
+(function(){
+ const nav=document.getElementById('wishwaveMainNav');if(!nav)return;
+ const indicator=document.createElement('span');indicator.className='wishwave-nav-selection';indicator.setAttribute('aria-hidden','true');nav.appendChild(indicator);
+ let swipeGeometry=null,frame=0;
+ function slot(tab){return tab==='create'?nav.querySelector('.nav-create-action'):nav.querySelector('button[data-tab="'+tab+'"]');}
+ function geometry(tab){const button=slot(tab);if(!button)return null;const n=nav.getBoundingClientRect(),b=button.getBoundingClientRect(),width=Math.min(54,Math.max(28,b.width-8));return {x:b.left-n.left+(b.width-width)/2-1,width};}
+ function paint(g){if(!g)return;indicator.style.width=g.width+'px';indicator.style.transform='translate3d('+g.x+'px,0,0)';}
+ function selected(){return nav.querySelector('button.active')?.dataset.tab||document.body.dataset.activeTab||'discover';}
+ function move(tab,duration=320){if(nav.dataset.navDrag==='true')return;nav.style.setProperty('--ww-nav-motion',duration+'ms');paint(geometry(tab));}
+ const select=window.setMainNavActive;
+ window.setMainNavActive=function(tab){const out=select.apply(this,arguments);move(tab);return out;};
+ window.wishwaveNavSwipeProgress=function(from,to,progress){if(!swipeGeometry||swipeGeometry.from!==from||swipeGeometry.to!==to){swipeGeometry={from,to,a:geometry(from),b:geometry(to)};}const {a,b}=swipeGeometry;if(!a||!b)return;nav.dataset.navDrag='true';const p=Math.max(0,Math.min(1,Number(progress)||0));paint({x:a.x+(b.x-a.x)*p,width:a.width+(b.width-a.width)*p});};
+ window.wishwaveNavSwipeSettle=function(tab,duration){nav.dataset.navDrag='false';swipeGeometry=null;move(tab,duration);};
+ window.wishwaveNavSwipeReset=function(){nav.dataset.navDrag='false';swipeGeometry=null;move(selected(),200);};
+ new MutationObserver(()=>{if(frame)return;frame=requestAnimationFrame(()=>{frame=0;move(selected());});}).observe(nav,{subtree:true,attributes:true,attributeFilter:['class']});
+ const resize=()=>{swipeGeometry=null;move(selected(),0);};window.addEventListener('resize',resize,{passive:true});if(window.ResizeObserver)new ResizeObserver(resize).observe(nav);
+ move(selected(),0);
+})();
+</script>
 </body>
 </html>

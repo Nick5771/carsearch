@@ -87,6 +87,17 @@ const w=dom.window,wait=ms=>new Promise(r=>setTimeout(r,ms));
   await w.wishwaveSetHomeFeed('for-you');assert.equal(w.eval('currentFeedItems[0].id'),'lst_one');assert.equal(w.document.querySelector('[data-home-feed="for-you"]').getAttribute('aria-selected'),'true');
   await w.wishwaveOpenNotificationTab();assert.equal(w.document.body.dataset.activeTab,'notifications');assert.equal(w.document.querySelector('#findaiNotificationPanel').parentElement.id,'notifications');assert(w.document.querySelector('#findaiNotificationPanel').classList.contains('show'));assert(w.document.querySelector('#wishwaveMainNav [data-tab="notifications"]').classList.contains('active'));
   w.setHomeNotificationState(2);assert.equal(w.document.querySelector('#navNotificationsBadge').style.display,'block');w.setHomeNotificationState(0);assert.equal(w.document.querySelector('#navNotificationsBadge').style.display,'none');
+
+  const navigation=w.document.getElementById('wishwaveMainNav');
+  navigation.getBoundingClientRect=()=>({left:0,width:390});
+  navigation.querySelectorAll(':scope > button').forEach((button,index)=>button.getBoundingClientRect=()=>({left:index*78,width:78}));
+  w.setMainNavActive('discover');
+  const selection=navigation.querySelector('.wishwave-nav-selection');assert(selection);assert(selection.style.transform.includes('11px'));
+  w.wishwaveNavSwipeProgress('discover','search',.5);assert.equal(navigation.dataset.navDrag,'true');assert(selection.style.transform.includes('50px'),'highlight follows halfway between Home and Search');
+  w.wishwaveNavSwipeSettle('search',180);assert.equal(navigation.dataset.navDrag,'false');assert(selection.style.transform.includes('89px'));assert.equal(navigation.style.getPropertyValue('--ww-nav-motion'),'180ms');
+  w.setMainNavActive('profile');assert(selection.style.transform.includes('323px'),'tap animates to Profile');
+  w.wishwaveNavSwipeProgress('profile','notifications',.6);w.wishwaveNavSwipeReset();assert(selection.style.transform.includes('323px'),'cancelled gesture returns highlight to selected tab');
+  assert(w.renderReelCard({...w.fixture,shippingMode:'free'},0,{}).includes('M10 19a8.2 8.2 0 1 1 4 0l-2 3-2-3Z'),'centred Comments icon renders on listings');
   assert.equal(errors.length,0,JSON.stringify(errors));
   console.log('PASS: original marketplace wordmarks, own and other seller avatars, purchase row ends page, secondary actions menu, direct native checkout, country detection, test-only payment controls, real metadata, gallery, Save, seller ownership, comments, notification filtering/cache indices/calendar groups, notification navigation, settings search/theme selection, reference chat and Following feed isolation');
   w.close();
