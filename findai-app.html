@@ -6906,6 +6906,15 @@ function reelGalleryConsumeClick(article,event){
   return false;
 }
 
+function wishwavePromotionButton(item){
+  try{
+    if(!item||!getAccountProfile()||!isFindAIListing(item)||String(item.status||'active')!=='active')return '';
+    const id=String(appMpId(item)||'');if(!id)return '';
+    let own=null;try{own=profileOwnedListingById(id);}catch(_){own=getMarketplaceListings().find(row=>String(appMpId(row)||'')===id);}
+    if(!own)return '';
+    return '<button type="button" class="wishwave-promote-button" data-promotion-id="'+escapeAttr(id)+'" onclick="event.preventDefault();event.stopPropagation();openWishWavePromotion(this.dataset.promotionId)">Promote listing</button>';
+  }catch(_){return '';}
+}
 function renderReelCard(item,index,data){
   const title=String(item.title || (data && data.productDetails && data.productDetails.name) || 'Product listing');
   // Display-only image recovery: try every image the retailer already supplied,
