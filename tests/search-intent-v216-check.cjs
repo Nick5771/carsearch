@@ -1,9 +1,9 @@
-const fs=require('fs'),assert=require('assert'),{JSDOM,VirtualConsole}=require('./test-runtime/node_modules/jsdom');
-const src=fs.readFileSync(__dirname+'/findai-app.html','utf8'),errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>{if(!e.message.includes('Could not parse CSS'))errors.push(e.message)});
+const fs=require('fs'),assert=require('assert'),{JSDOM,VirtualConsole}=require(process.env.WISHWAVE_TEST_JSDOM||'jsdom');
+const src=fs.readFileSync(__dirname+'/../findai-app.html','utf8'),errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>{if(!e.message.includes('Could not parse CSS'))errors.push(e.message)});
 for(const m of src.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi))new Function(m[1]);
 const dom=new JSDOM(src,{url:'https://wishwave.test',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:vc,beforeParse(w){w.matchMedia=()=>({matches:false,addEventListener(){},addListener(){}});w.IntersectionObserver=class{observe(){}unobserve(){}disconnect(){}};w.ResizeObserver=class{observe(){}disconnect(){}};w.fetch=async()=>({ok:true,json:async()=>({items:[],listings:[],conversations:[]}),text:async()=>''});w.scrollTo=()=>{};w.HTMLElement.prototype.scrollTo=function(){};w.HTMLElement.prototype.scrollIntoView=function(){};}});
 const w=dom.window,wait=ms=>new Promise(r=>setTimeout(r,ms));
-const item=(id,title)=>({itemId:id,title,price:50000,image:'https://images.test/'+id+'.jpg',source:'ebay',currency:'AUD',url:'https://ebay.test/'+id});
+const item=(id,title)=>({itemId:id,title,price:50000,image:'https://images.test/'+id+'.jpg',source:'ebay',currency:'AUD',url:'https://www.ebay.com/itm/'+id});
 (async()=>{await wait(500);w.eval('fetchProductResults=async()=>({data:{listings:[]}})');
 const original=Array.from({length:10},(_,i)=>item('old'+i,'Original product '+i));w.original=original;
 w.eval("currentFeedItems=original.slice();currentFeedData={personalised:true};feedState={source:'personalised',loading:false,seen:new Set(),interests:[]};activeReelIndex=2;go('discover');document.getElementById('personalFeed').innerHTML=currentFeedItems.map((x,i)=>renderReelCard(x,i,currentFeedData)).join('');__wishwaveCaptureHome();");
