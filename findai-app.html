@@ -33811,5 +33811,86 @@ html body .wishwave-public-profile :is(.handle,.location,.wishwave-public-stats 
 html body .app #createListingScreen :is(label,.field-label,.listing-form-label){font-weight:var(--ww-type-medium)!important;letter-spacing:0!important;}
 </style>
 
+<style id="wishwave-checkout-style">
+html body .app #wwCheckout{position:absolute;inset:0 0 var(--wishwave-nav-total,48px);z-index:180;display:none;background:var(--bg,#0c0d0f);color:var(--ink,#f1f2f4);overflow:auto;overscroll-behavior:contain;padding:var(--safe-top,0px) 16px 14px;box-sizing:border-box;}
+html body .app #wwCheckout.show{display:flex;flex-direction:column;gap:10px;}
+html body .app:has(#wwCheckout.show) #wishwaveMainNav{visibility:visible!important;pointer-events:auto!important;}
+#wwCheckout .wwc-head{display:grid;grid-template-columns:38px 1fr 38px;align-items:center;min-height:48px;flex-shrink:0;}
+#wwCheckout .wwc-head h1{font-size:18px;font-weight:600;text-align:center;margin:0;letter-spacing:-.2px;}
+#wwCheckout .wwc-back{background:none;border:0;color:inherit;width:38px;height:38px;padding:8px;}
+#wwCheckout svg{width:21px;height:21px;vertical-align:middle;flex-shrink:0;}
+#wwCheckout .wwc-card{background:var(--surface,#1a1c20);border:1px solid var(--line,#2d3037);border-radius:14px;padding:14px;flex-shrink:0;}
+#wwCheckout .wwc-item{display:flex;align-items:center;gap:14px;}
+#wwCheckout .wwc-item img{width:44%;height:clamp(100px,18dvh,165px);object-fit:contain;border-radius:10px;background:#e8e8e8;}
+#wwCheckout .wwc-copy{min-width:0;flex:1;}
+#wwCheckout .wwc-copy h2{font-size:15px;line-height:1.3;font-weight:600;margin:0 0 5px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;}
+#wwCheckout .wwc-muted{font-size:12px;line-height:1.4;color:var(--muted,#a1a6af);}
+#wwCheckout .wwc-item-price{font-size:21px;font-weight:650;margin:12px 0 8px;letter-spacing:-.3px;}
+#wwCheckout .wwc-delivery{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:10px;align-items:start;font-size:14px;line-height:1.4;}
+#wwCheckout .wwc-delivery b{font-weight:500;display:block;}
+#wwCheckout .wwc-change{font:inherit;font-size:12px;font-weight:500;border:0;background:none;color:var(--ink);padding:3px 0;cursor:pointer;}
+#wwCheckout .wwc-shipping{margin-top:12px;padding-top:12px;border-top:1px solid var(--line);}
+#wwCheckout .wwc-free{color:#32c774!important;}
+#wwCheckout .wwc-total-row{display:flex;justify-content:space-between;gap:15px;font-size:14px;line-height:1.4;margin-bottom:9px;color:var(--muted);}
+#wwCheckout .wwc-total-row strong{font-weight:500;color:var(--ink);}
+#wwCheckout .wwc-grand-total{border-top:1px solid var(--line);padding-top:11px;margin-top:4px;margin-bottom:0;font-size:17px;color:var(--ink);}
+#wwCheckout .wwc-grand-total strong{font-weight:650;}
+#wwCheckout .wwc-method-title{font-size:14px;margin:0 0 10px;font-weight:500;}
+#wwCheckout .wwc-method{display:flex;gap:10px;align-items:center;border:1px solid var(--line-strong);border-radius:10px;padding:11px;font-size:14px;}
+#wwCheckout .wwc-method .wwc-radio{width:16px;height:16px;border:5px solid #59b6eb;border-radius:50%;box-sizing:border-box;flex-shrink:0;}
+#wwCheckout .wwc-pay{width:100%;min-height:46px;flex-shrink:0;border:0;border-radius:10px;background:var(--ink);color:var(--bg);font:inherit;font-size:16px;font-weight:600;cursor:pointer;}
+#wwCheckout .wwc-pay:disabled{opacity:.5;cursor:default;}
+#wwCheckout .wwc-secure{text-align:center;font-size:11px;line-height:1.35;color:var(--muted);}
+#wwCheckout .wwc-terms{display:flex;align-items:center;justify-content:space-between;font:inherit;font-size:12px;color:var(--muted);border:0;border-top:1px solid var(--line);background:none;padding:12px 0 0;cursor:pointer;}
+#wwCheckout .wwc-error{font-size:12px;color:#f28b82;line-height:1.4;}
+#wwCheckout .wwc-location-form{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+#wwCheckout .wwc-location-form :is(input,select){min-width:0;flex:1;width:100%;border:1px solid var(--line-strong);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit;font-size:16px;padding:8px;}
+#wwCheckout .wwc-location-form button{width:100%;border:0;border-radius:8px;min-height:36px;background:var(--ink);color:var(--bg);font:inherit;font-size:13px;font-weight:600;}
+@media(max-height:900px){#wwCheckout .wwc-card{padding:11px;}html body .app #wwCheckout.show{gap:8px;}#wwCheckout .wwc-item img{height:110px;}#wwCheckout .wwc-item-price{margin:7px 0 5px;}#wwCheckout .wwc-total-row{margin-bottom:6px;font-size:13px;}#wwCheckout .wwc-delivery{font-size:13px;}#wwCheckout .wwc-method{padding:8px;}#wwCheckout .wwc-method-title{margin-bottom:7px;}}
+</style>
+<script id="wishwave-checkout-script">
+(function(){
+ const root=document.createElement('section');root.id='wwCheckout';root.setAttribute('aria-label','Checkout');document.querySelector('.app').appendChild(root);
+ let state=null,version=0;
+ const icons={back:'<path d="m15 18-6-6 6-6"/>',pin:'<path d="M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',truck:'<path d="M2 5h12v12H2zM14 9h4l4 4v4h-8"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>',card:'<rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4"/>',arrow:'<path d="m9 5 7 7-7 7"/>',lock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>'};
+ const icon=key=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icons[key]+'</svg>';
+ const cash=minor=>appMpMoney(Number(minor)/100,state.listing.currency);
+ function render(){
+  if(!state)return;const l=state.listing,q=state.quote,title=escapeHTML(l.title||'WishWave listing'),image=(l.images||[])[0]||l.image||'',shipping=state.shippingMinor,known=Number.isFinite(shipping),free=known&&shipping===0;
+  root.innerHTML='<header class="wwc-head"><button class="wwc-back" onclick="wishwaveCloseCheckout()" aria-label="Back to listing">'+icon('back')+'</button><h1>Checkout</h1><span></span></header>'+
+   '<section class="wwc-card wwc-item">'+(image?'<img src="'+escapeAttr(image)+'" alt="'+escapeAttr(l.title||'Listing image')+'">':'')+'<div class="wwc-copy"><h2>'+title+'</h2><div class="wwc-muted">'+escapeHTML(l.condition||'')+'</div><div class="wwc-item-price">'+cash(Math.round(Number(l.price)*100))+'</div><div class="wwc-muted">Qty: 1</div></div></section>'+
+   '<section class="wwc-card"><div class="wwc-delivery">'+icon('pin')+'<div><b>Delivery address</b><div class="wwc-muted">'+(state.postal?escapeHTML(state.postal+' · '+state.country):'Add your delivery location')+'</div></div><button class="wwc-change" onclick="wishwaveCheckoutLocation()">'+(state.postal?'Change':'Add location')+'</button></div>'+
+   '<div class="wwc-delivery wwc-shipping">'+icon('truck')+'<div><b>Shipping</b><div class="wwc-muted">'+escapeHTML(state.shippingService||(known?'Seller shipping':'Enter a delivery ZIP code for a quote'))+'</div></div><b class="'+(free?'wwc-free':'')+'">'+(free?'Free':known?cash(shipping):'Calculated')+'</b></div><div id="wwCheckoutLocation"></div></section>'+
+   '<section class="wwc-card"><div class="wwc-total-row"><span>Item</span><strong>'+cash(Math.round(Number(l.price)*100))+'</strong></div><div class="wwc-total-row"><span>Shipping</span><strong class="'+(free?'wwc-free':'')+'">'+(free?'Free':known?cash(shipping):'To calculate')+'</strong></div><div class="wwc-total-row"><span>Buyer fee</span><strong>'+(q?cash(q.buyerFeeMinor):'—')+'</strong></div><div class="wwc-total-row wwc-grand-total"><span>Total</span><strong>'+(q?cash(q.buyerTotalMinor):'—')+'</strong></div></section>'+
+   '<section class="wwc-card"><h2 class="wwc-method-title">Payment method</h2><div class="wwc-method"><span class="wwc-radio" aria-hidden="true"></span>'+icon('card')+'<span>Card & available wallets</span></div><div class="wwc-muted" style="margin-top:8px">Available payment methods shown by Stripe.</div></section>'+
+   (state.error?'<div class="wwc-error" role="alert">'+escapeHTML(state.error)+'</div>':'')+
+   '<button class="wwc-pay" onclick="wishwaveCheckoutContinue()" '+(!q||state.busy?'disabled':'')+'>'+(state.busy?'Opening secure checkout…':'Continue to payment')+'</button><div class="wwc-secure">'+icon('lock')+' Secure checkout with Stripe</div><button class="wwc-terms" onclick="wishwaveCheckoutTerms()"><span>View checkout terms</span>'+icon('arrow')+'</button>';
+ }
+ async function quote(){const request=++version;if(!state)return;state.error='';state.quote=null;render();try{
+  if(state.listing.shippingMode==='calculated'&&!state.postal){render();return;}
+  const delivery=await marketplaceFetch('/marketplace/shipping/quote',{method:'POST',body:JSON.stringify({listingId:appMpId(state.listing),destinationCountry:state.country,destinationPostalCode:state.postal})});if(request!==version||!state)return;
+  const rate=delivery.rates?.[0];if(!rate||!Number.isFinite(Number(rate.amountMinor)))throw new Error('No delivery quote available');state.shippingMinor=Number(rate.amountMinor);state.shippingService=String(rate.service||'');
+  const result=await marketplaceFetch('/marketplace/quote',{method:'POST',body:JSON.stringify({itemMinor:Math.round(Number(state.listing.price)*100),shippingMinor:state.shippingMinor,currency:state.listing.currency})});if(request!==version||!state)return;
+  const q=result.quote;if(!q||![q.itemMinor,q.shippingMinor,q.buyerFeeMinor,q.buyerTotalMinor].every(n=>Number.isFinite(n)&&n>=0))throw new Error('Could not load your total');state.quote=q;render();
+ }catch(e){if(request!==version||!state)return;state.error=e.message||'Could not load checkout';render();}}
+ const previousBuy=window.appMpBuy;
+ window.appMpBuy=function(offerId){
+  if(offerId)return previousBuy.apply(this,arguments);
+  if(!appMpListing||!appMpRequireLogin())return;
+  if(appMpContext?.viewer?.isSeller){toast('You cannot buy your own listing');return;}
+  if(appMpListing.deliveryMode==='pickup')return openAppMarketplaceMessages();
+  const l={...appMpListing};if(String(l.status||'active')!=='active'){toast('Listing is unavailable');return;}
+  state={listing:l,country:'US',postal:'',shippingMinor:null,shippingService:String(l.shippingService||''),quote:null,error:'',busy:false};root.classList.add('show');root.scrollTop=0;render();quote();
+ };
+ window.wishwaveCloseCheckout=function(){version++;state=null;root.classList.remove('show');root.innerHTML='';};
+ window.wishwaveCheckoutLocation=function(){if(!state)return;document.getElementById('wwCheckoutLocation').innerHTML='<form class="wwc-location-form" onsubmit="return wishwaveCheckoutSetLocation(event)"><select id="wwCheckoutCountry" aria-label="Delivery country">'+[['US','United States'],['AU','Australia'],['GB','United Kingdom'],['CA','Canada'],['NZ','New Zealand'],['FR','France'],['DE','Germany']].map(([v,n])=>'<option value="'+v+'" '+(v===state.country?'selected':'')+'>'+n+'</option>').join('')+'</select><input id="wwCheckoutPostal" aria-label="Delivery postal code" autocomplete="postal-code" maxlength="16" required placeholder="ZIP / postal code" value="'+escapeAttr(state.postal)+'"><button>Update delivery</button></form>';};
+ window.wishwaveCheckoutSetLocation=function(event){event.preventDefault();if(!state)return false;state.country=document.getElementById('wwCheckoutCountry').value;state.postal=document.getElementById('wwCheckoutPostal').value.trim();quote();return false;};
+ window.wishwaveCheckoutTerms=function(){openAppMpSheet('Checkout terms','<p class="app-mp-muted">Review the item, delivery cost and buyer fee before continuing. Payment is completed securely with Stripe. Confirm your full delivery details with the seller before paying. Returns follow the seller’s stated return policy. A buyer fee does not imply payment is held until delivery.</p>');};
+ window.wishwaveCheckoutContinue=async function(){if(!state?.quote||state.busy)return;const current=state;current.busy=true;current.error='';render();try{const data=await marketplaceFetch('/marketplace/checkout',{method:'POST',body:JSON.stringify({listingId:appMpId(current.listing),destinationCountry:current.country,destinationPostalCode:current.postal,shippingService:current.shippingService})});if(state!==current)return;if(!data.checkoutUrl)throw new Error('Checkout is unavailable');location.href=data.checkoutUrl;}catch(e){if(state!==current)return;current.busy=false;current.error=e.message||'Could not open secure checkout';render();}};
+ const closeListing=window.closeAppMarketplaceListing;window.closeAppMarketplaceListing=function(){wishwaveCloseCheckout();return closeListing.apply(this,arguments);};
+ document.getElementById('wishwaveMainNav')?.addEventListener('click',()=>{if(state)closeAppMarketplaceListing();});
+})();
+</script>
+
 </body>
 </html>
