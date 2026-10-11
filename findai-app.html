@@ -33715,6 +33715,24 @@ html body #appMpProduct .wishwave-detail-save{display:flex!important;align-items
     const owner=!!appMpContext?.viewer?.isSeller;
     openAppMpSheet('Listing options','<div class="app-mp-actions"><button class="app-mp-action tertiary" onclick="closeAppMpSheet();openAppMarketplaceOfferInMessages()">'+(owner?'Manage offers':'Make offer')+'</button><button class="app-mp-action tertiary" onclick="closeAppMpSheet();openAppMarketplaceMessages()">'+(owner?'Messages':'Message seller')+'</button><button class="app-mp-action tertiary" onclick="closeAppMpSheet();openWishWaveListingComments()">Comments</button>'+(!owner?'<button class="app-mp-action tertiary" onclick="closeAppMpSheet();openWishWaveSafetyReport(\'listing\',{id:appMpId(appMpListing)})">Report listing</button>':'')+'</div>');
   };
+  const profileListing=window.openProfileListingItem;
+  window.openProfileListingItem=function(index,source){
+    const list=(socialProfileListings||[]).filter(x=>source==='sold'?String(x.status||'').toLowerCase()==='sold':String(x.status||'active').toLowerCase()!=='sold');
+    const item=list[Math.max(0,Number(index)||0)];
+    if(item&&isFindAIListing(item))return openAppMarketplaceListing(item);
+    return profileListing.apply(this,arguments);
+  };
+  const publicListing=window.openWishWavePublicListing;
+  window.openWishWavePublicListing=function(index,kind){
+    const list=(wishwavePublicSellerData?.listings||[]).filter(x=>kind==='sold'?String(x.status||'').toLowerCase()==='sold':String(x.status||'active').toLowerCase()!=='sold');
+    const item=list[Math.max(0,Number(index)||0)];
+    if(item&&isFindAIListing(item))return openAppMarketplaceListing(item);
+    return publicListing.apply(this,arguments);
+  };
+  const likedListing=window.openProfileLikedItem;
+  window.openProfileLikedItem=function(index){const item=getTracked()[Math.max(0,Number(index)||0)];if(item&&isFindAIListing(item))return openAppMarketplaceListing(item);return likedListing.apply(this,arguments);};
+  const searchListing=window.openSearchResultDetail;
+  window.openSearchResultDetail=function(index){const item=currentFeedItems[Math.max(0,Number(index)||0)];if(item&&isFindAIListing(item))return openAppMarketplaceListing(item);return searchListing.apply(this,arguments);};
   window.wishwaveOpenNativeDetail=function(index,event){if(event){event.preventDefault();event.stopPropagation();}const item=currentFeedItems[Number(index)||0];if(item&&isFindAIListing(item))return openAppMarketplaceListing(item);};
   window.wishwaveOpenDetailSeller=async function(){
     const seller=appMpContext?.seller||{},listing=appMpListing;
