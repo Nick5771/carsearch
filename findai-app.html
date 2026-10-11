@@ -3733,7 +3733,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
   </section>
 
   <section class="app-mp-product" id="appMpProduct" aria-label="FindAI marketplace listing">
-    <header class="app-mp-header"><button type="button" onclick="closeAppMarketplaceListing()" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><h2>Listing</h2><button type="button" onclick="appMpShareListing()" aria-label="Send listing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 9.7 14.3"/><path d="m22 2-7.8 20-4.5-7.7L2 10.2 22 2Z"/></svg></button></header>
+    <header class="app-mp-header"><button type="button" onclick="closeAppMarketplaceListing()" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><span class="wishwave-detail-header-space"></span><span class="wishwave-detail-header-actions"><button type="button" onclick="wishwaveDetailMenu()" aria-label="Listing options"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button><button type="button" onclick="appMpShareListing()" aria-label="Send listing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 9.7 14.3"/><path d="m22 2-7.8 20-4.5-7.7L2 10.2 22 2Z"/></svg></button></span></header>
     <div class="app-mp-scroll" id="appMpProductContent"></div>
   </section>
 
@@ -8454,7 +8454,9 @@ function renderAppMarketplaceListing(){
   const images=(Array.isArray(listing.images)?listing.images:[]).filter(Boolean);
   if(!images.length&&listing.image)images.push(listing.image);
   appMpSelectedImage=0;
-  const sellerName=appMpPublicName(seller.displayName||listing.sellerName||'WishWave seller');
+  const account=getAccountProfile()||{},ownSeller=!!viewer.isSeller;
+  const sellerName=appMpPublicName((ownSeller&&account.name)||seller.displayName||listing.sellerName||'WishWave seller');
+  const sellerAvatar=ownSeller?String(account.avatar||account.avatarUrl||seller.avatarUrl||listing.sellerAvatar||''):String(seller.avatarUrl||listing.sellerAvatar||'');
   const sold=Math.max(0,Number(seller.soldCount)||0),available=String(listing.status||'active')==='active';
   const offers=['active','reserved'].includes(String(listing.status||'active'));
   const shipping=getShippingText(listing),free=/^free\s+shipping(?:\s*·|$)/i.test(shipping);
@@ -8464,19 +8466,16 @@ function renderAppMarketplaceListing(){
   const dots=images.length>1?'<div class="wishwave-detail-dots" aria-label="Listing photos">'+images.map((_,index)=>'<button type="button" class="app-mp-thumb '+(index===0?'active':'')+'" onclick="appMpSelectImage('+index+')" aria-label="Photo '+(index+1)+'" aria-pressed="'+(index===0)+'"></button>').join('')+'</div>':'';
   $('#appMpProductContent').innerHTML=`<div class="app-mp-gallery">${images[0]?`<img class="app-mp-main-image" id="appMpMainImage" src="${escapeAttr(images[0])}" alt="${escapeAttr(listing.title||'WishWave listing')}" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><div class="wishwave-detail-image-empty" hidden>Photo unavailable</div>`:'<div class="wishwave-detail-image-empty">No image supplied</div>'}${dots}</div>
     <div class="wishwave-detail-body">
-      <button type="button" class="app-mp-seller wishwave-detail-seller" onclick="wishwaveOpenDetailSeller()"><span class="app-mp-avatar">${findaiAvatarImgMarkup(seller.avatarUrl||listing.sellerAvatar||'',sellerName)}</span><span class="app-mp-seller-copy"><b>${escapeHTML(sellerName)}</b>${sold?`<span>${sold} sales</span>`:''}</span><span aria-hidden="true">›</span></button>
+      <button type="button" class="app-mp-seller wishwave-detail-seller" onclick="wishwaveOpenDetailSeller()"><span class="app-mp-avatar">${findaiAvatarImgMarkup(sellerAvatar,sellerName)}</span><span class="app-mp-seller-copy"><b>${escapeHTML(sellerName)}</b>${sold?`<span>${sold} sales</span>`:''}</span><span aria-hidden="true">›</span></button>
       <h1 class="app-mp-title">${escapeHTML(listing.title||'WishWave listing')}</h1>
       <div class="wishwave-detail-price-row"><div class="app-mp-price">${escapeHTML(appMpMoney(listing.price,listing.currency))}</div>${free?'<span class="wishwave-detail-free">'+truck+'Free shipping</span>':''}</div>
       <div class="wishwave-detail-fact"><span>Condition</span><b>${escapeHTML(listing.condition||'Not specified')}</b></div>
-      <div class="app-mp-description">${escapeHTML(listing.description||'The seller has not added a description yet.')}</div>
+      <button type="button" class="wishwave-detail-description" onclick="wishwaveShowDescription()" aria-label="Read full description"><span class="app-mp-description">${escapeHTML(listing.description||'The seller has not added a description yet.')}</span></button>
       <div class="wishwave-detail-fact"><span>${truck}Delivery</span><b>${escapeHTML(shipping)}</b></div>
       <div class="wishwave-detail-fact"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m3 7 9-5 9 5v10l-9 5-9-5V7Z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg>Returns</span><b>${escapeHTML(returns)}</b></div>
       ${!available?'<p class="wishwave-detail-status">'+escapeHTML(appMpStatus(listing.status))+'</p>':''}
       ${viewer.isSeller?wishwavePromotionButton(listing):''}
       <div class="app-mp-actions wishwave-detail-actions"><button class="app-mp-action primary" ${!available||viewer.isSeller?'disabled':''} onclick="appMpBuy()">${viewer.isSeller?'Your listing':String(listing.status)==='reserved'?'Reserved':listing.deliveryMode==='pickup'?'Arrange pickup':'Buy now'}</button><button type="button" class="app-mp-action wishwave-detail-save" aria-pressed="${isTracked(listing)}" onclick="wishwaveSaveDetailListing(this)">${bookmark}<span>${isTracked(listing)?'Saved':'Save'}</span></button></div>
-      <div class="wishwave-detail-secondary"><button type="button" ${!offers?'disabled':''} onclick="openAppMarketplaceOfferInMessages()">${viewer.isSeller?'Manage offers':'Make offer'}</button><button type="button" onclick="openAppMarketplaceMessages()">${viewer.isSeller?'Messages':'Message seller'}</button></div>
-      <div class="app-mp-protection"><span>Keep payment and messages inside WishWave. Review the checkout terms before paying.</span></div>
-      <div class="wishwave-detail-fact wishwave-detail-reference"><span>Item number</span><b>${escapeHTML(appMpId(listing))}</b></div>
     </div>`;
 }
 function appMpSelectImage(index){const images=Array.isArray(appMpListing&&appMpListing.images)?appMpListing.images:[],img=images[index];if(img)$('#appMpMainImage').src=img;$$('.app-mp-thumb').forEach((el,i)=>el.classList.toggle('active',i===index));appMpSelectedImage=index;}
@@ -33627,15 +33626,6 @@ html:not(.findai-light) body #appThemeOverlay.findai-settings-full .app-theme-sh
 </style>
 
 <style id="wishwave-selected-design-refinement">
-/* Compact source avatars: the marketplace identity, never a verification claim. */
-html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168) .source-chip .wishwave-market-badge{display:inline-flex!important;align-items:center!important;gap:8px!important;background:none!important;padding:0!important;color:inherit!important;line-height:1!important;}
-html body .wishwave-market-avatar{width:30px!important;height:30px!important;min-width:30px!important;display:grid!important;place-items:center!important;border-radius:50%!important;background:#08090b!important;overflow:hidden!important;text-shadow:none!important;}
-html body .wishwave-market-badge[data-marketplace="ebay"] .wishwave-market-avatar{background:#fff!important;}
-html body .wishwave-market-avatar svg{width:21px!important;height:21px!important;display:block!important;}
-html body .wishwave-market-avatar .app-ebay-wordmark{font-size:13px!important;letter-spacing:-.8px!important;line-height:1!important;}
-html body .wishwave-market-name{font-size:16px!important;font-weight:650!important;letter-spacing:-.2px!important;}
-html body .wishwave-market-identity{display:inline-flex!important;align-items:center!important;margin-left:-3px!important;color:inherit!important;}
-html body .wishwave-market-identity svg{width:15px!important;height:15px!important;display:block!important;}
 html body #wishwaveMainNav.nav.findai-five-nav.premium-bottom-nav .nav-create-action .nav-create-shell{width:46px!important;min-width:46px!important;height:32px!important;min-height:32px!important;border:0!important;border-radius:999px!important;background:#24262a!important;box-shadow:none!important;}
 html body #wishwaveMainNav.nav.findai-five-nav.premium-bottom-nav .nav-create-action .nav-create-shell svg{width:22px!important;height:22px!important;stroke:#fff!important;}
 html.findai-light body #wishwaveMainNav.nav.findai-five-nav.premium-bottom-nav .nav-create-action .nav-create-shell{background:#eceef0!important;}
@@ -33666,61 +33656,64 @@ html body #findaiNotificationPanel .comment-label{display:none!important;}
 html body #findaiNotificationPanel .findai-notification-action{font-size:12px!important;font-weight:650!important;border-radius:8px!important;min-width:68px!important;}
 html body #findaiNotificationPanel .findai-notification-side-thumb{width:50px!important;height:50px!important;border-radius:7px!important;}
 html body #findaiNotificationPanel .findai-notification-unread{background:#ff3045!important;}
-/* Native listing detail: gallery first, flat metadata, purchase and save. */
-html body #appMpProduct{background:var(--bg,#0c0d0f)!important;color:var(--ink,#f1f2f4)!important;}
-html body #appMpProduct .app-mp-header{height:calc(var(--safe-top,0px) + 48px)!important;background:var(--bg)!important;border:0!important;backdrop-filter:none!important;}
-html body #appMpProduct .app-mp-header button{background:none!important;border:0!important;}
-html body #appMpProduct .app-mp-scroll{padding:0 0 calc(var(--wishwave-nav-total,48px) + 28px + var(--safe-bottom,0px))!important;}
-html body #appMpProduct .app-mp-gallery{border:0!important;border-radius:0!important;background:var(--surface,#191b1f)!important;}
-html body #appMpProduct .app-mp-main-image{width:100%!important;height:min(53dvh,520px)!important;box-sizing:border-box!important;padding:0!important;object-fit:contain!important;}
-.wishwave-detail-image-empty{height:38dvh;display:grid;place-items:center;color:var(--muted);}
+/* Native detail sizes the gallery to the space remaining above the purchase row. */
+html body #appMpProduct{background:var(--bg,#0c0d0f)!important;color:var(--ink,#f1f2f4)!important;container-type:size;}
+html body .app:has(#appMpProduct.show) #wishwaveMainNav{visibility:hidden!important;pointer-events:none!important;}
+html body #appMpProduct .app-mp-header{position:absolute!important;top:0;left:0;right:0;height:calc(var(--safe-top,0px) + 48px)!important;grid-template-columns:38px 1fr 76px!important;background:linear-gradient(#0007,transparent)!important;border:0!important;backdrop-filter:none!important;}
+html body #appMpProduct .app-mp-header button{background:none!important;border:0!important;color:#fff!important;}
+.wishwave-detail-header-actions{display:flex;flex-direction:row-reverse;}
+html body #appMpProduct .app-mp-scroll{height:100%!important;display:flex!important;flex-direction:column!important;padding:0!important;overflow-y:auto!important;}
+html body #appMpProduct .app-mp-gallery{flex:1 1 auto!important;min-height:110px!important;border:0!important;border-radius:0!important;background:var(--surface,#191b1f)!important;}
+html body #appMpProduct .app-mp-main-image{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-height:none!important;box-sizing:border-box!important;padding:0!important;object-fit:contain!important;transform:none!important;}
+.wishwave-detail-image-empty{height:100%;min-height:110px;display:grid;place-items:center;color:var(--muted);}
 .wishwave-detail-image-empty[hidden]{display:none!important;}
-.wishwave-detail-dots{position:absolute;bottom:13px;left:0;right:0;display:flex;justify-content:center;gap:2px;}
+.wishwave-detail-dots{position:absolute;bottom:10px;left:0;right:0;display:flex;justify-content:center;gap:2px;}
 html body #appMpProduct .wishwave-detail-dots .app-mp-thumb{width:20px!important;height:24px!important;min-width:20px!important;padding:0!important;border:0!important;background:none!important;display:grid!important;place-items:center!important;}
 .wishwave-detail-dots .app-mp-thumb::after{content:'';width:5px;height:5px;border-radius:50%;background:#fff;opacity:.45;box-shadow:0 1px 3px #0008;}
 .wishwave-detail-dots .app-mp-thumb.active::after{opacity:1;}
-.wishwave-detail-body{padding:0 18px;}
-html body #appMpProduct .app-mp-seller{width:100%!important;color:inherit!important;background:none!important;border:0!important;border-bottom:1px solid var(--line)!important;margin:0 0 20px!important;padding:16px 0!important;text-align:left!important;}
-html body #appMpProduct .app-mp-avatar{width:36px!important;height:36px!important;overflow:hidden!important;border:0!important;flex:0 0 auto!important;}
+html body #appMpProduct .wishwave-detail-body{flex:0 0 auto!important;min-width:0;padding:0 16px calc(14px + var(--safe-bottom,0px))!important;}
+html body #appMpProduct .app-mp-seller{width:100%!important;color:inherit!important;background:none!important;border:0!important;border-bottom:1px solid var(--line)!important;margin:0 0 12px!important;padding:10px 0!important;text-align:left!important;}
+html body #appMpProduct .app-mp-avatar{width:34px!important;height:34px!important;overflow:hidden!important;border:0!important;flex:0 0 34px!important;}
+html body #appMpProduct .app-mp-avatar img{width:100%!important;height:100%!important;object-fit:cover!important;border-radius:50%!important;}
 html body #appMpProduct .app-mp-seller-copy{display:flex!important;align-items:baseline!important;gap:6px!important;}
-html body #appMpProduct .app-mp-seller-copy b{font-size:14px!important;}
-html body #appMpProduct .app-mp-seller-copy span{font-size:12px!important;margin:0!important;}
-html body #appMpProduct .app-mp-title{font-size:23px!important;line-height:1.25!important;letter-spacing:-.5px!important;color:inherit!important;}
-.wishwave-detail-price-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:8px 0 16px;}
-html body #appMpProduct .app-mp-price{font-size:32px!important;letter-spacing:-.8px!important;margin:0!important;line-height:1.15!important;}
-.wishwave-detail-free{display:inline-flex;align-items:center;gap:6px;color:#32c774;font-size:13px;font-weight:600;}
-.wishwave-detail-free svg,.wishwave-detail-fact svg{width:20px;height:20px;flex:0 0 auto;}
-.wishwave-detail-fact{display:flex;justify-content:space-between;align-items:center;gap:14px;border-top:1px solid var(--line);padding:15px 0;font-size:13px;}
-.wishwave-detail-fact>span{display:flex;align-items:center;gap:10px;color:var(--muted);flex:0 0 auto;}
-.wishwave-detail-fact b{font-size:12px;font-weight:500;text-align:right;overflow-wrap:anywhere;}
-html body #appMpProduct .app-mp-description{font-size:13px!important;line-height:1.65!important;padding:15px 0 22px!important;border-top:1px solid var(--line)!important;color:var(--ink)!important;}
-html body #appMpProduct .wishwave-detail-actions{display:grid!important;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)!important;gap:10px!important;margin:16px 0 0!important;}
-html body #appMpProduct .wishwave-detail-actions .app-mp-action{height:46px!important;border-radius:10px!important;font-size:14px!important;}
+html body #appMpProduct .app-mp-seller-copy b{font-size:13px!important;}
+html body #appMpProduct .app-mp-seller-copy span{font-size:11px!important;margin:0!important;}
+html body #appMpProduct .app-mp-title{font-size:21px!important;line-height:1.2!important;letter-spacing:-.4px!important;color:inherit!important;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;}
+.wishwave-detail-price-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:5px 0 10px;}
+html body #appMpProduct .app-mp-price{font-size:29px!important;letter-spacing:-.7px!important;margin:0!important;line-height:1.15!important;}
+.wishwave-detail-free{display:inline-flex;align-items:center;gap:5px;color:#32c774;font-size:12px;font-weight:600;}
+.wishwave-detail-free svg,.wishwave-detail-fact svg{width:18px;height:18px;flex:0 0 auto;}
+.wishwave-detail-fact{display:flex;justify-content:space-between;align-items:center;gap:12px;border-top:1px solid var(--line);padding:10px 0;font-size:12px;}
+.wishwave-detail-fact>span{display:flex;align-items:center;gap:8px;color:var(--muted);flex:0 0 auto;}
+.wishwave-detail-fact b{font-size:11px;font-weight:500;text-align:right;overflow-wrap:anywhere;}
+.wishwave-detail-description{display:block;width:100%;border:0;border-top:1px solid var(--line);background:none;color:inherit;text-align:left;padding:10px 0;cursor:pointer;}
+html body #appMpProduct .app-mp-description{font-size:12px!important;line-height:1.5!important;padding:0!important;border:0!important;color:var(--ink)!important;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden;}
+html body #appMpProduct .wishwave-detail-actions{display:grid!important;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr)!important;gap:10px!important;margin:10px 0 0!important;}
+html body #appMpProduct .wishwave-detail-actions .app-mp-action{height:44px!important;border-radius:10px!important;font-size:14px!important;}
 html body #appMpProduct .wishwave-detail-actions .primary{background:#fff!important;color:#111!important;border:1px solid #fff!important;}
 html.findai-light body #appMpProduct .wishwave-detail-actions .primary{background:#111!important;color:#fff!important;border-color:#111!important;}
 html body #appMpProduct .wishwave-detail-save{display:flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;color:inherit!important;border:1px solid var(--line-strong,#414650)!important;background:none!important;}
 .wishwave-detail-save svg{width:18px;height:18px;}
 .wishwave-detail-save[aria-pressed="true"] svg{fill:currentColor;}
-.wishwave-detail-secondary{display:flex;justify-content:center;gap:26px;margin:14px 0;}
-.wishwave-detail-secondary button{border:0;background:none;color:var(--ink);font:inherit;font-size:12px;padding:8px 0;}
-.wishwave-detail-secondary button:disabled{opacity:.4;}
-html body #appMpProduct .app-mp-protection{background:none!important;border:0!important;padding:4px 0 18px!important;margin:0!important;color:var(--muted)!important;}
-html body #appMpProduct .app-mp-protection span{font-size:11px!important;color:var(--muted)!important;line-height:1.5!important;}
 .wishwave-native-detail-link{padding:0;border:0;background:none;color:inherit;font:inherit;letter-spacing:inherit;text-align:left;cursor:pointer;}
-html body #appMpProduct .app-mp-section{margin:14px 18px!important;padding:16px 0!important;border-color:var(--line)!important;}
+@container(max-height:680px){html body #appMpProduct .wishwave-detail-body{padding-bottom:10px!important;}html body #appMpProduct .app-mp-seller{padding:7px 0!important;margin-bottom:8px!important;}.wishwave-detail-fact{padding:8px 0;}html body #appMpProduct .app-mp-description{-webkit-line-clamp:2;}.wishwave-detail-description{padding:8px 0;}}
 @media(prefers-reduced-motion:reduce){#findaiNotificationPanel{transition:none!important;}}
 </style>
 <script id="wishwave-selected-design-refinement-script">
 (function(){
-  const original=window.sourceMarkup;
-  window.sourceMarkup=function(source,item){
-    const key=typeof appKnownBrandForItem==='function'?appKnownBrandForItem(item,source):String(source||'').toLowerCase();
-    if((key==='stockx'||key==='ebay')&&!isFindAIListing(item)){
-      const icon=key==='ebay'?EBAY_LOGO_SVG:'<svg viewBox="161 0 40 40" aria-hidden="true"><path d="m186.401 27.5001 14.6 12.4999v-10l-11.673-9.9944 11.673-10.0056v-10l-20.4 17.4859v-4.986l-14.6-12.4999v10l11.673 9.9944-11.673 10.0056v10l20.4-17.4856z" fill="#00a86b"/></svg>';
-      const identity='<span class="wishwave-market-identity" role="img" aria-label="Recognised marketplace" title="Recognised marketplace · individual items are not verified by WishWave"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="m12 1.5 3.2 2.1 3.8.5.5 3.8 2.1 3.1-2.1 3.2-.5 3.8-3.8.5-3.2 2.1-3.2-2.1-3.8-.5-.5-3.8L1.5 12l2.1-3.1.5-3.8 3.8-.5L12 1.5Z"/><path d="m7.5 12 3 3 6-6" fill="none" stroke="var(--bg,#0c0d0f)" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
-      return '<span class="wishwave-market-badge" data-marketplace="'+key+'"><span class="wishwave-market-avatar" aria-hidden="true">'+icon+'</span><span class="wishwave-market-name">'+(key==='ebay'?'eBay':'StockX')+'</span>'+identity+'</span>';
-    }
-    return original.apply(this,arguments);
+  const renderDetail=window.renderAppMarketplaceListing;
+  window.renderAppMarketplaceListing=function(){
+    const result=renderDetail.apply(this,arguments);
+    const root=document.getElementById('appMpProductContent');
+    root?.querySelectorAll('.wishwave-product-comments-entry,.findai-safety-listing-report').forEach(node=>node.remove());
+    if(root)root.scrollTop=0;
+    return result;
+  };
+  window.wishwaveShowDescription=function(){if(appMpListing)openAppMpSheet('Description','<p class="app-mp-muted" style="white-space:pre-wrap">'+escapeHTML(appMpListing.description||'The seller has not added a description yet.')+'</p>');};
+  window.wishwaveDetailMenu=function(){
+    if(!appMpListing)return;
+    const owner=!!appMpContext?.viewer?.isSeller;
+    openAppMpSheet('Listing options','<div class="app-mp-actions"><button class="app-mp-action tertiary" onclick="closeAppMpSheet();openAppMarketplaceOfferInMessages()">'+(owner?'Manage offers':'Make offer')+'</button><button class="app-mp-action tertiary" onclick="closeAppMpSheet();openAppMarketplaceMessages()">'+(owner?'Messages':'Message seller')+'</button><button class="app-mp-action tertiary" onclick="closeAppMpSheet();openWishWaveListingComments()">Comments</button>'+(!owner?'<button class="app-mp-action tertiary" onclick="closeAppMpSheet();openWishWaveSafetyReport(\'listing\',{id:appMpId(appMpListing)})">Report listing</button>':'')+'</div>');
   };
   window.wishwaveOpenNativeDetail=function(index,event){if(event){event.preventDefault();event.stopPropagation();}const item=currentFeedItems[Number(index)||0];if(item&&isFindAIListing(item))return openAppMarketplaceListing(item);};
   window.wishwaveOpenDetailSeller=async function(){

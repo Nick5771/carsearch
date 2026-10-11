@@ -11,13 +11,13 @@ const dom=new JSDOM(html.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,''),{url:'h
 const w=dom.window,wait=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
   await wait(900);
-  w.eval("marketplaceSession=()=> 'test';getAccountProfile=()=>({email:'nick@example.com',name:'Nick',username:'nick'});marketplaceFetch=async()=>({profile:{username:'nick',displayName:'Nick'}});");
+  w.eval("marketplaceSession=()=> 'test';getAccountProfile=()=>({email:'nick@example.com',name:'Nick',username:'nick',avatar:'https://images.test/current-avatar.jpg'});marketplaceFetch=async()=>({profile:{username:'nick',displayName:'Nick'}});");
   for(const source of ['stockx','ebay']){
     const node=w.document.createElement('div');node.innerHTML=w.sourceMarkup(source,{source,url:source==='ebay'?'https://www.ebay.com/itm/1':'https://stockx.com/nike-dunk'});
-    assert.equal(node.querySelector('.wishwave-market-badge').dataset.marketplace,source);
-    assert(node.querySelector('.wishwave-market-avatar'));assert(!node.textContent.includes('✓'));
-    assert.equal(node.querySelector('.wishwave-market-identity').getAttribute('aria-label'),'Recognised marketplace');
-    assert(node.querySelector('.wishwave-market-identity').title.includes('individual items are not verified'));
+    assert.equal(node.querySelector('.findai-exact-brand').dataset.brand,source);
+    assert(node.querySelector('.findai-exact-brand img'));
+    assert(!node.querySelector('.wishwave-market-avatar,.wishwave-market-identity'));
+
   }
   assert(!w.sourceMarkup('findai',{id:'lst_one',source:'findai'}).includes('wishwave-market-badge'));
   assert(w.document.querySelector('.wishwave-profile-dashboard svg'));
@@ -37,15 +37,17 @@ const w=dom.window,wait=ms=>new Promise(r=>setTimeout(r,ms));
   w.wishwaveFilterNotifications('social');await wait(30);rows=w.document.querySelectorAll('#findaiNotificationList .findai-notification-item');assert.deepEqual([...rows].map(r=>r.dataset.notificationIndex),['0','2']);
   const tab=w.document.querySelector('[data-notice-filter="social"]');tab.dispatchEvent(new w.KeyboardEvent('keydown',{key:'ArrowRight',bubbles:true}));assert.equal(w.document.querySelector('[data-notice-filter="all"]').getAttribute('aria-selected'),'true');
   const listing={id:'lst_one',itemId:'lst_one',source:'findai',title:'Sony A7 IV',price:1850,currency:'USD',condition:'Used · Excellent',description:'Includes original box',status:'active',shippingCost:0,shippingMode:'free',images:['https://images.test/one.jpg','https://images.test/two.jpg']};
-  w.fixture=listing;w.eval("appMpListing=fixture;appMpContext={seller:{displayName:'Nick',soldCount:24},viewer:{isSeller:false}};isTracked=()=>false;");
+  w.fixture=listing;w.eval("appMpListing=fixture;appMpContext={seller:{displayName:'Nick',soldCount:24,avatarUrl:'https://images.test/other-avatar.jpg'},viewer:{isSeller:false}};isTracked=()=>false;");
   w.renderAppMarketplaceListing();
-  const root=w.document.querySelector('#appMpProductContent');assert(root.querySelector('.wishwave-detail-actions .primary').textContent.includes('Buy now'));assert.equal(root.querySelectorAll('.wishwave-detail-dots button').length,2);assert(root.textContent.includes('24 sales'));assert(root.textContent.includes('Ask the seller about returns'));assert(!root.textContent.includes('3–6'));assert(!root.querySelector('.app-mp-image-price'));assert(root.querySelector('.wishwave-product-comments-entry'));
+  const root=w.document.querySelector('#appMpProductContent');assert(root.querySelector('.wishwave-detail-actions .primary').textContent.includes('Buy now'));assert.equal(root.querySelectorAll('.wishwave-detail-dots button').length,2);assert(root.textContent.includes('24 sales'));assert(root.textContent.includes('Ask the seller about returns'));assert(!root.textContent.includes('3–6'));assert(!root.querySelector('.app-mp-image-price'));assert(!root.querySelector('.wishwave-product-comments-entry,.app-mp-protection,.wishwave-detail-reference,.wishwave-detail-secondary'));assert.equal(root.querySelector('.wishwave-detail-body').lastElementChild.className,'app-mp-actions wishwave-detail-actions');
+  w.wishwaveDetailMenu();assert(w.document.querySelector('#appMpSheetBody').textContent.includes('Report listing'));assert(w.document.querySelector('#appMpSheetBody').textContent.includes('Comments'));w.closeAppMpSheet();
+  assert(root.querySelector('.app-mp-avatar img').src.endsWith('other-avatar.jpg'));
   w.appMpSelectImage(1);assert(w.document.querySelector('#appMpMainImage').src.endsWith('two.jpg'));assert.equal(root.querySelectorAll('.app-mp-thumb')[1].getAttribute('aria-pressed'),'true');
   let saved=[],remote=[];w.setTracked=items=>saved=items;w.getTracked=()=>saved;w.appSavedRemoteSet=async(item,active)=>remote.push(active);
   const save=root.querySelector('.wishwave-detail-save');w.wishwaveSaveDetailListing(save);assert.equal(saved[0].marketplaceListingId,'lst_one');assert.equal(save.getAttribute('aria-pressed'),'true');w.wishwaveSaveDetailListing(save);assert.equal(saved.length,0);assert.deepEqual(remote,[true,false]);
-  w.eval('appMpContext.viewer.isSeller=true;socialProfileListings=[fixture]');w.renderAppMarketplaceListing();assert(w.document.querySelector('.wishwave-detail-actions .primary').disabled);assert(w.document.querySelector('#appMpProductContent .wishwave-promote-button'));
+  w.eval('appMpContext.viewer.isSeller=true;socialProfileListings=[fixture]');w.renderAppMarketplaceListing();assert(w.document.querySelector('.wishwave-detail-actions .primary').disabled);assert(w.document.querySelector('.app-mp-avatar img').src.endsWith('current-avatar.jpg'));w.wishwaveDetailMenu();assert(!w.document.querySelector('#appMpSheetBody').textContent.includes('Report listing'));w.closeAppMpSheet();assert(w.document.querySelector('#appMpProductContent .wishwave-promote-button'));
   let opened=0;w.openAppMarketplaceListing=()=>opened++;w.eval("currentFeedItems=[{source:'ebay',id:'external'},fixture]");w.wishwaveOpenNativeDetail(0);assert.equal(opened,0);w.wishwaveOpenNativeDetail(1);assert.equal(opened,1);
   assert.equal(errors.length,0,JSON.stringify(errors));
-  console.log('PASS: circular source identities, native-only detail entry, real metadata, gallery, Save, seller ownership, comments, notification filtering/cache indices/calendar groups and keyboard tabs');
+  console.log('PASS: original marketplace wordmarks, own and other seller avatars, purchase row ends page, secondary actions menu, native-only detail entry, real metadata, gallery, Save, seller ownership, comments, notification filtering/cache indices/calendar groups and keyboard tabs');
   w.close();
 })().catch(e=>{console.error(e);w.close();process.exitCode=1});
