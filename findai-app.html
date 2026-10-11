@@ -4,7 +4,7 @@
 <meta name="findai-build" content="v234-preserve-shopping-source-order">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#111214">
+<meta name="theme-color" content="#0c0d0f">
 <meta name="robots" content="noindex, follow">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -26,10 +26,11 @@
     document.documentElement.classList.toggle('wishwave-installed',navigator.standalone===true||!!(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches));
     // Route Search nav before older capture listeners can reopen Recents.
     ['touchstart','touchmove','touchend','touchcancel'].forEach(type=>window.addEventListener(type,e=>{
-      const handled=window.__wishwaveZoomTouch?.(type,e)||window.__wishwavePageTouch?.(type,e)||window.__wishwaveBackTouch?.(type,e)||window.__wishwaveTabTouch?.(type,e)||window.__wishwaveRefreshTouch?.(type,e);
+      const handled=window.__wishwaveSearchListingTouch?.(type,e)||window.__wishwaveZoomTouch?.(type,e)||window.__wishwavePageTouch?.(type,e)||window.__wishwaveBackTouch?.(type,e)||window.__wishwaveTabTouch?.(type,e)||window.__wishwaveRefreshTouch?.(type,e);
       if(handled)e.stopImmediatePropagation();
     },{capture:true,passive:false}));
     window.addEventListener('click',function(e){
+      if(window.__wishwaveSearchListingClick?.(e)){e.stopImmediatePropagation();return;}
       if(e.target.closest?.('.premium-bottom-nav .nav-create-action')&&window.wishwaveOpenCreateTab){e.preventDefault();e.stopImmediatePropagation();window.wishwaveOpenCreateTab();return;}
       if(e.target.closest?.('#appMpInbox.chat-open .app-mp-header button[aria-label="Back"]')&&window.wishwaveSlideChatBack){e.preventDefault();e.stopImmediatePropagation();window.wishwaveSlideChatBack();return;}
       if(!e.target.closest?.('.premium-bottom-nav button[data-tab="search"]'))return;
@@ -45,7 +46,7 @@
     document.documentElement.setAttribute('data-findai-theme',resolved);
     document.documentElement.style.colorScheme=resolved;
     var meta=document.querySelector('meta[name="theme-color"]');
-    if(meta)meta.setAttribute('content',resolved==='light'?'#ffffff':'#111214');
+    if(meta)meta.setAttribute('content',resolved==='light'?'#ffffff':'#0c0d0f');
     var statusMeta=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
     if(statusMeta)statusMeta.setAttribute('content',resolved==='light'?'default':'black-translucent');
   }catch(_){}
@@ -66,7 +67,7 @@
 </script>
 <style>
   :root{
-    --bg:#111214;
+    --bg:#0c0d0f;
     --surface:#1a1c20;
     --surface-2:#202228;
     --surface-3:#282b32;
@@ -2525,15 +2526,15 @@ html.findai-light .app-chat-shop-query,html.findai-light .app-chat-shop-cycle{co
 /* Light appearance variants */
 html.findai-light #search.findai-search-tab,html.findai-light #liked{background:#f6f7f9}
 html.findai-light .mobile-search-header{background:#f6f7f9}
-html.findai-light .mobile-search-title h1,html.findai-light .liked-header h1,html.findai-light .profile-signed-out h1{color:#111214}
+html.findai-light .mobile-search-title h1,html.findai-light .liked-header h1,html.findai-light .profile-signed-out h1{color:#0c0d0f}
 html.findai-light .mobile-search-title p,html.findai-light .liked-header p,html.findai-light .profile-signed-out>p{color:#74777d}
-html.findai-light .mobile-search-form,html.findai-light .liked-filter-wrap{background:#fff;border-color:rgba(17,18,20,.1)}
-html.findai-light .mobile-search-form input,html.findai-light .liked-filter-wrap input{color:#111214}
-html.findai-light .mobile-category-tile,html.findai-light .mobile-product-card,html.findai-light .liked-stock-card,html.findai-light .profile-menu-row{background:#fff;color:#111214;border-color:rgba(17,18,20,.08)}
-html.findai-light .mobile-section-head h2,html.findai-light .profile-menu-title{color:#111214}
-html.findai-light .mobile-popular-chip{background:#fff;color:#222;border-color:rgba(17,18,20,.09)}
-html.findai-light .liked-empty-icon,html.findai-light .liked-search-toggle{background:#fff;color:#111214;border-color:rgba(17,18,20,.08)}
-html.findai-light .profile-secondary-auth{background:#fff;color:#111214;border-color:rgba(17,18,20,.1)}
+html.findai-light .mobile-search-form,html.findai-light .liked-filter-wrap{background:#fff;border-color:rgba(12,13,15,.1)}
+html.findai-light .mobile-search-form input,html.findai-light .liked-filter-wrap input{color:#0c0d0f}
+html.findai-light .mobile-category-tile,html.findai-light .mobile-product-card,html.findai-light .liked-stock-card,html.findai-light .profile-menu-row{background:#fff;color:#0c0d0f;border-color:rgba(12,13,15,.08)}
+html.findai-light .mobile-section-head h2,html.findai-light .profile-menu-title{color:#0c0d0f}
+html.findai-light .mobile-popular-chip{background:#fff;color:#222;border-color:rgba(12,13,15,.09)}
+html.findai-light .liked-empty-icon,html.findai-light .liked-search-toggle{background:#fff;color:#0c0d0f;border-color:rgba(12,13,15,.08)}
+html.findai-light .profile-secondary-auth{background:#fff;color:#0c0d0f;border-color:rgba(12,13,15,.1)}
 html.findai-light .profile-menu-icon{background:#f0f1f2}
 
 
@@ -2648,17 +2649,17 @@ html.findai-light .profile-menu-icon{background:#f0f1f2}
 
 /* Light */
 html.findai-light .findai-five-nav .nav-create-shell{background:#17191c;color:#fff}
-html.findai-light .social-profile-handle,html.findai-light .social-profile-copy h2{color:#111214}
-html.findai-light .social-profile-stats button{color:#111214}
+html.findai-light .social-profile-handle,html.findai-light .social-profile-copy h2{color:#0c0d0f}
+html.findai-light .social-profile-stats button{color:#0c0d0f}
 html.findai-light .social-profile-stats span{color:#6f747b}
 html.findai-light .social-profile-bio{color:#2b2d31}
-html.findai-light .social-profile-actions button,html.findai-light .social-profile-utility-row button{background:#fff;color:#111214;border-color:rgba(17,18,20,.09)}
-html.findai-light .social-profile-tabs{background:#f6f7f9;border-color:rgba(17,18,20,.08)}
-html.findai-light .social-profile-tabs button.active{color:#111214}
-html.findai-light .social-profile-tabs button.active:after{background:#111214}
+html.findai-light .social-profile-actions button,html.findai-light .social-profile-utility-row button{background:#fff;color:#0c0d0f;border-color:rgba(12,13,15,.09)}
+html.findai-light .social-profile-tabs{background:#f6f7f9;border-color:rgba(12,13,15,.08)}
+html.findai-light .social-profile-tabs button.active{color:#0c0d0f}
+html.findai-light .social-profile-tabs button.active:after{background:#0c0d0f}
 html.findai-light .social-profile-grid{background:#f6f7f9}
-html.findai-light .social-profile-review{background:#fff;color:#111214;border-color:rgba(17,18,20,.08)}
-html.findai-light .profile-edit-field input,html.findai-light .profile-edit-field textarea{background:#fff;color:#111214;border-color:rgba(17,18,20,.1)}
+html.findai-light .social-profile-review{background:#fff;color:#0c0d0f;border-color:rgba(12,13,15,.08)}
+html.findai-light .profile-edit-field input,html.findai-light .profile-edit-field textarea{background:#fff;color:#0c0d0f;border-color:rgba(12,13,15,.1)}
 
 
 /* ============================================================
@@ -2806,14 +2807,14 @@ html.findai-light .profile-edit-field input,html.findai-light .profile-edit-fiel
 html.findai-light #search.premium-search-home,html.findai-light #searchResults.premium-results-screen,html.findai-light #profile.profile-screen{background:#f8f8f8!important}
 html.findai-light .premium-search-home-header,html.findai-light .premium-results-header{background:#f8f8f8}
 html.findai-light .premium-search-bar,html.findai-light .premium-results-search{background:#fff;border-color:rgba(0,0,0,.09)}
-html.findai-light .premium-search-bar input,html.findai-light .premium-results-search input{color:#111214}
-html.findai-light .premium-section-title h2{color:#111214}
-html.findai-light .premium-ebay-card,html.findai-light .premium-result-card{background:#fff;color:#111214}
+html.findai-light .premium-search-bar input,html.findai-light .premium-results-search input{color:#0c0d0f}
+html.findai-light .premium-section-title h2{color:#0c0d0f}
+html.findai-light .premium-ebay-card,html.findai-light .premium-result-card{background:#fff;color:#0c0d0f}
 html.findai-light .premium-ebay-copy h3,html.findai-light .premium-result-copy h3{color:#27292d}
-html.findai-light .premium-ebay-copy strong,html.findai-light .premium-result-copy strong{color:#111214}
+html.findai-light .premium-ebay-copy strong,html.findai-light .premium-result-copy strong{color:#0c0d0f}
 html.findai-light .premium-bottom-nav{background:rgba(250,250,250,.97)!important;border-color:rgba(0,0,0,.08)!important}
-html.findai-light .premium-bottom-nav .nav-create-shell{background:#dedfe1!important;color:#111214!important}
-html.findai-light .social-profile-actions button{background:#e8e8ea!important;color:#111214!important}
+html.findai-light .premium-bottom-nav .nav-create-shell{background:#dedfe1!important;color:#0c0d0f!important}
+html.findai-light .social-profile-actions button{background:#e8e8ea!important;color:#0c0d0f!important}
 html.findai-light .social-profile-tabs{background:#f8f8f8!important}
 
 
@@ -2888,7 +2889,7 @@ html.findai-light .social-profile-tabs{background:#f8f8f8!important}
 
 /* Light */
 html.findai-light .guest-profile-posts{background:#f8f8f8}
-html.findai-light .guest-profile-signin>b{color:#111214}
+html.findai-light .guest-profile-signin>b{color:#0c0d0f}
 html.findai-light .guest-profile-signin>span{color:#747980}
 html.findai-light .premium-card-source-text{color:#777d84}
 
@@ -3030,13 +3031,13 @@ html.findai-light .premium-card-source-text{color:#777d84}
 
 /* Light-mode equivalent of the Instagram-style selected halo. */
 html.findai-light .nav{
-  border-top-color:rgba(17,18,20,.09)!important;background:rgba(250,250,249,.94)!important
+  border-top-color:rgba(12,13,15,.09)!important;background:rgba(250,250,249,.94)!important
 }
 html.findai-light .nav button{color:#696b70!important}
-html.findai-light .nav button.active{color:#111214!important}
+html.findai-light .nav button.active{color:#0c0d0f!important}
 html.findai-light .nav button.active .nav-icon-shell{background:rgba(0,0,0,.075)}
 html.findai-light .nav-profile-avatar{background:#e8e9e8;color:#151615;border-color:#8c8e92}
-html.findai-light .nav button.active[data-tab="profile"] .nav-profile-avatar{border-color:#111214}
+html.findai-light .nav button.active[data-tab="profile"] .nav-profile-avatar{border-color:#0c0d0f}
 
 @media (max-height:700px){
   :root{--nav-h:60px}
@@ -3107,7 +3108,7 @@ html.findai-light .nav button.active[data-tab="profile"] .nav-profile-avatar{bor
   padding-bottom:calc(var(--premium-nav-h) + var(--safe-bottom))!important;
 }
 html.findai-light #discover .discover-social-topbar{
-  color:#111214;
+  color:#0c0d0f;
   background:linear-gradient(180deg,rgba(246,247,249,.78) 0%,rgba(246,247,249,.26) 68%,rgba(246,247,249,0) 100%);
   text-shadow:none;
 }
@@ -10135,7 +10136,7 @@ function applyAppTheme(pref){
   root.classList.toggle('findai-light',resolved==='light');
   root.setAttribute('data-findai-theme',resolved);
   root.style.colorScheme=resolved;
-  var meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.setAttribute('content',resolved==='light'?'#ffffff':'#111214');
+  var meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.setAttribute('content',resolved==='light'?'#ffffff':'#0c0d0f');
   var statusMeta=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');if(statusMeta)statusMeta.setAttribute('content',resolved==='light'?'default':'black-translucent');
   document.querySelectorAll('[data-app-theme-choice]').forEach(function(button){button.classList.toggle('active',button.getAttribute('data-app-theme-choice')===p);});
 }
@@ -10934,7 +10935,7 @@ window.addEventListener('load', function(){
   #appMpInbox .app-mp-conversation-list{background:#000!important}
   #appMpInbox .app-mp-chat{grid-template-rows:auto minmax(0,1fr) auto auto!important}
   #appMpInbox .app-mp-chat-head{padding:10px 14px!important;border-bottom:1px solid rgba(255,255,255,.08)!important}
-  #appMpInbox .app-mp-chat-listing{background:#111214!important;border:1px solid rgba(255,255,255,.08)!important}
+  #appMpInbox .app-mp-chat-listing{background:#0c0d0f!important;border:1px solid rgba(255,255,255,.08)!important}
   #appMpInbox .app-mp-bubble{background:#1b1c1f!important;border:1px solid rgba(255,255,255,.06)!important;color:#fff!important;border-radius:20px!important}
   #appMpInbox .app-mp-bubble.mine{background:#24262b!important}
   #appMpInbox .app-mp-time{color:rgba(255,255,255,.56)!important}
@@ -10979,7 +10980,7 @@ window.addEventListener('load', function(){
   #appMpInbox .app-mp-attachment-chip{
     display:inline-flex!important;align-items:center!important;gap:8px!important;max-width:100%!important;
     padding:7px 10px!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:999px!important;
-    background:#111214!important;color:#fff!important;font-size:12px!important;
+    background:#0c0d0f!important;color:#fff!important;font-size:12px!important;
   }
   #appMpInbox .app-mp-attachment-chip .close{font-size:14px!important;opacity:.72!important}
   #appMpInbox .app-mp-conversation-card{background:#000!important}
@@ -12000,7 +12001,7 @@ window.addEventListener('load', function(){
     transform:scale(1)!important;
   }
   html.findai-light #discover .discover-notification-button{
-    color:#111214!important;
+    color:#0c0d0f!important;
   }
   html.findai-light #discover .discover-notification-button.has-notification{
     color:#e61f38!important;
@@ -12255,10 +12256,10 @@ window.addEventListener('load', function(){
   html.findai-light .findai-notification-panel{background:rgba(255,255,255,.98)!important;border-color:rgba(0,0,0,.1)!important}
   html.findai-light .findai-notification-panel-head{border-bottom-color:rgba(0,0,0,.08)!important}
   html.findai-light .findai-notification-panel-head b,
-  html.findai-light .findai-notification-item{color:#111214!important}
-  html.findai-light .findai-notification-icon{background:#f0f1f3!important;color:#111214!important}
+  html.findai-light .findai-notification-item{color:#0c0d0f!important}
+  html.findai-light .findai-notification-icon{background:#f0f1f3!important;color:#0c0d0f!important}
   html.findai-light .findai-notification-item:active{background:#f1f2f4!important}
-  html.findai-light .findai-notification-empty b{color:#111214!important}
+  html.findai-light .findai-notification-empty b{color:#0c0d0f!important}
 </style>
 
 
@@ -12817,7 +12818,7 @@ window.addEventListener('load', function(){
 .findai-notification-thumb{width:42px;height:42px;border-radius:50%;overflow:hidden;background:#1d2025;display:grid;place-items:center;color:#fff}
 .findai-notification-thumb.product{border-radius:9px;background:#111318}
 .findai-notification-thumb img{width:100%;height:100%;object-fit:cover;display:block}
-html.findai-light .findai-notification-group-title{color:#111214}
+html.findai-light .findai-notification-group-title{color:#0c0d0f}
 .findai-tab-refreshing .findai-v133-nav-indicator{animation:findaiTabRefreshPulse .48s cubic-bezier(.2,.8,.2,1)}
 @keyframes findaiTabRefreshPulse{0%,100%{transform:var(--findai-indicator-transform) scale(1)}45%{filter:brightness(1.28);opacity:.78}}
 .premium-seller-action.findai-follow-settling,#wishwavePublicFollowButton.findai-follow-settling{transition:background .18s ease,color .18s ease,border-color .18s ease,transform .18s cubic-bezier(.16,1,.3,1)!important}
@@ -13739,7 +13740,7 @@ html.findai-light .findai-notification-group-title{color:#111214}
       const standalone=window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true;
       if(!standalone)return;
       const meta=document.querySelector('meta[name="theme-color"]');
-      const colour=document.documentElement.classList.contains('findai-light')?'#ffffff':'#111214';
+      const colour=document.documentElement.classList.contains('findai-light')?'#ffffff':'#0c0d0f';
       if(meta)meta.setAttribute('content',colour);
       document.documentElement.style.backgroundColor=colour;
       document.body.style.backgroundColor=colour;
@@ -18856,11 +18857,11 @@ html.findai-light .findai-settings-search-result{color:#111;border-bottom-color:
 }
 html.findai-light #discover .discover-notification-button,
 html.findai-light #discover .discover-notification-button.has-notification{
-  color:#111214!important;
+  color:#0c0d0f!important;
 }
 html.findai-light #discover .discover-notification-button.has-notification svg{
-  color:#111214!important;
-  stroke:#111214!important;
+  color:#0c0d0f!important;
+  stroke:#0c0d0f!important;
 }
 #discover .discover-notification-dot{
   top:4px!important;
@@ -19106,7 +19107,7 @@ html.findai-light .findai-notification-panel{
 }
 html.findai-light .findai-notification-group-title,
 html.findai-light .findai-notification-copy b,
-html.findai-light .findai-notification-item{color:#111214!important}
+html.findai-light .findai-notification-item{color:#0c0d0f!important}
 html.findai-light .findai-notification-item{border-bottom-color:rgba(0,0,0,.06)!important}
 html.findai-light .findai-notification-item:active{background:#f5f6f7!important}
 html.findai-light .findai-notification-copy span{color:#6f747c!important}
@@ -19195,16 +19196,16 @@ html.findai-light .findai-notification-action.primary{background:#2388ff!importa
 .findai-followers-loading{padding:55px 20px;text-align:center;color:#7f8791;font-size:12px}
 
 html.findai-light .findai-followers-page,
-html.findai-light .findai-followers-head{background:#fff;color:#111214}
+html.findai-light .findai-followers-head{background:#fff;color:#0c0d0f}
 html.findai-light .findai-followers-head{border-bottom-color:rgba(0,0,0,.08)}
-html.findai-light .findai-followers-back{color:#111214}
+html.findai-light .findai-followers-back{color:#0c0d0f}
 html.findai-light .findai-followers-search{background:#f0f1f3}
-html.findai-light .findai-followers-search input{color:#111214}
-html.findai-light .findai-follower-row{color:#111214}
+html.findai-light .findai-followers-search input{color:#0c0d0f}
+html.findai-light .findai-follower-row{color:#0c0d0f}
 html.findai-light .findai-follower-row:active{background:#f3f4f5}
-html.findai-light .findai-follower-copy b{color:#111214}
-html.findai-light .findai-follower-view{background:#eef0f3;color:#111214;border-color:#dde0e4}
-html.findai-light .findai-followers-empty b{color:#111214}
+html.findai-light .findai-follower-copy b{color:#0c0d0f}
+html.findai-light .findai-follower-view{background:#eef0f3;color:#0c0d0f;border-color:#dde0e4}
+html.findai-light .findai-followers-empty b{color:#0c0d0f}
 </style>
 
 <script id="findai-v140-followers-script">
@@ -19530,7 +19531,7 @@ html.findai-light .findai-followers-empty b{color:#111214}
   min-width:66px!important;
   background:#f2f3f5!important;
   border-color:#f2f3f5!important;
-  color:#111214!important;
+  color:#0c0d0f!important;
   transition:transform .16s ease,background .16s ease,color .16s ease,border-color .16s ease!important;
 }
 .findai-follower-view.following{
@@ -19539,10 +19540,10 @@ html.findai-light .findai-followers-empty b{color:#111214}
   color:#fff!important;
 }
 html.findai-light .findai-follower-view{
-  background:#111214!important;color:#fff!important;border-color:#111214!important;
+  background:#0c0d0f!important;color:#fff!important;border-color:#0c0d0f!important;
 }
 html.findai-light .findai-follower-view.following{
-  background:#eef0f3!important;color:#111214!important;border-color:#dde0e4!important;
+  background:#eef0f3!important;color:#0c0d0f!important;border-color:#dde0e4!important;
 }
 </style>
 
@@ -28649,7 +28650,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
   html.findai-light #wishwavePublicFollowButton.following,
   html.findai-light .premium-seller-action.following{
     background:#eff1f4!important;
-    color:#111214!important;
+    color:#0c0d0f!important;
     border-color:#e1e3e7!important;
   }
 
@@ -29896,6 +29897,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
   let lastOpenedAt=0;
   let scrollRaf=0;
   let moreReels=null;
+  let reelSession=0;
 
   const overlay=()=>document.getElementById('searchDetailOverlay');
   const reelFeed=()=>document.getElementById('searchDetailFeed');
@@ -29985,6 +29987,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     if(best>=cards.length-5)moreReels?.();
   }
   function closeOwnedReel(){
+    ++reelSession;
     window.__wishwaveCancelReelOpen?.();
     const view=overlay(),feed=reelFeed();
     if(!view||!isOpen())return false;
@@ -29992,7 +29995,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     if(feed)feed.onscroll=null;moreReels=null;
     // Hide the offscreen surface first; dismantle its cards after Search has painted.
     requestAnimationFrame(()=>requestAnimationFrame(()=>{if(feed&&!isOpen())feed.replaceChildren();}));
-    view.classList.remove('show','explore-reel-mode','search-owned-v186','findai-v133-context-reel','findai-v133-dragging');
+    view.classList.remove('wishwave-reel-preparing','wishwave-reel-expanding','show','explore-reel-mode','search-owned-v186','findai-v133-context-reel','findai-v133-dragging');
     view.style.removeProperty('transform');
     if(returnState){
       currentFeedItems=returnState.items.slice();
@@ -30004,19 +30007,22 @@ body>.nav.findai-five-nav.premium-bottom-nav,
       const saved=returnState;
       requestAnimationFrame(()=>{const scroller=searchScroller(saved.screen);if(scroller)scroller.scrollTop=saved.scroll||0;});
     }
-    opening=false;
+    opening=false;window.__wishwavePageMotion=false;
     setSearchNav();
     return true;
   }
   window.__wishwaveCloseSearchReelV186=closeOwnedReel;
 
   function openList(items,index,data,host){
+    const session=++reelSession;
     window.__wishwaveCancelReelOpen?.();
     host=host||document.activeElement?.closest('#search .premium-explore-tile,#searchResults .premium-result-card');
     const tile=host?.getBoundingClientRect();
+    const requested=Array.isArray(items)?items[Number(index)||0]:null;
     const sourceList=cleanList(items);
     if(!sourceList.length)return false;
-    const sourceIndex=Math.max(0,Math.min(sourceList.length-1,Number(index)||0));
+    const matched=requested?sourceList.findIndex(item=>keyOf(item)===keyOf(requested)):-1;
+    const sourceIndex=matched>=0?matched:Math.max(0,Math.min(sourceList.length-1,Number(index)||0));
     const list=wishwaveMixedSearchReel(sourceList,sourceIndex);
     const chosen=0;
     const selected=list[chosen];
@@ -30049,17 +30055,19 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     const c=countNode();if(c)c.textContent=(chosen+1)+' / '+list.length;
 
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      if(session!==reelSession||!isOpen())return;
       const card=feed.querySelector('.reel-card[data-index="'+chosen+'"]');
       feed.scrollTop=card?card.offsetTop:chosen*(feed.clientHeight||1);
       activeReelIndex=chosen;
       try{if(typeof beginReelTracking==='function')beginReelTracking(chosen);}catch(_){ }
       const finishOpening=()=>{
+        if(session!==reelSession||!isOpen())return;
         view.classList.remove('wishwave-reel-preparing');window.__wishwavePageMotion=false;opening=false;
         const order=[];for(let step=1;step<list.length;step++){if(chosen+step<list.length)order.push(chosen+step);if(chosen-step>=0)order.push(chosen-step);}
-        function fill(){if(!isOpen()||currentFeedItems[chosen]!==selected)return;for(let n=0;n<2&&order.length;n++){const i=order.shift(),slot=feed.querySelector('.wishwave-reel-placeholder[data-index="'+i+'"]');if(slot)slot.outerHTML=renderReelCard(list[i],i,currentFeedData);}if(order.length)requestAnimationFrame(fill);}
+        function fill(){if(session!==reelSession||!isOpen()||currentFeedItems[chosen]!==selected)return;for(let n=0;n<2&&order.length;n++){const i=order.shift(),slot=feed.querySelector('.wishwave-reel-placeholder[data-index="'+i+'"]');if(slot)slot.outerHTML=renderReelCard(list[i],i,currentFeedData);}if(order.length)requestAnimationFrame(fill);}
         requestAnimationFrame(fill);
       };
-      if(tile&&tile.width>0)window.__wishwaveExpandSearchReel?.(view,tile,finishOpening);else finishOpening();
+      if(tile&&tile.width>0&&typeof window.__wishwaveExpandSearchReel==='function')window.__wishwaveExpandSearchReel(view,tile,finishOpening);else finishOpening();
     }));
     const sessionItems=currentFeedItems;
     let nextPage=2,loadingMore=false,emptyMore=0;
@@ -30108,19 +30116,19 @@ body>.nav.findai-five-nav.premium-bottom-nav,
 
   /* Final global listing openers. Inline onclick calls now terminate here. */
   window.openPremiumDiscoveryItem=function(sectionId,index){
-    const list=cleanList(sectionById(sectionId)?.items);
+    const list=(sectionById(sectionId)?.items||[]);
     return openList(list,index,{personalised:true});
   };
   window.openPremiumResultItem=function(index){
-    const list=cleanList(typeof premiumResultItems!=='undefined'?premiumResultItems:[]);
+    const list=(typeof premiumResultItems!=='undefined'?premiumResultItems:[]);
     return openList(list,index,(typeof premiumResultData!=='undefined'&&premiumResultData)||{personalised:true});
   };
   window.openPremiumEbayItem=function(index){
-    const list=cleanList(typeof premiumEbayItems!=='undefined'?premiumEbayItems:[]);
+    const list=(typeof premiumEbayItems!=='undefined'?premiumEbayItems:[]);
     return openList(list,index,{personalised:true});
   };
   window.openSearchResultDetail=function(index){
-    const list=cleanList(Array.isArray(currentFeedItems)?currentFeedItems:[]);
+    const list=(Array.isArray(currentFeedItems)?currentFeedItems:[]);
     return openList(list,index,currentFeedData||{personalised:true});
   };
 
@@ -30151,20 +30159,51 @@ body>.nav.findai-five-nav.premium-bottom-nav,
   function resolveHost(host){
     if(!host)return null;
     let m=String(host.getAttribute('onclick')||'').match(/openPremiumDiscoveryItem\(['\"]([^'\"]+)['\"],\s*(\d+)\)/);
-    if(m){const list=cleanList(sectionById(m[1])?.items),i=Number(m[2]);if(list[i])return {list,index:i,data:{personalised:true}};}
+    if(m){const list=(sectionById(m[1])?.items||[]),i=Number(m[2]);if(list[i])return {list,index:i,data:{personalised:true}};}
     m=String(host.getAttribute('onclick')||'').match(/openPremiumResultItem\((\d+)\)/);
-    if(m){const list=cleanList(typeof premiumResultItems!=='undefined'?premiumResultItems:[]),i=Number(m[1]);if(list[i])return {list,index:i,data:(typeof premiumResultData!=='undefined'&&premiumResultData)||{personalised:true}};}
+    if(m){const list=(typeof premiumResultItems!=='undefined'?premiumResultItems:[]),i=Number(m[1]);if(list[i])return {list,index:i,data:(typeof premiumResultData!=='undefined'&&premiumResultData)||{personalised:true}};}
     m=String(host.getAttribute('onclick')||'').match(/openPremiumEbayItem\((\d+)\)/);
-    if(m){const list=cleanList(typeof premiumEbayItems!=='undefined'?premiumEbayItems:[]),i=Number(m[1]);if(list[i])return {list,index:i,data:{personalised:true}};}
+    if(m){const list=(typeof premiumEbayItems!=='undefined'?premiumEbayItems:[]),i=Number(m[1]);if(list[i])return {list,index:i,data:{personalised:true}};}
     m=String(host.getAttribute('onclick')||'').match(/openSearchResultDetail\((\d+)\)/);
-    if(m){const list=cleanList(Array.isArray(currentFeedItems)?currentFeedItems:[]),i=Number(m[1]);if(list[i])return {list,index:i,data:currentFeedData||{personalised:true}};}
+    if(m){const list=(Array.isArray(currentFeedItems)?currentFeedItems:[]),i=Number(m[1]);if(list[i])return {list,index:i,data:currentFeedData||{personalised:true}};}
     const i=Number(host.dataset.gridIndex);
     if(Number.isFinite(i)){
-      const list=cleanList(Array.isArray(currentFeedItems)?currentFeedItems:[]);
+      const list=(Array.isArray(currentFeedItems)?currentFeedItems:[]);
       if(list[i])return {list,index:i,data:currentFeedData||{personalised:true}};
     }
     return null;
   }
+
+  let directTouch=null;
+  window.__wishwaveSearchListingTouch=function(type,event){
+    if(type==='touchstart'){
+      const host=listingHost(event.target),resolved=resolveHost(host),point=event.touches?.[0];
+      if(!host||!resolved||!point||event.touches.length!==1){directTouch=null;return false;}
+      directTouch={host,resolved,x:point.clientX,y:point.clientY,moved:false};return true;
+    }
+    if(!directTouch)return false;
+    if(type==='touchmove'){
+      const point=event.touches?.[0];
+      if(event.touches.length!==1||point&&Math.hypot(point.clientX-directTouch.x,point.clientY-directTouch.y)>11)directTouch.moved=true;
+      return true;
+    }
+    if(type==='touchcancel'){directTouch=null;return true;}
+    if(type==='touchend'){
+      const state=directTouch;directTouch=null;
+      if(state.moved){state.host.dataset.v186Scrolled=String(Date.now());return true;}
+      event.preventDefault();
+      if(Date.now()-Number(state.host.dataset.v186Opened||0)>=650){state.host.dataset.v186Opened=String(Date.now());openList(state.resolved.list,state.resolved.index,state.resolved.data,state.host);}
+      return true;
+    }
+    return false;
+  };
+  window.__wishwaveSearchListingClick=function(event){
+    const host=listingHost(event.target);if(!host)return false;
+    const resolved=resolveHost(host);if(!resolved)return false;
+    event.preventDefault();
+    if(Date.now()-Number(host.dataset.v186Opened||0)<650||Date.now()-Number(host.dataset.v186Scrolled||0)<650)return true;
+    host.dataset.v186Opened=String(Date.now());openList(resolved.list,resolved.index,resolved.data,host);return true;
+  };
 
   /* One iPhone tap path. We use pointer events so the same gesture cannot also
      become a legacy synthetic click after a tiny diagonal movement. */
@@ -31607,7 +31646,7 @@ html.findai-light body .app-mp-sheet-bg.wishwave-comments-mode #wishwaveCommentI
   .wishwave-inbox-preview.wishwave-inbox-clone .app-mp-conversation-list{background:#000!important}
 .wishwave-inbox-preview.wishwave-inbox-clone .app-mp-chat{grid-template-rows:auto minmax(0,1fr) auto auto!important}
 .wishwave-inbox-preview.wishwave-inbox-clone .app-mp-chat-head{padding:10px 14px!important;border-bottom:1px solid rgba(255,255,255,.08)!important}
-.wishwave-inbox-preview.wishwave-inbox-clone .app-mp-chat-listing{background:#111214!important;border:1px solid rgba(255,255,255,.08)!important}
+.wishwave-inbox-preview.wishwave-inbox-clone .app-mp-chat-listing{background:#0c0d0f!important;border:1px solid rgba(255,255,255,.08)!important}
 .wishwave-inbox-preview.wishwave-inbox-clone .app-mp-bubble{background:#1b1c1f!important;border:1px solid rgba(255,255,255,.06)!important;color:#fff!important;border-radius:20px!important}
 .wishwave-inbox-preview.wishwave-inbox-clone .app-mp-bubble.mine{background:#24262b!important}
 .wishwave-inbox-preview.wishwave-inbox-clone .app-mp-time{color:rgba(255,255,255,.56)!important}
@@ -31652,7 +31691,7 @@ html.findai-light body .app-mp-sheet-bg.wishwave-comments-mode #wishwaveCommentI
 .wishwave-inbox-preview.wishwave-inbox-clone .app-mp-attachment-chip{
     display:inline-flex!important;align-items:center!important;gap:8px!important;max-width:100%!important;
     padding:7px 10px!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:999px!important;
-    background:#111214!important;color:#fff!important;font-size:12px!important;
+    background:#0c0d0f!important;color:#fff!important;font-size:12px!important;
   }
 .wishwave-inbox-preview.wishwave-inbox-clone .app-mp-attachment-chip .close{font-size:14px!important;opacity:.72!important}
 .wishwave-inbox-preview.wishwave-inbox-clone .app-mp-conversation-card{background:#000!important}
@@ -33144,7 +33183,7 @@ html body #wishwaveMainNav button[data-tab].active .nav-messages-icon{fill:curre
 html body #wishwaveMainNav button[data-tab] .nav-search-icon{fill:none!important;stroke:currentColor!important;}
 html body #wishwaveMainNav button[data-tab].active .nav-search-icon{stroke-width:2.7!important;}
 html.findai-light body #wishwaveMainNav button[data-tab]{color:#737984!important;}
-html.findai-light body #wishwaveMainNav button[data-tab].active{color:#111214!important;}
+html.findai-light body #wishwaveMainNav button[data-tab].active{color:#0c0d0f!important;}
 </style>
 
 
@@ -33481,7 +33520,7 @@ html.findai-light body .app #createListingScreen:not(.preview-mode) .wishwave-qu
 <script id="wishwave-light-reel-fit-script">
 (function(){
  const panels=new Set();let frame=0;
- function measure(panel){const card=panel.closest('.reel-card');if(!card||!document.documentElement.classList.contains('findai-light'))return;const height=Math.ceil(panel.getBoundingClientRect().height);if(height>0)card.style.setProperty('--wishwave-light-caption-height',height+'px');}
+ function measure(panel){const card=panel.closest('.reel-card');if(!card)return;const height=Math.ceil(panel.getBoundingClientRect().height);if(height>0)card.style.setProperty('--wishwave-light-caption-height',height+'px');}
  const resize=typeof ResizeObserver==='function'?new ResizeObserver(entries=>entries.forEach(e=>measure(e.target))):null;
  function bind(){frame=0;for(const panel of panels)if(!panel.isConnected){resize?.unobserve?.(panel);panels.delete(panel);}document.querySelectorAll('#discover .reel-card .product-panel,#searchDetailOverlay .reel-card .product-panel,#createListingScreen.preview-mode .reel-card .product-panel').forEach(panel=>{if(!panels.has(panel)){panels.add(panel);resize?.observe(panel);}measure(panel);});}
  function schedule(){if(!frame)frame=requestAnimationFrame(bind);}
@@ -33495,37 +33534,58 @@ html.findai-light body .app #createListingScreen:not(.preview-mode) .wishwave-qu
 
 <style id="wishwave-soft-dark-appearance">
 /* Charcoal chrome applies only to Dark, including System when the device is dark. */
-html:not(.findai-light){--bg:#111214;--surface:#1a1c20;--surface-2:#202228;--surface-3:#282b32;--ink:#f1f2f4;--muted:#a1a6af;--muted-2:#858c97;--line:#2d3037;--line-strong:#414650;background:#111214!important;}
-html:not(.findai-light) body,html:not(.findai-light) body .app{background:#111214!important;color:#f1f2f4;}
-html:not(.findai-light) body :is(.screen,.profile-screen,.feed-wrap,.discover-feed-wrap,.reel-feed,.premium-search-home-scroll,.premium-search-home-header,.premium-results-header,.mobile-search-header,.search-header,#wishwaveKeyboardBackdrop,#findaiContextualReelV168,#findaiContextualFeedV168,.findai-search-recents,.findai-swipe-preview){background:#111214!important;}
-html:not(.findai-light) body #wishwaveMainNav.nav.findai-five-nav.premium-bottom-nav{background:#111214!important;border-top:1px solid #2d3037!important;box-shadow:none!important;}
-html:not(.findai-light) body #wishwaveMainNav.nav::before,html:not(.findai-light) body #wishwaveMainNav.nav::after{background:#111214!important;box-shadow:none!important;}
+html:not(.findai-light){--bg:#0c0d0f;--surface:#1a1c20;--surface-2:#202228;--surface-3:#282b32;--ink:#f1f2f4;--muted:#a1a6af;--muted-2:#858c97;--line:#2d3037;--line-strong:#414650;background:#0c0d0f!important;}
+html:not(.findai-light) body,html:not(.findai-light) body .app{background:#0c0d0f!important;color:#f1f2f4;}
+html:not(.findai-light) body :is(.screen,.profile-screen,.feed-wrap,.discover-feed-wrap,.reel-feed,.premium-search-home-scroll,.premium-search-home-header,.premium-results-header,.mobile-search-header,.search-header,#wishwaveKeyboardBackdrop,#findaiContextualReelV168,#findaiContextualFeedV168,.findai-search-recents,.findai-swipe-preview){background:#0c0d0f!important;}
+html:not(.findai-light) body #wishwaveMainNav.nav.findai-five-nav.premium-bottom-nav{background:#0c0d0f!important;border-top:1px solid #2d3037!important;box-shadow:none!important;}
+html:not(.findai-light) body #wishwaveMainNav.nav::before,html:not(.findai-light) body #wishwaveMainNav.nav::after{background:#0c0d0f!important;box-shadow:none!important;}
 html:not(.findai-light) body #wishwaveMainNav.nav .nav-create-shell{background:#1a1c20!important;border-color:#414650!important;}
 html:not(.findai-light) body #discover .discover-social-topbar,
-html:not(.findai-light) body #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .search-detail-header{background:linear-gradient(180deg,#111214 0%,rgba(17,18,20,.94) 70%,rgba(17,18,20,0) 100%)!important;}
+html:not(.findai-light) body #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .search-detail-header{background:linear-gradient(180deg,#0c0d0f 0%,rgba(12,13,15,.94) 70%,rgba(12,13,15,0) 100%)!important;}
 html:not(.findai-light) body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel,
 html:not(.findai-light) body #searchDetailOverlay.search-owned-v186,
-html:not(.findai-light) body #searchDetailOverlay.search-owned-v186 .search-detail-feed{background:#111214!important;}
-html:not(.findai-light) body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel :is(.hero-stage,.reel-gallery-slide){background:#111214!important;--hero-fill:#111214!important;}
-html:not(.findai-light) body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .product-panel{background:#111214!important;color:#f1f2f4!important;}
+html:not(.findai-light) body #searchDetailOverlay.search-owned-v186 .search-detail-feed{background:#0c0d0f!important;}
+html:not(.findai-light) body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel :is(.hero-stage,.reel-gallery-slide){background:#0c0d0f!important;--hero-fill:#0c0d0f!important;}
+html:not(.findai-light) body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .product-panel{background:#0c0d0f!important;color:#f1f2f4!important;}
 html:not(.findai-light) body :is(#discover,#searchDetailOverlay,#createListingScreen) .product-panel :is(.title,.price,.reel-seller-copy b,.wishwave-reel-brand){color:#f1f2f4!important;}
-html:not(.findai-light) body #profile :is(#profileSignedIn,#profileSignedOut,.social-profile,.social-profile-topbar,.social-profile-hero,.social-profile-content,.profile-scroll,.social-profile-tabs,.social-profile-grid,.guest-profile-posts,.guest-profile-signin){background:#111214!important;border-color:#2d3037!important;}
+html:not(.findai-light) body #profile :is(#profileSignedIn,#profileSignedOut,.social-profile,.social-profile-topbar,.social-profile-hero,.social-profile-content,.profile-scroll,.social-profile-tabs,.social-profile-grid,.guest-profile-posts,.guest-profile-signin){background:#0c0d0f!important;border-color:#2d3037!important;}
 html:not(.findai-light) body #profile .social-profile-actions button{background:#1a1c20!important;color:#f1f2f4!important;border-color:#2d3037!important;}
-html:not(.findai-light) body :is(.wishwave-public-profile-page,.wishwave-public-profile-scroll,.wishwave-public-profile,.wishwave-public-profile-topbar){background:#111214!important;color:#f1f2f4!important;}
-html:not(.findai-light) body :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone){background:#111214!important;color:#f1f2f4!important;}
-html:not(.findai-light) body :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) :is(.app-mp-header,.app-mp-inbox-body,.app-mp-conversation-list,.app-mp-conversation-card,.app-mp-chat,.app-mp-chat-head,.app-mp-messages,.app-mp-typing,.app-mp-compose){background:#111214!important;border-color:#2d3037!important;}
+html:not(.findai-light) body :is(.wishwave-public-profile-page,.wishwave-public-profile-scroll,.wishwave-public-profile,.wishwave-public-profile-topbar){background:#0c0d0f!important;color:#f1f2f4!important;}
+html:not(.findai-light) body :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone){background:#0c0d0f!important;color:#f1f2f4!important;}
+html:not(.findai-light) body :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) :is(.app-mp-header,.app-mp-inbox-body,.app-mp-conversation-list,.app-mp-conversation-card,.app-mp-chat,.app-mp-chat-head,.app-mp-messages,.app-mp-typing,.app-mp-compose){background:#0c0d0f!important;border-color:#2d3037!important;}
 html:not(.findai-light) body :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) :is(.app-mp-instagram-search,.app-mp-compose textarea,.app-mp-chat-listing){background:#1a1c20!important;color:#f1f2f4!important;border-color:#2d3037!important;}
 html:not(.findai-light) body :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .app-mp-bubble:not(.mine){background:#202228!important;color:#f1f2f4!important;border-color:#2d3037!important;}
-html:not(.findai-light) body .app #createListingScreen{--create-text:#f1f2f4;--create-surface:#1a1c20;--create-muted:#a1a6af;--create-border:#2d3037;background:#111214!important;}
-html:not(.findai-light) body .app #createListingScreen :is(.marketplace-header,.marketplace-scroll,.wishwave-create-full-preview,.wishwave-listing-publish-footer,.wishwave-draft-preview,.wishwave-draft-reel,.wishwave-draft-gallery){background:#111214!important;border-color:#2d3037!important;}
+html:not(.findai-light) body .app #createListingScreen{--create-text:#f1f2f4;--create-surface:#1a1c20;--create-muted:#a1a6af;--create-border:#2d3037;background:#0c0d0f!important;}
+html:not(.findai-light) body .app #createListingScreen :is(.marketplace-header,.marketplace-scroll,.wishwave-create-full-preview,.wishwave-listing-publish-footer,.wishwave-draft-preview,.wishwave-draft-reel,.wishwave-draft-gallery){background:#0c0d0f!important;border-color:#2d3037!important;}
 html:not(.findai-light) body .app #createListingScreen :is(.wishwave-draft-empty,.wishwave-listing-details,.wishwave-listing-delivery,.listing-image-picker,.wishwave-create-mode){background:#1a1c20!important;border-color:#2d3037!important;}
 html:not(.findai-light) body .app #createListingScreen:not(.preview-mode) .wishwave-draft-empty{background:#1a1c20!important;}
-html:not(.findai-light) body :is(.marketplace-screen,.marketplace-header,.marketplace-scroll,.app-mp-detail,.app-mp-section,.app-mp-sheet,.findai-settings-page,.findai-settings-detail,.findai-settings-header,.profile-edit-sheet,.account-sheet){background:#111214!important;color:#f1f2f4!important;border-color:#2d3037!important;}
+html:not(.findai-light) body :is(.marketplace-screen,.marketplace-header,.marketplace-scroll,.app-mp-detail,.app-mp-section,.app-mp-sheet,.findai-settings-page,.findai-settings-detail,.findai-settings-header,.profile-edit-sheet,.account-sheet){background:#0c0d0f!important;color:#f1f2f4!important;border-color:#2d3037!important;}
 html:not(.findai-light) body :is(.findai-settings-row,.findai-settings-account-card,.findai-settings-select,.profile-edit-field input,.profile-edit-field textarea,.app-mp-field input,.app-mp-field textarea,.app-mp-field select){background:#1a1c20!important;color:#f1f2f4!important;border-color:#2d3037!important;}
-html:not(.findai-light) body #wwDashboard{--wwd-ink:#f1f2f4;--wwd-muted:#a1a6af;--wwd-line:#2d3037;--wwd-field:#1a1c20;background:#111214!important;color:#f1f2f4!important;}
-html:not(.findai-light) body #wwPromotion{background:#111214!important;color:#f1f2f4!important;}
+html:not(.findai-light) body #wwDashboard{--wwd-ink:#f1f2f4;--wwd-muted:#a1a6af;--wwd-line:#2d3037;--wwd-field:#1a1c20;background:#0c0d0f!important;color:#f1f2f4!important;}
+html:not(.findai-light) body #wwPromotion{background:#0c0d0f!important;color:#f1f2f4!important;}
 html:not(.findai-light) body #wwPromotion :is(.wwp-budget-row input,.wwp-custom input,.wwp-custom select,.wwp-options button,.wwp-notice){background:#1a1c20!important;color:#f1f2f4!important;border-color:#414650!important;}
-html:not(.findai-light) body #wwPromotion .wwp-options button[aria-pressed="true"]{background:#f1f2f4!important;color:#111214!important;border-color:#f1f2f4!important;}
+html:not(.findai-light) body #wwPromotion .wwp-options button[aria-pressed="true"]{background:#f1f2f4!important;color:#0c0d0f!important;border-color:#f1f2f4!important;}
+</style>
+
+
+<style id="wishwave-reel-and-settings-refinement">
+/* Caption and photo occupy separate regions in both appearances. */
+html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .hero-stage{
+ inset:calc(var(--safe-top,0px) + 52px) 0 var(--wishwave-light-caption-height,240px)!important;height:auto!important;
+}
+html body .app #discover #personalFeed .reel-card .product-panel,
+html body .app #discover #findaiContextualReelV168 .reel-card .product-panel,
+html body #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .reel-card .product-panel{
+ bottom:0!important;padding-bottom:calc(var(--wishwave-nav-total,60px) + 14px)!important;
+}
+html body :is(#discover,#searchDetailOverlay,#createListingScreen) .wishwave-quality-reel.wishwave-quality-reel .reel-gallery-dots,
+html body .app #createListingScreen.preview-mode .wishwave-draft-dots{bottom:calc(var(--wishwave-light-caption-height,240px) + 8px)!important;}
+html body .app #createListingScreen:not(.preview-mode) .wishwave-quality-reel.wishwave-quality-reel .hero-stage{inset:0!important;height:100%!important;}
+html body #searchDetailFeed{overflow-anchor:none!important;}
+/* Keep the settings account header and rows flat. Form fields retain affordances. */
+html body #appThemeOverlay :is(.findai-settings-row,.findai-settings-account-card){background:transparent!important;border:0!important;box-shadow:none!important;}
+html:not(.findai-light) body #appThemeOverlay.findai-settings-full,
+html:not(.findai-light) body #appThemeOverlay.findai-settings-full .app-theme-sheet{background:#0c0d0f!important;}
 </style>
 
 </body>
