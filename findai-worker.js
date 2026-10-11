@@ -16540,6 +16540,16 @@ function mpQuote(env, itemMinor, shippingMinor = 0, currency = '') {
   };
 }
 
+function mpCheckoutTestGuard(env, body) {
+  if ((body.testOnly === true || body.uiMode === 'elements') && !mpStripeIsTest(env)) {
+    return { status: 403, error: 'This checkout only accepts Stripe test keys' };
+  }
+  if (body.uiMode === 'elements' && !/^pk_test_/.test(String(env.STRIPE_PUBLISHABLE_KEY || ''))) {
+    return { status: 503, error: 'Stripe test publishable key is not configured' };
+  }
+  return null;
+}
+
 function mpPublicConfig(env) {
   const c = marketplaceConfig(env);
   return {
@@ -16557,6 +16567,9 @@ function mpPublicConfig(env) {
     feeOnShipping: c.feeOnShipping,
     defaultCurrency: c.currency,
     uspsCalculatedShippingAvailable: mpUspsConfigured(env),
+    stripeTestMode: mpStripeIsTest(env),
+    stripeTestPublishableKey: mpStripeIsTest(env) && /^pk_test_/.test(String(env.STRIPE_PUBLISHABLE_KEY || '')) ? String(env.STRIPE_PUBLISHABLE_KEY) : '',
+
   };
 }
 
@@ -21453,7 +21466,7 @@ export default {
       // deploy while the product is still being built in Stripe test mode.
       if (url.pathname === '/marketplace/config' && request.method === 'GET') {
         return jsonResp({ marketplace: { ...mpPublicConfig(env), detectedCountry: detectCountry(request) }, workerVersion: ENGINE_VERSION }, 200, {
-          'Cache-Control': 'public, max-age=60, s-maxage=300'
+          'Cache-Control': 'private, no-store'
         });
       }
 
@@ -24017,6 +24030,9 @@ export default {
         if (await rateLimited(env, request, 'marketplace-checkout', 10, 600)) return tooManyResp(600);
         let body = {};
         try { body = await request.json(); } catch (_) {}
+        const elementsCheckout = body.uiMode === 'elements';
+        const testGuard = mpCheckoutTestGuard(env, body);
+        if (testGuard) return jsonResp({ error: testGuard.error }, testGuard.status, { 'Cache-Control': 'no-store' });
         const listingId = String(body.listingId || '').trim();
         const offerId = String(body.offerId || '').trim();
         if (!listingId) return jsonResp({ error: 'listingId required' }, 400);
@@ -24106,6 +24122,14 @@ export default {
             'line_items[0][price_data][unit_amount]': quote.itemMinor,
             'line_items[0][price_data][product_data][name]': String(listing.title).slice(0, 120),
           };
+          if (elementsCheckout) {
+            delete params.success_url;
+            delete params.cancel_url;
+            params.ui_mode = 'elements';
+            params.return_url = 'https://findai.ai/findai-app.html?marketplace=success&session_id={CHECKOUT_SESSION_ID}';
+            params['payment_method_types[0]'] = 'card';
+            params['shipping_address_collection[allowed_countries][0]'] = destinationCountry;
+          }
           let line = 1;
           if (quote.shippingMinor > 0) {
             params[`line_items[${line}][quantity]`] = 1;
@@ -24125,7 +24149,7 @@ export default {
           await env.DB.prepare('UPDATE marketplace_orders SET checkout_session_id = ?, updated_at = ? WHERE id = ?')
             .bind(session.id || '', new Date().toISOString(), orderId).run();
           await mpOrderEvent(env, orderId, 'buyer', auth.email, 'checkout_created', { checkoutSessionId: session.id, quote });
-          return jsonResp({ ok: true, orderId, checkoutUrl: session.url, quote, testMode: mpStripeIsTest(env) }, 201, { 'Cache-Control': 'no-store' });
+          return jsonResp({ ok: true, orderId, checkoutUrl: session.url, clientSecret: elementsCheckout ? session.client_secret : undefined, publishableKey: elementsCheckout ? String(env.STRIPE_PUBLISHABLE_KEY) : undefined, quote, testMode: mpStripeIsTest(env) }, 201, { 'Cache-Control': 'no-store' });
         } catch (e) {
           try {
             if (checkoutOrderId) {

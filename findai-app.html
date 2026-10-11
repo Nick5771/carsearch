@@ -7187,7 +7187,7 @@ function openDeal(index,event){
   if(event) event.stopPropagation();
   const item = currentFeedItems[index];
   if(item) recordInterest(item._interestQuery||feedState.query||item.title,'click');
-  if(item && getSource(item)==='findai'){ openAppMarketplaceListing(item); return; }
+  if(item && getSource(item)==='findai'){ wishwaveCheckoutOpenItem(item); return; }
   const url = getListingUrl(item);
   if(!url){ toast('This listing does not include a direct link'); return; }
   window.open(url,'_blank','noopener,noreferrer');
@@ -33719,21 +33719,21 @@ html body #appMpProduct .wishwave-detail-save{display:flex!important;align-items
   window.openProfileListingItem=function(index,source){
     const list=(socialProfileListings||[]).filter(x=>source==='sold'?String(x.status||'').toLowerCase()==='sold':String(x.status||'active').toLowerCase()!=='sold');
     const item=list[Math.max(0,Number(index)||0)];
-    if(item&&isFindAIListing(item))return openAppMarketplaceListing(item);
+    if(item&&isFindAIListing(item))return wishwaveCheckoutOpenItem(item);
     return profileListing.apply(this,arguments);
   };
   const publicListing=window.openWishWavePublicListing;
   window.openWishWavePublicListing=function(index,kind){
     const list=(wishwavePublicSellerData?.listings||[]).filter(x=>kind==='sold'?String(x.status||'').toLowerCase()==='sold':String(x.status||'active').toLowerCase()!=='sold');
     const item=list[Math.max(0,Number(index)||0)];
-    if(item&&isFindAIListing(item))return openAppMarketplaceListing(item);
+    if(item&&isFindAIListing(item))return wishwaveCheckoutOpenItem(item);
     return publicListing.apply(this,arguments);
   };
   const likedListing=window.openProfileLikedItem;
-  window.openProfileLikedItem=function(index){const item=getTracked()[Math.max(0,Number(index)||0)];if(item&&isFindAIListing(item))return openAppMarketplaceListing(item);return likedListing.apply(this,arguments);};
+  window.openProfileLikedItem=function(index){const item=getTracked()[Math.max(0,Number(index)||0)];if(item&&isFindAIListing(item))return wishwaveCheckoutOpenItem(item);return likedListing.apply(this,arguments);};
   const searchListing=window.openSearchResultDetail;
-  window.openSearchResultDetail=function(index){const item=currentFeedItems[Math.max(0,Number(index)||0)];if(item&&isFindAIListing(item))return openAppMarketplaceListing(item);return searchListing.apply(this,arguments);};
-  window.wishwaveOpenNativeDetail=function(index,event){if(event){event.preventDefault();event.stopPropagation();}const item=currentFeedItems[Number(index)||0];if(item&&isFindAIListing(item))return openAppMarketplaceListing(item);};
+  window.openSearchResultDetail=function(index){const item=currentFeedItems[Math.max(0,Number(index)||0)];if(item&&isFindAIListing(item))return wishwaveCheckoutOpenItem(item);return searchListing.apply(this,arguments);};
+  window.wishwaveOpenNativeDetail=function(index,event){if(event){event.preventDefault();event.stopPropagation();}const item=currentFeedItems[Number(index)||0];if(item&&isFindAIListing(item))return wishwaveCheckoutOpenItem(item);};
   window.wishwaveOpenDetailSeller=async function(){
     const seller=appMpContext?.seller||{},listing=appMpListing;
     if(!listing)return;
@@ -33851,44 +33851,79 @@ html body .app:has(#wwCheckout.show) #wishwaveMainNav{visibility:visible!importa
 <script id="wishwave-checkout-script">
 (function(){
  const root=document.createElement('section');root.id='wwCheckout';root.setAttribute('aria-label','Checkout');document.querySelector('.app').appendChild(root);
- let state=null,version=0;
+ let state=null,version=0,stripeLoad=null;
+ const countryName=code=>{try{return new Intl.DisplayNames(['en'],{type:'region'}).of(code);}catch(_){return code;}};
+ const countryCode=value=>String(value||'US').toUpperCase()==='UK'?'GB':String(value||'US').toUpperCase();
+ function cleanElements(){if(!state)return;for(const element of state.elements||[]){try{element.destroy();}catch(_){}}state.elements=[];state.actions=null;state.sdk=null;}
+ function loadStripe(){if(window.Stripe)return Promise.resolve();if(stripeLoad)return stripeLoad;stripeLoad=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://js.stripe.com/endive/stripe.js';script.onload=resolve;script.onerror=()=>{stripeLoad=null;reject(new Error('Could not load secure payment controls'));};document.head.appendChild(script);});return stripeLoad;}
+
  const icons={back:'<path d="m15 18-6-6 6-6"/>',pin:'<path d="M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',truck:'<path d="M2 5h12v12H2zM14 9h4l4 4v4h-8"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>',card:'<rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4"/>',arrow:'<path d="m9 5 7 7-7 7"/>',lock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>'};
  const icon=key=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icons[key]+'</svg>';
  const cash=minor=>appMpMoney(Number(minor)/100,state.listing.currency);
  function render(){
-  if(!state)return;const l=state.listing,q=state.quote,title=escapeHTML(l.title||'WishWave listing'),image=(l.images||[])[0]||l.image||'',shipping=state.shippingMinor,known=Number.isFinite(shipping),free=known&&shipping===0;
+  if(!state)return;cleanElements();const l=state.listing,q=state.quote,title=escapeHTML(l.title||'WishWave listing'),image=(l.images||[])[0]||l.image||'',shipping=state.shippingMinor,known=Number.isFinite(shipping),free=known&&shipping===0;
   root.innerHTML='<header class="wwc-head"><button class="wwc-back" onclick="wishwaveCloseCheckout()" aria-label="Back to listing">'+icon('back')+'</button><h1>Checkout</h1><span></span></header>'+
    '<section class="wwc-card wwc-item">'+(image?'<img src="'+escapeAttr(image)+'" alt="'+escapeAttr(l.title||'Listing image')+'">':'')+'<div class="wwc-copy"><h2>'+title+'</h2><div class="wwc-muted">'+escapeHTML(l.condition||'')+'</div><div class="wwc-item-price">'+cash(Math.round(Number(l.price)*100))+'</div><div class="wwc-muted">Qty: 1</div></div></section>'+
-   '<section class="wwc-card"><div class="wwc-delivery">'+icon('pin')+'<div><b>Delivery address</b><div class="wwc-muted">'+(state.postal?escapeHTML(state.postal+' · '+state.country):'Add your delivery location')+'</div></div><button class="wwc-change" onclick="wishwaveCheckoutLocation()">'+(state.postal?'Change':'Add location')+'</button></div>'+
-   '<div class="wwc-delivery wwc-shipping">'+icon('truck')+'<div><b>Shipping</b><div class="wwc-muted">'+escapeHTML(state.shippingService||(known?'Seller shipping':'Enter a delivery ZIP code for a quote'))+'</div></div><b class="'+(free?'wwc-free':'')+'">'+(free?'Free':known?cash(shipping):'Calculated')+'</b></div><div id="wwCheckoutLocation"></div></section>'+
+   '<section class="wwc-card"><div class="wwc-delivery">'+icon('pin')+'<div><b>Delivery address</b><div class="wwc-muted">'+(state.postal?escapeHTML(state.postal+' · '+countryName(state.country)):countryName(state.country)+' · Add delivery address')+'</div></div><button class="wwc-change" onclick="wishwaveCheckoutLocation()">'+(state.postal?'Change':'Add location')+'</button></div>'+
+   '<div class="wwc-delivery wwc-shipping">'+icon('truck')+'<div><b>Shipping</b><div class="wwc-muted">'+escapeHTML([state.shippingCarrier,state.shippingService].filter(Boolean).join(' · ')||(known?'Seller shipping':'Enter a postal code for a quote'))+'<div class="wwc-muted">'+escapeHTML(state.deliveryEstimate||'Delivery estimate not provided by seller')+'</div>'+'</div></div><b class="'+(free?'wwc-free':'')+'">'+(free?'Free':known?cash(shipping):'Calculated')+'</b></div><div id="wwCheckoutLocation"></div></section>'+
    '<section class="wwc-card"><div class="wwc-total-row"><span>Item</span><strong>'+cash(Math.round(Number(l.price)*100))+'</strong></div><div class="wwc-total-row"><span>Shipping</span><strong class="'+(free?'wwc-free':'')+'">'+(free?'Free':known?cash(shipping):'To calculate')+'</strong></div><div class="wwc-total-row"><span>Buyer fee</span><strong>'+(q?cash(q.buyerFeeMinor):'—')+'</strong></div><div class="wwc-total-row wwc-grand-total"><span>Total</span><strong>'+(q?cash(q.buyerTotalMinor):'—')+'</strong></div></section>'+
-   '<section class="wwc-card"><h2 class="wwc-method-title">Payment method</h2><div class="wwc-method"><span class="wwc-radio" aria-hidden="true"></span>'+icon('card')+'<span>Card & available wallets</span></div><div class="wwc-muted" style="margin-top:8px">Available payment methods shown by Stripe.</div></section>'+
+   '<section class="wwc-card" id="wwCheckoutPayment"><h2 class="wwc-method-title">Payment method <span class="wwc-muted">· Test mode</span></h2><div class="wwc-muted">'+(state.config?.stripeTestPublishableKey?'Apple Pay and card controls load securely with Stripe.':'Stripe test payments are not configured yet.')+'</div></section>'+
    (state.error?'<div class="wwc-error" role="alert">'+escapeHTML(state.error)+'</div>':'')+
-   '<button class="wwc-pay" onclick="wishwaveCheckoutContinue()" '+(!q||state.busy?'disabled':'')+'>'+(state.busy?'Opening secure checkout…':'Continue to payment')+'</button><div class="wwc-secure">'+icon('lock')+' Secure checkout with Stripe</div><button class="wwc-terms" onclick="wishwaveCheckoutTerms()"><span>View checkout terms</span>'+icon('arrow')+'</button>';
+   '<button class="wwc-pay" onclick="wishwaveCheckoutContinue()" '+(!q||state.busy||!/^pk_test_/.test(state.config?.stripeTestPublishableKey||'')?'disabled':'')+'>'+(state.busy?'Opening secure checkout…':'Load test payment')+'</button><div class="wwc-secure">'+icon('lock')+' Secure checkout with Stripe</div><button class="wwc-terms" onclick="wishwaveCheckoutTerms()"><span>View checkout terms</span>'+icon('arrow')+'</button>';
  }
  async function quote(){const request=++version;if(!state)return;state.error='';state.quote=null;render();try{
   if(state.listing.shippingMode==='calculated'&&!state.postal){render();return;}
   const delivery=await marketplaceFetch('/marketplace/shipping/quote',{method:'POST',body:JSON.stringify({listingId:appMpId(state.listing),destinationCountry:state.country,destinationPostalCode:state.postal})});if(request!==version||!state)return;
-  const rate=delivery.rates?.[0];if(!rate||!Number.isFinite(Number(rate.amountMinor)))throw new Error('No delivery quote available');state.shippingMinor=Number(rate.amountMinor);state.shippingService=String(rate.service||'');
+  const rate=delivery.rates?.[0];if(!rate||!Number.isFinite(Number(rate.amountMinor)))throw new Error('No delivery quote available');state.shippingMinor=Number(rate.amountMinor);state.shippingService=String(rate.service||'');state.shippingCarrier=String(rate.carrier||state.listing.shippingCarrier||'');state.deliveryEstimate=String(rate.deliveryEstimate||state.listing.deliveryEstimate||'');
   const result=await marketplaceFetch('/marketplace/quote',{method:'POST',body:JSON.stringify({itemMinor:Math.round(Number(state.listing.price)*100),shippingMinor:state.shippingMinor,currency:state.listing.currency})});if(request!==version||!state)return;
-  const q=result.quote;if(!q||![q.itemMinor,q.shippingMinor,q.buyerFeeMinor,q.buyerTotalMinor].every(n=>Number.isFinite(n)&&n>=0))throw new Error('Could not load your total');state.quote=q;render();
+  if(result.marketplace)state.config={...state.config,...result.marketplace};const q=result.quote;if(!q||![q.itemMinor,q.shippingMinor,q.buyerFeeMinor,q.buyerTotalMinor].every(n=>Number.isFinite(n)&&n>=0))throw new Error('Could not load your total');state.quote=q;render();
  }catch(e){if(request!==version||!state)return;state.error=e.message||'Could not load checkout';render();}}
- const previousBuy=window.appMpBuy;
  window.appMpBuy=function(offerId){
-  if(offerId)return previousBuy.apply(this,arguments);
+  if(offerId){toast('Accepted-offer payments are unavailable in this test checkout');return;}
   if(!appMpListing||!appMpRequireLogin())return;
   if(appMpContext?.viewer?.isSeller){toast('You cannot buy your own listing');return;}
-  if(appMpListing.deliveryMode==='pickup')return openAppMarketplaceMessages();
-  const l={...appMpListing};if(String(l.status||'active')!=='active'){toast('Listing is unavailable');return;}
-  state={listing:l,country:'US',postal:'',shippingMinor:null,shippingService:String(l.shippingService||''),quote:null,error:'',busy:false};root.classList.add('show');root.scrollTop=0;render();quote();
+  if(appMpListing.deliveryMode==='pickup'){wishwaveCloseCheckout();return openAppMarketplaceMessages();}
+  const l={...appMpListing};if(String(l.status||'active')!=='active'){wishwaveCloseCheckout();toast('Listing is unavailable');return;}
+  cleanElements();state={listing:l,country:'US',postal:'',shippingMinor:null,shippingCarrier:String(l.shippingCarrier||''),shippingService:String(l.shippingService||''),deliveryEstimate:String(l.deliveryEstimate||''),quote:null,error:'',busy:false,config:{},elements:[]};root.classList.add('show');root.scrollTop=0;render();const current=state;marketplaceFetch('/marketplace/config',{method:'GET'}).then(data=>{if(state!==current)return;current.config=data.marketplace||{};current.country=countryCode(current.config.detectedCountry);quote();}).catch(()=>{if(state===current)quote();});
  };
- window.wishwaveCloseCheckout=function(){version++;state=null;root.classList.remove('show');root.innerHTML='';};
- window.wishwaveCheckoutLocation=function(){if(!state)return;document.getElementById('wwCheckoutLocation').innerHTML='<form class="wwc-location-form" onsubmit="return wishwaveCheckoutSetLocation(event)"><select id="wwCheckoutCountry" aria-label="Delivery country">'+[['US','United States'],['AU','Australia'],['GB','United Kingdom'],['CA','Canada'],['NZ','New Zealand'],['FR','France'],['DE','Germany']].map(([v,n])=>'<option value="'+v+'" '+(v===state.country?'selected':'')+'>'+n+'</option>').join('')+'</select><input id="wwCheckoutPostal" aria-label="Delivery postal code" autocomplete="postal-code" maxlength="16" required placeholder="ZIP / postal code" value="'+escapeAttr(state.postal)+'"><button>Update delivery</button></form>';};
+ window.wishwaveCloseCheckout=function(){version++;cleanElements();state=null;root.classList.remove('show');root.innerHTML='';};
+ window.wishwaveCheckoutLocation=function(){if(!state)return;if(state.actions){toast('Return to checkout to change the quoted delivery location');return;}document.getElementById('wwCheckoutLocation').innerHTML='<form class="wwc-location-form" onsubmit="return wishwaveCheckoutSetLocation(event)"><select id="wwCheckoutCountry" aria-label="Delivery country">'+[...new Set(['US','AU','GB','CA','NZ','FR','DE',state.country])].map(code=>[code,countryName(code)]).map(([v,n])=>'<option value="'+v+'" '+(v===state.country?'selected':'')+'>'+n+'</option>').join('')+'</select><input id="wwCheckoutPostal" aria-label="Delivery postal code" autocomplete="postal-code" maxlength="16" required placeholder="ZIP / postal code" value="'+escapeAttr(state.postal)+'"><button>Update delivery</button></form>';};
  window.wishwaveCheckoutSetLocation=function(event){event.preventDefault();if(!state)return false;state.country=document.getElementById('wwCheckoutCountry').value;state.postal=document.getElementById('wwCheckoutPostal').value.trim();quote();return false;};
  window.wishwaveCheckoutTerms=function(){openAppMpSheet('Checkout terms','<p class="app-mp-muted">Review the item, delivery cost and buyer fee before continuing. Payment is completed securely with Stripe. Confirm your full delivery details with the seller before paying. Returns follow the seller’s stated return policy. A buyer fee does not imply payment is held until delivery.</p>');};
- window.wishwaveCheckoutContinue=async function(){if(!state?.quote||state.busy)return;const current=state;current.busy=true;current.error='';render();try{const data=await marketplaceFetch('/marketplace/checkout',{method:'POST',body:JSON.stringify({listingId:appMpId(current.listing),destinationCountry:current.country,destinationPostalCode:current.postal,shippingService:current.shippingService})});if(state!==current)return;if(!data.checkoutUrl)throw new Error('Checkout is unavailable');location.href=data.checkoutUrl;}catch(e){if(state!==current)return;current.busy=false;current.error=e.message||'Could not open secure checkout';render();}};
+ window.wishwaveCheckoutContinue=async function(){
+  if(!state?.quote||state.busy)return;const current=state;
+  if(!current.config?.stripeTestMode||!/^pk_test_/.test(current.config?.stripeTestPublishableKey||'')){current.error='Connect Stripe test mode to enable payment controls';render();return;}
+  current.busy=true;current.error='';render();
+  try{
+   await loadStripe();if(state!==current)return;
+   const data=await marketplaceFetch('/marketplace/checkout',{method:'POST',body:JSON.stringify({listingId:appMpId(current.listing),destinationCountry:current.country,destinationPostalCode:current.postal,shippingService:current.shippingService,testOnly:true,uiMode:'elements'})});
+   if(state!==current)return;if(data.testMode!==true||!/^pk_test_/.test(data.publishableKey||'')||!data.clientSecret)throw new Error('Only a Stripe test session is allowed');
+   const stripe=window.Stripe(data.publishableKey),sdk=stripe.initCheckoutElementsSdk({clientSecret:data.clientSecret,elementsOptions:{appearance:{theme:document.documentElement.classList.contains('findai-light')?'stripe':'night',variables:{fontFamily:'system-ui, sans-serif',borderRadius:'10px'}}}});
+   current.sdk=sdk;const loaded=await sdk.loadActions();if(state!==current)return;if(loaded.type!=='success')throw new Error(loaded.error?.message||'Could not initialise test payment');current.actions=loaded.actions;
+   const delivery=document.getElementById('wwCheckoutLocation');delivery.innerHTML='<div id="wwCheckoutStripeAddress"></div>';
+   const address=sdk.createShippingAddressElement();address.mount('#wwCheckoutStripeAddress');current.addressElement=address;
+   const payment=document.getElementById('wwCheckoutPayment');payment.innerHTML='<h2 class="wwc-method-title">Payment method <span class="wwc-muted">· Test mode</span></h2><div id="wwCheckoutStripeExpress"></div><div id="wwCheckoutStripeCard"></div>';
+   const express=sdk.createExpressCheckoutElement({buttonTheme:{applePay:'white',googlePay:'white'},layout:{maxColumns:1,maxRows:1}}),card=sdk.createPaymentElement({layout:'accordion'});express.mount('#wwCheckoutStripeExpress');card.mount('#wwCheckoutStripeCard');current.elements=[address,express,card];
+   express.on('confirm',event=>confirm(current,event));express.on('availablepaymentmethodschange',event=>{const host=document.getElementById('wwCheckoutStripeExpress');if(host)host.hidden=!event.paymentMethods;});
+   current.busy=false;const button=root.querySelector('.wwc-pay');button.disabled=false;button.textContent='Pay in test mode';button.onclick=()=>confirm(current);
+  }catch(e){if(state!==current)return;current.busy=false;current.error=e.message||'Could not load test checkout';render();}
+ };
+ async function confirm(current,expressEvent){
+  if(state!==current||current.busy||!current.actions)return;const button=root.querySelector('.wwc-pay');current.busy=true;button.disabled=true;
+  try{
+   const value=await current.addressElement.getValue();if(!value.complete)throw new Error('Complete your delivery address');
+   const address=value.value.address;if(countryCode(address.country)!==current.country||(current.listing.shippingMode==='calculated'&&String(address.postal_code||'').replace(/\s/g,'').toUpperCase()!==current.postal.replace(/\s/g,'').toUpperCase()))throw new Error('Your address must match the quoted delivery country and postal code');
+   const result=await current.actions.confirm(expressEvent?{expressCheckoutConfirmEvent:expressEvent}:{});if(result?.type==='error'||result?.error)throw new Error(result.error?.message||'Test payment failed');
+  }catch(e){if(state!==current)return;let message=root.querySelector('.wwc-error');if(!message){message=document.createElement('div');message.className='wwc-error';message.setAttribute('role','alert');button.before(message);}message.textContent=e.message||'Test payment failed';}finally{if(state===current){current.busy=false;button.disabled=false;}}
+ }
+ window.wishwaveCheckoutOpenItem=async function(item){
+  if(!item||!isFindAIListing(item)||!appMpRequireLogin())return;
+  wishwaveCloseCheckout();const request=++version;root.classList.add('show');root.innerHTML='<header class="wwc-head"><button class="wwc-back" onclick="wishwaveCloseCheckout()" aria-label="Back">'+icon('back')+'</button><h1>Checkout</h1></header><div class="app-mp-loading"><div><div class="app-mp-spinner"></div>Loading checkout</div></div>';
+  try{const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(appMpId(item)),{method:'GET'});if(version!==request)return;appMpListing=data.listing;appMpContext=data;if(data.viewer?.isSeller){wishwaveCloseCheckout();return openAppMarketplaceListing(data.listing);}return appMpBuy();}
+  catch(e){if(version!==request)return;root.innerHTML='<header class="wwc-head"><button class="wwc-back" onclick="wishwaveCloseCheckout()" aria-label="Back">'+icon('back')+'</button><h1>Checkout</h1></header><p class="wwc-error">'+escapeHTML(e.message||'Listing unavailable')+'</p>';}
+ };
  const closeListing=window.closeAppMarketplaceListing;window.closeAppMarketplaceListing=function(){wishwaveCloseCheckout();return closeListing.apply(this,arguments);};
- document.getElementById('wishwaveMainNav')?.addEventListener('click',()=>{if(state)closeAppMarketplaceListing();});
+ document.getElementById('wishwaveMainNav')?.addEventListener('click',()=>{if(root.classList.contains('show'))closeAppMarketplaceListing();});
 })();
 </script>
 

@@ -1,0 +1,16 @@
+const fs = require('fs'), vm = require('vm'), assert = require('assert');
+const source = fs.readFileSync(__dirname + '/../findai-worker.js', 'utf8');
+const guard = source.slice(source.indexOf('function mpCheckoutTestGuard('), source.indexOf('function mpPublicConfig('));
+const context = vm.createContext({ mpStripeIsTest: env => /^sk_test_/i.test(env.STRIPE_SECRET_KEY || '') });
+vm.runInContext(guard, context);
+const check = context.mpCheckoutTestGuard;
+const live = { STRIPE_SECRET_KEY: 'sk_live_fixture', STRIPE_PUBLISHABLE_KEY: 'pk_live_fixture' };
+const test = { STRIPE_SECRET_KEY: 'sk_test_fixture', STRIPE_PUBLISHABLE_KEY: 'pk_test_fixture' };
+assert.equal(check(live, { testOnly: true }).status, 403);
+assert.equal(check(live, { uiMode: 'elements' }).status, 403);
+assert.equal(check({}, { uiMode: 'elements' }).status, 403);
+assert.equal(check({ ...test, STRIPE_PUBLISHABLE_KEY: 'pk_live_fixture' }, { uiMode: 'elements' }).status, 503);
+assert.equal(check(test, { testOnly: true, uiMode: 'elements' }), null);
+const route = source.slice(source.indexOf("if (url.pathname === '/marketplace/checkout'"));
+assert(route.indexOf('mpCheckoutTestGuard(env, body)') < route.indexOf('await mpEnsureSchema(env)'), 'test guard runs before database changes');
+console.log('PASS: live and missing keys rejected before checkout database changes; valid test keys accepted');
