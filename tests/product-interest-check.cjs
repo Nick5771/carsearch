@@ -13,6 +13,10 @@ const fixtures=[
  ['Remote control RC car 1:18','toy_vehicles','collectibles','type:toy_vehicles'],
  ['Porsche 911 coupe 2020','fullsize_vehicles','cars','type:fullsize_vehicles'],
  ['Ferrari red t-shirt','apparel','fashion','type:apparel'],
+ ['Nike Dunk hoodie','apparel','fashion','type:apparel'],
+ ['New Balance shirt','apparel','fashion','type:apparel'],
+ ['LEGO Star Wars t-shirt','apparel','fashion','type:apparel'],
+ ['Hot Wheels jacket','apparel','fashion','type:apparel'],
  ['LEGO empty box only 42115','accessory','lego','type:accessories']
 ];for(const [title,type,category,tag] of fixtures){const result=T.classify({title});assert.equal(result.type,type,title);assert.equal(result.category,category,title);assert(result.tags.some(x=>x.key===tag),title);}
 assert(!T.classify({title:'LEGO empty box only'}).tags.some(x=>x.key==='brand:lego'));

@@ -20870,6 +20870,7 @@ const RecommendationInterestCore=(()=>{
     let type='',category='',theme='',brand='',subject='';const tags=[];
     const add=(key,label,weight,query='',depth=1)=>{if(!tags.some(x=>x.key===key))tags.push({key,label,weight,query,depth});};
     if(packaging){type='accessory';category=lego?'lego':vehicle?'cars':'other';add('type:accessories','Accessories',1);}
+    else if(/\b(?:t ?shirts?|shirts?|tee|hoodie|jacket|dress|jeans|trousers|apparel|sweatshirt)\b/.test(text)&&!/\b(?:minifig(?:ure)?s?|building set|building kit)\b/.test(text)){type='apparel';category='fashion';add('type:apparel','apparel',1,'apparel',1);}
     else if(compatible){type='building_sets';category='collectibles';add('type:building_sets','Building sets',1,'building sets',1);}
     else if(lego){
       type=/\bminifig(?:ure)?s?\b/.test(text)&&(!/\b(?:set|building kit)\b/.test(text)||/\bminifigures? only\b/.test(text))?'lego_minifigures':'building_sets';category='lego';brand='lego';
