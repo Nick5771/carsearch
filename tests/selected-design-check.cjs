@@ -102,7 +102,7 @@ const w=dom.window,wait=ms=>new Promise(r=>setTimeout(r,ms));
   w.wishwaveNavSwipeSettle('search',180);assert.equal(navigation.dataset.navDrag,'false');assert(selection.style.transform.includes('89px'));assert.equal(navigation.style.getPropertyValue('--ww-nav-motion'),'180ms');
   w.setMainNavActive('profile');assert(selection.style.transform.includes('323px'),'tap animates to Profile');
   w.wishwaveNavSwipeProgress('profile','notifications',.6);w.wishwaveNavSwipeReset();assert(selection.style.transform.includes('323px'),'cancelled gesture returns highlight to selected tab');
-  assert(w.renderReelCard({...w.fixture,shippingMode:'free'},0,{}).includes('M10 19a8.2 8.2 0 1 1 4 0l-2 3-2-3Z'),'centred Comments icon renders on listings');
+  assert(w.renderReelCard({...w.fixture,shippingMode:'free'},0,{}).includes('M12 3.5c-5.25 0-9.5 3.35-9.5 7.5s4.25 7.5 9.5 7.5c1.75 0 3.39-.37 4.79-1.02L21 20l-1.02-4.05A6.63 6.63 0 0 0 21.5 11c0-4.15-4.25-7.5-9.5-7.5Z'),'original rounded Comments icon renders on listings');
   assert.equal(errors.length,0,JSON.stringify(errors));
   console.log('PASS: original marketplace wordmarks, own and other seller avatars, purchase row ends page, secondary actions menu, direct native checkout, country detection, test-only payment controls, real metadata, gallery, Save, seller ownership, comments, notification filtering/cache indices/calendar groups, notification navigation, settings search/theme selection, reference chat and Following feed isolation');
   w.close();
