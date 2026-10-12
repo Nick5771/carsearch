@@ -20761,6 +20761,46 @@ async function recommendationMeasureRoute(request,env){
   return jsonResp({ok:true,policy:'shopping-v226',accepted:events.length},200,{'Cache-Control':'no-store'});
 }
 
+// v227: event-level product interest evidence, separate from daily summaries.
+let interestEventSchema=null,interestEventCleanupAt=0;
+async function recommendationInterestEvents(request,env){
+  if(!env.DB)return jsonResp({error:'Recommendations unavailable'},503,{'Cache-Control':'no-store'});
+  if(await rateLimited(env,request,'interest-evidence',90,60))return tooManyResp(60);
+  let body;try{const raw=await request.text();if(raw.length>60000)return jsonResp({error:'Batch too large'},413);body=JSON.parse(raw);}catch(_){return jsonResp({error:'Invalid JSON'},400);}
+  if(!body||typeof body!=='object'||Array.isArray(body)||!/^[a-zA-Z0-9_-]{16,80}$/.test(String(body.visitor||'')))return jsonResp({error:'Invalid visitor'},400);
+  let identity='guest:'+String(request.headers.get('CF-Connecting-IP')||'unknown');
+  if(request.headers.get('Authorization')){const user=await requireUser(request,env);if(user.fail)return user.fail;identity='user:'+user.email.toLowerCase();}
+  const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(env.RECOMMENDATION_HASH_SECRET||env.SESSION_SECRET||'wishwave-recommendation-v208')+'|'+identity));
+  const viewer=Array.from(new Uint8Array(hash),x=>x.toString(16).padStart(2,'0')).join('');
+  const types=new Set(['exposure','attention','like','unlike','track','galleryInspect','click','compare','share','revisit','comment','notInterested']);
+  const rows=[];
+  for(const event of (Array.isArray(body.events)?body.events:[]).slice(0,40)){
+    if(!event||typeof event!=='object'||!types.has(event.event)||event.policy!=='shopping-interest-v227')continue;
+    if(!/^[a-zA-Z0-9_-]{16,100}$/.test(String(event.id||'')))continue;
+    const key=sharedCleanKey(event.key),family=sharedCleanKey(event.family);if(!key||!family)continue;
+    const topics=[...new Set((Array.isArray(event.topics)?event.topics:[]).filter(x=>typeof x==='string'&&x.length<=120&&/^[a-z0-9][a-z0-9 :_-]*$/.test(x)))].slice(0,16);
+    if(!topics.length)continue;
+    const ms=Math.max(0,Math.min(30000,Math.round(Number(event.ms)||0)));if(event.event==='attention'&&ms<250)continue;
+    rows.push({id:event.id,key,family,event:event.event,type:String(event.type||'').slice(0,60),topics,ms,surface:['home','search','collection'].includes(event.surface)?event.surface:'home'});
+  }
+  if(!rows.length)return jsonResp({ok:true,policy:'shopping-interest-v227',accepted:0},200,{'Cache-Control':'no-store'});
+  if(!interestEventSchema)interestEventSchema=env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS recommendation_interest_events (
+      viewer_key TEXT NOT NULL,event_id TEXT NOT NULL,listing_key TEXT NOT NULL,
+      family TEXT NOT NULL,event TEXT NOT NULL,product_type TEXT NOT NULL,topics TEXT NOT NULL,
+      dwell_ms INTEGER NOT NULL,surface TEXT NOT NULL,policy TEXT NOT NULL,created_at INTEGER NOT NULL,
+      PRIMARY KEY(viewer_key,event_id))`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS recommendation_interest_event_time ON recommendation_interest_events(created_at)')
+  ]).catch(error=>{interestEventSchema=null;throw error;});
+  await interestEventSchema;
+  const now=Date.now();
+  await env.DB.batch(rows.map(row=>env.DB.prepare(`INSERT OR IGNORE INTO recommendation_interest_events
+    (viewer_key,event_id,listing_key,family,event,product_type,topics,dwell_ms,surface,policy,created_at)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)`).bind(viewer,row.id,row.key,row.family,row.event,row.type,JSON.stringify(row.topics),row.ms,row.surface,'shopping-interest-v227',now)));
+  if(now-interestEventCleanupAt>3600000){interestEventCleanupAt=now;await env.DB.prepare('DELETE FROM recommendation_interest_events WHERE created_at < ?').bind(now-30*86400000).run();}
+  return jsonResp({ok:true,policy:'shopping-interest-v227',accepted:rows.length},200,{'Cache-Control':'no-store'});
+}
+
 export default {
   // Needs a KV namespace bound as CACHE and a Cron Trigger (e.g. */15 * * * *) in the dashboard.
   async scheduled(event, env, ctx) {
@@ -21118,6 +21158,7 @@ export default {
         return jsonResp(await ebayGatewayStatus(env),200,{'Cache-Control':'no-store'});
       }
 
+      if(request.method==='POST'&&url.pathname==='/recommendations/interest-events')return await recommendationInterestEvents(request,env);
       if(request.method==='POST'&&url.pathname==='/recommendations/measure')return await recommendationMeasureRoute(request,env);
       if(request.method==='POST'&&['/recommendations/engagement','/recommendations/scores'].includes(url.pathname))return await sharedRecommendationRoute(request,env,url);
 
