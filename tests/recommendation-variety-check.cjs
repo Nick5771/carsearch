@@ -19,4 +19,15 @@ const diversified=ctx.sequencePersonalisedBatch(shoes.concat(other),[],28);
 for(let i=1;i<20;i++)assert(!(ctx.wishwaveProductFamily(diversified[i]).includes('yeezy')&&ctx.wishwaveProductFamily(diversified[i-1]).includes('yeezy')));
 assert.equal(ctx.sequencePersonalisedBatch(cars,[],10).length,10,'single-category fallback retains all valid listings');
 assert(!ctx.wishwaveMixedSearchReel(cars,0,[{...other[0],blocked:true}]).some(x=>x.blocked));
+// Search browse lane caps must group StockX colourways and apply across the merged lanes.
+const browseStart=html.indexOf('  function exploreFamilyKey(item){'),browseEnd=html.indexOf('  function renderExploreGrid(',browseStart);
+vm.runInContext(html.slice(browseStart,browseEnd),ctx);
+const balances=['New Balance 9060 Sea Salt','New Balance 9060 Mushroom','New Balance 2002R Protection Pack','New Balance 1906R Silver Metallic','New Balance 550 White Green'].map((title,i)=>({...item('nb'+i,title),source:'stockx',_interestCategory:'sneakers'}));
+assert.equal(new Set(balances.map(x=>ctx.exploreFamilyKey(x))).size,1,'New Balance variants share one browse family');
+const combined=ctx.capExploreFamilies([...balances.slice(0,2),...other.slice(0,4),...balances.slice(2)],2);
+assert.equal(combined.filter(x=>x.source==='stockx').length,2,'combined lanes cannot contribute five New Balances');
+assert.equal(combined.filter(x=>x.source!=='stockx').length,4,'unrelated products remain available');
+assert.equal(balances.length,5,'recommendation cap does not mutate the source search results');
+const spaced=ctx.sequencePersonalisedBatch(combined,[],combined.length);
+assert.notEqual(ctx.wishwaveProductFamily(spaced[0]),ctx.wishwaveProductFamily(spaced[1]));
 console.log('PASS category spacing, Yeezy colourway grouping, selected-item preservation, source-grid immutability, deduplication, marketplace filtering and exhausted-pool fallback');

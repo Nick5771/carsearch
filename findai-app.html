@@ -5515,6 +5515,7 @@ function wishwaveProductFamily(item){
   const title=String(item&&item.title||'').toLowerCase();
   for(const [key,pattern] of [
     ['yeezy',/\byeezy\b/],['dunk',/\bdunks?\b/],['jordan',/\bjordan\b/],
+    ['new-balance',/\bnew[\s-]+balance\b/],['asics',/\basics\b/],['samba',/\bsamba\b/],
     ['porsche',/\bporsche\b/],['ferrari',/\bferrari\b/],['lamborghini',/\blamborghini\b/],
     ['rolex',/\brolex\b/],['omega',/\bomega\b/],['iphone',/\biphone\b/]
   ])if(pattern.test(title))return wishwaveProductCategory(item)+':'+key;
@@ -15567,8 +15568,8 @@ if(typeof v116RenderMarketplaceListing==='function'){
   let exploreLoadedFilter='';
   let exploreLoadedTaste='';
   function exploreTasteSignature(){
-    if(exploreFilter!=='for-you')return '';
-    try{return scoredInterests(10).filter(x=>x&&!x.featured).slice(0,4).map(x=>normaliseQueryText(x.query)).join('|');}catch(_){return '';}
+    if(exploreFilter!=='for-you')return 'browse-variety-v2';
+    try{return 'browse-variety-v2|'+scoredInterests(10).filter(x=>x&&!x.featured).slice(0,4).map(x=>normaliseQueryText(x.query)).join('|');}catch(_){return 'browse-variety-v2';}
   }
   window.wishwaveExploreTasteSignature=exploreTasteSignature;
   let exploreInitialPromise=null;
@@ -15589,6 +15590,8 @@ if(typeof v116RenderMarketplaceListing==='function'){
   function exploreFamilyKey(item){
     const text=String(item&&item.title||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
     if(!text)return 'misc';
+    // Browse groups sneaker families across colour, size, model and seller titles.
+    if(/\b(new balance|asics|yeezy|dunks?|jordan|samba)\b/.test(text))return wishwaveProductFamily(item);
     if(/\b(playstation\s*5|ps5)\b/.test(text)){
       const variant=/\bpro\b/.test(text)?'pro':/\bslim\b/.test(text)?'slim':/\bdigital\b/.test(text)?'digital':'standard';
       return 'ps5-'+variant;
@@ -15721,7 +15724,9 @@ if(typeof v116RenderMarketplaceListing==='function'){
     }
     batch.filter(config=>config._more!==false).forEach(config=>{config._forceLive=true;exploreQueue.push(config);});
     exploreEmptyBatches=incoming.length?0:exploreEmptyBatches+1;
-    const mixed=sequencePersonalisedBatch(incoming,premiumDiscoverySections[0]?.items||[],incoming.length);
+    // Apply the cap once across all lanes, rather than once per query/source.
+    const browseCandidates=capExploreFamilies(incoming,2);
+    const mixed=sequencePersonalisedBatch(browseCandidates,premiumDiscoverySections[0]?.items||[],browseCandidates.length);
     if(initial&&exploreFilter==='for-you'){const lead=groups[0]?.find(item=>incoming.some(x=>exploreItemKey(x)===exploreItemKey(item)));if(lead){const index=mixed.findIndex(x=>exploreItemKey(x)===exploreItemKey(lead));if(index>0)mixed.unshift(...mixed.splice(index,1));}}
     const target=premiumDiscoverySections[0].items;target.push(...mixed);
     exploreLoading=false;renderExploreGrid({replace:false});cacheExploreBrowseState();
