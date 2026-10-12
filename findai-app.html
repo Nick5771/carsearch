@@ -5336,7 +5336,7 @@ function newPersonalisedLane(interest){
 }
 
 function personalisedProfileSignature(lanes){
-  return 'shopping-v228|'+(window.wishwaveShoppingExperiment?.().arm||'unassigned')+'|'+(Array.isArray(lanes)?lanes:[]).map(lane=>
+  return 'shopping-v229|'+(window.wishwaveShoppingExperiment?.().arm||'unassigned')+'|'+(Array.isArray(lanes)?lanes:[]).map(lane=>
     `${lane.cluster}:${Math.round((Number(lane.score)||0)*10)}`
   ).sort().join('|');
 }
@@ -34294,7 +34294,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   const C=window.WishWaveRecommendationCore;
   const FEATURE_KEY='ww_product_preferences_v226',REJECT_KEY='ww_rejections_v226',EXPOSURE_KEY='ww_exposure_window_v226';
   const localKeys=[INTEREST_PROFILE_KEY,INTEREST_HISTORY_KEY,PERSONALISED_SEEN_KEY,PERSONALISED_CACHE_KEY,PERSONALISED_LANE_STATE_KEY,PERSONALISED_LAST_REFRESH_KEY,'fa_behavior_profile_v125','fa_dwell_history_v125','findai_priority_search_v130','findai_recent_searches_v130','findai_v133_search_cache','fa_last',FEATURE_KEY,REJECT_KEY,EXPOSURE_KEY,'ww_topic_evidence_v227','ww_shopping_sync_v228','ww_recommendation_outbox_v228','findai_app_preferences_v136'];
-  const sessionKeys=['ww_topic_session_v227','ww_shopping_intents_v228','fa_session_taste_v125',PERSONALISED_REQUEST_BUDGET_KEY,'fa_personalised_feed_cache_v7'];
+  const sessionKeys=['ww_topic_session_v227','ww_shopping_intents_v228','ww_mission_v229','fa_session_taste_v125',PERSONALISED_REQUEST_BUDGET_KEY,'fa_personalised_feed_cache_v7'];
   const archiveKey='ww_recommendation_accounts_v226';
   const parsedCache=new Map();
   const read=(key,fallback,storage=localStorage)=>{try{const raw=storage.getItem(key);if(!raw)return fallback;const cached=parsedCache.get(key);if(cached?.raw===raw)return cached.value;const value=JSON.parse(raw)??fallback;parsedCache.set(key,{raw,value});return value;}catch(_){return fallback;}};
@@ -34573,12 +34573,13 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
     else if(event==='unlike'){row.events.like=0;row.events.track=0;row.events.unlike=.25;row.exposure=1;}
     else if(event==='notInterested'){row.events.reject=1;row.events.rejectScope=details.scope||'product';row.exposure=1;}
     else if(event==='undoRejection'){row.events.reject=0;}
+    else if(event==='relevanceNegative'){row.events.irrelevant=.8;row.events.relevancePositive=0;row.exposure=1;}
     else{
-      const weights={like:1,track:1,galleryInspect:.35,click:.45,compare:.55,share:.65,revisit:.2,comment:.25};
-      if(!Object.hasOwn(weights,event))return state;row.events[event]=weights[event];row.exposure=1;if(event==='like')row.events.unlike=0;
+      const weights={like:1,track:1,galleryInspect:.35,click:.45,compare:.55,share:.65,revisit:.2,comment:.25,relevancePositive:.8};
+      if(!Object.hasOwn(weights,event))return state;row.events[event]=weights[event];row.exposure=1;if(event==='like')row.events.unlike=0;if(event==='relevancePositive')row.events.irrelevant=0;
     }
-    row.positive=row.events.reject?0:Math.max(0,...['like','track','galleryInspect','click','compare','share','revisit','comment','dwell'].map(x=>row.events[x]||0));
-    row.negative=row.events.reject?1:Math.max(row.positive>=.55?0:row.events.skip||0,row.events.unlike||0);row.at=now;
+    row.positive=(row.events.reject||row.events.irrelevant)?0:Math.max(0,...['like','track','galleryInspect','click','compare','share','revisit','comment','relevancePositive','dwell'].map(x=>row.events[x]||0));
+    row.negative=row.events.reject?1:Math.max(row.positive>=.55?0:row.events.skip||0,row.events.unlike||0,row.events.irrelevant||0);row.at=now;
     if(previous&&JSON.stringify(previous.events)===JSON.stringify(row.events)&&previous.exposure===row.exposure)return state;
     journal[key]=row;
     for(const tag of meta.tags){
@@ -34606,15 +34607,37 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
 })(typeof window==='undefined'?globalThis:window);
 
 </script>
+<script id="wishwave-intelligence-core">
+(function(root){
+ 'use strict';
+ const FEATURES=['topicBoost','preferenceBoost','repeatPenalty','sharedBoost','confidence','semanticMatch','collaborativeBoost','missionBuy','missionGift','missionCollect','missionBrowse'];
+ function mission(state={},query='',event='',family='',now=Date.now()){
+  const rows=(state.rows||[]).filter(x=>now-x.at<30*60000);if(event&&family&&!rows.some(x=>x.event===event&&x.family===family))rows.push({event,family,at:now});
+  const explicit=state.explicit&&now-state.explicit.at<60*60000?state.explicit:null;
+  const gift=/\b(?:gift|present|birthday|christmas present)\b/i.test(query),buy=/\b(?:buy now|need to buy|looking to buy)\b/i.test(query);
+  const queryIntent=query?(gift||buy?{purpose:gift?'gift':'buy',confidence:.8,at:now}:null):(state.queryIntent&&now-state.queryIntent.at<30*60000?state.queryIntent:null);
+  const compare=new Set(rows.filter(x=>x.event==='compare').map(x=>x.family)).size,click=new Set(rows.filter(x=>x.event==='click').map(x=>x.family)).size;
+  const purpose=explicit?.purpose||queryIntent?.purpose||(compare>=2&&click>=1?'buy':'browse');
+  return {rows:rows.slice(-60),explicit,queryIntent,purpose,confidence:explicit?.confidence||queryIntent?.confidence||(purpose==='buy'?.45:.15),at:now};
+ }
+ function validModel(model){
+  if(!model||model.mode!=='shadow'||model.policy!=='shopping-v229'||JSON.stringify(model.features)!==JSON.stringify(FEATURES)||!model.heads||typeof model.version!=='string'||model.version.length>80)return false;
+  const names=Object.keys(model.heads);return names.length>0&&names.length<=4&&names.every(name=>['save','visit','relevance','purchase_kept'].includes(name)&&Array.isArray(model.heads[name].weights)&&model.heads[name].weights.length===FEATURES.length+1&&model.heads[name].weights.every(x=>typeof x==='number'&&Number.isFinite(x)&&Math.abs(x)<=100));
+ }
+ function predict(model,features){if(!validModel(model))return {};const result={};for(const [name,head] of Object.entries(model.heads)){const z=head.weights[0]+FEATURES.reduce((sum,key,i)=>sum+head.weights[i+1]*Math.max(-2,Math.min(2,Number(features[key])||0)),0);result[name]=1/(1+Math.exp(-Math.max(-30,Math.min(30,z))));}return result;}
+ root.WishWaveIntelligenceCore={FEATURES,mission,validModel,predict,policy:'shopping-v229'};
+})(typeof window==='undefined'?globalThis:window);
+
+</script>
 <script id="wishwave-interest-learning">
 (function(){
   'use strict';
   const T=window.WishWaveInterestCore,C=window.WishWaveRecommendationCore,P=window.WishWaveShoppingCore;
   const STATE='ww_topic_evidence_v227',SESSION='ww_topic_session_v227';
   let cache=null,sessionCache=null,events=[],flushTimer=0,metricFailures=0,pendingSync=[],syncPromise=null,syncTimer=0,scopeEpoch=0;
-  let experiment={id:'shopping-v228',arm:'unassigned'},assignmentPromise=null;
+  let experiment={id:'shopping-v229',arm:'unassigned'},assignmentPromise=null;
   window.wishwaveShoppingExperiment=()=>({...experiment});
-  window.wishwaveShoppingTreatment=()=>experiment.arm==='treatment';
+  window.wishwaveShoppingTreatment=()=>['control','treatment'].includes(experiment.arm);
   const treatment=()=>window.wishwaveShoppingTreatment();
   const INTENTS='ww_shopping_intents_v228',SYNC='ww_shopping_sync_v228',OUTBOX='ww_recommendation_outbox_v228';
   function readOutbox(){try{return JSON.parse(localStorage.getItem(OUTBOX)||'{}');}catch(_){return {};}}
@@ -34679,26 +34702,29 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
     if(context?.item&&!['dwell','quickSkip','view','legacy'].includes(event))wishwaveObserveProduct(context.item,event,{boost});
     return result;
   };
+  window.wishwaveClearGiftFamily=function(family){const state=load();if(state.giftFamilies?.includes(family))persist({...state,giftFamilies:state.giftFamilies.filter(x=>x!==family)});};
+  window.wishwaveRecordSessionEvidence=function(item,event,details={}){if(!enabled()||!item)return;const meta=T.classify(item);rememberSession(meta,event==='unlike'||event==='relevanceNegative'?-1:1);queueEvidence(item,meta,event,details);if(event==='attention')window.wishwaveShoppingMeasure?.(item,event,details);};
   const impression=window.noteRecommendationImpression;
   window.noteRecommendationImpression=function(item){impression.apply(this,arguments);if(enabled())wishwaveObserveProduct(item,'exposure');};
   // Existing saves supply capped deliberate evidence on first upgrade. Group by
   // product family and date so repeated loading cannot inflate the profile.
   function seedSaved(){
-    if(!enabled())return;let state=load();const seeded=new Set(state.seeded||[]);
-    for(const item of getTracked().slice(0,120)){const family=wishwaveProductIdentity(item).family;if(seeded.has(family)||!T.classify(item).tags.length)continue;seeded.add(family);state=T.update(state,item,'track',{},Math.min(Date.now(),Number(item.savedAt)||Date.now()),family);}
-    if(seeded.size!==(load().seeded||[]).length)persist({...state,seeded:[...seeded].slice(-400)});
+    if(!enabled())return;let state=load();const seeded=new Set(state.seeded||[]),gifts=new Set(state.giftFamilies||[]),giftSession=window.wishwaveShoppingContext?.().purpose==='gift';
+    for(const item of getTracked().slice(0,120)){const family=wishwaveProductIdentity(item).family;if(giftSession||gifts.has(family)){gifts.add(family);continue;}if(seeded.has(family)||!T.classify(item).tags.length)continue;seeded.add(family);state=T.update(state,item,'track',{},Math.min(Date.now(),Number(item.savedAt)||Date.now()),family);}
+    if(seeded.size!==(load().seeded||[]).length||gifts.size!==(load().giftFamilies||[]).length)persist({...state,seeded:[...seeded].slice(-400),giftFamilies:[...gifts].slice(-120)});
   }
   seedSaved();
   const oldTracked=window.setTracked;
   window.setTracked=function(items){const result=oldTracked.apply(this,arguments);seedSaved();return result;};
-  const reset=()=>{scopeEpoch++;cache=null;sessionCache=null;facetCache=null;observeGuards.clear();events=[];pendingSync=[];clearTimeout(flushTimer);clearTimeout(syncTimer);flushTimer=0;syncTimer=0;syncPromise=null;experiment={id:'shopping-v228',arm:'unassigned'};assignmentPromise=null;events=Array.isArray(readOutbox().events)?readOutbox().events.slice(-240):[];trialEvents=Array.isArray(readOutbox().trialEvents)?readOutbox().trialEvents.slice(-240):[];exposures.clear();clearTimeout(trialTimer);trialTimer=0;setTimeout(()=>{assignExperiment();syncProfile();},100);};
+  const reset=()=>{scopeEpoch++;cache=null;sessionCache=null;facetCache=null;observeGuards.clear();events=[];pendingSync=[];clearTimeout(flushTimer);clearTimeout(syncTimer);flushTimer=0;syncTimer=0;syncPromise=null;experiment={id:'shopping-v229',arm:'unassigned'};assignmentPromise=null;events=Array.isArray(readOutbox().events)?readOutbox().events.slice(-240):[];trialEvents=Array.isArray(readOutbox().trialEvents)?readOutbox().trialEvents.slice(-240):[];exposures.clear();clearTimeout(trialTimer);trialTimer=0;setTimeout(()=>{assignExperiment();syncProfile();},100);};
   document.addEventListener('wishwave-recommendation-account-change',reset);
   window.addEventListener('storage',e=>{if(e.key===STATE)cache=null;});
   // Live events retain exposure and attention separately, unlike daily summary
   // counters. Client purchases are not supported by this collection path.
   const nonce=Array.from(crypto.getRandomValues(new Uint8Array(12)),x=>x.toString(16).padStart(2,'0')).join('');let sequence=0;
   function queueEvidence(item,meta,event,details){
-    if(!['exposure','attention','like','unlike','track','galleryInspect','click','compare','share','revisit','comment','notInterested'].includes(event))return;
+    if(event==='attention'&&Number(details.ms)<250)return;
+    if(!['exposure','attention','like','unlike','track','galleryInspect','click','compare','share','revisit','comment','notInterested','relevancePositive','relevanceNegative'].includes(event))return;
     events.push({id:nonce+'_'+(++sequence),key:listingKey(item),family:wishwaveProductIdentity(item).family,event,type:meta.type,topics:meta.tags.map(x=>x.key),ms:Math.min(30000,Math.max(0,Number(details.ms)||0)),surface:document.getElementById('search')?.classList.contains('active')?'search':feedState.source==='contextual-reel'?'collection':'home',policy:T.policy});events=events.slice(-240);saveOutbox();if(!flushTimer)flushTimer=setTimeout(flush,3000);
   }
   let evidenceFlight=false;
@@ -34758,7 +34784,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
     const epoch=scopeEpoch,owner=marketplaceSession();
     let visitor=localStorage.getItem('ww_measure_visitor_v226');if(!visitor){visitor=nonce;localStorage.setItem('ww_measure_visitor_v226',visitor);}
     assignmentPromise=(async()=>{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2000);
-      try{const response=await fetch(WORKER_BASE+'/recommendations/experiment?visitor='+encodeURIComponent(visitor),{headers:marketplaceHeaders(),signal:controller.signal});if(!response.ok)throw new Error('Experiment HTTP '+response.status);const data=await response.json();if(epoch===scopeEpoch&&owner===marketplaceSession()&&enabled()&&data.id==='shopping-v228'&&['control','treatment'].includes(data.arm))experiment={id:data.id,arm:data.arm};}
+      try{const response=await fetch(WORKER_BASE+'/recommendations/experiment?visitor='+encodeURIComponent(visitor),{headers:marketplaceHeaders(),signal:controller.signal});if(!response.ok)throw new Error('Experiment HTTP '+response.status);const data=await response.json();if(epoch===scopeEpoch&&owner===marketplaceSession()&&enabled()&&data.id==='shopping-v229'&&['control','treatment'].includes(data.arm))experiment={id:data.id,arm:data.arm};}
       catch(_){}finally{clearTimeout(timer);}
     })();await assignmentPromise;if(epoch===scopeEpoch&&experiment.arm==='unassigned')assignmentPromise=null;
   }
@@ -34777,7 +34803,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
       exposure={id:nonce+'_ex_'+(++sequence),at,arm,position};exposures.set(key,exposure);if(exposures.size>240)exposures.delete(exposures.keys().next().value);
     }
     if(!exposure||at-exposure.at>24*3600000)return;
-    trialEvents.push({id:nonce+'_trial_'+(++sequence),exposureId:exposure.id,key:listingKey(item),family:wishwaveProductIdentity(item).family,event,position:exposure.position,arm:exposure.arm,surface,at,ms:Number(details.ms)||0,policy:'shopping-v228',features:event==='impression'?{topicBoost:T.boost(load().profile,item)/22,preferenceBoost:P.boost(load(),item,T.classify(item))/14,repeatPenalty:personalisedSeenPenalty(item)/34,sharedBoost:(window.wishwaveSharedBoost?.(item)||0)/12,confidence:Math.max(0,...T.classify(item).tags.map(tag=>load().profile[tag.key]?T.stats(load().profile[tag.key]).confidence:0))}:undefined});trialEvents=trialEvents.slice(-240);saveOutbox();
+    trialEvents.push({id:nonce+'_trial_'+(++sequence),exposureId:exposure.id,key:listingKey(item),family:wishwaveProductIdentity(item).family,event,position:exposure.position,arm:exposure.arm,surface,at,ms:Number(details.ms)||0,policy:'shopping-v229',features:event==='impression'?(window.wishwaveIntelligenceFeatures?.(item,{topicBoost:T.boost(load().profile,item)/22,preferenceBoost:P.boost(load(),item,T.classify(item))/14,repeatPenalty:personalisedSeenPenalty(item)/34,sharedBoost:(window.wishwaveSharedBoost?.(item)||0)/12,confidence:Math.max(0,...T.classify(item).tags.map(tag=>load().profile[tag.key]?T.stats(load().profile[tag.key]).confidence:0))})||{topicBoost:T.boost(load().profile,item)/22,preferenceBoost:P.boost(load(),item,T.classify(item))/14,repeatPenalty:personalisedSeenPenalty(item)/34,sharedBoost:(window.wishwaveSharedBoost?.(item)||0)/12,confidence:Math.max(0,...T.classify(item).tags.map(tag=>load().profile[tag.key]?T.stats(load().profile[tag.key]).confidence:0))}):undefined});trialEvents=trialEvents.slice(-240);saveOutbox();
     if(!trialTimer)trialTimer=setTimeout(flushTrials,3000);
   };
   const qualifiedExposure=window.noteRecommendationImpression;
@@ -34799,6 +34825,64 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   setTimeout(()=>{assignExperiment();syncProfile();flush();flushTrials();},100);
 
   document.addEventListener('visibilitychange',()=>{if(document.hidden)flush();});window.addEventListener('pagehide',flush);
+})();
+
+</script>
+<script id="wishwave-intelligence-learning">
+(function(){
+ 'use strict';
+ const I=window.WishWaveIntelligenceCore,P=window.WishWaveShoppingCore,T=window.WishWaveInterestCore;
+ const enabled=()=>window.findaiAppPreferences?.().personalized!==false;
+ const treatment=()=>enabled()&&window.wishwaveShoppingExperiment?.().id==='shopping-v229'&&window.wishwaveShoppingExperiment?.().arm==='treatment';
+ const MISSION='ww_mission_v229';let mission={rows:[]},epoch=0,community=[],shadow=null,warming=false,visited=false,visitTimer=0,contextItem=null;
+ const semantic=new Map(),attempted=new Map();
+ function readMission(){try{mission=JSON.parse(sessionStorage.getItem(MISSION)||'{}');}catch(_){mission={rows:[]};}mission=I.mission(mission);}
+ function saveMission(){try{sessionStorage.setItem(MISSION,JSON.stringify(mission));}catch(_){}}
+ readMission();
+ window.wishwaveShoppingContext=()=>{mission=I.mission(mission);return enabled()?{purpose:mission.purpose||'browse',confidence:mission.confidence||.15}:{};};
+ const semanticKey=(item,query)=>listingKey(item)+'|'+String(item.title||'')+'|'+normaliseQueryText(query||item._interestQuery||'');
+ function enrich(item,query){const learned=semantic.get(semanticKey(item,query));return learned?{...item,...Object.fromEntries(Object.entries(learned.metadata||{}).filter(([key])=>!item[key])),_wwSemantic:learned.similarity||0,_wwSemanticSource:learned.provenance}:item;}
+ async function warm(items,query){
+  if(!treatment()||warming)return;const now=Date.now(),selected=items.filter(x=>['ebay','stockx','amazon'].includes(getSource(x))&&now-(attempted.get(semanticKey(x,query))||0)>300000).slice(0,8);if(!selected.length)return;
+  warming=true;const owner=epoch;selected.forEach(x=>attempted.set(semanticKey(x,query),now));
+  try{const response=await fetch(WORKER_BASE+'/recommendations/understand',{method:'POST',headers:marketplaceHeaders(),body:JSON.stringify({visitor:localStorage.getItem('ww_measure_visitor_v226'),query:String(query).slice(0,160),items:selected.map(x=>({...P.cleanItem(x),key:listingKey(x),source:getSource(x),image:x.image||x.images?.[0]||''}))})});if(!response.ok)return;const data=await response.json();if(owner!==epoch||!treatment())return;
+   for(const result of data.items||[]){const original=selected.find(x=>listingKey(x)===result.key);if(!original)continue;semantic.set(semanticKey(original,query),result);}while(semantic.size>160)semantic.delete(semantic.keys().next().value);while(attempted.size>240)attempted.delete(attempted.keys().next().value);
+   schedulePersonalisedLaneRebalance('click');
+  }catch(_){}finally{if(owner===epoch)warming=false;}
+ }
+ const prepare=window.preparePersonalisedLaneItems;
+ window.preparePersonalisedLaneItems=function(raw,lane){if(!treatment())return prepare.apply(this,arguments);const items=(Array.isArray(raw)?raw:[]).map(x=>enrich(x,lane.query));warm(raw||[],lane.query);return prepare.call(this,items,lane);};
+ const score=window.personalisedItemScore;
+ window.personalisedItemScore=function(item,query,scope){const base=score.apply(this,arguments);if(!treatment())return base;const learned=enrich(item,query),semanticBoost=Math.max(0,Math.min(6,(Number(learned._wwSemantic)||0)-.55))*12;
+  const collaboration=community.find(x=>T.classify(learned).tags.some(t=>t.key===x.topic));return base+Math.min(6,semanticBoost)+(collaboration?.score||0)+(mission.purpose==='buy'&&mission.confidence>=.4?Math.max(-2,Math.min(2,P.boost({},learned,T.classify(learned),Date.now(),window.wishwaveShoppingPreferences?.()||{})/7)):0);
+ };
+ const interests=window.scoredInterests;
+ window.scoredInterests=function(limit=PERSONALISED_INTEREST_LIMIT){const lanes=interests.apply(this,arguments);if(!treatment()||!community.length||limit<3)return lanes;const c=community.find(x=>!lanes.some(y=>normaliseQueryText(y.query)===normaliseQueryText(x.query)));if(!c)return lanes;const next={id:'community:'+c.topic,cluster:'community:'+c.topic,query:c.query,discoveryQuery:c.query,category:interestCategory(c.query),score:10+c.score,featured:false,_topicKey:c.topic,_community:true};const index=Math.max(0,lanes.length-2);return [...lanes.slice(0,index),next,...lanes.slice(index+1)].slice(0,limit);};
+ const observe=window.wishwaveObserveProduct;
+ window.wishwaveObserveProduct=function(item,event,details){if(!item)return;mission=I.mission(mission);const family=wishwaveProductIdentity(item).family;if(enabled()&&mission.purpose==='gift'&&mission.confidence>=.8){window.wishwaveRecordSessionEvidence?.(item,event,details||{});mission=I.mission(mission,'',event,family);saveMission();return;}if(enabled()&&['like','track','relevancePositive'].includes(event))window.wishwaveClearGiftFamily?.(family);const result=observe.apply(this,arguments);if(enabled()){mission=I.mission(mission,'',event,wishwaveProductIdentity(item).family);saveMission();}return result;};
+ const record=window.recordInterest;
+ window.recordInterest=function(query,event){if(enabled()&&['search','scan'].includes(event)){mission=I.mission(mission,String(query));saveMission();}if(enabled()&&mission.purpose==='gift'&&mission.confidence>=.8&&!['search','scan'].includes(event)&&arguments[3]?.item){wishwaveObserveProduct(arguments[3].item,event);return;}return record.apply(this,arguments);};
+ window.wishwaveIntelligenceFeatures=function(item,base){
+  const context=window.wishwaveShoppingContext(),match=community.find(x=>T.classify(item).tags.some(t=>t.key===x.topic));const features={...base,semanticMatch:Number(item._wwSemantic)||0,collaborativeBoost:(match?.score||0)/6,missionBuy:context.purpose==='buy'?context.confidence:0,missionGift:context.purpose==='gift'?context.confidence:0,missionCollect:context.purpose==='collect'?context.confidence:0,missionBrowse:context.purpose==='browse'?1:0};
+  if(shadow){const predicted=I.predict(shadow,features);features.modelVersion=shadow.version;for(const [name,value] of Object.entries(predicted))features['shadow_'+name]=value;}return features;
+ };
+ // Optional feedback belongs in the existing hold menu; no extra card button.
+ const options=window.wishwaveRecommendationOptions;
+ window.wishwaveRecommendationOptions=function(item){options.apply(this,arguments);if(!enabled())return;contextItem=item;const root=document.getElementById('appMpSheetBody');if(!root)return;const host=root.querySelector('.app-mp-actions');if(!host||host.querySelector('[data-ww-relevance]'))return;const row=document.createElement('div');row.dataset.wwRelevance='true';row.className='app-mp-actions';row.innerHTML='<p class="app-mp-muted">Does this fit your interests?</p><button class="app-mp-action tertiary" onclick="wishwaveRelevanceFeedback(true)">Relevant</button><button class="app-mp-action tertiary" onclick="wishwaveRelevanceFeedback(false)">Not relevant</button><p class="app-mp-muted">What are you doing today?</p>'+[['buy','Looking to buy'],['gift','Shopping for a gift'],['collect','Collecting'],['browse','Just browsing']].map(([key,label])=>'<button class="app-mp-action tertiary" onclick="wishwaveSetShoppingPurpose(\''+key+'\')">'+label+'</button>').join('');host.append(row);};
+ window.wishwaveRelevanceFeedback=function(positive){if(!enabled()||!contextItem)return;const event=positive?'relevancePositive':'relevanceNegative';wishwaveObserveProduct(contextItem,event);wishwaveShoppingMeasure(contextItem,event);closeAppMpSheet();toast('Preference updated');};
+ window.wishwaveSetShoppingPurpose=function(purpose){if(!enabled()||!['buy','gift','collect','browse'].includes(purpose))return;mission=I.mission({...mission,explicit:{purpose,at:Date.now(),confidence:.95}});saveMission();schedulePersonalisedLaneRebalance('click');closeAppMpSheet();toast('Shopping preferences updated');};
+ async function loadIntelligence(){
+  if(!enabled())return;const owner=epoch,session=marketplaceSession();
+  try{const response=await fetch(WORKER_BASE+'/recommendations/model',{headers:marketplaceHeaders()});const data=await response.json();if(owner===epoch&&enabled()&&I.validModel(data.model))shadow=data.model;}catch(_){}
+  if(!session)return;try{const response=await fetch(WORKER_BASE+'/recommendations/community',{headers:marketplaceHeaders()});if(!response.ok)return;const data=await response.json();if(owner===epoch&&session===marketplaceSession()&&enabled()){community=(data.lanes||[]).slice(0,4);schedulePersonalisedLaneRebalance('click');}}catch(_){}
+ }
+ async function visit(){const day=new Date().toISOString().slice(0,10);if(visited===day||!enabled()||document.hidden||window.wishwaveShoppingExperiment?.().id!=='shopping-v229'||window.wishwaveShoppingExperiment?.().arm==='unassigned')return;const owner=epoch;try{const response=await fetch(WORKER_BASE+'/recommendations/visit',{method:'POST',headers:marketplaceHeaders(),body:JSON.stringify({visitor:localStorage.getItem('ww_measure_visitor_v226'),policy:'shopping-v229'})});if(response.ok&&owner===epoch)visited=day;}catch(_){} }
+ function scheduleVisit(){clearTimeout(visitTimer);visitTimer=setTimeout(visit,10000);}
+ document.addEventListener('wishwave-recommendation-account-change',()=>{epoch++;community=[];shadow=null;semantic.clear();attempted.clear();warming=false;visited=false;contextItem=null;readMission();setTimeout(loadIntelligence,200);scheduleVisit();});
+ document.addEventListener('visibilitychange',()=>{if(document.hidden)clearTimeout(visitTimer);else{scheduleVisit();loadIntelligence();}});
+ window.wishwaveIntelligenceStatus=()=>({policy:'shopping-v229',semanticItems:semantic.size,communityLanes:community.length,model:shadow?.version||null,mode:'shadow',mission:window.wishwaveShoppingContext()});
+ setInterval(()=>{if(!document.hidden&&enabled()&&visited!==new Date().toISOString().slice(0,10))scheduleVisit();},60000);
+ setTimeout(loadIntelligence,200);scheduleVisit();
 })();
 
 </script>

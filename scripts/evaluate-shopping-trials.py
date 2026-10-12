@@ -7,10 +7,10 @@ The bootstrap resamples viewers, not individual exposures. Outcomes mature for
 import argparse,json,random,sqlite3,time
 from collections import defaultdict
 
-def evaluate(db,now=None,bootstrap=1000):
+def evaluate(db,now=None,bootstrap=1000,policy='shopping-v228'):
     now=int(now or time.time()*1000)
     db.row_factory=sqlite3.Row
-    events=db.execute("SELECT * FROM recommendation_trials WHERE policy='shopping-v228'").fetchall()
+    events=db.execute("SELECT * FROM recommendation_trials WHERE policy=?",(policy,)).fetchall()
     def event_time(row):return row['occurred_at'] if 'occurred_at' in row.keys() else row['created_at']
     events.sort(key=lambda row:(event_time(row),int(row['event_id'].rsplit('_',1)[-1]) if row['event_id'].rsplit('_',1)[-1].isdigit() else 0,row['event_id']))
     exposures={};actions=defaultdict(list)
@@ -51,5 +51,5 @@ def evaluate(db,now=None,bootstrap=1000):
     return report
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('database');parser.add_argument('--bootstrap',type=int,default=1000);args=parser.parse_args()
-    with sqlite3.connect(args.database) as db:print(json.dumps(evaluate(db,bootstrap=args.bootstrap),indent=2))
+    parser=argparse.ArgumentParser();parser.add_argument('database');parser.add_argument('--bootstrap',type=int,default=1000);parser.add_argument('--policy',choices=['shopping-v228','shopping-v229'],default='shopping-v229');args=parser.parse_args()
+    with sqlite3.connect(args.database) as db:print(json.dumps(evaluate(db,bootstrap=args.bootstrap,policy=args.policy),indent=2))
