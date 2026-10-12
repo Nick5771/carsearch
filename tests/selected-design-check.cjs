@@ -88,12 +88,17 @@ const w=dom.window,wait=ms=>new Promise(r=>setTimeout(r,ms));
   await w.wishwaveOpenNotificationTab();assert.equal(w.document.body.dataset.activeTab,'notifications');assert.equal(w.document.querySelector('#findaiNotificationPanel').parentElement.id,'notifications');assert(w.document.querySelector('#findaiNotificationPanel').classList.contains('show'));assert(w.document.querySelector('#wishwaveMainNav [data-tab="notifications"]').classList.contains('active'));
   w.setHomeNotificationState(2);assert.equal(w.document.querySelector('#navNotificationsBadge').style.display,'block');w.setHomeNotificationState(0);assert.equal(w.document.querySelector('#navNotificationsBadge').style.display,'none');
 
+  w.document.querySelectorAll('.search-detail-overlay.show,#findaiContextualReelV168.show').forEach(el=>el.classList.remove('show'));
   const navigation=w.document.getElementById('wishwaveMainNav');
   navigation.getBoundingClientRect=()=>({left:0,width:390});
   navigation.querySelectorAll(':scope > button').forEach((button,index)=>button.getBoundingClientRect=()=>({left:index*78,width:78}));
-  w.setMainNavActive('discover');
-  const selection=navigation.querySelector('.wishwave-nav-selection');assert(selection);assert(selection.style.transform.includes('11px'));
-  w.wishwaveNavSwipeProgress('discover','search',.5);assert.equal(navigation.dataset.navDrag,'true');assert(selection.style.transform.includes('50px'),'highlight follows halfway between Home and Search');
+  const selection=navigation.querySelector('.wishwave-nav-selection');assert(selection);const navAnimations=[];let cancelledMotion=0;selection.animate=(frames,options)=>{const animation={cancel:()=>cancelledMotion++};navAnimations.push({frames,options,animation});return animation;};
+  w.setMainNavActive('discover');assert(selection.style.transform.includes('11px'));
+  const firstAnimationCount=navAnimations.length;w.setMainNavActive('discover');assert.equal(navAnimations.length,firstAnimationCount,'duplicate selection must not restart the slide');
+  const searchTab=navigation.querySelector('[data-tab="search"]');searchTab.dispatchEvent(new w.Event('pointerdown',{bubbles:true}));assert(selection.style.transform.includes('89px'),'slide starts when finger presses neighbouring tab: '+JSON.stringify({transform:selection.style.transform,animations:navAnimations.length,drag:navigation.dataset.navDrag,active:navigation.querySelector('.active')?.dataset.tab}));assert.equal(navAnimations.at(-1).options.duration,380);assert.equal(navAnimations.at(-1).frames.length,2);
+  searchTab.dispatchEvent(new w.Event('pointercancel',{bubbles:true}));assert(selection.style.transform.includes('11px'),'cancelled press returns highlight');
+
+  w.wishwaveNavSwipeProgress('discover','search',.5);assert.equal(navigation.dataset.navDrag,'true');assert(cancelledMotion>0,'direct dragging replaces the in-flight animation');assert(selection.style.transform.includes('50px'),'highlight follows halfway between Home and Search');
   w.wishwaveNavSwipeSettle('search',180);assert.equal(navigation.dataset.navDrag,'false');assert(selection.style.transform.includes('89px'));assert.equal(navigation.style.getPropertyValue('--ww-nav-motion'),'180ms');
   w.setMainNavActive('profile');assert(selection.style.transform.includes('323px'),'tap animates to Profile');
   w.wishwaveNavSwipeProgress('profile','notifications',.6);w.wishwaveNavSwipeReset();assert(selection.style.transform.includes('323px'),'cancelled gesture returns highlight to selected tab');
