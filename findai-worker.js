@@ -11964,6 +11964,7 @@ async function buildIndexedBestDeals(country,env,maxItems=72){
 
 async function buildPreviewsPool(country, env){
   env=ebayTrafficEnv(env,'background');
+    try{if(env.DB){await shoppingEnsureSchema(env);await shoppingCleanup(env);}}catch(e){logErr('Shopping evidence retention',e);}
   // Passive homepage surfaces never invoke external general-web discovery. They consume only
   // already-verified D1 retailer offers plus the existing eBay feed.
   const retailerPromise=webIndexPassivePreviewItems(country,env,72);
@@ -20801,6 +20802,249 @@ async function recommendationInterestEvents(request,env){
   return jsonResp({ok:true,policy:'shopping-interest-v227',accepted:rows.length},200,{'Cache-Control':'no-store'});
 }
 
+// v228: shopping profiles and controlled trials.
+/* v228: explainable shopping facets, not a trained embedding model. */
+const RecommendationShoppingCore=(()=>{
+ 'use strict';
+ const DAY=86400000;
+ const text=x=>String(x?.name??x??'').normalize('NFKC').toLowerCase().replace(/[^a-z0-9:.]+/g,' ').trim();
+ function cleanItem(item={}){
+  const out={};for(const key of ['title','brand','productType','theme','franchise','productCategory','categoryName','scale','condition','size','color','colour','model','mpn','gtin','productId','currency']){const value=item[key]??item.product?.[key];if(value!=null)out[key]=String(value?.name??value).slice(0,key==='title'?240:80);}
+  const value=Number(item.price?.value??item.price);if(Number.isFinite(value)&&value>0&&value<1e8)out.price=value;
+  if(!out.currency&&item.price?.currency)out.currency=String(item.price.currency).slice(0,3);
+  return out;
+ }
+ function describe(item,meta){
+  const clean=cleanItem(item),t=text(clean.title),condition=text(clean.condition);
+  const brand=text(clean.brand)||[['hot wheels',/\bhot ?wheels\b/],['matchbox',/\bmatchbox\b/],['lego',/\blego\b/],['new balance',/\bnew balance\b/],['nike',/\b(?:nike|air jordan|air force|dunk)\b/],['adidas',/\b(?:adidas|yeezy)\b/],['apple',/\b(?:apple|iphone|macbook)\b/],['samsung',/\bsamsung\b/],['sony',/\bsony\b/],['canon',/\bcanon\b/]].find(x=>x[1].test(t))?.[0]||'';
+  const form=/refurb|renewed/.test(condition)?'refurbished':/pre owned|used|second hand/.test(condition)?'used':/new|unopened|sealed/.test(condition)?'new':'';
+  return {type:meta.type,currency:/^[A-Z]{3}$/.test(String(clean.currency||'').toUpperCase())?clean.currency.toUpperCase():'',price:clean.price||0,brand:meta.compatible?'':brand,condition:form,size:text(clean.size),color:text(clean.color||clean.colour),scale:meta.scale||'',model:text(clean.model)};
+ }
+ function preferences(state,now=Date.now()){
+  const distinct=new Map();for(const row of Object.values(state.journal||{})){if(!row.attributes||now-row.at>45*DAY)continue;const old=distinct.get(row.family);if(!old||old.at<row.at)distinct.set(row.family,row);}
+  const groups={};for(const row of distinct.values()){
+   const a=row.attributes;if(!a.type||a.type==='accessory')continue;const g=groups[a.type]||(groups[a.type]={type:a.type,products:0,prices:{},facets:{}});
+   const decay=Math.pow(.5,Math.max(0,now-row.at)/(30*DAY)),positive=(row.positive||0)*decay,negative=(row.negative||0)*decay;
+   if(positive>=.25)g.products++;
+   if(positive>=.25&&a.price>0&&a.currency)(g.prices[a.currency]||(g.prices[a.currency]=[])).push({value:a.price,weight:positive,id:row.family});
+   for(const key of ['brand','condition','size','color','scale','model']){if(!a[key])continue;const bucket=g.facets[key]||(g.facets[key]={});const v=Object.hasOwn(bucket,a[key])?bucket[a[key]]:(bucket[a[key]]={positive:0,negative:0,products:0});v.positive+=positive;v.negative+=negative;if(positive>=.25)v.products++;}
+  }
+  return groups;
+ }
+ function boost(state,item,meta,now=Date.now(),groups=null){
+  const a=describe(item,meta),g=(groups||preferences(state,now))[a.type];if(!g||g.products<3)return 0;let result=0;
+  const values=g.prices[a.currency];if(a.price>0&&values?.length>=3){const weight=values.reduce((s,v)=>s+v.weight,0),mean=values.reduce((s,v)=>s+Math.log(v.value)*v.weight,0)/weight;const variance=values.reduce((s,v)=>s+Math.pow(Math.log(v.value)-mean,2)*v.weight,0)/weight;const distance=Math.abs(Math.log(a.price)-mean)/Math.max(.55,Math.sqrt(variance));result+=Math.max(-6,4-distance*3)*Math.min(1,values.length/8);}
+  for(const key of ['brand','condition','size','color','scale','model']){
+   const values=g.facets[key],v=values?.[a[key]];if(!v)continue;const positive=Object.values(values).reduce((s,x)=>s+x.positive,0);const affinity=(v.positive/(positive+2)-v.negative/(v.positive+v.negative+3));result+=affinity*(key==='size'||key==='scale'?7:key==='brand'?5:3)*Math.min(1,v.products/4);
+  }
+  return Math.max(-10,Math.min(14,result));
+ }
+ function available(item){return item.available!==false&&item.inStock!==false&&item.sold!==true&&item.soldOut!==true&&!/^(?:sold|sold_out|out.of.stock|unavailable|deleted|ended|inactive)$/i.test(String(item.status||item.availability||''));}
+ function matches(item,query,core){
+  const wanted=core.classify({title:query}),actual=core.classify(item);if(!wanted.type)return null;
+  if(actual.type!==wanted.type)return false;
+  const specific=wanted.tags.filter(x=>x.depth>=2);if(specific.length)return specific.every(x=>actual.tags.some(y=>y.key===x.key));
+  return true;
+ }
+ return {cleanItem,describe,preferences,boost,available,matches,policy:'shopping-v228'};
+})();
+
+
+/* Hierarchical product interests: evidence is distinct from purchase intent. */
+const RecommendationInterestCore=(()=>{
+ const root={WishWaveShoppingCore:RecommendationShoppingCore};
+  'use strict';
+  const DAY=86400000,HALF_LIFE=30*DAY;
+  const normal=x=>String(x||'').normalize('NFKC').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  function classify(item={}){
+    const title=normal(item.title),raw=String(item.title||'').toLowerCase();
+    const read=key=>{const value=item[key]??item.product?.[key];return normal(value?.name||value);};
+    const text=[title,read('brand'),read('productType'),read('theme'),read('franchise'),read('productCategory'),read('categoryName')].join(' ').replace(/\bstarwars\b/g,'star wars').replace(/\bharrypotter\b/g,'harry potter').replace(/\bhotwheels\b/g,'hot wheels').replace(/\bconstruction kit\b/g,'building kit').replace(/\btrainers\b/g,'sneakers').replace(/\bmobile phone\b/g,'smartphone');
+    const compatible=/\b(?:compatible with lego|lego compatible|not lego)\b/.test(text)&&read('brand')!=='lego';
+    const lego=/\blego\b/.test(text)&&!compatible,hot=/\bhot wheels\b/.test(text),matchbox=/\bmatchbox\b/.test(text);
+    const vehicle=/\b(?:car|cars|vehicle|vehicles|supercar|race car|porsche|ferrari|lamborghini|mclaren|bugatti|bmw|mercedes|truck|motorcycle)\b/.test(text);
+    const scale=([String(item.scale||item.product?.scale||''),raw].join(' ').match(/\b1\s*[:/]\s*(18|24|43|64|12|32)\b/)||[])[1]||'';
+    const miniature=/\b(?:die cast|diecast|miniature|scale model|model car|model vehicle)\b/.test(text)||!!scale;
+    const packaging=/\b(?:empty box|box only|packaging only|instructions only|manual only|sticker sheet|replacement|spare parts|parts only|car cover)\b/.test(text)||/\b(?:packaging|accessory|accessories|instructions|spare parts)\b/.test(read('productType'));
+    let type='',category='',theme='',brand='',subject='';const tags=[];
+    const add=(key,label,weight,query='',depth=1)=>{if(!tags.some(x=>x.key===key))tags.push({key,label,weight,query,depth});};
+    if(packaging){type='accessory';category=lego?'lego':vehicle?'cars':'other';add('type:accessories','Accessories',1);}
+    else if(compatible){type='building_sets';category='collectibles';add('type:building_sets','Building sets',1,'building sets',1);}
+    else if(lego){
+      type=/\bminifig(?:ure)?s?\b/.test(text)&&(!/\b(?:set|building kit)\b/.test(text)||/\bminifigures? only\b/.test(text))?'lego_minifigures':'building_sets';category='lego';brand='lego';
+      const themes=['technic','star wars','harry potter','architecture','icons','ideas','city','ninjago','minecraft','marvel','friends'];theme=themes.find(x=>text.includes(x))||'';
+      subject=vehicle?'vehicles':/\b(?:spaceship|spacecraft|falcon|x wing|tie fighter|star destroyer)\b/.test(text)?'spacecraft':/\b(?:castle|hogwarts)\b/.test(text)?'castles':/\b(?:train|locomotive)\b/.test(text)?'trains':'';
+      add('brand:lego','LEGO',.7,type==='lego_minifigures'?'lego minifigures':'lego sets',1);
+      add('type:'+type,type==='lego_minifigures'?'LEGO minifigures':'Building sets',.6,'',0);
+      if(theme)add('lego:theme:'+theme,'LEGO '+theme,.85,'lego '+theme+(type==='lego_minifigures'?' minifigures':''),2);
+      if(subject&&type==='building_sets')add('lego:subject:'+subject,'LEGO '+subject,.75,'lego '+(subject==='vehicles'?'cars':subject),2);
+      if(theme&&subject&&type==='building_sets')add('lego:'+theme+':'+subject,'LEGO '+theme+' '+subject,1,'lego '+theme+' '+(subject==='vehicles'?'cars':subject),3);
+    }else if(vehicle&&/\b(?:track set|playset|rc car|remote control)\b/.test(text)){
+      type='toy_vehicles';category='collectibles';add('type:toy_vehicles','Toy vehicles',1,/\brc car|remote control\b/.test(text)?'remote control toy cars':'toy car playsets',1);
+      if(hot)add('toy-brand:hot wheels','Hot Wheels',.85,'hot wheels track set',2);
+    }else if((miniature&&vehicle)||hot||matchbox){
+      type='diecast_vehicles';category='collectibles';brand=hot?'hot wheels':matchbox?'matchbox':read('brand');
+      add('type:diecast_vehicles','Die-cast model vehicles',1,'diecast model cars',1);
+      if(hot||matchbox)add('toy-brand:'+brand,hot?'Hot Wheels':'Matchbox',.85,brand+' cars',2);
+      if(scale)add('diecast:scale:1:'+scale,'1:'+scale+' scale model vehicles',.9,'1:'+scale+' diecast model cars',2);
+      const make=['porsche','ferrari','lamborghini','mclaren','bugatti','bmw','mercedes'].find(x=>new RegExp('\\b'+x+'\\b').test(text));
+      if(make)add('diecast:make:'+make,make+' model vehicles',.85,make+' diecast model car',2);
+    }else if(vehicle&&/\b(?:toy|toys|playset|remote control|rc car)\b/.test(text)){
+      type='toy_vehicles';category='collectibles';add('type:toy_vehicles','Toy vehicles',1,/\brc car|remote control\b/.test(text)?'remote control toy cars':'toy car playsets',1);
+    }else if(vehicle&&!/\b(?:shirt|t shirt|hoodie|jacket|poster|keychain|watch|model|game|book)\b/.test(text)&&/\b(?:car|cars|vehicle|sedan|coupe|suv|porsche|ferrari|lamborghini)\b/.test(text)){
+      type='fullsize_vehicles';category='cars';add('type:fullsize_vehicles','Full-size vehicles',1,'',1);
+    }else{
+      const groups=[['sneakers','sneakers',/\b(?:sneakers?|shoes|dunks?|yeezy|new balance|air jordan|running shoes|air force 1)\b/,'sneakers'],['apparel','fashion',/\b(?:shirt|hoodie|jacket|dress|jeans|coat)\b/,''],['fragrance','fragrance',/\b(?:perfume|fragrance|cologne|eau de)\b/,'fragrance'],['watches','watches',/\b(?:watch|rolex|omega|speedmaster|submariner)\b/,'watches'],['cameras','media',/\b(?:camera|mirrorless|dslr|sony a7)\b/,'mirrorless camera'],['gaming','gaming',/\b(?:playstation|xbox|nintendo|gaming console)\b/,'gaming consoles'],['phones','apple',/\b(?:iphone|smartphone|galaxy phone)\b/,'smartphones'],['laptops','tech',/\b(?:laptop|macbook|notebook computer)\b/,'laptops'],['building_sets','collectibles',/\b(?:building sets?|building kit|construction blocks)\b/,'building sets'],['trading_cards','collectibles',/\b(?:pokemon|trading cards?|booster pack|booster box)\b/,'trading cards']];
+      const group=groups.find(x=>x[2].test(text));if(group){[type,category]=group;add('type:'+type,type.replace(/_/g,' '),1,group[3],1);}
+      // Unknown forms remain unknown. We do not invent a shopping purpose.
+    }
+    if(type&&type!=='accessory'&&category!=='lego'&&root.WishWaveShoppingCore){const a=root.WishWaveShoppingCore.describe(item,{type,compatible,scale:scale?'1:'+scale:''});if(a.brand&&!tags.some(x=>x.key==='toy-brand:'+a.brand))add(type+':brand:'+a.brand,a.brand+' '+type.replace(/_/g,' '),.85,a.brand+' '+(type==='diecast_vehicles'?'diecast model cars':type.replace(/_/g,' ')),2);}
+    const confidence=type?(read('productType')||read('theme')||read('brand')?.includes('lego')?'metadata-and-title':'title'):'unknown';
+    return {type,category,theme,brand,subject,compatible,scale:scale?'1:'+scale:'',tags,confidence};
+  }
+  function decay(value,at,now){return (Number(value)||0)*Math.pow(.5,Math.max(0,now-(at||now))/HALF_LIFE);}
+  function stats(entry,now=Date.now()){
+    const exposure=decay(entry.exposure,entry.at,now),positive=decay(entry.positive,entry.at,now),negative=decay(entry.negative,entry.at,now);
+    const products=(entry.products||[]).filter(x=>now-x.at<45*DAY),positiveProducts=products.filter(x=>x.positive>=.3).length;
+    const confidence=Math.min(.95,Math.sqrt(products.length/12)*Math.min(1,exposure/6));
+    const rate=(positive+1)/(exposure+4),aversion=negative/(exposure+2);
+    const score=Math.max(0,Math.min(100,(rate-aversion)*100));
+    return {key:entry.key,label:entry.label,query:entry.query,depth:entry.depth,score,confidence,exposures:exposure,uniqueProducts:products.length,positiveProducts,lift:(rate-.25-aversion)*confidence};
+  }
+  function update(state,item,event,details={},now=Date.now(),family=''){
+    const meta=classify(item);if(!meta.tags.length||!family)return state;
+    const profile={...(state.profile||{})},journal={...(state.journal||{})};
+    const key=Math.floor(now/DAY)+':'+family,previous=journal[key];
+    const row=previous?{...previous,events:{...previous.events}}:{family,events:{},positive:0,negative:0,exposure:0,at:now};
+    if(root.WishWaveShoppingCore){row.item=root.WishWaveShoppingCore.cleanItem(item);row.attributes=root.WishWaveShoppingCore.describe(item,meta);}
+    if(event==='attention'){
+      const ms=Math.max(0,Math.min(30000,Number(details.ms)||0)),ratio=Number(details.ratio)||1;if(ms<250)return state;
+      row.exposure=1;row.events.ms=Math.max(row.events.ms||0,ms);
+      if(ms<450||(ms<900&&ratio<.5))row.events.skip=Math.max(row.events.skip||0,ms<450?.35:.2);
+      if(ms>=12000||(ms>=3200&&ratio>=1.1))row.events.dwell=Math.max(row.events.dwell||0,Math.min(.5,ms/24000));
+    }else if(event==='exposure'){row.exposure=1;}
+    else if(event==='unlike'){row.events.like=0;row.events.track=0;row.events.unlike=.25;row.exposure=1;}
+    else if(event==='notInterested'){row.events.reject=1;row.events.rejectScope=details.scope||'product';row.exposure=1;}
+    else if(event==='undoRejection'){row.events.reject=0;}
+    else{
+      const weights={like:1,track:1,galleryInspect:.35,click:.45,compare:.55,share:.65,revisit:.2,comment:.25};
+      if(!Object.hasOwn(weights,event))return state;row.events[event]=weights[event];row.exposure=1;if(event==='like')row.events.unlike=0;
+    }
+    row.positive=row.events.reject?0:Math.max(0,...['like','track','galleryInspect','click','compare','share','revisit','comment','dwell'].map(x=>row.events[x]||0));
+    row.negative=row.events.reject?1:Math.max(row.positive>=.55?0:row.events.skip||0,row.events.unlike||0);row.at=now;
+    if(previous&&JSON.stringify(previous.events)===JSON.stringify(row.events)&&previous.exposure===row.exposure)return state;
+    journal[key]=row;
+    for(const tag of meta.tags){
+      const old=profile[tag.key]||{key:tag.key,label:tag.label,query:tag.query,depth:tag.depth,positive:0,negative:0,exposure:0,products:[],at:now};
+      const prior=previous||{positive:0,negative:0,exposure:0,events:{}};
+      const penalty=(record)=>record.events.reject&&['product','family'].includes(record.events.rejectScope)?(tag.depth<2?.1:.5):1;
+      const weight=tag.weight;
+      const products=(old.products||[]).filter(x=>now-x.at<45*DAY&&x.id!==family);products.push({id:family,at:now,positive:row.positive});
+      profile[tag.key]={...old,label:tag.label,query:tag.query,depth:tag.depth,positive:Math.max(0,decay(old.positive,old.at,now)+(row.positive-prior.positive)*weight),negative:Math.max(0,decay(old.negative,old.at,now)+(row.negative*penalty(row)-prior.negative*penalty(prior))*weight),exposure:Math.max(0,decay(old.exposure,old.at,now)+(row.exposure-prior.exposure)*weight),products:products.slice(-40),at:now};
+    }
+    return {...state,profile:Object.fromEntries(Object.entries(profile).sort((a,b)=>b[1].at-a[1].at).slice(0,160)),journal:Object.fromEntries(Object.entries(journal).sort((a,b)=>b[1].at-a[1].at).slice(0,300))};
+  }
+  function boost(profile,item,now=Date.now()){
+    const values=classify(item).tags.map(tag=>profile[tag.key]?{tag,stat:stats(profile[tag.key],now)}:null).filter(Boolean);
+    // Correlated ancestors are not summed: the strongest specific match wins.
+    const positive=Math.max(0,...values.map(x=>x.stat.lift*(x.tag.depth>=2?40:18)));
+    const negative=Math.min(0,...values.map(x=>x.stat.lift*(x.tag.depth>=2?40:18)));
+    return Math.max(-20,Math.min(22,positive+negative));
+  }
+  function lanes(profile,now=Date.now()){
+    const ranked=Object.values(profile).map(x=>stats(x,now)).filter(x=>x.query&&x.confidence>=.12&&x.positiveProducts>=2&&x.lift>.01).sort((a,b)=>b.lift-a.lift||b.depth-a.depth);
+    const chosen=[];for(const topic of ranked){const overlapping=chosen.some(x=>(topic.key==='brand:lego'&&x.key.startsWith('lego:'))||(topic.key.startsWith('lego:theme:')&&x.key.startsWith('lego:'+topic.key.slice(11)+':'))||(topic.key.startsWith('lego:subject:')&&x.depth===3&&x.key.endsWith(':'+topic.key.slice(13)))||(topic.key==='type:diecast_vehicles'&&x.key.startsWith('diecast:')));if(overlapping)continue;chosen.push(topic);if(chosen.length>=4)break;}return chosen;
+  }
+  return {classify,update,stats,boost,lanes,policy:'shopping-interest-v227'};
+})();
+
+
+let shoppingSchema=null,shoppingCleanupAt=0;
+async function shoppingEnsureSchema(env){
+ if(!shoppingSchema)shoppingSchema=env.DB.batch([
+  env.DB.prepare(`CREATE TABLE IF NOT EXISTS recommendation_shopping_evidence (
+   viewer_key TEXT NOT NULL,day INTEGER NOT NULL,family TEXT NOT NULL,event TEXT NOT NULL,
+   item TEXT NOT NULL,details TEXT NOT NULL,at INTEGER NOT NULL,
+   PRIMARY KEY(viewer_key,day,family,event))`),
+  env.DB.prepare('CREATE INDEX IF NOT EXISTS shopping_evidence_at ON recommendation_shopping_evidence(viewer_key,at)'),
+  env.DB.prepare('CREATE INDEX IF NOT EXISTS shopping_evidence_expiry ON recommendation_shopping_evidence(at)'),
+  env.DB.prepare(`CREATE TABLE IF NOT EXISTS recommendation_trials (
+   viewer_key TEXT NOT NULL,event_id TEXT NOT NULL,exposure_id TEXT NOT NULL,
+   listing_key TEXT NOT NULL,family TEXT NOT NULL,event TEXT NOT NULL,position INTEGER NOT NULL,
+   arm TEXT NOT NULL,surface TEXT NOT NULL,dwell_ms INTEGER NOT NULL,policy TEXT NOT NULL,features TEXT NOT NULL DEFAULT '{}',occurred_at INTEGER NOT NULL,created_at INTEGER NOT NULL,
+   PRIMARY KEY(viewer_key,event_id))`),
+  env.DB.prepare('CREATE INDEX IF NOT EXISTS recommendation_trial_time ON recommendation_trials(created_at)'),
+  env.DB.prepare('CREATE INDEX IF NOT EXISTS recommendation_trial_exposure ON recommendation_trials(viewer_key,exposure_id)')
+ ]).catch(error=>{shoppingSchema=null;throw error;});await shoppingSchema;
+}
+async function shoppingCleanup(env,now=Date.now()){
+ if(now-shoppingCleanupAt<3600000)return;await env.DB.batch([env.DB.prepare('DELETE FROM recommendation_shopping_evidence WHERE at<?').bind(now-45*86400000),env.DB.prepare('DELETE FROM recommendation_trials WHERE created_at<?').bind(now-30*86400000)]);shoppingCleanupAt=now;
+}
+async function shoppingHash(env,identity){
+ const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(env.RECOMMENDATION_HASH_SECRET||env.SESSION_SECRET||'wishwave-recommendation-v208')+'|'+identity));return Array.from(new Uint8Array(hash),x=>x.toString(16).padStart(2,'0')).join('');
+}
+async function shoppingViewer(request,env,visitor,accountOnly=false){
+ if(accountOnly||request.headers.get('Authorization')){const user=await requireUser(request,env);if(user.fail)return {fail:user.fail};return {viewer:await shoppingHash(env,'user:'+user.email.toLowerCase())};}
+ if(!/^[a-zA-Z0-9_-]{16,80}$/.test(String(visitor||'')))return {fail:jsonResp({error:'Visitor required'},400)};
+ return {viewer:await shoppingHash(env,'experiment-guest:'+visitor)};
+}
+function shoppingArm(viewer){return parseInt(viewer.slice(0,8),16)%10===0?'control':'treatment';}
+async function recommendationExperiment(request,env){
+ const who=await shoppingViewer(request,env,new URL(request.url).searchParams.get('visitor'));if(who.fail)return who.fail;
+ return jsonResp({id:'shopping-v228',arm:shoppingArm(who.viewer),control:'shopping-interest-v227',treatment:'shopping-v228'},200,{'Cache-Control':'no-store'});
+}
+async function shoppingBody(request){const raw=await request.text();if(raw.length>90000)throw new Error('Batch too large');const body=JSON.parse(raw);if(!body||typeof body!=='object'||Array.isArray(body))throw new Error('Invalid batch');return body;}
+async function recommendationShoppingProfile(request,env){
+ const who=await shoppingViewer(request,env,'',true);if(who.fail)return who.fail;
+ if(!env.DB)return jsonResp({error:'Profiles unavailable'},503,{'Cache-Control':'no-store'});
+ if(await rateLimited(env,request,'shopping-profile',60,60))return tooManyResp(60);
+ await shoppingEnsureSchema(env);const now=Date.now();await shoppingCleanup(env,now);
+ if(request.method==='DELETE'){await env.DB.prepare('DELETE FROM recommendation_shopping_evidence WHERE viewer_key=?').bind(who.viewer).run();return jsonResp({ok:true,state:{profile:{},journal:{}}},200,{'Cache-Control':'no-store'});}
+ let accepted=0;
+ if(request.method==='POST'){
+  let body;try{body=await shoppingBody(request);}catch(error){return jsonResp({error:error.message},400);}
+  const allowed=new Set(['exposure','attention','like','track','galleryInspect','click','compare','share','revisit','comment','unlike','notInterested','undoRejection']),rows=[];
+  for(const op of (Array.isArray(body.events)?body.events:[]).slice(0,40)){
+   if(!op||!allowed.has(op.event))continue;const family=sharedCleanKey(op.family),at=Math.round(Number(op.at)||0);if(!family||at<now-45*86400000||at>now+300000)continue;
+   const item=RecommendationShoppingCore.cleanItem(op.item);if(!item.title||!RecommendationInterestCore.classify(item).tags.length)continue;
+   const details={ms:Math.max(0,Math.min(30000,Math.round(Number(op.details?.ms)||0))),ratio:Math.max(.1,Math.min(10,Number(op.details?.ratio)||1)),scope:['product','family','brand','category'].includes(op.details?.scope)?op.details.scope:'product'};
+   if(op.event==='attention'&&details.ms<250)continue;
+   rows.push(env.DB.prepare(`INSERT INTO recommendation_shopping_evidence (viewer_key,day,family,event,item,details,at) VALUES (?,?,?,?,?,?,?)
+    ON CONFLICT(viewer_key,day,family,event) DO UPDATE SET item=excluded.item,details=excluded.details,at=excluded.at
+    WHERE excluded.at>recommendation_shopping_evidence.at`).bind(who.viewer,Math.floor(at/86400000),family,op.event,JSON.stringify(item),JSON.stringify(details),at));accepted++;
+  }
+  if(rows.length)await env.DB.batch(rows);
+ }
+ await env.DB.prepare('DELETE FROM recommendation_shopping_evidence WHERE viewer_key=? AND at<?').bind(who.viewer,now-45*86400000).run();
+ const result=await env.DB.prepare('SELECT family,event,item,details,at FROM recommendation_shopping_evidence WHERE viewer_key=? ORDER BY at DESC,event DESC LIMIT 1200').bind(who.viewer).all();
+ let state={profile:{},journal:{}};for(const row of (result.results||[]).reverse()){
+  try{state=RecommendationInterestCore.update(state,JSON.parse(row.item),row.event,JSON.parse(row.details),row.at,row.family);}catch(_){}
+ }
+ return jsonResp({ok:true,accepted,state,policy:'shopping-v228'},200,{'Cache-Control':'no-store'});
+}
+async function recommendationTrials(request,env){
+ if(!env.DB)return jsonResp({error:'Measurement unavailable'},503,{'Cache-Control':'no-store'});
+ if(await rateLimited(env,request,'shopping-trials',90,60))return tooManyResp(60);
+ let body;try{body=await shoppingBody(request);}catch(error){return jsonResp({error:error.message},400);}
+ const who=await shoppingViewer(request,env,body.visitor);if(who.fail)return who.fail;
+ const arm=shoppingArm(who.viewer),allowed=new Set(['impression','attention','like','unlike','track','share','compare','click','comment','notInterested']);
+ const rows=[];for(const e of (Array.isArray(body.events)?body.events:[]).slice(0,40)){
+  if(!e||!allowed.has(e.event)||e.policy!=='shopping-v228'||e.arm!==arm||!['home','search-browse'].includes(e.surface))continue;
+  if(!/^[a-zA-Z0-9_-]{16,100}$/.test(String(e.id||''))||!/^[a-zA-Z0-9_-]{16,100}$/.test(String(e.exposureId||'')))continue;
+  const key=sharedCleanKey(e.key),family=sharedCleanKey(e.family);if(!key||!family||!Number.isInteger(e.position)||e.position<0||e.position>10000)continue;
+  const ms=Math.max(0,Math.min(30000,Math.round(Number(e.ms)||0)));if(e.event==='attention'&&ms<250)continue;
+  const occurredAt=Math.min(Date.now(),Math.max(Date.now()-30*86400000,Math.round(Number(e.at)||Date.now())));
+  const features={};if(e.event==='impression')for(const key of ['topicBoost','preferenceBoost','repeatPenalty','sharedBoost','confidence']){const n=e.features?.[key];if(typeof n==='number'&&Number.isFinite(n))features[key]=Math.max(-2,Math.min(2,n));}
+  rows.push({id:e.id,exposure:e.exposureId,key,family,event:e.event,position:e.position,surface:e.surface,ms,features,occurredAt});
+ }
+ await shoppingEnsureSchema(env);const now=Date.now();await shoppingCleanup(env,now);
+ if(rows.length)await env.DB.batch(rows.map(r=>env.DB.prepare(`INSERT OR IGNORE INTO recommendation_trials
+  (viewer_key,event_id,exposure_id,listing_key,family,event,position,arm,surface,dwell_ms,policy,features,occurred_at,created_at)
+  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`).bind(who.viewer,r.id,r.exposure,r.key,r.family,r.event,r.position,arm,r.surface,r.ms,'shopping-v228',JSON.stringify(r.features),r.occurredAt,now)));
+ await env.DB.prepare('DELETE FROM recommendation_trials WHERE created_at<?').bind(now-30*86400000).run();
+ return jsonResp({ok:true,accepted:rows.length,policy:'shopping-v228'},200,{'Cache-Control':'no-store'});
+}
+
 export default {
   // Needs a KV namespace bound as CACHE and a Cron Trigger (e.g. */15 * * * *) in the dashboard.
   async scheduled(event, env, ctx) {
@@ -21158,6 +21402,9 @@ export default {
         return jsonResp(await ebayGatewayStatus(env),200,{'Cache-Control':'no-store'});
       }
 
+      if(url.pathname==='/recommendations/shopping-profile'&&['GET','POST','DELETE'].includes(request.method))return await recommendationShoppingProfile(request,env);
+      if(url.pathname==='/recommendations/experiment'&&request.method==='GET')return await recommendationExperiment(request,env);
+      if(url.pathname==='/recommendations/trials'&&request.method==='POST')return await recommendationTrials(request,env);
       if(request.method==='POST'&&url.pathname==='/recommendations/interest-events')return await recommendationInterestEvents(request,env);
       if(request.method==='POST'&&url.pathname==='/recommendations/measure')return await recommendationMeasureRoute(request,env);
       if(request.method==='POST'&&['/recommendations/engagement','/recommendations/scores'].includes(url.pathname))return await sharedRecommendationRoute(request,env,url);
@@ -23220,6 +23467,8 @@ export default {
         // Personalisation/search/push/account data.
         await safeRun(`DELETE FROM saved_items WHERE lower(email)=lower(?)`,email);
         await safeRun(`DELETE FROM taste_interests WHERE lower(email)=lower(?)`,email);
+        const recommendationViewer=await shoppingHash(env,'user:'+email);
+        for(const table of ['recommendation_shopping_evidence','recommendation_trials','recommendation_interest_events','recommendation_measurements','recommendation_exposures'])await safeRun('DELETE FROM '+table+' WHERE viewer_key=?',recommendationViewer);
         await safeRun(`DELETE FROM user_searches WHERE lower(email)=lower(?)`,email);
         await safeRun(`DELETE FROM item_views WHERE lower(email)=lower(?)`,email);
         await safeRun(`DELETE FROM tracked_items WHERE lower(email)=lower(?)`,email);
