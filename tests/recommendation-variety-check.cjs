@@ -22,10 +22,11 @@ assert(!ctx.wishwaveMixedSearchReel(cars,0,[{...other[0],blocked:true}]).some(x=
 // Search browse lane caps must group StockX colourways and apply across the merged lanes.
 const browseStart=html.indexOf('  function exploreFamilyKey(item){'),browseEnd=html.indexOf('  const exploreExposureItems=',browseStart);
 vm.runInContext(html.slice(browseStart,browseEnd),ctx);
+ctx.window={};vm.runInContext(html.match(/<script id="wishwave-recommendation-core">([\s\S]*?)<\/script>/)[1],ctx);ctx.window.wishwaveProductIdentity=x=>ctx.window.WishWaveRecommendationCore.identity(x,category(x));
 const balances=['New Balance 9060 Sea Salt','New Balance 9060 Mushroom','New Balance 2002R Protection Pack','New Balance 1906R Silver Metallic','New Balance 550 White Green'].map((title,i)=>({...item('nb'+i,title),source:'stockx',_interestCategory:'sneakers'}));
-assert.equal(new Set(balances.map(x=>ctx.exploreFamilyKey(x))).size,1,'New Balance variants share one browse family');
+assert.equal(new Set(balances.map(x=>ctx.exploreFamilyKey(x))).size,4,'New Balance model families are distinct; 9060 colourways share identity');
 const combined=ctx.capExploreFamilies([...balances.slice(0,2),...other.slice(0,4),...balances.slice(2)],2);
-assert.equal(combined.filter(x=>x.source==='stockx').length,2,'combined lanes cannot contribute five New Balances');
+assert.equal(combined.filter(x=>x.source==='stockx').length,5,'distinct models remain available; each model family is capped');
 assert.equal(combined.filter(x=>x.source!=='stockx').length,4,'unrelated products remain available');
 assert.equal(balances.length,5,'recommendation cap does not mutate the source search results');
 const spaced=ctx.sequencePersonalisedBatch(combined,[],combined.length);
