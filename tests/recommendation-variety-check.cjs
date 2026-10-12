@@ -20,7 +20,7 @@ for(let i=1;i<20;i++)assert(!(ctx.wishwaveProductFamily(diversified[i]).includes
 assert.equal(ctx.sequencePersonalisedBatch(cars,[],10).length,10,'single-category fallback retains all valid listings');
 assert(!ctx.wishwaveMixedSearchReel(cars,0,[{...other[0],blocked:true}]).some(x=>x.blocked));
 // Search browse lane caps must group StockX colourways and apply across the merged lanes.
-const browseStart=html.indexOf('  function exploreFamilyKey(item){'),browseEnd=html.indexOf('  function renderExploreGrid(',browseStart);
+const browseStart=html.indexOf('  function exploreFamilyKey(item){'),browseEnd=html.indexOf('  const exploreExposureItems=',browseStart);
 vm.runInContext(html.slice(browseStart,browseEnd),ctx);
 const balances=['New Balance 9060 Sea Salt','New Balance 9060 Mushroom','New Balance 2002R Protection Pack','New Balance 1906R Silver Metallic','New Balance 550 White Green'].map((title,i)=>({...item('nb'+i,title),source:'stockx',_interestCategory:'sneakers'}));
 assert.equal(new Set(balances.map(x=>ctx.exploreFamilyKey(x))).size,1,'New Balance variants share one browse family');
