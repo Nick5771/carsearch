@@ -34212,10 +34212,6 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
 #findaiSendSheetBg .findai-send-loading button{border:0;background:transparent;color:inherit;font:inherit;text-decoration:underline;cursor:pointer;}
 #findaiSendSheetBg .findai-send-link-fallback{display:block;color:inherit;font-size:12px;overflow-wrap:anywhere;margin-top:10px;}
 </style>
-<style id="wishwave-shopping-recommendations-style">
-.ww-recommendation-options{position:absolute;left:14px;top:calc(var(--safe-top,0px) + 64px);z-index:6;border:0;border-radius:50%;width:40px;height:40px;color:var(--ink,#fff);background:rgba(20,23,28,.48);font-size:18px;letter-spacing:1px;cursor:pointer;}
-html.findai-light .ww-recommendation-options{background:rgba(255,255,255,.7);color:#111;}
-</style>
 <script id="wishwave-recommendation-core">
 /* WishWave product identity and ranking policy. No inferred purchases or sizes. */
 (function(root){
@@ -34409,12 +34405,6 @@ html.findai-light .ww-recommendation-options{background:rgba(255,255,255,.7);col
     pendingItem=item;const id=identify(item);
     const button=(label,kind)=>'<button class="app-mp-action tertiary" onclick="wishwaveRejectRecommendation(\''+kind+'\')">'+escapeHTML(label)+'</button>';
     openAppMpSheet('Not interested','<div class="app-mp-actions">'+button('This product','product')+button('Similar products','family')+(id.brand?button('Less from '+id.brand,'brand'):'')+button('Less from this category','category')+'</div>');
-  };
-  const render=window.renderReelCard;
-  window.renderReelCard=function(item,index,data){
-    const html=render.apply(this,arguments);
-    if(feedState.source!=='personalised')return html;
-    return html.replace('<div class="reel-actions-rail"','<button type="button" class="ww-recommendation-options" aria-label="Recommendation options" onclick="event.stopPropagation();wishwaveRecommendationOptions(currentFeedItems['+index+'])">•••</button><div class="reel-actions-rail"');
   };
   let hold=null,suppressClickUntil=0;
   const cancel=()=>{if(hold)clearTimeout(hold.timer);hold=null;};
