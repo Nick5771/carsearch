@@ -1,0 +1,15 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');const {DatabaseSync}=require('node:sqlite');
+const source=fs.readFileSync(__dirname+'/../findai-worker.js','utf8');const block=source.slice(source.indexOf('// v226: qualified denominators'),source.indexOf('export default {'));
+const db=new DatabaseSync(':memory:');const env={DB:{prepare(text){let args=[];return {bind(...a){args=a;return this},async run(){return db.prepare(text).run(...args)}}},async batch(xs){db.exec('BEGIN');try{const r=[];for(const x of xs)r.push(await x.run());db.exec('COMMIT');return r;}catch(e){db.exec('ROLLBACK');throw e;}}}};
+const c=vm.createContext({Date,Math,Number,String,Object,Array,Uint8Array,TextEncoder,crypto:require('crypto').webcrypto,jsonResp:(x,status=200)=>new Response(JSON.stringify(x),{status}),rateLimited:async()=>false,tooManyResp:()=>new Response('',{status:429}),requireUser:async()=>({email:'a@example.test'}),sharedCleanKey:x=>String(x||'').length>=3?String(x):''});vm.runInContext(block,c);
+const event=(type,extra={})=>({key:'ebay:123',event:type,surface:'home',policy:'shopping-v226',family:'sneakers:nike:dunk',category:'sneakers',brand:'nike',...extra});
+const route=events=>c.recommendationMeasureRoute(new Request('https://api.test/recommendations/measure',{method:'POST',headers:{'CF-Connecting-IP':'192.0.2.1'},body:JSON.stringify({visitor:'abcdefghijklmnop',events})}),env);
+(async()=>{
+ let r=await route([event('impression',{features:{baseScore:.4,attributeScore:.2,repeatPenalty:.1,sharedScore:0}}),event('impression',{features:{baseScore:99}}),event('click'),event('purchase'),event('notInterested')]);assert.equal(r.status,200);assert.equal((await r.json()).accepted,4);
+ let row=db.prepare('SELECT * FROM recommendation_measurements').get();assert.equal(row.qualified,1);assert.equal(JSON.parse(row.features).baseScore,.4,'later impressions/actions cannot overwrite the first exposure features');assert(row.exposed_at>0);assert.equal(row.clicked,1);assert.equal(row.rejected,1);assert.equal(db.prepare('SELECT COUNT(*) n FROM recommendation_measurements').get().n,1);
+ await route([event('like'),event('unlike'),event('impression',{surface:'search-browse'})]);row=db.prepare("SELECT * FROM recommendation_measurements WHERE surface='home'").get();assert.equal(row.liked,0);assert.equal(db.prepare('SELECT COUNT(*) n FROM recommendation_measurements').get().n,2,'surface denominators remain separate');
+ r=await route([event('click',{policy:'unknown'}),event('click',{surface:'unknown'})]);assert.equal((await r.json()).accepted,0);
+ r=await c.recommendationMeasureRoute(new Request('https://api.test',{method:'POST',body:'{bad'}),env);assert.equal(r.status,400);
+ r=await c.recommendationMeasureRoute(new Request('https://api.test',{method:'POST',body:'{}'}),{});assert.equal(r.status,503);
+ console.log('PASS: SQLite measurement schema, idempotent qualified denominators, action outcomes, unlike reversal, surface isolation, invalid events/policies, purchase rejection and missing DB');db.close();
+})().catch(e=>{console.error(e);db.close();process.exitCode=1});

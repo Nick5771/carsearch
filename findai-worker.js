@@ -20712,6 +20712,55 @@ async function sharedRecommendationRoute(request,env,url){
   return jsonResp({ok:true,version:208,accepted:events.length},200,{'Cache-Control':'no-store'});
 }
 
+// v226: qualified denominators and attributed actions for policy evaluation.
+// Client clicks are never accepted as purchases. Confirmed order attribution
+// must be wired to a trusted server order/affiliate callback separately.
+let recommendationMeasurementSchema=null;
+async function recommendationMeasureRoute(request,env){
+  if(!env.DB)return jsonResp({error:'Recommendations unavailable'},503);
+  if(await rateLimited(env,request,'recommendation-measure',90,60))return tooManyResp(60);
+  let body;try{const raw=await request.text();if(raw.length>60000)return jsonResp({error:'Batch too large'},413);body=JSON.parse(raw);}catch(_){return jsonResp({error:'Invalid JSON'},400);}
+  if(!body||typeof body!=='object'||Array.isArray(body))return jsonResp({error:'Invalid batch'},400);
+  if(!/^[a-zA-Z0-9_-]{16,80}$/.test(String(body.visitor||'')))return jsonResp({error:'Visitor required'},400);
+  let identity='guest:'+String(request.headers.get('CF-Connecting-IP')||'unknown');
+  if(request.headers.get('Authorization')){const user=await requireUser(request,env);if(user.fail)return user.fail;identity='user:'+user.email.toLowerCase();}
+  const salt=String(env.RECOMMENDATION_HASH_SECRET||env.SESSION_SECRET||'wishwave-recommendation-v208');
+  const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(salt+'|'+identity));
+  const viewer=Array.from(new Uint8Array(digest),x=>x.toString(16).padStart(2,'0')).join('');
+  if(!recommendationMeasurementSchema)recommendationMeasurementSchema=env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS recommendation_measurements (
+      viewer_key TEXT NOT NULL, listing_key TEXT NOT NULL, day TEXT NOT NULL,
+      surface TEXT NOT NULL, policy TEXT NOT NULL, family TEXT NOT NULL,
+      category TEXT NOT NULL, brand TEXT NOT NULL, features TEXT NOT NULL DEFAULT '{}', exposed_at INTEGER NOT NULL DEFAULT 0, qualified INTEGER NOT NULL DEFAULT 0,
+      liked INTEGER NOT NULL DEFAULT 0, saved INTEGER NOT NULL DEFAULT 0,
+      shared INTEGER NOT NULL DEFAULT 0, compared INTEGER NOT NULL DEFAULT 0,
+      clicked INTEGER NOT NULL DEFAULT 0, commented INTEGER NOT NULL DEFAULT 0,
+      rejected INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY(viewer_key,listing_key,day,surface,policy))`),
+    env.DB.prepare('CREATE INDEX IF NOT EXISTS recommendation_measurement_day ON recommendation_measurements(day)')
+  ]).catch(error=>{recommendationMeasurementSchema=null;throw error;});
+  await recommendationMeasurementSchema;
+  const names={impression:'qualified',like:'liked',unlike:'liked',track:'saved',share:'shared',compare:'compared',click:'clicked',comment:'commented',notInterested:'rejected'};
+  const day=new Date().toISOString().slice(0,10),events=[];
+  for(const input of (Array.isArray(body.events)?body.events:[]).slice(0,40)){
+    if(!input||typeof input!=='object'||!Object.hasOwn(names,input.event))continue;
+    const key=sharedCleanKey(input.key);if(!key||input.policy!=='shopping-v226'||!['home','search-browse'].includes(input.surface))continue;
+    const family=String(input.family||'').slice(0,240),category=String(input.category||'other').slice(0,80),brand=String(input.brand||'').slice(0,80);
+    const column=names[input.event],value=input.event==='unlike'?0:1;
+    const features={};if(input.event==='impression')for(const name of ['baseScore','attributeScore','repeatPenalty','sharedScore']){const n=input.features?.[name];if(typeof n==='number'&&Number.isFinite(n))features[name]=Math.max(-2,Math.min(2,n));}
+    const exposedAt=input.event==='impression'?Date.now():0;
+    events.push(env.DB.prepare(`INSERT INTO recommendation_measurements
+      (viewer_key,listing_key,day,surface,policy,family,category,brand,features,exposed_at,${column}) VALUES (?,?,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(viewer_key,listing_key,day,surface,policy) DO UPDATE SET
+      features=CASE WHEN recommendation_measurements.qualified=0 AND excluded.qualified=1 THEN excluded.features ELSE recommendation_measurements.features END,
+      exposed_at=CASE WHEN recommendation_measurements.qualified=0 AND excluded.qualified=1 THEN excluded.exposed_at ELSE recommendation_measurements.exposed_at END,${column}=?`)
+      .bind(viewer,key,day,input.surface,input.policy,family,category,brand,JSON.stringify(features),exposedAt,value,value));
+  }
+  if(events.length)await env.DB.batch(events);
+  await env.DB.prepare('DELETE FROM recommendation_measurements WHERE day < ?').bind(new Date(Date.now()-30*86400000).toISOString().slice(0,10)).run();
+  return jsonResp({ok:true,policy:'shopping-v226',accepted:events.length},200,{'Cache-Control':'no-store'});
+}
+
 export default {
   // Needs a KV namespace bound as CACHE and a Cron Trigger (e.g. */15 * * * *) in the dashboard.
   async scheduled(event, env, ctx) {
@@ -21069,6 +21118,7 @@ export default {
         return jsonResp(await ebayGatewayStatus(env),200,{'Cache-Control':'no-store'});
       }
 
+      if(request.method==='POST'&&url.pathname==='/recommendations/measure')return await recommendationMeasureRoute(request,env);
       if(request.method==='POST'&&['/recommendations/engagement','/recommendations/scores'].includes(url.pathname))return await sharedRecommendationRoute(request,env,url);
 
       // WishWave Shopping Engine v1 diagnostics. This lets us confirm which

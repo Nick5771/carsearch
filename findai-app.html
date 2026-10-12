@@ -5148,6 +5148,7 @@ async function appTasteSyncFromServer(force=false){
   if(!marketplaceSession())return getInterestProfile();
   if(appTasteSyncPromise&&!force)return appTasteSyncPromise;
   if(!force&&appTasteLastSyncAt&&Date.now()-appTasteLastSyncAt<120000)return getInterestProfile();
+  const tasteOwner=marketplaceSession();
   appTasteSyncPromise=(async()=>{
     const migrationKey=appTasteMigrationKey();let migrated=false;
     try{migrated=localStorage.getItem(migrationKey)==='1'}catch(_){}
@@ -5156,6 +5157,7 @@ async function appTasteSyncFromServer(force=false){
       data=await marketplaceFetch('/taste/sync',{method:'POST',body:JSON.stringify({interests:getInterestProfile().slice(0,MAX_INTERESTS)})});
       try{localStorage.setItem(migrationKey,'1')}catch(_){}
     }else data=await marketplaceFetch('/taste/profile',{method:'GET'});
+    if(marketplaceSession()!==tasteOwner)return getInterestProfile();
     appTasteLastSyncAt=Date.now();
     return mergeSharedTasteProfile(Array.isArray(data&&data.interests)?data.interests:[]);
   })().catch(()=>getInterestProfile()).finally(()=>{appTasteSyncPromise=null});
@@ -5334,7 +5336,7 @@ function newPersonalisedLane(interest){
 }
 
 function personalisedProfileSignature(lanes){
-  return (Array.isArray(lanes)?lanes:[]).map(lane=>
+  return 'shopping-v226|'+(Array.isArray(lanes)?lanes:[]).map(lane=>
     `${lane.cluster}:${Math.round((Number(lane.score)||0)*10)}`
   ).sort().join('|');
 }
@@ -5728,6 +5730,7 @@ function warmPersonalisedFeedCache(){
   if(personalisedWarmPromise)return personalisedWarmPromise;
   personalisedWarmPromise=(async()=>{
     try{
+      const warmOwner=getAccountProfile()?.email||'guest';
       const lanes=scoredInterests().map(newPersonalisedLane);
       restorePersistentPersonalisedLaneState(lanes);
       const signature=personalisedProfileSignature(lanes);
@@ -5749,6 +5752,7 @@ function warmPersonalisedFeedCache(){
         }
         return {lane,items,data:result.data};
       }));
+      if((getAccountProfile()?.email||'guest')!==warmOwner)return null;
       const laneResults=settled.filter(x=>x.status==='fulfilled'&&x.value&&x.value.items&&x.value.items.length).map(x=>x.value);
       const mixed=sequencePersonalisedBatch(interleavePersonalised(laneResults,32),[],32);if(!mixed.length)return null;
       const laneSnapshot=lanes.map(lane=>({cluster:lane.cluster,query:lane.query,variantIndex:lane.variantIndex,page:lane.page,cursor:lane.cursor||null,hasMore:lane.hasMore!==false,noNewPages:lane.noNewPages||0}));
@@ -5838,6 +5842,7 @@ function wishwaveMarkDelivered(items){
 }
 function renderPersonalisedFeed(items,{writeCache=true}={}){
   items=surfaceOwnedListingInFeed(surfaceLikedListingInFeed(items)).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||''));
+  if(window.wishwaveAdmitRecommendations){const admission=wishwaveAdmitRecommendations(items,[],60);feedState.backlog=admission.deferred.slice(0,120);items=admission.items;}
   currentFeedItems=items;wishwaveMarkDelivered(items);
   currentFeedData={personalised:true};
   activeReelIndex=0;
@@ -6052,6 +6057,8 @@ async function loadMorePersonalisedListings(){
       const usable=lanes.filter(wishwaveLaneCanAdvance);
       const candidates=usable.slice(state.laneCursor||0).concat(usable.slice(0,state.laneCursor||0));
       const chosen=[],categories=new Set();
+      const lastCategory=wishwaveProductCategory(currentFeedItems.at(-1)||{});
+      candidates.sort((a,b)=>(a.category===lastCategory)-(b.category===lastCategory));
       for(const lane of candidates){if(categories.has(lane.category))continue;categories.add(lane.category);chosen.push(lane);if(chosen.length===3)break;}
       // Exhausted or single-category pools acquire fresh discovery queries instead
       // of recycling page one of the strongest interest indefinitely.
@@ -6066,8 +6073,9 @@ async function loadMorePersonalisedListings(){
       if(!chosen.length)continue;
       const settled=await Promise.allSettled(chosen.map(fetchPersonalisedLane));
       if(feedState!==state||state.source!=='personalised')return;
-      const incoming=interleavePersonalised(settled.filter(x=>x.status==='fulfilled').map(x=>x.value),36);
-      const fresh=sequencePersonalisedBatch(incoming,currentFeedItems,36);
+      const incoming=[...(state.backlog||[]),...interleavePersonalised(settled.filter(x=>x.status==='fulfilled').map(x=>x.value),72)];
+      const admission=window.wishwaveAdmitRecommendations?wishwaveAdmitRecommendations(incoming,currentFeedItems,36):{items:sequencePersonalisedBatch(incoming,currentFeedItems,36),deferred:[]};
+      state.backlog=admission.deferred.slice(0,120);const fresh=admission.items;
       if(fresh.length){
         document.getElementById('wishwaveHomeMoreRetry')?.remove();
         appendFeedItems(fresh,currentFeedData);writePersonalisedCache();return;
@@ -7025,6 +7033,10 @@ function hideFeedLoader(){
   if(loader) loader.remove();
 }
 function appendFeedItems(items,data){
+  if(feedState.source==='personalised'&&window.wishwaveAdmitRecommendations){
+    const admission=wishwaveAdmitRecommendations([...(feedState.backlog||[]),...items],currentFeedItems,36);
+    feedState.backlog=admission.deferred.slice(0,120);items=admission.items;
+  }
   if(!items.length)return;
   const start=currentFeedItems.length;wishwaveMarkDelivered(items);currentFeedItems.push(...items);
   const feed=appActiveFeedElement();
@@ -7158,6 +7170,7 @@ async function appSavedRemoteSet(item,active){
 async function appSavedSyncFromServer(force=false){
   if(!marketplaceSession())return getTracked();
   if(appSavedSyncPromise&&!force)return appSavedSyncPromise;
+  const savedOwner=marketplaceSession();
   appSavedSyncPromise=(async()=>{
     const migrationKey=appSavedMigrationKey();let migrated=false;
     try{migrated=localStorage.getItem(migrationKey)==='1'}catch(_){}
@@ -7167,6 +7180,7 @@ async function appSavedSyncFromServer(force=false){
       data=await marketplaceFetch('/saved/sync',{method:'POST',body:JSON.stringify({items:local})});
       try{localStorage.setItem(migrationKey,'1')}catch(_){}
     }else data=await marketplaceFetch('/saved/list',{method:'GET'});
+    if(marketplaceSession()!==savedOwner)return getTracked();
     const items=Array.isArray(data&&data.items)?data.items:[];
     setTracked(items);
     return items;
@@ -11815,17 +11829,20 @@ window.addEventListener('load', function(){
   }
   window.findaiLoadRemoteProfile=async function(){
     if(!marketplaceSession())return getAccountProfile();
-    const local=getAccountProfile();
+    const local=getAccountProfile(),owner=marketplaceSession();
     try{
       const data=await marketplaceFetch('/profile/me',{method:'GET'});
+      if(marketplaceSession()!==owner)return getAccountProfile();
       if(data&&data.profile)return mergeRemoteProfile(data.profile);
       const hasLocalCustom=!!(local&&(local.profileCustomised||local.username||local.bio||local.location||(local.avatar&&/^data:image\//i.test(String(local.avatar)))));
       if(local&&hasLocalCustom){
         let avatarUrl=/^https:\/\//i.test(String(local.avatar||''))?local.avatar:undefined;
         let saved=await marketplaceFetch('/profile/me',{method:'PATCH',body:JSON.stringify({displayName:local.name||'',username:local.username||findaiProfileUsername(local),bio:local.bio||'',location:local.location||'',avatarUrl})});
+        if(marketplaceSession()!==owner)return getAccountProfile();
         if(saved&&saved.profile)mergeRemoteProfile(saved.profile);
         if(/^data:image\/(?:jpeg|png|webp);base64,/i.test(String(local.avatar||''))){
           const uploaded=await marketplaceFetch('/profile/avatar',{method:'POST',body:JSON.stringify({dataUrl:local.avatar})});
+          if(marketplaceSession()!==owner)return getAccountProfile();
           if(uploaded&&uploaded.profile)return mergeRemoteProfile(uploaded.profile);
         }
       }
@@ -15523,6 +15540,13 @@ if(typeof v116RenderMarketplaceListing==='function'){
   let exploreVisitSalt=0;
   const seenExplore=new Set();
 
+  document.addEventListener('wishwave-recommendation-account-change',()=>{
+    exploreGeneration++;exploreLiveSearchSeq++;exploreLiveController?.abort();
+    exploreBrowseCache.clear();exploreBrowseSnapshot=null;exploreLiveSearchQuery='';exploreLoadedTaste='';exploreLoadedFilter='';exploreQueue=[];exploreLoading=false;seenExplore.clear();
+    exploreExposureTimers.forEach(clearTimeout);exploreExposureTimers.clear();exploreExposureObserver.disconnect();
+    document.getElementById('premiumDiscoverySections')?.replaceChildren();
+  });
+  document.addEventListener('wishwave-recommendation-feedback',()=>{if(!exploreLiveSearchQuery){exploreBrowseCache.clear();exploreBrowseSnapshot=null;renderExploreGrid({replace:true});}});
   function configById(id){return PREMIUM_DISCOVERY_CATEGORIES.find(x=>x.id===id)||PREMIUM_DISCOVERY_RETAILERS.find(x=>x.id===id)||null;}
   function exploreTasteConfigs(){
     try{
@@ -15619,6 +15643,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     renderExploreGrid({replace:true});cacheExploreBrowseState();return true;
   };
   function exploreFamilyKey(item){
+    if(window.wishwaveProductIdentity)return window.wishwaveProductIdentity(item).family;
     const text=String(item&&item.title||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
     if(!text)return 'misc';
     // Browse groups sneaker families across colour, size, model and seller titles.
@@ -15703,7 +15728,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
   function renderExploreGrid(options={}){
     const root=document.getElementById('premiumDiscoverySections');if(!root)return;
     const section=premiumDiscoverySections[0];
-    if(section)section.items=(section.items||[]).filter(wishwaveAllowedListing);
+    if(section)section.items=(section.items||[]).filter(item=>wishwaveAllowedListing(item)&&(exploreLiveSearchQuery||!window.wishwaveRecommendationRejected?.(item)));
     const items=section&&section.items||[];
     const replace=!!options.replace||root.dataset.refreshPending==='1';
     if(!items.length){
@@ -16405,6 +16430,10 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
   }
 
   let behaviorCache=null,sessionInterestCache=null,sessionInterestCacheAt=0;
+  document.addEventListener('wishwave-recommendation-account-change',()=>{
+    behaviorCache=null;sessionInterestCache=null;v125FollowingCache=[];v125FollowingFetchAt=0;v125VisitCounts.clear();
+    clearTimeout(v125AdaptiveRerankTimer);attention=null;
+  });
   window.addEventListener('storage',event=>{
     if(event.key===V125_BEHAVIOR_KEY)behaviorCache=null;
     if(event.key===V125_SESSION_TASTE_KEY)sessionInterestCache=null;
@@ -16777,7 +16806,9 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     if(!marketplaceSession())return [];
     if(v125FollowingCache.length&&Date.now()-v125FollowingFetchAt<45000)return v125FollowingCache;
     try{
+      const owner=marketplaceSession();
       const data=await marketplaceFetch('/marketplace/following/feed?limit=24',{method:'GET'});
+      if(marketplaceSession()!==owner)return [];
       const items=(Array.isArray(data&&data.items)?data.items:[]).filter(item=>item&&Number(item.price)>0).map(item=>{
         const q=String(item.title||'').trim();return {...item,_followedSeller:true,followedSeller:true,_interestQuery:q,_interestCategory:interestCategory(q),_interestCluster:'following:'+interestClusterKey(q),_recommendationFamily:recommendationFamilyKey(item)};
       });
@@ -16804,7 +16835,8 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
   }
   function v125RefreshFollowingInventory(){
     if(feedState.source!=='personalised')return;
-    v125FetchFollowingListings().then(v125MergeFollowingIntoFeed).catch(()=>{});
+    const state=feedState,owner=marketplaceSession();
+    v125FetchFollowingListings().then(items=>{if(feedState===state&&marketplaceSession()===owner)v125MergeFollowingIntoFeed(items);}).catch(()=>{});
   }
   const v124RenderPersonalisedFeed=renderPersonalisedFeed;
   renderPersonalisedFeed=function(items,opts){
@@ -17012,7 +17044,7 @@ html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .finda
   }
   function compactItem(item){
     if(!item)return null;
-    const keys=['itemId','marketplaceListingId','id','title','description','price','totalPrice','shippingCost','currency','image','images','imageFallbacks','condition','category','source','marketplace','platform','sellerId','sellerName','sellerUsername','sellerAvatar','sellerCountry','location','url','itemWebUrl','commentCount','commentsCount','likeCount','likes','viewCount','views','status','createdAt','publishedAt','_findaiMarketplace'];
+    const keys=['brand','model','modelNumber','mpn','styleId','styleCode','gtin','ean','upc','color','colour','colorway','size','shoeSize','productCategory','categoryName','itemId','marketplaceListingId','id','title','description','price','totalPrice','shippingCost','currency','image','images','imageFallbacks','condition','category','source','marketplace','platform','sellerId','sellerName','sellerUsername','sellerAvatar','sellerCountry','location','url','itemWebUrl','commentCount','commentsCount','likeCount','likes','viewCount','views','status','createdAt','publishedAt','_findaiMarketplace'];
     const out={};for(const key of keys)if(item[key]!==undefined)out[key]=item[key];return out;
   }
   function recentProductId(item){return 'product:'+(typeof listingKey==='function'?listingKey(item):String(item&&item.itemId||item&&item.url||item&&item.title||''));}
@@ -17062,6 +17094,7 @@ html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .finda
     }
   };
 
+  document.addEventListener('wishwave-recommendation-account-change',()=>{clearTimeout(priorityTimer);clearTimeout(recommendationTimer);priorityRecordedQuery='';document.getElementById('findaiSearchRecents')?.classList.remove('show');});
   function readPriority(){const p=safeRead(PRIORITY_KEY,null);if(!p||!p.query||Date.now()-Number(p.at||0)>45*60*1000)return null;return p;}
   function setPrioritySearch(query,force=false){
     const clean=String(query||'').trim();if(clean.length<2)return;
@@ -31306,7 +31339,8 @@ html body .app #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity 
 (function(){
   'use strict';
   const scores=new Map(),waiting=new Set(),outbox=new Map();
-  let available=false,cooldown=0,scoreTimer=0,flushTimer=0,reading=false,sending=false;
+  let available=false,cooldown=0,scoreTimer=0,flushTimer=0,reading=false,sending=false,generation=0;
+  document.addEventListener('wishwave-recommendation-account-change',()=>{generation++;waiting.clear();outbox.clear();scores.clear();clearTimeout(scoreTimer);clearTimeout(flushTimer);scoreTimer=flushTimer=0;available=false;});
   function enabled(){return window.findaiAppPreferences?.().personalized!==false;}
   function visitor(){
     try{let id=localStorage.getItem('wishwave_recommendation_visitor_v208');if(!id){id=crypto.randomUUID().replace(/-/g,'');localStorage.setItem('wishwave_recommendation_visitor_v208',id);}return id;}catch(_){return null;}
@@ -31319,9 +31353,9 @@ html body .app #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity 
   function fail(){available=false;cooldown=Date.now()+60000;outbox.clear();}
   async function readScores(){
     scoreTimer=0;if(!enabled()||reading||Date.now()<cooldown)return;
-    const keys=[...waiting].slice(0,100);if(!keys.length)return;keys.forEach(k=>waiting.delete(k));reading=true;
+    const owner=generation;const keys=[...waiting].slice(0,100);if(!keys.length)return;keys.forEach(k=>waiting.delete(k));reading=true;
     try{
-      const data=await request('/recommendations/scores',{keys});available=true;
+      const data=await request('/recommendations/scores',{keys});if(owner!==generation)return;available=true;
       for(const key of keys){const row=data.scores?.[key];scores.set(key,{at:Date.now(),boost:Math.max(-6,Math.min(12,Number(row?.boost)||0))});}
       while(scores.size>600)scores.delete(scores.keys().next().value);
       window.wishwaveScheduleRankingRefresh?.();scheduleFlush();
@@ -33738,7 +33772,7 @@ html body #appMpProduct .wishwave-detail-save{display:flex!important;align-items
   window.wishwaveDetailMenu=function(){
     if(!appMpListing)return;
     const owner=!!appMpContext?.viewer?.isSeller;
-    openAppMpSheet('Listing options','<div class="app-mp-actions"><button class="app-mp-action tertiary" onclick="closeAppMpSheet();openAppMarketplaceOfferInMessages()">'+(owner?'Manage offers':'Make offer')+'</button><button class="app-mp-action tertiary" onclick="closeAppMpSheet();openAppMarketplaceMessages()">'+(owner?'Messages':'Message seller')+'</button><button class="app-mp-action tertiary" onclick="closeAppMpSheet();openWishWaveListingComments()">Comments</button>'+(!owner?'<button class="app-mp-action tertiary" onclick="closeAppMpSheet();openWishWaveSafetyReport(\'listing\',{id:appMpId(appMpListing)})">Report listing</button>':'')+'</div>');
+    openAppMpSheet('Listing options','<div class="app-mp-actions">'+(!owner?'<button class="app-mp-action tertiary" onclick="closeAppMpSheet();wishwaveRecommendationOptions(appMpListing)">Not interested</button>':'')+'<button class="app-mp-action tertiary" onclick="closeAppMpSheet();openAppMarketplaceOfferInMessages()">'+(owner?'Manage offers':'Make offer')+'</button><button class="app-mp-action tertiary" onclick="closeAppMpSheet();openAppMarketplaceMessages()">'+(owner?'Messages':'Message seller')+'</button><button class="app-mp-action tertiary" onclick="closeAppMpSheet();openWishWaveListingComments()">Comments</button>'+(!owner?'<button class="app-mp-action tertiary" onclick="closeAppMpSheet();openWishWaveSafetyReport(\'listing\',{id:appMpId(appMpListing)})">Report listing</button>':'')+'</div>');
   };
   const profileListing=window.openProfileListingItem;
   window.openProfileListingItem=function(index,source){
@@ -34178,5 +34212,241 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
 #findaiSendSheetBg .findai-send-loading button{border:0;background:transparent;color:inherit;font:inherit;text-decoration:underline;cursor:pointer;}
 #findaiSendSheetBg .findai-send-link-fallback{display:block;color:inherit;font-size:12px;overflow-wrap:anywhere;margin-top:10px;}
 </style>
+<style id="wishwave-shopping-recommendations-style">
+.ww-recommendation-options{position:absolute;left:14px;top:calc(var(--safe-top,0px) + 64px);z-index:6;border:0;border-radius:50%;width:40px;height:40px;color:var(--ink,#fff);background:rgba(20,23,28,.48);font-size:18px;letter-spacing:1px;cursor:pointer;}
+html.findai-light .ww-recommendation-options{background:rgba(255,255,255,.7);color:#111;}
+</style>
+<script id="wishwave-recommendation-core">
+/* WishWave product identity and ranking policy. No inferred purchases or sizes. */
+(function(root){
+  'use strict';
+  const normal=value=>String(value||'').normalize('NFKC').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const words=value=>normal(value).split(' ').filter(Boolean);
+  const brands=[['new balance',/\bnew[ -]+balance\b/],['nike',/\bnike|\bjordan\b/],['adidas',/\badidas|\byeezy|\bsamba\b/],['apple',/\bapple|\biphone|\bipad|\bmacbook|\bairpods\b/],['sony',/\bsony|\bplaystation\b/],['samsung',/\bsamsung\b/],['lego',/\blego\b/],['rolex',/\brolex\b/],['omega',/\bomega\b/],['asics',/\basics\b/],['gucci',/\bgucci\b/],['dior',/\bdior\b/],['bose',/\bbose\b/],['porsche',/\bporsche\b/],['ferrari',/\bferrari\b/]];
+  const stop=new Set(words('new used sealed genuine authentic official free shipping delivery with for the and black white red blue green pink grey gray size mens womens colour color sale bundle'));
+  const modelPatterns=[/\b(?:9060|2002r|1906r|550|990(?:v\d)?)\b/,/\b(?:dunk(?: low| high)?|air jordan \d+(?: low| high)?|jordan \d+(?: low| high)?|air force 1|yeezy \d+(?: v\d)?|samba(?: og)?)\b/,/\b(?:iphone \d+(?: pro max| pro| plus)?|macbook (?:pro|air)(?: m\d)?|airpods(?: pro)?(?: \d)?|ipad(?: pro| air| mini)?(?: \d)?)\b/,/\b(?:playstation [345]|ps[345]|xbox series [xs]|switch(?: [2]| oled)?)\b/,/\b(?:submariner|daytona|datejust|speedmaster|seamaster)\b/,/\ba7(?: [ivx]+| \d)?\b/];
+  function field(item,names){for(const name of names){const value=item[name]??item.product?.[name];if(typeof value==='string'||typeof value==='number')if(String(value).trim())return String(value).trim();}return '';}
+  function identity(item={},categoryHint='other'){
+    const title=normal(item.title),rawBrand=item.brand?.name||field(item,['brand','manufacturer']);
+    let brand=normal(rawBrand);if(!brand)brand=brands.find(([,pattern])=>pattern.test(title))?.[0]||'';
+    if(brand==='jordan')brand='nike';if(brand==='newbalance')brand='new balance';
+    const accessory=/\b(?:case for|phone case|watch box|box only|empty box|remote control|replacement|screen protector|lens cap|charging cable)\b/.test(title);
+    const rawCategory=normal(field(item,['productCategory','categoryName']));
+    const category=accessory?'accessories':({sneakers:'sneakers',shoes:'sneakers',watches:'watches',apparel:'fashion',fashion:'fashion',lego:'lego',gaming:'gaming',electronics:'electronics',cameras:'media',beauty:'fragrance',sports:'sports'})[rawCategory]||categoryHint||'other';
+    let model=normal(field(item,['model','modelNumber','mpn','styleId','styleCode']));
+    if(!model){if(brand==='lego')model=(title.match(/\b\d{4,6}\b/)||[])[0]||'';else for(const pattern of modelPatterns){const hit=title.match(pattern);if(hit){model=hit[0];break;}}}
+    // Unknown models retain meaningful title tokens in sorted order. Seller SKU
+    // is deliberately excluded: it is not a cross-marketplace product identity.
+    const fallback=words(title).filter(x=>!stop.has(x)&&!words(brand).includes(x)&&!/^\d+(?:gb|tb)$/.test(x)).sort().slice(0,8).join(' ');
+    const gtin=field(item,['gtin','ean','upc']).replace(/\D/g,'');
+    const family=category+':'+(gtin.length>=8&&gtin.length<=14?'gtin:'+gtin:[brand||'unknown',model||fallback||normal(item.id)||'unknown'].join(':'));
+    const colour=normal(field(item,['color','colour','colorway'])||(title.match(/\b(?:black|white|red|blue|green|pink|grey|gray|silver|gold)\b/)||[])[0]);
+    const size=normal(field(item,['size','shoeSize']));
+    const condition=normal(field(item,['condition']));
+    const traits=words(title).filter(x=>['minimalist','vintage','leather','suede','wireless','ergonomic','waterproof','running','oversized','linen'].includes(x));
+    return {version:1,category,brand,model,gtin:gtin.length>=8&&gtin.length<=14?gtin:'',colour,size,condition,traits,family,variant:[family,colour,size,condition].join('|'),confidence:model||gtin?'model':'title'};
+  }
+  function features(id){return [['brand',id.brand],['model',id.family],['colour',id.colour],['size',id.size],['condition',id.condition],...id.traits.map(x=>['trait',x])].filter(([,v])=>v).map(([k,v])=>k+':'+v);}
+  function learn(profile,id,delta,now=Date.now()){
+    const next={...profile};for(const key of features(id)){const old=next[key]||{};const carry=(Number(old.score)||0)*Math.pow(.5,Math.max(0,now-(old.at||now))/(35*86400000));next[key]={score:Math.max(-35,Math.min(60,carry+delta)),at:now};}
+    return Object.fromEntries(Object.entries(next).sort((a,b)=>b[1].at-a[1].at).slice(0,400));
+  }
+  function affinity(profile,id,now=Date.now()){
+    const weights={brand:.12,model:.30,colour:.07,size:.10,condition:.08,trait:.12};let score=0;
+    for(const key of features(id)){const entry=profile[key];if(entry)score+=(weights[key.split(':')[0]]||0)*entry.score*Math.pow(.5,Math.max(0,now-entry.at)/(35*86400000));}
+    return Math.max(-20,Math.min(24,score));
+  }
+  function suppressed(rules,id,key,now=Date.now()){
+    return rules.some(rule=>rule.until>now&&({product:key,family:id.family,brand:id.brand,category:id.category})[rule.kind]===rule.value);
+  }
+  function allocate(personal,discovery,limit){
+    const chosen=[],counts=new Map(),seen=new Set();
+    for(const lane of personal){const c=lane.category||'other';if(chosen.length>=Math.max(1,Math.floor(limit*.65)))break;if((counts.get(c)||0)>=2||seen.has(lane.cluster))continue;chosen.push(lane);counts.set(c,(counts.get(c)||0)+1);seen.add(lane.cluster);}
+    const generic=[];for(const lane of discovery){if(seen.has(lane.cluster)||counts.has(lane.category)||generic.some(x=>x.category===lane.category))continue;generic.push(lane);if(generic.length>=limit-chosen.length)break;}
+    const out=[];for(let i=0;i<Math.max(chosen.length,generic.length);i++){if(chosen[i])out.push(chosen[i]);if(generic[i])out.push(generic[i]);}return out.slice(0,limit);
+  }
+  function sequence(items,history,max,{identify,key,strict=false}={}){
+    const seen=new Set(history.map(key)),pool=items.filter(x=>{const k=key(x);if(!k||seen.has(k))return false;seen.add(k);return true;}),out=[];
+    const recent=history.slice(-24).map(identify);
+    while(pool.length&&out.length<max){
+      const last=recent.at(-1),run=last?recent.slice(-3).filter(x=>x.category===last.category).length:0;
+      let best=-1,bestPenalty=Infinity;
+      for(let i=0;i<pool.length;i++){
+        const id=identify(pool[i]),window=recent.slice(-12),family=window.filter(x=>x.family===id.family).length;
+        if(strict&&last&&id.category===last.category&&run>=3)continue;
+        const category=window.filter(x=>x.category===id.category).length,brand=id.brand?window.filter(x=>x.brand===id.brand).length:0;
+        const penalty=(last?.category===id.category?80:0)+(recent.slice(-2).some(x=>x.family===id.family)?140:0)+Math.max(0,family-1)*75+Math.max(0,category-5)*40+Math.max(0,brand-3)*20+i*.01;
+        if(penalty<bestPenalty){best=i;bestPenalty=penalty;}
+      }
+      if(best<0)break;const item=pool.splice(best,1)[0];out.push(item);recent.push(identify(item));
+    }
+    return {items:out,deferred:pool};
+  }
+  root.WishWaveRecommendationCore={normal,identity,features,learn,affinity,suppressed,allocate,sequence,policy:'shopping-v226'};
+})(typeof window==='undefined'?globalThis:window);
+
+</script>
+<script id="wishwave-shopping-recommendations">
+/* Account-isolated shopping recommendations, explicit feedback and telemetry. */
+(function(){
+  'use strict';
+  const C=window.WishWaveRecommendationCore;
+  const FEATURE_KEY='ww_product_preferences_v226',REJECT_KEY='ww_rejections_v226',EXPOSURE_KEY='ww_exposure_window_v226';
+  const localKeys=[INTEREST_PROFILE_KEY,INTEREST_HISTORY_KEY,PERSONALISED_SEEN_KEY,PERSONALISED_CACHE_KEY,PERSONALISED_LANE_STATE_KEY,PERSONALISED_LAST_REFRESH_KEY,'fa_behavior_profile_v125','fa_dwell_history_v125','findai_priority_search_v130','findai_recent_searches_v130','findai_v133_search_cache','fa_last',FEATURE_KEY,REJECT_KEY,EXPOSURE_KEY,'findai_app_preferences_v136'];
+  const sessionKeys=['fa_session_taste_v125',PERSONALISED_REQUEST_BUDGET_KEY,'fa_personalised_feed_cache_v7'];
+  const archiveKey='ww_recommendation_accounts_v226';
+  const parsedCache=new Map();
+  const read=(key,fallback,storage=localStorage)=>{try{const raw=storage.getItem(key);if(!raw)return fallback;const cached=parsedCache.get(key);if(cached?.raw===raw)return cached.value;const value=JSON.parse(raw)??fallback;parsedCache.set(key,{raw,value});return value;}catch(_){return fallback;}};
+  const write=(key,value,storage=localStorage)=>{try{storage.setItem(key,JSON.stringify(value));}catch(_){}};
+  const account=()=>String(getAccountProfile()?.email||'').trim().toLowerCase()||'guest';
+  let scope=account(),transition=false;
+  function snapshot(){const value={local:{},session:{}};for(const key of localKeys)value.local[key]=localStorage.getItem(key);for(const key of sessionKeys)value.session[key]=sessionStorage.getItem(key);return value;}
+  function switchScope(next,{external=false}={}){
+    if(next===scope)return;
+    finaliseReelTracking();
+    if(!external){
+    const archive=read(archiveKey,{});archive[scope]={...snapshot(),at:Date.now()};
+    const entries=Object.entries(archive).sort((a,b)=>b[1].at-a[1].at);write(archiveKey,Object.fromEntries(entries.slice(0,9)));
+    const saved=archive[next];
+    for(const [keys,storage,part] of [[localKeys,localStorage,'local'],[sessionKeys,sessionStorage,'session']])for(const key of keys){try{storage.removeItem(key);if(saved?.[part]?.[key]!=null)storage.setItem(key,saved[part][key]);}catch(_){}}
+    }
+    scope=next;if(!external)write('ww_recommendation_active_v226',scope);
+    clearTimeout(personalisedLaneRebalanceTimer);feedRequestController?.abort();
+    personalisedSeenCache=null;personalisedImpressionsThisView.clear();appTasteSyncPromise=null;appTasteLastSyncAt=0;appSavedSyncPromise=null;
+    clearTimeout(personalisedBackgroundRefreshTimer);personalisedWarmPromise=null;personalisedSessionSeed=createPersonalisedSeed();parsedCache.clear();
+    currentFeedItems=[];currentFeedData={};activeReelIndex=0;
+    feedState={source:'account-change',loading:false,seen:new Set(),familyCounts:new Map()};
+    document.getElementById('personalFeed')?.replaceChildren();
+    const searchInput=document.getElementById('q');if(searchInput)searchInput.value='';
+    document.getElementById('searchDetailOverlay')?.classList.remove('show');closeAppMpSheet();
+    if(Array.isArray(premiumDiscoverySections))premiumDiscoverySections=[];
+    document.dispatchEvent(new CustomEvent('wishwave-recommendation-account-change',{detail:{scope}}));
+  }
+  const save=window.saveAccountProfile;
+  window.saveAccountProfile=function(profile){if(!transition&&profile?.email)switchScope(String(profile.email).trim().toLowerCase());return save.apply(this,arguments);};
+  const signout=window.signOutAccount;
+  window.signOutAccount=function(){transition=true;try{switchScope('guest');return signout.apply(this,arguments);}finally{transition=false;}};
+  window.wishwaveRecommendationAccount=()=>scope;
+  // Archive the initial owner. Guest taste remains separate; sign-in never
+  // silently imports another account's device-local history.
+  write('ww_recommendation_active_v226',scope);
+  window.addEventListener('storage',event=>{if(event.key===ACCOUNT_PROFILE_KEY&&account()!==scope){switchScope(account(),{external:true});if(document.getElementById('discover')?.classList.contains('active'))loadPersonalisedFeed({forceNetwork:true}).catch(()=>{});}});
+  const oldCategory=window.wishwaveProductCategory;
+  const identify=item=>C.identity(item,oldCategory(item));
+  window.wishwaveProductIdentity=identify;
+  window.recommendationFamilyKey=item=>identify(item).family;
+  window.wishwaveProductFamily=item=>identify(item).family;
+  const allowed=()=>window.findaiAppPreferences?.().personalized!==false;
+  const rejected=item=>allowed()&&C.suppressed(read(REJECT_KEY,[]),identify(item),listingKey(item));
+  window.wishwaveRecommendationRejected=rejected;
+  const candidate=window.wishwaveRecommendationCandidate;
+  window.wishwaveRecommendationCandidate=function(item,query){return candidate(item,query)&&!rejected(item);};
+  const score=window.personalisedItemScore;
+  window.personalisedItemScore=function(item,query,context){return score(item,query,context)+(allowed()?C.affinity(read(FEATURE_KEY,{}),identify(item)):0)-(rejected(item)?1000:0);};
+  const record=window.recordInterest;
+  window.recordInterest=function(query,event='search',boost=null,context=null){
+    if(!allowed())return;
+    // Searches describe today's intent more than enduring taste. Dwell and
+    // explicit product actions remain independently weighted.
+    const delta=event==='quickSkip'?Math.min(-2.5,Number(boost)||-2.5):Number.isFinite(boost)?boost:({like:15,track:13,unlike:-12,quickSkip:-2.5,click:7,compare:10,share:8,comment:5,galleryInspect:3}[event]??null);
+    const result=record.call(this,query,event,delta,context);
+    const item=context?.item||currentFeedItems?.[activeReelIndex];
+    if(item&&event!=='search'&&event!=='scan'&&event!=='view'&&(context?.item||interestTokenSimilarity(query,item._interestQuery||item.title)>0.1)){
+      write(FEATURE_KEY,C.learn(read(FEATURE_KEY,{}),identify(item),delta??2));
+    }
+    return result;
+  };
+  const interests=window.scoredInterests;
+  window.scoredInterests=function(limit=PERSONALISED_INTEREST_LIMIT){
+    if(!allowed())return interests(limit);
+    const raw=interests(Math.max(limit,12));
+    const rules=read(REJECT_KEY,[]),usable=raw.filter(lane=>!C.suppressed(rules,identify({title:lane.query}),'lane'));
+    return C.allocate(usable.filter(x=>!x.featured),[...usable.filter(x=>x.featured),...featuredColdStart(1,'balanced-v226')],limit);
+  };
+  const exposureHistory=()=>read(EXPOSURE_KEY,[]).filter(x=>Date.now()-x.at<2*3600000).slice(-24);
+  function historyFor(existing){const keys=new Set(existing.map(listingKey));return [...exposureHistory().filter(x=>!keys.has(x.key)).map(x=>({id:x.key,_wwIdentity:x.identity})),...existing];}
+  const sequenceOptions={identify:item=>item._wwIdentity||identify(item),key:item=>item._wwIdentity?item.id:listingKey(item)};
+  window.sequencePersonalisedBatch=function(items,existing=[],max=60){return C.sequence(items.filter(x=>!rejected(x)),historyFor(existing),max,sequenceOptions).items;};
+  window.wishwaveAdmitRecommendations=function(items,existing=[],max=36){
+    const result=C.sequence(items.filter(x=>wishwaveRecommendationCandidate(x,x._interestQuery||'')),historyFor(existing),max,{...sequenceOptions,strict:true});
+    return result;
+  };
+  const recommendationSurface=()=>document.getElementById('search')?.classList.contains('active')?'search-browse':'home';
+  const measuredExposure=new Set();
+  const impression=window.noteRecommendationImpression;
+  window.noteRecommendationImpression=function(item){
+    const exposureKey=recommendationSurface()+':'+listingKey(item);
+    const fresh=!measuredExposure.has(exposureKey)&&allowed();
+    if(fresh)window.wishwaveMeasureRecommendation?.(item,'impression');
+    impression(item);if(!fresh)return;measuredExposure.add(exposureKey);
+    const id=identify(item),key=listingKey(item);write(EXPOSURE_KEY,[...exposureHistory(),{key,identity:id,at:Date.now()}].slice(-24));
+  };
+  function rulesChanged(){
+    try{localStorage.removeItem(PERSONALISED_CACHE_KEY);}catch(_){}
+    document.dispatchEvent(new CustomEvent('wishwave-recommendation-feedback'));
+    window.wishwaveScheduleRankingRefresh?.();
+  }
+  let pendingItem=null,lastRule=null;
+  window.wishwaveRejectRecommendation=function(kind){
+    if(!pendingItem||!allowed())return;
+    const id=identify(pendingItem),value=({product:listingKey(pendingItem),family:id.family,brand:id.brand,category:id.category})[kind];if(!value)return;
+    const days={product:90,family:30,brand:14,category:7};
+    lastRule={kind,value,until:Date.now()+days[kind]*86400000};
+    write(REJECT_KEY,[...read(REJECT_KEY,[]).filter(x=>x.until>Date.now()&&!(x.kind===kind&&x.value===value)),lastRule].slice(-100));
+    window.wishwaveMeasureRecommendation?.(pendingItem,'notInterested');
+    rulesChanged();
+    // Keep the card under the finger stable; remove rejected future cards only.
+    if(feedState.source==='personalised'){
+      const start=activeReelIndex+1,head=currentFeedItems.slice(0,start);currentFeedItems=head.concat(currentFeedItems.slice(start).filter(x=>!rejected(x)));
+      window.wishwaveRenderRecommendationTail?.(start,currentFeedItems.length);
+      if(feedState.backlog)feedState.backlog=feedState.backlog.filter(x=>!rejected(x));
+    }
+    openAppMpSheet('Preference updated','<p class="app-mp-muted">You’ll see fewer recommendations like this.</p><button class="app-mp-submit" onclick="wishwaveUndoRecommendationRejection()">Undo</button>');
+  };
+  window.wishwaveUndoRecommendationRejection=function(){if(lastRule){write(REJECT_KEY,read(REJECT_KEY,[]).filter(x=>!(x.kind===lastRule.kind&&x.value===lastRule.value)));lastRule=null;rulesChanged();}closeAppMpSheet();toast('Preference restored');};
+  window.wishwaveRecommendationOptions=function(item){
+    if(!allowed()){toast('Turn on personalised recommendations to adjust your interests');return;}
+    pendingItem=item;const id=identify(item);
+    const button=(label,kind)=>'<button class="app-mp-action tertiary" onclick="wishwaveRejectRecommendation(\''+kind+'\')">'+escapeHTML(label)+'</button>';
+    openAppMpSheet('Not interested','<div class="app-mp-actions">'+button('This product','product')+button('Similar products','family')+(id.brand?button('Less from '+id.brand,'brand'):'')+button('Less from this category','category')+'</div>');
+  };
+  const render=window.renderReelCard;
+  window.renderReelCard=function(item,index,data){
+    const html=render.apply(this,arguments);
+    if(feedState.source!=='personalised')return html;
+    return html.replace('<div class="reel-actions-rail"','<button type="button" class="ww-recommendation-options" aria-label="Recommendation options" onclick="event.stopPropagation();wishwaveRecommendationOptions(currentFeedItems['+index+'])">•••</button><div class="reel-actions-rail"');
+  };
+  let hold=null,suppressClickUntil=0;
+  const cancel=()=>{if(hold)clearTimeout(hold.timer);hold=null;};
+  document.addEventListener('pointerdown',event=>{
+    const card=event.target.closest?.('#personalFeed .reel-card');
+    if(!card||feedState.source!=='personalised'||event.button>0||event.target.closest('button,a,input,textarea'))return;
+    if(hold){cancel();return;}const state={x:event.clientX,y:event.clientY,id:event.pointerId,card};hold=state;
+    state.timer=setTimeout(()=>{if(hold!==state||window.__wishwavePageMotion||document.body.classList.contains('wishwave-photo-zooming'))return;cancel();suppressClickUntil=Date.now()+600;wishwaveRecommendationOptions(currentFeedItems[Number(card.dataset.index)]);},550);
+  },{passive:true});
+  document.addEventListener('pointermove',e=>{if(hold&&Math.hypot(e.clientX-hold.x,e.clientY-hold.y)>8)cancel();},{passive:true});
+  document.addEventListener('pointerup',cancel,{passive:true});document.addEventListener('pointercancel',cancel,{passive:true});
+  document.addEventListener('contextmenu',event=>{const card=event.target.closest?.('#personalFeed .reel-card');if(card&&feedState.source==='personalised'&&!event.target.closest('a,input,textarea')){event.preventDefault();cancel();wishwaveRecommendationOptions(currentFeedItems[Number(card.dataset.index)]);}});
+  document.addEventListener('click',e=>{if(Date.now()<suppressClickUntil&&e.target.closest?.('#personalFeed .reel-card')){e.preventDefault();e.stopImmediatePropagation();}},true);
+  // Bounded outcome journal and server measurement are descriptive only. No
+  // purchase is inferred from an outbound click, and no untrained model is live.
+  let metrics=[],metricTimer=0;
+  window.wishwaveMeasureRecommendation=function(item,event){
+    if(!allowed()||!item)return;const id=identify(item);
+    const surface=recommendationSurface();
+    const features=event==='impression'?{baseScore:Math.max(-2,Math.min(2,score(item,item._interestQuery||item.title,'measure')/100)),attributeScore:C.affinity(read(FEATURE_KEY,{}),id)/24,repeatPenalty:personalisedSeenPenalty(item)/34,sharedScore:(window.wishwaveSharedBoost?.(item)||0)/12}:undefined;
+    metrics.push({key:listingKey(item),event,surface,policy:C.policy,family:id.family,category:id.category,brand:id.brand,features,at:Date.now()});metrics=metrics.slice(-80);
+    if(!metricTimer)metricTimer=setTimeout(flushMetrics,3000);
+  };
+  async function flushMetrics(){clearTimeout(metricTimer);metricTimer=0;if(!allowed()){metrics=[];return;}if(!metrics.length)return;const events=metrics.splice(0,40);try{await fetch(WORKER_BASE+'/recommendations/measure',{method:'POST',headers:{'Content-Type':'application/json',...(marketplaceSession()?{'Authorization':'Bearer '+marketplaceSession()}:{})},body:JSON.stringify({visitor:localStorage.getItem('ww_measure_visitor_v226')||visitorId(),events}),keepalive:true});}catch(_){}if(metrics.length)metricTimer=setTimeout(flushMetrics,3000);}
+  function visitorId(){const id=Array.from(crypto.getRandomValues(new Uint8Array(16)),x=>x.toString(16).padStart(2,'0')).join('');try{localStorage.setItem('ww_measure_visitor_v226',id);}catch(_){}return id;}
+  const sharedSignal=window.wishwaveSharedSignal;
+  window.wishwaveSharedSignal=function(item,event){sharedSignal?.(item,event);if(['like','track','share','compare','click','comment','unlike'].includes(event))wishwaveMeasureRecommendation(item,event);};
+  document.addEventListener('wishwave-recommendation-account-change',()=>{measuredExposure.clear();metrics=[];clearTimeout(metricTimer);metricTimer=0;pendingItem=null;lastRule=null;});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)flushMetrics();});
+  window.addEventListener('pagehide',flushMetrics);
+})();
+
+</script>
 </body>
 </html>
