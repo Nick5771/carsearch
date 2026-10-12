@@ -26268,6 +26268,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
   }
 
   async function loadSendPeople(query){
+    if(!marketplaceSession()){decorateGuestSendSheet();return;}
     const token=++sendLoadToken;
     const root=document.getElementById('findaiSendPeople');
     if(root)root.innerHTML='<div class="findai-send-loading">Loading people…</div>';
@@ -26315,10 +26316,6 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
   }
 
   window.openFindAISendSheet=function(item){
-    if(!marketplaceSession()){
-      openLogin();
-      return;
-    }
     sendItem=itemForSend(item);
     sendSelected.clear();
     sendPeople=[];
@@ -26326,8 +26323,15 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     const search=bg.querySelector('#findaiSendSearch');
     if(search)search.value='';
     bg.classList.add('show');
-    loadSendPeople('');
+    decorateGuestSendSheet();
+    if(marketplaceSession())loadSendPeople('');
   };
+
+  function decorateGuestSendSheet(){
+    if(marketplaceSession())return;
+    const bg=sendSheet();bg.querySelector('#findaiSendPeople').innerHTML='<div class="findai-send-loading"><button type="button" onclick="closeFindAISendSheet();openLogin()">Sign in to send to WishWave users</button></div>';
+    updateSendButton();
+  }
 
   async function ensureRecipientConversation(person){
     if(person&&person.conversationId)return String(person.conversationId);
@@ -26522,77 +26526,41 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
 
   function itemShareData(item){
     const x=item||{};
-    let listingId='';
-    try{
-      listingId=String(
-        x.marketplaceListingId||
-        x.itemId||
-        ((typeof getSource==='function'&&getSource(x)==='findai')?x.id:'')||
-        ''
-      ).trim();
-    }catch(_){}
+    const native=typeof isFindAIListing==='function'?isFindAIListing(x):getSource(x)==='findai';
+    const listingId=String(x.marketplaceListingId||x.itemId||x.id||'').trim();
+    const url=native&&listingId
+      ?'https://findai.ai/findai-app.html?listing='+encodeURIComponent(listingId)
+      :getListingUrl(x)||location.href;
+    return {title:String(x.title||x.name||'WishWave listing').trim()||'WishWave listing',url};
+  }
 
-    let url='';
-    try{
-      url=String(typeof getListingUrl==='function'?getListingUrl(x):'').trim();
-    }catch(_){}
-    if(!url&&listingId){
-      url='https://findai.ai/findai-app.html?listing='+encodeURIComponent(listingId);
-    }
-    if(!url)url=location.href;
-
-    return {
-      title:String(x.title||x.name||'WishWave listing').trim()||'WishWave listing',
-      url
-    };
+  async function copyExternalLink(data){
+    try{await navigator.clipboard.writeText(data.url);toast('Listing link copied');return true;}
+    catch(_){toast('Could not copy. Touch and hold the link below.');
+      const bg=document.getElementById('findaiSendSheetBg'),row=bg?.querySelector('.findai-send-link-fallback')||document.createElement('a');
+      row.className='findai-send-link-fallback';row.href=data.url;row.textContent=data.url;row.target='_blank';row.rel='noopener noreferrer';bg?.querySelector('.findai-send-bottom')?.appendChild(row);return false;}
   }
 
   async function nativeShare(preferred){
+    if(!externalItem)return;
     const data=itemShareData(externalItem);
-    const text=data.title+'\n'+data.url;
-
-    if(preferred==='messages'){
-      /* iOS Messages supports the sms: composer with a prefilled body. */
-      location.href='sms:&body='+encodeURIComponent(text);
-      return;
-    }
-
+    if(preferred==='copy'){await copyExternalLink(data);return;}
     if(preferred==='whatsapp'){
-      const wa='https://wa.me/?text='+encodeURIComponent(text);
-      window.open(wa,'_blank','noopener,noreferrer');
-      return;
+      window.open('https://wa.me/?text='+encodeURIComponent(data.title+'\n'+data.url),'_blank','noopener,noreferrer');return;
     }
-
-    if(preferred==='instagram'){
-      /* Browsers cannot target an Instagram DM/story with prefilled content.
-         The native share sheet can expose Instagram when installed. */
+    if(typeof navigator.share==='function'){
       try{
-        await navigator.clipboard.writeText(data.url);
-      }catch(_){}
-      if(navigator.share){
-        try{
-          toast('Choose Instagram');
-          await navigator.share({title:data.title,text:data.title,url:data.url});
-          return;
-        }catch(_){}
-      }
-      try{
-        location.href='instagram://app';
-      }catch(_){}
-      return;
-    }
-
-    if(navigator.share){
-      try{
+        // Call directly from the tap. Awaiting clipboard/network work first can
+        // consume the user activation required by Safari's native share sheet.
         await navigator.share({title:data.title,text:data.title,url:data.url});
+        try{recordInterest(data.title,'share',8);}catch(_){}
         return;
-      }catch(_){}
+      }catch(error){
+        if(error?.name==='AbortError')return;
+        toast('Sharing unavailable. Use WhatsApp or Copy link.');return;
+      }
     }
-
-    try{
-      await navigator.clipboard.writeText(data.url);
-      toast('Link copied');
-    }catch(_){}
+    await copyExternalLink(data);
   }
 
   function icon(type){
@@ -26631,34 +26599,21 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
       bottom.insertBefore(primary,bottom.firstElementChild);
     }
 
-    if(!secondary.querySelector('[data-v171-external="messages"]')){
-      const messages=makeExternalButton('Messages','messages');
-      messages.dataset.v171External='messages';
-
-      const whatsapp=makeExternalButton('WhatsApp','whatsapp');
-      whatsapp.dataset.v171External='whatsapp';
-
-      const instagram=makeExternalButton('Instagram','instagram');
-      instagram.dataset.v171External='instagram';
-
-      const generic=makeExternalButton('Share to','share');
-      generic.dataset.v171External='share';
-
-      /* Keep Copy link first, then the familiar external destinations. */
-      const existingMore=secondary.querySelector('#findaiSendMore');
-      if(existingMore)existingMore.remove();
-
-      secondary.appendChild(messages);
-      secondary.appendChild(whatsapp);
-      secondary.appendChild(instagram);
-      secondary.appendChild(generic);
+    if(!secondary.querySelector('[data-v171-external="share"]')){
+      secondary.querySelector('#findaiSendMore')?.remove();
+      const whatsapp=makeExternalButton('WhatsApp','whatsapp');whatsapp.dataset.v171External='whatsapp';
+      const generic=makeExternalButton('Share externally','share');generic.dataset.v171External='share';
+      secondary.appendChild(generic);secondary.appendChild(whatsapp);
     }
+    const copy=secondary.querySelector('#findaiSendCopy');if(copy)copy.onclick=()=>nativeShare('copy');
+
   }
 
   const previousOpen=window.openFindAISendSheet;
   if(typeof previousOpen==='function'){
     window.openFindAISendSheet=function(item){
       externalItem=item||null;
+      document.querySelector('#findaiSendSheetBg .findai-send-link-fallback')?.remove();
       const out=previousOpen.apply(this,arguments);
       requestAnimationFrame(()=>requestAnimationFrame(()=>{
         decorateSendSheet();
@@ -34163,6 +34118,12 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  html body .app .findai-v132-swipe-surface.findai-v132-settle,html body #searchDetailOverlay.findai-v132-swipe-surface.findai-v132-settle{transition-duration:1ms!important;}
  html body #searchDetailOverlay.wishwave-reel-expanding :is(.product-panel,.reel-actions-rail,.wishwave-search-reel-topbar){animation:none!important;}
 }
+</style>
+<style id="wishwave-native-share-style">
+#findaiSendSheetBg .findai-send-secondary button{flex:1 0 90px!important;min-width:90px!important;}
+#findaiSendSheetBg .findai-send-secondary button>span:last-child{white-space:normal;line-height:1.3;}
+#findaiSendSheetBg .findai-send-loading button{border:0;background:transparent;color:inherit;font:inherit;text-decoration:underline;cursor:pointer;}
+#findaiSendSheetBg .findai-send-link-fallback{display:block;color:inherit;font-size:12px;overflow-wrap:anywhere;margin-top:10px;}
 </style>
 </body>
 </html>
