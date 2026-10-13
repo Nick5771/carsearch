@@ -33,7 +33,7 @@
   {id:'FF377',category:'sneakers',query:'ASICS Gel Kayano 14 White Midnight adult',terms:[['asics'],['kayano'],['14'],['white'],['midnight']],reject:['kids','youth','toddler']},
   {id:'FF421',category:'beauty',query:'rhode Peptide Lip Treatment Unscented 10ml sealed',terms:[['rhode'],['peptide'],['lip treatment'],['unscented']],reject:['used','empty','tint','pocket blush','sample']},
   {id:'FF425',category:'beauty',query:'Rare Beauty Soft Pinch Liquid Blush Hope full size new',terms:[['rare beauty'],['soft pinch'],['blush'],['hope']],reject:['used','empty','mini','sample','travel']},
-  {id:'FF455',category:'fragrance',query:'Glossier You Eau de Parfum 50ml new sealed',terms:[['glossier'],['you'],['50ml','50 ml','1.7 oz','1.7oz']],reject:['used','empty','sample','decant','refill','tester','gift set']},
+  {id:'FF455',category:'fragrance',query:'Glossier You Eau de Parfum 50ml new sealed',terms:[['glossier'],['you'],['50ml','50 ml','1.7 oz','1.7oz']],reject:['used','empty','sample','decant','refill','tester','gift set','duo','2pc','bundle']},
   {id:'FF459',category:'fragrance',query:'Valentino Donna Born in Roma Eau de Parfum 50ml new sealed',terms:[['valentino'],['donna'],['born in roma'],['50ml','50 ml','1.7 oz','1.7oz']],reject:['used','empty','sample','decant','tester','intense','green stravaganza','yellow dream','coral fantasy','extrait','uomo','gift set','bundle']}
  ];
  function norm(v){return String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
@@ -42,6 +42,7 @@
  function match(target,item){
   if(!target||!item)return false;
   const title=String(item.title||'');
+  if(target.category==='sneakers'&&/\b(?:td|ps|gs)\b|\b\d+(?:\.\d+)?[cy]\b/i.test(title))return false;
   if(['beauty','fragrance'].includes(target.category)&&/used|pre.?owned|open.?box/i.test(String(item.condition||'')))return false;
   if(packaging.test(title)||target.reject.some(x=>includes(title,x)))return false;
   if(target.terms.some(group=>group.includes('lego'))&&/pieces?\s*(?:&|and)\s*parts/i.test(String(item.categoryName||'')))return false;
@@ -78,7 +79,7 @@
   }
   deferred.push(...remaining);return {items:output,deferred};
  }
- const api=Object.freeze({version:'treasure-pilot-v240',targets:Object.freeze(targets),previewTargets,groups,match,annotate,forQuery,identify,varied});
+ const api=Object.freeze({version:'treasure-pilot-v240.1',targets:Object.freeze(targets),previewTargets,groups,match,annotate,forQuery,identify,varied});
  root.FindAITreasureHunt=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
  // Retire only stale pilot feed caches; saved products and account preferences persist.
  if(root.document)try{
