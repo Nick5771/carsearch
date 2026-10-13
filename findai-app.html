@@ -15948,7 +15948,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
       }
       bindExploreScroll();await loadExploreMore(true);if(generation!==exploreGeneration)return;
       const restoredPrevious=!premiumDiscoverySections[0].items.length&&previous;
-      if(restoredPrevious){premiumDiscoverySections=previous;delete root.dataset.refreshPending;toast('Could not refresh. Your listings are still here.');}
+      if(restoredPrevious){premiumDiscoverySections=previous;delete root.dataset.refreshPending;if(document.body.dataset.activeTab==='search'&&!String(document.getElementById('q')?.value||'').trim())toast('Could not refresh. Your listings are still here.');}
       if(!restoredPrevious)exploreLoadedTaste=taste;cacheExploreBrowseState();exploreLoadedFilter=exploreFilter;if(!premiumDiscoverySections[0].items.length)root.innerHTML='<div class="premium-explore-empty"><b>Products are refreshing</b>Try again in a moment.</div>';
     })();
     const pending=exploreInitialPromise;try{return await pending;}finally{if(exploreInitialPromise===pending){exploreInitialPromise=null;exploreInitialPromiseFilter='';}}
