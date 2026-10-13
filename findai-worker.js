@@ -20873,7 +20873,7 @@ const RecommendationInterestCore=(()=>{
     else if(/\b(?:t ?shirts?|shirts?|tee|hoodie|jacket|dress|jeans|trousers|apparel|sweatshirt)\b/.test(text)&&!/\b(?:minifig(?:ure)?s?|building set|building kit)\b/.test(text)){type='apparel';category='fashion';add('type:apparel','apparel',1,'apparel',1);}
     else if(compatible){type='building_sets';category='collectibles';add('type:building_sets','Building sets',1,'building sets',1);}
     else if(lego){
-      type=/\bminifig(?:ure)?s?\b/.test(text)&&(!/\b(?:set|building kit)\b/.test(text)||/\bminifigures? only\b/.test(text))?'lego_minifigures':'building_sets';category='lego';brand='lego';
+      type=(/\bpaper bag\b/.test(text)||(/\bpolybag\b/.test(text)&&/\b(?:tc 4|tc 14|clone trooper|clone pilot|qui gon|bo katan)\b/.test(text))||/\bminifig(?:ure)?s?\b/.test(text)&&(!/\b(?:set|building kit)\b/.test(text)||/\bminifigures? only\b/.test(text)))?'lego_minifigures':'building_sets';category='lego';brand='lego';
       const themes=['technic','star wars','harry potter','architecture','icons','ideas','city','ninjago','minecraft','marvel','friends'];theme=themes.find(x=>text.includes(x))||'';
       subject=vehicle?'vehicles':/\b(?:spaceship|spacecraft|falcon|x wing|tie fighter|star destroyer)\b/.test(text)?'spacecraft':/\b(?:castle|hogwarts)\b/.test(text)?'castles':/\b(?:train|locomotive)\b/.test(text)?'trains':'';
       add('brand:lego','LEGO',.7,type==='lego_minifigures'?'lego minifigures':'lego sets',1);

@@ -5956,6 +5956,11 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     // Once something useful is ready, allow only a brief grace for a second category.
     // This cuts cold-start latency while still preserving some opening-feed variety.
     const focus=window.wishwaveInterestFocus?.(),focusedResult=result=>!!focus&&window.WishWaveInterestCore.classify({title:result.lane?.query||''}).tags.some(t=>t.key===focus.key);
+    if(focus?.strong&&!early.some(focusedResult)){
+      const relevant=lanes.map((lane,index)=>({lane,index})).filter(x=>focusedResult({lane:x.lane})&&pending.has(x.index));
+      const results=await Promise.all(relevant.map(x=>lanePromises[x.index]));
+      for(const next of results){pending.delete(next.index);if(next.value?.items?.length)early.push(next.value);}
+    }
     const graceEnds=Date.now()+(focus?.strong?600:160);
     while(pending.size&&(early.length<2||(focus?.strong&&!early.some(focusedResult)))&&Date.now()<graceEnds){
       const next=await takeNext(Math.max(1,graceEnds-Date.now()));
@@ -6057,7 +6062,7 @@ async function loadMorePersonalisedListings(){
   const state=feedState;state.loading=true;
   try{
     const waiting=window.wishwaveAdmitRecommendations?.(state.backlog||[],currentFeedItems,36);
-    if(waiting?.items.length){state.backlog=waiting.deferred;appendFeedItems(waiting.items,currentFeedData);writePersonalisedCache();return;}
+    if(waiting?.items.length&&(!window.wishwaveInterestFocus?.()?.strong||waiting.items.some(x=>window.WishWaveInterestCore.classify(x).tags.some(t=>t.key===window.wishwaveInterestFocus().key)))){state.backlog=waiting.deferred;appendFeedItems(waiting.items,currentFeedData);writePersonalisedCache();return;}
     for(let attempt=0;attempt<3;attempt++){
       if(feedState!==state||state.source!=='personalised')return;
       let lanes=Array.isArray(state.interests)?state.interests:[];
@@ -34529,7 +34534,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
     else if(/\b(?:t ?shirts?|shirts?|tee|hoodie|jacket|dress|jeans|trousers|apparel|sweatshirt)\b/.test(text)&&!/\b(?:minifig(?:ure)?s?|building set|building kit)\b/.test(text)){type='apparel';category='fashion';add('type:apparel','apparel',1,'apparel',1);}
     else if(compatible){type='building_sets';category='collectibles';add('type:building_sets','Building sets',1,'building sets',1);}
     else if(lego){
-      type=/\bminifig(?:ure)?s?\b/.test(text)&&(!/\b(?:set|building kit)\b/.test(text)||/\bminifigures? only\b/.test(text))?'lego_minifigures':'building_sets';category='lego';brand='lego';
+      type=(/\bpaper bag\b/.test(text)||(/\bpolybag\b/.test(text)&&/\b(?:tc 4|tc 14|clone trooper|clone pilot|qui gon|bo katan)\b/.test(text))||/\bminifig(?:ure)?s?\b/.test(text)&&(!/\b(?:set|building kit)\b/.test(text)||/\bminifigures? only\b/.test(text)))?'lego_minifigures':'building_sets';category='lego';brand='lego';
       const themes=['technic','star wars','harry potter','architecture','icons','ideas','city','ninjago','minecraft','marvel','friends'];theme=themes.find(x=>text.includes(x))||'';
       subject=vehicle?'vehicles':/\b(?:spaceship|spacecraft|falcon|x wing|tie fighter|star destroyer)\b/.test(text)?'spacecraft':/\b(?:castle|hogwarts)\b/.test(text)?'castles':/\b(?:train|locomotive)\b/.test(text)?'trains':'';
       add('brand:lego','LEGO',.7,type==='lego_minifigures'?'lego minifigures':'lego sets',1);
@@ -34960,8 +34965,8 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   try{requests++;const response=await fetch(WORKER_BASE+'/recommendations/catalogue-search',{method:'POST',headers:marketplaceHeaders(),signal:controller.signal,body:JSON.stringify({visitor:localStorage.getItem('ww_measure_visitor_v226'),query,country:appShoppingRegion(),constraints:preferences(query),limit:options.limit||16,offset:Math.max(0,((options.page||1)-1)*(options.limit||16))})});if(response.ok)data=await response.json();}catch(_){}finally{clearTimeout(timer);options.signal?.removeEventListener('abort',cancel);}
   if(owner!==epoch||session!==marketplaceSession()||options.signal?.aborted)return {data:{listings:[]},hasMore:false,stale:true};
   if(!enabled())return fetchProductResults(query,options);
-  lastMode=data?.mode||'fallback';if(data?.items?.length>=4){hits++;fetchProductResults(query,{...options,page:options.page||1,cursor:null}).catch(()=>{});return {data:{listings:data.items,country:appShoppingRegion(),_catalogue:true},resolvedQuery:query,nextCursor:null,hasMore:!!data.hasMore||(options.page||1)<6};}
-  const live=await fetchProductResults(query,options);if(owner!==epoch||session!==marketplaceSession()||options.signal?.aborted)return {data:{listings:[]},hasMore:false,stale:true};const seen=new Set(),items=[...(data?.items||[]),...(live.data?.listings||[])].filter(x=>{const key=listingKey(x);if(seen.has(key))return false;seen.add(key);return true;});const constraint=preferences(query);return {...live,data:{...live.data,listings:items.filter(item=>K.fit(item,constraint,T.classify(item),P).eligible)}};
+  lastMode=data?.mode||'fallback';const focus=window.wishwaveInterestFocus?.(),focusQuery=focus?.strong&&T.classify({title:query}).tags.some(t=>t.key===focus.key);window.wishwaveRecordFeedDecision?.({stage:'retrieval',query,page:options.page||1,indexed:data?.items?.length||0,mode:lastMode});if(data?.items?.length>=4&&!focusQuery){hits++;fetchProductResults(query,{...options,page:options.page||1,cursor:null}).catch(()=>{});return {data:{listings:data.items,country:appShoppingRegion(),_catalogue:true},resolvedQuery:query,nextCursor:null,hasMore:!!data.hasMore||(options.page||1)<6};}
+  const live=await fetchProductResults(query,options);if(owner!==epoch||session!==marketplaceSession()||options.signal?.aborted)return {data:{listings:[]},hasMore:false,stale:true};const seen=new Set(),items=[...(data?.items||[]),...(live.data?.listings||[])].filter(x=>{const key=listingKey(x);if(seen.has(key))return false;seen.add(key);return true;});const constraint=preferences(query);return {...live,hasMore:!!data?.hasMore||!!live.hasMore,data:{...live.data,listings:items.filter(item=>K.fit(item,constraint,T.classify(item),P).eligible)}};
  };
  const prepare=window.preparePersonalisedLaneItems;
  window.preparePersonalisedLaneItems=function(raw,lane){if(!active())return prepare.apply(this,arguments);const constraint=preferences(lane.query),items=prepare.call(this,raw,lane);return items.filter(item=>K.fit(item,constraint,T.classify(item),P).eligible);};
@@ -34982,14 +34987,18 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  let revision=0,applied=0,epoch=0,warmTimer=0,applyTimer=0,job=null,pool=null,returning=false,returnAt=0,returnIndex=0,controller=null;
  function focus(){
   if(!active())return null;let intents=[];try{intents=JSON.parse(sessionStorage.getItem('ww_shopping_intents_v228')||'[]');}catch(_){}
-  const recent=intents.find(x=>Date.now()-x.at<30*60000),topics=window.wishwaveDetectedInterests?.()||[];
-  const wanted=recent?T.classify({title:recent.query}).tags.filter(x=>x.depth>=2).sort((a,b)=>b.depth-a.depth)[0]:null;
-  const stat=wanted?topics.find(x=>x.key===wanted.key):topics.filter(x=>x.depth>=2&&(window.wishwaveStrongFocusEvidence?.(x.key)?.supported??(x.positiveProducts>=3&&x.lift>0))).sort((a,b)=>b.depth-a.depth||b.lift-a.lift)[0];
-  const strong=window.wishwaveShoppingContext?.().purpose!=='gift'&&!!stat&&(window.wishwaveStrongFocusEvidence?.(stat.key)?.supported??(stat.positiveProducts>=3&&stat.lift>0));
-  if(!wanted&&!strong)return null;return {key:wanted?.key||stat.key,query:wanted?.query||stat.query,strong:!!strong};
+  const evidence=window.wishwaveDeliberateInterests?.()||[];
+  const supported=evidence.filter(x=>x.supported&&x.query&&x.depth>=1).sort((a,b)=>b.positive-a.positive||(a.depth===2?-1:1)-(b.depth===2?-1:1));
+  const recent=intents.find(x=>Date.now()-x.at<30*60000),wanted=recent?T.classify({title:recent.query}).tags.filter(x=>x.query&&x.depth>=1).sort((a,b)=>b.depth-a.depth)[0]:null;
+  // Current saved products are evidence even when the event-derived profile is
+  // absent, aged out, or truncated by neutral impressions. Prefer a supported
+  // theme over one narrower sibling; subtopics shape retrieval independently.
+  const stat=supported[0],selected=stat||wanted;
+  if(!selected)return null;const strong=window.wishwaveShoppingContext?.().purpose!=='gift'&&!!stat;
+  return {key:selected.key,query:selected.query,strong,types:stat?.types||[]};
  }
  window.wishwaveInterestFocus=focus;
- const matches=(item,f)=>!!f&&T.classify(item).tags.some(t=>t.key===f.key);
+ const matches=(item,f)=>{const meta=T.classify(item);return !!f&&meta.tags.some(t=>t.key===f.key)&&(!f.types?.length||f.types.includes(meta.type));};
  function saved(item){const id=K.identity(item,T.classify(item));return getTracked().some(x=>listingKey(x)===listingKey(item)||(id.confidence!=='offer'&&K.identity(x,T.classify(x)).variant===id.variant));}
  const candidate=window.wishwaveRecommendationCandidate;
  window.wishwaveRecommendationCandidate=function(item,query){if(active()&&T.classify(item).type==='accessory'&&T.classify({title:query||''}).type!=='accessory')return false;return candidate.apply(this,arguments);};
@@ -34997,7 +35006,16 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  window.surfaceLikedListingInFeed=function(items){return active()?items.filter(x=>!saved(x)):reminder.apply(this,arguments);};
  function sequence(items,history,max,strict){
   const f=focus();if(!f)return null;let evidence={};try{evidence=JSON.parse(localStorage.getItem('ww_topic_evidence_v227')||'{}').profile||{};}catch(_){}
-  return C.sequence(items.filter(x=>wishwaveRecommendationCandidate(x,x._interestQuery||'')&&!saved(x)),history,max,{identify:x=>wishwaveProductIdentity(x),key:listingKey,strict,allowSparse:true,preferred:x=>matches(x,f),maxPreferredRun:f.strong?5:3,priority:x=>matches(x,f)?(f.strong?95:38):Math.max(0,Math.min(24,T.boost(evidence,x)))});
+  const pool=items.filter(x=>wishwaveRecommendationCandidate(x,x._interestQuery||'')&&!saved(x)),out=[];
+  const options={identify:x=>wishwaveProductIdentity(x),key:listingKey,strict,allowSparse:true,preferred:x=>matches(x,f),maxPreferredRun:f.strong?5:3,priority:x=>matches(x,f)?(f.strong?95:38):Math.max(0,Math.min(24,T.boost(evidence,x)))};
+  while(pool.length&&out.length<max){
+   const recent=history.concat(out).slice(-9),explore=recent.filter(x=>!matches(x,f));
+   const allowed=pool.filter(x=>!f.strong||matches(x,f)||(explore.length<3&&!explore.some(y=>T.classify(y).type===T.classify(x).type&&(T.classify(x).type||wishwaveProductCategory(y)===wishwaveProductCategory(x)))));
+   const next=C.sequence(allowed,history.concat(out),1,options).items[0];if(!next)break;
+   out.push(next);pool.splice(pool.indexOf(next),1);
+  }
+  window.wishwaveRecordFeedDecision?.({stage:'admission',focus:f,input:items.length,relevant:items.filter(x=>matches(x,f)).length,admitted:out.map(x=>({key:listingKey(x),title:x.title,relevant:matches(x,f)})),deferred:pool.length});
+  return {items:out,deferred:pool};
  }
  const oldSequence=window.sequencePersonalisedBatch,oldAdmit=window.wishwaveAdmitRecommendations;
  window.sequencePersonalisedBatch=function(items,history=[],max=60){const result=sequence(items,history,max,false);return result?result.items:oldSequence.apply(this,arguments);};
@@ -35005,7 +35023,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  const score=window.personalisedItemScore;
  window.personalisedItemScore=function(item,query,scope){const base=score.apply(this,arguments),f=focus();return base+(matches(item,f)?(f.strong?32:12):0)-(active()&&saved(item)?65:0);};
  const signature=window.personalisedProfileSignature;
- window.personalisedProfileSignature=function(lanes){return signature.apply(this,arguments)+(active()?'|sustained-v232|'+revision:'');};
+ window.personalisedProfileSignature=function(lanes){return signature.apply(this,arguments)+(active()?'|evidence-v233|'+revision:'');};
  function eligible(item,lane){return wishwaveRecommendationCandidate(item,lane.query)&&K.fit(item,K.constraints(lane.query,window.wishwaveShoppingContext?.().purpose==='gift'?{}:window.wishwaveShoppingPreferences?.()||{},currencyOf(item,currentFeedData)||'AUD',T),T.classify(item),window.WishWaveShoppingCore).eligible&&!saved(item);}
  async function prepare(){
   if(!active()||revision===applied)return;const version=revision,owner=epoch,session=marketplaceSession();if(job?.version===version)return job.promise;
@@ -35044,20 +35062,32 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  'use strict';
  const T=window.WishWaveInterestCore,K=window.WishWaveCatalogueCore;
  const active=()=>window.wishwaveResponsiveFeedEnabled?.()===true;
- let evidenceCache=null;
+ let evidenceCache=null,decisions=[];
+ window.wishwaveRecordFeedDecision=entry=>{if(active())decisions=[...decisions,{at:Date.now(),...entry}].slice(-40);};
+ window.wishwaveFeedDiagnostics=()=>({version:233,focus:window.wishwaveInterestFocus?.(),interests:window.wishwaveDeliberateInterests?.(),lanes:scoredInterests(),decisions:decisions.slice()});
  function subInterests(){
   if(!active()||window.wishwaveShoppingContext?.().purpose==='gift')return [];const raw=localStorage.getItem('ww_topic_evidence_v227')||'{}',trackedRaw=localStorage.getItem('fa_tracked_v2')||'[]',minute=Math.floor(Date.now()/60000);if(evidenceCache?.raw===raw&&evidenceCache.trackedRaw===trackedRaw&&evidenceCache.minute===minute)return evidenceCache.subs;let state={};try{state=JSON.parse(raw);}catch(_){}
   const gifts=new Set(state.giftFamilies||[]),distinct=new Map();
   for(const row of Object.values(state.journal||{})){if(!row.item||Date.now()-row.at>45*86400000||gifts.has(row.family))continue;const old=distinct.get(row.family);if(!old||old.at<row.at)distinct.set(row.family,row);}
-  for(const item of getTracked()){const family=wishwaveProductIdentity(item).family;if(!gifts.has(family)&&!distinct.has(family))distinct.set(family,{family,item,positive:1,events:{like:1},at:Date.now()});}
-  const groups=new Map(),signals=new Map();for(const row of distinct.values()){const deliberate=row.positive>=.55&&!!(row.events?.like||row.events?.track||row.events?.relevancePositive),negative=row.negative>=.2&&Date.now()-row.at<60*60000;for(const tag of T.classify(row.item).tags){const signal=signals.get(tag.key)||{positive:0,negative:0};if(deliberate)signal.positive++;if(negative)signal.negative++;signals.set(tag.key,signal);if(deliberate&&tag.depth>=3){const group=groups.get(tag.key)||{...tag,products:0};group.products++;groups.set(tag.key,group);}}}
+  for(const item of getTracked()){const family=wishwaveProductIdentity(item).family;if(!gifts.has(family)){const old=distinct.get(family);if(!old?.events?.reject&&!old?.events?.irrelevant)distinct.set(family,{...old,family,item,positive:1,events:{...old?.events,like:1},at:Date.now()});}}
+  const groups=new Map(),signals=new Map();for(const row of distinct.values()){const deliberate=row.positive>=.55&&!!(row.events?.like||row.events?.track||row.events?.relevancePositive),negative=row.negative>=.2&&Date.now()-row.at<60*60000;for(const tag of T.classify(row.item).tags){const signal=signals.get(tag.key)||{...tag,positive:0,negative:0,forms:{}};if(deliberate){signal.positive++;const type=T.classify(row.item).type;signal.forms[type]=(signal.forms[type]||0)+1;}if(negative)signal.negative++;signals.set(tag.key,signal);if(deliberate&&tag.depth>=3){const group=groups.get(tag.key)||{...tag,products:0};group.products++;groups.set(tag.key,group);}}}
   const subs=[...groups.values()].filter(x=>x.products>=2).sort((a,b)=>b.products-a.products);evidenceCache={raw,trackedRaw,minute,signals,subs};return subs;
  }
  window.wishwaveSubInterests=subInterests;
+ window.wishwaveDeliberateInterests=()=>{subInterests();return [...(evidenceCache?.signals.values()||[])].map(x=>({...x,types:Object.keys(x.forms||{}).filter(t=>x.forms[t]>=2),supported:x.positive>=3&&x.negative<Math.max(3,x.positive*2)}));};
  window.wishwaveStrongFocusEvidence=key=>{subInterests();const value=evidenceCache?.signals.get(key)||{positive:0,negative:0};return {...value,supported:value.positive>=3&&value.negative<Math.max(3,value.positive*2)};};
- document.addEventListener('wishwave-recommendation-account-change',()=>{evidenceCache=null;});
+ document.addEventListener('wishwave-recommendation-account-change',()=>{evidenceCache=null;decisions=[];});
  const scored=window.scoredInterests;
- window.scoredInterests=function(limit=PERSONALISED_INTEREST_LIMIT){const base=scored.apply(this,arguments),focus=window.wishwaveInterestFocus?.();if(!active()||!focus)return base;const extras=subInterests().filter(x=>T.classify({title:x.query}).tags.some(t=>t.key===focus.key)).slice(0,2).map(x=>({id:'sub:'+x.key,cluster:'sub:'+x.key,query:x.query,category:T.classify({title:x.query}).category,score:55+x.products,featured:false,_topicKey:x.key}));const queries=new Set(extras.map(x=>normaliseQueryText(x.query)));return [...extras,...base.filter(x=>!queries.has(normaliseQueryText(x.query)))].slice(0,limit);};
+ window.scoredInterests=function(limit=PERSONALISED_INTEREST_LIMIT){
+  const base=scored.apply(this,arguments),focus=window.wishwaveInterestFocus?.();if(!active()||!focus?.strong)return base;
+  const lane=x=>({id:'evidence:'+x.key,cluster:'evidence:'+x.key,query:x.query,discoveryQuery:x.query,category:T.classify({title:x.query}).category||interestCategory(x.query),score:80+(x.positive||x.products||0),featured:false,_topicKey:x.key});
+  const supported=window.wishwaveDeliberateInterests().filter(x=>x.supported&&x.query&&x.depth>=1&&!['brand:lego'].includes(x.key));
+  const related=subInterests().filter(x=>T.classify({title:x.query}).tags.some(t=>t.key===focus.key)).slice(0,2);
+  const extra=[lane({...focus,positive:10}),...related.map(lane),...supported.filter(x=>x.key!==focus.key&&x.depth<=2).slice(0,2).map(lane)],seen=new Set(),personal=[];
+  for(const x of extra){const q=normaliseQueryText(x.query);if(!seen.has(q)){seen.add(q);personal.push(x);}}
+  const explore=base.find(x=>x.featured&&!seen.has(normaliseQueryText(x.query)));
+  return [...personal.slice(0,Math.max(1,limit-1)),...(explore?[explore]:[])].slice(0,limit);
+ };
  const score=window.personalisedItemScore;
  window.personalisedItemScore=function(item,query,scope){const base=score.apply(this,arguments);if(!active())return base;const keys=new Set(T.classify(item).tags.map(x=>x.key));return base+Math.max(0,...subInterests().map(x=>keys.has(x.key)?Math.min(18,x.products*5):0));};
  window.wishwaveConstrainFocusLane=function(lane){const focus=window.wishwaveInterestFocus?.();if(!active()||!focus||!T.classify({title:lane.originalQuery||lane.query}).tags.some(t=>t.key===focus.key))return;const current=lane.query;lane.variants=lane.variants.filter(query=>T.classify({title:query}).tags.some(t=>t.key===focus.key));if(!lane.variants.length)lane.variants=[lane.originalQuery||current];lane.variantIndex=Math.max(0,lane.variants.indexOf(current));if(!lane.variants.includes(current)){lane.query=lane.variants[0];lane.page=0;lane.cursor=null;lane.hasMore=true;lane.noNewPages=0;}};
