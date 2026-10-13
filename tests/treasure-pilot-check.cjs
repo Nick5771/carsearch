@@ -18,6 +18,8 @@ assert(!policy.match(target('FF459'),offer('Valentino Donna Born in Roma 50ml 15
 assert(!policy.match(target('FF366'),offer('Nike Air Jordan 1 Lost and Found Chicago TD Size 8c')));
 assert(!policy.match(target('FF455'),offer('Glossier You Duo 2pc 50ml 8ml')));
 assert(!policy.match(target('FF314'),offer('MGA Bratz Yasmin first edition 2001 missing shoes')));
+assert(!policy.match(target('FF224'),offer('TAG 10 Magikarp 203/193 Paldea Evolved',{condition:'Graded'})));
+assert(!policy.match(target('FF455'),offer('Glossier You For Women Set 50ml 8ml')));
 assert(!policy.match(target('FF425'),offer('Rare Beauty Soft Pinch Blush Hope',{condition:'Used'})));
 for(const extra of [{price:0},{currency:'AUD'},{sold:true},{available:false},{estimatedAvailabilityStatus:'OUT_OF_STOCK'},{_ebayFetchedAt:Date.now()-7*3600000},{image:''},{source:'AliExpress'},{url:'http://www.ebay.com/123'}])assert(!policy.match(target('FF118'),offer('Nintendo Game Boy Color Atomic Purple',extra)));
 const names={'FF001':'Carhartt Detroit Jacket J01 Brown','FF118':'Nintendo Game Boy Color Atomic Purple','FF366':'Jordan 1 Lost and Found Chicago','FF421':'rhode Peptide Lip Treatment Unscented'};

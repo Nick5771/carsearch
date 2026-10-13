@@ -42,6 +42,8 @@
  function match(target,item){
   if(!target||!item)return false;
   const title=String(item.title||'');
+  if(target.category==='cards'&&(/\bgraded\b/i.test(String(item.condition||''))||/\b(?:slabbed|sgc|ace|tag)\s*(?:graded|[0-9])/i.test(title)))return false;
+  if(target.category==='fragrance'&&/\b(?:set|duo|bundle|[2-9]\s*pc)\b/i.test(title))return false;
   if(target.category==='sneakers'&&/\b(?:td|ps|gs)\b|\b\d+(?:\.\d+)?[cy]\b/i.test(title))return false;
   if(['beauty','fragrance'].includes(target.category)&&/used|pre.?owned|open.?box/i.test(String(item.condition||'')))return false;
   if(packaging.test(title)||target.reject.some(x=>includes(title,x)))return false;
@@ -79,7 +81,7 @@
   }
   deferred.push(...remaining);return {items:output,deferred};
  }
- const api=Object.freeze({version:'treasure-pilot-v240.2',targets:Object.freeze(targets),previewTargets,groups,match,annotate,forQuery,identify,varied});
+ const api=Object.freeze({version:'treasure-pilot-v240.3',targets:Object.freeze(targets),previewTargets,groups,match,annotate,forQuery,identify,varied});
  root.FindAITreasureHunt=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
  // Retire only stale pilot feed caches; saved products and account preferences persist.
  if(root.document)try{
