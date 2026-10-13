@@ -1,8 +1,9 @@
 // Read the existing public search API. Preserve evidence; never invent product offers.
 const fs=require('fs'),path=require('path'),policy=require('../findai-treasure-pilot.js');
-const output=process.argv[2]||path.join(__dirname,'../data/treasure-pilot-supply-audit.json');
+const output=process.argv.slice(2).find(x=>!x.startsWith('--'))||path.join(__dirname,'../data/treasure-pilot-supply-audit.json');
 const origin=process.env.FINDAI_API_ORIGIN||'https://api.carsearchapi.workers.dev';
-const results=[];
+const retryExisting=process.argv.includes('--retry');
+const results=retryExisting&&fs.existsSync(output)?JSON.parse(fs.readFileSync(output,'utf8')).results:[];
 async function audit(target,passive=true){
  const u=new URL('/api/search-fast',origin);u.search=new URLSearchParams({q:target.query,country:'US',limit:'24',passive:passive?'1':'0'}).toString();
  const started=Date.now();
@@ -16,8 +17,10 @@ async function audit(target,passive=true){
  }catch(error){return {id:target.id,query:target.query,checkedAt:new Date().toISOString(),elapsedMs:Date.now()-started,status:'request_failed',error:String(error.message),candidates:[]};}
 }
 (async()=>{
- for(let i=0;i<policy.targets.length;i+=3){
-  const batch=await Promise.all(policy.targets.slice(i,i+3).map(audit));results.push(...batch);
+ const selected=retryExisting?policy.targets.filter(target=>!results.some(x=>x.id===target.id&&x.status==='provider_candidates_found')):policy.targets;
+ for(let i=0;i<selected.length;i+=3){
+  const batch=await Promise.all(selected.slice(i,i+3).map(target=>audit(target)));
+  for(const row of batch){const old=results.findIndex(x=>x.id===row.id);if(old<0)results.push(row);else results[old]=row;}
   for(const x of batch)console.log(x.id,x.status,x.candidateCount||0);
   fs.writeFileSync(output,JSON.stringify({version:policy.version,market:'US',checkedAt:new Date().toISOString(),scope:'Provider observations and strict title/form checks; not seller authentication or checkout verification',results},null,2)+'\n');
  }

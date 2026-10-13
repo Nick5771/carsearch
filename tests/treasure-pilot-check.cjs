@@ -4,25 +4,31 @@ assert.equal(catalogue.targets.length,500);assert.equal(new Set(catalogue.target
 assert(catalogue.targets.every(x=>x.inventory===null&&x.rarityVerified===false));
 const target=id=>policy.targets.find(x=>x.id===id);
 const offer=(title,extra={})=>({title,price:60,currency:'USD',source:'eBay',url:'https://www.ebay.com/itm/123',image:'https://i.ebayimg.com/123.jpg',...extra});
-assert(policy.match(target('FF359'),offer('LEGO Ideas Polaroid Camera 21345 SEALED')));
-for(const title of ['LocoLee LED Light Kit for Lego 21345 Polaroid','LEGO 21345 empty box only','LEGO 21345 instructions only','LEGO 21345 parts only','LEGO 21345 incomplete missing pieces'])assert(!policy.match(target('FF359'),offer(title)),title);
-assert(!policy.match(target('FF005'),offer('TYCO Garfield telephone 1205 tested working')));
-assert(policy.match(target('FF005'),offer('TYCO Garfield telephone 1201 tested working')));
-assert(!policy.match(target('FF007'),offer('Panasonic Panapet R-70 BLUE radio works')));
-assert(policy.match(target('FF007'),offer('Panasonic Panapet R-70 ORANGE radio works')));
-assert(!policy.match(target('FF157'),offer('Bluebird Polly Pocket Partytime Surprise 1989 Almost Complete')));
-assert(!policy.match(target('FF157'),offer('Bluebird Polly Pocket Partytime Surprise 1989 complete no doll')));
-assert(!policy.match(target('FF188'),offer('LEGO Bionicle Tahu 8534 set of 6 complete')));
-assert(policy.match(target('FF464'),offer('Loungefly Gengar Glow Mini Backpack free shipping')),'pin exclusion must not match shipping');
-for(const extra of [{price:0},{currency:'AUD'},{sold:true},{available:false},{estimatedAvailabilityStatus:'OUT_OF_STOCK'},{_ebayFetchedAt:Date.now()-7*3600000},{image:''},{source:'AliExpress'},{url:'http://www.ebay.com/123'}])assert(!policy.match(target('FF359'),offer('LEGO 21345',extra)));
-assert(!policy.previewTargets.some(x=>['FF005','FF092','FF464'].includes(x.id)),'unmatched targets stay out of the preview');
+assert(!policy.targets.some(x=>/lego|nickelodeon|panasonic/i.test(x.query)),'rejected editorial picks removed');
+assert.equal(new Set(policy.targets.map(x=>x.category)).size,10);
+assert(policy.match(target('FF118'),offer('Nintendo Game Boy Color Atomic Purple original console')));
+for(const title of ['Nintendo Game Boy Color Atomic Purple replacement shell','Nintendo Game Boy Color Atomic Purple box only','Nintendo Game Boy Color Atomic Purple not working'])assert(!policy.match(target('FF118'),offer(title)),title);
+assert(policy.match(target('FF001'),offer('Vintage Carhartt Detroit Jacket J01 Brown')));
+assert(!policy.match(target('FF001'),offer('Carhartt Detroit Jacket J01 Black')));
+assert(!policy.match(target('FF073'),offer('Champion Magic 32 jersey youth')));
+assert(!policy.match(target('FF080'),offer('Nike Barcelona Ronaldinho 2005 2006 away jersey')));
+assert(!policy.match(target('FF213'),offer('Pokemon Umbreon VMAX 215/203 PSA 10')));
+assert(!policy.match(target('FF224'),offer('Pokemon Magikarp 203/193 Paldea Evolved English LP')));
+assert(!policy.match(target('FF459'),offer('Valentino Donna Born in Roma 50ml 15ml Gift Set')));
+assert(!policy.match(target('FF425'),offer('Rare Beauty Soft Pinch Blush Hope',{condition:'Used'})));
+for(const extra of [{price:0},{currency:'AUD'},{sold:true},{available:false},{estimatedAvailabilityStatus:'OUT_OF_STOCK'},{_ebayFetchedAt:Date.now()-7*3600000},{image:''},{source:'AliExpress'},{url:'http://www.ebay.com/123'}])assert(!policy.match(target('FF118'),offer('Nintendo Game Boy Color Atomic Purple',extra)));
+const names={'FF001':'Carhartt Detroit Jacket J01 Brown','FF118':'Nintendo Game Boy Color Atomic Purple','FF366':'Jordan 1 Lost and Found Chicago','FF421':'rhode Peptide Lip Treatment Unscented'};
+const many=Object.entries(names).flatMap(([id,title])=>Array.from({length:12},(_,i)=>({...offer(title),itemId:id+'_'+i,_interestQuery:target(id).query})));
+const batch=policy.varied(many,[],30);assert.equal(batch.items.length,4,'different sizes/sellers of one target do not fill the feed');assert.equal(new Set(batch.items.map(x=>x._treasureTargetId)).size,4);
+const second=policy.varied(many,batch.items,30);assert.equal(second.items.length,0,'duplicate targets remain blocked across batch boundaries');
+assert.equal(policy.varied(many,batch.items.concat(Array.from({length:20},(_,i)=>({title:'Other product '+i}))),30).items.length,4,'spacing window permits later return after twenty other products');
 const source=fs.readFileSync(__dirname+'/../findai-worker.js','utf8');
 const block=source.slice(source.indexOf('function treasureActiveTargets'),source.indexOf('export default {'));
 let calls=0,indexed=0;
 const c=vm.createContext({globalThis:{FindAITreasureHunt:policy},URL,Date,Set,String,Array,Math,JSON,
  findAIBoolEnv:(env,name)=>['true','1'].includes(String(env[name])),
  ebayTrafficEnv:e=>e,promiseWithin:async p=>p,
- searchEbay:async()=>{calls++;return {items:[offer('LEGO Ideas Polaroid Camera 21345 SEALED'),offer('LED Light Kit for LEGO 21345')]};},
+ searchEbay:async()=>{calls++;return {items:[offer('Jordan 1 Lost and Found Chicago adult'),offer('Jordan 1 Lost and Found Chicago youth')]};},
  catalogueIngest:async items=>{indexed+=items.length;},
  catalogueCountry:x=>x||'AU',jsonResp:(data,status=200)=>({data,status}),
  adminOK:(_u,e,r)=>r.headers.get('X-Admin-Key')===e.ADMIN_KEY
@@ -30,10 +36,10 @@ const c=vm.createContext({globalThis:{FindAITreasureHunt:policy},URL,Date,Set,St
 (async()=>{
  await c.treasureWarmup({DB:{}});assert.equal(calls,0,'disabled cron consumes no quota');
  await c.treasureWarmup({DB:{},TREASURE_HUNT_ENABLED:'true'});assert.equal(calls,0,'empty reviewed allowlist consumes no quota');
- await c.treasureWarmup({DB:{},TREASURE_HUNT_ENABLED:'true',TREASURE_HUNT_ACTIVE_IDS:'FF359'});assert.equal(calls,1);assert.equal(indexed,1,'only complete matched offer indexed');
+ await c.treasureWarmup({DB:{},TREASURE_HUNT_ENABLED:'true',TREASURE_HUNT_ACTIVE_IDS:'FF366'});assert.equal(calls,1);assert.equal(indexed,1,'only complete matched offer indexed');
  const request=(ids,key)=>new Request('https://api.test/admin/recommendations/treasure-audit',{method:'POST',headers:{'X-Admin-Key':key},body:JSON.stringify({ids})});
- let response=await c.treasureRoute(request(['FF359'],'wrong'),{ADMIN_KEY:'correct'});assert.equal(response.status,401);
+ let response=await c.treasureRoute(request(['FF366'],'wrong'),{ADMIN_KEY:'correct'});assert.equal(response.status,401);
  response=await c.treasureRoute(request(['FF999'],'correct'),{ADMIN_KEY:'correct'});assert.equal(response.status,400);
- response=await c.treasureRoute(request(['FF359'],'correct'),{ADMIN_KEY:'correct'});assert.equal(response.data.inventoryWritten,false);assert.equal(response.data.results[0].candidates.length,1);assert.equal(indexed,1,'admin audit is read-only inventory');
- console.log('PASS: 500 staging records; wrong models/colours, partial toys, LEGO lighting/packaging, stock/staleness/currency guards; gated bounded warmup and authenticated read-only audit');
+ response=await c.treasureRoute(request(['FF366'],'correct'),{ADMIN_KEY:'correct'});assert.equal(response.data.inventoryWritten,false);assert.equal(response.data.results[0].candidates.length,1);assert.equal(indexed,1,'admin audit is read-only inventory');
+ console.log('PASS: 500 staging records; revised 10-category selection, wrong variants/accessories/condition guards, cross-page seller/size duplicate spacing, gated warmup and read-only audit');
 })().catch(e=>{console.error(e);process.exitCode=1});

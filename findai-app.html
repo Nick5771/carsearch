@@ -3749,7 +3749,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
   <div class="toast" id="toast"></div>
 </div>
 
-<script src="/findai-treasure-pilot.js?v=238"></script>
+<script src="/findai-treasure-pilot.js?v=239"></script>
 <script>
 const FIND_AI_BUILD='v41-findai-pro';
 const WORKER = 'https://api.carsearchapi.workers.dev';
@@ -4945,7 +4945,7 @@ function featuredColdStart(baseScore,seedKey){
   // Opt-in audit preview only. Production keeps its baseline until supply is reviewed.
   const treasure=new URLSearchParams(location.search).get('treasure-test')==='1'&&appShoppingRegion()==='US'&&window.FindAITreasureHunt;
   if(treasure){
-    const targets=treasure.previewTargets,offset=Math.floor(seededUnit(personalisedSessionSeed,`${seedKey}:treasure-order`)*targets.length)%targets.length;
+    const targets=treasure.groups.map(group=>group.targets[Math.floor(seededUnit(personalisedSessionSeed,`${seedKey}:pick:${group.category}`)*group.targets.length)%group.targets.length]),offset=Math.floor(seededUnit(personalisedSessionSeed,`${seedKey}:treasure-order`)*targets.length)%targets.length;
     return [...targets.slice(offset),...targets.slice(0,offset)].map((x,i)=>({id:'treasure_'+x.id,query:x.query,discoveryQuery:x.query,category:x.category,cluster:'treasure:'+x.id,featured:true,score:baseScore-i*.015,_treasureTargetId:x.id}));
   }
   const groups=DISCOVERY_SEED_GROUPS.map((group,index)=>{
@@ -35002,7 +35002,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  const score=window.personalisedItemScore;
  window.personalisedItemScore=function(item,query,scope){const base=score.apply(this,arguments),f=focus();return base+(matches(item,f)?(f.strong?32:12):0)-(active()&&saved(item)?65:0);};
  const signature=window.personalisedProfileSignature;
- window.personalisedProfileSignature=function(lanes){return signature.apply(this,arguments)+(active()?'|reset-baseline-v237|'+revision:'')+(new URLSearchParams(location.search).get('treasure-test')==='1'?'|treasure-pilot-v238':'');};
+ window.personalisedProfileSignature=function(lanes){return signature.apply(this,arguments)+(active()?'|reset-baseline-v237|'+revision:'')+(new URLSearchParams(location.search).get('treasure-test')==='1'?'|treasure-pilot-v239':'');};
  function eligible(item,lane){return wishwaveRecommendationCandidate(item,lane.query)&&K.fit(item,K.constraints(lane.query,window.wishwaveShoppingContext?.().purpose==='gift'?{}:window.wishwaveShoppingPreferences?.()||{},currencyOf(item,currentFeedData)||'AUD',T),T.classify(item),window.WishWaveShoppingCore).eligible&&!saved(item);}
  async function prepare(){
   if(!active()||revision===applied)return;const version=revision,owner=epoch,session=marketplaceSession();if(job?.version===version)return job.promise;
@@ -35077,7 +35077,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  window.wishwaveConstrainFocusLane=function(lane){const focus=window.wishwaveInterestFocus?.();if(!active()||!focus||!T.classify({title:lane.originalQuery||lane.query}).tags.some(t=>t.key===focus.key))return;const current=lane.query;lane.variants=lane.variants.filter(query=>T.classify({title:query}).tags.some(t=>t.key===focus.key));if(!lane.variants.length)lane.variants=[lane.originalQuery||current];lane.variantIndex=Math.max(0,lane.variants.indexOf(current));if(!lane.variants.includes(current)){lane.query=lane.variants[0];lane.page=0;lane.cursor=null;lane.hasMore=true;lane.noNewPages=0;}};
  const candidate=window.wishwaveRecommendationCandidate;
  window.wishwaveRecommendationCandidate=function(item,query){
-  if(new URLSearchParams(location.search).get('treasure-test')==='1'&&appShoppingRegion()==='US'&&window.FindAITreasureHunt){const target=window.FindAITreasureHunt.forQuery(query);if(target&&!window.FindAITreasureHunt.match(target,item))return false;}
+  if(new URLSearchParams(location.search).get('treasure-test')==='1'&&appShoppingRegion()==='US'&&window.FindAITreasureHunt){const target=window.FindAITreasureHunt.forQuery(query);if(target){if(!window.FindAITreasureHunt.match(target,item))return false;item=window.FindAITreasureHunt.annotate(target,item);}}
   if(active()&&T.classify(item).type==='pet_supplies'){
    const petIntent=window.wishwaveInterestPlan?.().some(p=>(p.supported||p.source==='search'||p.source==='mixed')&&p.types.includes('pet_supplies'))||getTracked().some(x=>T.classify(x).type==='pet_supplies');
    if(!petIntent)return false;
@@ -35147,6 +35147,30 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  for(const name of ['openWishWaveComments','openWishWaveListingComments']){const old=window[name];if(typeof old==='function')window[name]=async function(){commentRead=null;clearTimeout(commentTimer);const out=await old.apply(this,arguments);startRead(typeof wishwaveCommentsItem!=='undefined'?wishwaveCommentsItem:null);return out;};}
  document.addEventListener('visibilitychange',()=>{if(document.hidden){commentRead=null;clearTimeout(commentTimer);}});
  document.addEventListener('wishwave-recommendation-account-change',()=>{cache=null;commentRead=null;clearTimeout(commentTimer);});
+})();
+</script>
+<script id="findai-treasure-variety-v239">
+(function(){
+ 'use strict';
+ const active=()=>new URLSearchParams(location.search).get('treasure-test')==='1'&&appShoppingRegion()==='US'&&!!window.FindAITreasureHunt?.groups.length;
+ const prepare=window.preparePersonalisedLaneItems;
+ window.preparePersonalisedLaneItems=function(raw,lane){
+  if(!active())return prepare.apply(this,arguments);
+  const target=window.FindAITreasureHunt.forQuery(lane.originalQuery||lane.query);if(!target)return prepare.apply(this,arguments);
+  const candidates=(raw||[]).filter(item=>window.FindAITreasureHunt.match(target,item)).map(item=>window.FindAITreasureHunt.annotate(target,item));
+  return prepare.call(this,candidates,lane);
+ };
+ const admit=window.wishwaveAdmitRecommendations,sequence=window.sequencePersonalisedBatch;
+ window.wishwaveAdmitRecommendations=function(items,history=[],max=36){
+  if(!active())return admit.apply(this,arguments);
+  const chosen=window.FindAITreasureHunt.varied(items,history,max),result=admit.call(this,chosen.items,history,max);
+  return {...result,deferred:[...chosen.deferred,...(result.deferred||[])]};
+ };
+ window.sequencePersonalisedBatch=function(items,history=[],max=60){
+  if(!active())return sequence.apply(this,arguments);
+  return sequence.call(this,window.FindAITreasureHunt.varied(items,history,max).items,history,max);
+ };
+ window.wishwaveTreasureStatus=()=>({version:window.FindAITreasureHunt?.version,active:active(),targets:window.FindAITreasureHunt?.previewTargets.map(x=>x.id)||[],categories:window.FindAITreasureHunt?.groups.map(x=>x.category)||[]});
 })();
 </script>
 </body>

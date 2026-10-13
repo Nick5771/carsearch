@@ -2,18 +2,29 @@
 (function(root){
  'use strict';
  const targets=[
-  {id:'FF005',category:'vintage_decor',query:'Garfield telephone 1201',terms:[['garfield'],['phone','telephone'],['1201']],reject:['replacement','cord only','handset only','1205','1209']},
-  {id:'FF007',category:'retro_audio',query:'Panasonic Panapet R-70 orange radio',terms:[['panasonic','panapet'],['r70'],['orange']],reject:['parts','repair','battery cover']},
-  {id:'FF009',category:'nostalgic_decor',query:'Nickelodeon Time Blaster N2000 clock',terms:[['nickelodeon'],['time blaster','n2000'],['clock']],reject:['parts','repair']},
-  {id:'FF092',category:'portable_audio',query:'Sony Sports Walkman WM-FS191',terms:[['sony'],['wmfs191']],reject:['parts','repair','manual']},
-  {id:'FF098',category:'retro_gaming',query:'Nintendo Game Watch Donkey Kong DK-52',terms:[['nintendo'],['donkey kong'],['dk52']],reject:['parts','repair','battery cover','lcd only']},
-  {id:'FF157',category:'nostalgic_toys',query:'Polly Pocket Partytime Surprise 1989 Bluebird complete',terms:[['polly pocket'],['partytime','party time'],['1989','bluebird'],['complete']],reject:['keepsake','reproduction','compact only','no doll','no dolls','no figures','almost complete','near complete']},
-  {id:'FF188',category:'retro_building',query:'LEGO Bionicle Tahu 8534 complete',terms:[['lego','bionicle'],['tahu'],['8534'],['complete']],reject:['incomplete','mask only','canister only','missing','replacement','set of','lot of']},
-  {id:'FF359',category:'lego_camera',query:'LEGO Polaroid 21345',terms:[['lego'],['21345']],reject:['incomplete','missing']},
-  {id:'FF399',category:'lego_radio',query:'LEGO Retro Radio 10334',terms:[['lego'],['10334']],reject:['incomplete','missing']},
-  {id:'FF405',category:'lego_gaming',query:'LEGO Game Boy 72046',terms:[['lego'],['72046']],reject:['incomplete','missing']},
-  {id:'FF464',category:'character_accessories',query:'Loungefly Pokemon Gengar Cosplay Glow Mini Backpack',terms:[['loungefly'],['gengar'],['backpack'],['glow','pmbk0329']],reject:['pin','wallet','keychain']},
-  {id:'FF164',category:'music_nostalgia',query:'HitClips Britney Spears Oops I Did It Again',terms:[['hitclips','hit clips'],['britney'],['oops']],reject:['cd','vinyl','cassette','album']}
+  {id:'FF001',category:'vintage_jackets',query:'Vintage Carhartt Detroit jacket J01 brown',terms:[['carhartt'],['detroit'],['jacket'],['j01'],['brown']],reject:['wip','j130','j14']},
+  {id:'FF033',category:'vintage_jackets',query:'Vintage Tommy Hilfiger Sailing Gear jacket',terms:[['tommy hilfiger'],['sailing'],['jacket']],reject:['kids','youth']},
+  {id:'FF156',category:'bags',query:'Coach Ergo 9033',terms:[['coach'],['ergo'],['9033']],reject:['strap only','wallet']},
+  {id:'FF173',category:'bags',query:'Fendi Zucca Baguette bag',terms:[['fendi'],['zucca'],['baguette']],reject:['strap only','wallet','charm']},
+  {id:'FF046',category:'sunglasses',query:'Vintage Oakley Eye Jacket black sunglasses',terms:[['oakley'],['eye jacket'],['black']],reject:['redux','lenses only','lens only','replacement','frames only']},
+  {id:'FF073',category:'jerseys',query:'Vintage Champion Shaquille O Neal Orlando Magic 32 jersey blue',terms:[['champion'],['magic'],['32'],['jersey']],reject:['youth','kids','mitchell','reebok','lakers']},
+  {id:'FF080',category:'jerseys',query:'Nike Barcelona Ronaldinho 2005 2006 home jersey',terms:[['nike'],['barcelona'],['ronaldinho'],['jersey','shirt'],['home']],reject:['away','retro remake','reissue','youth','kids','2007','2008']},
+  {id:'FF118',category:'retro_gaming',query:'Nintendo Game Boy Color Atomic Purple original console',terms:[['nintendo'],['game boy color','gameboy color'],['atomic purple']],reject:['shell','housing','ips','modded','screen only']},
+  {id:'FF124',category:'retro_gaming',query:'Nintendo 64 Jungle Green console controller',terms:[['nintendo 64','n64'],['jungle green'],['console']],reject:['shell','housing','controller only']},
+  {id:'FF133',category:'retro_gaming',query:'Sony PlayStation Vita PCH 1000 OLED black console',terms:[['sony','playstation','ps'],['vita'],['1000','1001','oled']],reject:['screen only','shell','housing','2000','2001']},
+  {id:'FF213',category:'cards',query:'Pokemon Umbreon VMAX 215 203 English near mint',terms:[['umbreon'],['vmax'],['215'],['203','evolving skies']],reject:['japanese','korean','chinese','proxy','metal','graded','psa','bgs','cgc','lp','mp','hp','played','damaged']},
+  {id:'FF224',category:'cards',query:'Pokemon Magikarp Paldea Evolved 203 193 English near mint',terms:[['magikarp'],['203'],['193','paldea evolved']],reject:['japanese','korean','chinese','proxy','metal','graded','psa','bgs','cgc','lp','mp','hp','played','damaged']},
+  {id:'FF296',category:'character_collectibles',query:'Vintage Furby 1998 brown grey working',terms:[['furby'],['1998'],['brown','grey','gray']],reject:['2012','2023','furby baby','boom']},
+  {id:'FF314',category:'character_collectibles',query:'Bratz Yasmin first edition 2001 original doll',terms:[['bratz'],['yasmin'],['2001']],reject:['20th','anniversary','reproduction','reissue','outfit only','clothes only']},
+  {id:'FF409',category:'character_collectibles',query:'POP MART Labubu Exciting Macaron sealed single box',terms:[['labubu'],['macaron','macarons'],['pop mart']],reject:['whole set','set of 6','case of 6','six boxes','empty box','opened','unboxed']},
+  {id:'FF411',category:'character_collectibles',query:'Sonny Angel Hippers Harvest sealed blind box',terms:[['sonny angel'],['hippers'],['harvest']],reject:['opened','unboxed','looking back','animal series']},
+  {id:'FF366',category:'sneakers',query:'Air Jordan 1 Lost and Found Chicago adult',terms:[['jordan'],['1'],['lost found','lost and found']],reject:['gs','youth','kids','toddler','infant']},
+  {id:'FF370',category:'sneakers',query:'Nike SB Air Jordan 4 Pine Green adult',terms:[['jordan'],['4'],['sb'],['pine green']],reject:['gs','youth','kids','toddler','infant','2025']},
+  {id:'FF377',category:'sneakers',query:'ASICS Gel Kayano 14 White Midnight adult',terms:[['asics'],['kayano'],['14'],['white'],['midnight']],reject:['kids','youth','toddler']},
+  {id:'FF421',category:'beauty',query:'rhode Peptide Lip Treatment Unscented 10ml sealed',terms:[['rhode'],['peptide'],['lip treatment'],['unscented']],reject:['used','empty','tint','pocket blush','sample']},
+  {id:'FF425',category:'beauty',query:'Rare Beauty Soft Pinch Liquid Blush Hope full size new',terms:[['rare beauty'],['soft pinch'],['blush'],['hope']],reject:['used','empty','mini','sample','travel']},
+  {id:'FF455',category:'fragrance',query:'Glossier You Eau de Parfum 50ml new sealed',terms:[['glossier'],['you'],['50ml','50 ml','1.7 oz','1.7oz']],reject:['used','empty','sample','decant','refill','tester']},
+  {id:'FF459',category:'fragrance',query:'Valentino Donna Born in Roma Eau de Parfum 50ml new sealed',terms:[['valentino'],['donna'],['born in roma'],['50ml','50 ml','1.7 oz','1.7oz']],reject:['used','empty','sample','decant','tester','intense','green stravaganza','yellow dream','coral fantasy','extrait','uomo','gift set','bundle']}
  ];
  function norm(v){return String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
  function includes(text,term){const a=norm(text),b=norm(term);if((' '+a+' ').includes(' '+b+' '))return true;if(!/\d/.test(b))return false;const tokens=a.split(' '),compact=b.replace(/ /g,'');return tokens.some((_,i)=>[1,2,3,4].some(n=>tokens.slice(i,i+n).join('')===compact));}
@@ -21,6 +32,7 @@
  function match(target,item){
   if(!target||!item)return false;
   const title=String(item.title||'');
+  if(['beauty','fragrance'].includes(target.category)&&/used|pre.?owned|open.?box/i.test(String(item.condition||'')))return false;
   if(packaging.test(title)||target.reject.some(x=>includes(title,x)))return false;
   if(target.terms.some(group=>group.includes('lego'))&&/pieces?\s*(?:&|and)\s*parts/i.test(String(item.categoryName||'')))return false;
   if(!target.terms.every(group=>group.some(x=>includes(title,x))))return false;
@@ -34,9 +46,34 @@
   return true;
  }
  function forQuery(q){const n=norm(q);return targets.find(x=>norm(x.query)===n)||null;}
+ function annotate(target,item){
+  if(!match(target,item))return item;
+  const forms={sneakers:'sneakers',vintage_jackets:'apparel',jerseys:'apparel',retro_gaming:'gaming',cards:'trading_cards',fragrance:'fragrance'};
+  return {...item,...(forms[target.category]&&!item.productType?{productType:forms[target.category]}:{}),...(target.category==='sneakers'&&!item.brand?{brand:target.id==='FF377'?'asics':'nike'}:{}),_treasureTargetId:target.id,_treasureCategory:target.category};
+ }
  // IDs with provider candidates in the dated supply audit, not authenticated offers.
- const observedIds=new Set(['FF007','FF009','FF098','FF157','FF188','FF359','FF399','FF405','FF164']);
+ const observedIds=new Set(["FF001", "FF033", "FF173", "FF046", "FF073", "FF080", "FF118", "FF124", "FF133", "FF213", "FF224", "FF296", "FF314", "FF409", "FF411", "FF366", "FF370", "FF377", "FF421", "FF425", "FF455", "FF459"]);
  const previewTargets=Object.freeze(targets.filter(x=>observedIds.has(x.id)));
- const api=Object.freeze({version:'treasure-pilot-v238',targets:Object.freeze(targets),previewTargets,match,forQuery});
+ const groups=Object.freeze([...new Set(previewTargets.map(x=>x.category))].map(category=>({category,targets:previewTargets.filter(x=>x.category===category)})));
+ function identify(item){return forQuery(item?._interestQuery)||targets.find(x=>match(x,item))||null;}
+ function varied(items,history=[],max=36){
+  const remaining=items.map(item=>{const target=identify(item);return target?{...item,_treasureTargetId:target.id,_treasureCategory:target.category}:item;}),output=[],deferred=[];
+  while(remaining.length&&output.length<max){
+   const recent=history.concat(output),last=recent.at(-1),window=recent.slice(-20),ten=recent.slice(-9);
+   const candidates=remaining.map((item,index)=>({item,index})).filter(({item})=>!item._treasureTargetId||(!window.some(x=>identify(x)?.id===item._treasureTargetId)&&ten.filter(x=>identify(x)?.category===item._treasureCategory).length<2));
+   if(!candidates.length)break;
+   const lastCategory=identify(last)?.category,other=candidates.filter(x=>!lastCategory||x.item._treasureCategory!==lastCategory);
+   const selected=(other.length?other:candidates)[0];output.push(remaining.splice(selected.index,1)[0]);
+  }
+  deferred.push(...remaining);return {items:output,deferred};
+ }
+ const api=Object.freeze({version:'treasure-pilot-v239',targets:Object.freeze(targets),previewTargets,groups,match,annotate,forQuery,identify,varied});
  root.FindAITreasureHunt=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
+ // Retire only stale pilot feed caches; saved products and account preferences persist.
+ if(root.document)try{
+  const params=new URLSearchParams(root.location.search),country=params.get('country')||params.get('region')||root.localStorage.getItem('findai_region');
+  if(params.get('treasure-test')==='1'&&String(country).toUpperCase()==='US'&&root.localStorage.getItem('fa_treasure_preview_version')!==api.version){
+   root.localStorage.removeItem('fa_personalised_feed_cache_v14_balanced_pages');root.localStorage.removeItem('fa_personalised_lane_state_v4_balanced_pages');root.localStorage.setItem('fa_treasure_preview_version',api.version);
+  }
+ }catch(_){}
 })(globalThis);

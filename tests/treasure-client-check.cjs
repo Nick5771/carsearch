@@ -4,12 +4,15 @@ const errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.mess
 const dom=new JSDOM(html,{url:'https://findai.test/?catalogue-test=1&treasure-test=1&country=US',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:vc,beforeParse(w){w.eval(fs.readFileSync(__dirname+'/../findai-treasure-pilot.js','utf8'));w.matchMedia=()=>({matches:false,addEventListener(){},addListener(){}});w.IntersectionObserver=class{observe(){}unobserve(){}disconnect(){}};w.ResizeObserver=class{observe(){}disconnect(){}};w.scrollTo=()=>{};w.HTMLElement.prototype.scrollTo=function(){};w.HTMLElement.prototype.scrollIntoView=function(){};w.fetch=async url=>String(url).includes('/recommendations/experiment')?{ok:true,json:async()=>({id:'shopping-v230',arm:'test'})}:{ok:true,json:async()=>({items:[],listings:[],version:208}),text:async()=>''};}});
 (async()=>{
  await new Promise(r=>setTimeout(r,350));const w=dom.window;
- const lanes=w.featuredColdStart(1,'test');assert.equal(lanes.length,policy.previewTargets.length);assert(lanes.every(x=>x._treasureTargetId));
- assert(w.personalisedProfileSignature(lanes).includes('treasure-pilot-v238'));
- const query=policy.targets.find(x=>x.id==='FF359').query;
+ const lanes=w.featuredColdStart(1,'test');assert.equal(lanes.length,policy.groups.length);assert(lanes.every(x=>x._treasureTargetId));assert.equal(new Set(lanes.map(x=>x.category)).size,lanes.length,'one seed per real category');assert(!lanes.some(x=>/lego|nickelodeon|panasonic/i.test(x.query)));
+ assert(w.personalisedProfileSignature(lanes).includes('treasure-pilot-v239'));
+ const query=policy.targets.find(x=>x.id==='FF366').query;
  const offer=title=>({title,itemId:title,source:'ebay',url:'https://www.ebay.com/itm/123',image:'https://i.ebayimg.com/123.jpg',price:60,currency:'USD'});
- assert(!w.wishwaveRecommendationCandidate(offer('LED Light Kit for LEGO 21345'),query));
- assert(w.wishwaveRecommendationCandidate(offer('LEGO Polaroid OneStep SX-70 Camera 21345 sealed'),query));
+ assert(!w.wishwaveRecommendationCandidate(offer('Jordan 1 Lost and Found Chicago youth'),query));
+ assert(w.wishwaveRecommendationCandidate(offer('Jordan 1 Lost and Found Chicago adult'),query));
+ const variants=Array.from({length:12},(_,i)=>({...offer('Jordan 1 Lost and Found Chicago adult size '+(i+5)),itemId:'shoe_'+i,_interestQuery:query}));
+ const admitted=w.wishwaveAdmitRecommendations(variants,[],12).items;assert.equal(admitted.length,1,'the real client admits one discovery for twelve sellers/sizes');
+ assert.equal(w.wishwaveAdmitRecommendations(variants,admitted,12).items.length,0,'same-target protection persists into the next page');
  let forwarded;w.fetch=async(url,options)=>{if(String(url).endsWith('/search'))forwarded=JSON.parse(options.body);return{ok:true,json:async()=>({listings:[],items:[]})};};
  await w.fetchProductResults(query,{skipResolve:true,passive:true});assert.equal(forwarded.country,'US','live fallback must use the selected pilot market');
  w.history.replaceState({},'','?catalogue-test=1&treasure-test=1&country=AU');assert(w.featuredColdStart(1,'test').every(x=>!x._treasureTargetId),'US pilot must not blank other markets');

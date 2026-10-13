@@ -1,5 +1,9 @@
 # Treasure catalogue integration — first batch
 
+The original v238 editorial selection below has been superseded by
+`docs/treasure-catalogue-v239.md`. The shared pilot and current supply snapshot now
+use the revised v239 targets; this document records the earlier implementation.
+
 The 500-item v3 list is now represented as machine-readable editorial sourcing
 targets in `data/treasure-hunt-catalogue-v3.json`. No record has an invented
 price, offer URL, image or inventory count. Original FF identifiers are retained.
