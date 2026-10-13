@@ -2,6 +2,16 @@
 (function(root){
  'use strict';
  const targets=[
+  {id:'FF322',category:'lego',query:'LEGO Star Wars UCS Venator 75367 complete set',terms:[['lego'],['75367']],reject:['minifigure only','figure only','bag only','bags only','incomplete']},
+  {id:'FF326',category:'lego',query:'LEGO Technic McLaren P1 42172 complete set',terms:[['lego'],['42172']],reject:['minifigure only','bag only','bags only','incomplete']},
+  {id:'FF330',category:'lego',query:'LEGO Lord of the Rings Rivendell 10316 complete set',terms:[['lego'],['10316']],reject:['minifigure only','figure only','bag only','bags only','incomplete']},
+  {id:'FF104',category:'cameras',query:'Canon PowerShot SD1000 working digital camera',terms:[['canon'],['sd1000']],reject:['case only','battery only','charger only']},
+  {id:'FF107',category:'cameras',query:'Sony Cyber shot DSC T7 working digital camera',terms:[['sony'],['dsc t7','dsct7']],reject:['case only','battery only','charger only']},
+  {id:'FF113',category:'cameras',query:'Polaroid SX 70 Alpha 1 working camera',terms:[['polaroid'],['sx 70'],['alpha']],reject:['case only','film only']},
+  {id:'FF101',category:'portable_audio',query:'Sony Discman D EJ011 working CD player',terms:[['sony'],['d ej011','dej011']],reject:['case only','headphones only','remote only']},
+  {id:'FF102',category:'portable_audio',query:'Sony MiniDisc Walkman MZ N505 working player',terms:[['sony'],['mz n505','mzn505']],reject:['case only','disc only','remote only']},
+  {id:'FF137',category:'watches',query:'Casio CA 53W calculator watch',terms:[['casio'],['ca 53w','ca53w']],reject:['strap','band','bracelet','battery only']},
+  {id:'FF140',category:'watches',query:'Casio G Shock DW 6900 watch',terms:[['casio'],['dw 6900','dw6900']],reject:['strap','band only','bracelet only','bezel only','battery only']},
   {id:'FF001',category:'vintage_jackets',query:'Vintage Carhartt Detroit jacket J01 brown',terms:[['carhartt'],['detroit'],['jacket'],['j01'],['brown']],reject:['wip','j130','j14']},
   {id:'FF033',category:'vintage_jackets',query:'Vintage Tommy Hilfiger Sailing Gear jacket',terms:[['tommy hilfiger'],['sailing'],['jacket']],reject:['kids','youth']},
   {id:'FF156',category:'bags',query:'Coach Ergo 9033',terms:[['coach'],['ergo'],['9033']],reject:['strap only','wallet']},
@@ -23,7 +33,7 @@
   {id:'FF377',category:'sneakers',query:'ASICS Gel Kayano 14 White Midnight adult',terms:[['asics'],['kayano'],['14'],['white'],['midnight']],reject:['kids','youth','toddler']},
   {id:'FF421',category:'beauty',query:'rhode Peptide Lip Treatment Unscented 10ml sealed',terms:[['rhode'],['peptide'],['lip treatment'],['unscented']],reject:['used','empty','tint','pocket blush','sample']},
   {id:'FF425',category:'beauty',query:'Rare Beauty Soft Pinch Liquid Blush Hope full size new',terms:[['rare beauty'],['soft pinch'],['blush'],['hope']],reject:['used','empty','mini','sample','travel']},
-  {id:'FF455',category:'fragrance',query:'Glossier You Eau de Parfum 50ml new sealed',terms:[['glossier'],['you'],['50ml','50 ml','1.7 oz','1.7oz']],reject:['used','empty','sample','decant','refill','tester']},
+  {id:'FF455',category:'fragrance',query:'Glossier You Eau de Parfum 50ml new sealed',terms:[['glossier'],['you'],['50ml','50 ml','1.7 oz','1.7oz']],reject:['used','empty','sample','decant','refill','tester','gift set']},
   {id:'FF459',category:'fragrance',query:'Valentino Donna Born in Roma Eau de Parfum 50ml new sealed',terms:[['valentino'],['donna'],['born in roma'],['50ml','50 ml','1.7 oz','1.7oz']],reject:['used','empty','sample','decant','tester','intense','green stravaganza','yellow dream','coral fantasy','extrait','uomo','gift set','bundle']}
  ];
  function norm(v){return String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
@@ -52,22 +62,23 @@
   return {...item,...(forms[target.category]&&!item.productType?{productType:forms[target.category]}:{}),...(target.category==='sneakers'&&!item.brand?{brand:target.id==='FF377'?'asics':'nike'}:{}),_treasureTargetId:target.id,_treasureCategory:target.category};
  }
  // IDs with provider candidates in the dated supply audit, not authenticated offers.
- const observedIds=new Set(["FF001", "FF033", "FF173", "FF046", "FF073", "FF080", "FF118", "FF124", "FF133", "FF213", "FF224", "FF296", "FF314", "FF409", "FF411", "FF366", "FF370", "FF377", "FF421", "FF425", "FF455", "FF459"]);
+ const observedIds=new Set(["FF001", "FF033", "FF156", "FF173", "FF046", "FF073", "FF080", "FF118", "FF124", "FF133", "FF213", "FF224", "FF296", "FF314", "FF409", "FF411", "FF366", "FF370", "FF377", "FF421", "FF425", "FF455", "FF459", "FF322", "FF330", "FF104", "FF107", "FF113", "FF101", "FF137", "FF140"]);
  const previewTargets=Object.freeze(targets.filter(x=>observedIds.has(x.id)));
  const groups=Object.freeze([...new Set(previewTargets.map(x=>x.category))].map(category=>({category,targets:previewTargets.filter(x=>x.category===category)})));
- function identify(item){return forQuery(item?._interestQuery)||targets.find(x=>match(x,item))||null;}
+ function identify(item){const hinted=targets.find(x=>x.id===item?._treasureTargetId)||forQuery(item?._interestQuery);return hinted&&observedIds.has(hinted.id)&&match(hinted,item)?hinted:previewTargets.find(x=>match(x,item))||null;}
  function varied(items,history=[],max=36){
-  const remaining=items.map(item=>{const target=identify(item);return target?{...item,_treasureTargetId:target.id,_treasureCategory:target.category}:item;}),output=[],deferred=[];
+  const prior=history.map(item=>{const target=identify(item);return target?{...item,_treasureTargetId:target.id,_treasureCategory:target.category}:item;});
+  const remaining=items.flatMap(item=>{const target=identify(item);return target?[annotate(target,item)]:[];}),output=[],deferred=[];
   while(remaining.length&&output.length<max){
-   const recent=history.concat(output),last=recent.at(-1),window=recent.slice(-20),ten=recent.slice(-9);
-   const candidates=remaining.map((item,index)=>({item,index})).filter(({item})=>!item._treasureTargetId||(!window.some(x=>identify(x)?.id===item._treasureTargetId)&&ten.filter(x=>identify(x)?.category===item._treasureCategory).length<2));
+   const recent=prior.concat(output),last=recent.at(-1),window=recent.slice(-20),ten=recent.slice(-9);
+   const candidates=remaining.map((item,index)=>({item,index})).filter(({item})=>(!window.some(x=>x._treasureTargetId===item._treasureTargetId)&&ten.filter(x=>x._treasureCategory===item._treasureCategory).length<2));
    if(!candidates.length)break;
-   const lastCategory=identify(last)?.category,other=candidates.filter(x=>!lastCategory||x.item._treasureCategory!==lastCategory);
+   const lastCategory=last?._treasureCategory,other=candidates.filter(x=>!lastCategory||x.item._treasureCategory!==lastCategory);
    const selected=(other.length?other:candidates)[0];output.push(remaining.splice(selected.index,1)[0]);
   }
   deferred.push(...remaining);return {items:output,deferred};
  }
- const api=Object.freeze({version:'treasure-pilot-v239',targets:Object.freeze(targets),previewTargets,groups,match,annotate,forQuery,identify,varied});
+ const api=Object.freeze({version:'treasure-pilot-v240',targets:Object.freeze(targets),previewTargets,groups,match,annotate,forQuery,identify,varied});
  root.FindAITreasureHunt=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
  // Retire only stale pilot feed caches; saved products and account preferences persist.
  if(root.document)try{
