@@ -16,7 +16,7 @@
   {id:'FF033',category:'vintage_jackets',query:'Vintage Tommy Hilfiger Sailing Gear jacket',terms:[['tommy hilfiger'],['sailing'],['jacket']],reject:['kids','youth']},
   {id:'FF156',category:'bags',query:'Coach Ergo 9033',terms:[['coach'],['ergo'],['9033']],reject:['strap only','wallet']},
   {id:'FF173',category:'bags',query:'Fendi Zucca Baguette bag',terms:[['fendi'],['zucca'],['baguette']],reject:['strap only','wallet','charm']},
-  {id:'FF046',category:'sunglasses',query:'Vintage Oakley Eye Jacket black sunglasses',terms:[['oakley'],['eye jacket'],['black']],reject:['redux','lenses only','lens only','replacement','frames only']},
+  {id:'FF046',category:'sunglasses',query:'Vintage Oakley Eye Jacket black sunglasses',terms:[['oakley'],['eye jacket'],['black']],reject:['redux','lenses only','lens only','replacement','frames only','silver frame','vintage style','brain dead']},
   {id:'FF073',category:'jerseys',query:'Vintage Champion Shaquille O Neal Orlando Magic 32 jersey blue',terms:[['champion'],['magic'],['32'],['jersey']],reject:['youth','kids','mitchell','reebok','lakers']},
   {id:'FF080',category:'jerseys',query:'Nike Barcelona Ronaldinho 2005 2006 home jersey',terms:[['nike'],['barcelona'],['ronaldinho'],['jersey','shirt'],['home']],reject:['away','retro remake','reissue','youth','kids','2007','2008']},
   {id:'FF118',category:'retro_gaming',query:'Nintendo Game Boy Color Atomic Purple original console',terms:[['nintendo'],['game boy color','gameboy color'],['atomic purple']],reject:['shell','housing','ips','modded','screen only']},
@@ -25,7 +25,7 @@
   {id:'FF213',category:'cards',query:'Pokemon Umbreon VMAX 215 203 English near mint',terms:[['umbreon'],['vmax'],['215'],['203','evolving skies']],reject:['japanese','korean','chinese','proxy','metal','graded','psa','bgs','cgc','lp','mp','hp','played','damaged']},
   {id:'FF224',category:'cards',query:'Pokemon Magikarp Paldea Evolved 203 193 English near mint',terms:[['magikarp'],['203'],['193','paldea evolved']],reject:['japanese','korean','chinese','proxy','metal','graded','psa','bgs','cgc','lp','mp','hp','played','damaged']},
   {id:'FF296',category:'character_collectibles',query:'Vintage Furby 1998 brown grey working',terms:[['furby'],['1998'],['brown','grey','gray']],reject:['2012','2023','furby baby','boom']},
-  {id:'FF314',category:'character_collectibles',query:'Bratz Yasmin first edition 2001 original doll',terms:[['bratz'],['yasmin'],['2001']],reject:['20th','anniversary','reproduction','reissue','outfit only','clothes only']},
+  {id:'FF314',category:'character_collectibles',query:'Bratz Yasmin first edition 2001 original doll',terms:[['bratz'],['yasmin'],['2001']],reject:['20th','anniversary','reproduction','reissue','outfit only','clothes only','missing shoes','no shoes','missing outfit','missing accessories','incomplete','nude','naked']},
   {id:'FF409',category:'character_collectibles',query:'POP MART Labubu Exciting Macaron sealed single box',terms:[['labubu'],['macaron','macarons'],['pop mart']],reject:['whole set','set of 6','case of 6','six boxes','empty box','opened','unboxed']},
   {id:'FF411',category:'character_collectibles',query:'Sonny Angel Hippers Harvest sealed blind box',terms:[['sonny angel'],['hippers'],['harvest']],reject:['opened','unboxed','looking back','animal series']},
   {id:'FF366',category:'sneakers',query:'Air Jordan 1 Lost and Found Chicago adult',terms:[['jordan'],['1'],['lost found','lost and found']],reject:['gs','youth','kids','toddler','infant']},
@@ -33,7 +33,7 @@
   {id:'FF377',category:'sneakers',query:'ASICS Gel Kayano 14 White Midnight adult',terms:[['asics'],['kayano'],['14'],['white'],['midnight']],reject:['kids','youth','toddler']},
   {id:'FF421',category:'beauty',query:'rhode Peptide Lip Treatment Unscented 10ml sealed',terms:[['rhode'],['peptide'],['lip treatment'],['unscented']],reject:['used','empty','tint','pocket blush','sample']},
   {id:'FF425',category:'beauty',query:'Rare Beauty Soft Pinch Liquid Blush Hope full size new',terms:[['rare beauty'],['soft pinch'],['blush'],['hope']],reject:['used','empty','mini','sample','travel']},
-  {id:'FF455',category:'fragrance',query:'Glossier You Eau de Parfum 50ml new sealed',terms:[['glossier'],['you'],['50ml','50 ml','1.7 oz','1.7oz']],reject:['used','empty','sample','decant','refill','tester','gift set','duo','2pc','bundle']},
+  {id:'FF455',category:'fragrance',query:'Glossier You Eau de Parfum 50ml new sealed',terms:[['glossier'],['you'],['50ml','50 ml','1.7 oz','1.7oz']],reject:['used','empty','sample','decant','refill','tester','gift set','duo','2pc','bundle','fleur','doux','reve','soie']},
   {id:'FF459',category:'fragrance',query:'Valentino Donna Born in Roma Eau de Parfum 50ml new sealed',terms:[['valentino'],['donna'],['born in roma'],['50ml','50 ml','1.7 oz','1.7oz']],reject:['used','empty','sample','decant','tester','intense','green stravaganza','yellow dream','coral fantasy','extrait','uomo','gift set','bundle']}
  ];
  function norm(v){return String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();}
@@ -79,7 +79,7 @@
   }
   deferred.push(...remaining);return {items:output,deferred};
  }
- const api=Object.freeze({version:'treasure-pilot-v240.1',targets:Object.freeze(targets),previewTargets,groups,match,annotate,forQuery,identify,varied});
+ const api=Object.freeze({version:'treasure-pilot-v240.2',targets:Object.freeze(targets),previewTargets,groups,match,annotate,forQuery,identify,varied});
  root.FindAITreasureHunt=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
  // Retire only stale pilot feed caches; saved products and account preferences persist.
  if(root.document)try{
