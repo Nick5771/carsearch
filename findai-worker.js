@@ -21191,6 +21191,7 @@ const RecommendationCatalogueCore=(()=>{
  }
  function fit(item,request,meta,shopping){
   const wanted=request.type||'',topics=request.topics||[],tags=new Set(meta.tags.map(x=>x.key)),attrs=shopping.describe(item,meta);
+  if(wanted!=='accessory'&&/\b(?:instructions?|manuals?)\s*$/.test(normal(item.title))&&!/\b(?:complete|with|includes?|including)\b|\bw\s*\//i.test(String(item.title||'')))return {eligible:false,score:0,coverage:0,reason:'ambiguous-manual'};
   if(wanted&&meta.type!==wanted)return {eligible:false,score:0,coverage:0,reason:'form'};
   if(topics.some(x=>!tags.has(x)))return {eligible:false,score:0,coverage:0,reason:'topic'};
   const explicit=request.explicit||{},learned=request.learned||{};

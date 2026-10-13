@@ -8,3 +8,5 @@ const groups={building_sets:{products:4,facets:{condition:{used:{positive:4,prod
 console.log('PASS: conjunction scoring, soft learned ranges, explicit condition/price/currency/topic constraints, strong identity/edition separation and conservative unknown/SKU handling');
 
 assert.notEqual(K.identity({...good,color:'red'},T.classify(good)).variant,K.identity({...good,color:'blue'},T.classify(good)).variant);assert.equal(K.identity({title:'Unknown',gtin:'0000000000000',itemId:'a'},T.classify({title:'Unknown'})).confidence,'offer');assert.equal(K.identity({title:'Unknown',gtin:'4006381333931',itemId:'a'},T.classify({title:'Unknown'})).confidence,'gtin');
+
+assert(!fit({...good,title:"LEGO Star Wars 75360 Yoda's Jedi Starfighter Retired Instructions"}).eligible,'unqualified instruction listing is not a complete set');assert(fit({...good,title:'LEGO Star Wars spaceship with Instructions'}).eligible,'included instructions do not exclude a set');
