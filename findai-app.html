@@ -4939,7 +4939,6 @@ const DISCOVERY_SEED_GROUPS = [
   {category:'diecast',seeds:[['hot wheels diecast cars','hot wheels diecast cars'],['matchbox diecast cars','matchbox diecast cars']]},
   {category:'watches',seeds:[['casio watch','casio watch'],['seiko watch','seiko watch']]},
   {category:'fashion',seeds:[['patagonia fleece jacket','patagonia fleece jacket'],['nike hoodie','nike hoodie'],['adidas jacket','adidas jacket']]},
-  {category:'cameras',seeds:[['fujifilm instax camera','fujifilm instax camera'],['canon mirrorless camera','canon mirrorless camera']]}
 ];
 function featuredColdStart(baseScore,seedKey){
   const groups=DISCOVERY_SEED_GROUPS.map((group,index)=>{
@@ -34244,7 +34243,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   'use strict';
   const C=window.WishWaveRecommendationCore;
   const FEATURE_KEY='ww_product_preferences_v226',REJECT_KEY='ww_rejections_v226',EXPOSURE_KEY='ww_exposure_window_v226';
-  const localKeys=['fa_tracked_v2',INTEREST_PROFILE_KEY,INTEREST_HISTORY_KEY,PERSONALISED_SEEN_KEY,PERSONALISED_CACHE_KEY,PERSONALISED_LANE_STATE_KEY,PERSONALISED_LAST_REFRESH_KEY,'fa_behavior_profile_v125','fa_dwell_history_v125','findai_priority_search_v130','findai_recent_searches_v130','findai_v133_search_cache','fa_last',FEATURE_KEY,REJECT_KEY,EXPOSURE_KEY,'ww_topic_evidence_v227','ww_shopping_sync_v228','ww_recommendation_outbox_v228','findai_app_preferences_v136'];
+  const localKeys=['fa_tracked_v2',INTEREST_PROFILE_KEY,INTEREST_HISTORY_KEY,PERSONALISED_SEEN_KEY,PERSONALISED_CACHE_KEY,PERSONALISED_LANE_STATE_KEY,PERSONALISED_LAST_REFRESH_KEY,'fa_behavior_profile_v125','fa_dwell_history_v125','findai_priority_search_v130','findai_recent_searches_v130','findai_v133_search_cache','fa_last',FEATURE_KEY,REJECT_KEY,EXPOSURE_KEY,'ww_topic_evidence_v227','ww_feed_reset_v237','ww_shopping_sync_v228','ww_recommendation_outbox_v228','findai_app_preferences_v136'];
   const sessionKeys=['ww_topic_session_v227','ww_shopping_intents_v228','ww_mission_v229','fa_session_taste_v125',PERSONALISED_REQUEST_BUDGET_KEY,'fa_personalised_feed_cache_v7'];
   const archiveKey='ww_recommendation_accounts_v226';
   const parsedCache=new Map();
@@ -34650,7 +34649,23 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   const enabled=()=>window.findaiAppPreferences?.().personalized!==false;
   function load(){if(cache)return cache;try{cache=JSON.parse(localStorage.getItem(STATE)||'null');}catch(_){}return cache=cache&&typeof cache==='object'?cache:{profile:{},journal:{}};}
   function session(){if(sessionCache)return sessionCache;try{sessionCache=JSON.parse(sessionStorage.getItem(SESSION)||'{}');}catch(_){}return sessionCache=sessionCache&&typeof sessionCache==='object'?sessionCache:{};}
-  function persist(next){cache=next;try{localStorage.setItem(STATE,JSON.stringify(next));}catch(_){}}
+  function filterResetHistory(next){
+   let cutoff=0;try{cutoff=Number(JSON.parse(localStorage.getItem('ww_feed_reset_v237')||'{}').at)||0;}catch(_){}if(!cutoff)return next;
+   const saved=new Set(getTracked().map(item=>wishwaveProductIdentity(item).family));
+   const rows=Object.values(next.journal||{}).filter(row=>row.item&&(row.at>=cutoff||saved.has(row.family)||row.events?.reject||row.events?.irrelevant||row.events?.unlike));
+   let clean={profile:{},journal:{}};
+   for(const row of rows.sort((a,b)=>a.at-b.at)){
+    const e=row.events||{},at=Number(row.at)||Date.now();
+    if(row.exposure)clean=T.update(clean,row.item,'exposure',{},at,row.family);
+    for(const event of ['like','track','galleryInspect','click','compare','share','revisit','comment','commentsRead','relevancePositive'])if(e[event])clean=T.update(clean,row.item,event,{},at,row.family);
+    if(e.ms)clean=T.update(clean,row.item,'attention',{ms:e.ms,ratio:e.dwell?2:1},at,row.family);
+    if(e.unlike)clean=T.update(clean,row.item,'unlike',{},at,row.family);
+    if(e.irrelevant)clean=T.update(clean,row.item,'relevanceNegative',{},at,row.family);
+    if(e.reject)clean=T.update(clean,row.item,'notInterested',{scope:e.rejectScope||'product'},at,row.family);
+   }
+   return {...next,profile:clean.profile,journal:clean.journal};
+  }
+  function persist(next){next=filterResetHistory(next);cache=next;try{localStorage.setItem(STATE,JSON.stringify(next));}catch(_){}}
   function rememberSession(meta,strength){
     const now=Date.now(),map=session();for(const tag of meta.tags){const old=map[tag.key];const carry=old?(Number(old.score)||0)*Math.pow(.5,Math.max(0,now-old.at)/(20*60000)):0;map[tag.key]={score:Math.min(12,Math.max(-12,carry+strength*tag.weight)),at:now};}
     sessionCache=Object.fromEntries(Object.entries(map).sort((a,b)=>b[1].at-a[1].at).slice(0,100));try{sessionStorage.setItem(SESSION,JSON.stringify(sessionCache));}catch(_){}
@@ -34714,6 +34729,16 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
     for(const item of getTracked().slice(0,120)){const family=wishwaveProductIdentity(item).family;if(giftSession||gifts.has(family)){gifts.add(family);continue;}if(seeded.has(family)||!T.classify(item).tags.length)continue;seeded.add(family);state=T.update(state,item,'track',{},Math.min(Date.now(),Number(item.savedAt)||Date.now()),family);}
     if(seeded.size!==(load().seeded||[]).length||gifts.size!==(load().giftFamilies||[]).length)persist({...state,seeded:[...seeded].slice(-400),giftFamilies:[...gifts].slice(-120)});
   }
+  // Explicit reset link affects only this account/browser's recommendation history.
+  // Likes, rejection rules, gifts, auth and other accounts remain separate.
+  if(new URLSearchParams(location.search).get('reset-feed')==='1'){
+   const prior=load(),at=Date.now();localStorage.setItem('ww_feed_reset_v237',JSON.stringify({at}));
+   for(const key of [INTEREST_PROFILE_KEY,INTEREST_HISTORY_KEY,PERSONALISED_SEEN_KEY,PERSONALISED_CACHE_KEY,PERSONALISED_LANE_STATE_KEY,PERSONALISED_LAST_REFRESH_KEY,'fa_behavior_profile_v125','fa_dwell_history_v125','findai_priority_search_v130','findai_recent_searches_v130','findai_v133_search_cache','fa_last','ww_product_preferences_v226','ww_exposure_window_v226'])localStorage.removeItem(key);
+   for(const key of [SESSION,INTENTS,'fa_session_taste_v125',PERSONALISED_REQUEST_BUDGET_KEY,'fa_personalised_feed_cache_v7'])sessionStorage.removeItem(key);
+   persist({...prior,seeded:[]});sessionCache=null;facetCache=null;personalisedSeenCache=null;personalisedWarmPromise=null;
+   const url=new URL(location.href);url.searchParams.delete('reset-feed');history.replaceState(history.state,'',url.href);
+  }
+  window.wishwaveFeedResetStatus=()=>{try{return JSON.parse(localStorage.getItem('ww_feed_reset_v237')||'null');}catch(_){return null;}};
   seedSaved();
   const oldTracked=window.setTracked;
   window.setTracked=function(items){const result=oldTracked.apply(this,arguments);seedSaved();return result;};
@@ -34969,7 +34994,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  const score=window.personalisedItemScore;
  window.personalisedItemScore=function(item,query,scope){const base=score.apply(this,arguments),f=focus();return base+(matches(item,f)?(f.strong?32:12):0)-(active()&&saved(item)?65:0);};
  const signature=window.personalisedProfileSignature;
- window.personalisedProfileSignature=function(lanes){return signature.apply(this,arguments)+(active()?'|curated-feed-v236|'+revision:'');};
+ window.personalisedProfileSignature=function(lanes){return signature.apply(this,arguments)+(active()?'|reset-baseline-v237|'+revision:'');};
  function eligible(item,lane){return wishwaveRecommendationCandidate(item,lane.query)&&K.fit(item,K.constraints(lane.query,window.wishwaveShoppingContext?.().purpose==='gift'?{}:window.wishwaveShoppingPreferences?.()||{},currencyOf(item,currentFeedData)||'AUD',T),T.classify(item),window.WishWaveShoppingCore).eligible&&!saved(item);}
  async function prepare(){
   if(!active()||revision===applied)return;const version=revision,owner=epoch,session=marketplaceSession();if(job?.version===version)return job.promise;
@@ -35010,7 +35035,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  const active=()=>window.wishwaveResponsiveFeedEnabled?.()===true;
  let evidenceCache=null,decisions=[];
  window.wishwaveRecordFeedDecision=entry=>{if(active())decisions=[...decisions,{at:Date.now(),...entry}].slice(-40);};
- window.wishwaveFeedDiagnostics=()=>({version:236,focus:window.wishwaveInterestFocus?.(),interests:window.wishwaveDeliberateInterests?.(),lanes:scoredInterests(),decisions:decisions.slice()});
+ window.wishwaveFeedDiagnostics=()=>({version:237,focus:window.wishwaveInterestFocus?.(),interests:window.wishwaveDeliberateInterests?.(),lanes:scoredInterests(),decisions:decisions.slice()});
  function subInterests(){
   if(!active()||window.wishwaveShoppingContext?.().purpose==='gift')return [];const raw=localStorage.getItem('ww_topic_evidence_v227')||'{}',trackedRaw=localStorage.getItem('fa_tracked_v2')||'[]',minute=Math.floor(Date.now()/60000);if(evidenceCache?.raw===raw&&evidenceCache.trackedRaw===trackedRaw&&evidenceCache.minute===minute)return evidenceCache.subs;let state={};try{state=JSON.parse(raw);}catch(_){}
   const gifts=new Set(state.giftFamilies||[]),distinct=new Map();
@@ -35102,7 +35127,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   const distinct=[];for(const x of ranked){if(distinct.some(y=>T.classify({title:y.query}).tags.some(t=>t.key===x.key)||T.classify({title:x.query}).tags.some(t=>t.key===y.key)||(x.products.length&&y.products.length&&x.products.filter(k=>y.products.includes(k)).length/Math.min(x.products.length,y.products.length)>=.75)))continue;distinct.push(x);if(distinct.length===3)break;}
   const recent=(read('ww_shopping_intents_v228',sessionStorage)||[]).filter(x=>now-x.at<30*60000).slice(0,2);
   for(const intent of recent){const meta=T.classify({title:intent.query}),tag=meta.tags.filter(x=>x.query&&x.depth>=1).sort((a,b)=>b.depth-a.depth)[0];if(!tag)continue;const score=24*Math.pow(.5,Math.max(0,now-intent.at)/(10*60000)),old=distinct.find(x=>meta.tags.some(t=>t.key===x.key));if(old){old.score=Math.min(90,old.score+score);old.searchQuery=intent.query;old.source='mixed';}else distinct.push({...tag,query:intent.query,score,supported:false,types:meta.type?[meta.type]:[],source:'search',positive:0});}
-  const baselineForms=new Set(['sneakers','headphones','gaming','building_sets','diecast_vehicles','watches','apparel','cameras']);const plan=distinct.filter(x=>x.source!=='passive'||x.types.some(t=>baselineForms.has(t))).sort((a,b)=>b.score-a.score).slice(0,4);cache={raw,savedRaw,intentRaw,stamp,gift,plan};return plan;
+  const baselineForms=new Set(['sneakers','headphones','gaming','building_sets','diecast_vehicles','watches','apparel']);const plan=distinct.filter(x=>x.source!=='passive'||x.types.some(t=>baselineForms.has(t))).sort((a,b)=>b.score-a.score).slice(0,4);cache={raw,savedRaw,intentRaw,stamp,gift,plan};return plan;
  };
  window.wishwaveBlendedPriority=item=>{
   const meta=T.classify(item),plan=window.wishwaveInterestPlan();const score=Math.max(0,...plan.filter(p=>(p.supported||p.source==='search'||p.source==='mixed')&&meta.tags.some(t=>t.key===p.key)&&(!p.types.length||p.types.includes(meta.type))).map(p=>p.score));return score?Math.min(130,55+score):0;
