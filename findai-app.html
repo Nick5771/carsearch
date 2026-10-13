@@ -35164,11 +35164,12 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  window.wishwaveAdmitRecommendations=function(items,history=[],max=36){
   if(!active())return admit.apply(this,arguments);
   const chosen=window.FindAITreasureHunt.varied(items,history,max),result=admit.call(this,chosen.items,history,max);
-  return {...result,deferred:[...chosen.deferred,...(result.deferred||[])]};
+  const final=window.FindAITreasureHunt.varied(result.items,history,max);
+  return {...result,items:final.items,deferred:[...chosen.deferred,...(result.deferred||[]),...final.deferred]};
  };
  window.sequencePersonalisedBatch=function(items,history=[],max=60){
   if(!active())return sequence.apply(this,arguments);
-  return sequence.call(this,window.FindAITreasureHunt.varied(items,history,max).items,history,max);
+  return window.FindAITreasureHunt.varied(sequence.call(this,window.FindAITreasureHunt.varied(items,history,max).items,history,max),history,max).items;
  };
  window.wishwaveTreasureStatus=()=>({version:window.FindAITreasureHunt?.version,active:active(),targets:window.FindAITreasureHunt?.previewTargets.map(x=>x.id)||[],categories:window.FindAITreasureHunt?.groups.map(x=>x.category)||[]});
 })();
