@@ -4932,79 +4932,14 @@ const DISCOVERY_BRANDS = [
    app. The seeds are queries, not hard-coded listings: the Worker still returns
    live products and prices. */
 const DISCOVERY_SEED_GROUPS = [
-  {category:'sneakers', seeds:[
-    ['air jordan 1 retro','air jordan 1 retro'],
-    ['nike dunk low','nike dunk low'],
-    ['adidas yeezy boost 350','adidas yeezy boost 350'],
-    ['new balance 9060','new balance 9060'],
-    ['asics gel kayano 14','asics gel kayano 14']
-  ]},
-  {category:'apple', seeds:[
-    ['iphone','iphone'],
-    ['apple watch','apple watch'],
-    ['ipad pro','ipad pro'],
-    ['airpods pro','airpods pro']
-  ]},
-  {category:'electronics', seeds:[
-    ['samsung galaxy','samsung galaxy'],
-    ['oled tv','oled tv'],
-    ['gaming laptop','gaming laptop'],
-    ['nvidia rtx graphics card','nvidia rtx graphics card']
-  ]},
-  {category:'gaming', seeds:[
-    ['playstation 5 console','playstation 5 console'],
-    ['xbox series x','xbox series x'],
-    ['nintendo switch','nintendo switch'],
-    ['steam deck','steam deck']
-  ]},
-  {category:'lego', seeds:[
-    ['lego star wars','lego star wars ucs'],
-    ['lego harry potter','lego harry potter'],
-    ['lego technic supercar','lego technic supercar'],
-    ['lego icons','lego icons']
-  ]},
-  {category:'collectibles', seeds:[
-    ['pokemon booster box','pokemon booster box sealed'],
-    ['sports trading cards','sports trading cards'],
-    ['rare collectibles','rare collectibles'],
-    ['vintage star wars figures','vintage star wars action figures']
-  ]},
-  {category:'fashion', seeds:[
-    ['ralph lauren jacket','ralph lauren jacket'],
-    ['designer sunglasses','designer sunglasses'],
-    ['streetwear jacket','streetwear jacket'],
-    ['premium fashion accessories','premium fashion accessories']
-  ]},
-  {category:'luxury', seeds:[
-    ['louis vuitton bag','louis vuitton handbag'],
-    ['gucci bag','gucci handbag'],
-    ['prada bag','prada handbag'],
-    ['chanel bag','chanel handbag']
-  ]},
-  {category:'watches', seeds:[
-    ['rolex submariner','rolex submariner'],
-    ['omega speedmaster','omega speedmaster'],
-    ['cartier santos','cartier santos'],
-    ['tag heuer carrera','tag heuer carrera']
-  ]},
-  {category:'fragrance', seeds:[
-    ['dior sauvage','dior sauvage'],
-    ['jean paul gaultier le male','jean paul gaultier le male'],
-    ['tom ford fragrance','tom ford fragrance'],
-    ['giorgio armani fragrance','giorgio armani fragrance']
-  ]},
-  {category:'sports', seeds:[
-    ['tennis racket','tennis racket'],
-    ['golf clubs','golf clubs'],
-    ['football shirt','football shirt'],
-    ['basketball shoes','basketball shoes']
-  ]},
-  {category:'media', seeds:[
-    ['sony mirrorless camera','sony mirrorless camera'],
-    ['canon mirrorless camera','canon mirrorless camera'],
-    ['bose headphones','bose headphones'],
-    ['sony headphones','sony headphones']
-  ]}
+  {category:'sneakers',seeds:[['nike air max sneakers','nike air max sneakers'],['adidas samba sneakers','adidas samba sneakers'],['asics gel sneakers','asics gel sneakers']]},
+  {category:'audio',seeds:[['sony headphones','sony headphones'],['bose headphones','bose headphones']]},
+  {category:'gaming',seeds:[['playstation 5 console','playstation 5 console'],['nintendo switch console','nintendo switch console']]},
+  {category:'lego',seeds:[['lego star wars building set','lego star wars building set'],['lego technic car building set','lego technic car building set'],['lego icons building set','lego icons building set']]},
+  {category:'diecast',seeds:[['hot wheels diecast cars','hot wheels diecast cars'],['matchbox diecast cars','matchbox diecast cars']]},
+  {category:'watches',seeds:[['casio watch','casio watch'],['seiko watch','seiko watch']]},
+  {category:'fashion',seeds:[['patagonia fleece jacket','patagonia fleece jacket'],['nike hoodie','nike hoodie'],['adidas jacket','adidas jacket']]},
+  {category:'cameras',seeds:[['fujifilm instax camera','fujifilm instax camera'],['canon mirrorless camera','canon mirrorless camera']]}
 ];
 function featuredColdStart(baseScore,seedKey){
   const groups=DISCOVERY_SEED_GROUPS.map((group,index)=>{
@@ -34479,7 +34414,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  }
  function describe(item,meta){
   const clean=cleanItem(item),t=text(clean.title),condition=text(clean.condition);
-  const brand=text(clean.brand)||[['hot wheels',/\bhot ?wheels\b/],['matchbox',/\bmatchbox\b/],['lego',/\blego\b/],['new balance',/\bnew balance\b/],['nike',/\b(?:nike|air jordan|air force|dunk)\b/],['adidas',/\b(?:adidas|yeezy)\b/],['apple',/\b(?:apple|iphone|macbook)\b/],['samsung',/\bsamsung\b/],['sony',/\bsony\b/],['canon',/\bcanon\b/]].find(x=>x[1].test(t))?.[0]||'';
+  const brand=text(clean.brand)||[['hot wheels',/\bhot ?wheels\b/],['matchbox',/\bmatchbox\b/],['lego',/\blego\b/],['new balance',/\bnew balance\b/],['nike',/\b(?:nike|air jordan|air force|dunk)\b/],['adidas',/\b(?:adidas|yeezy)\b/],['apple',/\b(?:apple|iphone|macbook)\b/],['samsung',/\bsamsung\b/],['sony',/\bsony\b/],['canon',/\bcanon\b/],['dell',/\bdell\b/],['hp',/\b(?:hp|hewlett packard)\b/],['lenovo',/\blenovo\b/],['asus',/\basus\b/],['acer',/\bacer\b/],['msi',/\bmsi\b/],['casio',/\bcasio\b/],['seiko',/\bseiko\b/],['asics',/\basics\b/],['patagonia',/\bpatagonia\b/],['fujifilm',/\b(?:fujifilm|instax)\b/]].find(x=>x[1].test(t))?.[0]||'';
   const form=/refurb|renewed/.test(condition)?'refurbished':/pre owned|used|second hand/.test(condition)?'used':/new|unopened|sealed/.test(condition)?'new':'';
   return {type:meta.type,currency:/^[A-Z]{3}$/.test(String(clean.currency||'').toUpperCase())?clean.currency.toUpperCase():'',price:clean.price||0,brand:meta.compatible?'':brand,condition:form,size:text(clean.size),color:text(clean.color||clean.colour),scale:meta.scale||'',model:text(clean.model)};
  }
@@ -34531,7 +34466,8 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
     const packaging=/\b(?:empty box|box only|packaging only|instructions only|manual only|sticker sheet|replacement|spare parts|parts only|car cover|display case|acrylic case|box protector|protector case|case for|case only|cooling pad|laptop cooler|laptop cooling|screen protector|keyboard cover|charging cable|lens cap|light kits?|lighting kits?|light my bricks|lmb 2 0 kit|led kits?|led lighting|glasses case|sunglasses case)\b/.test(text)||/\b(?:packaging|accessory|accessories|instructions|spare parts)\b/.test(read('productType'));
     let type='',category='',theme='',brand='',subject='';const tags=[];
     const add=(key,label,weight,query='',depth=1)=>{if(!tags.some(x=>x.key===key))tags.push({key,label,weight,query,depth});};
-    if(packaging){type='accessory';category=lego?'lego':vehicle?'cars':'other';add('type:accessories','Accessories',1);}
+    if(/\b(?:dog|dogs|puppy|puppies|cat|cats|pet)\b/.test(text)&&/\b(?:sweaters?|hoodies?|coats?|jackets?|clothing|apparel|costumes?|harness|collar|pet bed)\b/.test(text)){type='pet_supplies';category='pets';add('type:pet_supplies','Pet products',1,'pet clothing',1);}
+    else if(packaging){type='accessory';category=lego?'lego':vehicle?'cars':'other';add('type:accessories','Accessories',1);}
     else if(/\b(?:t ?shirts?|shirts?|tee|hoodie|jacket|dress|jeans|trousers|apparel|sweatshirt)\b/.test(text)&&!/\b(?:minifig(?:ure)?s?|building set|building kit)\b/.test(text)){type='apparel';category='fashion';add('type:apparel','apparel',1,'apparel',1);}
     else if(compatible){type='building_sets';category='collectibles';add('type:building_sets','Building sets',1,'building sets',1);}
     else if(lego){
@@ -34559,7 +34495,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
     }else if(vehicle&&!/\b(?:shirt|t shirt|hoodie|jacket|poster|keychain|watch|model|game|book)\b/.test(text)&&/\b(?:car|cars|vehicle|sedan|coupe|suv|porsche|ferrari|lamborghini)\b/.test(text)){
       type='fullsize_vehicles';category='cars';add('type:fullsize_vehicles','Full-size vehicles',1,'',1);
     }else{
-      const groups=[['sneakers','sneakers',/\b(?:sneakers?|shoes|dunks?|yeezy|new balance|air jordan|running shoes|air force 1)\b/,'sneakers'],['apparel','fashion',/\b(?:shirt|hoodie|jacket|dress|jeans|coat)\b/,''],['fragrance','fragrance',/\b(?:perfume|fragrance|cologne|eau de)\b/,'fragrance'],['watches','watches',/\b(?:watch(?:es)?|rolex|omega|speedmaster|submariner)\b/,'watches'],['cameras','media',/\b(?:cameras?|mirrorless|dslr|sony a7)\b/,'mirrorless camera'],['gaming','gaming',/\b(?:playstation|xbox|nintendo|gaming console)\b/,'gaming consoles'],['phones','apple',/\b(?:iphones?|smartphones?|galaxy phones?)\b/,'smartphones'],['laptops','tech',/\b(?:laptops?|macbooks?|notebook computers?)\b/,'laptops'],['building_sets','collectibles',/\b(?:building sets?|building kit|construction blocks)\b/,'building sets'],['trading_cards','collectibles',/\b(?:pokemon|trading cards?|booster pack|booster box)\b/,'trading cards']];
+      const groups=[['headphones','audio',/\b(?:headphones?|earbuds?|earphones?|airpods)\b/,'headphones'],['sneakers','sneakers',/\b(?:sneakers?|shoes|dunks?|yeezy|new balance|air jordan|running shoes|air force 1)\b/,'sneakers'],['apparel','fashion',/\b(?:shirt|hoodie|jacket|dress|jeans|coat)\b/,''],['fragrance','fragrance',/\b(?:perfume|fragrance|cologne|eau de)\b/,'fragrance'],['watches','watches',/\b(?:watch(?:es)?|rolex|omega|speedmaster|submariner)\b/,'watches'],['cameras','media',/\b(?:cameras?|mirrorless|dslr|sony a7)\b/,'mirrorless camera'],['gaming','gaming',/\b(?:playstation|xbox|nintendo|gaming console)\b/,'gaming consoles'],['phones','apple',/\b(?:iphones?|smartphones?|galaxy phones?)\b/,'smartphones'],['laptops','tech',/\b(?:laptops?|macbooks?|notebook computers?)\b/,'laptops'],['building_sets','collectibles',/\b(?:building sets?|building kit|construction blocks)\b/,'building sets'],['trading_cards','collectibles',/\b(?:pokemon|trading cards?|booster pack|booster box)\b/,'trading cards']];
       const group=groups.find(x=>x[2].test(text));if(group){[type,category]=group;add('type:'+type,type.replace(/_/g,' '),1,group[3],1);}
       // Unknown forms remain unknown. We do not invent a shopping purpose.
     }
@@ -34994,14 +34930,14 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   const wanted=T.classify({title:recent.query}).tags.filter(x=>x.query&&x.depth>=1).sort((a,b)=>b.depth-a.depth)[0];return wanted?{...wanted,strong:false}:null;
  }
  window.wishwaveInterestFocus=focus;
- const matches=(item,f)=>{const meta=T.classify(item);return !!f&&(f.plan||[f]).some(p=>meta.tags.some(t=>t.key===p.key)&&(!p.types?.length||p.types.includes(meta.type)));};
+ const matches=(item,f)=>{const meta=T.classify(item);return !!f&&(f.plan||[f]).some(p=>(p.supported||p.source==='search'||p.source==='mixed'||!f.plan)&&meta.tags.some(t=>t.key===p.key)&&(!p.types?.length||p.types.includes(meta.type)));};
  function saved(item){const id=K.identity(item,T.classify(item));return getTracked().some(x=>listingKey(x)===listingKey(item)||(id.confidence!=='offer'&&K.identity(x,T.classify(x)).variant===id.variant));}
  const candidate=window.wishwaveRecommendationCandidate;
  window.wishwaveRecommendationCandidate=function(item,query){if(active()&&T.classify(item).type==='accessory'&&T.classify({title:query||''}).type!=='accessory')return false;return candidate.apply(this,arguments);};
  const reminder=window.surfaceLikedListingInFeed;
  window.surfaceLikedListingInFeed=function(items){return active()?items.filter(x=>!saved(x)):reminder.apply(this,arguments);};
  function sequence(items,history,max,strict){
-  const f=focus();if(!f)return null;let evidence={};try{evidence=JSON.parse(localStorage.getItem('ww_topic_evidence_v227')||'{}').profile||{};}catch(_){}
+  const f=focus()||(active()?{plan:[],strong:false}:null);if(!f)return null;let evidence={};try{evidence=JSON.parse(localStorage.getItem('ww_topic_evidence_v227')||'{}').profile||{};}catch(_){}
   const pool=items.filter(x=>wishwaveRecommendationCandidate(x,x._interestQuery||'')&&!saved(x)),out=[];
   const seenProducts=new Set([...history,...getTracked()].map(x=>window.wishwaveFeedProductKey?.(x)||listingKey(x)));
   const cache=new Map(),meta=x=>{if(!cache.has(x))cache.set(x,T.classify(x));return cache.get(x);},narrow=x=>meta(x).tags.filter(t=>t.depth>=3).map(t=>t.key);
@@ -35010,6 +34946,12 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
    const recent=history.concat(out).slice(-9),explore=recent.filter(x=>!matches(x,f));
    const allowed=pool.filter(x=>{
     if(seenProducts.has(window.wishwaveFeedProductKey?.(x)||listingKey(x)))return false;
+    const type=meta(x).type||wishwaveProductCategory(x),lastTwo=recent.slice(-2);
+    if(type!=='building_sets'&&lastTwo.length===2&&lastTwo.every(y=>(meta(y).type||wishwaveProductCategory(y))===type))return false;
+    const brand=window.WishWaveShoppingCore.describe(x,meta(x)).brand;
+    if(brand&&brand!=='lego'&&lastTwo.length===2&&lastTwo.every(y=>window.WishWaveShoppingCore.describe(y,meta(y)).brand===brand))return false;
+    if(brand&&brand!=='lego'&&recent.filter(y=>window.WishWaveShoppingCore.describe(y,meta(y)).brand===brand).length>=3)return false;
+    if(!f.strong&&type!=='building_sets'&&recent.filter(y=>(meta(y).type||wishwaveProductCategory(y))===type).length>=3)return false;
     if(narrow(x).some(key=>recent.filter(y=>narrow(y).includes(key)).length>=3))return false;
     // Several supported interests get space; no single one can crowd them all out.
     if(f.plan?.filter(p=>p.supported).length>1){const primary=f.plan.find(p=>meta(x).tags.some(t=>t.key===p.key));if(primary&&recent.filter(y=>meta(y).tags.some(t=>t.key===primary.key)).length>=6)return false;}
@@ -35027,7 +34969,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  const score=window.personalisedItemScore;
  window.personalisedItemScore=function(item,query,scope){const base=score.apply(this,arguments),f=focus();return base+(matches(item,f)?(f.strong?32:12):0)-(active()&&saved(item)?65:0);};
  const signature=window.personalisedProfileSignature;
- window.personalisedProfileSignature=function(lanes){return signature.apply(this,arguments)+(active()?'|fresh-opening-v235|'+revision:'');};
+ window.personalisedProfileSignature=function(lanes){return signature.apply(this,arguments)+(active()?'|curated-feed-v236|'+revision:'');};
  function eligible(item,lane){return wishwaveRecommendationCandidate(item,lane.query)&&K.fit(item,K.constraints(lane.query,window.wishwaveShoppingContext?.().purpose==='gift'?{}:window.wishwaveShoppingPreferences?.()||{},currencyOf(item,currentFeedData)||'AUD',T),T.classify(item),window.WishWaveShoppingCore).eligible&&!saved(item);}
  async function prepare(){
   if(!active()||revision===applied)return;const version=revision,owner=epoch,session=marketplaceSession();if(job?.version===version)return job.promise;
@@ -35068,7 +35010,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  const active=()=>window.wishwaveResponsiveFeedEnabled?.()===true;
  let evidenceCache=null,decisions=[];
  window.wishwaveRecordFeedDecision=entry=>{if(active())decisions=[...decisions,{at:Date.now(),...entry}].slice(-40);};
- window.wishwaveFeedDiagnostics=()=>({version:235,focus:window.wishwaveInterestFocus?.(),interests:window.wishwaveDeliberateInterests?.(),lanes:scoredInterests(),decisions:decisions.slice()});
+ window.wishwaveFeedDiagnostics=()=>({version:236,focus:window.wishwaveInterestFocus?.(),interests:window.wishwaveDeliberateInterests?.(),lanes:scoredInterests(),decisions:decisions.slice()});
  function subInterests(){
   if(!active()||window.wishwaveShoppingContext?.().purpose==='gift')return [];const raw=localStorage.getItem('ww_topic_evidence_v227')||'{}',trackedRaw=localStorage.getItem('fa_tracked_v2')||'[]',minute=Math.floor(Date.now()/60000);if(evidenceCache?.raw===raw&&evidenceCache.trackedRaw===trackedRaw&&evidenceCache.minute===minute)return evidenceCache.subs;let state={};try{state=JSON.parse(raw);}catch(_){}
   const gifts=new Set(state.giftFamilies||[]),distinct=new Map();
@@ -35083,7 +35025,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  document.addEventListener('wishwave-recommendation-account-change',()=>{evidenceCache=null;decisions=[];});
  const scored=window.scoredInterests;
  window.scoredInterests=function(limit=PERSONALISED_INTEREST_LIMIT){
-  const base=scored.apply(this,arguments);if(!active())return base;const plan=window.wishwaveInterestPlan?.()||[];if(!plan.length)return base;
+  const base=scored.apply(this,arguments);if(!active())return base;const plan=window.wishwaveInterestPlan?.()||[];if(!plan.length)return featuredColdStart(1,'curated-cold-v236').slice(0,limit);
   const lane=(query,key,score)=>({id:'blend:'+key,cluster:'blend:'+key,query,discoveryQuery:query,category:T.classify({title:query}).category||interestCategory(query),score,featured:false,_topicKey:key});
   const roots=plan.map(x=>({...lane(x.searchQuery||x.query,x.key,x.score),_sessionIntent:['search','mixed'].includes(x.source)})),variations=[];
   for(const root of plan.filter(x=>x.supported).slice(0,2)){
@@ -35101,7 +35043,12 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  window.personalisedItemScore=function(item,query,scope){const base=score.apply(this,arguments);if(!active())return base;const keys=new Set(T.classify(item).tags.map(x=>x.key));return base+Math.max(0,...subInterests().map(x=>keys.has(x.key)?Math.min(5,x.products):0));};
  window.wishwaveConstrainFocusLane=function(lane){const focus=window.wishwaveInterestFocus?.();if(!active()||!focus||!T.classify({title:lane.originalQuery||lane.query}).tags.some(t=>t.key===focus.key))return;const current=lane.query;lane.variants=lane.variants.filter(query=>T.classify({title:query}).tags.some(t=>t.key===focus.key));if(!lane.variants.length)lane.variants=[lane.originalQuery||current];lane.variantIndex=Math.max(0,lane.variants.indexOf(current));if(!lane.variants.includes(current)){lane.query=lane.variants[0];lane.page=0;lane.cursor=null;lane.hasMore=true;lane.noNewPages=0;}};
  const candidate=window.wishwaveRecommendationCandidate;
- window.wishwaveRecommendationCandidate=function(item,query){if(active()&&!K.fit(item,K.constraints(query||'',{},item.currency||'AUD',T),T.classify(item),window.WishWaveShoppingCore).eligible)return false;return candidate.apply(this,arguments);};
+ window.wishwaveRecommendationCandidate=function(item,query){
+  if(active()&&T.classify(item).type==='pet_supplies'){
+   const petIntent=window.wishwaveInterestPlan?.().some(p=>(p.supported||p.source==='search'||p.source==='mixed')&&p.types.includes('pet_supplies'))||getTracked().some(x=>T.classify(x).type==='pet_supplies');
+   if(!petIntent)return false;
+  }
+  if(active()&&!K.fit(item,K.constraints(query||'',{},item.currency||'AUD',T),T.classify(item),window.WishWaveShoppingCore).eligible)return false;return candidate.apply(this,arguments);};
  function guestLikes(){
   const root=document.querySelector('#profileSignedOut .guest-profile-posts');if(!root)return;if(getAccountProfile()){root.querySelector('[data-guest-likes]')?.remove();return;}
   let list=root.querySelector('[data-guest-likes]');if(!list){list=document.createElement('section');list.dataset.guestLikes='true';list.style.padding='18px';root.append(list);}
@@ -35143,22 +35090,22 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
    // Actions corroborate each other, but one product/day has a bounded total.
    const positive=(e.reject||e.irrelevant||e.unlike)?0:Math.min(1.4,Math.max(e.like||0,e.track||0,e.relevancePositive||0,e.share||0,e.compare||0,e.click||0,e.galleryInspect||0,e.commentsRead||0,e.comment||0,e.dwell||0,e.revisit||0)+Math.min(.3,[e.click,e.share,e.compare,e.galleryInspect,e.comment,e.commentsRead,e.revisit,e.dwell].filter(x=>x>0).length*.06));
    for(const tag of meta.tags.filter(x=>x.query&&x.depth>=1&&x.depth<=2&&x.key!=='brand:lego')){
-    const old=topics.get(tag.key)||{...tag,score:0,positive:0,negative:0,forms:{},products:[],saved:0,source:'engagement'};
+    const old=topics.get(tag.key)||{...tag,score:0,positive:0,negative:0,forms:{},products:[],direct:0,saved:0,source:'engagement'};
     old.score+=positive*decay*8-(e.reject||e.irrelevant||e.skip||0)*decay*5;
     if(positive>=.2){old.positive++;old.products.push(window.wishwaveFeedProductKey(row.item));old.forms[meta.type]=(old.forms[meta.type]||0)+1;}
-    if(row.saved)old.saved++;if(e.reject||e.irrelevant)old.negative++;topics.set(tag.key,old);
+    if(row.saved)old.saved++;if(e.like||e.track||e.relevancePositive||e.click||e.share||e.compare||e.galleryInspect||e.comment||e.revisit)old.direct++;if(e.reject||e.irrelevant)old.negative++;topics.set(tag.key,old);
    }
   }
-  let ranked=[...topics.values()].filter(x=>x.score>=3&&x.positive>=2).map(x=>({...x,score:Math.min(70,Math.max(0,x.score)),supported:(x.saved>=3||x.positive>=3&&x.score>=8)&&x.negative<Math.max(3,x.positive*2),types:Object.keys(x.forms).filter(t=>x.forms[t]>=2)})).sort((a,b)=>b.score-a.score||b.depth-a.depth);
+  let ranked=[...topics.values()].filter(x=>x.score>=3&&x.positive>=2).map(x=>({...x,score:Math.min(x.direct>=2?70:6,Math.max(0,x.score)),source:x.direct>=2?'engagement':'passive',supported:(x.saved>=3||x.direct>=2&&x.positive>=3&&x.score>=8)&&x.negative<Math.max(3,x.positive*2),types:Object.keys(x.forms).filter(t=>x.forms[t]>=2)})).sort((a,b)=>b.score-a.score||b.depth-a.depth);
   // A generic parent and its specific theme are correlated evidence, not two interests.
   ranked=ranked.filter(x=>x.depth!==1||!ranked.some(y=>y.depth===2&&y.score>=x.score*.75&&T.classify({title:y.query}).tags.some(t=>t.key===x.key)));
   const distinct=[];for(const x of ranked){if(distinct.some(y=>T.classify({title:y.query}).tags.some(t=>t.key===x.key)||T.classify({title:x.query}).tags.some(t=>t.key===y.key)||(x.products.length&&y.products.length&&x.products.filter(k=>y.products.includes(k)).length/Math.min(x.products.length,y.products.length)>=.75)))continue;distinct.push(x);if(distinct.length===3)break;}
   const recent=(read('ww_shopping_intents_v228',sessionStorage)||[]).filter(x=>now-x.at<30*60000).slice(0,2);
   for(const intent of recent){const meta=T.classify({title:intent.query}),tag=meta.tags.filter(x=>x.query&&x.depth>=1).sort((a,b)=>b.depth-a.depth)[0];if(!tag)continue;const score=24*Math.pow(.5,Math.max(0,now-intent.at)/(10*60000)),old=distinct.find(x=>meta.tags.some(t=>t.key===x.key));if(old){old.score=Math.min(90,old.score+score);old.searchQuery=intent.query;old.source='mixed';}else distinct.push({...tag,query:intent.query,score,supported:false,types:meta.type?[meta.type]:[],source:'search',positive:0});}
-  const plan=distinct.sort((a,b)=>b.score-a.score).slice(0,4);cache={raw,savedRaw,intentRaw,stamp,gift,plan};return plan;
+  const baselineForms=new Set(['sneakers','headphones','gaming','building_sets','diecast_vehicles','watches','apparel','cameras']);const plan=distinct.filter(x=>x.source!=='passive'||x.types.some(t=>baselineForms.has(t))).sort((a,b)=>b.score-a.score).slice(0,4);cache={raw,savedRaw,intentRaw,stamp,gift,plan};return plan;
  };
  window.wishwaveBlendedPriority=item=>{
-  const meta=T.classify(item),plan=window.wishwaveInterestPlan();const score=Math.max(0,...plan.filter(p=>meta.tags.some(t=>t.key===p.key)&&(!p.types.length||p.types.includes(meta.type))).map(p=>p.score));return score?Math.min(130,55+score):0;
+  const meta=T.classify(item),plan=window.wishwaveInterestPlan();const score=Math.max(0,...plan.filter(p=>(p.supported||p.source==='search'||p.source==='mixed')&&meta.tags.some(t=>t.key===p.key)&&(!p.types.length||p.types.includes(meta.type))).map(p=>p.score));return score?Math.min(130,55+score):0;
  };
  // Opening a comments sheet is weak evidence only after visible reading time.
  function finishRead(){clearTimeout(commentTimer);if(!commentRead)return;const row=commentRead;commentRead=null;const body=document.getElementById('appMpSheetBody'),bg=document.getElementById('appMpSheetBg');if(!document.hidden&&row.item===wishwaveCommentsItem&&bg?.classList.contains('show')&&bg.classList.contains('wishwave-comments-mode')&&body?.querySelector('.wishwave-comment')&&Date.now()-row.at>=4000)window.wishwaveObserveProduct?.(row.item,'commentsRead',{ms:Date.now()-row.at});}
