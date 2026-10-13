@@ -5736,7 +5736,7 @@ function warmPersonalisedFeedCache(){
     try{
       const warmOwner=getAccountProfile()?.email||'guest';
       const lanes=scoredInterests().map(newPersonalisedLane);
-      restorePersistentPersonalisedLaneState(lanes);
+      // A new warm feed starts at page one; valid cached feeds carry their own progress.
       const signature=personalisedProfileSignature(lanes);
       const existing=readPersonalisedCache(signature);if(existing&&existing.items&&existing.items.length>=8)return existing;
       const chosen=lanes.slice(0,Math.min(4,lanes.length));if(!chosen.length)return null;
@@ -5899,7 +5899,8 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
   // from local taste + cache immediately; merge the shared profile quietly after
   // the app is already interactive.
   const lanes=scoredInterests().map(newPersonalisedLane);
-  restorePersistentPersonalisedLaneState(lanes);
+  // Persistent provider offsets belong to an existing feed, not a new opening.
+  // Restore progression only from a valid feed cache below.
   const cacheSignature=personalisedProfileSignature(lanes);
   feedState={
     query:'for-you',resolvedQuery:'for-you',source:'personalised',preserveExact:false,strictHybrid:false,scanRequiredTokens:[],
@@ -34699,7 +34700,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   else if(catalogueTest==='0')sessionStorage.removeItem('ww_catalogue_test_v230');
   window.wishwaveCatalogueTest=()=>sessionStorage.getItem('ww_catalogue_test_v230')==='1';
   let cache=null,sessionCache=null,events=[],flushTimer=0,metricFailures=0,pendingSync=[],syncPromise=null,syncTimer=0,scopeEpoch=0;
-  let experiment={id:'shopping-v230',arm:'unassigned'},assignmentPromise=null;
+  let experiment={id:'shopping-v230',arm:window.wishwaveCatalogueTest()?'test':'unassigned'},assignmentPromise=null;
   window.wishwaveShoppingExperiment=()=>({...experiment});
   window.wishwaveShoppingTreatment=()=>['control','treatment','test'].includes(experiment.arm);
   const treatment=()=>window.wishwaveShoppingTreatment();
@@ -34780,7 +34781,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   seedSaved();
   const oldTracked=window.setTracked;
   window.setTracked=function(items){const result=oldTracked.apply(this,arguments);seedSaved();return result;};
-  const reset=()=>{scopeEpoch++;cache=null;sessionCache=null;facetCache=null;observeGuards.clear();events=[];pendingSync=[];clearTimeout(flushTimer);clearTimeout(syncTimer);flushTimer=0;syncTimer=0;syncPromise=null;experiment={id:'shopping-v230',arm:'unassigned'};assignmentPromise=null;events=Array.isArray(readOutbox().events)?readOutbox().events.slice(-240):[];trialEvents=Array.isArray(readOutbox().trialEvents)?readOutbox().trialEvents.slice(-240):[];exposures.clear();clearTimeout(trialTimer);trialTimer=0;setTimeout(()=>{assignExperiment();syncProfile();},100);};
+  const reset=()=>{scopeEpoch++;cache=null;sessionCache=null;facetCache=null;observeGuards.clear();events=[];pendingSync=[];clearTimeout(flushTimer);clearTimeout(syncTimer);flushTimer=0;syncTimer=0;syncPromise=null;experiment={id:'shopping-v230',arm:window.wishwaveCatalogueTest()?'test':'unassigned'};assignmentPromise=null;events=Array.isArray(readOutbox().events)?readOutbox().events.slice(-240):[];trialEvents=Array.isArray(readOutbox().trialEvents)?readOutbox().trialEvents.slice(-240):[];exposures.clear();clearTimeout(trialTimer);trialTimer=0;setTimeout(()=>{assignExperiment();syncProfile();},100);};
   document.addEventListener('wishwave-recommendation-account-change',reset);
   window.addEventListener('storage',e=>{if(e.key===STATE)cache=null;});
   // Live events retain exposure and attention separately, unlike daily summary
@@ -34848,7 +34849,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
     const epoch=scopeEpoch,owner=marketplaceSession();
     let visitor=localStorage.getItem('ww_measure_visitor_v226');if(!visitor){visitor=nonce;localStorage.setItem('ww_measure_visitor_v226',visitor);}
     assignmentPromise=(async()=>{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2000);
-      try{const response=await fetch(WORKER_BASE+'/recommendations/experiment?visitor='+encodeURIComponent(visitor)+(window.wishwaveCatalogueTest?.()?'&test=catalogue-v230':''),{headers:marketplaceHeaders(),signal:controller.signal});if(!response.ok)throw new Error('Experiment HTTP '+response.status);const data=await response.json();if(epoch===scopeEpoch&&owner===marketplaceSession()&&enabled()&&data.id==='shopping-v230'&&['control','treatment','test'].includes(data.arm))experiment={id:data.id,arm:data.arm};}
+      try{const response=await fetch(WORKER_BASE+'/recommendations/experiment?visitor='+encodeURIComponent(visitor)+(window.wishwaveCatalogueTest?.()?'&test=catalogue-v230':''),{headers:marketplaceHeaders(),signal:controller.signal});if(!response.ok)throw new Error('Experiment HTTP '+response.status);const data=await response.json();if(epoch===scopeEpoch&&owner===marketplaceSession()&&enabled()&&data.id==='shopping-v230'&&['control','treatment','test'].includes(data.arm))experiment={id:data.id,arm:window.wishwaveCatalogueTest()?'test':data.arm};}
       catch(_){}finally{clearTimeout(timer);}
     })();await assignmentPromise;if(epoch===scopeEpoch&&experiment.arm==='unassigned')assignmentPromise=null;
   }
@@ -35026,7 +35027,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  const score=window.personalisedItemScore;
  window.personalisedItemScore=function(item,query,scope){const base=score.apply(this,arguments),f=focus();return base+(matches(item,f)?(f.strong?32:12):0)-(active()&&saved(item)?65:0);};
  const signature=window.personalisedProfileSignature;
- window.personalisedProfileSignature=function(lanes){return signature.apply(this,arguments)+(active()?'|balanced-v234|'+revision:'');};
+ window.personalisedProfileSignature=function(lanes){return signature.apply(this,arguments)+(active()?'|fresh-opening-v235|'+revision:'');};
  function eligible(item,lane){return wishwaveRecommendationCandidate(item,lane.query)&&K.fit(item,K.constraints(lane.query,window.wishwaveShoppingContext?.().purpose==='gift'?{}:window.wishwaveShoppingPreferences?.()||{},currencyOf(item,currentFeedData)||'AUD',T),T.classify(item),window.WishWaveShoppingCore).eligible&&!saved(item);}
  async function prepare(){
   if(!active()||revision===applied)return;const version=revision,owner=epoch,session=marketplaceSession();if(job?.version===version)return job.promise;
@@ -35067,7 +35068,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  const active=()=>window.wishwaveResponsiveFeedEnabled?.()===true;
  let evidenceCache=null,decisions=[];
  window.wishwaveRecordFeedDecision=entry=>{if(active())decisions=[...decisions,{at:Date.now(),...entry}].slice(-40);};
- window.wishwaveFeedDiagnostics=()=>({version:234,focus:window.wishwaveInterestFocus?.(),interests:window.wishwaveDeliberateInterests?.(),lanes:scoredInterests(),decisions:decisions.slice()});
+ window.wishwaveFeedDiagnostics=()=>({version:235,focus:window.wishwaveInterestFocus?.(),interests:window.wishwaveDeliberateInterests?.(),lanes:scoredInterests(),decisions:decisions.slice()});
  function subInterests(){
   if(!active()||window.wishwaveShoppingContext?.().purpose==='gift')return [];const raw=localStorage.getItem('ww_topic_evidence_v227')||'{}',trackedRaw=localStorage.getItem('fa_tracked_v2')||'[]',minute=Math.floor(Date.now()/60000);if(evidenceCache?.raw===raw&&evidenceCache.trackedRaw===trackedRaw&&evidenceCache.minute===minute)return evidenceCache.subs;let state={};try{state=JSON.parse(raw);}catch(_){}
   const gifts=new Set(state.giftFamilies||[]),distinct=new Map();
