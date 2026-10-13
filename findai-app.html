@@ -5336,7 +5336,7 @@ function newPersonalisedLane(interest){
 }
 
 function personalisedProfileSignature(lanes){
-  return 'shopping-v229|'+(window.wishwaveShoppingExperiment?.().arm||'unassigned')+'|'+(Array.isArray(lanes)?lanes:[]).map(lane=>
+  return 'shopping-v230|'+(window.wishwaveShoppingExperiment?.().arm||'unassigned')+'|'+(Array.isArray(lanes)?lanes:[]).map(lane=>
     `${lane.cluster}:${Math.round((Number(lane.score)||0)*10)}`
   ).sort().join('|');
 }
@@ -5599,7 +5599,7 @@ function wishwaveWarmReelDiscovery(selected,page=1){
   }
   wishwaveReelDiscoveryPromise=Promise.all(chosen.map(async lane=>{
     if(!consumePersonalisedRequestBudget())return [];
-    try{const result=await fetchProductResults(lane.query,{page:1+(page-1)%3,limit:12,passive:true,skipResolve:true});return (result.data?.listings||result.data?.items||[]).filter(wishwaveAllowedListing).map(x=>({...x,_interestCategory:lane.category,_interestCluster:lane.cluster,_interestQuery:lane.query}));}catch(_){return [];}
+    try{const result=await (window.wishwaveFetchRecommendationResults||fetchProductResults)(lane.query,{page:1+(page-1)%3,limit:12,passive:true,skipResolve:true});return (result.data?.listings||result.data?.items||[]).filter(wishwaveAllowedListing).map(x=>({...x,_interestCategory:lane.category,_interestCluster:lane.cluster,_interestQuery:lane.query}));}catch(_){return [];}
   })).then(lists=>lists.flat()).finally(()=>{wishwaveReelDiscoveryPromise=null;});
   return wishwaveReelDiscoveryPromise;
 }
@@ -5653,7 +5653,7 @@ async function fetchPersonalisedLanePage(lane){
   /* Personalised lane queries are already normalised locally, so skip the
      extra /resolve-product request. This keeps each lane to one Worker call. */
   const requestState=feedState;
-  const result=await fetchProductResults(lane.query,{
+  const result=await (window.wishwaveFetchRecommendationResults||fetchProductResults)(lane.query,{
     page,cursor,limit:PERSONALISED_LANE_LIMIT,preserveExact:false,skipResolve:true,passive:true,
     signal:feedRequestController&&feedRequestController.signal
   });
@@ -5741,7 +5741,7 @@ function warmPersonalisedFeedCache(){
       const chosen=lanes.slice(0,Math.min(4,lanes.length));if(!chosen.length)return null;
       const settled=await Promise.allSettled(chosen.map(async lane=>{
         if(!consumePersonalisedRequestBudget())return {lane,items:[]};
-        const result=await fetchProductResults(lane.query,{page:1,cursor:null,limit:PERSONALISED_LANE_LIMIT,preserveExact:false,skipResolve:true,passive:true});
+        const result=await (window.wishwaveFetchRecommendationResults||fetchProductResults)(lane.query,{page:1,cursor:null,limit:PERSONALISED_LANE_LIMIT,preserveExact:false,skipResolve:true,passive:true});
         lane.page=1;lane.cursor=result.nextCursor;lane.hasMore=result.hasMore;
         const ranked=(Array.isArray(result.data&&result.data.listings)?result.data.listings:[])
           .filter(item=>wishwaveRecommendationCandidate(item,lane.query)&&getSource(item)!=='aliexpress')
@@ -15762,7 +15762,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     const exactIntent=!!config._findaiInterest?._prioritySearch;
     if((config._forceLive||config._page||exactIntent||items.length<6)&&queryUsed){
       try{
-        const result=await fetchProductResults(queryUsed,{page:(config._page||0)+1,cursor:config._cursor||null,limit:16,preserveExact:true,skipResolve:true,passive:true});
+        const result=await (window.wishwaveFetchRecommendationResults||fetchProductResults)(queryUsed,{page:(config._page||0)+1,cursor:config._cursor||null,limit:16,preserveExact:true,skipResolve:true,passive:true});
         config._page=(config._page||0)+1;config._cursor=result.nextCursor;config._more=result.hasMore;
         const live=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings:[];
         const useful=live.filter(x=>wishwaveRecommendationCandidate(x,queryUsed)&&premiumProductImage(x));
@@ -34611,7 +34611,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
 <script id="wishwave-intelligence-core">
 (function(root){
  'use strict';
- const FEATURES=['topicBoost','preferenceBoost','repeatPenalty','sharedBoost','confidence','semanticMatch','collaborativeBoost','missionBuy','missionGift','missionCollect','missionBrowse'];
+ const FEATURES=['topicBoost','preferenceBoost','repeatPenalty','sharedBoost','confidence','semanticMatch','collaborativeBoost','missionBuy','missionGift','missionCollect','missionBrowse','catalogueFit','catalogueCoverage'];
  function mission(state={},query='',event='',family='',now=Date.now()){
   const rows=(state.rows||[]).filter(x=>now-x.at<30*60000);if(event&&family&&!rows.some(x=>x.event===event&&x.family===family))rows.push({event,family,at:now});
   const explicit=state.explicit&&now-state.explicit.at<60*60000?state.explicit:null;
@@ -34622,11 +34622,52 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   return {rows:rows.slice(-60),explicit,queryIntent,purpose,confidence:explicit?.confidence||queryIntent?.confidence||(purpose==='buy'?.45:.15),at:now};
  }
  function validModel(model){
-  if(!model||model.mode!=='shadow'||model.policy!=='shopping-v229'||JSON.stringify(model.features)!==JSON.stringify(FEATURES)||!model.heads||typeof model.version!=='string'||model.version.length>80)return false;
+  if(!model||model.mode!=='shadow'||model.policy!=='shopping-v230'||JSON.stringify(model.features)!==JSON.stringify(FEATURES)||!model.heads||typeof model.version!=='string'||model.version.length>80)return false;
   const names=Object.keys(model.heads);return names.length>0&&names.length<=4&&names.every(name=>['save','visit','relevance','purchase_kept'].includes(name)&&Array.isArray(model.heads[name].weights)&&model.heads[name].weights.length===FEATURES.length+1&&model.heads[name].weights.every(x=>typeof x==='number'&&Number.isFinite(x)&&Math.abs(x)<=100));
  }
  function predict(model,features){if(!validModel(model))return {};const result={};for(const [name,head] of Object.entries(model.heads)){const z=head.weights[0]+FEATURES.reduce((sum,key,i)=>sum+head.weights[i+1]*Math.max(-2,Math.min(2,Number(features[key])||0)),0);result[name]=1/(1+Math.exp(-Math.max(-30,Math.min(30,z))));}return result;}
- root.WishWaveIntelligenceCore={FEATURES,mission,validModel,predict,policy:'shopping-v229'};
+ root.WishWaveIntelligenceCore={FEATURES,mission,validModel,predict,policy:'shopping-v230'};
+})(typeof window==='undefined'?globalThis:window);
+
+</script>
+<script id="wishwave-catalogue-core">
+(function(root){
+ 'use strict';
+ const normal=x=>String(x?.name??x??'').normalize('NFKC').toLowerCase().replace(/[^a-z0-9:.]+/g,' ').trim();
+ const validGtin=x=>/^(?:\d{8}|\d{12}|\d{13}|\d{14})$/.test(x)&&!/^0+$/.test(x)&&Array.from(x.slice(0,-1)).reverse().reduce((s,d,i)=>s+Number(d)*(i%2?1:3),Number(x.slice(-1)))%10===0;
+ function identity(item,meta){
+  const read=key=>normal(item[key]??item.product?.[key]),brand=read('brand')||meta.brand||'',gtin=String(item.gtin||item.ean||item.upc||'').replace(/\D/g,'');
+  let model=read('mpn')||read('modelNumber')||read('styleId')||read('styleCode')||read('model');
+  if(!model&&meta.category==='lego'&&!meta.compatible)model=(String(item.title||'').match(/\b\d{4,6}\b/g)||[]).find(x=>Number(x)<1900||Number(x)>2099)||'';
+  const edition=read('edition')||read('generation'),variant=[read('color')||read('colour')||read('colorway'),read('size')||read('shoeSize'),meta.scale||'',edition].join('|');
+  const key=String(item.itemId||item.id||item.url||item.title||'').toLowerCase();
+  const family=meta.type+'|'+(brand&&model?brand+':'+model+':'+edition:validGtin(gtin)?'gtin:'+gtin:'offer:'+String(item.source||'')+':'+key);
+  return {family,variant:family+'|'+variant,confidence:brand&&model?'model':validGtin(gtin)?'gtin':'offer'};
+ }
+ function constraints(query,groups={},currency='AUD',core){
+  const meta=core.classify({title:query}),text=normal(query),group=groups[meta.type],learned={};
+  if(group?.products>=3){for(const facet of ['brand','condition','scale','size']){const values=Object.entries(group.facets?.[facet]||{}).sort((a,b)=>b[1].positive-a[1].positive);const sum=values.reduce((s,x)=>s+x[1].positive,0);const best=values[0];if(best&&best[1].products>=3&&best[1].positive/(sum+1)>=.6)learned[facet]=best[0];}
+   const prices=group.prices?.[currency];if(prices?.length>=3){const sorted=prices.map(x=>x.value).sort((a,b)=>a-b);learned.price={min:sorted[Math.floor((sorted.length-1)*.25)]*.6,max:sorted[Math.ceil((sorted.length-1)*.75)]*1.6,currency};}}
+  const explicit={};if(/\b(?:pre owned|used|second hand)\b/.test(text))explicit.condition='used';else if(/\b(?:brand new|new sealed|new in box)\b/.test(text))explicit.condition='new';
+  const max=String(query).match(/\b(?:under|below|up to|max(?:imum)?)\s*[$£€]?\s*(\d+(?:\.\d+)?)/i);if(max)explicit.price={max:Number(max[1]),currency:/£/.test(max[0])?'GBP':/€/.test(max[0])?'EUR':currency};
+  return {type:meta.type,topics:meta.tags.filter(x=>x.depth>=2).map(x=>x.key),explicit,learned};
+ }
+ function fit(item,request,meta,shopping){
+  const wanted=request.type||'',topics=request.topics||[],tags=new Set(meta.tags.map(x=>x.key)),attrs=shopping.describe(item,meta);
+  if(wanted&&meta.type!==wanted)return {eligible:false,score:0,coverage:0,reason:'form'};
+  if(topics.some(x=>!tags.has(x)))return {eligible:false,score:0,coverage:0,reason:'topic'};
+  const explicit=request.explicit||{},learned=request.learned||{};
+  if(explicit.condition&&attrs.condition!==explicit.condition)return {eligible:false,score:0,coverage:0,reason:'condition'};
+  if(explicit.price&&(attrs.currency!==explicit.price.currency||attrs.price>explicit.price.max||!attrs.price))return {eligible:false,score:0,coverage:0,reason:'price'};
+  const matches=[];for(const key of ['brand','condition','scale','size'])if(learned[key])matches.push(attrs[key]?attrs[key]===learned[key]?1:.15:.4);
+  if(learned.price){if(attrs.price&&attrs.currency===learned.price.currency){const {min,max}=learned.price;const distance=attrs.price<min?Math.log(min/attrs.price):attrs.price>max?Math.log(attrs.price/max):0;matches.push(Math.max(.1,Math.exp(-distance)));}else matches.push(.4);}
+  // A conjunction: partial matches cannot stack independent bonuses to outrank
+  // a product that fits all observed preferences. Learned preferences stay soft.
+  const coverage=matches.length?matches.reduce((a,b)=>a+b,0)/matches.length:0;
+  const score=matches.length?Math.pow(matches.reduce((a,b)=>a*b,1),1/matches.length)*10-3:0;
+  return {eligible:true,score,coverage,reason:'match'};
+ }
+ root.WishWaveCatalogueCore={normal,identity,constraints,fit,policy:'shopping-v230'};
 })(typeof window==='undefined'?globalThis:window);
 
 </script>
@@ -34635,10 +34676,14 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   'use strict';
   const T=window.WishWaveInterestCore,C=window.WishWaveRecommendationCore,P=window.WishWaveShoppingCore;
   const STATE='ww_topic_evidence_v227',SESSION='ww_topic_session_v227';
+  const catalogueTest=new URLSearchParams(location.search).get('catalogue-test');
+  if(catalogueTest==='1')sessionStorage.setItem('ww_catalogue_test_v230','1');
+  else if(catalogueTest==='0')sessionStorage.removeItem('ww_catalogue_test_v230');
+  window.wishwaveCatalogueTest=()=>sessionStorage.getItem('ww_catalogue_test_v230')==='1';
   let cache=null,sessionCache=null,events=[],flushTimer=0,metricFailures=0,pendingSync=[],syncPromise=null,syncTimer=0,scopeEpoch=0;
-  let experiment={id:'shopping-v229',arm:'unassigned'},assignmentPromise=null;
+  let experiment={id:'shopping-v230',arm:'unassigned'},assignmentPromise=null;
   window.wishwaveShoppingExperiment=()=>({...experiment});
-  window.wishwaveShoppingTreatment=()=>['control','treatment'].includes(experiment.arm);
+  window.wishwaveShoppingTreatment=()=>['control','treatment','test'].includes(experiment.arm);
   const treatment=()=>window.wishwaveShoppingTreatment();
   const INTENTS='ww_shopping_intents_v228',SYNC='ww_shopping_sync_v228',OUTBOX='ww_recommendation_outbox_v228';
   function readOutbox(){try{return JSON.parse(localStorage.getItem(OUTBOX)||'{}');}catch(_){return {};}}
@@ -34717,7 +34762,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   seedSaved();
   const oldTracked=window.setTracked;
   window.setTracked=function(items){const result=oldTracked.apply(this,arguments);seedSaved();return result;};
-  const reset=()=>{scopeEpoch++;cache=null;sessionCache=null;facetCache=null;observeGuards.clear();events=[];pendingSync=[];clearTimeout(flushTimer);clearTimeout(syncTimer);flushTimer=0;syncTimer=0;syncPromise=null;experiment={id:'shopping-v229',arm:'unassigned'};assignmentPromise=null;events=Array.isArray(readOutbox().events)?readOutbox().events.slice(-240):[];trialEvents=Array.isArray(readOutbox().trialEvents)?readOutbox().trialEvents.slice(-240):[];exposures.clear();clearTimeout(trialTimer);trialTimer=0;setTimeout(()=>{assignExperiment();syncProfile();},100);};
+  const reset=()=>{scopeEpoch++;cache=null;sessionCache=null;facetCache=null;observeGuards.clear();events=[];pendingSync=[];clearTimeout(flushTimer);clearTimeout(syncTimer);flushTimer=0;syncTimer=0;syncPromise=null;experiment={id:'shopping-v230',arm:'unassigned'};assignmentPromise=null;events=Array.isArray(readOutbox().events)?readOutbox().events.slice(-240):[];trialEvents=Array.isArray(readOutbox().trialEvents)?readOutbox().trialEvents.slice(-240):[];exposures.clear();clearTimeout(trialTimer);trialTimer=0;setTimeout(()=>{assignExperiment();syncProfile();},100);};
   document.addEventListener('wishwave-recommendation-account-change',reset);
   window.addEventListener('storage',e=>{if(e.key===STATE)cache=null;});
   // Live events retain exposure and attention separately, unlike daily summary
@@ -34785,7 +34830,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
     const epoch=scopeEpoch,owner=marketplaceSession();
     let visitor=localStorage.getItem('ww_measure_visitor_v226');if(!visitor){visitor=nonce;localStorage.setItem('ww_measure_visitor_v226',visitor);}
     assignmentPromise=(async()=>{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2000);
-      try{const response=await fetch(WORKER_BASE+'/recommendations/experiment?visitor='+encodeURIComponent(visitor),{headers:marketplaceHeaders(),signal:controller.signal});if(!response.ok)throw new Error('Experiment HTTP '+response.status);const data=await response.json();if(epoch===scopeEpoch&&owner===marketplaceSession()&&enabled()&&data.id==='shopping-v229'&&['control','treatment'].includes(data.arm))experiment={id:data.id,arm:data.arm};}
+      try{const response=await fetch(WORKER_BASE+'/recommendations/experiment?visitor='+encodeURIComponent(visitor)+(window.wishwaveCatalogueTest?.()?'&test=catalogue-v230':''),{headers:marketplaceHeaders(),signal:controller.signal});if(!response.ok)throw new Error('Experiment HTTP '+response.status);const data=await response.json();if(epoch===scopeEpoch&&owner===marketplaceSession()&&enabled()&&data.id==='shopping-v230'&&['control','treatment','test'].includes(data.arm))experiment={id:data.id,arm:data.arm};}
       catch(_){}finally{clearTimeout(timer);}
     })();await assignmentPromise;if(epoch===scopeEpoch&&experiment.arm==='unassigned')assignmentPromise=null;
   }
@@ -34795,7 +34840,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   // action without a recorded exposure is not fabricated into an impression.
   let trialEvents=Array.isArray(readOutbox().trialEvents)?readOutbox().trialEvents.slice(-240):[],trialTimer=0,trialFlight=false;const exposures=new Map();
   window.wishwaveShoppingMeasure=function(item,event,details={}){
-    if(!enabled()||!item)return;const arm=item._wwTrialArm||experiment.arm;if(!['control','treatment'].includes(arm))return;
+    if(!enabled()||!item)return;const arm=item._wwTrialArm||experiment.arm;if(!['control','treatment','test'].includes(arm))return;
     const surface=document.getElementById('search')?.classList.contains('active')?'search-browse':'home';
     const key=surface+'|'+listingKey(item),at=Date.now();let exposure=exposures.get(key);
     if(event==='impression'){
@@ -34804,7 +34849,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
       exposure={id:nonce+'_ex_'+(++sequence),at,arm,position};exposures.set(key,exposure);if(exposures.size>240)exposures.delete(exposures.keys().next().value);
     }
     if(!exposure||at-exposure.at>24*3600000)return;
-    trialEvents.push({id:nonce+'_trial_'+(++sequence),exposureId:exposure.id,key:listingKey(item),family:wishwaveProductIdentity(item).family,event,position:exposure.position,arm:exposure.arm,surface,at,ms:Number(details.ms)||0,policy:'shopping-v229',features:event==='impression'?(window.wishwaveIntelligenceFeatures?.(item,{topicBoost:T.boost(load().profile,item)/22,preferenceBoost:P.boost(load(),item,T.classify(item))/14,repeatPenalty:personalisedSeenPenalty(item)/34,sharedBoost:(window.wishwaveSharedBoost?.(item)||0)/12,confidence:Math.max(0,...T.classify(item).tags.map(tag=>load().profile[tag.key]?T.stats(load().profile[tag.key]).confidence:0))})||{topicBoost:T.boost(load().profile,item)/22,preferenceBoost:P.boost(load(),item,T.classify(item))/14,repeatPenalty:personalisedSeenPenalty(item)/34,sharedBoost:(window.wishwaveSharedBoost?.(item)||0)/12,confidence:Math.max(0,...T.classify(item).tags.map(tag=>load().profile[tag.key]?T.stats(load().profile[tag.key]).confidence:0))}):undefined});trialEvents=trialEvents.slice(-240);saveOutbox();
+    trialEvents.push({id:nonce+'_trial_'+(++sequence),exposureId:exposure.id,key:listingKey(item),family:wishwaveProductIdentity(item).family,event,position:exposure.position,arm:exposure.arm,surface,at,ms:Number(details.ms)||0,policy:window.wishwaveCatalogueTest?.()?'shopping-v230-test':'shopping-v230',features:event==='impression'?(window.wishwaveIntelligenceFeatures?.(item,{topicBoost:T.boost(load().profile,item)/22,preferenceBoost:P.boost(load(),item,T.classify(item))/14,repeatPenalty:personalisedSeenPenalty(item)/34,sharedBoost:(window.wishwaveSharedBoost?.(item)||0)/12,confidence:Math.max(0,...T.classify(item).tags.map(tag=>load().profile[tag.key]?T.stats(load().profile[tag.key]).confidence:0))})||{topicBoost:T.boost(load().profile,item)/22,preferenceBoost:P.boost(load(),item,T.classify(item))/14,repeatPenalty:personalisedSeenPenalty(item)/34,sharedBoost:(window.wishwaveSharedBoost?.(item)||0)/12,confidence:Math.max(0,...T.classify(item).tags.map(tag=>load().profile[tag.key]?T.stats(load().profile[tag.key]).confidence:0))}):undefined});trialEvents=trialEvents.slice(-240);saveOutbox();
     if(!trialTimer)trialTimer=setTimeout(flushTrials,3000);
   };
   const qualifiedExposure=window.noteRecommendationImpression;
@@ -34834,7 +34879,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  'use strict';
  const I=window.WishWaveIntelligenceCore,P=window.WishWaveShoppingCore,T=window.WishWaveInterestCore;
  const enabled=()=>window.findaiAppPreferences?.().personalized!==false;
- const treatment=()=>enabled()&&window.wishwaveShoppingExperiment?.().id==='shopping-v229'&&window.wishwaveShoppingExperiment?.().arm==='treatment';
+ const treatment=()=>enabled()&&(['shopping-v229','shopping-v230'].includes(window.wishwaveShoppingExperiment?.().id))&&(window.wishwaveShoppingExperiment?.().id==='shopping-v230'?['control','treatment','test'].includes(window.wishwaveShoppingExperiment?.().arm):window.wishwaveShoppingExperiment?.().arm==='treatment');
  const MISSION='ww_mission_v229';let mission={rows:[]},epoch=0,community=[],shadow=null,warming=false,visited=false,visitTimer=0,contextItem=null;
  const semantic=new Map(),attempted=new Map();
  function readMission(){try{mission=JSON.parse(sessionStorage.getItem(MISSION)||'{}');}catch(_){mission={rows:[]};}mission=I.mission(mission);}
@@ -34865,6 +34910,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  window.recordInterest=function(query,event){if(enabled()&&['search','scan'].includes(event)){mission=I.mission(mission,String(query));saveMission();}if(enabled()&&mission.purpose==='gift'&&mission.confidence>=.8&&!['search','scan'].includes(event)&&arguments[3]?.item){wishwaveObserveProduct(arguments[3].item,event);return;}return record.apply(this,arguments);};
  window.wishwaveIntelligenceFeatures=function(item,base){
   const context=window.wishwaveShoppingContext(),match=community.find(x=>T.classify(item).tags.some(t=>t.key===x.topic));const features={...base,semanticMatch:Number(item._wwSemantic)||0,collaborativeBoost:(match?.score||0)/6,missionBuy:context.purpose==='buy'?context.confidence:0,missionGift:context.purpose==='gift'?context.confidence:0,missionCollect:context.purpose==='collect'?context.confidence:0,missionBrowse:context.purpose==='browse'?1:0};
+  Object.assign(features,window.wishwaveCatalogueFeatures?.(item,features)||{});
   if(shadow){const predicted=I.predict(shadow,features);features.modelVersion=shadow.version;for(const [name,value] of Object.entries(predicted))features['shadow_'+name]=value;}return features;
  };
  // Optional feedback belongs in the existing hold menu; no extra card button.
@@ -34877,13 +34923,40 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   try{const response=await fetch(WORKER_BASE+'/recommendations/model',{headers:marketplaceHeaders()});const data=await response.json();if(owner===epoch&&enabled()&&I.validModel(data.model))shadow=data.model;}catch(_){}
   if(!session)return;try{const response=await fetch(WORKER_BASE+'/recommendations/community',{headers:marketplaceHeaders()});if(!response.ok)return;const data=await response.json();if(owner===epoch&&session===marketplaceSession()&&enabled()){community=(data.lanes||[]).slice(0,4);schedulePersonalisedLaneRebalance('click');}}catch(_){}
  }
- async function visit(){const day=new Date().toISOString().slice(0,10);if(visited===day||!enabled()||document.hidden||window.wishwaveShoppingExperiment?.().id!=='shopping-v229'||window.wishwaveShoppingExperiment?.().arm==='unassigned')return;const owner=epoch;try{const response=await fetch(WORKER_BASE+'/recommendations/visit',{method:'POST',headers:marketplaceHeaders(),body:JSON.stringify({visitor:localStorage.getItem('ww_measure_visitor_v226'),policy:'shopping-v229'})});if(response.ok&&owner===epoch)visited=day;}catch(_){} }
+ async function visit(){const day=new Date().toISOString().slice(0,10);if(visited===day||!enabled()||document.hidden||window.wishwaveShoppingExperiment?.().id!=='shopping-v230'||window.wishwaveShoppingExperiment?.().arm==='unassigned')return;const owner=epoch;try{const response=await fetch(WORKER_BASE+'/recommendations/visit',{method:'POST',headers:marketplaceHeaders(),body:JSON.stringify({visitor:localStorage.getItem('ww_measure_visitor_v226'),policy:window.wishwaveCatalogueTest?.()?'shopping-v230-test':'shopping-v230'})});if(response.ok&&owner===epoch)visited=day;}catch(_){} }
  function scheduleVisit(){clearTimeout(visitTimer);visitTimer=setTimeout(visit,10000);}
  document.addEventListener('wishwave-recommendation-account-change',()=>{epoch++;community=[];shadow=null;semantic.clear();attempted.clear();warming=false;visited=false;contextItem=null;readMission();setTimeout(loadIntelligence,200);scheduleVisit();});
  document.addEventListener('visibilitychange',()=>{if(document.hidden)clearTimeout(visitTimer);else{scheduleVisit();loadIntelligence();}});
  window.wishwaveIntelligenceStatus=()=>({policy:'shopping-v229',semanticItems:semantic.size,communityLanes:community.length,model:shadow?.version||null,mode:'shadow',mission:window.wishwaveShoppingContext()});
  setInterval(()=>{if(!document.hidden&&enabled()&&visited!==new Date().toISOString().slice(0,10))scheduleVisit();},60000);
  setTimeout(loadIntelligence,200);scheduleVisit();
+})();
+
+</script>
+<script id="wishwave-catalogue-retrieval">
+(function(){
+ 'use strict';
+ const K=window.WishWaveCatalogueCore,T=window.WishWaveInterestCore,P=window.WishWaveShoppingCore;
+ const enabled=()=>window.findaiAppPreferences?.().personalized!==false;
+ const active=()=>enabled()&&window.wishwaveShoppingExperiment?.().id==='shopping-v230'&&['treatment','test'].includes(window.wishwaveShoppingExperiment?.().arm);
+ let epoch=0,requests=0,hits=0,lastMode='cold';const constraintsCache=new Map();
+ function preferences(query){const country=appShoppingRegion(),currency=({AU:'AUD',US:'USD',UK:'GBP',DE:'EUR',NZ:'NZD',CA:'CAD'})[country]||'AUD';return K.constraints(query,window.wishwaveShoppingContext?.().purpose==='gift'?{}:window.wishwaveShoppingPreferences?.()||{},currency,T);}
+ window.wishwaveFetchRecommendationResults=async function(query,options={}){
+  if(!active())return fetchProductResults(query,options);const owner=epoch,session=marketplaceSession(),controller=new AbortController(),cancel=()=>controller.abort();options.signal?.addEventListener('abort',cancel,{once:true});if(options.signal?.aborted)cancel();
+  const timer=setTimeout(cancel,1700);let data=null;
+  try{requests++;const response=await fetch(WORKER_BASE+'/recommendations/catalogue-search',{method:'POST',headers:marketplaceHeaders(),signal:controller.signal,body:JSON.stringify({visitor:localStorage.getItem('ww_measure_visitor_v226'),query,country:appShoppingRegion(),constraints:preferences(query),limit:options.limit||16,offset:Math.max(0,((options.page||1)-1)*(options.limit||16))})});if(response.ok)data=await response.json();}catch(_){}finally{clearTimeout(timer);options.signal?.removeEventListener('abort',cancel);}
+  if(owner!==epoch||session!==marketplaceSession()||options.signal?.aborted)return {data:{listings:[]},hasMore:false,stale:true};
+  if(!enabled())return fetchProductResults(query,options);
+  lastMode=data?.mode||'fallback';if(data?.items?.length>=4){hits++;fetchProductResults(query,{...options,page:1,cursor:null}).catch(()=>{});return {data:{listings:data.items,country:appShoppingRegion(),_catalogue:true},resolvedQuery:query,nextCursor:null,hasMore:!!data.hasMore};}
+  const live=await fetchProductResults(query,options);if(owner!==epoch||session!==marketplaceSession())return {data:{listings:[]},hasMore:false,stale:true};const seen=new Set(),items=[...(data?.items||[]),...(live.data?.listings||[])].filter(x=>{const key=listingKey(x);if(seen.has(key))return false;seen.add(key);return true;});return {...live,data:{...live.data,listings:items}};
+ };
+ const prepare=window.preparePersonalisedLaneItems;
+ window.preparePersonalisedLaneItems=function(raw,lane){if(!active())return prepare.apply(this,arguments);const constraint=preferences(lane.query),items=prepare.call(this,raw,lane);return items.filter(item=>K.fit(item,constraint,T.classify(item),P).eligible);};
+ const score=window.personalisedItemScore;
+ window.personalisedItemScore=function(item,query,scope){const base=score.apply(this,arguments);if(!active())return base;let constraint=constraintsCache.get(query);if(!constraint||Date.now()-constraint.at>2000){constraint={at:Date.now(),value:preferences(query)};constraintsCache.set(query,constraint);if(constraintsCache.size>40)constraintsCache.delete(constraintsCache.keys().next().value);}const fit=K.fit(item,constraint.value,T.classify(item),P);return base+(fit.eligible?fit.score:-1000);};
+ window.wishwaveCatalogueFeatures=function(item,base){const fit=K.fit(item,preferences(item._interestQuery||item.title),T.classify(item),P);return {...base,catalogueFit:fit.score/10,catalogueCoverage:fit.coverage};};
+ window.wishwaveCatalogueStatus=()=>({policy:'shopping-v230',active:active(),requests,hits,lastMode});
+ document.addEventListener('wishwave-recommendation-account-change',()=>{epoch++;constraintsCache.clear();hits=0;requests=0;lastMode='cold';});
 })();
 
 </script>

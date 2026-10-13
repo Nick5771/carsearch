@@ -51,5 +51,5 @@ def evaluate(db,now=None,bootstrap=1000,policy='shopping-v228'):
     return report
 
 if __name__=='__main__':
-    parser=argparse.ArgumentParser();parser.add_argument('database');parser.add_argument('--bootstrap',type=int,default=1000);parser.add_argument('--policy',choices=['shopping-v228','shopping-v229'],default='shopping-v229');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('database');parser.add_argument('--bootstrap',type=int,default=1000);parser.add_argument('--policy',choices=['shopping-v228','shopping-v229','shopping-v230'],default='shopping-v230');args=parser.parse_args()
     with sqlite3.connect(args.database) as db:print(json.dumps(evaluate(db,bootstrap=args.bootstrap,policy=args.policy),indent=2))

@@ -5,7 +5,7 @@ from collections import defaultdict
 
 def evaluate(db,today=None):
  today=today or datetime.datetime.now(datetime.timezone.utc).date();people=defaultdict(set);arms={}
- for viewer,day,arm in db.execute("SELECT viewer_key,day,arm FROM recommendation_visits WHERE policy='shopping-v229' ORDER BY day"):
+ for viewer,day,arm in db.execute("SELECT viewer_key,day,arm FROM recommendation_visits WHERE policy='shopping-v230' ORDER BY day"):
   people[viewer].add(datetime.date.fromisoformat(day));arms.setdefault(viewer,arm)
  result={}
  for arm in ('control','treatment'):

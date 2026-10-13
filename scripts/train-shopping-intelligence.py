@@ -6,12 +6,12 @@ missing. Future evaluation also holds out viewers to limit repeated-user leakage
 """
 import argparse,hashlib,importlib.util,json,math,sqlite3,time
 from pathlib import Path
-FEATURES=('topicBoost','preferenceBoost','repeatPenalty','sharedBoost','confidence','semanticMatch','collaborativeBoost','missionBuy','missionGift','missionCollect','missionBrowse')
+FEATURES=('topicBoost','preferenceBoost','repeatPenalty','sharedBoost','confidence','semanticMatch','collaborativeBoost','missionBuy','missionGift','missionCollect','missionBrowse','catalogueFit','catalogueCoverage')
 spec=importlib.util.spec_from_file_location('base',Path(__file__).with_name('train-recommendation-ranker.py'));base=importlib.util.module_from_spec(spec);spec.loader.exec_module(base)
 
 def examples(db,now=None):
  now=int(now or time.time()*1000);db.row_factory=sqlite3.Row
- events=db.execute("SELECT * FROM recommendation_trials WHERE policy='shopping-v229' AND surface='home' ORDER BY occurred_at,event_id").fetchall()
+ events=db.execute("SELECT * FROM recommendation_trials WHERE policy='shopping-v230' AND surface='home' ORDER BY occurred_at,event_id").fetchall()
  grouped={}
  for e in events:grouped.setdefault((e['viewer_key'],e['exposure_id']),[]).append(e)
  orders={}
@@ -60,7 +60,7 @@ def train(rows):
   try:heads[target]=fit(rows,target)
   except ValueError as error:declined[target]=str(error)
  if not heads:raise ValueError('No model produced: '+json.dumps(declined))
- return {'policy':'shopping-v229','version':'shadow-'+str(int(time.time())),'mode':'shadow','features':list(FEATURES),'heads':heads,'declined':declined,'activation':'Requires a controlled real-user experiment; offline metrics do not activate ranking','purchase_label':'Verified native purchase without observed refund/dispute after 14 days; not lifetime satisfaction'}
+ return {'policy':'shopping-v230','version':'shadow-'+str(int(time.time())),'mode':'shadow','features':list(FEATURES),'heads':heads,'declined':declined,'activation':'Requires a controlled real-user experiment; offline metrics do not activate ranking','purchase_label':'Verified native purchase without observed refund/dispute after 14 days; not lifetime satisfaction'}
 
 if __name__=='__main__':
  parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('database',type=Path);parser.add_argument('output',type=Path);args=parser.parse_args()
