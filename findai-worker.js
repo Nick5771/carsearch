@@ -20866,7 +20866,7 @@ const RecommendationInterestCore=(()=>{
     const vehicle=/\b(?:car|cars|vehicle|vehicles|supercar|race car|porsche|ferrari|lamborghini|mclaren|bugatti|bmw|mercedes|truck|motorcycle)\b/.test(text);
     const scale=([String(item.scale||item.product?.scale||''),raw].join(' ').match(/\b1\s*[:/]\s*(18|24|43|64|12|32)\b/)||[])[1]||'';
     const miniature=/\b(?:die cast|diecast|miniature|scale model|model car|model vehicle)\b/.test(text)||!!scale;
-    const packaging=/\b(?:empty box|box only|packaging only|instructions only|manual only|sticker sheet|replacement|spare parts|parts only|car cover|display case|acrylic case|box protector|protector case|case for|case only)\b/.test(text)||/\b(?:packaging|accessory|accessories|instructions|spare parts)\b/.test(read('productType'));
+    const packaging=/\b(?:empty box|box only|packaging only|instructions only|manual only|sticker sheet|replacement|spare parts|parts only|car cover|display case|acrylic case|box protector|protector case|case for|case only|cooling pad|laptop cooler|laptop cooling|screen protector|keyboard cover|charging cable|lens cap)\b/.test(text)||/\b(?:packaging|accessory|accessories|instructions|spare parts)\b/.test(read('productType'));
     let type='',category='',theme='',brand='',subject='';const tags=[];
     const add=(key,label,weight,query='',depth=1)=>{if(!tags.some(x=>x.key===key))tags.push({key,label,weight,query,depth});};
     if(packaging){type='accessory';category=lego?'lego':vehicle?'cars':'other';add('type:accessories','Accessories',1);}
@@ -20881,6 +20881,7 @@ const RecommendationInterestCore=(()=>{
       if(theme)add('lego:theme:'+theme,'LEGO '+theme,.85,'lego '+theme+(type==='lego_minifigures'?' minifigures':''),2);
       if(subject&&type==='building_sets')add('lego:subject:'+subject,'LEGO '+subject,.75,'lego '+(subject==='vehicles'?'cars':subject),2);
       if(theme&&subject&&type==='building_sets')add('lego:'+theme+':'+subject,'LEGO '+theme+' '+subject,1,'lego '+theme+' '+(subject==='vehicles'?'cars':subject),3);
+      if(theme==='star wars'&&type==='building_sets'){if(/\b(?:hoth|wampa)\b/.test(text))add('lego:star wars:hoth','LEGO Star Wars Hoth',.9,'lego star wars hoth',3);if(/\b(?:at st|at at|walker)\b/.test(text))add('lego:star wars:walkers','LEGO Star Wars walkers',.9,'lego star wars at st',3);if(/\b(?:ultimate collector|ucs|75367|75309|75419)\b/.test(text))add('lego:star wars:collector','LEGO Star Wars collector sets',.9,'lego star wars ultimate collector',3);}
     }else if(vehicle&&/\b(?:track set|playset|rc car|remote control)\b/.test(text)){
       type='toy_vehicles';category='collectibles';add('type:toy_vehicles','Toy vehicles',1,/\brc car|remote control\b/.test(text)?'remote control toy cars':'toy car playsets',1);
       if(hot)add('toy-brand:hot wheels','Hot Wheels',.85,'hot wheels track set',2);
@@ -21185,7 +21186,7 @@ const RecommendationCatalogueCore=(()=>{
   const meta=core.classify({title:query}),text=normal(query),group=groups[meta.type],learned={};
   if(group?.products>=3){for(const facet of ['brand','condition','scale','size']){const values=Object.entries(group.facets?.[facet]||{}).sort((a,b)=>b[1].positive-a[1].positive);const sum=values.reduce((s,x)=>s+x[1].positive,0);const best=values[0];if(best&&best[1].products>=3&&best[1].positive/(sum+1)>=.6)learned[facet]=best[0];}
    const prices=group.prices?.[currency];if(prices?.length>=3){const sorted=prices.map(x=>x.value).sort((a,b)=>a-b);learned.price={min:sorted[Math.floor((sorted.length-1)*.25)]*.6,max:sorted[Math.ceil((sorted.length-1)*.75)]*1.6,currency};}}
-  const explicit={};if(/\b(?:pre owned|used|second hand)\b/.test(text))explicit.condition='used';else if(/\b(?:brand new|new sealed|new in box)\b/.test(text))explicit.condition='new';
+  const explicit={repair:/\b(?:untested|for parts|spares|repair projects?|not working)\b/.test(text)};if(/\b(?:pre owned|used|second hand)\b/.test(text))explicit.condition='used';else if(/\b(?:brand new|new sealed|new in box)\b/.test(text))explicit.condition='new';
   const max=String(query).match(/\b(?:under|below|up to|max(?:imum)?)\s*[$£€]?\s*(\d+(?:\.\d+)?)/i);if(max)explicit.price={max:Number(max[1]),currency:/£/.test(max[0])?'GBP':/€/.test(max[0])?'EUR':currency};
   return {type:meta.type,topics:meta.tags.filter(x=>x.depth>=2).map(x=>x.key),explicit,learned};
  }
@@ -21195,6 +21196,7 @@ const RecommendationCatalogueCore=(()=>{
   if(wanted&&meta.type!==wanted)return {eligible:false,score:0,coverage:0,reason:'form'};
   if(topics.some(x=>!tags.has(x)))return {eligible:false,score:0,coverage:0,reason:'topic'};
   const explicit=request.explicit||{},learned=request.learned||{};
+  if(!explicit.repair&&/\b(?:untested|for parts|parts only|not working|spares or repair)\b/.test(normal(String(item.title||'')+' '+String(item.condition||''))))return {eligible:false,score:0,coverage:0,reason:'repair-condition'};
   if(explicit.condition&&attrs.condition!==explicit.condition)return {eligible:false,score:0,coverage:0,reason:'condition'};
   if(explicit.price&&(attrs.currency!==explicit.price.currency||attrs.price>explicit.price.max||!attrs.price))return {eligible:false,score:0,coverage:0,reason:'price'};
   const matches=[];for(const key of ['brand','condition','scale','size'])if(learned[key])matches.push(attrs[key]?attrs[key]===learned[key]?1:.15:.4);
