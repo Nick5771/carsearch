@@ -1,3 +1,4 @@
+import './findai-treasure-pilot.js';
 // FindAI Cloudflare Worker — api.carsearchapi.workers.dev
 // eBay Browse API + AliExpress Affiliates API (Advanced, real signed calls)
 //
@@ -21297,11 +21298,49 @@ async function catalogueStatus(request,env){
  const stats=await env.DB.prepare('SELECT COUNT(*) total,SUM(CASE WHEN vector IS NOT NULL THEN 1 ELSE 0 END) embedded,SUM(CASE WHEN available=1 AND observed_at>? THEN 1 ELSE 0 END) fresh FROM recommendation_catalogue WHERE country=?').bind(Date.now()-6*3600000,country).first();return jsonResp({policy:'shopping-v230',country,...stats,candidateLimit:256},200,{'Cache-Control':'no-store'});
 }
 
+// v238: editorial targets are not inventory. Only matched provider offers are indexed.
+function treasureActiveTargets(env){
+ if(!findAIBoolEnv(env,'TREASURE_HUNT_ENABLED',false))return [];
+ const ids=new Set(String(env.TREASURE_HUNT_ACTIVE_IDS||'').split(',').map(x=>x.trim()).filter(Boolean));
+ return globalThis.FindAITreasureHunt.targets.filter(x=>ids.has(x.id));
+}
+async function treasureAuditTarget(target,env){
+ const observedAt=Date.now();
+ const result=await promiseWithin(searchEbay(target.query,'US','',ebayTrafficEnv(env,'background')),6500,{items:[],error:'timeout'});
+ const candidates=(result.items||[]).filter(x=>globalThis.FindAITreasureHunt.match(target,x)).slice(0,6);
+ return {id:target.id,query:target.query,country:'US',observedAt,status:candidates.length?'provider_candidates_found':result.error?'supply_check_incomplete':'no_matching_candidates',error:result.error||'',candidates,authenticationVerified:false};
+}
+async function treasureWarmup(env){
+ const targets=treasureActiveTargets(env);if(!targets.length||!env.DB)return;
+ const slot=Math.floor(Date.now()/900000)*2;
+ for(let i=0;i<Math.min(2,targets.length);i++){
+  const audit=await treasureAuditTarget(targets[(slot+i)%targets.length],env);
+  if(audit.candidates.length)await catalogueIngest(audit.candidates,'US',env);
+  if(env.CACHE)await env.CACHE.put('treasure:audit:v238:'+audit.id,JSON.stringify({...audit,candidates:audit.candidates.map(x=>({itemId:x.itemId,title:x.title,price:x.price,currency:x.currency,url:x.url}))}),{expirationTtl:21600});
+ }
+}
+async function treasureRoute(request,env){
+ const url=new URL(request.url);
+ if(url.pathname==='/recommendations/treasure-targets'&&request.method==='GET'){
+  const country=catalogueCountry(url.searchParams.get('country'));
+  return jsonResp({version:globalThis.FindAITreasureHunt.version,country,targets:country==='US'?treasureActiveTargets(env).map(({id,query,category})=>({id,query,category})):[],inventoryIncluded:false},200,{'Cache-Control':'no-store'});
+ }
+ if(url.pathname!=='/admin/recommendations/treasure-audit')return null;
+ if(!adminOK(url,env,request))return jsonResp({error:'Unauthorized'},401);
+ if(request.method!=='POST')return jsonResp({error:'Use POST'},405);
+ let body;try{body=await request.json();}catch(_){return jsonResp({error:'Invalid JSON'},400);}
+ const ids=[...new Set(Array.isArray(body.ids)?body.ids:[])];
+ if(!ids.length||ids.length>4||ids.some(id=>!globalThis.FindAITreasureHunt.targets.some(x=>x.id===id)))return jsonResp({error:'Supply one to four supported pilot IDs'},400);
+ const results=[];for(const id of ids)results.push(await treasureAuditTarget(globalThis.FindAITreasureHunt.targets.find(x=>x.id===id),env));
+ return jsonResp({version:globalThis.FindAITreasureHunt.version,results,inventoryWritten:false},200,{'Cache-Control':'no-store'});
+}
+
 export default {
   // Needs a KV namespace bound as CACHE and a Cron Trigger (e.g. */15 * * * *) in the dashboard.
   async scheduled(event, env, ctx) {
     env=ebayTrafficEnv(env,'background');
     try{await ebayGatewayMaintenance(env);}catch(e){logErr('eBay gateway maintenance',e);}
+    try{await treasureWarmup(env);}catch(e){logErr('Treasure catalogue warmup',e);}
     // Quota-safe passive warmup: rotate one major market per 15-minute tick instead of
     // rebuilding all four at once. Each market is still refreshed roughly hourly, while
     // cached marketplace searches remain available between warmups.
@@ -21655,6 +21694,7 @@ export default {
       }
 
       if(url.pathname==='/recommendations/catalogue-search'&&request.method==='POST')return await catalogueSearch(request,env,ctx);
+      const treasureResponse=await treasureRoute(request,env);if(treasureResponse)return treasureResponse;
       if(url.pathname==='/recommendations/catalogue-status'&&request.method==='GET')return await catalogueStatus(request,env);
       if(url.pathname==='/recommendations/understand'&&request.method==='POST')return await intelligenceUnderstand(request,env);
       if(url.pathname==='/recommendations/community'&&request.method==='GET')return await intelligenceCommunity(request,env);
