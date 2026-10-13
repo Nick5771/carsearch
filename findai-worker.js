@@ -20773,7 +20773,7 @@ async function recommendationInterestEvents(request,env){
   if(request.headers.get('Authorization')){const user=await requireUser(request,env);if(user.fail)return user.fail;identity='user:'+user.email.toLowerCase();}
   const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(String(env.RECOMMENDATION_HASH_SECRET||env.SESSION_SECRET||'wishwave-recommendation-v208')+'|'+identity));
   const viewer=Array.from(new Uint8Array(hash),x=>x.toString(16).padStart(2,'0')).join('');
-  const types=new Set(['exposure','attention','like','unlike','track','galleryInspect','click','compare','share','revisit','comment','notInterested','relevancePositive','relevanceNegative']);
+  const types=new Set(['exposure','attention','like','unlike','track','galleryInspect','click','compare','share','revisit','comment','commentsRead','notInterested','relevancePositive','relevanceNegative']);
   const rows=[];
   for(const event of (Array.isArray(body.events)?body.events:[]).slice(0,40)){
     if(!event||typeof event!=='object'||!types.has(event.event)||event.policy!=='shopping-interest-v227')continue;
@@ -20866,7 +20866,7 @@ const RecommendationInterestCore=(()=>{
     const vehicle=/\b(?:car|cars|vehicle|vehicles|supercar|race car|porsche|ferrari|lamborghini|mclaren|bugatti|bmw|mercedes|truck|motorcycle)\b/.test(text);
     const scale=([String(item.scale||item.product?.scale||''),raw].join(' ').match(/\b1\s*[:/]\s*(18|24|43|64|12|32)\b/)||[])[1]||'';
     const miniature=/\b(?:die cast|diecast|miniature|scale model|model car|model vehicle)\b/.test(text)||!!scale;
-    const packaging=/\b(?:empty box|box only|packaging only|instructions only|manual only|sticker sheet|replacement|spare parts|parts only|car cover|display case|acrylic case|box protector|protector case|case for|case only|cooling pad|laptop cooler|laptop cooling|screen protector|keyboard cover|charging cable|lens cap)\b/.test(text)||/\b(?:packaging|accessory|accessories|instructions|spare parts)\b/.test(read('productType'));
+    const packaging=/\b(?:empty box|box only|packaging only|instructions only|manual only|sticker sheet|replacement|spare parts|parts only|car cover|display case|acrylic case|box protector|protector case|case for|case only|cooling pad|laptop cooler|laptop cooling|screen protector|keyboard cover|charging cable|lens cap|light kits?|lighting kits?|light my bricks|lmb 2 0 kit|led kits?|led lighting|glasses case|sunglasses case)\b/.test(text)||/\b(?:packaging|accessory|accessories|instructions|spare parts)\b/.test(read('productType'));
     let type='',category='',theme='',brand='',subject='';const tags=[];
     const add=(key,label,weight,query='',depth=1)=>{if(!tags.some(x=>x.key===key))tags.push({key,label,weight,query,depth});};
     if(packaging){type='accessory';category=lego?'lego':vehicle?'cars':'other';add('type:accessories','Accessories',1);}
@@ -20897,7 +20897,7 @@ const RecommendationInterestCore=(()=>{
     }else if(vehicle&&!/\b(?:shirt|t shirt|hoodie|jacket|poster|keychain|watch|model|game|book)\b/.test(text)&&/\b(?:car|cars|vehicle|sedan|coupe|suv|porsche|ferrari|lamborghini)\b/.test(text)){
       type='fullsize_vehicles';category='cars';add('type:fullsize_vehicles','Full-size vehicles',1,'',1);
     }else{
-      const groups=[['sneakers','sneakers',/\b(?:sneakers?|shoes|dunks?|yeezy|new balance|air jordan|running shoes|air force 1)\b/,'sneakers'],['apparel','fashion',/\b(?:shirt|hoodie|jacket|dress|jeans|coat)\b/,''],['fragrance','fragrance',/\b(?:perfume|fragrance|cologne|eau de)\b/,'fragrance'],['watches','watches',/\b(?:watch|rolex|omega|speedmaster|submariner)\b/,'watches'],['cameras','media',/\b(?:camera|mirrorless|dslr|sony a7)\b/,'mirrorless camera'],['gaming','gaming',/\b(?:playstation|xbox|nintendo|gaming console)\b/,'gaming consoles'],['phones','apple',/\b(?:iphone|smartphone|galaxy phone)\b/,'smartphones'],['laptops','tech',/\b(?:laptop|macbook|notebook computer)\b/,'laptops'],['building_sets','collectibles',/\b(?:building sets?|building kit|construction blocks)\b/,'building sets'],['trading_cards','collectibles',/\b(?:pokemon|trading cards?|booster pack|booster box)\b/,'trading cards']];
+      const groups=[['sneakers','sneakers',/\b(?:sneakers?|shoes|dunks?|yeezy|new balance|air jordan|running shoes|air force 1)\b/,'sneakers'],['apparel','fashion',/\b(?:shirt|hoodie|jacket|dress|jeans|coat)\b/,''],['fragrance','fragrance',/\b(?:perfume|fragrance|cologne|eau de)\b/,'fragrance'],['watches','watches',/\b(?:watch(?:es)?|rolex|omega|speedmaster|submariner)\b/,'watches'],['cameras','media',/\b(?:cameras?|mirrorless|dslr|sony a7)\b/,'mirrorless camera'],['gaming','gaming',/\b(?:playstation|xbox|nintendo|gaming console)\b/,'gaming consoles'],['phones','apple',/\b(?:iphones?|smartphones?|galaxy phones?)\b/,'smartphones'],['laptops','tech',/\b(?:laptops?|macbooks?|notebook computers?)\b/,'laptops'],['building_sets','collectibles',/\b(?:building sets?|building kit|construction blocks)\b/,'building sets'],['trading_cards','collectibles',/\b(?:pokemon|trading cards?|booster pack|booster box)\b/,'trading cards']];
       const group=groups.find(x=>x[2].test(text));if(group){[type,category]=group;add('type:'+type,type.replace(/_/g,' '),1,group[3],1);}
       // Unknown forms remain unknown. We do not invent a shopping purpose.
     }
@@ -20931,10 +20931,10 @@ const RecommendationInterestCore=(()=>{
     else if(event==='undoRejection'){row.events.reject=0;}
     else if(event==='relevanceNegative'){row.events.irrelevant=.8;row.events.relevancePositive=0;row.exposure=1;}
     else{
-      const weights={like:1,track:1,galleryInspect:.35,click:.45,compare:.55,share:.65,revisit:.2,comment:.25,relevancePositive:.8};
+      const weights={like:1,track:1,galleryInspect:.35,click:.45,compare:.55,share:.65,revisit:.2,comment:.25,commentsRead:.2,relevancePositive:.8};
       if(!Object.hasOwn(weights,event))return state;row.events[event]=weights[event];row.exposure=1;if(event==='like')row.events.unlike=0;if(event==='relevancePositive')row.events.irrelevant=0;
     }
-    row.positive=(row.events.reject||row.events.irrelevant)?0:Math.max(0,...['like','track','galleryInspect','click','compare','share','revisit','comment','relevancePositive','dwell'].map(x=>row.events[x]||0));
+    row.positive=(row.events.reject||row.events.irrelevant)?0:Math.max(0,...['like','track','galleryInspect','click','compare','share','revisit','comment','commentsRead','relevancePositive','dwell'].map(x=>row.events[x]||0));
     row.negative=row.events.reject?1:Math.max(row.positive>=.55?0:row.events.skip||0,row.events.unlike||0,row.events.irrelevant||0);row.at=now;
     if(previous&&JSON.stringify(previous.events)===JSON.stringify(row.events)&&previous.exposure===row.exposure)return state;
     journal[key]=row;
@@ -21007,7 +21007,7 @@ async function recommendationShoppingProfile(request,env){
  let accepted=0;
  if(request.method==='POST'){
   let body;try{body=await shoppingBody(request);}catch(error){return jsonResp({error:error.message},400);}
-  const allowed=new Set(['exposure','attention','like','track','galleryInspect','click','compare','share','revisit','comment','unlike','notInterested','undoRejection','relevancePositive','relevanceNegative']),rows=[];
+  const allowed=new Set(['exposure','attention','like','track','galleryInspect','click','compare','share','revisit','comment','commentsRead','unlike','notInterested','undoRejection','relevancePositive','relevanceNegative']),rows=[];
   for(const op of (Array.isArray(body.events)?body.events:[]).slice(0,40)){
    if(!op||!allowed.has(op.event))continue;const family=sharedCleanKey(op.family),at=Math.round(Number(op.at)||0);if(!family||at<now-45*86400000||at>now+300000)continue;
    const item=RecommendationShoppingCore.cleanItem(op.item);if(!item.title||!RecommendationInterestCore.classify(item).tags.length)continue;
