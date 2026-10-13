@@ -20866,7 +20866,7 @@ const RecommendationInterestCore=(()=>{
     const vehicle=/\b(?:car|cars|vehicle|vehicles|supercar|race car|porsche|ferrari|lamborghini|mclaren|bugatti|bmw|mercedes|truck|motorcycle)\b/.test(text);
     const scale=([String(item.scale||item.product?.scale||''),raw].join(' ').match(/\b1\s*[:/]\s*(18|24|43|64|12|32)\b/)||[])[1]||'';
     const miniature=/\b(?:die cast|diecast|miniature|scale model|model car|model vehicle)\b/.test(text)||!!scale;
-    const packaging=/\b(?:empty box|box only|packaging only|instructions only|manual only|sticker sheet|replacement|spare parts|parts only|car cover)\b/.test(text)||/\b(?:packaging|accessory|accessories|instructions|spare parts)\b/.test(read('productType'));
+    const packaging=/\b(?:empty box|box only|packaging only|instructions only|manual only|sticker sheet|replacement|spare parts|parts only|car cover|display case|acrylic case|box protector|protector case|case for|case only)\b/.test(text)||/\b(?:packaging|accessory|accessories|instructions|spare parts)\b/.test(read('productType'));
     let type='',category='',theme='',brand='',subject='';const tags=[];
     const add=(key,label,weight,query='',depth=1)=>{if(!tags.some(x=>x.key===key))tags.push({key,label,weight,query,depth});};
     if(packaging){type='accessory';category=lego?'lego':vehicle?'cars':'other';add('type:accessories','Accessories',1);}
