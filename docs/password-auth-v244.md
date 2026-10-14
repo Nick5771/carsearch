@@ -37,9 +37,11 @@ alter its backdrop. Actual iPhone layout and email delivery need deployment test
 Deploy `findai-worker.js` to the existing `api.carsearchapi.workers.dev` Worker,
 retaining its existing DB, CACHE, RESEND_API_KEY and SESSION_SECRET bindings.
 Then deploy the frontend. Confirm `/auth/password/config` reports version 244
-and enabled true before enabling the new website screens. The repository has no
-Worker deployment configuration/workflow, and this session has no Cloudflare
-connector. The website's GitHub deployment must not run ahead of its API.
+and enabled true before enabling the new website screens. The existing `wrangler.jsonc` points to this Worker and preserves its DB, CACHE,
+AI and media bindings. The Cloudflare dashboard confirms automatic production
+builds from Nick5771/carsearch main. Check both deployments after merging;
+password requests require the new API version. This session has no direct
+Cloudflare connector.
 No native Swift changes are needed for this authentication change.
 
 Existing `/privacy` and `/terms` website links return 404. The new signup screen
