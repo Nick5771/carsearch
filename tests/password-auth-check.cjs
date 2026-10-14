@@ -1,0 +1,32 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),{DatabaseSync}=require('node:sqlite');
+const source=fs.readFileSync(__dirname+'/../findai-worker.js','utf8');
+const db=new DatabaseSync(':memory:');db.exec('CREATE TABLE users(email TEXT PRIMARY KEY,name TEXT);CREATE TABLE findai_profiles(user_email TEXT,username TEXT)');
+const env={DB:{prepare(text){let args=[];return {bind(...v){args=v;return this},async first(){return db.prepare(text).get(...args)||null},async run(){return {meta:{changes:Number(db.prepare(text).run(...args).changes)}}}}} ,async batch(rows){db.exec('BEGIN');try{const out=[];for(const row of rows)out.push(await row.run());db.exec('COMMIT');return out;}catch(e){db.exec('ROLLBACK');throw e;}}},RESEND_API_KEY:'test',SESSION_SECRET:'test'};
+const messages=[],kv=new Map();env.CACHE={get:async k=>kv.get(k),put:async(k,v)=>kv.set(k,v)};
+const c=vm.createContext({crypto:require('crypto').webcrypto,TextEncoder,TextDecoder,Uint8Array,Uint32Array,Date,Array,Math,String,Number,JSON,URL,console,btoa,atob,SESSION_TTL_MS:2592000000,clientIp:r=>r.headers.get('X-Test-IP')||'test',jsonResp:(b,s=200)=>new Response(JSON.stringify(b),{status:s}),tooManyResp:()=>new Response('{}',{status:429}),sendEmail:async(e,email,subject,html)=>messages.push({email,code:subject.slice(0,6),html}),upsertUser:async(e,ctx,email,name)=>db.prepare('INSERT INTO users VALUES (?,?) ON CONFLICT(email) DO NOTHING').run(email,name),findaiEmailForUsername:async(e,u)=>db.prepare('SELECT user_email FROM findai_profiles WHERE username=?').get(u)?.user_email||'',logErr:()=>{}});
+vm.runInContext(source.slice(source.indexOf('function b64urlEncode('),source.indexOf('// Helper for routes that require')),c);
+vm.runInContext(source.slice(source.indexOf('// v244: Password accounts.'),source.indexOf('export default {')),c);
+async function call(action,body,ip='test'){return c.wishwavePasswordRoute(new Request('https://test/auth/password/'+action,{method:'POST',headers:{'X-Test-IP':ip},body:JSON.stringify(body)}),env,{},new URL('https://test/auth/password/'+action));}
+(async()=>{
+ assert.equal((await call('signup',{email:'a@example.test',password:'short'})).status,400);
+ let start=await (await call('signup',{email:'a@example.test',password:'Long password 123!'})).json();assert.equal(db.prepare('SELECT COUNT(*) n FROM wishwave_credentials').get().n,0);
+ assert(!JSON.stringify(start).includes(messages[0].code));const pending=db.prepare('SELECT * FROM wishwave_auth_challenges').get();assert(!JSON.stringify(pending).includes('Long password'));assert.notEqual(pending.code_hash,messages[0].code);
+ assert.equal((await call('verify',{challenge:start.challenge,code:'000000'})).status,400);
+ assert.equal((await call('login',{identifier:'a@example.test',password:'Long password 123!'})).status,401);
+ const signed=await (await call('verify',{challenge:start.challenge,code:messages[0].code})).json();assert(signed.session);assert.equal(db.prepare('SELECT COUNT(*) n FROM wishwave_credentials').get().n,1);
+ assert.equal((await call('verify',{challenge:start.challenge,code:messages[0].code})).status,400);
+ db.prepare('INSERT INTO findai_profiles VALUES (?,?)').run('a@example.test','nick');
+ assert.equal((await call('login',{identifier:'nick',password:'wrong'})).status,401);assert((await (await call('login',{identifier:'nick',password:'Long password 123!'})).json()).session);
+ const count=messages.length;await call('signup',{email:'a@example.test',password:'Overwrite password!'});assert.equal(messages.length,count);
+ start=await (await call('reset',{email:'a@example.test'})).json();const priorCode=messages.at(-1).code;await call('resend',{challenge:start.challenge},'resend');const code=messages.at(-1).code;if(code!==priorCode)assert.equal((await call('reset-verify',{challenge:start.challenge,code:priorCode,password:'New long password!'},'resend')).status,400);
+ assert.equal((await call('verify',{challenge:start.challenge,code})).status,400);
+ const reset=await (await call('reset-verify',{challenge:start.challenge,code,password:'New long password!'})).json();assert(reset.session);
+ assert.equal((await call('login',{identifier:'nick',password:'Long password 123!'})).status,401);assert((await (await call('login',{identifier:'nick',password:'New long password!'})).json()).session);
+ const sessionRequest=token=>new Request('https://test',{headers:{Authorization:'Bearer '+token}});
+ assert.equal(await c.emailFromSession(sessionRequest(signed.session),env),'');assert.equal(await c.emailFromSession(sessionRequest(reset.session),env),'a@example.test');
+ start=await (await call('signup',{email:'b@example.test',password:'Other long password!'},'other')).json();for(let n=0;n<5;n++)assert.equal((await call('verify',{challenge:start.challenge,code:'000000'},'other')).status,400);assert.equal((await call('verify',{challenge:start.challenge,code:messages.at(-1).code},'other')).status,400);
+ start=await (await call('signup',{email:'expired@example.test',password:'Other long password!'},'expiry')).json();db.prepare('UPDATE wishwave_auth_challenges SET expires=0 WHERE id=?').run(start.challenge);assert.equal((await call('verify',{challenge:start.challenge,code:messages.at(-1).code},'expiry')).status,400);
+ db.prepare('INSERT INTO users VALUES (?,?)').run('social@example.test','Social');start=await (await call('reset',{email:'social@example.test'},'social')).json();assert((await (await call('reset-verify',{challenge:start.challenge,code:messages.at(-1).code,password:'Social long password!'},'social')).json()).session);
+ for(let n=0;n<11;n++)await call('login',{identifier:'unknown',password:'wrong'},'limit');assert.equal((await call('login',{identifier:'unknown',password:'wrong'},'limit')).status,429);
+ console.log('PASS: verified signup, salted hashes, username login, duplicate account protection, code attempt cap/replay rejection, reset and old-session revocation, atomic throttles');db.close();
+})().catch(e=>{console.error(e);process.exitCode=1});

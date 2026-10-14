@@ -177,8 +177,8 @@ async function sessionHmacKey(env) {
   );
 }
 
-async function issueSession(env, email) {
-  const issuedAt = Date.now();
+async function issueSession(env, email, minimumIssuedAt = 0) {
+  const issuedAt = Math.max(Date.now(), minimumIssuedAt);
   const payload = JSON.stringify({ e: String(email).trim().toLowerCase(), i: issuedAt, x: issuedAt + SESSION_TTL_MS, v: 2 });
   const p64 = b64urlEncode(new TextEncoder().encode(payload));
   const key = await sessionHmacKey(env);
@@ -218,6 +218,15 @@ async function emailFromSession(request, env) {
         const revokedAt = Number(revokedRaw || 0);
         if (revokedAt && Number(data.i || 0) <= revokedAt) return '';
       } catch (_) {}
+    }
+    if(env && env.DB && verifiedEmail){
+      try{
+        const credential=await env.DB.prepare('SELECT updated_at FROM wishwave_credentials WHERE email=?').bind(verifiedEmail).first();
+        if(credential && Number(data.i||0)<=credential.updated_at)return '';
+      }catch(error){
+        // Existing deployments may not yet have the new additive table.
+        if(!/no such table/i.test(String(error && error.message || error)))throw error;
+      }
     }
     return verifiedEmail;
   } catch (e) { logErr('session verify', e); return ''; }
@@ -21335,6 +21344,117 @@ async function treasureRoute(request,env){
  return jsonResp({version:globalThis.FindAITreasureHunt.version,results,inventoryWritten:false},200,{'Cache-Control':'no-store'});
 }
 
+// v244: Password accounts. Challenges store only salted password/code hashes.
+async function wishwavePasswordSchema(env) {
+  await env.DB.batch([
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS wishwave_credentials(email TEXT PRIMARY KEY,salt TEXT NOT NULL,password_hash TEXT NOT NULL,iterations INTEGER NOT NULL,updated_at INTEGER NOT NULL)`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS wishwave_auth_challenges(id TEXT PRIMARY KEY,email TEXT NOT NULL,purpose TEXT NOT NULL,code_hash TEXT NOT NULL,salt TEXT NOT NULL,password_hash TEXT NOT NULL,expires INTEGER NOT NULL,attempts INTEGER NOT NULL DEFAULT 0,consumed TEXT NOT NULL DEFAULT '')`),
+    env.DB.prepare(`CREATE TABLE IF NOT EXISTS wishwave_auth_limits(key TEXT PRIMARY KEY,count INTEGER NOT NULL,expires INTEGER NOT NULL)`)
+  ]);
+}
+function wishwaveHex(bytes) { return Array.from(new Uint8Array(bytes),x=>x.toString(16).padStart(2,'0')).join(''); }
+async function wishwaveDigest(value) { return wishwaveHex(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value))); }
+async function wishwaveChallengeHash(env,id,code){
+  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode('wishwave-code-v244:'+env.SESSION_SECRET),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  return wishwaveHex(await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(id+':'+code)));
+}
+async function wishwavePasswordHash(password,salt,iterations=100000,env) {
+  // Cloudflare Workers WebCrypto limits PBKDF2 iterations to 100,000.
+  const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(password),'PBKDF2',false,['deriveBits']);
+  const derived=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:new TextEncoder().encode(salt),iterations},key,256);
+  // A server-only pepper also protects against a database-only disclosure.
+  const pepper=await crypto.subtle.importKey('raw',new TextEncoder().encode('wishwave-password-v244:'+String(env.AUTH_PASSWORD_PEPPER||env.SESSION_SECRET)),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+  return wishwaveHex(await crypto.subtle.sign('HMAC',pepper,derived));
+}
+function wishwaveEqual(a,b) { let diff=a.length^b.length;for(let i=0;i<Math.max(a.length,b.length);i++)diff|=(a.charCodeAt(i)||0)^(b.charCodeAt(i)||0);return diff===0; }
+async function wishwaveAuthLimit(env,key,limit,seconds) {
+  const now=Date.now(),win=Math.floor(now/(seconds*1000));
+  const hashed=await wishwaveDigest(key+':'+win);
+  const row=await env.DB.prepare(`INSERT INTO wishwave_auth_limits(key,count,expires) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 RETURNING count`).bind(hashed,now+seconds*1000).first();
+  return row.count>limit;
+}
+async function wishwavePasswordRoute(request,env,ctx,url) {
+  const action=url.pathname.slice('/auth/password/'.length);
+  const reply=(body,status=200)=>jsonResp(body,status,{'Cache-Control':'no-store'});
+  if(action==='config')return reply({enabled:!!(env.DB&&env.RESEND_API_KEY&&env.SESSION_SECRET),version:244});
+  if(request.method!=='POST')return reply({error:'POST only'},405);
+  if(!env.DB||!env.RESEND_API_KEY||!env.SESSION_SECRET)return reply({error:'Account sign-in is temporarily unavailable.'},503);
+  if(!['login','signup','verify','reset','reset-verify','resend'].includes(action))return reply({error:'Not found'},404);
+  await wishwavePasswordSchema(env);
+  await env.DB.batch([env.DB.prepare('DELETE FROM wishwave_auth_challenges WHERE expires<?').bind(Date.now()),env.DB.prepare('DELETE FROM wishwave_auth_limits WHERE expires<?').bind(Date.now())]);
+  let body;try{body=await request.json();}catch(_){return reply({error:'Invalid request'},400);}
+  if(await wishwaveAuthLimit(env,'ip:'+clientIp(request),30,900))return tooManyResp(900);
+  const email=String(body.email||'').trim().toLowerCase();
+  const validEmail=/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)&&email.length<=254;
+  const password=typeof body.password==='string'?body.password:'';
+  if(action==='login') {
+    const identifier=String(body.identifier||'').trim().toLowerCase();
+    if(identifier.length>254||!password||password.length>128)return reply({error:'Incorrect username/email or password.'},401);
+    if(await wishwaveAuthLimit(env,'login:'+identifier,10,900))return tooManyResp(900);
+    const account=identifier.includes('@')?identifier:await findaiEmailForUsername(env,identifier);
+    const row=await env.DB.prepare('SELECT * FROM wishwave_credentials WHERE email=?').bind(account).first();
+    const actual=await wishwavePasswordHash(password,row?.salt||'wishwave-no-account',row?.iterations||100000,env);
+    if(!row||!wishwaveEqual(actual,row.password_hash))return reply({error:'Incorrect username/email or password.'},401);
+    const user=await env.DB.prepare('SELECT name FROM users WHERE email=?').bind(account).first();
+    return reply({email:account,name:user?.name||account.split('@')[0],picture:'',session:await issueSession(env,account,row.updated_at+1),provider:'email'});
+  }
+  if(action==='signup'||action==='reset') {
+    if(!validEmail)return reply({error:'Enter a valid email address.'},400);
+    if(action==='signup'&&(password.length<12||password.length>128))return reply({error:'Use a password with 12–128 characters.'},400);
+    if(await wishwaveAuthLimit(env,'send:'+email,5,900))return tooManyResp(900);
+    const id=crypto.randomUUID(),salt=crypto.randomUUID();
+    const exists=await env.DB.prepare('SELECT email FROM users WHERE email=?').bind(email).first();
+    const credential=await env.DB.prepare('SELECT email FROM wishwave_credentials WHERE email=?').bind(email).first();
+    // Signup cannot overwrite any existing account; reset requires email ownership.
+    const deliver=action==='signup'?!(exists||credential):!!(exists||credential);
+    if(deliver) {
+      const rnd=new Uint32Array(1);crypto.getRandomValues(rnd);const code=String(100000+rnd[0]%900000);
+      const hash=action==='signup'?await wishwavePasswordHash(password,salt,100000,env):'';
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM wishwave_auth_challenges WHERE email=? AND purpose=?').bind(email,action),
+        env.DB.prepare('INSERT INTO wishwave_auth_challenges(id,email,purpose,code_hash,salt,password_hash,expires) VALUES (?,?,?,?,?,?,?)').bind(id,email,action,await wishwaveChallengeHash(env,id,code),salt,hash,Date.now()+900000)
+      ]);
+      try{await sendEmail(env,email,code+' is your WishWave verification code',`<p>Your WishWave ${action==='signup'?'account verification':'password reset'} code is:</p><h1>${code}</h1><p>It expires in 15 minutes. If you did not request this, ignore this email.</p>`);}
+      catch(error){await env.DB.prepare('DELETE FROM wishwave_auth_challenges WHERE id=?').bind(id).run();throw error;}
+    }
+    // Uniform response conceals account existence. Never return verification codes.
+    return reply({ok:true,challenge:id,message:action==='signup'?'If this email is available, a verification code has been sent. Already registered? Log in or reset your password.':'If an account exists, a reset code has been sent.'});
+  }
+  if(action==='resend'){
+    const id=String(body.challenge||'').slice(0,80);
+    const pending=await env.DB.prepare('SELECT * FROM wishwave_auth_challenges WHERE id=?').bind(id).first();
+    if(pending && !pending.consumed && pending.expires>Date.now()){
+      if(await wishwaveAuthLimit(env,'send:'+pending.email,5,900))return tooManyResp(900);
+      const rnd=new Uint32Array(1);crypto.getRandomValues(rnd);const code=String(100000+rnd[0]%900000);
+      const changed=await env.DB.prepare(`UPDATE wishwave_auth_challenges SET code_hash=?,attempts=0,expires=? WHERE id=? AND consumed=''`).bind(await wishwaveChallengeHash(env,id,code),Date.now()+900000,id).run();
+      if(changed.meta?.changes)await sendEmail(env,pending.email,code+' is your WishWave verification code',`<p>Your new WishWave verification code:</p><h1>${code}</h1><p>It expires in 15 minutes.</p>`);
+    }
+    return reply({ok:true,message:'If this request is valid, a new code has been sent.'});
+  }
+  const id=String(body.challenge||''),code=String(body.code||'');
+  if(!/^[0-9]{6}$/.test(code)||id.length>80)return reply({error:'Enter the six-digit verification code.'},400);
+  const row=await env.DB.prepare('SELECT * FROM wishwave_auth_challenges WHERE id=?').bind(id).first();
+  if(!row||row.consumed||row.expires<Date.now()||row.attempts>=5)return reply({error:'Invalid or expired code. Request a new one.'},400);
+  const attempt=await env.DB.prepare(`UPDATE wishwave_auth_challenges SET attempts=attempts+1 WHERE id=? AND consumed='' AND attempts<5 AND expires>?`).bind(id,Date.now()).run();
+  if(!attempt.meta?.changes)return reply({error:'Invalid or expired code. Request a new one.'},400);
+  if(!wishwaveEqual(await wishwaveChallengeHash(env,id,code),row.code_hash))return reply({error:'Invalid or expired code.'},400);
+  const reset=action==='reset-verify';
+  if(row.purpose!==(reset?'reset':'signup'))return reply({error:'Invalid verification request.'},400);
+  if(reset&&(password.length<12||password.length>128))return reply({error:'Use a password with 12–128 characters.'},400);
+  const hash=reset?await wishwavePasswordHash(password,row.salt,100000,env):row.password_hash;
+  const nonce=crypto.randomUUID(),now=Date.now();
+  const eligibility=reset?'':` AND NOT EXISTS(SELECT 1 FROM users WHERE email=wishwave_auth_challenges.email) AND NOT EXISTS(SELECT 1 FROM wishwave_credentials WHERE email=wishwave_auth_challenges.email)`;
+  const results=await env.DB.batch([
+    env.DB.prepare(`UPDATE wishwave_auth_challenges SET consumed=? WHERE id=? AND consumed='' AND expires>?${eligibility}`).bind(nonce,id,now),
+    env.DB.prepare(`INSERT INTO wishwave_credentials(email,salt,password_hash,iterations,updated_at) SELECT email,salt,?,100000,? FROM wishwave_auth_challenges WHERE id=? AND consumed=? ON CONFLICT(email) DO UPDATE SET salt=excluded.salt,password_hash=excluded.password_hash,iterations=excluded.iterations,updated_at=excluded.updated_at`).bind(hash,now,id,nonce)
+  ]);
+  if(!results[0].meta?.changes)return reply({error:'This request has expired. Log in or request another code.'},400);
+  if(reset&&env.CACHE)await env.CACHE.put('auth:revoked:'+row.email,String(now),{expirationTtl:Math.ceil(SESSION_TTL_MS/1000)+60});
+  await upsertUser(env,ctx,row.email,'',0);
+  const user=await env.DB.prepare('SELECT name FROM users WHERE email=?').bind(row.email).first();
+  return reply({email:row.email,name:user?.name||row.email.split('@')[0],picture:'',session:await issueSession(env,row.email,now+1),provider:'email'});
+}
+
 export default {
   // Needs a KV namespace bound as CACHE and a Cron Trigger (e.g. */15 * * * *) in the dashboard.
   async scheduled(event, env, ctx) {
@@ -21687,6 +21807,10 @@ export default {
   async handle(request, env, ctx) {
     try {
       const url = new URL(request.url);
+      if(url.pathname.startsWith('/auth/password/')){
+        try{return await wishwavePasswordRoute(request,env,ctx,url);}
+        catch(error){logErr('password auth',error);return jsonResp({error:'Account sign-in is temporarily unavailable. Please try again.'},503,{'Cache-Control':'no-store'});}
+      }
       if(url.searchParams.get('bestdeals')==='1')env=ebayTrafficEnv(env,'background');
       if(url.pathname==='/admin/ebay/quota'&&request.method==='GET'){
         if(!adminOK(url,env,request))return jsonResp({error:'unauthorized'},403,{'Cache-Control':'no-store'});
@@ -23779,6 +23903,8 @@ export default {
         await safeRun(`DELETE FROM findai_app_preferences WHERE lower(email)=lower(?)`,email);
         await safeRun(`DELETE FROM findai_apple_tokens WHERE lower(email)=lower(?)`,email);
         await safeRun(`DELETE FROM findai_profiles WHERE lower(user_email)=lower(?)`,email);
+        await safeRun(`DELETE FROM wishwave_credentials WHERE lower(email)=lower(?)`,email);
+        await safeRun(`DELETE FROM wishwave_auth_challenges WHERE lower(email)=lower(?)`,email);
         await safeRun(`DELETE FROM users WHERE lower(email)=lower(?)`,email);
 
         return jsonResp({ok:true,deleted:true,sessionsRevoked:true},200,{ 'Cache-Control':'no-store' });
