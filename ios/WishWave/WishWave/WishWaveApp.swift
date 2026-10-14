@@ -21,7 +21,7 @@ struct ShoppingView: UIViewControllerRepresentable {
 }
 
 final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, WKScriptMessageHandlerWithReply {
-    private static let home = URL(string: "https://findai.ai/findai-app.html?country=US")!
+    private static let home = URL(string: "https://findai.ai/findai-app.html?country=US&catalogue-test=1&treasure-test=1")!
     private let spinner = UIActivityIndicatorView(style: .large)
     private let failure = UIStackView()
     private var didShowPage = false

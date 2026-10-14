@@ -15,6 +15,13 @@ const dom=new JSDOM(html,{url:'https://findai.test/?catalogue-test=1&treasure-te
  assert.equal(w.wishwaveAdmitRecommendations(variants,admitted,12).items.length,0,'same-target protection persists into the next page');
  let forwarded;w.fetch=async(url,options)=>{if(String(url).endsWith('/search'))forwarded=JSON.parse(options.body);return{ok:true,json:async()=>({listings:[],items:[]})};};
  await w.fetchProductResults(query,{skipResolve:true,passive:true});assert.equal(forwarded.country,'US','live fallback must use the selected pilot market');
+ const browseQueries=[];w.fetch=async(url,options={})=>{if(String(url).endsWith('/search'))browseQueries.push(JSON.parse(options.body).query);return {ok:true,json:async()=>({items:[],listings:[],hasMore:false}),text:async()=>''};};
+ w.go('search');await w.resetPremiumExploreHome(true);
+ assert(browseQueries.length>=4,'curated Search retrieves its opening categories');assert(browseQueries.every(q=>policy.forQuery(q)),'Search For You uses supported catalogue targets instead of generic watch/console queries');
+ assert(w.wishwaveExploreTasteSignature().includes('curated-starter-v243'),'old generic Search cache is separated from curated starters');
+ w.eval('fetchProductResults=async()=>({data:{listings:[{itemId:"ps5-direct",title:"Sony PlayStation 5 console",price:400,currency:"USD",source:"ebay",image:"https://images.test/ps5.jpg",url:"https://www.ebay.com/itm/ps5-direct"}]},hasMore:false});');
+ w.document.getElementById('q').value='PS5';await w.runPremiumLiveSearch('PS5',true);
+ assert.equal(w.eval('premiumDiscoverySections[0].items[0]?.itemId'),'ps5-direct','typed searches remain relevant outside the curated starter targets');
  w.history.replaceState({},'','?catalogue-test=1&treasure-test=1&country=AU');assert(w.featuredColdStart(1,'test').every(x=>!x._treasureTargetId),'US pilot must not blank other markets');
  w.history.replaceState({},'','?catalogue-test=1&country=US');assert(w.featuredColdStart(1,'test').every(x=>!x._treasureTargetId),'normal production baseline retained');
  assert.equal(errors.length,0,JSON.stringify(errors));console.log('PASS: real client boot, opt-in US lanes, model filters, cache separation and other-market/production fallback');w.close();
