@@ -5873,6 +5873,17 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
   
   try{
     markPersonalisedRefreshNow();
+    if(window.wishwaveTreasureStatus?.().active && window.wishwaveStarterItems){
+      const starter=await window.wishwaveStarterItems();
+      if(!stillOwnsFeed())return;
+      const ready=await window.wishwaveReadyStarter?.(starter)||[];
+      if(!stillOwnsFeed())return;
+      if(ready.length>=8){
+        renderPersonalisedFeed(ready);feedState.loading=false;
+        ready.completion?.then(items=>{if(stillOwnsFeed()){appendFeedItems(items.filter(item=>!currentFeedItems.some(old=>listingKey(old)===listingKey(item))),currentFeedData);writePersonalisedCache();}}).catch(()=>{});
+        setTimeout(()=>backgroundRefreshPersonalisedFeed(),250);return;
+      }
+    }
     // The request pool owns the opening lanes until each has completed. Pagination
     // must not race that pool and consume the same lane before its first result.
     loadingState.initialPool={pending:lanes.length};
@@ -5892,8 +5903,10 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
       return next;
     };
     // Wait only until we have the first real recommendation. Errors are skipped.
+    const openingDeadline=Date.now()+20000;
     while(pending.size&&!early.length){
-      const next=await takeNext(0);
+      const next=await takeNext(Math.max(1,openingDeadline-Date.now()));
+      if(next?.timeout){loadingController.abort();break;}
       if(next&&next.value&&next.value.items&&next.value.items.length)early.push(next.value);
     }
     // Once something useful is ready, allow only a brief grace for a second category.
@@ -5911,7 +5924,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
       if(next&&next.timeout)break;
       if(next&&next.value&&next.value.items&&next.value.items.length)early.push(next.value);
     }
-    if(!stillOwnsFeed())return;
+    if(feedState!==loadingState)return;
     if(!early.length){
       if(keepRetained())return;
       if(await v116RenderPersonalisedPreviewFallback()){feedState.loading=false;return;}
@@ -6014,6 +6027,16 @@ function loadMorePersonalisedListings(){
 async function performLoadMorePersonalisedListings(){
   const state=feedState;state.loading=true;
   try{
+    if(window.wishwaveTreasureStatus?.().active&&window.wishwaveStarterItems){
+      const items=(await window.wishwaveStarterItems()).filter(item=>!currentFeedItems.some(old=>listingKey(old)===listingKey(item)));
+      if(feedState!==state)return;
+      if(items.length){
+        const ready=await window.wishwaveReadyStarter(items);if(feedState!==state)return;
+        appendFeedItems(ready,currentFeedData);writePersonalisedCache();
+        ready.completion?.then(rest=>{if(feedState===state){appendFeedItems(rest.filter(item=>!currentFeedItems.some(old=>listingKey(old)===listingKey(item))),currentFeedData);writePersonalisedCache();}}).catch(()=>{});
+        if(currentFeedItems.length-activeReelIndex>=12)return;
+      }
+    }
     const waiting=window.wishwaveAdmitRecommendations?.(state.backlog||[],currentFeedItems,36);
     if(waiting?.items.length&&(!window.wishwaveInterestFocus?.()?.strong||waiting.items.some(x=>window.WishWaveInterestCore.classify(x).tags.some(t=>t.key===window.wishwaveInterestFocus().key)))){state.backlog=waiting.deferred;appendFeedItems(waiting.items,currentFeedData);writePersonalisedCache();return;}
     for(let attempt=0;attempt<3;attempt++){
@@ -6516,13 +6539,14 @@ async function fetchProductResults(query,{
   const endpoint=useTracker?'/tracker/search':'/search';
   let data;
   try{
-    data=await appFetchJsonTimed(WORKER+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal},passive?4500:7000);
+    data=await appFetchJsonTimed(WORKER+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal},passive?15000:10000);
   }catch(error){
     if(signal&&signal.aborted)throw error;
     if(useTracker)throw error;
     const market=appShoppingRegion();
     const owned=await appFetchJsonTimed(WORKER+'/api/owned-search?q='+encodeURIComponent(resolvedQuery)+'&country='+encodeURIComponent(market)+'&limit='+encodeURIComponent(limit),{signal,cache:'no-store'},2200).catch(()=>({items:[]}));
-    data={listings:Array.isArray(owned&&owned.items)?owned.items:[],total:Number(owned&&owned.total||0),country:owned&&owned.market||market,_ownedFallback:true};
+    if(!Array.isArray(owned?.items)||!owned.items.length)throw error;
+    data={listings:owned.items,total:Number(owned.total||0),country:owned.market||market,_ownedFallback:true};
   }
   const raw=(Array.isArray(data && data.listings)?data.listings:[]).filter(wishwaveAllowedListing);
   if(data)data.listings=raw;
@@ -15602,9 +15626,9 @@ if(typeof v116RenderMarketplaceListing==='function'){
   let exploreLoadedFilter='';
   let exploreLoadedTaste='';
   function exploreTasteSignature(){
-    if(exploreFilter!=='for-you')return 'browse-variety-v243';
+    if(exploreFilter!=='for-you')return 'browse-variety-v246';
     const catalogue=window.wishwaveTreasureStatus?.().active?'|curated-starter-v243':'';
-    try{return 'browse-variety-v243'+catalogue+'|'+scoredInterests(10).filter(x=>x&&!x.featured).slice(0,4).map(x=>normaliseQueryText(x.query)).join('|');}catch(_){return 'browse-variety-v243'+catalogue;}
+    try{return 'browse-variety-v246'+catalogue+'|'+scoredInterests(10).filter(x=>x&&!x.featured).slice(0,4).map(x=>normaliseQueryText(x.query)).join('|');}catch(_){return 'browse-variety-v246'+catalogue;}
   }
   window.wishwaveExploreTasteSignature=exploreTasteSignature;
   let exploreInitialPromise=null;
@@ -15766,6 +15790,14 @@ if(typeof v116RenderMarketplaceListing==='function'){
     exploreLoading=true;const generation=exploreGeneration;
     try{
     const curated=exploreFilter==='for-you'&&window.wishwaveTreasureStatus?.().active;
+    if(curated&&(initial||sectionOwner.items.length<12)&&window.wishwaveStarterItems){
+      const starter=await window.wishwaveStarterItems();
+      if(generation!==exploreGeneration||exploreLiveSearchQuery||accountOwner!==window.wishwaveRecommendationAccount?.()||sectionOwner!==premiumDiscoverySections[0])return;
+      const fresh=window.FindAITreasureHunt.varied(starter.filter(item=>!seenExplore.has(exploreItemKey(item))&&wishwaveRecommendationCandidate(item,item._interestQuery)),sectionOwner.items,36).items;
+      fresh.forEach(item=>{seenExplore.add(exploreItemKey(item));sectionOwner.items.push(item);});
+      if(fresh.length){renderExploreGrid({replace:false});cacheExploreBrowseState();}
+      if(sectionOwner.items.length>=24){exploreLoading=false;return;}
+    }
     const pool=curated?[]:await v116GetPreviewPool(false);
     const batch=exploreQueue.splice(0,Math.min(curated?(initial?12:8):initial?10:5,exploreQueue.length));
     // Share a reservoir across completed categories. Paint the first product
@@ -15978,6 +16010,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     // v242: taste updates affect future inventory, never replace a painted grid.
     if(!force&&premiumDiscoverySections[0]&&premiumDiscoverySections[0].items&&premiumDiscoverySections[0].items.length){
       if(!exploreLoadedFilter)exploreLoadedFilter=exploreFilter;
+      if(premiumDiscoverySections[0].items.length<24)loadExploreMore(false);
       return;
     }
     if(exploreInitialPromise&&exploreInitialPromiseFilter===exploreFilter&&exploreInitialPromiseGeneration===exploreGeneration&&!force)return exploreInitialPromise;
@@ -35070,7 +35103,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  const score=window.personalisedItemScore;
  window.personalisedItemScore=function(item,query,scope){const base=score.apply(this,arguments),f=focus();return base+(matches(item,f)?(f.strong?32:12):0)-(active()&&saved(item)?65:0);};
  const signature=window.personalisedProfileSignature;
- window.personalisedProfileSignature=function(lanes){return signature.apply(this,arguments)+(active()?'|reset-baseline-v237|'+revision:'')+(new URLSearchParams(location.search).get('treasure-test')==='1'?'|treasure-pilot-v240':'');};
+ window.personalisedProfileSignature=function(lanes){return signature.apply(this,arguments)+(active()?'|reset-baseline-v237|'+revision:'')+(new URLSearchParams(location.search).get('treasure-test')==='1'?'|treasure-pilot-v246':'');};
  function eligible(item,lane){return wishwaveRecommendationCandidate(item,lane.query)&&K.fit(item,K.constraints(lane.query,window.wishwaveShoppingContext?.().purpose==='gift'?{}:window.wishwaveShoppingPreferences?.()||{},currencyOf(item,currentFeedData)||'AUD',T),T.classify(item),window.WishWaveShoppingCore).eligible&&!saved(item);}
  async function prepare(){
   if(!active()||revision===applied)return;const version=revision,owner=epoch,session=marketplaceSession();if(job?.version===version)return job.promise;
@@ -35241,9 +35274,27 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  // Bound provider concurrency even with a larger queue, and verify actual image
  // decoding before a candidate can become a reel. Failed assets never become cards.
  const page=window.fetchPersonalisedLanePage,images=new Map();let running=0;const waiting=[];
+ let starterCache=null,starterFlight=null;
+ window.wishwaveStarterItems=async function(){
+  if(!active())return [];
+  if(starterCache&&Date.now()-starterCache.at<60000)return starterCache.items;
+  if(starterFlight)return starterFlight;
+  const flight=(async()=>{try{const data=await appFetchJsonTimed(WORKER_BASE+'/recommendations/starter?country=US',{cache:'no-store'},15000);const items=(data.items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery));if(items.length)starterCache={at:Date.now(),items};return items;}catch(_){return [];}})();
+  starterFlight=flight;try{return await flight;}finally{if(starterFlight===flight)starterFlight=null;}
+ };
+ window.wishwaveReadyStarter=function(items){
+  const list=(items||[]).slice(0,36),verified=new Map();let cursor=0,published=false,resolveOpening;
+  const opening=new Promise(resolve=>resolveOpening=resolve);
+  const snapshot=()=>[...verified.entries()].sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
+  function publish(){if(published)return;published=true;const ready=snapshot();Object.defineProperty(ready,'completion',{value:completion});resolveOpening(ready);}
+  const workers=Array.from({length:Math.min(4,list.length)},async()=>{while(cursor<list.length){const index=cursor++;if(await imageReady(list[index]))verified.set(index,list[index]);if(verified.size>=12)publish();}});
+  const completion=Promise.all(workers).then(()=>{publish();return snapshot();});
+  return opening;
+ };
+
  async function imageReady(item){
   const plan=appImagePlan(item,0,{personalised:true}),src=plan?.src;if(!src)return false;
-  if(!images.has(src))images.set(src,new Promise(resolve=>{const img=new Image();let done=false;const finish=ok=>{if(done)return;done=true;clearTimeout(timer);img.onload=img.onerror=null;resolve(ok);};const timer=setTimeout(()=>finish(false),4500);img.onload=()=>finish(img.naturalWidth>0);img.onerror=()=>finish(false);img.referrerPolicy='no-referrer';img.src=src;}));
+  if(!images.has(src))images.set(src,new Promise(resolve=>{const img=new Image();let done=false;const finish=ok=>{if(done)return;done=true;clearTimeout(timer);img.onload=img.onerror=null;img.removeAttribute?.('src');resolve(ok);};const timer=setTimeout(()=>finish(false),4500);img.onload=()=>finish(img.naturalWidth>0);img.onerror=()=>finish(false);img.referrerPolicy='no-referrer';img.src=src;}));
   return images.get(src);
  }
  window.fetchPersonalisedLanePage=async function(lane){
@@ -35377,5 +35428,6 @@ body:has(#loginOverlay.show) #wishwaveMainNav{visibility:hidden!important;pointe
 @media(max-height:720px){#loginOverlay .auth-top:before{margin-bottom:12px!important}#loginOverlay #loginSubtitle{margin-bottom:12px!important}#loginOverlay .ww-auth-field input{height:48px!important}#loginOverlay .ww-auth-primary,#loginOverlay .apple-signin-btn,#loginOverlay .google-signin-btn{height:46px!important;min-height:46px!important}#loginOverlay .ww-auth-switch{margin-top:8px!important}}
 </style>
 
+<style id="wishwave-profile-buffer-v246">#profileSignedOut [data-guest-likes]{padding-bottom:calc(var(--fa-nav-total,52px) + 24px)!important}</style>
 </body>
 </html>

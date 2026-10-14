@@ -21344,6 +21344,28 @@ async function treasureRoute(request,env){
  return jsonResp({version:globalThis.FindAITreasureHunt.version,results,inventoryWritten:false},200,{'Cache-Control':'no-store'});
 }
 
+// v246: One shared public starter read, no provider calls or ingestion activation.
+async function wishwaveStarterInventory(request,env){
+ const url=new URL(request.url),country=catalogueCountry(url.searchParams.get('country'));
+ const reply=(body,status=200)=>jsonResp(body,status,{'Cache-Control':'no-store'});
+ if(request.method!=='GET')return reply({error:'GET only'},405);
+ if(country!=='US')return reply({items:[],country,version:246});
+ if(!env.DB)return reply({items:[],country,version:246});
+ if(await rateLimited(env,request,'discovery-starter',30,60))return tooManyResp(60);
+ await catalogueEnsure(env);
+ const rows=await env.DB.prepare('SELECT item,observed_at FROM recommendation_catalogue WHERE country=? AND available=1 AND observed_at>? ORDER BY observed_at DESC LIMIT 4096').bind(country,Date.now()-6*3600000).all();
+ const policy=globalThis.FindAITreasureHunt,seen=new Set(),items=[];
+ for(const row of rows.results||[]){
+  let item;try{item=JSON.parse(row.item);}catch(_){continue;}
+  item._ebayFetchedAt=row.observed_at;
+  const target=policy.identify(item);if(!target)continue;
+  const key=String(item.itemId||item.id||item.url||'');if(!key||seen.has(key))continue;seen.add(key);
+  items.push({...policy.annotate(target,item),_interestQuery:target.query,_interestCategory:target.category,_interestCluster:'treasure:'+target.id,_catalogueObservedAt:row.observed_at});
+ }
+ const selected=policy.varied(items,[],36).items;
+ return reply({version:246,country,items:selected,matchedTargets:new Set(selected.map(x=>x._treasureTargetId)).size,scanned:(rows.results||[]).length});
+}
+
 // v244: Password accounts. Challenges store only salted password/code hashes.
 async function wishwavePasswordSchema(env) {
   await env.DB.batch([
@@ -21817,6 +21839,7 @@ export default {
         return jsonResp(await ebayGatewayStatus(env),200,{'Cache-Control':'no-store'});
       }
 
+      if(url.pathname==='/recommendations/starter')return await wishwaveStarterInventory(request,env);
       if(url.pathname==='/recommendations/catalogue-search'&&request.method==='POST')return await catalogueSearch(request,env,ctx);
       const treasureResponse=await treasureRoute(request,env);if(treasureResponse)return treasureResponse;
       if(url.pathname==='/recommendations/catalogue-status'&&request.method==='GET')return await catalogueStatus(request,env);
