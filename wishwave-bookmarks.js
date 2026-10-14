@@ -63,5 +63,6 @@
   document.addEventListener('focusin',searchFocus);document.addEventListener('focusout',()=>requestAnimationFrame(searchFocus));
   document.addEventListener('wishwave-recommendation-account-change',()=>{guestTab='liked';paint();wishwaveSyncBookmarks();});
   window.addEventListener('online',wishwaveSyncBookmarks);
-  wishwaveRenderGuestCollection();wishwaveSyncBookmarks();
+  document.querySelectorAll('.reel-card[data-index]').forEach(card=>{const rail=card.querySelector('.reel-actions-rail'),index=Number(card.dataset.index),item=currentFeedItems[index];if(rail&&item&&!rail.querySelector('.bookmark'))rail.insertAdjacentHTML('beforeend',wishwaveBookmarkMarkup(item,index));});
+  paint();wishwaveRenderGuestCollection();wishwaveSyncBookmarks();
 })();
