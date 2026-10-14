@@ -6,7 +6,7 @@ function touch(target,type,x){const e=new w.Event(type,{bubbles:true,cancelable:
 (async()=>{
  await wait(300);w.backgroundRefreshPersonalisedFeed=async()=>{};w.eval(fs.readFileSync(__dirname+'/../wishwave-bookmarks.js','utf8'));w.eval(fs.readFileSync(__dirname+'/../wishwave-tab-paging.js','utf8'));Object.defineProperty(w.document.querySelector('.app'),'clientWidth',{value:390,configurable:true});
  const nav=w.document.getElementById('wishwaveMainNav');nav.getBoundingClientRect=()=>({left:12,width:340,height:52});[...nav.querySelectorAll('button')].forEach((b,i)=>b.getBoundingClientRect=()=>({left:12+i*68,width:68,height:50}));
- await w.loadPersonalisedFeed({forceNetwork:true});await wait(400);await w.openSearchHome(false);assert(w.document.querySelectorAll('.premium-explore-tile').length>=24);w.openForYou();await wait(100);
+ await w.loadPersonalisedFeed({forceNetwork:true});await wait(400);assert(w.document.querySelectorAll('.premium-explore-tile').length>=24,'Search preloads from first Home paint before its first visit');await w.openSearchHome(false);w.openForYou();await wait(100);
  const grid=w.document.querySelector('.premium-explore-grid'),tile=grid.firstElementChild,photo=tile.querySelector('img'),src=photo?.getAttribute('src');let resets=0;const reset=w.resetPremiumExploreHome;w.resetPremiumExploreHome=function(){resets++;return reset.apply(this,arguments)};
  for(let i=0;i<3;i++){
    const home=w.document.getElementById('discover');touch(home,'touchstart',350);touch(home,'touchmove',270);await wait(25);assert.equal(w.document.querySelector('.premium-explore-grid'),grid);assert.equal(grid.firstElementChild,tile);touch(home,'touchmove',30);const before=pulses.length;touch(home,'touchend',30);

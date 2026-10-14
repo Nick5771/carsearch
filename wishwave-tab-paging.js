@@ -1,46 +1,68 @@
-/* Prepare real tab surfaces without changing the current route during a drag. */
+/* Prepare existing surfaces before a drag; guest Create uses the real auth form. */
 (function(){
   'use strict';
   const create=()=>document.getElementById('createListingScreen');
+  const login=document.getElementById('loginOverlay'),loginParent=login.parentElement;
+  const isGuest=()=>!getAccountProfile()||!marketplaceSession();
+  function releaseLogin(){
+    if(login.parentElement===create()){
+      loginParent.appendChild(login);login.removeAttribute('data-create-login');
+      login.setAttribute('aria-modal','true');
+    }
+  }
   function prepareCreate(){
     const root=create();if(!root)return;
-    const guest=!getAccountProfile()||!marketplaceSession();root.classList.toggle('wishwave-create-guest',guest);
-    if(guest&&!root.querySelector('.wishwave-create-guest-pane')){
-      root.insertAdjacentHTML('beforeend','<section class="wishwave-create-guest-pane"><h1>Create a listing</h1><p>Sign in to share your finds and sell on WishWave.</p><button type="button" onclick="closeCreateListing({navigation:true});openLogin()">Sign in</button></section>');
-    }
+    const guest=isGuest();root.classList.toggle('wishwave-create-guest',guest);
+    if(guest&&!login.classList.contains('show')){
+      root.appendChild(login);login.dataset.createLogin='1';login.setAttribute('aria-modal','false');
+    }else if(!guest)releaseLogin();
   }
   const prepare=window.__wishwavePrepareTab;
   window.__wishwavePrepareTab=function(tab){
     prepare?.(tab);
     if(tab==='create')prepareCreate();
-    if(tab==='notifications'){window.findaiNotificationState?.ensureUI?.();window.findaiNotificationState?.render?.();}
-    if(tab==='profile')renderProfileTab();
+    if(tab==='notifications'&&!document.getElementById('findaiNotificationPanel')){window.findaiNotificationState?.ensureUI?.();window.findaiNotificationState?.render?.();}
+    if(tab==='profile'&&!document.querySelector('#profile .social-profile-grid'))renderProfileTab();
     if(tab==='search'&&!document.querySelector('#search .premium-explore-tile'))renderPremiumSearchHome();
   };
   const open=window.wishwaveOpenCreateTab;
   window.wishwaveOpenCreateTab=function(){
     prepareCreate();const root=create();
     if(root?.classList.contains('wishwave-create-guest')){
-      window.findaiDismissTransientUI?.({preserveCreate:true});
-      root.dataset.returnTab=String(document.body.dataset.activeTab||'discover');
+      window.findaiDismissTransientUI?.({preserveCreate:true});prepareCreate();
+      if(!root.classList.contains('show'))root.dataset.returnTab=String(document.body.dataset.activeTab||'discover');
       document.body.classList.add('creating-listing');root.classList.add('show');setMainNavActive('create');return;
     }
     return open.apply(this,arguments);
   };
   const close=window.closeCreateListing;
-  window.closeCreateListing=function(){
-    if(create()?.classList.contains('wishwave-create-guest')){create().classList.remove('show');document.body.classList.remove('creating-listing');return;}
-    return close.apply(this,arguments);
+  window.closeCreateListing=function(options={}){
+    if(create()?.classList.contains('wishwave-create-guest')){
+      const root=create(),wasOpen=root.classList.contains('show'),origin=root.dataset.returnTab||'discover';
+      root.classList.remove('show');document.body.classList.remove('creating-listing');releaseLogin();
+      if(wasOpen&&!options.navigation&&!window.__wishwaveNavigationHandoff){go(origin);setMainNavActive(origin);}
+      return;
+    }
+    releaseLogin();return close.apply(this,arguments);
   };
-  const css=document.createElement('style');css.id='wishwave-pager-surfaces-v250';css.textContent=`
+  const openAuth=window.openLogin,closeAuth=window.closeLogin;
+  window.openLogin=function(){
+    if(create()?.classList.contains('show')&&isGuest())window.closeCreateListing({navigation:true});
+    releaseLogin();return openAuth.apply(this,arguments);
+  };
+  window.closeLogin=function(){
+    if(login.parentElement===create()&&create().classList.contains('show')){
+      document.activeElement?.blur?.();window.closeCreateListing();window.resetAppEmailAuth?.();return;
+    }
+    releaseLogin();return closeAuth.apply(this,arguments);
+  };
+  const css=document.createElement('style');css.id='wishwave-pager-surfaces-v253';css.textContent=`
     html body .app #notifications.findai-v132-swipe-surface #findaiNotificationPanel{display:flex!important;opacity:1!important;visibility:visible!important;transform:none!important;transition:none!important;pointer-events:none!important;}
-    #createListingScreen.wishwave-create-guest>:not(.wishwave-create-guest-pane){display:none!important;}
-    #createListingScreen:not(.wishwave-create-guest)>.wishwave-create-guest-pane{display:none!important;}
-    .wishwave-create-guest-pane{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:40px 28px calc(var(--fa-nav-total,52px) + 40px);text-align:center;background:var(--bg,#0c0d0f);color:var(--ink,#f1f2f4);}
-    .wishwave-create-guest-pane h1{font-size:26px;letter-spacing:-.5px;margin:0 0 12px;}
-    .wishwave-create-guest-pane p{font-size:15px;color:var(--muted,#979da7);max-width:270px;margin:0 0 24px;line-height:1.5;}
-    .wishwave-create-guest-pane button{font:inherit;font-weight:600;padding:14px 36px;border:0;border-radius:12px;background:var(--ink,#f1f2f4);color:var(--bg,#0c0d0f);}
-    html body.creating-listing .app:has(#createListingScreen.show)>#wishwaveMainNav{visibility:visible!important;pointer-events:auto!important;}
+    #createListingScreen.wishwave-create-guest>:not(#loginOverlay){display:none!important;}
+    html body .app #createListingScreen.wishwave-create-guest>#loginOverlay{display:flex!important;position:absolute!important;inset:0!important;visibility:visible!important;opacity:1!important;transform:none!important;transition:none!important;}
+    #createListingScreen.wishwave-create-guest #loginOverlay .auth-card{padding-bottom:calc(var(--fa-nav-total,52px) + 12px + env(safe-area-inset-bottom,0px))!important;}
+    html body #loginOverlay .auth-close{left:0!important;right:auto!important;}
+    html body.creating-listing .app:has(#createListingScreen.show)>#wishwaveMainNav{display:flex!important;opacity:1!important;visibility:visible!important;pointer-events:auto!important;}
     html body.creating-listing.keyboard-open .app:has(#createListingScreen.show)>#wishwaveMainNav{visibility:hidden!important;pointer-events:none!important;}
   `;document.head.appendChild(css);
 })();

@@ -3445,7 +3445,7 @@ html.findai-light body #discover .wishwave-home-feed-tabs>button[aria-selected="
     <div class="auth-card auth-multi" onclick="event.stopPropagation()">
       <div class="auth-top">
         <div><h2 id="loginTitle">Log in to FindAI</h2><p id="loginSubtitle">Keep your profile, saved products and personalised interests together.</p></div>
-        <button class="auth-close" type="button" onclick="closeLogin()" aria-label="Close login"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+        <button class="auth-close" type="button" onclick="closeLogin()" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg></button>
       </div>
       <div class="auth-login-body" id="authLoginMethods">
         <button type="button" class="apple-signin-btn" id="appleSigninButton" onclick="startAppleAuth()">
@@ -17510,7 +17510,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     }
     const committed=activate&&targetTab&&(targetTab==='create'?document.getElementById('createListingScreen')?.classList.contains('show'):activeTab()===targetTab);
     if(committed&&!state.didBuzz){state.didBuzz=true;try{haptic();}catch(_){}}
-    const finish=()=>{cleanupFrame=0;clearSurface(current);clearSurface(target);if(swipe===state)swipe=null;swipeLocked=false;window.__wishwavePageMotion=false;window.wishwaveWakeReelGalleries?.(activate?target:current);window.wishwaveSleepReelGalleries?.(activate?current:target);window.wishwaveNavSwipeComplete?.(committed?targetTab:state.tab);window.__wishwaveFlushExploreRender?.();window.__wishwaveFlushInboxRender?.();};
+    const finish=()=>{cleanupFrame=0;clearSurface(current);clearSurface(target);if(swipe===state)swipe=null;swipeLocked=false;window.__wishwavePageMotion=false;window.wishwaveWakeReelGalleries?.(activate?target:current);window.wishwaveSleepReelGalleries?.(activate?current:target);window.wishwaveNavSwipeComplete?.(committed?targetTab:state.tab);requestAnimationFrame(()=>{if(!window.__wishwavePageMotion){window.__wishwaveFlushExploreRender?.();window.__wishwaveFlushInboxRender?.();}});};
     if(cleanupFrame)cancelAnimationFrame(cleanupFrame);finish();
   }
   function drawSwipe(){
@@ -17563,6 +17563,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     if(settling)cleanup(settling,settling.commit,true);
     if(swipeLocked||(!bridge&&overlayOpen())||blockedTarget(event.target,event.touches[0].clientY))return;
     const currentTab=bridge?.tab||activeTab(),i=idx(currentTab);if(i<0)return;const current=bridge?.root||visual(currentTab);if(!current)return;
+    tabs.slice(Math.max(0,i-1),i+2).filter(tab=>tab!==currentTab).forEach(tab=>window.__wishwavePrepareTab?.(tab));
     const t=event.touches[0];swipe={tab:currentTab,index:i,startX:t.clientX,startY:t.clientY,lastX:t.clientX,lastT:performance.now(),dx:0,velocity:0,current,bridge,base:bridge?getComputedStyle(current).transform.replace(/^none$/,''):'',targetEl:null,targetTab:null,direction:0,active:false,width:(document.querySelector('.app')?.clientWidth||window.innerWidth)};
   }
   function tabMove(event){
@@ -17572,7 +17573,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
       if(Math.abs(dx)<8)return;
       if(Math.abs(dy)>Math.abs(dx)*.78){swipe=null;return;}
       const direction=dx<0?1:-1,targetIndex=swipe.index+direction;if(targetIndex<0||targetIndex>=tabs.length){swipe=null;return;}
-      const targetTab=tabs[targetIndex];window.__wishwavePageMotion=true;window.__wishwavePrepareTab?.(targetTab);const targetEl=visual(targetTab);if(!targetEl){swipe=null;window.__wishwavePageMotion=false;return;}
+      const targetTab=tabs[targetIndex];const targetEl=visual(targetTab);if(!targetEl){swipe=null;window.__wishwavePageMotion=false;return;}
       window.__wishwaveGalleryTouchV149?.('touchcancel',{changedTouches:[],stopPropagation(){},stopImmediatePropagation(){}});
       window.__wishwaveRefreshTouch?.('touchcancel',event);window.__wishwavePageMotion=true;swipe.active=true;swipe.direction=direction;swipe.targetTab=targetTab;swipe.targetEl=targetEl;
       prepSurface(swipe.current,'findai-v132-current');prepSurface(targetEl,'findai-v132-target');
@@ -17590,7 +17591,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     blockTabClick=Date.now()+400;settle(commit);
   }
   let blockTabClick=0;
-  window.addEventListener('click',e=>{if(Date.now()<blockTabClick&&e.target.closest('.app,#searchDetailOverlay,#createListingScreen')){e.preventDefault();e.stopImmediatePropagation();}},true);
+  window.addEventListener('click',e=>{if(Date.now()<blockTabClick&&!e.target.closest('.auth-close')&&e.target.closest('.app,#searchDetailOverlay,#createListingScreen')){e.preventDefault();e.stopImmediatePropagation();}},true);
   window.__wishwaveFinishTabSettlement=function(){if(settling)cleanup(settling,settling.commit,true);};
   window.__wishwaveTabTouch=function(type,event,bridge){
     if(type==='touchstart'){tabStart(event,bridge);if(swipe)window.__wishwaveRefreshTouch?.(type,event);return !!swipe;}
@@ -17724,6 +17725,18 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
       Promise.resolve(typeof renderPremiumDiscoverySections==='function'&&renderPremiumDiscoverySections(false)).then(()=>{cacheSearch();preloadSearchImages();document.getElementById('search')?.classList.add('findai-v133-warm')}).catch(()=>{});
     }catch(_){ }
   }
+
+  // Start Search from the shared inventory when Home first paints, rather than
+  // waiting for the first horizontal drag to request and build its grid.
+  const homeFeed=document.getElementById('personalFeed');
+  const warmWhenReady=()=>{
+    if(!homeFeed?.querySelector('.reel-card'))return;
+    homeWarmObserver?.disconnect();
+    const run=()=>{if(window.__wishwavePageMotion){setTimeout(run,80);return;}warmSearch();};
+    if(window.requestIdleCallback)requestIdleCallback(run,{timeout:400});else setTimeout(run,40);
+  };
+  const homeWarmObserver=homeFeed?new MutationObserver(warmWhenReady):null;
+  homeWarmObserver?.observe(homeFeed,{childList:true});warmWhenReady();
 
   /* 3) Warm/cache the signed-in profile: cached counts paint instantly, network refresh follows quietly. */
   function profileIdentity(){try{const p=getAccountProfile&&getAccountProfile();return p&&String(p.email||p.username||p.name||'').toLowerCase()}catch(_){return ''}}
@@ -35488,7 +35501,7 @@ html body .reel-actions-rail .reel-social-action.bookmark.active svg{fill:curren
 @media(prefers-reduced-motion:reduce){.wishwave-notification-tabs::after{transition:none}}
 </style>
 <script src="wishwave-bookmarks.js?v=249"></script>
-<script src="wishwave-tab-paging.js?v=250"></script>
+<script src="wishwave-tab-paging.js?v=253"></script>
 <style id="wishwave-stable-main-tabs-v252">html body .app>:is(#discover,#search,#searchResults,#notifications,#profile){animation:none!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;margin:0!important;contain:layout paint!important;backface-visibility:hidden!important;}html body .app .findai-v132-swipe-surface{opacity:1!important;}</style>
 </body>
 </html>
