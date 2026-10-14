@@ -15736,7 +15736,10 @@ if(typeof v116RenderMarketplaceListing==='function'){
     }
   },{threshold:[0,.65],root:document.querySelector('#search .premium-search-home-scroll')});
   document.addEventListener('visibilitychange',()=>{if(document.hidden){exploreExposureTimers.forEach(clearTimeout);exploreExposureTimers.clear();}});
+  let pendingExplorePaint=null;
+  window.__wishwaveFlushExploreRender=function(){if(!pendingExplorePaint||window.__wishwavePageMotion)return;const options=pendingExplorePaint;pendingExplorePaint=null;renderExploreGrid(options);};
   function renderExploreGrid(options={}){
+    if(window.__wishwavePageMotion){pendingExplorePaint={replace:!!options.replace||!!pendingExplorePaint?.replace};return;}
     const root=document.getElementById('premiumDiscoverySections');if(!root)return;
     const section=premiumDiscoverySections[0];
     if(section)section.items=(section.items||[]).filter(item=>wishwaveAllowedListing(item)&&(exploreLiveSearchQuery||!window.wishwaveRecommendationRejected?.(item)));
@@ -17469,6 +17472,9 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     if(tab!=='create'&&document.getElementById('createListingScreen')?.classList.contains('show'))closeCreateListing();
     if(tab==='create')return typeof window.wishwaveOpenCreateTab==='function'?window.wishwaveOpenCreateTab():openCreateListing({preserveDraft:true});
     if(tab==='discover')return openForYou();
+    if(tab==='search'&&window.__wishwaveNavigationHandoff){
+      const screen=document.getElementById('search');screen?.classList.remove('search-recents-visible');screen?.setAttribute('data-v201-nav-reset','1');document.getElementById('findaiSearchRecents')?.classList.remove('show','findai-recents-lock');go('search');return;
+    }
     if(tab==='search'){
       const layer=document.getElementById('findaiContextualReelV168');
       if(layer?.classList.contains('show')&&String(layer.dataset.contextOrigin||'')==='search'){
@@ -17502,8 +17508,10 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
       if(activeTab()==='discover'&&targetTab!=='discover')window.__wishwaveCaptureHome?.();
       try{window.__wishwaveNavigationHandoff=true;openTab(targetTab);}catch(_){}finally{window.__wishwaveNavigationHandoff=false;}
     }
-    const finish=()=>{cleanupFrame=0;clearSurface(current);clearSurface(target);if(swipe===state)swipe=null;swipeLocked=false;window.__wishwavePageMotion=false;window.wishwaveWakeReelGalleries?.(activate?target:current);window.wishwaveSleepReelGalleries?.(activate?current:target);window.__wishwaveFlushInboxRender?.();};
-    if(immediate){if(cleanupFrame)cancelAnimationFrame(cleanupFrame);finish();}else cleanupFrame=requestAnimationFrame(finish);
+    const committed=activate&&targetTab&&(targetTab==='create'?document.getElementById('createListingScreen')?.classList.contains('show'):activeTab()===targetTab);
+    if(committed&&!state.didBuzz){state.didBuzz=true;try{haptic();}catch(_){}}
+    const finish=()=>{cleanupFrame=0;clearSurface(current);clearSurface(target);if(swipe===state)swipe=null;swipeLocked=false;window.__wishwavePageMotion=false;window.wishwaveWakeReelGalleries?.(activate?target:current);window.wishwaveSleepReelGalleries?.(activate?current:target);window.wishwaveNavSwipeComplete?.(committed?targetTab:state.tab);window.__wishwaveFlushExploreRender?.();window.__wishwaveFlushInboxRender?.();};
+    if(cleanupFrame)cancelAnimationFrame(cleanupFrame);finish();
   }
   function drawSwipe(){
     raf=0;if(!swipe||!swipe.active)return;
@@ -17520,7 +17528,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     void state.current.offsetWidth;
     const remaining=commit?w-Math.abs(state.dx):Math.abs(state.dx);
     if(remaining<1){window.wishwaveNavSwipeSettle?.(commit?state.targetTab:state.tab,0);cleanup(state,commit);return;}
-    const duration=matchMedia('(prefers-reduced-motion: reduce)').matches?1:Math.round(Math.max(80,Math.min(260,remaining/Math.max(1.1,Math.abs(state.velocity)))));
+    const duration=matchMedia('(prefers-reduced-motion: reduce)').matches?1:Math.round(Math.max(160,Math.min(300,remaining/Math.max(1.2,Math.min(2.2,Math.abs(state.velocity))))));
     window.wishwaveNavSwipeSettle?.(commit?state.targetTab:state.tab,duration);
     [state.current,state.targetEl].forEach(el=>el.style.setProperty('--wishwave-tab-settle-ms',duration+'ms'));
     settling=state;
@@ -17805,7 +17813,6 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
   window.findaiFollowFeedback=function(button){tactile(button);};
 
   async function refreshCurrentTab(tab,button){
-    tactile(button);
     document.body.classList.add('findai-tab-refreshing');setTimeout(()=>document.body.classList.remove('findai-tab-refreshing'),520);
     if(tab==='search'){
       try{const overlay=document.getElementById('searchDetailOverlay');if(overlay&&overlay.classList.contains('show')&&typeof closeSearchResultDetail==='function')closeSearchResultDetail();}catch(_){}
@@ -30980,7 +30987,8 @@ html.findai-light body .app #appMpInbox .app-mp-compose-send{color:#111!importan
     document.getElementById('search')?.classList.add('active');document.body.dataset.activeTab='search';setMainNavActive('search');
     dismissRecents();
     const scroll=document.querySelector('#search .premium-search-home-scroll');if(scroll)scroll.scrollTop=0;
-    const work=shared('search',()=>window.resetPremiumExploreHome?window.resetPremiumExploreHome(same):renderPremiumDiscoverySections(same));
+    const painted=!!document.querySelector('#premiumDiscoverySections .premium-explore-tile');
+    const work=shared('search',()=>painted&&!same?renderPremiumDiscoverySections(false):window.resetPremiumExploreHome?window.resetPremiumExploreHome(same):renderPremiumDiscoverySections(same));
     // Delayed old focus/recents callbacks must not undo the explicit nav reset.
     [0,90,210].forEach(ms=>setTimeout(()=>{if(token===searchNavigation&&document.body.dataset.activeTab==='search'&&document.activeElement?.id!=='q')dismissRecents();},ms));
     if(focus)setTimeout(()=>{if(token===searchNavigation){delete document.getElementById('search').dataset.v201NavReset;document.getElementById('q')?.focus({preventScroll:true});}},250);
@@ -31397,8 +31405,8 @@ html body .app .findai-v132-swipe-surface .wishwave-return-offscreen{content-vis
 html body .app .findai-v132-swipe-surface{contain:layout paint!important;backface-visibility:hidden!important;}
 html body .app #createListingScreen.findai-v132-swipe-surface{display:flex!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-height:none!important;z-index:9500!important;}
 html body .app #createListingScreen.findai-v132-current{z-index:9501!important;}
-html body .app .findai-v132-swipe-surface.findai-v132-settle{transition:transform var(--wishwave-tab-settle-ms,240ms) cubic-bezier(.25,.55,.45,1)!important;}
-html body #searchDetailOverlay.findai-v132-swipe-surface.findai-v132-settle{transition:transform var(--wishwave-tab-settle-ms,240ms) cubic-bezier(.25,.55,.45,1)!important;}
+html body .app .findai-v132-swipe-surface.findai-v132-settle{transition:transform var(--wishwave-tab-settle-ms,240ms) cubic-bezier(.22,.8,.22,1)!important;}
+html body #searchDetailOverlay.findai-v132-swipe-surface.findai-v132-settle{transition:transform var(--wishwave-tab-settle-ms,240ms) cubic-bezier(.22,.8,.22,1)!important;}
 html body #searchDetailOverlay.wishwave-reel-preparing{visibility:hidden!important;}
 html body #searchDetailOverlay.wishwave-reel-expanding{transform-origin:0 0!important;will-change:transform,clip-path;contain:layout paint!important;overflow:hidden!important;}
 html body #searchDetailOverlay.wishwave-reel-expanding .product-panel,
@@ -34259,7 +34267,7 @@ html body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-social-
  function selected(){return nav.querySelector('button.active')?.dataset.tab||document.body.dataset.activeTab||'discover';}
  function cancelMotion(){if(motion){motion.cancel();motion=null;}}
  function move(tab,duration=380){
-  if(nav.dataset.navDrag==='true')return;
+  if(nav.dataset.navDrag==='true'||window.__wishwaveNavigationHandoff)return;
   const g=geometry(tab);if(!g)return;const key=g.x+'|'+g.width;
   if(key===targetKey)return;targetKey=key;
   nav.style.setProperty('--ww-nav-motion',duration+'ms');
@@ -34267,7 +34275,7 @@ html body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-social-
   const current=getComputedStyle(indicator),from=current.transform==='none'?indicator.style.transform||transform(g):current.transform,fromWidth=current.width;
   cancelMotion();indicator.style.transition='none';paint(g);
   if(!duration||reduced?.matches)return;
-  const animation=indicator.animate([{transform:from,width:fromWidth},{transform:transform(g),width:g.width+'px'}],{duration,easing:'cubic-bezier(.2,.8,.2,1)'});
+  const animation=indicator.animate([{transform:from,width:fromWidth},{transform:transform(g),width:g.width+'px'}],{duration,easing:'cubic-bezier(.22,.8,.22,1)'});
   motion=animation;animation.onfinish=()=>{if(motion===animation)motion=null;};
  }
  const select=window.setMainNavActive;
@@ -34279,7 +34287,8 @@ html body :is(#discover,#searchDetailOverlay,#createListingScreen) .reel-social-
   if(!swipeGeometry||swipeGeometry.from!==from||swipeGeometry.to!==to){swipeGeometry={from,to,a:geometry(from),b:geometry(to)};cancelMotion();indicator.style.transition='none';}
   const {a,b}=swipeGeometry;if(!a||!b)return;nav.dataset.navDrag='true';targetKey='';const p=Math.max(0,Math.min(1,Number(progress)||0));paint({x:a.x+(b.x-a.x)*p,width:a.width+(b.width-a.width)*p});
  };
- window.wishwaveNavSwipeSettle=function(tab,duration){nav.dataset.navDrag='false';swipeGeometry=null;targetKey='';move(tab,duration);};
+ window.wishwaveNavSwipeSettle=function(tab,duration){nav.dataset.navDrag='false';swipeGeometry=null;targetKey='';select(tab);move(tab,duration);};
+ window.wishwaveNavSwipeComplete=function(tab){nav.dataset.navDrag='false';swipeGeometry=null;cancelMotion();select(tab);const g=geometry(tab);if(g){paint(g);targetKey=g.x+'|'+g.width;}};
  window.wishwaveNavSwipeReset=function(){if(nav.dataset.navDrag!=='true'&&!swipeGeometry)return;nav.dataset.navDrag='false';swipeGeometry=null;targetKey='';move(selected(),240);};
  const resize=()=>{const r=nav.getBoundingClientRect(),key=r.width+'|'+r.height;if(key===sizeKey)return;sizeKey=key;swipeGeometry=null;nav.dataset.navDrag='false';targetKey='';move(selected(),0);};
  window.addEventListener('resize',resize,{passive:true});if(window.ResizeObserver)new ResizeObserver(resize).observe(nav);
@@ -35480,5 +35489,6 @@ html body .reel-actions-rail .reel-social-action.bookmark.active svg{fill:curren
 </style>
 <script src="wishwave-bookmarks.js?v=249"></script>
 <script src="wishwave-tab-paging.js?v=250"></script>
+<style id="wishwave-stable-main-tabs-v252">html body .app>:is(#discover,#search,#searchResults,#notifications,#profile){animation:none!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;margin:0!important;contain:layout paint!important;backface-visibility:hidden!important;}html body .app .findai-v132-swipe-surface{opacity:1!important;}</style>
 </body>
 </html>
