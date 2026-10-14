@@ -46,12 +46,12 @@
   window.wishwaveSaveDetailListing=function(button){if(!appMpListing)return;const active=wishwaveToggleBookmarkItem(appMpListing);button.setAttribute('aria-pressed',String(active));button.querySelector('span').textContent=active?'Saved':'Save';};
   const render=window.renderSocialProfileContent;
   window.renderSocialProfileContent=function(){if(socialProfileTab!=='saved')return render.apply(this,arguments);const items=wishwaveBookmarks(),root=document.getElementById('socialProfileContent');if(root)root.innerHTML=items.length?'<div class="social-profile-grid">'+items.map((x,i)=>socialProfileTile(x,i,'saved')).join('')+'</div>':'<div class="social-profile-empty"><b>No saved products yet</b>Bookmark products to keep them here.</div>';};
-  let guestTab='liked';
+  let guestTab='saved';
   window.wishwaveRenderGuestCollection=function(){
     const root=document.querySelector('#profileSignedOut .guest-profile-posts'),tabs=document.querySelector('#profileSignedOut .social-profile-tabs');if(!root||!tabs||getAccountProfile())return;
-    tabs.classList.remove('guest-profile-tabs');tabs.setAttribute('aria-hidden','false');tabs.style.setProperty('--profile-tab-index',String(['listings','sold','liked','saved'].indexOf(guestTab)));
-    [...tabs.querySelectorAll('button')].forEach((button,i)=>{const tab=['listings','sold','liked','saved'][i];button.disabled=false;button.tabIndex=0;button.classList.toggle('active',tab===guestTab);button.setAttribute('aria-selected',String(tab===guestTab));button.setAttribute('aria-label',tab==='liked'?'Liked products':tab==='saved'?'Saved products':tab==='sold'?'Sold':'Listings');button.onclick=()=>{guestTab=tab;wishwaveRenderGuestCollection();};});
-    if(guestTab==='liked'||guestTab==='saved'){const items=guestTab==='liked'?getTracked():wishwaveBookmarks();root.innerHTML=items.length?'<div class="social-profile-grid">'+items.map((x,i)=>socialProfileTile(x,i,guestTab)).join('')+'</div>':'<div class="social-profile-empty"><b>No '+(guestTab==='liked'?'liked':'saved')+' products yet</b>'+(guestTab==='liked'?'Heart':'Bookmark')+' products to keep them here.</div>';}
+    tabs.classList.remove('guest-profile-tabs');tabs.setAttribute('aria-hidden','false');tabs.style.setProperty('--profile-tab-index',String(['listings','sold','saved'].indexOf(guestTab)));
+    [...tabs.querySelectorAll('button')].forEach((button,i)=>{const tab=['listings','sold','saved'][i];button.disabled=false;button.tabIndex=0;button.classList.toggle('active',tab===guestTab);button.setAttribute('aria-selected',String(tab===guestTab));button.setAttribute('aria-label',tab==='saved'?'Saved products':tab==='sold'?'Sold':'Listings');button.onclick=()=>{guestTab=tab;wishwaveRenderGuestCollection();};});
+    if(guestTab==='saved'){const items=wishwaveBookmarks();root.innerHTML=items.length?'<div class="social-profile-grid">'+items.map((x,i)=>socialProfileTile(x,i,guestTab)).join('')+'</div>':'<div class="social-profile-empty"><b>No saved products yet</b>Bookmark products to keep them here.</div>';}
     else root.innerHTML='<div class="guest-profile-signin"><b>Sign in to your profile</b><span>Sign in for your listings, messages and account activity.</span><button type="button" onclick="openLogin()">Sign in</button></div>';
   };
   document.querySelector('#profileSignedOut .social-profile-handle').textContent='Profile';
@@ -61,7 +61,7 @@
   const filter=window.wishwaveFilterNotifications;window.wishwaveFilterNotifications=function(value){const root=document.getElementById('findaiNotificationList');root?.getAnimations?.().forEach(x=>x.cancel());filter(value);document.querySelector('.wishwave-notification-tabs')?.style.setProperty('--notice-index',String(Math.max(0,['all','orders','social'].indexOf(value))));if(!matchMedia('(prefers-reduced-motion: reduce)').matches)root?.animate?.([{opacity:.15,transform:'translateY(3px)'},{opacity:1,transform:'translateY(0)'}],{duration:200,easing:'ease-out'});};
   function searchFocus(){const field=document.activeElement;document.body.classList.toggle('wishwave-search-editing',!!field?.closest?.('#search,#searchResults')&&field.matches('input,textarea,[contenteditable="true"]'));}
   document.addEventListener('focusin',searchFocus);document.addEventListener('focusout',()=>requestAnimationFrame(searchFocus));
-  document.addEventListener('wishwave-recommendation-account-change',()=>{guestTab='liked';paint();wishwaveSyncBookmarks();});
+  document.addEventListener('wishwave-recommendation-account-change',()=>{guestTab='saved';paint();wishwaveSyncBookmarks();});
   window.addEventListener('online',wishwaveSyncBookmarks);
   document.querySelectorAll('.reel-card[data-index]').forEach(card=>{const rail=card.querySelector('.reel-actions-rail'),index=Number(card.dataset.index),item=currentFeedItems[index];if(rail&&item&&!rail.querySelector('.bookmark'))rail.insertAdjacentHTML('beforeend',wishwaveBookmarkMarkup(item,index));});
   paint();wishwaveRenderGuestCollection();wishwaveSyncBookmarks();
