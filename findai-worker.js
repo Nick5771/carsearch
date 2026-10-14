@@ -16878,6 +16878,26 @@ async function savedItemRecountMarketplaceLike(env, key) {
   return likeCount;
 }
 
+// v247: Private bookmarks are separate from the historic saved_items like store.
+async function wishwaveBookmarkRequest(request, env, email) {
+  const path = new URL(request.url).pathname;
+  if (!((path === '/bookmarks/list' && request.method === 'GET') || (path === '/bookmarks/toggle' && request.method === 'POST'))) return jsonResp({error:'Method not allowed'},405);
+  if (!env.DB) return jsonResp({error:'Storage unavailable'},503);
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS bookmark_items (email TEXT NOT NULL,item_key TEXT NOT NULL,payload_json TEXT NOT NULL,updated_at TEXT NOT NULL,PRIMARY KEY(email,item_key))`).run();
+  email = String(email).toLowerCase();
+  if (path === '/bookmarks/list') {
+    const rows = await env.DB.prepare('SELECT payload_json FROM bookmark_items WHERE email=? ORDER BY updated_at DESC LIMIT 250').bind(email).all();
+    const items=[];for(const row of rows.results||[]){try{items.push(JSON.parse(row.payload_json));}catch(_){}}
+    return jsonResp({ok:true,items},200,{'Cache-Control':'no-store'});
+  }
+  let body;try{body=await request.json();}catch(_){return jsonResp({error:'Invalid JSON'},400);}
+  const item=savedItemSanitize(body.item,body.key);
+  if(!String(body.key||'').trim()||!item.key)return jsonResp({error:'Product key required'},400);
+  if(body.active===false)await env.DB.prepare('DELETE FROM bookmark_items WHERE email=? AND item_key=?').bind(email,item.key).run();
+  else await env.DB.prepare(`INSERT INTO bookmark_items(email,item_key,payload_json,updated_at) VALUES(?,?,?,?) ON CONFLICT(email,item_key) DO UPDATE SET payload_json=excluded.payload_json,updated_at=excluded.updated_at`).bind(email,item.key,JSON.stringify(item),new Date().toISOString()).run();
+  return jsonResp({ok:true,key:item.key,active:body.active!==false},200,{'Cache-Control':'no-store'});
+}
+
 // v125 adaptive Reels ranking + followed-seller recommendation lane
 // ── Shared FindAI taste profile ────────────────────────────────────────────
 // Reels and the website both write lightweight interest signals here. The
@@ -22096,6 +22116,13 @@ export default {
         return jsonResp({ ok: true, email, status: grant ? 'lifetime' : 'revoked' }, 200, { 'Cache-Control': 'no-store' });
       }
 
+      if (url.pathname === '/bookmarks/list' || url.pathname === '/bookmarks/toggle') {
+        const auth = await requireUser(request, env);
+        if (auth.fail) return auth.fail;
+        try { return await wishwaveBookmarkRequest(request, env, auth.email); }
+        catch (_) { return jsonResp({error:'Could not update saved products'},500,{'Cache-Control':'no-store'}); }
+      }
+
       // ── Saved items: shared by website + app ───────────────────────────
       if (url.pathname === '/saved/list' && request.method === 'GET') {
         const auth = await requireUser(request, env);
@@ -23912,6 +23939,7 @@ export default {
 
         // Personalisation/search/push/account data.
         await safeRun(`DELETE FROM saved_items WHERE lower(email)=lower(?)`,email);
+        await safeRun(`DELETE FROM bookmark_items WHERE lower(email)=lower(?)`,email);
         await safeRun(`DELETE FROM taste_interests WHERE lower(email)=lower(?)`,email);
         const recommendationViewer=await shoppingHash(env,'user:'+email);
         for(const table of ['recommendation_shopping_evidence','recommendation_trials','recommendation_interest_events','recommendation_measurements','recommendation_exposures','recommendation_topic_signals','recommendation_visits','recommendation_verified_orders'])await safeRun('DELETE FROM '+table+' WHERE viewer_key=?',recommendationViewer);

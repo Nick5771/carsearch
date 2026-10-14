@@ -3734,7 +3734,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
   </section>
 
   <section class="app-mp-product" id="appMpProduct" aria-label="FindAI marketplace listing">
-    <header class="app-mp-header"><button type="button" onclick="closeAppMarketplaceListing()" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><span class="wishwave-detail-header-space"></span><span class="wishwave-detail-header-actions"><button type="button" onclick="wishwaveDetailMenu()" aria-label="Listing options"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button><button type="button" onclick="appMpShareListing()" aria-label="Send listing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 9.7 14.3"/><path d="m22 2-7.8 20-4.5-7.7L2 10.2 22 2Z"/></svg></button></span></header>
+    <header class="app-mp-header"><button type="button" onclick="closeAppMarketplaceListing()" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button><span class="wishwave-detail-header-space"></span><span class="wishwave-detail-header-actions"><button type="button" onclick="wishwaveDetailMenu()" aria-label="Listing options"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg></button><button type="button" onclick="appMpShareListing()" aria-label="Send listing"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3l7 7-7 7v-5C8 12 5 15 3 20c0-8 4-13 11-13V3Z"/></svg></button></span></header>
     <div class="app-mp-scroll" id="appMpProductContent"></div>
   </section>
 
@@ -6995,6 +6995,7 @@ function renderReelCard(item,index,data){
       <button class="reel-social-action share" onclick="shareItem(${index},event)" aria-label="Send this listing">
         <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 9.7 14.3"/><path d="m22 2-7.8 20-4.5-7.7L2 10.2 22 2Z"/></svg></span>
       </button>
+      ${window.wishwaveBookmarkMarkup?window.wishwaveBookmarkMarkup(item,index):''}
     </div>
     <div class="product-panel">
       ${wishwave?`<div class="wishwave-reel-brand">WishWave</div>${wishwaveReelSellerMarkup(item,index)}`:`<div class="source-chip" data-source="${escapeAttr(source)}">${sourceMarkup(source,item)}</div>`}
@@ -8513,7 +8514,7 @@ function renderAppMarketplaceListing(){
       <div class="wishwave-detail-fact"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="m3 7 9-5 9 5v10l-9 5-9-5V7Z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg>Returns</span><b>${escapeHTML(returns)}</b></div>
       ${!available?'<p class="wishwave-detail-status">'+escapeHTML(appMpStatus(listing.status))+'</p>':''}
       ${viewer.isSeller?wishwavePromotionButton(listing):''}
-      <div class="app-mp-actions wishwave-detail-actions"><button class="app-mp-action primary" ${!available||viewer.isSeller?'disabled':''} onclick="appMpBuy()">${viewer.isSeller?'Your listing':String(listing.status)==='reserved'?'Reserved':listing.deliveryMode==='pickup'?'Arrange pickup':'Buy now'}</button><button type="button" class="app-mp-action wishwave-detail-save" aria-pressed="${isTracked(listing)}" onclick="wishwaveSaveDetailListing(this)">${bookmark}<span>${isTracked(listing)?'Saved':'Save'}</span></button></div>
+      <div class="app-mp-actions wishwave-detail-actions"><button class="app-mp-action primary" ${!available||viewer.isSeller?'disabled':''} onclick="appMpBuy()">${viewer.isSeller?'Your listing':String(listing.status)==='reserved'?'Reserved':listing.deliveryMode==='pickup'?'Arrange pickup':'Buy now'}</button><button type="button" class="app-mp-action wishwave-detail-save" aria-pressed="${window.wishwaveIsBookmarked?.(listing)||false}" onclick="wishwaveSaveDetailListing(this)">${bookmark}<span>${(window.wishwaveIsBookmarked?.(listing))?'Saved':'Save'}</span></button></div>
     </div>`;
 }
 function appMpSelectImage(index){const images=Array.isArray(appMpListing&&appMpListing.images)?appMpListing.images:[],img=images[index];if(img)$('#appMpMainImage').src=img;$$('.app-mp-thumb').forEach((el,i)=>el.classList.toggle('active',i===index));appMpSelectedImage=index;}
@@ -9489,10 +9490,10 @@ function paintSocialProfileHeader(){
   const soldCount=$('#socialSoldCount');if(soldCount)soldCount.textContent=String(sold);
   const followers=$('#socialFollowersValue');if(followers)followers.textContent=profileMetricCompact(Math.max(0,Number(socialProfileSeller.followerCount)||0));
   const tracked=$('#profileTrackedCount');if(tracked)tracked.textContent=String(getTracked().length);
-  const tabs=$('#profileSignedIn .social-profile-tabs');if(tabs){const order=['listings','sold','liked'];tabs.style.setProperty('--profile-tab-index',String(Math.max(0,order.indexOf(socialProfileTab))));}
+  const tabs=$('#profileSignedIn .social-profile-tabs');if(tabs){const order=['listings','sold','liked','saved'];tabs.style.setProperty('--profile-tab-index',String(Math.max(0,order.indexOf(socialProfileTab))));}
 }
 function setProfileTab(tab){
-  const allowed=['listings','sold','liked'];
+  const allowed=['listings','sold','liked','saved'];
   const next=allowed.includes(tab)?tab:'listings';
   const previous=socialProfileTab;
   const fromIndex=Math.max(0,allowed.indexOf(previous));
@@ -9560,7 +9561,7 @@ function socialProfileTile(item,index,source){
   const price=Number(item.price)||Number(item.itemPrice)||0;
   const currency=item.currency||'AUD';
   const sold=String(item.status||'').toLowerCase()==='sold';
-  const click=source==='liked'?`openProfileLikedItem(${index})`:`openProfileListingItem(${index},'${source}')`;
+  const click=source==='saved'?`openProfileSavedItem(${index})`:source==='liked'?`openProfileLikedItem(${index})`:`openProfileListingItem(${index},'${source}')`;
   const id=String(appMpId(item)||'');
   const owned=source==='listings'||source==='sold';
   const views=owned?profileListingViewCount(item):0;
@@ -15356,7 +15357,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
   }
   function tabSpec(root){
     if(!root)return null;
-    if(root.id==='socialProfileContent')return {tabs:['listings','sold','liked'],current:()=>socialProfileTab,set:setProfileTab};
+    if(root.id==='socialProfileContent')return {tabs:['listings','sold','liked','saved'],current:()=>socialProfileTab,set:setProfileTab};
     if(root.id==='wishwavePublicProfileContent')return {tabs:['listings','sold'],current:()=>wishwavePublicSellerTab,set:setWishWavePublicSellerTab};
     return null;
   }
@@ -29318,6 +29319,13 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     window.__wishwaveOpenTabOwnedReel(list,indexOfItem(list,selected),{personalised:true,profileContext:true,likedContext:true},'profile-v183','profile');
   };
 
+  window.openProfileSavedItem=function(index){
+    const original=window.wishwaveBookmarks?.()||[],selected=original[Math.max(0,Number(index)||0)],list=cleanList(original);
+    if(!selected||!list.length)return;
+    rememberProfileReturn('saved');
+    window.__wishwaveOpenTabOwnedReel(list,indexOfItem(list,selected),{personalised:true,profileContext:true},'profile-v183','profile');
+  };
+
   /* Tapping Profile while its reel is open means "back to my profile", not Home. */
   window.addEventListener('click',event=>{
     const button=event.target?.closest?.('.premium-bottom-nav button[data-tab="profile"]');
@@ -35189,13 +35197,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
    if(!petIntent)return false;
   }
   if(active()&&!K.fit(item,K.constraints(query||'',{},item.currency||'AUD',T),T.classify(item),window.WishWaveShoppingCore).eligible)return false;return candidate.apply(this,arguments);};
- function guestLikes(){
-  const root=document.querySelector('#profileSignedOut .guest-profile-posts');if(!root)return;if(getAccountProfile()){root.querySelector('[data-guest-likes]')?.remove();return;}
-  let list=root.querySelector('[data-guest-likes]');if(!list){list=document.createElement('section');list.dataset.guestLikes='true';list.style.padding='18px';root.append(list);}
-  const items=getTracked();list.hidden=!items.length;list.innerHTML=items.length?'<div class="social-profile-grid">'+items.map((x,i)=>socialProfileTile(x,i,'liked')).join('')+'</div>':'';
-  const copy=root.querySelector('.guest-profile-signin span');if(copy)copy.textContent='Sign in for your listings, messages and account activity.';
-  const tabs=document.querySelector('#profileSignedOut .social-profile-tabs');if(tabs){tabs.classList.remove('guest-profile-tabs');tabs.setAttribute('aria-hidden','false');tabs.style.setProperty('--profile-tab-index','2');[...tabs.querySelectorAll('button')].forEach((button,i)=>{button.disabled=i!==2;button.tabIndex=i===2?0:-1;button.classList.toggle('active',i===2);if(i===2){button.setAttribute('aria-label','Liked products');button.onclick=()=>{if(!list.hidden)list.scrollIntoView({behavior:'smooth',block:'start'});};}});}
- }
+ function guestLikes(){window.wishwaveRenderGuestCollection?.();}
  const profile=window.renderProfileTab;window.renderProfileTab=function(){const out=profile.apply(this,arguments);guestLikes();return out;};
  const tracked=window.setTracked;window.setTracked=function(){const out=tracked.apply(this,arguments);if(document.body.dataset.activeTab==='profile')guestLikes();return out;};
  document.addEventListener('wishwave-recommendation-account-change',()=>{document.querySelector('[data-guest-likes]')?.remove();setTimeout(guestLikes,0);});
@@ -35429,5 +35431,19 @@ body:has(#loginOverlay.show) #wishwaveMainNav{visibility:hidden!important;pointe
 </style>
 
 <style id="wishwave-profile-buffer-v246">#profileSignedOut [data-guest-likes]{padding-bottom:calc(var(--fa-nav-total,52px) + 24px)!important}</style>
+<style id="wishwave-bookmarks-motion-v247">
+#profileSignedIn .social-profile-tabs,#profileSignedOut .social-profile-tabs{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+#profileSignedIn .social-profile-tabs::after,#profileSignedOut .social-profile-tabs::after{width:25%!important}
+#profileSignedOut .guest-profile-posts{padding:0 0 calc(var(--fa-nav-total,52px) + 24px)!important}
+#profileSignedOut .guest-profile-posts>.social-profile-grid{margin-top:0!important}
+html body.wishwave-search-editing .app>#wishwaveMainNav{opacity:0!important;visibility:hidden!important;pointer-events:none!important;transform:translateY(110%)!important}
+.wishwave-notification-tabs{position:relative;--notice-index:0}
+.wishwave-notification-tabs button[aria-selected="true"]::after{display:none!important}
+.wishwave-notification-tabs::after{content:'';position:absolute;left:18px;bottom:-1px;width:calc((100% - 36px)/3);height:2px;background:var(--ink,#f1f2f4);transform:translateX(calc(var(--notice-index)*100%));transition:transform .2s ease-out;pointer-events:none}
+html body .reel-social-action svg{stroke-width:1.8}
+html body .reel-social-action.bookmark.active svg{fill:currentColor}
+@media(prefers-reduced-motion:reduce){.wishwave-notification-tabs::after{transition:none}}
+</style>
+<script src="wishwave-bookmarks.js?v=247"></script>
 </body>
 </html>
