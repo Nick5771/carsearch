@@ -17462,7 +17462,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     setTimeout(()=>button&&button.classList.remove('findai-follow-crisp'),260);
   };
 
-  /* ---------- 4. Instagram-like direct swipe navigation v132 ---------- */
+  /* ---------- 4. Continuous tab paging v254 ---------- */
   const tabs=['discover','search','create','notifications','profile'];
   let swipe=null,swipeLocked=false,raf=0,settleTimer=0,settling=null,cleanupFrame=0;
   function activeTab(){const tab=document.getElementById('createListingScreen')?.classList.contains('show')?'create':String(document.body.dataset.activeTab||'discover');return tab==='searchResults'?'search':tab;}
@@ -17499,7 +17499,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
   function clearSurface(el){if(!el)return;frozenTabCards.get(el)?.forEach(card=>card.classList.remove('wishwave-return-offscreen'));frozenTabCards.delete(el);el.classList.remove('findai-v132-current','findai-v132-target','findai-v132-settle','findai-v132-swipe-surface');const saved=originalSurfaceStyles.get(el);if(saved){saved.forEach(([key,value,priority])=>value?el.style.setProperty(key,value,priority):el.style.removeProperty(key));originalSurfaceStyles.delete(el);}}
   function cleanup(state,activate,immediate=false){
     if(settling&&settling!==state)return;
-    clearTimeout(settleTimer);settleTimer=0;settling=null;window.__wishwaveTabSettling=false;
+    stopSpring();clearTimeout(settleTimer);settleTimer=0;settling=null;window.__wishwaveTabSettling=false;
     if(state&&state.onSettled)state.current.removeEventListener('transitionend',state.onSettled);
     cancelAnimationFrame(raf);raf=0;
     const current=state&&state.current,target=state&&state.targetEl,targetTab=state&&state.targetTab;
@@ -17522,30 +17522,35 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     const base=state.direction>0?w:-w;
     state.targetEl.style.setProperty('transform','translate3d('+(base+dx)+'px,0,0)','important');
   }
+  // One motion owner drives both pages and the nav. Preserve release velocity
+  // and permit a new finger to grab the in-flight position without snapping.
+  let springFrame=0;
+  function stopSpring(){cancelAnimationFrame(springFrame);springFrame=0;}
   function settle(commit){
-    if(!swipe||!swipe.active)return;const state=swipe,w=state.width;state.commit=commit;swipeLocked=true;window.__wishwaveTabSettling=true;
+    if(!swipe||!swipe.active)return;
+    const state=swipe,w=state.width;state.commit=commit;state.regrabPending=false;
+    swipeLocked=true;window.__wishwaveTabSettling=true;settling=state;
     if(raf){cancelAnimationFrame(raf);raf=0;drawSwipe();}
-    void state.current.offsetWidth;
-    const remaining=commit?w-Math.abs(state.dx):Math.abs(state.dx);
-    if(remaining<1){window.wishwaveNavSwipeSettle?.(commit?state.targetTab:state.tab,0);cleanup(state,commit);return;}
-    const duration=matchMedia('(prefers-reduced-motion: reduce)').matches?1:Math.round(Math.max(160,Math.min(300,remaining/Math.max(1.2,Math.min(2.2,Math.abs(state.velocity))))));
-    window.wishwaveNavSwipeSettle?.(commit?state.targetTab:state.tab,duration);
-    [state.current,state.targetEl].forEach(el=>el.style.setProperty('--wishwave-tab-settle-ms',duration+'ms'));
-    settling=state;
-    state.onSettled=event=>{if(event.target===state.current&&event.propertyName==='transform')cleanup(state,commit);};
-    state.current.addEventListener('transitionend',state.onSettled);
-    state.current.classList.add('findai-v132-settle');state.targetEl.classList.add('findai-v132-settle');
-    if(commit){
-      state.current.style.setProperty('transform','translate3d('+(state.direction>0?-w:w)+'px,0,0)'+(state.base?' '+state.base:''),'important');
-      state.current.style.setProperty('opacity','1','important');state.targetEl.style.setProperty('transform','translate3d(0,0,0)','important');
-    }else{
-      state.current.style.setProperty('transform','translate3d(0,0,0)'+(state.base?' '+state.base:''),'important');state.current.style.setProperty('opacity','1','important');
-      state.targetEl.style.setProperty('transform','translate3d('+(state.direction>0?w:-w)+'px,0,0)','important');
+    stopSpring();
+    const goal=commit?-state.direction*w:0;
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches){state.dx=goal;drawSwipe();cleanup(state,commit);return;}
+    let velocity=Math.max(-2400,Math.min(2400,state.velocity*1000)),last=performance.now();
+    const started=last,omega=28;
+    function frame(now){
+      if(settling!==state)return;
+      const dt=Math.min(.032,Math.max(.001,(now-last)/1000));last=now;
+      const distance=state.dx-goal,b=velocity+omega*distance,decay=Math.exp(-omega*dt);
+      const position=goal+(distance+b*dt)*decay;
+      velocity=(velocity-omega*b*dt)*decay;
+      state.dx=state.direction>0?Math.max(-w,Math.min(0,position)):Math.min(w,Math.max(0,position));
+      state.velocity=velocity/1000;drawSwipe();
+      if((Math.abs(state.dx-goal)<.35&&Math.abs(velocity)<10)||now-started>650){state.dx=goal;drawSwipe();springFrame=0;cleanup(state,commit);return;}
+      springFrame=requestAnimationFrame(frame);
     }
-    settleTimer=setTimeout(()=>cleanup(state,commit),duration+32);
+    springFrame=requestAnimationFrame(frame);
   }
   function cancelSwipe(){
-    window.wishwaveNavSwipeReset?.();
+    stopSpring();window.wishwaveNavSwipeReset?.();
     const state=swipe||settling;
     clearTimeout(settleTimer);settleTimer=0;
     if(state&&state.onSettled)state.current.removeEventListener('transitionend',state.onSettled);
@@ -17560,14 +17565,23 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
   window.addEventListener('resize',()=>{const state=swipe||settling;if(state&&Math.abs(state.width-(document.querySelector('.app')?.clientWidth||innerWidth))>1)cancelSwipe();},{passive:true});
   function tabStart(event,bridge){
     if(event.touches.length!==1){cancelSwipe();return;}
-    if(settling)cleanup(settling,settling.commit,true);
+    if(settling&&!bridge&&!overlayOpen()&&!blockedTarget(event.target,event.touches[0].clientY)){
+      const state=settling,t=event.touches[0];stopSpring();settling=null;swipeLocked=false;window.__wishwaveTabSettling=false;
+      state.startX=t.clientX;state.startY=t.clientY;state.lastX=t.clientX;state.lastT=performance.now();state.offset=state.dx;state.regrabPending=true;state.verticalResume=false;swipe=state;return;
+    }
     if(swipeLocked||(!bridge&&overlayOpen())||blockedTarget(event.target,event.touches[0].clientY))return;
     const currentTab=bridge?.tab||activeTab(),i=idx(currentTab);if(i<0)return;const current=bridge?.root||visual(currentTab);if(!current)return;
     tabs.slice(Math.max(0,i-1),i+2).filter(tab=>tab!==currentTab).forEach(tab=>window.__wishwavePrepareTab?.(tab));
     const t=event.touches[0];swipe={tab:currentTab,index:i,startX:t.clientX,startY:t.clientY,lastX:t.clientX,lastT:performance.now(),dx:0,velocity:0,current,bridge,base:bridge?getComputedStyle(current).transform.replace(/^none$/,''):'',targetEl:null,targetTab:null,direction:0,active:false,width:(document.querySelector('.app')?.clientWidth||window.innerWidth)};
   }
   function tabMove(event){
-    if(!swipe)return;if(event.touches.length!==1){cancelSwipe();return;}const t=event.touches[0],dx=t.clientX-swipe.startX,dy=t.clientY-swipe.startY,now=performance.now();
+    if(!swipe)return;if(event.touches.length!==1){cancelSwipe();return;}const t=event.touches[0],travel=t.clientX-swipe.startX,dx=(swipe.offset||0)+travel,dy=t.clientY-swipe.startY,now=performance.now();
+    if(swipe.verticalResume)return;
+    if(swipe.regrabPending){
+      if(Math.abs(travel)<8&&Math.abs(dy)<8)return;
+      if(Math.abs(dy)>Math.abs(travel)*.78){swipe.verticalResume=true;settle(swipe.commit);return;}
+      swipe.regrabPending=false;
+    }
     if(swipe.active&&!swipe.bridge&&activeTab()!==swipe.tab){cancelSwipe();return;}
     if(!swipe.active){
       if(Math.abs(dx)<8)return;
@@ -17581,11 +17595,15 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     }
     event.preventDefault();event.stopImmediatePropagation();
     swipe.velocity=swipe.velocity*.3+((t.clientX-swipe.lastX)/Math.max(1,now-swipe.lastT))*.7;swipe.lastX=t.clientX;swipe.lastT=now;swipe.dx=swipe.direction>0?Math.max(-swipe.width,Math.min(0,dx)):Math.min(swipe.width,Math.max(0,dx));
+    if(Math.abs(swipe.dx)>=swipe.width&&swipe.offset){
+      const state=swipe;drawSwipe();cleanup(state,true);tabStart(event,null);return;
+    }
     if(!raf)raf=requestAnimationFrame(drawSwipe);
   }
   function tabEnd(event){
-    if(!swipe)return;if(swipe.active)event.stopImmediatePropagation();
+    if(!swipe||swipe.verticalResume)return;if(swipe.active)event.stopImmediatePropagation();
     if(!swipe.active){swipe=null;return;}
+    if(swipe.regrabPending){settle(swipe.commit);return;}
     const velocity=performance.now()-swipe.lastT>90?0:swipe.velocity;swipe.velocity=velocity;
     const w=swipe.width,projected=swipe.dx+(velocity*120),commit=projected*(-swipe.direction)>w*.22||(velocity*(-swipe.direction)>.62&&Math.abs(swipe.dx)>24);
     blockTabClick=Date.now()+400;settle(commit);
@@ -31340,10 +31358,10 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
   };
   window.__wishwavePageTouch=function(type,e){
     if(type==='touchstart'){
-      if(window.__wishwaveTabSettling)window.__wishwaveFinishTabSettlement?.();
       window.__wishwaveCancelReelOpen?.();
       if(drag?.settling)return true;clean();
       if(e.touches.length!==1)return false;const surface=currentSurface(e.target);if(!surface)return false;
+      if(window.__wishwaveTabSettling)window.__wishwaveFinishTabSettlement?.();
       const t=e.touches[0],card=e.target.closest('.reel-card'),stage=card?.querySelector('.reel-gallery-stage');
       const details=card?.querySelector('.product-panel .title,.product-panel .reel-seller-row,.product-panel .price');
       const boundary=details?.getBoundingClientRect().top;
