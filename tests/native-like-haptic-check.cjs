@@ -8,6 +8,7 @@ delete context.window.webkit;context.window.haptic();assert.deepEqual(vibrations
 delete context.navigator.vibrate;assert.doesNotThrow(()=>context.window.haptic());
 const functionCode=name=>{const start=source.indexOf('async function '+name+'(');const end=source.indexOf('\n}',start)+2;return source.slice(start,end);};
 assert(!source.includes('beginReelTracking(index);\n          haptic();'),'reel changes stay silent');
+assert(!source.includes('beginReelTracking(index,bestRatio);\n        try{haptic();}catch(_){}'),'adaptive reel changes stay silent');
 const item={title:'Camera',itemId:'camera',source:'ebay',price:100};let liked=[],count=0;
 const likeContext={trackedKey:()=> 'ebay:camera',getTracked:()=>liked,setTracked:items=>{liked=items},recordInterest(){},deriveDiscoveryQuery:x=>x,getImage:()=>'',getImageFallback:()=>'',currencyOf:()=> 'USD',mobileSearchData:null,getSource:()=> 'ebay',getListingUrl:()=>'',getTrust:()=>null,conditionText:()=>'',haptic(){count++},appSavedRemoteSet:async()=>{},Date,Number};
 vm.runInNewContext(functionCode('toggleGenericLikeItem'),likeContext);
