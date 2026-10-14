@@ -1,0 +1,13 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const source=fs.readFileSync(__dirname+'/../findai-app.html','utf8');
+const start=source.indexOf('  window.haptic=function(){',source.indexOf('/* Use the installed iPhone'));
+const end=source.indexOf('\n  };',start)+6,code=source.slice(start,end);
+const pulses=[],vibrations=[],context={window:{webkit:{messageHandlers:{findaiHaptic:{postMessage(value){pulses.push(value)}}}}},navigator:{vibrate(value){vibrations.push(value)}}};
+vm.runInNewContext(code,context);context.window.haptic();assert.deepEqual(pulses,['selection']);assert.equal(vibrations.length,0,'native bridge wins and emits only one tap');
+delete context.window.webkit;context.window.haptic();assert.deepEqual(vibrations,[8],'web fallback stays short');
+delete context.navigator.vibrate;assert.doesNotThrow(()=>context.window.haptic());
+const functionCode=name=>{const start=source.indexOf('async function '+name+'(');const end=source.indexOf('\n}',start)+2;return source.slice(start,end);};
+const item={title:'Camera',itemId:'camera',source:'ebay',price:100};let liked=[],count=0;
+const likeContext={trackedKey:()=> 'ebay:camera',getTracked:()=>liked,setTracked:items=>{liked=items},recordInterest(){},deriveDiscoveryQuery:x=>x,getImage:()=>'',getImageFallback:()=>'',currencyOf:()=> 'USD',mobileSearchData:null,getSource:()=> 'ebay',getListingUrl:()=>'',getTrust:()=>null,conditionText:()=>'',haptic(){count++},appSavedRemoteSet:async()=>{},Date,Number};
+vm.runInNewContext(functionCode('toggleGenericLikeItem'),likeContext);
+(async()=>{await likeContext.toggleGenericLikeItem(item);assert.equal(count,1);await likeContext.toggleGenericLikeItem(item);assert.equal(count,1,'unlike does not emit a second pulse');const discovery=functionCode('togglePremiumDiscoveryLike');assert(!discovery.includes('haptic()'),'Search wrapper must not double pulse');console.log('PASS: native-first single tap, safe web fallback, one pulse per like and none on unlike');})().catch(e=>{console.error(e);process.exitCode=1});
