@@ -3166,6 +3166,16 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
   }
 </style>
 
+<style id="wishwave-home-critical-v249">
+html body #discover .discover-social-topbar{height:calc(var(--safe-top,0px) + 94px)!important;display:grid!important;grid-template-columns:1fr auto!important;grid-template-rows:46px 40px!important;align-content:start!important;}
+html body #discover .discover-social-brand{grid-row:1;grid-column:1;}
+html body #discover #homeMessageButton{grid-row:1;grid-column:2;position:relative!important;}
+html body #discover .wishwave-home-feed-tabs{grid-row:2;grid-column:1/-1;justify-self:center;display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;gap:25px;white-space:nowrap;pointer-events:auto;}
+html body #discover .wishwave-home-feed-tabs>button{position:relative!important;display:block!important;flex:0 0 auto!important;width:auto!important;height:auto!important;min-width:0!important;min-height:0!important;margin:0!important;border:0!important;border-radius:0!important;background:transparent!important;color:#b7bac0;font:inherit;font-size:15px;font-weight:500;padding:9px 0 10px;cursor:pointer;}
+html body #discover .wishwave-home-feed-tabs>button[aria-selected="true"]{color:#fff;}
+html body #discover .wishwave-home-feed-tabs>button[aria-selected="true"]::after{content:'';position:absolute;bottom:1px;left:0;right:0;height:2px;background:currentColor;border-radius:2px;}
+html.findai-light body #discover .wishwave-home-feed-tabs>button[aria-selected="true"]{color:#141619;}
+</style>
 </head>
 <body>
 <div class="app">
@@ -3556,9 +3566,6 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
           <button type="button" tabindex="-1">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16v13H4z"/><path d="M7 7V5h10v2M9 11h6"/><path d="m9.2 15 1.8 1.8 4-4"/></svg>
           </button>
-          <button type="button" tabindex="-1">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85"><path d="M20.6 5.8c-1.8-2.1-5.1-2.2-7-.3L12 7.1l-1.6-1.6c-1.9-1.9-5.2-1.8-7 .3-1.7 2-1.5 5 .4 6.9L12 20.3l8.2-7.6c1.9-1.9 2.1-4.9.4-6.9z"/></svg>
-          </button>
         </div>
 
         <div class="guest-profile-posts">
@@ -3610,9 +3617,6 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
           </button>
           <button type="button" data-profile-tab="sold" onclick="setProfileTab('sold')" role="tab" aria-label="Sold">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16v13H4z"/><path d="M7 7V5h10v2M9 11h6"/><path d="m9.2 15 1.8 1.8 4-4"/></svg>
-          </button>
-          <button type="button" data-profile-tab="liked" onclick="setProfileTab('liked')" role="tab" aria-label="Liked">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85"><path d="M20.6 5.8c-1.8-2.1-5.1-2.2-7-.3L12 7.1l-1.6-1.6c-1.9-1.9-5.2-1.8-7 .3-1.7 2-1.5 5 .4 6.9L12 20.3l8.2-7.6c1.9-1.9 2.1-4.9.4-6.9z"/></svg>
           </button>
         </div>
 
@@ -7212,7 +7216,6 @@ function attachReelObserver(){
     if(index!==activeReelIndex){
       finaliseReelTracking();
       beginReelTracking(index);
-          haptic();
     }
     const preloadDistance=(feedState&&feedState.source==='personalised')?12:5;
     if(index>=currentFeedItems.length-preloadDistance) loadMoreListings();
@@ -9490,10 +9493,10 @@ function paintSocialProfileHeader(){
   const soldCount=$('#socialSoldCount');if(soldCount)soldCount.textContent=String(sold);
   const followers=$('#socialFollowersValue');if(followers)followers.textContent=profileMetricCompact(Math.max(0,Number(socialProfileSeller.followerCount)||0));
   const tracked=$('#profileTrackedCount');if(tracked)tracked.textContent=String(getTracked().length);
-  const tabs=$('#profileSignedIn .social-profile-tabs');if(tabs){const order=['listings','sold','liked','saved'];tabs.style.setProperty('--profile-tab-index',String(Math.max(0,order.indexOf(socialProfileTab))));}
+  const tabs=$('#profileSignedIn .social-profile-tabs');if(tabs){const order=['listings','sold','saved'];tabs.style.setProperty('--profile-tab-index',String(Math.max(0,order.indexOf(socialProfileTab))));}
 }
 function setProfileTab(tab){
-  const allowed=['listings','sold','liked','saved'];
+  const allowed=['listings','sold','saved'];
   const next=allowed.includes(tab)?tab:'listings';
   const previous=socialProfileTab;
   const fromIndex=Math.max(0,allowed.indexOf(previous));
@@ -11933,8 +11936,8 @@ window.addEventListener('load', function(){
     sheet.innerHTML='<div class="findai-settings-page">'
       +'<div class="findai-settings-head"><button class="findai-settings-back" type="button" onclick="closeAppSettings()" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="m15 18-6-6 6-6"/></svg></button><h2>Settings and activity</h2><span></span></div>'
       +'<label class="findai-settings-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="7"/><path d="m16 16 4.3 4.3"/></svg><input type="search" placeholder="Search settings" oninput="filterFindAISettings(this.value)"></label>'
-      +(profile?'<section class="findai-settings-section"><div class="findai-settings-section-title">Your account</div>'+settingsRow('edit',profileIcon,'Edit profile','Name, username, photo and bio',"closeAppSettings();openProfileEdit()")+settingsRow('saved',heartIcon,'Liked items','Products you have saved',"closeAppSettings();openProfile();setTimeout(()=>setProfileTab('liked'),80)")+'</section>':'')
-      +'<section class="findai-settings-section"><div class="findai-settings-section-title">How you use WishWave</div>'+settingsRow('messages',msgIcon,'Messages','Marketplace conversations',"closeAppSettings();openMessagesTab()")+settingsRow('notifications',bell,'Notifications','Price drops, messages and saved items',"closeAppSettings();appEnableNotifications()")+'</section>'
+      +(profile?'<section class="findai-settings-section"><div class="findai-settings-section-title">Your account</div>'+settingsRow('edit',profileIcon,'Edit profile','Name, username, photo and bio',"closeAppSettings();openProfileEdit()")+'</section>':'')
+      +'<section class="findai-settings-section"><div class="findai-settings-section-title">How you use WishWave</div>'+settingsRow('liked',heartIcon,'Liked items','Products you have liked',"closeAppSettings();go('liked')")+settingsRow('messages',msgIcon,'Messages','Marketplace conversations',"closeAppSettings();openMessagesTab()")+settingsRow('notifications',bell,'Notifications','Price drops, messages and saved items',"closeAppSettings();appEnableNotifications()")+'</section>'
       +'<section class="findai-settings-section"><div class="findai-settings-section-title">Appearance</div><div class="findai-settings-appearance" data-settings-search="appearance system light dark"><div class="app-theme-segment"><button class="app-theme-choice" type="button" data-app-theme-choice="system" onclick="setAppTheme(\'system\')">System</button><button class="app-theme-choice" type="button" data-app-theme-choice="light" onclick="setAppTheme(\'light\')">Light</button><button class="app-theme-choice" type="button" data-app-theme-choice="dark" onclick="setAppTheme(\'dark\')">Dark</button></div></div></section>'
       +(profile?'<section class="findai-settings-section">'+settingsRow('logout',logout,'Log out',profile.email||'',"closeAppSettings();requestFindAILogout()",true)+'</section>':'')
       +'</div>';
@@ -15359,7 +15362,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
   }
   function tabSpec(root){
     if(!root)return null;
-    if(root.id==='socialProfileContent')return {tabs:['listings','sold','liked','saved'],current:()=>socialProfileTab,set:setProfileTab};
+    if(root.id==='socialProfileContent')return {tabs:['listings','sold','saved'],current:()=>socialProfileTab,set:setProfileTab};
     if(root.id==='wishwavePublicProfileContent')return {tabs:['listings','sold'],current:()=>wishwavePublicSellerTab,set:setWishWavePublicSellerTab};
     return null;
   }
@@ -18268,7 +18271,7 @@ html.findai-light .findai-settings-switch.on{background:#4d8cff}
       '<section class="findai-settings-section"><div class="findai-settings-section-title">Your account</div>'+
         settingRow('Edit profile','Name, username, photo and bio',"closeAppSettings();openProfileEdit()",icons.profile)+
         settingRow('Login & security','Apple, Google or email',"findaiOpenSettingsPane('security')",icons.lock,profile?providerLabel(profile):'')+
-        settingRow('Liked items','Products you have liked',"closeAppSettings();openProfile();setTimeout(()=>setProfileTab('liked'),80)",icons.heart)+
+        settingRow('Liked items','Products you have liked',"closeAppSettings();go('liked')",icons.heart)+
       '</section>'+
       '<section class="findai-settings-section"><div class="findai-settings-section-title">How you use FindAI</div>'+
         settingRow('Notifications','Follows, comments, messages and price drops',"findaiOpenSettingsPane('notifications')",icons.bell)+
@@ -18318,7 +18321,7 @@ html.findai-light .findai-settings-switch.on{background:#4d8cff}
       html='<div class="findai-settings-detail">'+settingsHead('Shopping & price alerts',true)+
         '<section class="findai-settings-section">'+
           settingRow('Tracked products','View products you are watching for price changes',"closeAppSettings();go('tracker')",icons.tag)+
-          settingRow('Liked items','Products you may want to return to',"closeAppSettings();openProfile();setTimeout(()=>setProfileTab('liked'),80)",icons.heart)+
+          settingRow('Liked items','Products you may want to return to',"closeAppSettings();go('liked')",icons.heart)+
         '</section><div class="findai-settings-help">FindAI uses your current market and product currency from live listings. Region and currency controls can be expanded once additional marketplace regions are fully enabled.</div></div>';
     }else if(name==='appearance'){
       html='<div class="findai-settings-detail">'+settingsHead('Appearance',true)+
@@ -18908,7 +18911,7 @@ html.findai-light .findai-settings-search-result{color:#111;border-bottom-color:
       '<section class="findai-settings-section"><div class="findai-settings-section-title">Your account</div>'+
         row('Edit profile','Name, username, photo and bio',"closeAppSettings();openProfileEdit()",'profile')+
         row('Login & security','Sign-in method and current session',"findaiOpenSettingsPane('security')",'lock',method)+
-        row('Liked items','Products you have liked',"closeAppSettings();openProfile();setTimeout(()=>setProfileTab('liked'),80)",'heart')+
+        row('Liked items','Products you have liked',"closeAppSettings();go('liked')",'heart')+
         row('Account management','Username, session and account deletion',"findaiOpenSettingsPane('account-management')",'account')+
       '</section>'+
       '<section class="findai-settings-section"><div class="findai-settings-section-title">How you use FindAI</div>'+
@@ -18944,7 +18947,7 @@ html.findai-light .findai-settings-search-result{color:#111;border-bottom-color:
     {t:'Report a problem',s:'Send app feedback',k:'report problem bug help support feedback',i:'help',a:"findaiOpenSettingsPane('support')"},
     {t:'Privacy policy',s:'How FindAI handles information',k:'privacy policy legal help support',i:'help',a:"findaiOpenSettingsPane('support')"},
     {t:'Terms',s:'FindAI terms of use',k:'terms legal help support',i:'help',a:"findaiOpenSettingsPane('support')"},
-    {t:'Liked items',s:'Products you have liked',k:'liked likes saved heart items',i:'heart',a:"closeAppSettings();openProfile();setTimeout(()=>setProfileTab('liked'),80)"}
+    {t:'Liked items',s:'Products you have liked',k:'liked likes saved heart items',i:'heart',a:"closeAppSettings();go('liked')"}
   ];
   window.filterFindAISettings=function(value){
     const q=String(value||'').trim().toLowerCase();
@@ -34092,14 +34095,6 @@ html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .ap
 html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .app-mp-compose-plus{width:42px!important;height:42px!important;border-radius:50%!important;background:var(--chat-in)!important;color:var(--chat-ink)!important;border:1px solid var(--chat-line)!important;flex:0 0 42px!important;}
 html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .app-mp-compose-send{width:30px!important;height:42px!important;border:0!important;background:transparent!important;color:var(--chat-ink)!important;flex:0 0 30px!important;}
 html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .app-mp-compose-send svg{width:23px!important;height:23px!important;}
-html body #discover .discover-social-topbar{height:calc(var(--safe-top,0px) + 94px)!important;grid-template-columns:1fr auto!important;grid-template-rows:46px 40px!important;align-content:start!important;}
-html body #discover .discover-social-brand{grid-row:1;grid-column:1;}
-html body #discover #homeMessageButton{grid-row:1;grid-column:2;position:relative!important;}
-html body #discover .wishwave-home-feed-tabs{grid-row:2;grid-column:1/-1;justify-self:center;display:flex;gap:25px;pointer-events:auto;}
-.wishwave-home-feed-tabs button{position:relative;border:0;background:none;color:#b7bac0;font:inherit;font-size:15px;font-weight:500;padding:9px 0 10px;cursor:pointer;}
-.wishwave-home-feed-tabs button[aria-selected="true"]{color:#fff;}
-.wishwave-home-feed-tabs button[aria-selected="true"]::after{content:'';position:absolute;bottom:1px;left:0;right:0;height:2px;background:currentColor;border-radius:2px;}
-html.findai-light .wishwave-home-feed-tabs button[aria-selected="true"]{color:#141619;}
 html body #wishwaveMainNav button[data-tab="notifications"] .nav-icon-shell{background:none!important;border:0!important;box-shadow:none!important;}
 html body #wishwaveMainNav button[data-tab="notifications"].active svg{fill:currentColor!important;}
 .wishwave-header-message{position:relative;border:0;background:none;color:inherit;width:38px;height:38px;display:grid;place-items:center;flex:0 0 38px;}
@@ -35434,8 +35429,8 @@ body:has(#loginOverlay.show) #wishwaveMainNav{visibility:hidden!important;pointe
 
 <style id="wishwave-profile-buffer-v246">#profileSignedOut [data-guest-likes]{padding-bottom:calc(var(--fa-nav-total,52px) + 24px)!important}</style>
 <style id="wishwave-bookmarks-motion-v247">
-#profileSignedIn .social-profile-tabs,#profileSignedOut .social-profile-tabs{grid-template-columns:repeat(4,minmax(0,1fr))!important}
-#profileSignedIn .social-profile-tabs::after,#profileSignedOut .social-profile-tabs::after{width:25%!important}
+#profileSignedIn .social-profile-tabs,#profileSignedOut .social-profile-tabs{grid-template-columns:repeat(3,minmax(0,1fr))!important}
+#profileSignedIn .social-profile-tabs::after,#profileSignedOut .social-profile-tabs::after{width:33.333333%!important}
 #profileSignedOut .guest-profile-posts{padding:0 0 calc(var(--fa-nav-total,52px) + 24px)!important}
 #profileSignedOut .guest-profile-posts>.social-profile-grid{margin-top:0!important}
 html body.wishwave-search-editing .app>#wishwaveMainNav{opacity:0!important;visibility:hidden!important;pointer-events:none!important;transform:translateY(110%)!important}
@@ -35446,6 +35441,6 @@ html body .reel-actions-rail .reel-social-action svg{stroke-width:1.8!important}
 html body .reel-actions-rail .reel-social-action.bookmark.active svg{fill:currentColor!important}
 @media(prefers-reduced-motion:reduce){.wishwave-notification-tabs::after{transition:none}}
 </style>
-<script src="wishwave-bookmarks.js?v=247"></script>
+<script src="wishwave-bookmarks.js?v=249"></script>
 </body>
 </html>

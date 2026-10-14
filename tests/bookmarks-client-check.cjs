@@ -10,15 +10,20 @@ const w=dom.window,item={title:'Test camera',itemId:'test-camera',source:'ebay',
  await w.toggleGenericLikeItem(item);assert.equal(w.getTracked().length,0);assert.equal(w.wishwaveBookmarks().length,1,'unlike does not unsave');
  assert(w.wishwaveBookmarkMarkup(item,7).includes('wishwaveToggleBookmark(7,event)'));
  const card=w.renderReelCard(item,0,null),rail=new w.DOMParser().parseFromString(card,'text/html');assert.deepEqual([...rail.querySelectorAll('.reel-social-action')].map(x=>x.classList[1]),['like','comment','compare','share','bookmark']);
- const tabs=w.document.querySelectorAll('#profileSignedOut .social-profile-tabs button');assert.equal(tabs.length,4);tabs[3].click();
+ const tabs=w.document.querySelectorAll('#profileSignedOut .social-profile-tabs button');assert.equal(tabs.length,3);tabs[2].click();
  assert.equal(w.document.querySelectorAll('#profileSignedOut .social-profile-grid .social-profile-tile').length,1);
  assert(!w.document.querySelector('#profileSignedOut .guest-profile-signin'),'saved grid has no giant sign-in block above it');
  tabs[0].click();assert(w.document.querySelector('#profileSignedOut .guest-profile-signin'));assert(!w.document.querySelector('#profileSignedOut .social-profile-grid'));
  assert.equal(w.document.querySelector('#profileSignedOut .social-profile-handle').textContent,'Profile');
+ w.openAppSettings();const likedRow=[...w.document.querySelectorAll('[onclick]')].find(x=>x.getAttribute('onclick')==="closeAppSettings();go('liked')");assert(likedRow,'Liked items stays accessible through Settings');likedRow.click();assert(w.document.querySelector('#liked').classList.contains('active'));
+ assert(!w.document.querySelector('#profileSignedIn [data-profile-tab=liked]'));
+ const headStyles=source.slice(0,source.indexOf('</head>'));assert(headStyles.includes('wishwave-home-critical-v249'));assert(headStyles.includes('flex-wrap:nowrap!important'));assert(headStyles.includes('border-radius:0!important'));
+ const critical=source.match(/<style id="wishwave-home-critical-v249">([\s\S]*?)<\/style>/)[1],header=source.match(/<header class="discover-social-topbar"[\s\S]*?<\/header>/)[0];const firstPaint=new JSDOM('<style>'+critical+'</style><section id="discover">'+header+'</section>');const fw=firstPaint.window;assert.equal(fw.getComputedStyle(fw.document.querySelector('.discover-social-topbar')).display,'grid');assert.equal(fw.getComputedStyle(fw.document.querySelector('.wishwave-home-feed-tabs')).flexDirection,'row');assert.equal(fw.getComputedStyle(fw.document.querySelector('[data-home-feed]')).borderRadius,'0');assert.equal(fw.getComputedStyle(fw.document.querySelector('[aria-selected=true]')).color,'rgb(255, 255, 255)');firstPaint.window.close();
+
  w.wishwaveToggleBookmarkItem(item);assert.equal(w.wishwaveBookmarks().length,0);
- const input=w.document.querySelector('#q');input.focus();assert(w.document.body.classList.contains('wishwave-search-editing'));input.blur();await new Promise(r=>setTimeout(r,40));assert(!w.document.body.classList.contains('wishwave-search-editing'));
+ await new Promise(r=>setTimeout(r,250));const input=w.document.querySelector('#q');input.focus();assert(w.document.body.classList.contains('wishwave-search-editing'));input.blur();await new Promise(r=>setTimeout(r,40));assert(!w.document.body.classList.contains('wishwave-search-editing'));
  await w.openHomeNotifications();w.wishwaveFilterNotifications('social');assert.equal(w.document.querySelector('.wishwave-notification-tabs').style.getPropertyValue('--notice-index'),'2');
  let account='a@test.com';w.getAccountProfile=()=>({email:account});w.marketplaceSession=()=>account;const remote=new Map();w.marketplaceFetch=async(path,options={})=>{await new Promise(r=>setTimeout(r,5));if(path.endsWith('/toggle')){const entry=JSON.parse(options.body);if(entry.active)remote.set(entry.key,entry.item);else remote.delete(entry.key);return {ok:true};}return {items:[...remote.values()]};};
  w.wishwaveToggleBookmarkItem(item);await w.wishwaveSyncBookmarks();assert.equal(remote.size,1);w.wishwaveToggleBookmarkItem(item);w.wishwaveToggleBookmarkItem(item);await w.wishwaveSyncBookmarks();assert.equal(remote.size,1,'rapid toggles finish in latest state');assert.equal(w.wishwaveBookmarks().length,1);account='b@test.com';assert.equal(w.wishwaveBookmarks().length,0,'account switch never exposes previous bookmarks');
- console.log('PASS: independent like/save toggles, four profile tabs, guest layout, search focus and notification indicator');dom.window.close();
+ console.log('PASS: independent like/save toggles, three profile tabs, guest layout, search focus and notification indicator');dom.window.close();
 })().catch(e=>{console.error(e);dom.window.close();process.exitCode=1});
