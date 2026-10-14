@@ -17489,7 +17489,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
   }
   function overlayOpen(){return !!document.querySelector('.app-mp-sheet-bg.show,.account-overlay.show,.search-detail-overlay.show,#wishwavePublicProfilePage.show,.wishwave-comment-media-viewer.show,.findai-comment-hold-overlay.show,#loginOverlay.show,.findai-settings-bg.show');}
   const originalSurfaceStyles=new WeakMap(),frozenTabCards=new WeakMap();
-  function prepSurface(el,kind){if(!el)return;if(!originalSurfaceStyles.has(el))originalSurfaceStyles.set(el,['transform','opacity','pointer-events','--wishwave-tab-settle-ms'].map(key=>[key,el.style.getPropertyValue(key),el.style.getPropertyPriority(key)]));el.classList.add(kind,'findai-v132-swipe-surface');el.style.removeProperty('display');const feed=el.querySelector('#personalFeed,#searchDetailFeed');if(feed?.clientHeight){const top=feed.scrollTop,bottom=top+feed.clientHeight;const hidden=[...feed.querySelectorAll('.reel-card')].filter(card=>card.offsetTop+card.offsetHeight<=top||card.offsetTop>=bottom);hidden.forEach(card=>card.classList.add('wishwave-return-offscreen'));frozenTabCards.set(el,hidden);}}
+  function prepSurface(el,kind){if(!el)return;if(!originalSurfaceStyles.has(el))originalSurfaceStyles.set(el,['transform','opacity','pointer-events','--wishwave-tab-settle-ms'].map(key=>[key,el.style.getPropertyValue(key),el.style.getPropertyPriority(key)]));el.classList.add(kind,'findai-v132-swipe-surface');el.style.removeProperty('display');if(el.id==='discover'&&kind==='findai-v132-target')window.__wishwavePrepareHome?.();window.wishwaveWakeReelGalleries?.(el);}
   function clearSurface(el){if(!el)return;frozenTabCards.get(el)?.forEach(card=>card.classList.remove('wishwave-return-offscreen'));frozenTabCards.delete(el);el.classList.remove('findai-v132-current','findai-v132-target','findai-v132-settle','findai-v132-swipe-surface');const saved=originalSurfaceStyles.get(el);if(saved){saved.forEach(([key,value,priority])=>value?el.style.setProperty(key,value,priority):el.style.removeProperty(key));originalSurfaceStyles.delete(el);}}
   function cleanup(state,activate,immediate=false){
     if(settling&&settling!==state)return;
@@ -17502,7 +17502,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
       if(activeTab()==='discover'&&targetTab!=='discover')window.__wishwaveCaptureHome?.();
       try{window.__wishwaveNavigationHandoff=true;openTab(targetTab);}catch(_){}finally{window.__wishwaveNavigationHandoff=false;}
     }
-    const finish=()=>{cleanupFrame=0;clearSurface(current);clearSurface(target);if(swipe===state)swipe=null;swipeLocked=false;window.__wishwavePageMotion=false;window.__wishwaveFlushInboxRender?.();};
+    const finish=()=>{cleanupFrame=0;clearSurface(current);clearSurface(target);if(swipe===state)swipe=null;swipeLocked=false;window.__wishwavePageMotion=false;window.wishwaveWakeReelGalleries?.(activate?target:current);window.wishwaveSleepReelGalleries?.(activate?current:target);window.__wishwaveFlushInboxRender?.();};
     if(immediate){if(cleanupFrame)cancelAnimationFrame(cleanupFrame);finish();}else cleanupFrame=requestAnimationFrame(finish);
   }
   function drawSwipe(){
@@ -17543,7 +17543,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     if(state&&state.onSettled)state.current.removeEventListener('transitionend',state.onSettled);
     cancelAnimationFrame(raf);raf=0;settling=null;swipe=null;swipeLocked=false;window.__wishwaveTabSettling=false;
     if(cleanupFrame){cancelAnimationFrame(cleanupFrame);cleanupFrame=0;}
-    if(state){clearSurface(state.current);clearSurface(state.targetEl);}window.__wishwavePageMotion=false;window.__wishwaveFlushInboxRender?.();
+    if(state){clearSurface(state.current);clearSurface(state.targetEl);}window.__wishwavePageMotion=false;if(state){window.wishwaveWakeReelGalleries?.(state.current);window.wishwaveSleepReelGalleries?.(state.targetEl);}window.__wishwaveFlushInboxRender?.();
   }
   document.addEventListener('pointerdown',event=>{
     if(event.target.closest&&event.target.closest('.premium-bottom-nav button'))cancelSwipe();
@@ -20062,6 +20062,33 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     [index,index+1,index-1].forEach(i=>{if(all[i])loadSlide(all[i]);});
   }
 
+  function releaseStage(stage){
+    if(gesture?.stage===stage)return;
+    stage.querySelectorAll('.reel-gallery-image').forEach(img=>{
+      const src=img.getAttribute('src');if(!src)return;
+      img.dataset.src=src;loaded.delete(img);img.removeAttribute('src');
+    });
+  }
+  window.wishwaveSleepReelGalleries=function(root){
+    if(!root||window.__wishwavePageMotion)return;
+    root.querySelectorAll('.reel-gallery-stage').forEach(releaseStage);
+  };
+  window.wishwaveWakeReelGalleries=function(root){
+    if(!root)return;
+    const feeds=[...(root.matches?.('.reel-feed')?[root]:[]),...root.querySelectorAll('.reel-feed')];
+    for(const feed of feeds){
+      const cards=[...feed.querySelectorAll('.reel-card')];if(!cards.length)continue;
+      let selected=0,distance=Infinity;
+      cards.forEach((card,index)=>{const d=Math.abs(card.offsetTop-feed.scrollTop);if(d<distance){distance=d;selected=index;}});
+      cards.slice(Math.max(0,selected-1),selected+2).forEach(card=>card.querySelectorAll('.reel-gallery-stage').forEach(stage=>{
+        stage.classList.remove('wishwave-return-offscreen');card.classList.remove('wishwave-return-offscreen');
+        const index=current(stage),width=stage.clientWidth||document.querySelector('.app')?.clientWidth||innerWidth,track=stage.querySelector('.reel-gallery-track');
+        if(track&&width>0&&gesture?.stage!==stage){clearSettle(track);translate(track,-index*width,false);stage.dataset.v149Positioned='1';stage.dataset.v149Width=String(width);}
+        warm(stage,index);
+      }));
+    }
+  };
+
   function setDots(stage,index,showCount,deferWarm=false){
     const list=images(stage);
     if(!list.length)return;
@@ -20352,12 +20379,9 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     for(const entry of entries){
       const stage=entry.target;
       if(!entry.isIntersecting){
-        // Keep gallery positions/URLs, but release decoded bitmaps outside the
-        // current/adjacent reel window (including feeds on hidden tabs).
-        if(gesture?.stage!==stage)stage.querySelectorAll('.reel-gallery-image').forEach(img=>{
-          const src=img.getAttribute('src');if(!src)return;
-          img.dataset.src=src;loaded.delete(img);img.removeAttribute('src');
-        });
+        // A transformed tab can briefly report hidden while returning. The
+        // pager releases the departed feed after the destination is restored.
+        if(!window.__wishwavePageMotion)releaseStage(stage);
         continue;
       }
       if(window.__wishwavePageMotion)continue;
@@ -25304,6 +25328,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
   }
 
   window.__wishwaveCaptureHome=captureHome;
+  window.__wishwavePrepareHome=function(){const feed=personalFeed();if(feed&&homeState)feed.scrollTop=homeState.scroll||0;};
   /* Capture Home before any tab can replace the global search/feed state. */
   document.addEventListener('pointerdown',event=>{
     const nav=event.target.closest&&event.target.closest('.premium-bottom-nav button[data-tab]');
@@ -25357,6 +25382,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
       const feed=personalFeed();
       if(!feed||!homeState)return;
       feed.scrollTop=homeState.scroll||0;
+      window.wishwaveWakeReelGalleries?.(feed);
       attachReelObserver();
       beginReelTracking(activeReelIndex);
       schedulePersonalisedLaneRebalance('revisit');
