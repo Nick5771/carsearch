@@ -18,7 +18,7 @@ async function swipe(target,right,cancel=false,check){touch(target,'touchstart',
      assert.equal(feed.scrollTop,1400,'Home position restored before preview');assert(selected().getAttribute('src'),'preview explicitly restores selected photo');
      gallery.callback([{target:stage,isIntersecting:true}]);gallery.callback([{target:stage,isIntersecting:false}]);assert(selected().getAttribute('src'),'motion-time visibility callbacks cannot blank the preview');
    });
-   assert.equal(w.document.body.dataset.activeTab,'discover');assert.equal(feed.scrollTop,1400);assert.equal(stage.dataset.galleryIndex,'3');assert.equal(stage.querySelector('.reel-gallery-track').style.transform,'translate3d(-1170px,0,0)');assert(selected().getAttribute('src'));
+   assert.equal(w.document.body.dataset.activeTab,'discover');assert.equal(feed.scrollTop,1400);assert.equal(stage.dataset.galleryIndex,'3');assert.equal(stage.querySelector('.reel-gallery-track').style.transform,'translate3d(-1170px,0,0)');assert(selected().getAttribute('src'));gallery.callback([{target:stage,isIntersecting:false}]);assert(selected().getAttribute('src'),'late hidden callback cannot unload the visible active reel');
    assert.equal(feed.querySelectorAll('.wishwave-return-offscreen').length,0);assert(!w.document.querySelector('.findai-v132-swipe-surface'));
  }
  await swipe(feed,false);await swipe(w.document.getElementById('search'),true,true);assert.equal(w.document.body.dataset.activeTab,'search');assert(!selected().getAttribute('src'),'cancelled preview releases hidden images');await swipe(w.document.getElementById('search'),true);assert(selected().getAttribute('src'),'return works after cancellation');

@@ -20381,7 +20381,11 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
       if(!entry.isIntersecting){
         // A transformed tab can briefly report hidden while returning. The
         // pager releases the departed feed after the destination is restored.
-        if(!window.__wishwavePageMotion)releaseStage(stage);
+        const feed=stage.closest('.reel-feed'),card=stage.closest('.reel-card');
+        const visible=stage.closest('.screen')?.classList.contains('active')||stage.closest('.search-detail-overlay')?.classList.contains('show');
+        const height=feed?.clientHeight||0,top=feed?.scrollTop||0;
+        const protectedReel=visible&&height>0&&card&&card.offsetTop+card.offsetHeight>top-height&&card.offsetTop<top+2*height;
+        if(!window.__wishwavePageMotion&&!protectedReel)releaseStage(stage);
         continue;
       }
       if(window.__wishwavePageMotion)continue;
