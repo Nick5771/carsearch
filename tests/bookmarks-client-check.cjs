@@ -1,0 +1,24 @@
+const fs=require('fs'),assert=require('assert'),{JSDOM,VirtualConsole}=require('jsdom');
+const source=fs.readFileSync(__dirname+'/../findai-app.html','utf8');
+const dom=new JSDOM(source.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,''),{url:'https://test/?country=US',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:new VirtualConsole(),beforeParse(w){w.matchMedia=()=>({matches:false,addEventListener(){},addListener(){}});w.IntersectionObserver=class{observe(){}unobserve(){}disconnect(){}};w.ResizeObserver=class{observe(){}disconnect(){}};w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=function(){};w.fetch=async()=>({ok:true,json:async()=>({items:[],listings:[]}),text:async()=>''});}});
+const w=dom.window,item={title:'Test camera',itemId:'test-camera',source:'ebay',price:100,currency:'USD',url:'https://ebay.com/itm/test-camera',image:'https://example.com/photo.jpg'};
+(async()=>{
+ await new Promise(r=>setTimeout(r,200));w.eval(fs.readFileSync(__dirname+'/../wishwave-bookmarks.js','utf8'));
+ w.recordInterest=()=>{};w.haptic=()=>{};w.eval('currentFeedItems=[]');w.eval('currentFeedItems').push(item);
+ await w.toggleGenericLikeItem(item);assert.equal(w.getTracked().length,1);assert.equal(w.wishwaveBookmarks().length,0,'like does not bookmark');
+ w.wishwaveToggleBookmarkItem(item);assert.equal(w.wishwaveBookmarks().length,1);assert.equal(w.getTracked().length,1);
+ await w.toggleGenericLikeItem(item);assert.equal(w.getTracked().length,0);assert.equal(w.wishwaveBookmarks().length,1,'unlike does not unsave');
+ assert(w.wishwaveBookmarkMarkup(item,7).includes('wishwaveToggleBookmark(7,event)'));
+ const card=w.renderReelCard(item,0,null),rail=new w.DOMParser().parseFromString(card,'text/html');assert.deepEqual([...rail.querySelectorAll('.reel-social-action')].map(x=>x.classList[1]),['like','comment','compare','share','bookmark']);
+ const tabs=w.document.querySelectorAll('#profileSignedOut .social-profile-tabs button');assert.equal(tabs.length,4);tabs[3].click();
+ assert.equal(w.document.querySelectorAll('#profileSignedOut .social-profile-grid .social-profile-tile').length,1);
+ assert(!w.document.querySelector('#profileSignedOut .guest-profile-signin'),'saved grid has no giant sign-in block above it');
+ tabs[0].click();assert(w.document.querySelector('#profileSignedOut .guest-profile-signin'));assert(!w.document.querySelector('#profileSignedOut .social-profile-grid'));
+ assert.equal(w.document.querySelector('#profileSignedOut .social-profile-handle').textContent,'Profile');
+ w.wishwaveToggleBookmarkItem(item);assert.equal(w.wishwaveBookmarks().length,0);
+ const input=w.document.querySelector('#q');input.focus();assert(w.document.body.classList.contains('wishwave-search-editing'));input.blur();await new Promise(r=>setTimeout(r,40));assert(!w.document.body.classList.contains('wishwave-search-editing'));
+ await w.openHomeNotifications();w.wishwaveFilterNotifications('social');assert.equal(w.document.querySelector('.wishwave-notification-tabs').style.getPropertyValue('--notice-index'),'2');
+ let account='a@test.com';w.getAccountProfile=()=>({email:account});w.marketplaceSession=()=>account;const remote=new Map();w.marketplaceFetch=async(path,options={})=>{await new Promise(r=>setTimeout(r,5));if(path.endsWith('/toggle')){const entry=JSON.parse(options.body);if(entry.active)remote.set(entry.key,entry.item);else remote.delete(entry.key);return {ok:true};}return {items:[...remote.values()]};};
+ w.wishwaveToggleBookmarkItem(item);await w.wishwaveSyncBookmarks();assert.equal(remote.size,1);w.wishwaveToggleBookmarkItem(item);w.wishwaveToggleBookmarkItem(item);await w.wishwaveSyncBookmarks();assert.equal(remote.size,1,'rapid toggles finish in latest state');assert.equal(w.wishwaveBookmarks().length,1);account='b@test.com';assert.equal(w.wishwaveBookmarks().length,0,'account switch never exposes previous bookmarks');
+ console.log('PASS: independent like/save toggles, four profile tabs, guest layout, search focus and notification indicator');dom.window.close();
+})().catch(e=>{console.error(e);dom.window.close();process.exitCode=1});

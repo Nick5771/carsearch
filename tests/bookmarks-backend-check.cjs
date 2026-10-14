@@ -1,0 +1,18 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),{DatabaseSync}=require('node:sqlite');
+const source=fs.readFileSync(__dirname+'/../findai-worker.js','utf8'),sql=new DatabaseSync(':memory:');
+sql.exec(`CREATE TABLE saved_items(email TEXT,item_key TEXT,payload_json TEXT);INSERT INTO saved_items VALUES('a@test.com','findai:test','{}');CREATE TABLE marketplace_listings(id TEXT,like_count INTEGER);INSERT INTO marketplace_listings VALUES('test',1)`);
+const env={DB:{prepare(s){let args=[];return {bind(...v){args=v;return this},async run(){return sql.prepare(s).run(...args)},async all(){return {results:sql.prepare(s).all(...args)}}}}}};
+const c=vm.createContext({Date,JSON,URL,Number,String,Array,jsonResp:(b,s=200,h={})=>new Response(JSON.stringify(b),{status:s,headers:h})});
+vm.runInContext(source.slice(source.indexOf('function savedItemClean'),source.indexOf('async function savedItemsForEmail')),c);
+vm.runInContext(source.slice(source.indexOf('// v247: Private bookmarks'),source.indexOf('// v125 adaptive Reels ranking')),c);
+const request=(path,body)=>new Request('https://test/bookmarks/'+path,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{});
+(async()=>{const item={title:'Camera',price:100,currency:'USD',url:'https://test/item'};
+ for(const active of [true,true])assert.equal((await c.wishwaveBookmarkRequest(request('toggle',{key:'findai:test',item,active}),env,'A@test.com')).status,200);
+ let response=await c.wishwaveBookmarkRequest(request('list'),env,'a@test.com');assert.equal(response.headers.get('Cache-Control'),'no-store');assert.equal((await response.json()).items.length,1);
+ assert.equal((await (await c.wishwaveBookmarkRequest(request('list'),env,'b@test.com')).json()).items.length,0,'private to owner');
+ assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM saved_items').get().n,1);assert.equal(sql.prepare('SELECT like_count FROM marketplace_listings').get().like_count,1,'bookmark does not change public likes');
+ await c.wishwaveBookmarkRequest(request('toggle',{key:'findai:test',item,active:false}),env,'a@test.com');assert.equal(sql.prepare('SELECT COUNT(*) AS n FROM bookmark_items').get().n,0);
+ assert.equal((await c.wishwaveBookmarkRequest(request('toggle',{item}),env,'a@test.com')).status,400);
+ assert(source.includes("const auth = await requireUser(request, env);\n        if (auth.fail) return auth.fail;\n        try { return await wishwaveBookmarkRequest"));
+ console.log('PASS: owner-scoped bookmarks, idempotent updates, independent likes and authenticated routing');sql.close();
+})().catch(e=>{console.error(e);process.exitCode=1});
