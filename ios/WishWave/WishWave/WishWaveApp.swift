@@ -16,6 +16,7 @@ struct ShoppingView: UIViewControllerRepresentable {
         controller.webView.configuration.userContentController.removeScriptMessageHandler(forName: "findaiHaptic")
         controller.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wishwaveShare", contentWorld: .page)
         controller.webView.stopLoading()
+        controller.cancelRecovery()
     }
 }
 
@@ -24,6 +25,9 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
     private let spinner = UIActivityIndicatorView(style: .large)
     private let failure = UIStackView()
     private var didShowPage = false
+    private var recoveryWork: DispatchWorkItem?
+    private var recoveryWindowStart = Date.distantPast
+    private var recoveryAttempts = 0
     private(set) lazy var webView: WKWebView = {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
@@ -94,6 +98,17 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
     }
 
     @objc private func reloadPage() {
+        cancelRecovery()
+        recoveryAttempts = 0
+        loadHome()
+    }
+
+    func cancelRecovery() {
+        recoveryWork?.cancel()
+        recoveryWork = nil
+    }
+
+    private func loadHome() {
         failure.isHidden = true
         webView.isHidden = false
         spinner.startAnimating()
@@ -120,10 +135,32 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { showFailure(error) }
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { showFailure(error) }
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        // A terminated WebKit process is not a connection failure. Recover the
+        // hosted app, whose feed/login storage survives in the website data store.
+        // Stop after two attempts in a minute so repeated crashes cannot loop.
+        NSLog("WishWave: WebKit content process terminated")
+        cancelRecovery()
         didShowPage = false
-        webView.isHidden = true
-        spinner.stopAnimating()
-        failure.isHidden = false
+        if Date().timeIntervalSince(recoveryWindowStart) > 60 {
+            recoveryWindowStart = Date()
+            recoveryAttempts = 0
+        }
+        guard recoveryAttempts < 2 else {
+            webView.isHidden = true
+            spinner.stopAnimating()
+            failure.isHidden = false
+            return
+        }
+        recoveryAttempts += 1
+        failure.isHidden = true
+        spinner.startAnimating()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self = self else { return }
+            self.recoveryWork = nil
+            self.loadHome()
+        }
+        recoveryWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
     }
 
     func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {

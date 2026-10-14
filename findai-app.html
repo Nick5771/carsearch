@@ -15062,7 +15062,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
   #profile .social-profile-tabs{
     grid-template-columns:repeat(3,minmax(0,1fr))!important;
   }
-  #profileSignedIn .social-profile-tabs::after{
+  #profileSignedIn .social-profile-tabs::after, #profileSignedOut .social-profile-tabs::after{
     width:33.333333%!important;
     transform:translate3d(calc(var(--profile-tab-index,0) * 100%),0,0)!important;
   }
@@ -19977,7 +19977,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
   function loadSlide(slide){
     if(!slide)return;
     const img=slide.querySelector('.reel-gallery-image');
-    if(!img||loaded.has(img))return;
+    if(!img||(loaded.has(img)&&img.getAttribute('src')))return;
     const src=String(img.dataset.src||img.getAttribute('src')||'').trim();
     if(!src)return;
     img.loading='eager';
@@ -20281,10 +20281,18 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
 
   /* Load current + adjacent image before a visible reel is touched. */
   const observer=new IntersectionObserver(entries=>{
-    if(window.__wishwavePageMotion)return;
     for(const entry of entries){
-      if(!entry.isIntersecting)continue;
       const stage=entry.target;
+      if(!entry.isIntersecting){
+        // Keep gallery positions/URLs, but release decoded bitmaps outside the
+        // current/adjacent reel window (including feeds on hidden tabs).
+        if(gesture?.stage!==stage)stage.querySelectorAll('.reel-gallery-image').forEach(img=>{
+          const src=img.getAttribute('src');if(!src)return;
+          img.dataset.src=src;loaded.delete(img);img.removeAttribute('src');
+        });
+        continue;
+      }
+      if(window.__wishwavePageMotion)continue;
       const index=current(stage);
       const track=stage.querySelector('.reel-gallery-track');
       const width=Math.max(1,stage.clientWidth);
@@ -20311,9 +20319,14 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
 
   bind(document);
   new MutationObserver(records=>{
-    records.forEach(record=>record.addedNodes.forEach(node=>{
-      if(node.nodeType===1)bind(node);
-    }));
+    records.forEach(record=>{
+      record.removedNodes.forEach(node=>{
+        if(node.nodeType!==1||node.isConnected)return;
+        const stages=[...(node.matches('.reel-gallery-stage')?[node]:[]),...node.querySelectorAll('.reel-gallery-stage')];
+        stages.forEach(stage=>{observer.unobserve(stage);delete stage.dataset.v149Observed;clearSettle(stage.querySelector('.reel-gallery-track'));clearTimeout(countTimers.get(stage));countTimers.delete(stage);});
+      });
+      record.addedNodes.forEach(node=>{if(node.nodeType===1)bind(node);});
+    });
   }).observe(document.body,{childList:true,subtree:true});
 
   /* Orientation/viewport changes should not leave the strip between slides. */
@@ -35118,9 +35131,9 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  function guestLikes(){
   const root=document.querySelector('#profileSignedOut .guest-profile-posts');if(!root)return;if(getAccountProfile()){root.querySelector('[data-guest-likes]')?.remove();return;}
   let list=root.querySelector('[data-guest-likes]');if(!list){list=document.createElement('section');list.dataset.guestLikes='true';list.style.padding='18px';root.append(list);}
-  const items=getTracked();list.innerHTML='<h3 style="font-size:16px;margin:0 0 8px">Liked on this device</h3><p style="font-size:13px;color:var(--muted);margin:0 0 14px">These likes are stored in this browser.</p>'+(items.length?'<div class="social-profile-grid">'+items.map((x,i)=>socialProfileTile(x,i,'liked')).join('')+'</div>':'<p>Tap a product’s heart to see it here.</p>');
+  const items=getTracked();list.hidden=!items.length;list.innerHTML=items.length?'<div class="social-profile-grid">'+items.map((x,i)=>socialProfileTile(x,i,'liked')).join('')+'</div>':'';
   const copy=root.querySelector('.guest-profile-signin span');if(copy)copy.textContent='Sign in for your listings, messages and account activity.';
-  const tabs=document.querySelector('#profileSignedOut .social-profile-tabs');if(tabs){tabs.classList.remove('guest-profile-tabs');tabs.setAttribute('aria-hidden','false');tabs.style.setProperty('--profile-tab-index','2');[...tabs.querySelectorAll('button')].forEach((button,i)=>{button.disabled=i!==2;button.tabIndex=i===2?0:-1;button.classList.toggle('active',i===2);if(i===2){button.setAttribute('aria-label','Liked on this device');button.onclick=()=>list.scrollIntoView({behavior:'smooth',block:'start'});}});}
+  const tabs=document.querySelector('#profileSignedOut .social-profile-tabs');if(tabs){tabs.classList.remove('guest-profile-tabs');tabs.setAttribute('aria-hidden','false');tabs.style.setProperty('--profile-tab-index','2');[...tabs.querySelectorAll('button')].forEach((button,i)=>{button.disabled=i!==2;button.tabIndex=i===2?0:-1;button.classList.toggle('active',i===2);if(i===2){button.setAttribute('aria-label','Liked products');button.onclick=()=>{if(!list.hidden)list.scrollIntoView({behavior:'smooth',block:'start'});};}});}
  }
  const profile=window.renderProfileTab;window.renderProfileTab=function(){const out=profile.apply(this,arguments);guestLikes();return out;};
  const tracked=window.setTracked;window.setTracked=function(){const out=tracked.apply(this,arguments);if(document.body.dataset.activeTab==='profile')guestLikes();return out;};
