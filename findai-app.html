@@ -9198,7 +9198,7 @@ async function togglePremiumDiscoveryLike(sectionId,index,event){
   if(button){
     button.classList.toggle('active',active);
     const svg=button.querySelector('svg');if(svg)svg.setAttribute('fill',active?'currentColor':'none');
-    if(active){button.classList.remove('just-liked');void button.offsetWidth;button.classList.add('just-liked');haptic();}
+    if(active){button.classList.remove('just-liked');void button.offsetWidth;button.classList.add('just-liked');}
   }
   renderLikedItems();
   setTimeout(()=>{const row=document.querySelector(`[data-section-row="${CSS.escape(sectionId)}"]`);if(row)row.innerHTML=section.items.map((x,i)=>premiumSectionCard(x,i,sectionId)).join('');},active?430:130);
@@ -14879,10 +14879,12 @@ if(typeof v116RenderMarketplaceListing==='function'){
     setTimeout(()=>{if(bg&&!bg.classList.contains('show'))bg.classList.remove('wishwave-comments-mode');},360);
   };
 
-  /* Better tactile feedback where supported. iOS simply ignores vibration. */
+  /* Use the installed iPhone app's native selection tap before web vibration. */
   window.haptic=function(){
     try{
-      if(navigator.vibrate)navigator.vibrate([8,14,11]);
+      const bridge=window.webkit?.messageHandlers?.findaiHaptic;
+      if(bridge){bridge.postMessage('selection');return;}
+      if(navigator.vibrate)navigator.vibrate(8);
     }catch(_){}
   };
 
