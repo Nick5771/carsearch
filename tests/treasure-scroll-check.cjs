@@ -36,6 +36,15 @@ const dom=new JSDOM(html,{url:'https://findai.test/?catalogue-test=1&treasure-te
  assert(imageFailures>0);assert(!checked.items.some(x=>x.itemId==='broken'),'decoded image failure is excluded');
  w.fetch=async()=>({ok:true,json:async()=>({listings:[{...good,itemId:'good-photo'}],country:'US'}),text:async()=>''});
  const working=await w.fetchPersonalisedLanePage(w.newPersonalisedLane({query:target.query,featured:true,category:target.category,cluster:'image-test-good'}));assert(working.items.some(x=>x.itemId==='good-photo'),'a working seller alternative remains available');
+ // A stalled first photo must not serialize every seller alternative behind it.
+ w.Image=class{naturalWidth=0;set src(src){if(src.includes('stalled-photo'))return;setTimeout(()=>{this.naturalWidth=800;this.onload?.();},0);}};
+ w.fetch=async()=>({ok:true,json:async()=>({listings:[{...good,itemId:'stalled-alternative',image:'https://test/stalled-photo.jpg',images:[]},{...good,itemId:'fast-alternative',image:'https://test/fast-photo.jpg',images:[]}],country:'US',hasMore:false}),text:async()=>''});
+ let photoWatchdog;const fast=await Promise.race([w.fetchPersonalisedLanePage(w.newPersonalisedLane({query:target.query,featured:true,category:target.category,cluster:'image-parallel'})),new Promise((_,reject)=>{photoWatchdog=setTimeout(()=>reject(new Error('Working alternative waited for stalled image')),500);})]);clearTimeout(photoWatchdog);assert(fast.items.some(x=>x.itemId==='fast-alternative'));
+ // Curated Search must replenish even when its first rows cannot yet scroll.
+ let browseCalls=0;w.wishwaveFetchRecommendationResults=async q=>{browseCalls++;return {data:{listings:offers(q)},nextCursor:null,hasMore:false};};
+ w.go('search');await w.resetPremiumExploreHome(true);assert(browseCalls>=12,'curated Search starts a larger target buffer');
+ for(let n=0;n<40 && w.document.querySelectorAll('.premium-explore-tile').length<20;n++)await new Promise(r=>setTimeout(r,50));
+ assert(w.document.querySelectorAll('.premium-explore-tile').length>=20,'underfilled Search replenishes without a scroll event');
  assert(peak<=4,'bounded live request concurrency');assert.equal(errors.length,0,JSON.stringify(errors));
  console.log('PASS: '+items.length+' rendered reels, twenty unique opening products, twenty-product repeat gap across pages, polluted fallback rejection, USD, image failure and provider concurrency');w.close();
 })().catch(e=>{console.error(e);dom.window.close();process.exitCode=1});
