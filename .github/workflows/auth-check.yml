@@ -1,9 +1,9 @@
-name: Account authentication checks
+name: Account and discovery checks
 on:
   push:
-    paths: ['findai-worker.js', 'findai-app.html', 'tests/password-auth*', '.github/workflows/auth-check.yml']
+    paths: ['findai-worker.js', 'findai-app.html', 'tests/password-auth*', 'tests/treasure-scroll-check.cjs', 'tests/starter-buffer-check.cjs', '.github/workflows/auth-check.yml']
   pull_request:
-    paths: ['findai-worker.js', 'findai-app.html', 'tests/password-auth*', '.github/workflows/auth-check.yml']
+    paths: ['findai-worker.js', 'findai-app.html', 'tests/password-auth*', 'tests/treasure-scroll-check.cjs', 'tests/starter-buffer-check.cjs', '.github/workflows/auth-check.yml']
 permissions:
   contents: read
 jobs:
@@ -23,4 +23,7 @@ jobs:
       - name: Check login, signup and recovery screens
         env:
           NODE_PATH: ${{ runner.temp }}/wishwave-auth-runtime/node_modules
-        run: node tests/password-auth-client-check.cjs
+        run: |
+          node tests/password-auth-client-check.cjs
+          node tests/treasure-scroll-check.cjs
+          node tests/starter-buffer-check.cjs

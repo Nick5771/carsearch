@@ -5809,8 +5809,7 @@ function renderPersonalisedFeed(items,{writeCache=true}={}){
   preloadPersonalisedImages(0,14);
   teachSwipeOnce(items.length);
   if(writeCache) writePersonalisedCache();
-  /* Never auto-fetch merely because a marketplace returned a short page.
-     More listings are fetched only when the user actually scrolls near the end. */
+  /* Opening and cache owners replenish short buffers without replacing visible cards. */
 }
 async function v116RenderPersonalisedPreviewFallback(){
   try{
@@ -5862,6 +5861,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     renderPersonalisedFeed(freshenPersonalisedItems(cached.items),{writeCache:false});
     feedState.loading=false;
     schedulePersonalisedBackgroundRefresh(cached.savedAt);
+    if(currentFeedItems.length<12)setTimeout(()=>loadMorePersonalisedListings(),0);
     return;
   }
 
@@ -5904,8 +5904,8 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
       const results=await Promise.all(relevant.map(x=>lanePromises[x.index]));
       for(const next of results){pending.delete(next.index);if(next.value?.items?.length)early.push(next.value);}
     }
-    const graceEnds=Date.now()+(focus?.strong?600:1500);
-    const openingReady=()=>early.reduce((count,result)=>count+(result.items?.length||0),0)>=8&&new Set(early.map(result=>result.lane?.category)).size>=3;
+    const graceEnds=Date.now()+(focus?.strong?600:window.wishwaveTreasureStatus?.().active?3500:1500);
+    const openingReady=()=>sequencePersonalisedBatch(interleavePersonalised(early,48),[],24).length>=8&&new Set(early.map(result=>result.lane?.category)).size>=3;
     while(pending.size&&(!openingReady()||(focus?.strong&&!early.some(focusedResult)))&&Date.now()<graceEnds){
       const next=await takeNext(Math.max(1,graceEnds-Date.now()));
       if(next&&next.timeout)break;
@@ -5940,7 +5940,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
       if(stillOwnsFeed()){
         writePersonalisedCache();
         // Start replenishing before the user reaches the last available card.
-        if(currentFeedItems.length-activeReelIndex<9)loadMorePersonalisedListings();
+        if(currentFeedItems.length-activeReelIndex<12)loadMorePersonalisedListings();
       }
     })().catch(()=>{});
   }catch(error){
@@ -15767,7 +15767,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     try{
     const curated=exploreFilter==='for-you'&&window.wishwaveTreasureStatus?.().active;
     const pool=curated?[]:await v116GetPreviewPool(false);
-    const batch=exploreQueue.splice(0,Math.min(curated?4:initial?10:5,exploreQueue.length));
+    const batch=exploreQueue.splice(0,Math.min(curated?(initial?12:8):initial?10:5,exploreQueue.length));
     // Share a reservoir across completed categories. Paint the first product
     // promptly, but hold same-category followers while other lanes are pending.
     const groups=[];
@@ -15810,7 +15810,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     batch.filter(config=>config._more!==false).forEach(config=>{config._forceLive=true;exploreQueue.push(config);});
     exploreEmptyBatches=incoming.length?0:exploreEmptyBatches+1;
     const target=sectionOwner.items;exploreLoading=false;cacheExploreBrowseState();
-    if(exploreQueue.length&&exploreEmptyBatches<3&&((!incoming.length)||target.length<12&&exploreTopups++<3))setTimeout(()=>{if(generation===exploreGeneration&&!exploreLiveSearchQuery&&document.body.dataset.activeTab==='search')loadExploreMore(false);},100);
+    if(exploreQueue.length&&exploreEmptyBatches<3&&((!incoming.length)||(target.length<24||document.querySelector('#search .premium-search-home-scroll')?.scrollHeight-document.querySelector('#search .premium-search-home-scroll')?.scrollTop<document.querySelector('#search .premium-search-home-scroll')?.clientHeight*3.4)&&exploreTopups++<8))setTimeout(()=>{if(generation===exploreGeneration&&!exploreLiveSearchQuery&&document.body.dataset.activeTab==='search')loadExploreMore(false);},100);
     }finally{if(generation===exploreGeneration)exploreLoading=false;}
   }
   function bindExploreScroll(){
@@ -16771,7 +16771,7 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
         finaliseReelTracking();beginReelTracking(index,bestRatio);
         try{haptic();}catch(_){}
       }else attention.ratio=bestRatio;
-      const preloadDistance=feedState&&feedState.source==='personalised'?5:3;
+      const preloadDistance=feedState&&feedState.source==='personalised'?12:3;
       if(index>=currentFeedItems.length-preloadDistance&&Math.abs(feed.scrollTop-initialScroll)>4)loadMoreListings();
       if(feedState&&feedState.source==='personalised')preloadPersonalisedImages(index+1,3);
     },{root:feed,threshold:[0,.35,.52,.68,.78,.88,.96,1]});
@@ -35249,7 +35249,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  window.fetchPersonalisedLanePage=async function(lane){
   if(!active())return page.apply(this,arguments);
   if(running>=4)await new Promise(resolve=>waiting.push(resolve));running++;
-  try{const result=await page.apply(this,arguments);const target=window.FindAITreasureHunt.forQuery(lane.originalQuery||lane.query),candidates=[...(result.items||[]),...(result.data?.listings||[])].filter(item=>window.FindAITreasureHunt.match(target,item)),accepted=[],checked=new Set();for(const item of candidates.slice(0,8)){const src=appImagePlan(item,0,{personalised:true})?.src;if(checked.has(src))continue;checked.add(src);if(await imageReady(item)){accepted.push(item);break;}}return {...result,items:preparePersonalisedLaneItems(accepted,lane)};}
+  try{const result=await page.apply(this,arguments);const target=window.FindAITreasureHunt.forQuery(lane.originalQuery||lane.query),candidates=[...(result.items||[]),...(result.data?.listings||[])].filter(item=>window.FindAITreasureHunt.match(target,item)),accepted=[],checked=new Set();const unique=candidates.slice(0,8).filter(item=>{const src=appImagePlan(item,0,{personalised:true})?.src;if(!src||checked.has(src))return false;checked.add(src);return true;});for(let offset=0;offset<unique.length;offset+=4){try{const item=await Promise.any(unique.slice(offset,offset+4).map(async item=>{if(await imageReady(item))return item;throw new Error('Image unavailable');}));accepted.push(item);break;}catch(_){}}return {...result,items:preparePersonalisedLaneItems(accepted,lane)};}
   finally{running--;waiting.shift()?.();}
  };
  const render=window.renderPersonalisedFeed,append=window.appendFeedItems;
@@ -35322,7 +35322,7 @@ body:has(#loginOverlay.show) #wishwaveMainNav{visibility:hidden!important;pointe
     host.innerHTML='<form class="ww-auth-form" onsubmit="return wishwaveSubmitAuth(event)">'+inputs+'<div class="ww-auth-feedback" id="wwAuthFeedback" role="alert" aria-live="polite"></div><button id="wwAuthSubmit" class="ww-auth-primary" type="submit">'+(verify?(mode==='verify'?'Verify email':'Reset password'):signup?'Continue':reset?'Send reset code':'Log in')+'</button></form>'+(signup||mode==='reset-verify'?'<p class="ww-auth-note">Use a password with 12–128 characters.</p>':'')+(verify?'<p class="ww-auth-note" id="wwAuthDestination"></p><button class="ww-auth-link" type="button" onclick="wishwaveResendAuth()">Resend code</button>':mode==='login'?'<button class="ww-auth-link" type="button" onclick="wishwaveAuthMode(\'reset\')">Forgot password?</button>':'')+(!verify&&!reset?'<div class="ww-auth-divider">or</div>':'');
     el('authLoginMethods').style.display=verify||reset?'none':'flex';el('emailAuthPanel').classList.remove('show');
     const prior=el('wwAuthFooter');if(prior)prior.remove();
-    const footer=document.createElement('div');footer.id='wwAuthFooter';footer.innerHTML='<div class="ww-auth-switch">'+(signup?'Already have an account? <button onclick="wishwaveAuthMode(\'login\')">Log in</button>':mode==='login'?'Don’t have an account? <button onclick="wishwaveAuthMode(\'signup\')">Create account</button>':'<button onclick="wishwaveAuthMode(\'login\')">Back to log in</button>')+'</div>'+(signup?'<p class="ww-auth-note">Your email is used to verify and recover your account.</p>':'');el('authLoginMethods').after(footer);
+    const footer=document.createElement('div');footer.id='wwAuthFooter';footer.innerHTML='<div class="ww-auth-switch">'+(signup?'Already have an account? <button onclick="wishwaveAuthMode(\'login\')">Log in</button>':mode==='login'?'Don’t have an account? <button onclick="wishwaveAuthMode(\'signup\')">Create account</button>':'<button onclick="wishwaveAuthMode(\'login\')">Back to log in</button>')+'</div>';el('authLoginMethods').after(footer);
     el('googleAuthError').textContent='';
     if(verify){el('wwAuthDestination').textContent=authEmail;el('wwAuthCode').inputMode='numeric';el('wwAuthCode').maxLength=6;el('wwAuthCode').pattern='[0-9]{6}';}
   }
@@ -35359,6 +35359,23 @@ body:has(#loginOverlay.show) #wishwaveMainNav{visibility:hidden!important;pointe
   paint();
 })();
 </script>
+
+
+<style id="wishwave-mobile-fit-v245">
+#loginOverlay .auth-card{height:100%!important;min-height:0!important;box-sizing:border-box!important;display:flex!important;flex-direction:column!important;padding:calc(12px + env(safe-area-inset-top,0px)) 28px calc(12px + env(safe-area-inset-bottom,0px))!important}
+#loginOverlay .auth-top{flex:none!important;margin-top:0!important;padding-top:34px!important}
+#loginOverlay .auth-top:before{font-size:26px!important;margin-bottom:22px!important}
+#loginOverlay #loginTitle{font-size:26px!important}
+#loginOverlay #loginSubtitle{margin-bottom:18px!important}
+#loginOverlay #wishwavePasswordHost,#loginOverlay #wwAuthFooter{flex:none!important}
+#loginOverlay #authLoginMethods{flex:none!important;justify-content:flex-start!important;padding:0!important;gap:10px!important}
+#loginOverlay #googleAuthError:empty{display:none!important;min-height:0!important;margin:0!important}
+#loginOverlay .ww-auth-switch{margin-top:16px!important}
+#loginOverlay .ww-auth-divider{margin:6px 0 14px!important}
+#loginOverlay .ww-auth-link{padding:8px 0!important;min-height:40px!important}
+#loginOverlay .ww-auth-form{gap:10px!important}
+@media(max-height:720px){#loginOverlay .auth-top:before{margin-bottom:12px!important}#loginOverlay #loginSubtitle{margin-bottom:12px!important}#loginOverlay .ww-auth-field input{height:48px!important}#loginOverlay .ww-auth-primary,#loginOverlay .apple-signin-btn,#loginOverlay .google-signin-btn{height:46px!important;min-height:46px!important}#loginOverlay .ww-auth-switch{margin-top:8px!important}}
+</style>
 
 </body>
 </html>
