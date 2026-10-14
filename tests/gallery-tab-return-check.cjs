@@ -1,0 +1,26 @@
+const fs=require('fs'),assert=require('assert'),{JSDOM,VirtualConsole}=require('jsdom');
+const source=fs.readFileSync(__dirname+'/../findai-app.html','utf8'),observers=[],errors=[],vc=new VirtualConsole();vc.on('jsdomError',e=>{if(!e.message.includes('Could not parse CSS'))errors.push(e.message)});
+const dom=new JSDOM(source.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,''),{url:'https://wishwave.test/?country=US',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:vc,beforeParse(w){w.matchMedia=()=>({matches:false,addEventListener(){},addListener(){}});w.IntersectionObserver=class{constructor(callback,options){this.callback=callback;this.options=options;observers.push(this)}observe(){}unobserve(){}disconnect(){}};w.ResizeObserver=class{observe(){}disconnect(){}};w.fetch=async()=>({ok:true,json:async()=>({items:[],listings:[],conversations:[]}),text:async()=>''});w.scrollTo=()=>{};w.HTMLElement.prototype.scrollTo=function(){};w.HTMLElement.prototype.scrollIntoView=function(){};}});
+const w=dom.window,wait=ms=>new Promise(r=>setTimeout(r,ms));
+function touch(target,type,x){const e=new w.Event(type,{bubbles:true,cancelable:true});Object.defineProperties(e,{touches:{value:/end|cancel/.test(type)?[]:[{clientX:x,clientY:420}]},changedTouches:{value:[{clientX:x,clientY:420}]}});target.dispatchEvent(e);}
+async function swipe(target,right,cancel=false,check){touch(target,'touchstart',right?30:350);touch(target,'touchmove',right?110:270);await wait(25);check?.();touch(target,'touchmove',right?350:30);touch(target,cancel?'touchcancel':'touchend',right?350:30);await wait(330);}
+(async()=>{
+ await wait(300);Object.defineProperty(w.document.querySelector('.app'),'clientWidth',{value:390,configurable:true});w.eval(fs.readFileSync(__dirname+'/../wishwave-bookmarks.js','utf8'));w.eval(fs.readFileSync(__dirname+'/../wishwave-tab-paging.js','utf8'));w.backgroundRefreshPersonalisedFeed=async()=>{};
+ const items=Array.from({length:5},(_,i)=>({title:'Camera '+i,itemId:'camera'+i,source:'ebay',price:100,currency:'USD',image:'https://example.com/'+i+'-0.jpg',images:Array.from({length:6},(_,n)=>'https://example.com/'+i+'-'+n+'.jpg'),url:'https://ebay.com/itm/camera'+i}));
+ w.eval('currentFeedItems=[]');w.eval('currentFeedItems').push(...items);w.eval("feedState={...feedState,source:'personalised',loading:false};activeReelIndex=2");const feed=w.document.getElementById('personalFeed');feed.innerHTML=items.map((item,i)=>w.renderReelCard(item,i,null)).join('');
+ Object.defineProperty(feed,'clientHeight',{value:700});const cards=[...feed.querySelectorAll('.reel-card')];cards.forEach((card,i)=>{Object.defineProperty(card,'offsetTop',{value:i*700});Object.defineProperty(card,'offsetHeight',{value:700});Object.defineProperty(card.querySelector('.reel-gallery-stage'),'clientWidth',{value:390});});
+ const stage=cards[2].querySelector('.reel-gallery-stage');stage.dataset.galleryIndex='3';feed.scrollTop=0;w.go('discover');w.__wishwaveCaptureHome();feed.scrollTop=1400;w.wishwaveWakeReelGalleries(feed);
+ const selected=()=>stage.querySelector('[data-gallery-slide="3"] img'),gallery=observers.find(x=>x.options?.rootMargin==='100% 0px');assert(gallery);
+ for(let i=0;i<3;i++){
+   await swipe(feed,false);assert.equal(w.document.body.dataset.activeTab,'search');gallery.callback([{target:stage,isIntersecting:false}]);assert(!selected().getAttribute('src'),'hidden tab releases bitmap sources');
+   feed.scrollTop=0; // WebKit may discard a hidden scroll layer's position.
+   await swipe(w.document.getElementById('search'),true,false,()=>{
+     assert.equal(feed.scrollTop,1400,'Home position restored before preview');assert(selected().getAttribute('src'),'preview explicitly restores selected photo');
+     gallery.callback([{target:stage,isIntersecting:true}]);gallery.callback([{target:stage,isIntersecting:false}]);assert(selected().getAttribute('src'),'motion-time visibility callbacks cannot blank the preview');
+   });
+   assert.equal(w.document.body.dataset.activeTab,'discover');assert.equal(feed.scrollTop,1400);assert.equal(stage.dataset.galleryIndex,'3');assert.equal(stage.querySelector('.reel-gallery-track').style.transform,'translate3d(-1170px,0,0)');assert(selected().getAttribute('src'));gallery.callback([{target:stage,isIntersecting:false}]);assert(selected().getAttribute('src'),'late hidden callback cannot unload the visible active reel');
+   assert.equal(feed.querySelectorAll('.wishwave-return-offscreen').length,0);assert(!w.document.querySelector('.findai-v132-swipe-surface'));
+ }
+ await swipe(feed,false);await swipe(w.document.getElementById('search'),true,true);assert.equal(w.document.body.dataset.activeTab,'search');assert(!selected().getAttribute('src'),'cancelled preview releases hidden images');await swipe(w.document.getElementById('search'),true);assert(selected().getAttribute('src'),'return works after cancellation');
+ const loaded=[...feed.querySelectorAll('img[src]')];assert(loaded.length<=12,'only the selected and neighbouring reels are warmed');assert.equal(errors.length,0,JSON.stringify(errors));console.log('PASS: repeated Home/Search returns, released-source restoration, observer motion race, selected photo/scroll/track preservation, cancellation and bounded image hydration');w.close();
+})().catch(e=>{console.error(e);w.close();process.exitCode=1});
