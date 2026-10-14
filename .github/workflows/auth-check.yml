@@ -1,0 +1,26 @@
+name: Account authentication checks
+on:
+  push:
+    paths: ['findai-worker.js', 'findai-app.html', 'tests/password-auth*', '.github/workflows/auth-check.yml']
+  pull_request:
+    paths: ['findai-worker.js', 'findai-app.html', 'tests/password-auth*', '.github/workflows/auth-check.yml']
+permissions:
+  contents: read
+jobs:
+  account-flows:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check Worker syntax and account security flows
+        run: |
+          node --input-type=module --check < findai-worker.js
+          node tests/password-auth-check.cjs
+      - name: Install browser DOM test runtime
+        run: npm install --prefix "$RUNNER_TEMP/wishwave-auth-runtime" --no-package-lock --no-save jsdom@26.1.0
+      - name: Check login, signup and recovery screens
+        env:
+          NODE_PATH: ${{ runner.temp }}/wishwave-auth-runtime/node_modules
+        run: node tests/password-auth-client-check.cjs
