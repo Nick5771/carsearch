@@ -2516,6 +2516,7 @@ html.findai-light .app-chat-shop-query,html.findai-light .app-chat-shop-cycle{co
 .profile-secondary-auth{margin-top:9px;border:1px solid rgba(255,255,255,.11);background:#111419;color:#fff}.profile-secondary-auth svg{width:20px;height:20px}
 .apple-signin-btn{margin-bottom:9px}.auth-login-body .apple-signin-btn+ .google-signin-btn{margin-top:0}
 .profile-auth-feedback{min-height:17px;margin:8px 2px 0;color:#8e959f;font-size:10px;text-align:center}
+.profile-auth-feedback:empty{display:none!important;min-height:0!important;margin:0!important}
 .profile-menu-title{margin:30px 0 10px;color:#f4f5f6;font-size:20px;font-weight:730}
 .profile-menu-row{width:100%;min-height:68px;padding:9px 12px;border:1px solid rgba(255,255,255,.075);border-radius:17px;background:#0e1115;color:#fff;display:grid;grid-template-columns:42px minmax(0,1fr) 18px;align-items:center;gap:10px;text-align:left;margin-bottom:8px}.profile-menu-icon{width:42px;height:42px;border-radius:13px;background:#171b20;display:grid;place-items:center}.profile-menu-icon svg{width:22px;height:22px}.profile-menu-row b{display:block;font-size:13px}.profile-menu-row small{display:block;margin-top:3px;color:#7f8791;font-size:10px}.profile-menu-row i{font-style:normal;color:#8b929b;font-size:23px;text-align:center}
 .profile-signout-row{width:100%;height:48px;margin-top:14px;border:1px solid rgba(255,255,255,.08);border-radius:15px;background:#111419;color:#f0f1f3;font-size:12px;font-weight:700}
@@ -5872,13 +5873,13 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
   
   try{
     markPersonalisedRefreshNow();
-    /* Cold start: launch every lane together, but do NOT wait for the slowest one.
-       The first useful lane gets a short grace period for a second category so the
-       opening reel is both fast and varied. Remaining lanes append underneath the
-       visible cards without rebuilding or moving the user's current position. */
+    // The request pool owns the opening lanes until each has completed. Pagination
+    // must not race that pool and consume the same lane before its first result.
+    loadingState.initialPool={pending:lanes.length};
     const lanePromises=lanes.map((lane,index)=>fetchPersonalisedLane(lane)
       .then(value=>({index,value}))
-      .catch(error=>({index,error})));
+      .catch(error=>({index,error}))
+      .finally(()=>{loadingState.initialPool.pending=Math.max(0,loadingState.initialPool.pending-1);}));
     const pending=new Set(lanes.map((_,index)=>index));
     const early=[];
     const takeNext=async function(timeoutMs){
@@ -5903,8 +5904,9 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
       const results=await Promise.all(relevant.map(x=>lanePromises[x.index]));
       for(const next of results){pending.delete(next.index);if(next.value?.items?.length)early.push(next.value);}
     }
-    const graceEnds=Date.now()+(focus?.strong?600:160);
-    while(pending.size&&(early.length<2||(focus?.strong&&!early.some(focusedResult)))&&Date.now()<graceEnds){
+    const graceEnds=Date.now()+(focus?.strong?600:1500);
+    const openingReady=()=>early.reduce((count,result)=>count+(result.items?.length||0),0)>=8&&new Set(early.map(result=>result.lane?.category)).size>=3;
+    while(pending.size&&(!openingReady()||(focus?.strong&&!early.some(focusedResult)))&&Date.now()<graceEnds){
       const next=await takeNext(Math.max(1,graceEnds-Date.now()));
       if(next&&next.timeout)break;
       if(next&&next.value&&next.value.items&&next.value.items.length)early.push(next.value);
@@ -5917,10 +5919,8 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
       feedState.loading=false;return;
     }
     const earlyMixed=sequencePersonalisedBatch(interleavePersonalised(early,24),[],24);
-    // If only one category won the race, show just two cards until another lane
-    // arrives instead of presenting a long block of one product family.
-    const earlyCategories=new Set(earlyMixed.map(wishwaveProductCategory));
-    const firstPaint=earlyCategories.size===1?earlyMixed.slice(0,2):earlyMixed.slice(0,12);
+    // Use the available inventory instead of imposing a two-card dead end.
+    const firstPaint=earlyMixed.slice(0,12);
     const deferredEarly=earlyMixed.slice(firstPaint.length);
     renderPersonalisedFeed(firstPaint);
     feedState.loading=false;
@@ -5928,18 +5928,20 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     // Finish the remaining requests quietly. This intentionally isn't awaited, so
     // the first reel is already interactive while slower marketplaces finish.
     (async function(){
-      const rest=await Promise.all(Array.from(pending).map(index=>lanePromises[index]));
-      if(!stillOwnsFeed())return;
-      const restLanes=rest.filter(entry=>entry&&entry.value&&entry.value.items&&entry.value.items.length).map(entry=>entry.value);
-      const incoming=deferredEarly.concat(interleavePersonalised(restLanes,44));
-      const fresh=sequencePersonalisedBatch(incoming,currentFeedItems,44);
-      if(fresh.length){
-        const start=Math.min(currentFeedItems.length,Math.max(0,activeReelIndex)+2);
-        const head=currentFeedItems.slice(0,start),tail=currentFeedItems.slice(start).concat(fresh);
-        currentFeedItems=head.concat(sequencePersonalisedBatch(tail,head,tail.length));
-        window.wishwaveRenderRecommendationTail?.(start);writePersonalisedCache();
+      if(deferredEarly.length&&stillOwnsFeed())appendFeedItems(deferredEarly,currentFeedData);
+      while(pending.size){
+        const next=await takeNext(0);
+        if(!stillOwnsFeed())return;
+        if(next?.value?.items?.length){
+          appendFeedItems(next.value.items,currentFeedData);
+          writePersonalisedCache();
+        }
       }
-      else writePersonalisedCache();
+      if(stillOwnsFeed()){
+        writePersonalisedCache();
+        // Start replenishing before the user reaches the last available card.
+        if(currentFeedItems.length-activeReelIndex<9)loadMorePersonalisedListings();
+      }
     })().catch(()=>{});
   }catch(error){
     if(!stillOwnsFeed()||(error&&error.name==='AbortError')) return;
@@ -5999,8 +6001,17 @@ function refreshPersonalisedPresentationOnForeground(){
   }
   loadPersonalisedFeed({forceNetwork:false});
 }
-async function loadMorePersonalisedListings(){
-  if(feedState.source!=='personalised'||feedState.loading||!$('#discover').classList.contains('active'))return;
+function loadMorePersonalisedListings(){
+  const state=feedState;
+  if(state.morePool?.promise)return state.morePool.promise;
+  if(state.source!=='personalised'||state.loading||state.initialPool?.pending>0||!$('#discover').classList.contains('active'))return Promise.resolve();
+  // Share automatic prefetch with scroll/user requests. The pool object also
+  // survives the existing shallow Home snapshots when switching tabs.
+  const pool={promise:null};state.morePool=pool;
+  pool.promise=performLoadMorePersonalisedListings().finally(()=>{pool.promise=null;});
+  return pool.promise;
+}
+async function performLoadMorePersonalisedListings(){
   const state=feedState;state.loading=true;
   try{
     const waiting=window.wishwaveAdmitRecommendations?.(state.backlog||[],currentFeedItems,36);
@@ -15537,6 +15548,11 @@ if(typeof v116RenderMarketplaceListing==='function'){
     }catch(_){return [];}
   }
   function exploreConfigs(filter){
+    if(filter==='for-you'&&window.wishwaveTreasureStatus?.().active){
+      return scoredInterests().filter(lane=>lane._treasureTargetId).map(lane=>({
+        id:lane.id,title:lane.query,queries:[lane.query],_forceLive:true,_treasureTargetId:lane._treasureTargetId
+      }));
+    }
     const ids=(FILTERS[filter]||FILTERS['for-you']).slice();
     const categoryConfigs=ids.map(configById).filter(Boolean);
     if(filter!=='for-you')return premiumRotateArray(categoryConfigs,premiumDiscoveryHash()+(filter.length*97)+exploreVisitSalt*31);
@@ -15586,8 +15602,9 @@ if(typeof v116RenderMarketplaceListing==='function'){
   let exploreLoadedFilter='';
   let exploreLoadedTaste='';
   function exploreTasteSignature(){
-    if(exploreFilter!=='for-you')return 'browse-variety-v2';
-    try{return 'browse-variety-v2|'+scoredInterests(10).filter(x=>x&&!x.featured).slice(0,4).map(x=>normaliseQueryText(x.query)).join('|');}catch(_){return 'browse-variety-v2';}
+    if(exploreFilter!=='for-you')return 'browse-variety-v243';
+    const catalogue=window.wishwaveTreasureStatus?.().active?'|curated-starter-v243':'';
+    try{return 'browse-variety-v243'+catalogue+'|'+scoredInterests(10).filter(x=>x&&!x.featured).slice(0,4).map(x=>normaliseQueryText(x.query)).join('|');}catch(_){return 'browse-variety-v243'+catalogue;}
   }
   window.wishwaveExploreTasteSignature=exploreTasteSignature;
   let exploreInitialPromise=null;
@@ -15735,7 +15752,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     if(exactIntent){const tokens=queryTokens(queryUsed);items=items.filter(item=>tokens.length&&tokens.filter(t=>normaliseQueryText(item.title||'').includes(t)).length/tokens.length>=.5);}
     items=items.filter(item=>wishwaveRecommendationCandidate(item,queryUsed)).map(item=>({...item,_interestQuery:item._interestQuery||queryUsed,_interestCategory:item._interestCategory||interestCategory(queryUsed),_interestCluster:item._interestCluster||interestClusterKey(queryUsed)}));
     if(exploreFilter==='for-you'&&typeof personalisedItemScore==='function')items.sort((a,b)=>personalisedItemScore(b,b._interestQuery||queryUsed,'search-explore')-personalisedItemScore(a,a._interestQuery||queryUsed,'search-explore'));
-    return capExploreFamilies(items,2).slice(0,8);
+    return capExploreFamilies(items,exploreFilter==='for-you'?1:2).slice(0,8);
   }
   async function loadExploreMore(initial=false){
     if(exploreLoading||exploreLiveSearchQuery||!premiumDiscoverySections[0])return;
@@ -15748,30 +15765,48 @@ if(typeof v116RenderMarketplaceListing==='function'){
     if(!exploreQueue.length)return;
     exploreLoading=true;const generation=exploreGeneration;
     try{
-    const pool=await v116GetPreviewPool(false);
-    const batch=exploreQueue.splice(0,Math.min(initial?10:5,exploreQueue.length));
-    // Publish each completed lane without waiting for the slowest retailer.
+    const curated=exploreFilter==='for-you'&&window.wishwaveTreasureStatus?.().active;
+    const pool=curated?[]:await v116GetPreviewPool(false);
+    const batch=exploreQueue.splice(0,Math.min(curated?4:initial?10:5,exploreQueue.length));
+    // Share a reservoir across completed categories. Paint the first product
+    // promptly, but hold same-category followers while other lanes are pending.
     const groups=[];
-    const batchFamilies=new Map();
+    const batchFamilies=new Map(),reservoir=[];let outstanding=batch.length;
+    const owns=()=>generation===exploreGeneration&&!exploreLiveSearchQuery&&accountOwner===window.wishwaveRecommendationAccount?.()&&sectionOwner===premiumDiscoverySections[0];
+    function drain(){
+      if(!owns())return;
+      const target=sectionOwner.items;
+      while(reservoir.length){
+        const previous=target.length?exploreDiversityKey(target.at(-1)):'';
+        const counts=new Map();target.slice(-8).forEach(item=>{const key=exploreDiversityKey(item);counts.set(key,(counts.get(key)||0)+1);});
+        let choices=reservoir.map((item,index)=>({item,index,key:exploreDiversityKey(item)}));
+        const different=choices.filter(x=>x.key!==previous);
+        if(different.length)choices=different;
+        else if(outstanding>0&&exploreFilter==='for-you'&&previous)break;
+        choices.sort((a,b)=>(counts.get(a.key)||0)-(counts.get(b.key)||0)||a.index-b.index);
+        target.push(reservoir.splice(choices[0].index,1)[0]);
+      }
+      renderExploreGrid({replace:false});cacheExploreBrowseState();
+    }
     await Promise.all(batch.map(async config=>{
-      const group=await loadExploreConfig(config,pool,generation);groups.push(group);
+      const group=await loadExploreConfig(config,pool,generation);groups.push(group);outstanding--;
       if(window.__wishwavePageMotion)await window.wishwaveWaitForMotion?.();
       if(generation!==exploreGeneration||exploreLiveSearchQuery||accountOwner!==window.wishwaveRecommendationAccount?.()||sectionOwner!==premiumDiscoverySections[0])return;
       const fresh=[];
       for(const item of group||[]){
-        const key=exploreItemKey(item),family=exploreFamilyKey(item);
-        if(!key||seenExplore.has(key)||!premiumProductImage(item)||Number(item.price)<=0||(batchFamilies.get(family)||0)>=2)continue;
+        const key=exploreItemKey(item),family=curated?window.FindAITreasureHunt.identify(item)?.id||exploreFamilyKey(item):exploreFamilyKey(item);
+        const repeated=exploreFilter==='for-you'&&sectionOwner.items.slice(-20).some(old=>(curated?window.FindAITreasureHunt.identify(old)?.id||exploreFamilyKey(old):exploreFamilyKey(old))===family);
+        if(!key||seenExplore.has(key)||!premiumProductImage(item)||Number(item.price)<=0||repeated||(batchFamilies.get(family)||0)>=(exploreFilter==='for-you'?1:2))continue;
         seenExplore.add(key);batchFamilies.set(family,(batchFamilies.get(family)||0)+1);fresh.push(item);
       }
-      const mixed=sequencePersonalisedBatch(fresh,sectionOwner.items,fresh.length);
-      sectionOwner.items.push(...mixed);
-      if(mixed.length){renderExploreGrid({replace:false});cacheExploreBrowseState();}
+      reservoir.push(...fresh);drain();
     }));
     if(window.__wishwavePageMotion)await window.wishwaveWaitForMotion?.();
     /* If the user started typing while this browse batch was in flight, the
        batch is stale. Never append browse products into live-search results. */
     if(generation!==exploreGeneration||exploreLiveSearchQuery||accountOwner!==window.wishwaveRecommendationAccount?.()||sectionOwner!==premiumDiscoverySections[0])return;
     const incoming=groups.flat().filter(item=>seenExplore.has(exploreItemKey(item)));
+    drain();
     batch.filter(config=>config._more!==false).forEach(config=>{config._forceLive=true;exploreQueue.push(config);});
     exploreEmptyBatches=incoming.length?0:exploreEmptyBatches+1;
     const target=sectionOwner.items;exploreLoading=false;cacheExploreBrowseState();
@@ -35226,7 +35261,9 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  };
  const render=window.renderPersonalisedFeed,append=window.appendFeedItems;
  window.renderPersonalisedFeed=function(items,options){return render.call(this,active()?window.FindAITreasureHunt.varied(items,[],60).items:items,options);};
- window.appendFeedItems=function(items,data){return append.call(this,active()&&feedState.source==='personalised'?window.FindAITreasureHunt.varied(items,currentFeedItems,36).items:items,data);};
+ // Base append admission retains deferred targets in feedState.backlog. Filtering
+ // them before that admission would discard the upcoming product buffer.
+ window.appendFeedItems=function(items,data){return append.call(this,items,data);};
  const fallback=window.v116RenderPersonalisedPreviewFallback;
  window.v116RenderPersonalisedPreviewFallback=function(){return active()?Promise.resolve(false):fallback.apply(this,arguments);};
  const prepare=window.preparePersonalisedLaneItems;
@@ -35248,5 +35285,9 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  window.wishwaveTreasureStatus=()=>({version:window.FindAITreasureHunt?.version,active:active(),targets:window.FindAITreasureHunt?.previewTargets.map(x=>x.id)||[],categories:window.FindAITreasureHunt?.groups.map(x=>x.category)||[]});
 })();
 </script>
+<style id="wishwave-profile-feedback-v243">
+html body .app #profile .profile-auth-feedback{background:transparent!important}
+html body .app #profile .profile-auth-feedback:empty{display:none!important;min-height:0!important;margin:0!important}
+</style>
 </body>
 </html>
