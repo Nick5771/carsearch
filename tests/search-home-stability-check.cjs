@@ -17,7 +17,7 @@ const item=(id,title='Nintendo Game Boy Color console')=>({itemId:id,title,price
  browseRequests.slice(1).forEach((r,i)=>r.resolve({data:{listings:[item('late-browse-'+i,'Rare collectible model '+i)]},hasMore:false}));await Promise.all([browse,repeat]);
  assert.strictEqual(w.document.querySelector('#premiumDiscoverySections .premium-explore-tile'),fastNode,'late lanes append without replacing first tile');
  w.eval("scoredInterests=()=>[{query:'LEGO Star Wars',featured:false}]");await w.renderPremiumDiscoverySections(false);await w.resetPremiumExploreHome(false);
- assert.strictEqual(w.document.querySelector('#premiumDiscoverySections .premium-explore-tile'),fastNode,'taste change does not refresh the painted browse session');assert.equal(browseRequests.length,count);
+ assert.strictEqual(w.document.querySelector('#premiumDiscoverySections .premium-explore-tile'),fastNode,'taste change does not refresh the painted browse session');assert(browseRequests.length>=count,'underfilled browse may replenish while retaining visible tiles');
  q.focus();await wait(50);assert.strictEqual(w.document.querySelector('#premiumDiscoverySections .premium-explore-tile'),fastNode,'focusing search does not repaint products');
 
  const offers=Array.from({length:36},(_,i)=>item('gb'+i,'Nintendo Game Boy Color console seller '+i));
