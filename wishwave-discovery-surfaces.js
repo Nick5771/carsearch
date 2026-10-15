@@ -2,7 +2,7 @@
 (function(root){
   'use strict';
   const VERSION=254,TTL=6*60*60*1000,MAX=640;
-  const categoryKey=item=>item._treasureCategory||item._interestCategory||'other';
+  const categoryKey=item=>/lego/i.test(String(item._treasureCategory||item._interestCategory||item.title||''))?'lego':item._treasureCategory||item._interestCategory||'other';
   const normal=value=>String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
   function hash(value){let h=2166136261;for(const c of String(value)){h^=c.charCodeAt(0);h=Math.imul(h,16777619);}return h>>>0;}
   function productKey(item){
@@ -17,14 +17,14 @@
     const image=String(item.stockxImage||'').split('?')[0];if(image)return 'image:'+image;
     const value=normal(item._shoppingProductKey||item.productId||item.title||item.itemId||item.id||item.url);return value?'product:'+value:'';
   }
-  function create({storage,scope=()=> 'guest',now=()=>Date.now()}={}){
+  function create({storage,scope=()=> 'guest',now=()=>Date.now(),visit=''}={}){
     let scopeKey='',claims=new Map(),seed=0;
     function load(){const key='ww_discovery_surfaces_v'+VERSION+'_'+hash(scope()||'guest');if(key===scopeKey)return;
-      scopeKey=key;claims=new Map();seed=hash(key+now());
-      try{const saved=JSON.parse(storage?.getItem(key)||'null');if(saved){seed=saved.seed||seed;for(const c of saved.claims||[])if(c.at>now()-TTL&&['home','search'].includes(c.owner))claims.set(c.key,c);}}catch(_){}
+      scopeKey=key;claims=new Map();seed=hash(key+now()+visit);
+      try{const saved=JSON.parse(storage?.getItem(key)||'null');if(saved&&(!visit||saved.visit===visit)){seed=saved.seed||seed;for(const c of saved.claims||[])if(c.at>now()-TTL&&['home','search'].includes(c.owner))claims.set(c.key,c);}}catch(_){}
     }
     function prune(){load();for(const[k,c]of claims)if(c.at<=now()-TTL)claims.delete(k);while(claims.size>MAX)claims.delete(claims.keys().next().value);}
-    function save(){prune();try{storage?.setItem(scopeKey,JSON.stringify({seed,claims:[...claims.values()]}));}catch(_){} }
+    function save(){prune();try{storage?.setItem(scopeKey,JSON.stringify({seed,visit,claims:[...claims.values()]}));}catch(_){} }
     function allowed(item,surface){prune();const key=productKey(item),owner=claims.get(key)?.owner;return !!key&&(!owner||owner===surface);}
     function filter(items,surface){return (items||[]).filter(item=>allowed(item,surface));}
     function claim(items,surface){const accepted=filter(items,surface);for(const item of accepted){const key=productKey(item);claims.set(key,{key,owner:surface,category:categoryKey(item),at:now()});}save();return accepted;}
@@ -47,7 +47,7 @@
   const api={create,key:productKey,version:VERSION};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   if(root.document){let storage;try{storage=root.localStorage;}catch(_){}
-    root.wishwaveDiscoverySurfaces=create({storage,scope:()=>root.wishwaveRecommendationAccount?.()||root.getAccountProfile?.()?.email||'guest'});
+    root.wishwaveDiscoverySurfaces=create({storage,visit:String(Date.now())+':'+Math.random(),scope:()=>root.wishwaveRecommendationAccount?.()||root.getAccountProfile?.()?.email||'guest'});
     root.addEventListener('storage',()=>root.wishwaveDiscoverySurfaces.invalidate());
     root.document.addEventListener('wishwave-recommendation-account-change',()=>root.wishwaveDiscoverySurfaces.invalidate());
   }
