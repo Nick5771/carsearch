@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="findai-build" content="v234-preserve-shopping-source-order">
+<script src="wishwave-discovery-surfaces.js?v=254"></script>
+<meta name="findai-build" content="v254-discovery-account-polish">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0d0f">
@@ -3754,7 +3755,7 @@ html.findai-light body #discover .wishwave-home-feed-tabs>button[aria-selected="
   <div class="toast" id="toast"></div>
 </div>
 
-<script src="/findai-treasure-pilot.js?v=240.3"></script>
+<script src="/findai-treasure-pilot.js?v=254"></script>
 <script>
 const FIND_AI_BUILD='v41-findai-pro';
 const WORKER = 'https://api.carsearchapi.workers.dev';
@@ -5792,7 +5793,9 @@ function wishwaveMarkDelivered(items){
 }
 function renderPersonalisedFeed(items,{writeCache=true}={}){
   items=surfaceOwnedListingInFeed(surfaceLikedListingInFeed(items)).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||''));
+  items=window.wishwaveDiscoverySurfaces?.partition(items,'home')||items;
   if(window.wishwaveAdmitRecommendations){const admission=wishwaveAdmitRecommendations(items,[],60);feedState.backlog=admission.deferred.slice(0,120);items=admission.items;}
+  items=window.wishwaveDiscoverySurfaces?.claim(items,'home')||items;
   currentFeedItems=items;wishwaveMarkDelivered(items);
   currentFeedData={personalised:true};
   activeReelIndex=0;
@@ -5878,7 +5881,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
   try{
     markPersonalisedRefreshNow();
     if(window.wishwaveTreasureStatus?.().active && window.wishwaveStarterItems){
-      const starter=await window.wishwaveStarterItems();
+      const starter=await window.wishwaveStarterItems('home');
       if(!stillOwnsFeed())return;
       const ready=await window.wishwaveReadyStarter?.(starter)||[];
       if(!stillOwnsFeed())return;
@@ -6032,7 +6035,7 @@ async function performLoadMorePersonalisedListings(){
   const state=feedState;state.loading=true;
   try{
     if(window.wishwaveTreasureStatus?.().active&&window.wishwaveStarterItems){
-      const items=(await window.wishwaveStarterItems()).filter(item=>!currentFeedItems.some(old=>listingKey(old)===listingKey(item)));
+      const items=(await window.wishwaveStarterItems('home')).filter(item=>!currentFeedItems.some(old=>listingKey(old)===listingKey(item)));
       if(feedState!==state)return;
       if(items.length){
         const ready=await window.wishwaveReadyStarter(items);if(feedState!==state)return;
@@ -7033,9 +7036,11 @@ function hideFeedLoader(){
 }
 function appendFeedItems(items,data){
   if(feedState.source==='personalised'&&window.wishwaveAdmitRecommendations){
-    const admission=wishwaveAdmitRecommendations([...(feedState.backlog||[]),...items],currentFeedItems,36);
+    const incoming=window.wishwaveDiscoverySurfaces?.filter([...(feedState.backlog||[]),...items],'home')||[...(feedState.backlog||[]),...items];
+    const admission=wishwaveAdmitRecommendations(incoming,currentFeedItems,36);
     feedState.backlog=admission.deferred.slice(0,120);items=admission.items;
   }
+  if(feedState.source==='personalised')items=window.wishwaveDiscoverySurfaces?.claim(items,'home')||items;
   if(!items.length)return;
   const start=currentFeedItems.length;wishwaveMarkDelivered(items);currentFeedItems.push(...items);
   const feed=appActiveFeedElement();
@@ -8649,9 +8654,10 @@ function findaiSyncVisualViewport(){
   const vv=window.visualViewport;
   const visualH=Math.max(320,Math.round(vv?vv.height:window.innerHeight));
   const visualTop=Math.max(0,Math.round(vv?vv.offsetTop:0));
-  const layoutH=Math.max(visualH,Math.round(window.innerHeight||visualH));
-  const keyboard=!!(vv&&layoutH-visualH>120);
-  if(!keyboard)findaiStableViewportHeight=Math.max(visualH,layoutH);
+  const layoutH=Math.max(visualH,Math.round(window.innerHeight||visualH),document.documentElement.clientHeight||0);
+  const editing=!!document.activeElement?.matches?.('input,textarea,[contenteditable="true"]')||document.body.classList.contains('keyboard-open');
+  const keyboard=!!(vv&&(vv.scale||1)<1.05&&editing&&Math.max(layoutH,findaiStableViewportHeight)-visualH-visualTop>120);
+  if(!keyboard)findaiStableViewportHeight=layoutH;
   document.documentElement.style.setProperty('--findai-visual-vh',visualH+'px');
   document.documentElement.style.setProperty('--findai-visual-top',visualTop+'px');
   const creating=!!($('#createListingScreen')&&$('#createListingScreen').classList.contains('show'));
@@ -9481,11 +9487,15 @@ function paintSocialProfileHeader(){
   const profile=getAccountProfile();if(!profile)return;
   const handle=findaiProfileUsername(profile);
   const handleEl=$('#socialProfileHandle');if(handleEl)handleEl.textContent=handle;
-  const nameEl=$('#profileName');if(nameEl)nameEl.textContent=profile.name||'WishWave user';
+  const nameEl=$('#profileName');
+  const displayName=String(profile.name||'').trim(),email=String(profile.email||'').trim().toLowerCase();
+  const generatedName=!displayName||[handle.toLowerCase(),email,email.split('@')[0],'wishwave user','findai user'].includes(displayName.toLowerCase());
+  if(nameEl){nameEl.textContent=generatedName?'':displayName;nameEl.hidden=generatedName;}
   const bio=$('#socialProfileBio');if(bio)bio.textContent=String(profile.bio||'').trim();
   const meta=[];
   if(profile.location)meta.push(profile.location);
   const metaEl=$('#socialProfileMeta');if(metaEl)metaEl.textContent=meta.join(' · ');
+  const copy=nameEl?.closest('.social-profile-copy');if(copy)copy.hidden=generatedName&&!bio?.textContent&&!metaEl?.textContent;
   paintAccountAvatar($('#profileAvatar'),profile);
   const listings=socialProfileListings.filter(x=>String(x.status||'active').toLowerCase()!=='sold');
   const sold=Math.max(socialProfileSeller.soldCount||0,socialProfileListings.filter(x=>String(x.status||'').toLowerCase()==='sold').length);
@@ -9588,7 +9598,7 @@ function renderSocialProfileContent(){
   if(socialProfileTab==='listings'){
     const items=socialProfileListings.filter(x=>String(x.status||'active').toLowerCase()!=='sold');
     root.innerHTML=items.length?`<div class="social-profile-grid">${items.map((x,i)=>socialProfileTile(x,i,'listings')).join('')}</div>`:
-      `<div class="social-profile-empty"><b>No listings yet</b>Your active listings will appear here.<br><button class="social-profile-create-first" type="button" onclick="openCreateListing()">Create your first listing</button></div>`;
+      `<div class="social-profile-empty wishwave-collection-empty"><svg class="wishwave-collection-illustration" viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="10" width="43" height="49" rx="6" transform="rotate(-12 14 10)"/><rect x="25" y="23" width="43" height="49" rx="6" fill="var(--paper,#0b0c0e)"/><circle cx="39" cy="37" r="4" fill="currentColor" stroke="none"/><path d="m29 63 12-14 8 8 7-10 9 16"/></svg><b>Your collection starts here</b><p>List your first find and make it someone’s next favourite.</p><button class="social-profile-create-first" type="button" onclick="openCreateListing()">Create a listing</button></div>`;
     return;
   }
   if(socialProfileTab==='sold'){
@@ -15742,9 +15752,10 @@ if(typeof v116RenderMarketplaceListing==='function'){
     if(window.__wishwavePageMotion){pendingExplorePaint={replace:!!options.replace||!!pendingExplorePaint?.replace};return;}
     const root=document.getElementById('premiumDiscoverySections');if(!root)return;
     const section=premiumDiscoverySections[0];
-    if(section)section.items=(section.items||[]).filter(item=>wishwaveAllowedListing(item)&&(exploreLiveSearchQuery||!window.wishwaveRecommendationRejected?.(item)));
+    const originalLength=section?.items?.length||0;
+    if(section){section.items=(section.items||[]).filter(item=>wishwaveAllowedListing(item)&&(exploreLiveSearchQuery||!window.wishwaveRecommendationRejected?.(item)));if(!exploreLiveSearchQuery)section.items=window.wishwaveDiscoverySurfaces?.claim(section.items,'search')||section.items;}
     const items=section&&section.items||[];
-    const replace=!!options.replace||root.dataset.refreshPending==='1';
+    const replace=!!options.replace||root.dataset.refreshPending==='1'||items.length!==originalLength;
     if(!items.length){
       if(replace&&(exploreLiveSearchQuery||!root.querySelector('.premium-explore-grid')))root.innerHTML='<div class="premium-explore-empty"><b>No products found</b>Try another search.</div>';
       else if(!root.querySelector('.premium-explore-grid'))root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
@@ -15800,7 +15811,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     try{
     const curated=exploreFilter==='for-you'&&window.wishwaveTreasureStatus?.().active;
     if(curated&&(initial||sectionOwner.items.length<12)&&window.wishwaveStarterItems){
-      const starter=await window.wishwaveStarterItems();
+      const starter=await window.wishwaveStarterItems('search');
       if(generation!==exploreGeneration||exploreLiveSearchQuery||accountOwner!==window.wishwaveRecommendationAccount?.()||sectionOwner!==premiumDiscoverySections[0])return;
       const fresh=window.FindAITreasureHunt.varied(starter.filter(item=>!seenExplore.has(exploreItemKey(item))&&wishwaveRecommendationCandidate(item,item._interestQuery)),sectionOwner.items,36).items;
       fresh.forEach(item=>{seenExplore.add(exploreItemKey(item));sectionOwner.items.push(item);});
@@ -15837,7 +15848,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
       for(const item of group||[]){
         const key=exploreItemKey(item),family=curated?window.FindAITreasureHunt.identify(item)?.id||exploreFamilyKey(item):exploreFamilyKey(item);
         const repeated=exploreFilter==='for-you'&&sectionOwner.items.slice(-20).some(old=>(curated?window.FindAITreasureHunt.identify(old)?.id||exploreFamilyKey(old):exploreFamilyKey(old))===family);
-        if(!key||seenExplore.has(key)||!premiumProductImage(item)||Number(item.price)<=0||repeated||(batchFamilies.get(family)||0)>=(exploreFilter==='for-you'?1:2))continue;
+        if(!key||seenExplore.has(key)||!premiumProductImage(item)||Number(item.price)<=0||repeated||(batchFamilies.get(family)||0)>=(exploreFilter==='for-you'?1:2)||window.wishwaveDiscoverySurfaces&&!window.wishwaveDiscoverySurfaces.allowed(item,'search'))continue;
         seenExplore.add(key);batchFamilies.set(family,(batchFamilies.get(family)||0)+1);fresh.push(item);
       }
       reservoir.push(...fresh);drain();
@@ -15874,7 +15885,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     }
     if(!FILTERS[filter])filter='for-you';
     const changed=exploreFilter!==filter;exploreFilter=filter;
-    const screen=document.getElementById('search'),input=document.getElementById('q');if(screen)screen.classList.remove('people-search-mode');if(input){input.placeholder='Search FindAI';input.value='';}
+    const screen=document.getElementById('search'),input=document.getElementById('q');if(screen)screen.classList.remove('people-search-mode');if(input){input.placeholder='Search WishWave';input.value='';}
     document.querySelectorAll('#premiumExploreChips [data-explore-filter]').forEach(btn=>btn.classList.toggle('active',btn.dataset.exploreFilter===filter));
     const scroll=document.querySelector('#search .premium-search-home-scroll');if(scroll)scroll.scrollTop=0;
     renderPremiumDiscoverySections(changed);
@@ -16018,6 +16029,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     if(!force&&exploreInitialPromise&&exploreInitialPromiseFilter===exploreFilter&&exploreInitialPromiseGeneration===exploreGeneration&&exploreInitialPromiseTaste===taste)return exploreInitialPromise;
     // v242: taste updates affect future inventory, never replace a painted grid.
     if(!force&&premiumDiscoverySections[0]&&premiumDiscoverySections[0].items&&premiumDiscoverySections[0].items.length){
+      renderExploreGrid({replace:false});
       if(!exploreLoadedFilter)exploreLoadedFilter=exploreFilter;
       if(premiumDiscoverySections[0].items.length<24)loadExploreMore(false);
       return;
@@ -18192,10 +18204,9 @@ html.findai-light .findai-settings-switch.on{background:#4d8cff}
       <div class="findai-onboard-input-wrap"><input id="findaiOnboardName" maxlength="60" autocomplete="name" placeholder="Your name"></div>
     </div>
     <div class="findai-onboard-field">
-      <label for="findaiOnboardUsername">Username</label>
+      <div class="findai-onboard-label-row"><label for="findaiOnboardUsername">Username</label><div class="findai-username-status" id="findaiUsernameStatus" role="status" aria-live="polite"></div></div>
       <div class="findai-onboard-input-wrap"><span class="findai-onboard-prefix">@</span><input id="findaiOnboardUsername" maxlength="30" autocapitalize="none" autocomplete="off" spellcheck="false" placeholder="username"></div>
     </div>
-    <div class="findai-username-status" id="findaiUsernameStatus">3–30 characters · letters, numbers, periods and underscores</div>
     <button class="findai-onboard-primary" id="findaiUsernameContinue" type="button" disabled>Continue</button>
     <button class="findai-onboard-signout" type="button" onclick="requestFindAILogout()">Use another account</button>
   </div>
@@ -18216,7 +18227,7 @@ html.findai-light .findai-settings-switch.on{background:#4d8cff}
     notifyFollowedSellers:true
   };
   let appPrefs={...PREF_DEFAULTS};
-  let usernameCheckTimer=null;
+  let usernameCheckTimer=null,usernameCheckSequence=0;
   let usernameAvailable=false;
   let onboardingBusy=false;
 
@@ -18406,6 +18417,7 @@ html.findai-light .findai-settings-switch.on{background:#4d8cff}
     return {ok:true,username:u};
   }
   async function checkUsernameAvailability(){
+    const sequence=++usernameCheckSequence;
     const input=document.getElementById('findaiOnboardUsername'),status=document.getElementById('findaiUsernameStatus'),button=document.getElementById('findaiUsernameContinue');
     if(!input||!status||!button)return;
     input.value=cleanUsername(input.value);
@@ -18415,16 +18427,17 @@ html.findai-light .findai-settings-switch.on{background:#4d8cff}
     status.textContent='Checking…';
     try{
       const data=await marketplaceFetch('/profile/username/check?username='+encodeURIComponent(valid.username),{method:'GET'});
+      if(sequence!==usernameCheckSequence||input.value!==valid.username)return;
       usernameAvailable=!!(data&&data.available);
       status.textContent=usernameAvailable?'Available':'That username is already taken';
       status.classList.toggle('good',usernameAvailable);status.classList.toggle('bad',!usernameAvailable);button.disabled=!usernameAvailable;
-    }catch(_){status.textContent='Could not check that username yet';status.classList.add('bad');}
+    }catch(_){if(sequence!==usernameCheckSequence||input.value!==valid.username)return;status.textContent='Could not check that username yet';status.classList.add('bad');}
   }
   function bindOnboarding(){
     const input=document.getElementById('findaiOnboardUsername'),button=document.getElementById('findaiUsernameContinue');
     if(input&&!input.dataset.bound){
       input.dataset.bound='1';
-      input.addEventListener('input',()=>{clearTimeout(usernameCheckTimer);usernameCheckTimer=setTimeout(checkUsernameAvailability,180);});
+      input.addEventListener('input',()=>{usernameCheckSequence++;usernameAvailable=false;if(button)button.disabled=true;const status=document.getElementById('findaiUsernameStatus');if(status){status.textContent='';status.className='findai-username-status';}clearTimeout(usernameCheckTimer);usernameCheckTimer=setTimeout(checkUsernameAvailability,180);});
     }
     if(button&&!button.dataset.bound){button.dataset.bound='1';button.addEventListener('click',saveOnboarding);}
   }
@@ -32726,7 +32739,7 @@ html.findai-light #wishwaveKeyboardBackdrop{background:#f7f7f8!important;}
 <script id="wishwave-v222-keyboard-backdrop">
 (function(){
   const mask=document.createElement('div');mask.id='wishwaveKeyboardBackdrop';mask.hidden=true;mask.setAttribute('aria-hidden','true');document.body.appendChild(mask);
-  let baseline=0,frame=0,active=false,editing=false;
+  let baseline=0,frame=0,active=false,editing=false,searchSession=false;
   function editable(el){return !!el?.matches?.('textarea,[contenteditable="true"],input:not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="button"]):not([type="submit"]):not([type="range"]):not([type="color"])');}
   function layoutBottom(){return Math.max(innerHeight||0,document.documentElement.clientHeight||0,document.querySelector('.app')?.getBoundingClientRect().bottom||0,typeof findaiStableViewportHeight==='number'?findaiStableViewportHeight:0);}
   function keepCreateFieldVisible(){
@@ -32751,7 +32764,10 @@ html.findai-light #wishwaveKeyboardBackdrop{background:#f7f7f8!important;}
     const occluded=Math.max(0,baseline-height-top);
     const keyboard=(focused||editing||active)&&occluded>120;
     active=keyboard;
-    if(keyboard){
+    const searchField=document.activeElement?.closest?.('#search,#searchResults');
+    if(focused)searchSession=!!searchField;else if(!keyboard)searchSession=false;
+    const searchKeyboard=searchSession||document.body.classList.contains('wishwave-search-editing');
+    if(keyboard&&!searchKeyboard){
       mask.style.top=Math.round(height+top)+'px';mask.style.height=Math.ceil(occluded)+'px';mask.hidden=false;
       keepCreateFieldVisible();
     }else{
@@ -35351,12 +35367,13 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  // decoding before a candidate can become a reel. Failed assets never become cards.
  const page=window.fetchPersonalisedLanePage,images=new Map();let running=0;const waiting=[];
  let starterCache=null,starterFlight=null;
- window.wishwaveStarterItems=async function(){
+ window.wishwaveStarterItems=async function(surface){
   if(!active())return [];
-  if(starterCache&&Date.now()-starterCache.at<60000)return starterCache.items;
-  if(starterFlight)return starterFlight;
+  const select=items=>surface&&window.wishwaveDiscoverySurfaces?window.wishwaveDiscoverySurfaces.partition(items,surface):items;
+  if(starterCache&&Date.now()-starterCache.at<60000)return select(starterCache.items);
+  if(starterFlight)return select(await starterFlight);
   const flight=(async()=>{try{const data=await appFetchJsonTimed(WORKER_BASE+'/recommendations/starter?country=US',{cache:'no-store'},15000);const items=(data.items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery));if(items.length)starterCache={at:Date.now(),items};return items;}catch(_){return [];}})();
-  starterFlight=flight;try{return await flight;}finally{if(starterFlight===flight)starterFlight=null;}
+  starterFlight=flight;try{return select(await flight);}finally{if(starterFlight===flight)starterFlight=null;}
  };
  window.wishwaveReadyStarter=function(items){
   const list=(items||[]).slice(0,36),verified=new Map();let cursor=0,published=false,resolveOpening;
@@ -35396,7 +35413,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  const admit=window.wishwaveAdmitRecommendations,sequence=window.sequencePersonalisedBatch;
  window.wishwaveAdmitRecommendations=function(items,history=[],max=36){
   if(!active())return admit.apply(this,arguments);
-  return window.FindAITreasureHunt.varied((items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||'')),history,max);
+  return window.FindAITreasureHunt.varied((items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||'')),history,max,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9});
  };
  window.sequencePersonalisedBatch=function(items,history=[],max=60){
   if(!active())return sequence.apply(this,arguments);
@@ -35437,6 +35454,7 @@ body:has(#loginOverlay.show) #wishwaveMainNav{visibility:hidden!important;pointe
   let mode='login',challenge='',challengeMode='',authEmail='',pendingPassword='',busy=false,generation=0;
   const el=id=>document.getElementById(id);
   const baseReset=window.resetAppEmailAuth;
+  function feedback(message,success=false){const node=el('wwAuthFeedback');if(!node)return;node.textContent=message||'';node.classList.toggle('success',success);node.setAttribute('role',success?'status':'alert');}
   const eye='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
   const field=(id,label,type,autocomplete)=>'<div class="ww-auth-field"><input id="'+id+'" type="'+type+'" placeholder="'+label+'" aria-label="'+label+'" autocomplete="'+autocomplete+'" '+(type==='password'?'maxlength="128"':'autocapitalize="none" spellcheck="false"')+' required>'+(type==='password'?'<button class="ww-auth-eye" type="button" aria-label="Show password" onclick="wishwaveTogglePassword(this)">'+eye+'</button>':'')+'</div>';
   function paint(){
@@ -35459,7 +35477,7 @@ body:has(#loginOverlay.show) #wishwaveMainNav{visibility:hidden!important;pointe
   async function post(action,body){const response=await fetch(WORKER_BASE+'/auth/password/'+action,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});let data={};try{data=await response.json();}catch(_){}if(!response.ok)throw new Error(data.error||'Sign-in is temporarily unavailable. Please try again.');return data;}
   window.wishwaveSubmitAuth=function(event){event?.preventDefault();submit();return false;};
   async function submit(){
-    if(busy)return;const token=generation,current=mode;busy=true;const button=el('wwAuthSubmit');button.disabled=true;button.textContent='Please wait…';el('wwAuthFeedback').textContent='';
+    if(busy)return;const token=generation,current=mode;busy=true;const button=el('wwAuthSubmit');button.disabled=true;button.textContent='Please wait…';feedback('');
     try{
       let data;
       if(current==='login')data=await post('login',{identifier:el('wwAuthIdentifier').value.trim(),password:el('wwAuthPassword').value});
@@ -35467,18 +35485,18 @@ body:has(#loginOverlay.show) #wishwaveMainNav{visibility:hidden!important;pointe
         authEmail=el('wwAuthIdentifier').value.trim().toLowerCase();pendingPassword=current==='signup'?el('wwAuthPassword').value:'';
         if(current==='signup'&&(pendingPassword.length<12||pendingPassword.length>128))throw new Error('Use a password with 12–128 characters.');
         data=await post(current,{email:authEmail,...(current==='signup'?{password:pendingPassword}:{})});
-        if(token!==generation)return;challenge=data.challenge;challengeMode=current;pendingPassword='';mode=current==='signup'?'verify':'reset-verify';paint();el('wwAuthFeedback').textContent=data.message||'';el('wwAuthCode').focus();return;
+        if(token!==generation)return;challenge=data.challenge;challengeMode=current;pendingPassword='';mode=current==='signup'?'verify':'reset-verify';paint();feedback('Email sent',true);el('wwAuthCode').focus();return;
       }else data=await post(current,{challenge,code:el('wwAuthCode').value.trim(),...(current==='reset-verify'?{password:el('wwAuthPassword').value}:{})});
       if(token!==generation)return;
       if(!data.email||!data.session)throw new Error('Sign-in could not be completed.');
       pendingPassword='';applyFindaiUser(data,'email');
-    }catch(error){if(token===generation){el('wwAuthFeedback').textContent=error.message;button.disabled=false;button.textContent=current==='login'?'Log in':current==='signup'?'Continue':current==='reset'?'Send reset code':current==='verify'?'Verify email':'Reset password';}}
+    }catch(error){if(token===generation){feedback(error.message);button.disabled=false;button.textContent=current==='login'?'Log in':current==='signup'?'Continue':current==='reset'?'Send reset code':current==='verify'?'Verify email':'Reset password';}}
     finally{if(token===generation)busy=false;}
   }
   window.wishwaveResendAuth=async function(){
     if(busy||!challenge)return;const token=generation;busy=true;
-    try{const data=await post('resend',{challenge});if(token===generation)el('wwAuthFeedback').textContent=data.message;}
-    catch(error){if(token===generation)el('wwAuthFeedback').textContent=error.message;}
+    try{await post('resend',{challenge});if(token===generation)feedback('Email sent',true);}
+    catch(error){if(token===generation)feedback(error.message);}
     finally{if(token===generation)busy=false;}
   };
   const mark=document.querySelector('#findaiUsernameOnboarding .findai-username-mark');if(mark)mark.textContent='WishWave';
@@ -35521,5 +35539,33 @@ html body .reel-actions-rail .reel-social-action.bookmark.active svg{fill:curren
 <script src="wishwave-bookmarks.js?v=249"></script>
 <script src="wishwave-tab-paging.js?v=253"></script>
 <style id="wishwave-stable-main-tabs-v252">html body .app>:is(#discover,#search,#searchResults,#notifications,#profile){animation:none!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;margin:0!important;contain:layout paint!important;backface-visibility:hidden!important;}html body .app .findai-v132-swipe-surface{opacity:1!important;}</style>
+<style id="wishwave-account-discovery-polish-v254">
+#loginOverlay .ww-auth-feedback.success{color:#36c76d!important}
+#findaiUsernameOnboarding .findai-onboard-label-row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:7px}
+#findaiUsernameOnboarding .findai-onboard-label-row label{margin:0;flex:none}
+#findaiUsernameOnboarding .findai-username-status{margin:0;min-height:0;text-align:right;max-width:72%;font-size:11px;line-height:1.4}
+html body .app #profile .social-profile-copy[hidden],html body .app #profile #profileName[hidden]{display:none!important}
+html body .app #profile .social-profile-copy:empty{display:none!important}
+html body .app #profile :is(#profileSignedIn,#profileSignedOut) .social-profile-tabs{height:65px!important;min-height:65px!important}
+html body .app #profile :is(#profileSignedIn,#profileSignedOut) .social-profile-tabs button{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:5px!important;padding:8px 0!important}
+html body .app #profile .wishwave-profile-tab-label{font-size:12px;line-height:16px;font-weight:600}
+html body .app #profile .social-profile-stats button+button{border-left:1px solid rgba(150,155,164,.14)!important}
+html body .app #profile .wishwave-collection-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;min-height:330px;padding:44px 22px 34px;text-align:center}
+html body .app #profile .wishwave-collection-illustration{display:block;width:76px;height:76px;flex:none;color:#9299a4;margin:0 0 8px}
+html body .app #profile .wishwave-collection-empty b{font-size:22px;line-height:1.25;font-weight:750;letter-spacing:-.4px}
+html body .app #profile .wishwave-collection-empty p{max-width:290px;margin:0;color:#9299a4;font-size:14px;line-height:1.6}
+html body .app #profile .wishwave-collection-empty .social-profile-create-first{margin-top:8px;min-height:46px;padding:0 25px;font-size:14px;border-radius:13px}
+html body.keyboard-open[data-active-tab="search"] .app>:is(#search,#searchResults){height:var(--findai-visual-vh,100%)!important;max-height:var(--findai-visual-vh,100%)!important;min-height:0!important;bottom:auto!important}
+html body.keyboard-open[data-active-tab="search"] #search .premium-search-home-scroll{padding-bottom:16px!important;min-height:0!important}
+</style>
+<script id="wishwave-profile-labels-v254">
+document.querySelectorAll('#profileSignedIn .social-profile-tabs,#profileSignedOut .social-profile-tabs').forEach(tabs=>{
+  tabs.querySelectorAll('button').forEach((button,index)=>{
+    const name=button.dataset.profileTab||['listings','sold','saved'][index];
+    if(!name||button.querySelector('.wishwave-profile-tab-label'))return;
+    const label=document.createElement('span');label.className='wishwave-profile-tab-label';label.textContent=({listings:'Listings',sold:'Sold',saved:'Saved'})[name]||name;button.append(label);
+  });
+});
+</script>
 </body>
 </html>

@@ -69,11 +69,11 @@
  const previewTargets=Object.freeze(targets.filter(x=>observedIds.has(x.id)));
  const groups=Object.freeze([...new Set(previewTargets.map(x=>x.category))].map(category=>({category,targets:previewTargets.filter(x=>x.category===category)})));
  function identify(item){const hinted=targets.find(x=>x.id===item?._treasureTargetId)||forQuery(item?._interestQuery);return hinted&&observedIds.has(hinted.id)&&match(hinted,item)?hinted:previewTargets.find(x=>match(x,item))||null;}
- function varied(items,history=[],max=36){
+ function varied(items,history=[],max=36,{repeatWindow=20,categoryWindow=9}={}){
   const prior=history.map(item=>{const target=identify(item);return target?{...item,_treasureTargetId:target.id,_treasureCategory:target.category}:item;});
   const remaining=items.flatMap(item=>{const target=identify(item);return target?[annotate(target,item)]:[];}),output=[],deferred=[];
   while(remaining.length&&output.length<max){
-   const recent=prior.concat(output),last=recent.at(-1),window=recent.slice(-20),ten=recent.slice(-9);
+   const recent=prior.concat(output),last=recent.at(-1),window=recent.slice(-Math.max(1,Math.min(20,repeatWindow))),ten=recent.slice(-Math.max(1,Math.min(9,categoryWindow)));
    const candidates=remaining.map((item,index)=>({item,index})).filter(({item})=>(!window.some(x=>x._treasureTargetId===item._treasureTargetId)&&ten.filter(x=>x._treasureCategory===item._treasureCategory).length<2));
    if(!candidates.length)break;
    const lastCategory=last?._treasureCategory,other=candidates.filter(x=>!lastCategory||x.item._treasureCategory!==lastCategory);
