@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script src="wishwave-discovery-surfaces.js?v=254"></script>
-<meta name="findai-build" content="v257-light-layout-camera">
+<meta name="findai-build" content="v258-photo-camera-search">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0d0f">
@@ -3285,7 +3285,7 @@ html body .app #profile .wishwave-collection-empty{gap:12px;min-height:300px;pad
   <!-- Scan: manual full-screen camera, one photo at a time -->
   <section id="scan" class="screen">
     <div class="scan-fs">
-      <video id="cam" playsinline autoplay muted></video>
+      <video id="cam" playsinline webkit-playsinline autoplay muted disablepictureinpicture disableremoteplayback></video>
       <img id="preview" class="preview" alt="Captured item">
 
       <div class="camera-placeholder" id="camPlaceholder" aria-hidden="true">
@@ -7658,6 +7658,10 @@ async function startCam(){
   stopScanProgress({hide:true});
   const cam = $('#cam');
   const placeholder = $('#camPlaceholder');
+  // Configure inline capture before attaching the stream, including older WKWebViews.
+  cam.playsInline=true;cam.muted=true;cam.defaultMuted=true;cam.autoplay=true;cam.controls=false;
+  cam.setAttribute('playsinline','');cam.setAttribute('webkit-playsinline','');cam.setAttribute('muted','');cam.removeAttribute('controls');
+  cam.disablePictureInPicture=true;cam.disableRemotePlayback=true;
   if(stream){ if(cam) cam.style.display='block'; if(placeholder) placeholder.style.display='none'; return; }
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
     if(placeholder){ placeholder.querySelector('div').textContent='Camera unavailable — use Upload'; }
@@ -15756,6 +15760,14 @@ if(typeof v116RenderMarketplaceListing==='function'){
     }
   },{threshold:[0,.65],root:document.querySelector('#search .premium-search-home-scroll')});
   document.addEventListener('visibilitychange',()=>{if(document.hidden){exploreExposureTimers.forEach(clearTimeout);exploreExposureTimers.clear();}});
+  let exploreSearchPending=false;
+  function paintExploreSearchPending(pending){
+    exploreSearchPending=!!pending;
+    const root=document.getElementById('premiumDiscoverySections'),grid=root?.querySelector('.premium-explore-grid');
+    grid?.querySelectorAll('.wishwave-search-placeholder').forEach(node=>node.remove());
+    if(pending&&grid){const count=grid.querySelectorAll('.premium-explore-tile').length;for(let i=count;i<6;i++){const node=document.createElement('div');node.className='wishwave-search-placeholder';node.setAttribute('aria-hidden','true');grid.appendChild(node);}}
+    const marker=root?.querySelector('#premiumExploreLoadMarker');if(marker){marker.classList.toggle('search-pending',!!pending);marker.textContent=pending?'Finding more matches…':'';marker.setAttribute('aria-hidden',pending?'false':'true');marker.setAttribute('role','status');}
+  }
   let pendingExplorePaint=null;
   window.__wishwaveFlushExploreRender=function(){if(!pendingExplorePaint||window.__wishwavePageMotion)return;const options=pendingExplorePaint;pendingExplorePaint=null;renderExploreGrid(options);};
   function renderExploreGrid(options={}){
@@ -15767,6 +15779,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     const items=section&&section.items||[];
     const replace=!!options.replace||root.dataset.refreshPending==='1'||items.length!==originalLength;
     if(!items.length){
+      if(exploreLiveSearchQuery&&exploreSearchPending){root.innerHTML='<div class="premium-explore-skeleton-grid" aria-label="Finding more matches">'+Array.from({length:6},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';return;}
       if(replace&&(exploreLiveSearchQuery||!root.querySelector('.premium-explore-grid')))root.innerHTML='<div class="premium-explore-empty"><b>No products found</b>Try another search.</div>';
       else if(!root.querySelector('.premium-explore-grid'))root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
       return;
@@ -15777,6 +15790,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
       exploreExposureObserver.disconnect();exploreExposureTimers.forEach(clearTimeout);exploreExposureTimers.clear();
       root.innerHTML='';grid=document.createElement('div');grid.className='premium-explore-grid';root.appendChild(grid);
     }
+    grid.querySelectorAll('.wishwave-search-placeholder').forEach(node=>node.remove());
     const existing=new Set([...grid.children].map(node=>node.dataset&&node.dataset.exploreKey).filter(Boolean));
     items.forEach((item,index)=>{
       const key=exploreItemKey(item)||('explore-'+index);if(existing.has(key))return;
@@ -15787,6 +15801,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     if(!marker){marker=document.createElement('div');marker.className='premium-explore-load-marker';marker.id='premiumExploreLoadMarker';root.appendChild(marker);}
     marker.textContent='';marker.setAttribute('aria-hidden','true');
     root.classList.remove('premium-explore-refreshing');
+    paintExploreSearchPending(exploreLiveSearchQuery&&exploreSearchPending);
   }
   async function loadExploreConfig(config,pool,generation){
     const queryUsed=(config._findaiTaste?(config.queries||[])[0]:premiumRotateArray(config.queries||[config.title||'products'],premiumDiscoveryHash()+String(config.id||'x').length+exploreVisitSalt*19)[0])||config.title||'products';
@@ -15905,7 +15920,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
   let exploreLiveSearchTimer=null;
   let exploreLiveSearchSeq=0;
   let exploreLiveSearchQuery='';
-  window.wishwavePauseSearchRequests=function(){clearTimeout(exploreLiveSearchTimer);exploreLiveSearchSeq++;exploreGeneration++;exploreLiveController?.abort();exploreBrowseController?.abort();exploreLoading=false;if(exploreLivePage)exploreLivePage.loading=false;setExploreInterpreting(false);clearTimeout(interpretingTimer);document.getElementById('search')?.classList.remove('live-search-interpreting');document.getElementById('search')?.setAttribute('aria-busy','false');};
+  window.wishwavePauseSearchRequests=function(){paintExploreSearchPending(false);clearTimeout(exploreLiveSearchTimer);exploreLiveSearchSeq++;exploreGeneration++;exploreLiveController?.abort();exploreBrowseController?.abort();exploreLoading=false;if(exploreLivePage)exploreLivePage.loading=false;setExploreInterpreting(false);clearTimeout(interpretingTimer);document.getElementById('search')?.classList.remove('live-search-interpreting');document.getElementById('search')?.setAttribute('aria-busy','false');};
   window.resetPremiumExploreHome=function(force=false){
     // Re-entering browse must reuse its painted or pending session.
     if(!force&&!exploreLiveSearchQuery&&exploreFilter==='for-you')return renderPremiumDiscoverySections(false);
@@ -15944,13 +15959,13 @@ if(typeof v116RenderMarketplaceListing==='function'){
   }
   function restoreBrowseSnapshot(){
     const cached=(exploreBrowseSnapshot&&exploreBrowseSnapshot.filter===exploreFilter)?exploreBrowseSnapshot:exploreBrowseCache.get(exploreFilter);
-    exploreLiveSearchQuery='';setExploreInterpreting(false);
+    exploreLiveSearchQuery='';paintExploreSearchPending(false);setExploreInterpreting(false);
     if(!cached||!Array.isArray(cached.items)||!cached.items.length){exploreBrowseSnapshot=null;if(premiumDiscoverySections[0]?.config?.title==='Search')premiumDiscoverySections=[];return renderPremiumDiscoverySections(false);}
     premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:cached.items.slice()}];
     exploreQueue=(cached.queue||[]).slice();seenExplore.clear();(cached.seen||[]).forEach(k=>seenExplore.add(k));
     exploreLoadedTaste=cached.taste;renderExploreGrid({replace:true});exploreBrowseSnapshot=null;
   }
-  async function runExploreLiveSearch(query,immediate=false,refresh=false){
+  async function runExploreLiveSearch(query,immediate=false,refresh=false,recoveryAttempt=0){
     const clean=String(query||'').trim();
     if(exploreFilter==='people'){if(window.loadPremiumPeopleDiscovery)window.loadPremiumPeopleDiscovery(clean);return;}
     if(!clean){exploreLiveSearchSeq++;if(exploreLiveController){try{exploreLiveController.abort();}catch(_){}}restoreBrowseSnapshot();return;}
@@ -15961,7 +15976,11 @@ if(typeof v116RenderMarketplaceListing==='function'){
     exploreLoading=false;
     if(!refresh)setExploreInterpreting(true);snapshotBrowseIfNeeded();
     const previousStockx=exploreLiveSearchQuery===clean?(premiumDiscoverySections[0]?.items||[]).filter(item=>getSource(item)==='stockx'):[];
+    const changing=exploreLiveSearchQuery!==clean;
     const seq=++exploreLiveSearchSeq;exploreLiveSearchQuery=clean;
+    paintExploreSearchPending(true);
+    if(changing){const root=document.getElementById('premiumDiscoverySections');if(root)root.innerHTML='<div class="premium-explore-skeleton-grid" aria-label="Searching listings">'+Array.from({length:6},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';}
+
     if(exploreLiveController){try{exploreLiveController.abort();}catch(_){}}
     exploreLiveController=new AbortController();const requestController=exploreLiveController;
     try{
@@ -15978,23 +15997,24 @@ if(typeof v116RenderMarketplaceListing==='function'){
       // must not bury StockX or undo a shopper's "cheapest" instruction.
       const serverRanked=unique.some(item=>item._shoppingRank!=null&&Number.isFinite(Number(item._shoppingRank))||Number(item._findaiAuthorityRank)>0);
       const display=unique.slice(0,90);
-      if(refresh&&exploreLivePage?.page>1)return;
+      if(refresh&&exploreLivePage?.page>1){paintExploreSearchPending(false);setExploreInterpreting(false);return;}
       exploreLivePage={query:clean,page:1,cursor:result.nextCursor,hasMore:result.hasMore,loading:false,emptyPages:0};
       const prior=refresh&&premiumDiscoverySections[0]?.config?.title==='Search'?premiumDiscoverySections[0].items:[],keys=new Set(prior.map(exploreItemKey));
       const displayed=prior.length?prior.concat(display.filter(x=>!keys.has(exploreItemKey(x)))):display;
       premiumDiscoverySections=[{config:{id:'explore',title:'Search'},items:displayed}];exploreQueue=[];exploreLoading=false;seenExplore.clear();displayed.forEach(item=>{const key=exploreItemKey(item);if(key)seenExplore.add(key);});
+      const sourceHealth=result?.data?.meta?.sourceHealth||{};
+      const incomplete=!!result?.data?._ownedFallback||Object.values(sourceHealth).some(row=>['timeout','failed','refresh_pending','quota_deferred'].includes(row?.status));
+      const recovering=displayed.length<12&&incomplete&&recoveryAttempt<2;
+      const paging=displayed.length<12&&exploreLivePage.hasMore;
+      exploreSearchPending=recovering||paging;
       renderExploreGrid({replace:!prior.length});
       window.wishwaveAcceptSearchResults?.(clean,displayed);
-      if(!refresh&&displayed.length<12&&exploreLivePage.hasMore)loadExploreLiveMore();
-      // One quiet refresh retrieves the broader colourway set after the worker
-      // completes paced price lookups. The sequence guard prevents stale edits.
-      const activity=result&&result.data&&(result.data.sourceActivity||result.data.meta&&result.data.meta.sourceActivity)||[];
-      const stockxActive=activity.some(row=>/stockx/i.test(String(row.name||row.label||row.source||row.host||'')));
-      if(!refresh&&stockxActive&&display.filter(item=>getSource(item)==='stockx').length<8){
-        setTimeout(()=>{if(seq===exploreLiveSearchSeq&&exploreLiveSearchQuery===clean)runExploreLiveSearch(clean,true,true);},10000);
-      }
-      if(seq===exploreLiveSearchSeq)setExploreInterpreting(false);
-    }catch(error){if(seq===exploreLiveSearchSeq)setExploreInterpreting(false);if(error&&error.name==='AbortError')return;}
+      if(paging)loadExploreLiveMore();
+      // Retry only incomplete batches after their five-second shared-cache expiry.
+      // Completed searches never run the old unconditional ten-second refresh.
+      if(recovering)setTimeout(()=>{if(seq===exploreLiveSearchSeq&&exploreLiveSearchQuery===clean&&!(exploreLivePage?.page>1)&&document.getElementById('search')?.classList.contains('active'))runExploreLiveSearch(clean,true,true,recoveryAttempt+1);},5500);
+      if(seq===exploreLiveSearchSeq){setExploreInterpreting(exploreSearchPending);if(exploreSearchPending){const text=document.getElementById('wishwaveSearchStatusText');if(text)text.textContent='Finding more matches…';}}
+    }catch(error){if(seq===exploreLiveSearchSeq){paintExploreSearchPending(false);setExploreInterpreting(false);}if(error&&error.name==='AbortError')return;}
   }
   async function loadExploreLiveMore(){
     const state=exploreLivePage,seq=exploreLiveSearchSeq;
@@ -16011,7 +16031,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
         if(fresh.length)return;
       }
     }catch(_){/* Keep the cursor retryable after a network failure. */}
-    finally{state.loading=false;}
+    finally{state.loading=false;if(seq===exploreLiveSearchSeq){paintExploreSearchPending(false);setExploreInterpreting(false);}}
   }
   window.wishwaveLoadMoreExplore=function(){return exploreLiveSearchQuery?loadExploreLiveMore():loadExploreMore(false);};
   window.runPremiumLiveSearch=runExploreLiveSearch;
@@ -33786,9 +33806,9 @@ html.findai-light body .app #createListingScreen:not(.preview-mode) .wishwave-qu
 <script id="wishwave-light-reel-fit-script">
 (function(){
  const panels=new Set();let frame=0;
- function measure(panel){const card=panel.closest('.reel-card');if(!card)return;const height=Math.ceil(panel.getBoundingClientRect().height);if(height>0&&card.style.getPropertyValue('--wishwave-light-caption-height')!==height+'px')card.style.setProperty('--wishwave-light-caption-height',height+'px');}
- const resize=typeof ResizeObserver==='function'?new ResizeObserver(entries=>entries.forEach(e=>measure(e.target))):null;
- function bind(){frame=0;for(const panel of panels)if(!panel.isConnected){resize?.unobserve?.(panel);panels.delete(panel);}document.querySelectorAll('#discover .reel-card .product-panel,#searchDetailOverlay .reel-card .product-panel,#createListingScreen.preview-mode .reel-card .product-panel').forEach(panel=>{if(!panels.has(panel)){panels.add(panel);resize?.observe(panel);}measure(panel);});}
+ function measure(panel){const card=panel.closest('.reel-card');if(!card)return;const height=Math.ceil(panel.getBoundingClientRect().height);if(height>0&&card.style.getPropertyValue('--wishwave-light-caption-height')!==height+'px')card.style.setProperty('--wishwave-light-caption-height',height+'px');const surface=card.closest('#searchDetailOverlay')||card.closest('#discover');const header=surface?.querySelector('.search-detail-header,.discover-social-topbar');if(header){const top=Math.max(0,Math.ceil(header.getBoundingClientRect().bottom-surface.getBoundingClientRect().top));if(card.style.getPropertyValue('--wishwave-light-header-height')!==top+'px')card.style.setProperty('--wishwave-light-header-height',top+'px');}}
+ const resize=typeof ResizeObserver==='function'?new ResizeObserver(entries=>entries.forEach(e=>e.target.matches('.product-panel')?measure(e.target):schedule())):null;
+ function bind(){frame=0;document.querySelectorAll('#discover .discover-social-topbar,#searchDetailOverlay .search-detail-header').forEach(header=>resize?.observe(header));for(const panel of panels)if(!panel.isConnected){resize?.unobserve?.(panel);panels.delete(panel);}document.querySelectorAll('#discover .reel-card .product-panel,#searchDetailOverlay .reel-card .product-panel,#createListingScreen.preview-mode .reel-card .product-panel').forEach(panel=>{if(!panels.has(panel)){panels.add(panel);resize?.observe(panel);}measure(panel);});}
  function schedule(){if(!frame)frame=requestAnimationFrame(bind);}
  new MutationObserver(records=>{if(records.some(r=>r.type==='characterData'||r.target.closest?.('.product-panel')||[...r.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('.reel-card,.product-panel')||n.querySelector?.('.reel-card,.product-panel')))))schedule();}).observe(document.body,{childList:true,subtree:true,characterData:true});
  new MutationObserver(schedule).observe(document.documentElement,{attributes:true,attributeFilter:['class']});
@@ -35592,6 +35612,18 @@ html.findai-light body .app :is(#discover,#searchDetailOverlay) .reel-card.wishw
 /* The camera is a full-screen tool, including when capsule navigation is enabled. */
 html body.scanning-fs .app>#wishwaveMainNav.nav.findai-five-nav.premium-bottom-nav,
 html body:has(#scan.screen.active) .app>#wishwaveMainNav.nav.findai-five-nav.premium-bottom-nav{display:none!important;visibility:hidden!important;pointer-events:none!important}
+</style>
+
+<style id="wishwave-photo-camera-search-v258">
+/* Opaque light chrome needs an image area bounded on both ends. */
+html.findai-light body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel .hero-stage{inset:var(--wishwave-light-header-height,94px) 0 var(--wishwave-light-caption-height,240px)!important;height:calc(100% - var(--wishwave-light-caption-height,240px) - var(--wishwave-light-header-height,94px))!important}
+html body .app #profile .wishwave-collection-empty .social-profile-create-first{background:#e8e0f4!important;color:#30283e!important;border:1px solid #d4c7e6!important;min-height:44px!important;padding:0 24px!important;box-shadow:none!important}
+html body .app #search #premiumDiscoverySections .premium-explore-grid,
+html body .app #search #premiumDiscoverySections .premium-explore-skeleton-grid{background:transparent!important}
+html body .app #search #premiumDiscoverySections .premium-explore-load-marker.search-pending{height:42px;color:var(--muted,#8c929c);font-size:12px}
+.premium-explore-grid>.wishwave-search-placeholder{aspect-ratio:3/4;min-width:0;background:linear-gradient(100deg,#171a20 20%,#242831 40%,#171a20 60%);background-size:220% 100%;animation:premiumSkeleton 1.05s linear infinite}
+html.findai-light .premium-explore-grid>.wishwave-search-placeholder{background:linear-gradient(100deg,#f0edf5 20%,#e4dfeb 40%,#f0edf5 60%);background-size:220% 100%}
+#cam::-webkit-media-controls,#cam::-webkit-media-controls-enclosure{display:none!important}
 </style>
 </body>
 </html>
