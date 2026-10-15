@@ -21382,8 +21382,13 @@ async function wishwaveStarterInventory(request,env){
   const key=String(item.itemId||item.id||item.url||'');if(!key||seen.has(key))continue;seen.add(key);
   items.push({...policy.annotate(target,item),_interestQuery:target.query,_interestCategory:target.category,_interestCluster:'treasure:'+target.id,_catalogueObservedAt:row.observed_at});
  }
- const selected=policy.varied(items,[],36).items;
- return reply({version:246,country,items:selected,matchedTargets:new Set(selected.map(x=>x._treasureTargetId)).size,scanned:(rows.results||[]).length});
+ // A starter is a reservoir, not just the opening screen: both surfaces draw
+ // different offers from it as they scroll. Keep diversity possible in thin pools.
+ const targets=new Set(items.map(x=>x._treasureTargetId)),categories=new Set(items.map(x=>x._treasureCategory));
+ const requested=Number(url.searchParams.get('limit'));
+ const limit=Number.isFinite(requested)&&requested>0?Math.max(36,Math.min(360,Math.floor(requested))):240;
+ const selected=policy.varied(items,[],limit,{repeatWindow:Math.max(1,Math.min(20,targets.size-1)),categoryWindow:Math.max(1,Math.min(9,categories.size*2-1))}).items;
+ return reply({version:269,country,items:selected,matchedTargets:new Set(selected.map(x=>x._treasureTargetId)).size,scanned:(rows.results||[]).length});
 }
 
 // v244: Password accounts. Challenges store only salted password/code hashes.
