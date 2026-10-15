@@ -32,7 +32,7 @@
     // Sparse bright phone/viewer controls must exist in the upper bar.
     const marks=header.reduce((sum,row)=>sum+row.white,0);
     const markedRows=header.filter(row=>row.white>=2).length;
-    if(marks<width*.08||marks>width*top*.035||markedRows<3)return null;
+    if(marks<width*.04||marks>width*top*.035||markedRows<2)return null;
     // Keep a one-row guard on each edge so no product pixels are trimmed.
     return {top:Math.max(0,top-1),bottom:Math.min(height,bottom+1)};
   }
