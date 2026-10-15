@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="wishwave-discovery-surfaces.js?v=254"></script>
+<script src="wishwave-discovery-surfaces.js?v=271"></script>
+<script src="wishwave-discovery-rotation.js?v=271"></script>
+<script src="wishwave-interaction-preview.js?v=271"></script>
 <script src="wishwave-photo-hygiene.js?v=260"></script>
-<meta name="findai-build" content="v270-discovery-inventory">
+<meta name="findai-build" content="v271-product-rotation-preview">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0d0f">
@@ -3766,7 +3768,7 @@ html body .app #profile .wishwave-collection-empty{gap:12px;min-height:300px;pad
   <div class="toast" id="toast"></div>
 </div>
 
-<script src="/findai-treasure-pilot.js?v=270"></script>
+<script src="/findai-treasure-pilot.js?v=271"></script>
 <script>
 const FIND_AI_BUILD='v41-findai-pro';
 const WORKER = 'https://api.carsearchapi.workers.dev';
@@ -5809,7 +5811,7 @@ function renderPersonalisedFeed(items,{writeCache=true}={}){
   items=window.wishwaveDiscoverySurfaces?.partition(items,'home')||items;
   if(window.wishwaveAdmitRecommendations){const admission=wishwaveAdmitRecommendations(items,[],60);feedState.backlog=admission.deferred.slice(0,480);items=admission.items;}
   items=window.wishwaveDiscoverySurfaces?.claim(items,'home')||items;
-  currentFeedItems=items;wishwaveMarkDelivered(items);
+  currentFeedItems=items;wishwaveMarkDelivered(items);window.wishwaveDiscoveryRotation?.served(items.slice(0,20));
   currentFeedData={personalised:true};
   activeReelIndex=0;
   const feed=appActiveFeedElement();
@@ -5849,6 +5851,7 @@ async function v116RenderPersonalisedPreviewFallback(){
 }
 
 async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
+  if(forceNetwork){rotatePersonalisedSessionSeed();window.wishwaveDiscoveryRotation?.newVisit();}
   const retained=forceNetwork&&document.querySelector('#personalFeed .reel-card')?{
     items:currentFeedItems.slice(),data:currentFeedData,state:feedState,active:activeReelIndex
   }:null;
@@ -6232,6 +6235,7 @@ function beginReelTracking(index){
   activeReelTrackingKey=item?listingKey(item):'';
   if(item){
     notePersonalisedImpression(item);
+    window.wishwaveDiscoveryRotation?.observe(item);
     recordWishWaveListingView(item,'reels',false);
   }
 }
@@ -7062,7 +7066,7 @@ function appendFeedItems(items,data){
   }
   if(feedState.source==='personalised')items=window.wishwaveDiscoverySurfaces?.claim(items,'home')||items;
   if(!items.length)return;
-  const start=currentFeedItems.length;wishwaveMarkDelivered(items);currentFeedItems.push(...items);
+  const start=currentFeedItems.length;wishwaveMarkDelivered(items);currentFeedItems.push(...items);if(feedState.source==='personalised')window.wishwaveDiscoveryRotation?.served(currentFeedItems.slice(0,20));
   const feed=appActiveFeedElement();
   if(feedState.source!=='personalised'){
     const keepTop=feed.scrollTop;
@@ -15768,6 +15772,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
         const image=node.querySelector('img');
         if(!node.isConnected||document.hidden||exploreLiveSearchQuery||!document.getElementById('search')?.classList.contains('active')||window.__wishwavePageMotion||document.querySelector('#searchDetailOverlay.show,.findai-send-sheet-bg.show,#loginOverlay.show')||!image?.complete||!image.naturalWidth)return;
         noteRecommendationImpression(exploreExposureItems.get(node));
+        window.wishwaveDiscoveryRotation?.observe(exploreExposureItems.get(node));
       },750));
     }
   },{threshold:[0,.65],root:document.querySelector('#search .premium-search-home-scroll')});
@@ -15851,7 +15856,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     if(curated&&window.wishwaveStarterItems){
       const starter=await window.wishwaveStarterItems('search');
       if(generation!==exploreGeneration||exploreLiveSearchQuery||accountOwner!==window.wishwaveRecommendationAccount?.()||sectionOwner!==premiumDiscoverySections[0])return;
-      const fresh=window.FindAITreasureHunt.varied(starter.filter(item=>!seenExplore.has(exploreItemKey(item))&&wishwaveRecommendationCandidate(item,item._interestQuery)),sectionOwner.items,36,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('search')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('search')||9,allowSparse:true}).items;
+      const fresh=window.FindAITreasureHunt.varied(starter.filter(item=>!seenExplore.has(exploreItemKey(item))&&wishwaveRecommendationCandidate(item,item._interestQuery)),sectionOwner.items,36,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('search')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('search')||9,maxLegoPer20:2,openingCategories:6,allowSparse:true}).items;
       fresh.forEach(item=>{seenExplore.add(exploreItemKey(item));sectionOwner.items.push(item);});
       if(fresh.length){renderExploreGrid({replace:false});cacheExploreBrowseState();}
       if(fresh.length&&sectionOwner.items.length>=24){exploreLoading=false;return;}
@@ -15886,6 +15891,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
       for(const item of group||[]){
         const key=exploreItemKey(item),family=curated?window.FindAITreasureHunt.identify(item)?.id||exploreFamilyKey(item):exploreFamilyKey(item);
         const repeated=exploreFilter==='for-you'&&sectionOwner.items.slice(-(curated?(window.wishwaveDiscoverySurfaces?.repeatWindow('search')||20):20)).some(old=>(curated?window.FindAITreasureHunt.identify(old)?.id||exploreFamilyKey(old):exploreFamilyKey(old))===family);
+        if(window.wishwaveDiscoveryRotation&&!window.wishwaveDiscoveryRotation.allowed(item,sectionOwner.items.concat(reservoir)))continue;
         if(!key||seenExplore.has(key)||!premiumProductImage(item)||Number(item.price)<=0||repeated||(batchFamilies.get(family)||0)>=(exploreFilter==='for-you'?1:2)||window.wishwaveDiscoverySurfaces&&!window.wishwaveDiscoverySurfaces.allowed(item,'search'))continue;
         seenExplore.add(key);batchFamilies.set(family,(batchFamilies.get(family)||0)+1);fresh.push(item);
       }
@@ -16822,6 +16828,7 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     attentionLastInput=performance.now();
     if(item){
       notePersonalisedImpression(item);
+      window.wishwaveDiscoveryRotation?.observe(item);
       if(key&&key!==previousKey){
         const visits=Number(v125VisitCounts.get(key)||0);v125VisitCounts.set(key,visits+1);
         if(visits>0&&visits<3)recordInterest(item._interestQuery||item.title,'revisit',3,v125ContextFromItem(item));
@@ -35405,7 +35412,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   for(let round=0;round<Math.max(...groups.map(g=>g.targets.length));round++)for(let i=0;i<groups.length;i++){
    const target=groups[(offset+i)%groups.length].targets[round];if(target)queue.push({id:'treasure_'+target.id,query:target.query,discoveryQuery:target.query,category:target.category,cluster:'treasure:'+target.id,featured:true,score:1,_treasureTargetId:target.id});
   }
-  return queue;
+  return window.wishwaveDiscoveryRotation?.rank(queue)||queue;
  };
  // Bound provider concurrency even with a larger queue, and verify actual image
  // decoding before a candidate can become a reel. Failed assets never become cards.
@@ -35415,6 +35422,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   if(!active())return [];
   const select=items=>{
    const owned=surface&&window.wishwaveDiscoverySurfaces?window.wishwaveDiscoverySurfaces.partition(items,surface):items;
+   const rotated=window.wishwaveDiscoveryRotation?.rank(owned);if(rotated)return rotated;
    return [...owned].sort((a,b)=>(personalisedSeenInfo(a).count-personalisedSeenInfo(b).count)||seededUnit(personalisedSessionSeed,listingKey(a))-seededUnit(personalisedSessionSeed,listingKey(b)));
   };
   if(starterCache&&Date.now()-starterCache.at<60000)return select(starterCache.items);
@@ -35423,7 +35431,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   starterFlight=flight;try{return select(await flight);}finally{if(starterFlight===flight)starterFlight=null;}
  };
  window.wishwaveReadyStarter=function(items){
-  const list=window.FindAITreasureHunt.varied(items||[],[],36,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9,allowSparse:true}).items,verified=new Map();let cursor=0,published=false,resolveOpening;
+  const list=window.FindAITreasureHunt.varied(items||[],[],36,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9,maxLegoPer20:2,openingCategories:6,allowSparse:true}).items,verified=new Map();let cursor=0,published=false,resolveOpening;
   const opening=new Promise(resolve=>resolveOpening=resolve);
   const snapshot=()=>[...verified.entries()].sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
   function publish(){if(published)return;published=true;const ready=snapshot();Object.defineProperty(ready,'completion',{value:completion});resolveOpening(ready);}
@@ -35463,11 +35471,11 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  const admit=window.wishwaveAdmitRecommendations,sequence=window.sequencePersonalisedBatch;
  window.wishwaveAdmitRecommendations=function(items,history=[],max=36){
   if(!active())return admit.apply(this,arguments);
-  return window.FindAITreasureHunt.varied((items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||'')),history,max,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9,allowSparse:!feedState.initialPool?.opening});
+  return window.FindAITreasureHunt.varied((items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||'')),history,max,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9,maxLegoPer20:2,openingCategories:6,allowSparse:!feedState.initialPool?.opening});
  };
  window.sequencePersonalisedBatch=function(items,history=[],max=60){
   if(!active())return sequence.apply(this,arguments);
-  return window.FindAITreasureHunt.varied((items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||'')),history,max,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9,allowSparse:!feedState.initialPool?.opening}).items;
+  return window.FindAITreasureHunt.varied((items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||'')),history,max,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9,maxLegoPer20:2,openingCategories:6,allowSparse:!feedState.initialPool?.opening}).items;
  };
  window.wishwaveTreasureStatus=()=>({version:window.FindAITreasureHunt?.version,active:active(),targets:window.FindAITreasureHunt?.previewTargets.map(x=>x.id)||[],categories:window.FindAITreasureHunt?.groups.map(x=>x.category)||[]});
 })();

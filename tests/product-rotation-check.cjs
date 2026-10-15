@@ -1,0 +1,17 @@
+const assert=require('assert'),fs=require('fs'),{create}=require('../wishwave-discovery-rotation.js'),surfaces=require('../wishwave-discovery-surfaces.js'),{counts,compact}=require('../wishwave-interaction-preview.js'),policy=require('../findai-treasure-pilot.js'),audit=require('../data/treasure-pilot-supply-audit.json');
+const values=new Map(),storage={getItem:k=>values.get(k),setItem:(k,v)=>values.set(k,v)};let who='guest',at=100000000,random=.1;
+const options={storage,scope:()=>who,now:()=>at,seed:()=>random};
+const products=Array.from({length:40},(_,i)=>({_treasureTargetId:'FF'+i,itemId:'seller-a-'+i,title:'Product '+i}));
+const first=create(options);first.served(products.slice(0,20));
+at+=1000;random=.8;const next=create(options),fresh=next.rank(products.map(x=>({...x,itemId:x.itemId.replace('seller-a','seller-b')})));
+assert(fresh.slice(0,20).every(x=>Number(x._treasureTargetId.slice(2))>=20),'new sellers do not make yesterday\'s products fresh');
+who='another-account';assert(create(options).rank(products).slice(0,20).some(x=>Number(x._treasureTargetId.slice(2))<20),'product history is account isolated');
+const one=surfaces.create({storage,visit:'first'}),two=surfaces.create({storage,visit:'second'});one.partition(products,'home');two.partition(products,'home');assert(![...values.values()].some(x=>x.includes('"visit":"first"')),'a new document does not inherit six-hour surface reservations');
+assert(!next.allowed({title:'LEGO Star Wars'},[{title:'LEGO set'},{title:'lego model'}]));
+for(let i=0;i<300;i++){const c=counts('offer-'+i);for(const n of Object.values(c))assert(n>=1&&n<=10000);assert(c.comment<=c.like&&c.share<=c.like&&c.bookmark<=c.like);if(c.like>=5000)assert(c.comment>=150);assert.deepEqual(c,counts('offer-'+i));}assert.equal(compact(5000),'5k');
+const offers=audit.results.flatMap(row=>row.candidates.filter(x=>policy.match(policy.forQuery(row.query),x)));
+const mixed=policy.varied(offers,[],80,{allowSparse:true,maxLegoPer20:2,openingCategories:6}).items;
+assert(new Set(mixed.slice(0,20).map(x=>x._treasureCategory)).size>=6);
+for(let i=0;i<mixed.length;i++)assert(mixed.slice(Math.max(0,i-19),i+1).filter(x=>x._treasureCategory==='lego').length<=2);
+assert(policy.targets.filter(x=>/lego/i.test(x.query)).every(x=>policy.categoryFor(x)==='lego'));
+console.log('PASS: product-level cross-visit novelty, account isolation, visit-scoped reservations, combined LEGO cap, six-category opening and correlated mock counts');

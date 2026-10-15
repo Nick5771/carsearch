@@ -64,15 +64,16 @@
  }
  const byId=new Map(targets.map(x=>[x.id,x])),byQuery=new Map(targets.map(x=>[norm(x.query),x]));
  function forQuery(q){return byQuery.get(norm(q))||null;}
+ function categoryFor(target){return /\blego\b/i.test(String(target?.query||''))||/lego/i.test(String(target?.category||''))?'lego':target?.category||'other';}
  function annotate(target,item){
   if(!match(target,item))return item;
   const forms={sneakers:'sneakers',vintage_jackets:'apparel',jerseys:'apparel',retro_gaming:'gaming',cards:'trading_cards',fragrance:'fragrance'};
-  return {...item,...(forms[target.category]&&!item.productType?{productType:forms[target.category]}:{}),...(target.category==='sneakers'&&!item.brand?{brand:target.id==='FF377'?'asics':'nike'}:{}),_treasureTargetId:target.id,_treasureCategory:target.category};
+  return {...item,...(forms[target.category]&&!item.productType?{productType:forms[target.category]}:{}),...(target.category==='sneakers'&&!item.brand?{brand:target.id==='FF377'?'asics':'nike'}:{}),_treasureTargetId:target.id,_treasureCategory:categoryFor(target)};
  }
  // IDs with provider candidates in the dated supply audit, not authenticated offers.
  const observedIds=new Set(targets.map(x=>x.id));
  const previewTargets=Object.freeze(targets.filter(x=>observedIds.has(x.id)));
- const groups=Object.freeze([...new Set(previewTargets.map(x=>x.category))].map(category=>({category,targets:previewTargets.filter(x=>x.category===category)})));
+ const groups=Object.freeze([...new Set(previewTargets.map(categoryFor))].map(category=>({category,targets:previewTargets.filter(x=>categoryFor(x)===category)})));
  // Index a mandatory term per target so a shared inventory scan is not O(rows * catalogue).
  const anchors=new Map(),frequency=new Map();
  for(const t of previewTargets)for(const g of t.terms)if(g.length===1){const k=norm(g[0]).replace(/ /g,'');frequency.set(k,(frequency.get(k)||0)+1);}
@@ -83,29 +84,32 @@
   for(let i=0;i<words.length;i++)for(let n=1;n<=4&&i+n<=words.length;n++)for(const target of anchors.get(words.slice(i,i+n).join(''))||[])candidates.add(target);
   return [...candidates].find(t=>match(t,item))||null;
  }
- function varied(items,history=[],max=36,{repeatWindow=20,categoryWindow=9,allowSparse=false}={}){
-  const prior=history.map(item=>{const target=identify(item);return target?{...item,_treasureTargetId:target.id,_treasureCategory:target.category}:item;});
+ function varied(items,history=[],max=36,{repeatWindow=20,categoryWindow=9,allowSparse=false,maxLegoPer20=Infinity,openingCategories=0}={}){
+  const prior=history.map(item=>{const target=identify(item);return target?{...item,_treasureTargetId:target.id,_treasureCategory:categoryFor(target)}:item;});
   const key=item=>String(item?.itemId||item?.id||item?.url||item?.itemWebUrl||'');
   const delivered=new Set(history.map(key).filter(Boolean));
   const remaining=items.flatMap(item=>{const id=key(item);if(id&&delivered.has(id))return [];const target=identify(item);if(!target)return [];if(id)delivered.add(id);return [annotate(target,item)];}),output=[],deferred=[];
   while(remaining.length&&output.length<max){
    const recent=prior.concat(output),last=recent.at(-1),window=recent.slice(-Math.max(1,Math.min(20,repeatWindow))),ten=recent.slice(-Math.max(1,Math.min(9,categoryWindow)));
-   let candidates=remaining.map((item,index)=>({item,index})).filter(({item})=>(!window.some(x=>x._treasureTargetId===item._treasureTargetId)&&ten.filter(x=>x._treasureCategory===item._treasureCategory).length<2));
+   const brandAllowed=item=>item._treasureCategory!=='lego'||recent.slice(-19).filter(x=>x._treasureCategory==='lego').length<maxLegoPer20;
+   let candidates=remaining.map((item,index)=>({item,index})).filter(({item})=>brandAllowed(item)&&(!window.some(x=>x._treasureTargetId===item._treasureTargetId)&&ten.filter(x=>x._treasureCategory===item._treasureCategory).length<2));
    // Sparse stock must not become artificial exhaustion. Prefer the least recently
    // shown product while keeping adjacent products distinct whenever possible.
    if(!candidates.length&&allowSparse){
-    const alternatives=remaining.map((item,index)=>({item,index})).filter(({item})=>item._treasureTargetId!==last?._treasureTargetId);
+    const alternatives=remaining.map((item,index)=>({item,index})).filter(({item})=>brandAllowed(item)&&item._treasureTargetId!==last?._treasureTargetId);
     const distance=item=>{for(let i=recent.length-1;i>=0;i--)if(recent[i]._treasureTargetId===item._treasureTargetId)return recent.length-i;return Infinity;};
     alternatives.sort((a,b)=>distance(b.item)-distance(a.item)||a.index-b.index);
     if(alternatives.length)candidates=alternatives.filter(x=>distance(x.item)===distance(alternatives[0].item));
    }
    if(!candidates.length)break;
+   const opening=recent.length<20&&new Set(recent.map(x=>x._treasureCategory)).size<openingCategories?candidates.filter(x=>!recent.some(old=>old._treasureCategory===x.item._treasureCategory)):[];
+   if(opening.length)candidates=opening;
    const lastCategory=last?._treasureCategory,other=candidates.filter(x=>!lastCategory||x.item._treasureCategory!==lastCategory);
    const selected=(other.length?other:candidates)[0];output.push(remaining.splice(selected.index,1)[0]);
   }
   deferred.push(...remaining);return {items:output,deferred};
  }
- const api=Object.freeze({version:'discovery-catalogue-v270',targets:Object.freeze(targets),previewTargets,groups,match,annotate,forQuery,identify,varied});
+ const api=Object.freeze({version:'discovery-catalogue-v271',targets:Object.freeze(targets),previewTargets,groups,match,annotate,forQuery,identify,varied,categoryFor});
  root.FindAITreasureHunt=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
  // Retire only stale pilot feed caches; saved products and account preferences persist.
  if(root.document)try{
