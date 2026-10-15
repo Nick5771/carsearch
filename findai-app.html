@@ -3,7 +3,7 @@
 <head>
 <script src="wishwave-discovery-surfaces.js?v=254"></script>
 <script src="wishwave-photo-hygiene.js?v=260"></script>
-<meta name="findai-build" content="v263-adaptive-caption-fade">
+<meta name="findai-build" content="v264-below-photo-transition">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0d0f">
@@ -4429,20 +4429,26 @@ async function deleteMarketplaceListing(id){
 
 function wishwaveDeliveryMarkup(text){return '<svg class="wishwave-delivery-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h11v12H3zM14 9h4l3 4v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg><span>'+escapeHTML(text)+'</span>';}
 function wishwaveUpdateCaptionFade(img){
-  const card=img?.closest('.reel-card'),stage=img?.closest('.hero-stage');
-  if(!card||!stage||!card.closest('#discover,#searchDetailOverlay')||!img.naturalWidth||!img.naturalHeight)return;
-  const slide=img.closest('.reel-gallery-slide');
-  if(slide&&Number(slide.dataset.gallerySlide)!==Number(stage.dataset.galleryIndex||0))return;
-  const panel=card.querySelector('.product-panel');if(!panel)return;
-  const box=img.getBoundingClientRect(),caption=panel.getBoundingClientRect();
-  if(box.width<=0||box.height<=0||caption.height<=0)return;
-  const drawnHeight=Math.min(box.height,box.width*img.naturalHeight/img.naturalWidth);
-  const photoBottom=box.top+(box.height+drawnHeight)/2;
-  // Complete the fade before either the source photo ends or title text begins.
-  const finish=Math.min(photoBottom,caption.top+64);
-  const top=Math.min(-140,Math.floor(finish-caption.top-204));
-  const value=top+'px';
-  if(panel.style.getPropertyValue('--wishwave-caption-fade-top')!==value)panel.style.setProperty('--wishwave-caption-fade-top',value);
+  const card=img?.closest('.reel-card'),stage=img?.closest('.hero-stage'),slide=img?.closest('.reel-gallery-slide');
+  if(!card||!stage||!slide||!card.closest('#discover,#searchDetailOverlay')||!img.naturalWidth||!img.naturalHeight)return;
+  const box=img.getBoundingClientRect();if(box.width<=0||box.height<=0)return;
+  const scale=Math.min(box.width/img.naturalWidth,box.height/img.naturalHeight);
+  const drawnWidth=img.naturalWidth*scale,drawnHeight=img.naturalHeight*scale;
+  const bottom=(box.height+drawnHeight)/2;
+  const height=Math.min(96,Math.max(0,box.height-bottom));
+  let tail=slide.querySelector('.wishwave-photo-tail');
+  if(height<1){tail?.remove();return;}
+  const src=img.currentSrc||img.getAttribute('src')||'';
+  if(!/^(https?:|data:image\/|blob:)/i.test(src))return;
+  if(!tail){
+    tail=document.createElement('div');tail.className='wishwave-photo-tail';tail.setAttribute('aria-hidden','true');
+    const texture=document.createElement('div');texture.className='wishwave-photo-tail-texture';tail.appendChild(texture);slide.appendChild(tail);
+  }
+  const set=(element,key,value)=>{if(element.style.getPropertyValue(key)!==value)element.style.setProperty(key,value);};
+  set(tail,'top',bottom+'px');set(tail,'height',height+'px');
+  const texture=tail.firstElementChild;
+  set(texture,'background-image','url('+JSON.stringify(src)+')');
+  set(texture,'background-size',drawnWidth+'px '+drawnHeight+'px');
 }
 function adaptListingImage(img){
   if(!img||!img.naturalWidth||!img.naturalHeight) return;
@@ -20166,7 +20172,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     if(gesture?.stage===stage)return;
     stage.querySelectorAll('.reel-gallery-image').forEach(img=>{
       const src=img.getAttribute('src');if(!src)return;
-      img.dataset.src=src;loaded.delete(img);img.removeAttribute('src');
+      img.dataset.src=src;loaded.delete(img);img.closest('.reel-gallery-slide')?.querySelector('.wishwave-photo-tail')?.remove();img.removeAttribute('src');
     });
   }
   window.wishwaveSleepReelGalleries=function(root){
@@ -35687,12 +35693,20 @@ html body #findaiSendSheetBg.show.wishwave-sheet-entering .findai-send-sheet:not
 <style id="wishwave-soft-caption-trial-v261">
 /* Isolated Design 1 trial. Remove this block to restore the v260 caption.
    The complete photo canvas, action rail and navigation retain their geometry. */
-/* Extend only the visual fade above the caption; its content and measured
-   height stay fixed. Opaque by the title so a white photo edge cannot form a seam. */
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel{padding-top:36px!important;background:none!important;isolation:isolate;}
+/* Leave the real photo and pagination clear. Only its reflected extension below
+   the contained photo edge is blurred and faded into the theme background. */
+html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel{padding-top:36px!important;background:none!important;}
 html.findai-light body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel{background:none!important;}
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel::after{content:"";position:absolute;inset:var(--wishwave-caption-fade-top,-140px) 0 0;z-index:-1;pointer-events:none;background:linear-gradient(180deg,transparent 0,rgba(0,0,0,.02) 40px,rgba(0,0,0,.10) 80px,rgba(0,0,0,.30) 120px,rgba(0,0,0,.65) 160px,rgba(0,0,0,.92) 190px,#000 204px,#000 100%);}
-html.findai-light body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel::after{background:linear-gradient(180deg,rgba(255,255,255,0) 0,rgba(255,255,255,.02) 40px,rgba(255,255,255,.10) 80px,rgba(255,255,255,.30) 120px,rgba(255,255,255,.65) 160px,rgba(255,255,255,.92) 190px,#fff 204px,#fff 100%);}
+html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel::after{display:none!important;content:none!important;}
+html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .hero-stage::before,html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .hero-stage::after{display:none!important;content:none!important;}
+html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .wishwave-photo-tail{position:absolute;left:0;right:0;overflow:hidden;pointer-events:none;z-index:2;background:#0c0d0f;}
+html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .wishwave-photo-tail-texture{position:absolute;inset:-12px 0;background-position:center bottom;background-repeat:no-repeat;transform:scaleY(-1);filter:blur(8px);pointer-events:none;}
+html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .wishwave-photo-tail::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(12,13,15,0),rgba(12,13,15,.28) 30%,rgba(12,13,15,.8) 70%,#0c0d0f);}
+html.findai-light body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .wishwave-photo-tail{background:#fff;}
+html.findai-light body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .wishwave-photo-tail::after{background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.28) 30%,rgba(255,255,255,.8) 70%,#fff);}
+html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .reel-gallery-dots{opacity:1!important;filter:none!important;}
+html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .reel-gallery-dots i{background:rgba(255,255,255,.55)!important;opacity:1!important;box-shadow:0 1px 3px rgba(0,0,0,.5)!important;}
+html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .reel-gallery-dots i.active{background:#fff!important;}
 html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel .source-chip{margin-bottom:8px!important;min-height:20px!important;}
 html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel .source-chip .ebay-logo{height:20px!important;width:auto!important;max-width:64px!important;}
 html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel .source-chip .app-source-logo{max-height:20px!important;max-width:72px!important;width:auto!important;object-fit:contain!important;}
