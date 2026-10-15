@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <script src="wishwave-discovery-surfaces.js?v=254"></script>
-<meta name="findai-build" content="v259-reel-sheet-parity">
+<script src="wishwave-photo-hygiene.js?v=260"></script>
+<meta name="findai-build" content="v260-screenshot-photo-cleanup">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0d0f">
@@ -4431,6 +4432,7 @@ function adaptListingImage(img){
   if(!img||!img.naturalWidth||!img.naturalHeight) return;
   const stage=img.closest('.hero-stage');
   if(!stage) return;
+  if(typeof window.wishwaveCleanListingPhoto==='function')window.wishwaveCleanListingPhoto(img);
   if(img.closest('.wishwave-quality-reel')){img.classList.add('fit-contain');img.classList.remove('fit-cover');stage.classList.remove('fill-light','fill-cover','has-bg-fill');stage.classList.add('fill-solid');stage.style.setProperty('--hero-fill','#000');return;}
   const slide=img.closest('.reel-gallery-slide');
   if(slide&&Number(slide.dataset.gallerySlide)!==Number(stage.dataset.galleryIndex||0))return;
