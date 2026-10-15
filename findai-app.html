@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script src="wishwave-discovery-surfaces.js?v=254"></script>
-<meta name="findai-build" content="v254-discovery-account-polish">
+<meta name="findai-build" content="v256-collection-camera">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0d0f">
@@ -3177,6 +3177,16 @@ html body #discover .wishwave-home-feed-tabs>button[aria-selected="true"]{color:
 html body #discover .wishwave-home-feed-tabs>button[aria-selected="true"]::after{content:'';position:absolute;bottom:1px;left:0;right:0;height:2px;background:currentColor;border-radius:2px;}
 html.findai-light body #discover .wishwave-home-feed-tabs>button[aria-selected="true"]{color:#141619;}
 </style>
+
+<style id="wishwave-minimal-search-camera-v255">
+html body .app #search .premium-search-scan{width:44px;height:44px;flex:0 0 44px;background:transparent!important;color:#555b65!important;border:0!important;box-shadow:none!important;border-radius:12px}
+html body .app #search .premium-search-scan svg{width:24px;height:24px}
+html body .app #search .premium-search-scan:focus-visible{outline:2px solid #858c98;outline-offset:1px}
+</style>
+<style id="wishwave-collection-art-v256">
+html body .app #profile .wishwave-collection-illustration{display:block;width:190px!important;height:auto!important;max-width:70%;object-fit:contain;margin:0 auto 3px}
+html body .app #profile .wishwave-collection-empty{gap:12px;min-height:300px;padding:24px 22px 30px}
+</style>
 </head>
 <body>
 <div class="app">
@@ -3187,7 +3197,7 @@ html.findai-light body #discover .wishwave-home-feed-tabs>button[aria-selected="
         <svg class="premium-search-glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>
         <input id="q" type="search" placeholder="Search FindAI" enterkeyhint="search" autocomplete="off" autocapitalize="sentences" oninput="handlePremiumExploreInput(this.value)" onsearch="wishwaveSearchFieldAction(event)">
         <button class="premium-search-scan" type="button" onclick="go('scan')" aria-label="Scan a product">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 8V5.8A.8.8 0 0 1 5.8 5H8M16 5h2.2a.8.8 0 0 1 .8.8V8M19 16v2.2a.8.8 0 0 1-.8.8H16M8 19H5.8a.8.8 0 0 1-.8-.8V16"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6 9.5 3.8h5L16 6h3.2A2.3 2.3 0 0 1 21.5 8.3v10A2.3 2.3 0 0 1 19.2 20.6H4.8a2.3 2.3 0 0 1-2.3-2.3v-10A2.3 2.3 0 0 1 4.8 6Z"/><circle cx="12" cy="13" r="4"/></svg>
         </button>
       </form>
       <div class="wishwave-search-status" id="wishwaveSearchStatus" role="status" aria-live="polite" aria-atomic="true"><span class="wishwave-search-status-spinner" aria-hidden="true"></span><span id="wishwaveSearchStatusText"></span></div>
@@ -9598,7 +9608,7 @@ function renderSocialProfileContent(){
   if(socialProfileTab==='listings'){
     const items=socialProfileListings.filter(x=>String(x.status||'active').toLowerCase()!=='sold');
     root.innerHTML=items.length?`<div class="social-profile-grid">${items.map((x,i)=>socialProfileTile(x,i,'listings')).join('')}</div>`:
-      `<div class="social-profile-empty wishwave-collection-empty"><svg class="wishwave-collection-illustration" viewBox="0 0 80 80" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="14" y="10" width="43" height="49" rx="6" transform="rotate(-12 14 10)"/><rect x="25" y="23" width="43" height="49" rx="6" fill="var(--paper,#0b0c0e)"/><circle cx="39" cy="37" r="4" fill="currentColor" stroke="none"/><path d="m29 63 12-14 8 8 7-10 9 16"/></svg><b>Your collection starts here</b><p>List your first find and make it someone’s next favourite.</p><button class="social-profile-create-first" type="button" onclick="openCreateListing()">Create a listing</button></div>`;
+      `<div class="social-profile-empty wishwave-collection-empty"><img class="wishwave-collection-illustration" src="assets/wishwave-collection-v256.png" width="190" height="95" alt="" aria-hidden="true"><b>Your collection starts here</b><p>List your first find and make it someone’s next favourite.</p><button class="social-profile-create-first" type="button" onclick="openCreateListing()">Create a listing</button></div>`;
     return;
   }
   if(socialProfileTab==='sold'){
@@ -35550,7 +35560,7 @@ html body .app #profile :is(#profileSignedIn,#profileSignedOut) .social-profile-
 html body .app #profile :is(#profileSignedIn,#profileSignedOut) .social-profile-tabs button{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:5px!important;padding:8px 0!important}
 html body .app #profile .wishwave-profile-tab-label{font-size:12px;line-height:16px;font-weight:600}
 html body .app #profile .social-profile-stats button+button{border-left:1px solid rgba(150,155,164,.14)!important}
-html body .app #profile .wishwave-collection-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:15px;min-height:330px;padding:44px 22px 34px;text-align:center}
+html body .app #profile .wishwave-collection-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:300px;padding:24px 22px 30px;text-align:center}
 html body .app #profile .wishwave-collection-illustration{display:block;width:76px;height:76px;flex:none;color:#9299a4;margin:0 0 8px}
 html body .app #profile .wishwave-collection-empty b{font-size:22px;line-height:1.25;font-weight:750;letter-spacing:-.4px}
 html body .app #profile .wishwave-collection-empty p{max-width:290px;margin:0;color:#9299a4;font-size:14px;line-height:1.6}
