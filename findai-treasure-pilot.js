@@ -85,7 +85,9 @@
  }
  function varied(items,history=[],max=36,{repeatWindow=20,categoryWindow=9,allowSparse=false}={}){
   const prior=history.map(item=>{const target=identify(item);return target?{...item,_treasureTargetId:target.id,_treasureCategory:target.category}:item;});
-  const remaining=items.flatMap(item=>{const target=identify(item);return target?[annotate(target,item)]:[];}),output=[],deferred=[];
+  const key=item=>String(item?.itemId||item?.id||item?.url||item?.itemWebUrl||'');
+  const delivered=new Set(history.map(key).filter(Boolean));
+  const remaining=items.flatMap(item=>{const id=key(item);if(id&&delivered.has(id))return [];const target=identify(item);if(!target)return [];if(id)delivered.add(id);return [annotate(target,item)];}),output=[],deferred=[];
   while(remaining.length&&output.length<max){
    const recent=prior.concat(output),last=recent.at(-1),window=recent.slice(-Math.max(1,Math.min(20,repeatWindow))),ten=recent.slice(-Math.max(1,Math.min(9,categoryWindow)));
    let candidates=remaining.map((item,index)=>({item,index})).filter(({item})=>(!window.some(x=>x._treasureTargetId===item._treasureTargetId)&&ten.filter(x=>x._treasureCategory===item._treasureCategory).length<2));

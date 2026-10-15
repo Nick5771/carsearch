@@ -13,6 +13,8 @@ const beauty=policy.targets.find(x=>x.catalogueCandidate&&x.category==='beauty_h
 const targets=policy.targets.filter(x=>!x.catalogueCandidate).slice(0,24);
 const offers=targets.flatMap((t,i)=>{const item=audit.results.find(x=>x.id===t.id)?.candidates.find(x=>policy.match(t,x));return item?Array.from({length:i===0?1:8},(_,n)=>({...item,itemId:t.id+'-'+n,url:'https://www.ebay.com/itm/'+t.id+'-'+n})):[];});
 const varied=policy.varied(offers,[],240,{allowSparse:true}).items;
+const duplicateInput=policy.varied([...offers,...offers],[],240,{allowSparse:true}).items;assert.equal(new Set(duplicateInput.map(x=>x.itemId)).size,duplicateInput.length,'all entry points deduplicate the offer reservoir');
+assert(!policy.varied(offers,offers.slice(0,8),240,{allowSparse:true}).items.some(x=>offers.slice(0,8).some(y=>y.itemId===x.itemId)),'re-ranking cannot reinsert an offer from the retained head');
 assert(varied.length>150,'uneven target supply must not stop after the opening twenty');
 assert.equal(new Set(varied.map(x=>x.itemId)).size,varied.length);
 for(let i=1;i<varied.length;i++)assert.notEqual(varied[i]._treasureTargetId,varied[i-1]._treasureTargetId,'sparse ordering avoids adjacent same-target offers');
