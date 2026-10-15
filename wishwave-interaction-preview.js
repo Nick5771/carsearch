@@ -9,7 +9,7 @@
  const params=new URLSearchParams(root.location.search);
  const active=()=>params.get('interaction-preview')==='1'||params.get('treasure-test')==='1'&&params.get('interaction-preview')!=='0';
  function paint(){if(!root.document?.documentElement||!active())return;root.document.querySelectorAll('article.reel-card').forEach(card=>{
-  const rail=card.querySelector('.reel-actions-rail');if(!rail)return;const key=card.getAttribute('data-recommendation-key')||card.getAttribute('aria-label')||'',sample=counts(key);
+  const rail=card.querySelector('.reel-actions-rail');if(!rail)return;if(card.dataset.interactionPreview==='1'&&!rail.querySelector('.reel-social-action:not([data-preview-count])'))return;const key=card.getAttribute('data-recommendation-key')||card.getAttribute('aria-label')||'',sample=counts(key);
   card.dataset.interactionPreview='1';rail.classList.add('ww-interaction-preview');
   const label=root.document.createElement('span');label.className='ww-preview-caption';label.textContent='Preview counts';label.title='Sample interaction numbers for this design mock-up';if(!rail.querySelector('.ww-preview-caption'))rail.prepend(label);
   for(const[type,value]of Object.entries(sample)){const button=rail.querySelector('.reel-social-action.'+type);if(!button)continue;button.dataset.previewCount=compact(value);button.setAttribute('aria-description','Design preview: '+value+' sample interactions');}
