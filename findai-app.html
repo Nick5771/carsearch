@@ -3,7 +3,7 @@
 <head>
 <script src="wishwave-discovery-surfaces.js?v=254"></script>
 <script src="wishwave-photo-hygiene.js?v=260"></script>
-<meta name="findai-build" content="v264-below-photo-transition">
+<meta name="findai-build" content="v265-edge-colour-fade">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0d0f">
@@ -4448,7 +4448,8 @@ function wishwaveUpdateCaptionFade(img){
   set(tail,'top',bottom+'px');set(tail,'height',height+'px');
   const texture=tail.firstElementChild;
   set(texture,'background-image','url('+JSON.stringify(src)+')');
-  set(texture,'background-size',drawnWidth+'px '+drawnHeight+'px');
+  // Stretch only the last few edge pixels into a colour wash; never reflect the product.
+  set(texture,'background-size',drawnWidth+'px '+(drawnHeight*32)+'px');
 }
 function adaptListingImage(img){
   if(!img||!img.naturalWidth||!img.naturalHeight) return;
@@ -35693,14 +35694,14 @@ html body #findaiSendSheetBg.show.wishwave-sheet-entering .findai-send-sheet:not
 <style id="wishwave-soft-caption-trial-v261">
 /* Isolated Design 1 trial. Remove this block to restore the v260 caption.
    The complete photo canvas, action rail and navigation retain their geometry. */
-/* Leave the real photo and pagination clear. Only its reflected extension below
+/* Leave the real photo and pagination clear. Only its bottom-edge colour extension below
    the contained photo edge is blurred and faded into the theme background. */
 html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel{padding-top:36px!important;background:none!important;}
 html.findai-light body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel{background:none!important;}
 html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel::after{display:none!important;content:none!important;}
 html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .hero-stage::before,html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .hero-stage::after{display:none!important;content:none!important;}
 html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .wishwave-photo-tail{position:absolute;left:0;right:0;overflow:hidden;pointer-events:none;z-index:2;background:#0c0d0f;}
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .wishwave-photo-tail-texture{position:absolute;inset:-12px 0;background-position:center bottom;background-repeat:no-repeat;transform:scaleY(-1);filter:blur(8px);pointer-events:none;}
+html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .wishwave-photo-tail-texture{position:absolute;inset:-12px 0;background-position:center bottom;background-repeat:no-repeat;transform:none;filter:blur(12px);pointer-events:none;}
 html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .wishwave-photo-tail::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(12,13,15,0),rgba(12,13,15,.28) 30%,rgba(12,13,15,.8) 70%,#0c0d0f);}
 html.findai-light body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .wishwave-photo-tail{background:#fff;}
 html.findai-light body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .wishwave-photo-tail::after{background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.28) 30%,rgba(255,255,255,.8) 70%,#fff);}
