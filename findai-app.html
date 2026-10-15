@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script src="wishwave-discovery-surfaces.js?v=254"></script>
-<meta name="findai-build" content="v256-collection-camera">
+<meta name="findai-build" content="v257-light-layout-camera">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0d0f">
@@ -35577,5 +35577,21 @@ document.querySelectorAll('#profileSignedIn .social-profile-tabs,#profileSignedO
   });
 });
 </script>
+
+<style id="wishwave-light-layout-camera-v257">
+/* Loading chrome follows appearance; actual product images keep their own colors. */
+html.findai-light body .app #discover .reel-loading-splash,
+html.findai-light body .app #discover .reel-loading-card{background:#fff!important;color:#737984!important}
+html.findai-light body .app #discover :is(.reel-loading-splash,.reel-loading-card) .feed-more-spinner{border-color:#dfe2e7!important;border-top-color:#555b65!important}
+/* Keep the first-listing action near the tabs rather than vertically centering it. */
+html body .app #profile .wishwave-collection-empty{justify-content:flex-start!important;min-height:0!important;padding:12px 22px 24px!important;gap:10px!important}
+html body .app #profile .social-profile-stats button+button{border-left:0!important}
+/* Only light captions are opaque: fit the whole photo above their measured height.
+   The dark full-canvas photo and overlay caption remain unchanged. */
+html.findai-light body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel .hero-stage{inset:0 0 var(--wishwave-light-caption-height,240px)!important;width:100%!important;height:calc(100% - var(--wishwave-light-caption-height,240px))!important}
+/* The camera is a full-screen tool, including when capsule navigation is enabled. */
+html body.scanning-fs .app>#wishwaveMainNav.nav.findai-five-nav.premium-bottom-nav,
+html body:has(#scan.screen.active) .app>#wishwaveMainNav.nav.findai-five-nav.premium-bottom-nav{display:none!important;visibility:hidden!important;pointer-events:none!important}
+</style>
 </body>
 </html>
