@@ -3,7 +3,7 @@
 <head>
 <script src="wishwave-discovery-surfaces.js?v=254"></script>
 <script src="wishwave-photo-hygiene.js?v=260"></script>
-<meta name="findai-build" content="v269-discovery-replenishment">
+<meta name="findai-build" content="v270-discovery-inventory">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0d0f">
@@ -3766,7 +3766,7 @@ html body .app #profile .wishwave-collection-empty{gap:12px;min-height:300px;pad
   <div class="toast" id="toast"></div>
 </div>
 
-<script src="/findai-treasure-pilot.js?v=254"></script>
+<script src="/findai-treasure-pilot.js?v=270"></script>
 <script>
 const FIND_AI_BUILD='v41-findai-pro';
 const WORKER = 'https://api.carsearchapi.workers.dev';
@@ -5274,7 +5274,7 @@ function recommendationFamilyKey(item){
   return family||listingKey(item);
 }
 function newPersonalisedLane(interest){
-  const variants=interestQueryVariants(interest);
+  const variants=interest._treasureTargetId?[interest.query]:interestQueryVariants(interest);
   const cluster=interest.cluster||interestClusterKey(interest.query);
   const variantIndex=0;
   return {
@@ -5804,9 +5804,10 @@ function wishwaveMarkDelivered(items){
   for(const item of items||[]){const key=listingKey(item);if(!key||feedState.seen.has(key))continue;feedState.seen.add(key);const family=wishwaveProductFamily(item);feedState.familyCounts?.set(family,Number(feedState.familyCounts.get(family)||0)+1);}
 }
 function renderPersonalisedFeed(items,{writeCache=true}={}){
-  items=surfaceOwnedListingInFeed(surfaceLikedListingInFeed(items)).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||''));
+  const openingKeys=new Set();
+  items=surfaceOwnedListingInFeed(surfaceLikedListingInFeed(items)).filter(item=>{const key=listingKey(item);if(!key||openingKeys.has(key)||!wishwaveRecommendationCandidate(item,item._interestQuery||''))return false;openingKeys.add(key);return true;});
   items=window.wishwaveDiscoverySurfaces?.partition(items,'home')||items;
-  if(window.wishwaveAdmitRecommendations){const admission=wishwaveAdmitRecommendations(items,[],60);feedState.backlog=admission.deferred.slice(0,120);items=admission.items;}
+  if(window.wishwaveAdmitRecommendations){const admission=wishwaveAdmitRecommendations(items,[],60);feedState.backlog=admission.deferred.slice(0,480);items=admission.items;}
   items=window.wishwaveDiscoverySurfaces?.claim(items,'home')||items;
   currentFeedItems=items;wishwaveMarkDelivered(items);
   currentFeedData={personalised:true};
@@ -5868,7 +5869,9 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     familyCounts:new Map(),interests:lanes,laneCursor:0,cacheSignature
   };
 
-  const cached=forceNetwork?null:readPersonalisedCache(cacheSignature);
+  // A new curated visit must draw fresh inventory and rank unseen offers first.
+  // In-memory tab snapshots still preserve the active reel during this visit.
+  const cached=forceNetwork||window.wishwaveTreasureStatus?.().active?null:readPersonalisedCache(cacheSignature);
   if(marketplaceSession()) setTimeout(()=>appTasteSyncFromServer(false).catch(()=>{}),0);
   if(cached){
     restorePersonalisedLaneState(lanes,cached.lanes);
@@ -5905,12 +5908,13 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     }
     // The request pool owns the opening lanes until each has completed. Pagination
     // must not race that pool and consume the same lane before its first result.
-    loadingState.initialPool={pending:lanes.length};
-    const lanePromises=lanes.map((lane,index)=>fetchPersonalisedLane(lane)
+    const openingLanes=[...lanes].sort((a,b)=>Number(!!window.FindAITreasureHunt?.forQuery(a.originalQuery||a.query)?.catalogueCandidate)-Number(!!window.FindAITreasureHunt?.forQuery(b.originalQuery||b.query)?.catalogueCandidate)).slice(0,32);
+    loadingState.initialPool={pending:openingLanes.length};
+    const lanePromises=openingLanes.map((lane,index)=>fetchPersonalisedLane(lane)
       .then(value=>({index,value}))
       .catch(error=>({index,error}))
       .finally(()=>{loadingState.initialPool.pending=Math.max(0,loadingState.initialPool.pending-1);}));
-    const pending=new Set(lanes.map((_,index)=>index));
+    const pending=new Set(openingLanes.map((_,index)=>index));
     const early=[];
     const takeNext=async function(timeoutMs){
       if(!pending.size)return null;
@@ -5932,7 +5936,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     // This cuts cold-start latency while still preserving some opening-feed variety.
     const focus=window.wishwaveInterestFocus?.(),focusedResult=result=>!!focus&&window.WishWaveInterestCore.classify({title:result.lane?.query||''}).tags.some(t=>t.key===focus.key);
     if(focus?.strong||focus?.plan?.some(x=>['search','mixed'].includes(x.source))){
-      const relevant=lanes.map((lane,index)=>({lane,index})).filter(x=>(focusedResult({lane:x.lane})||x.lane._sessionIntent)&&pending.has(x.index));
+      const relevant=openingLanes.map((lane,index)=>({lane,index})).filter(x=>(focusedResult({lane:x.lane})||x.lane._sessionIntent)&&pending.has(x.index));
       const results=await Promise.all(relevant.map(x=>lanePromises[x.index]));
       for(const next of results){pending.delete(next.index);if(next.value?.items?.length)early.push(next.value);}
     }
@@ -6085,7 +6089,7 @@ async function performLoadMorePersonalisedListings(){
       let incoming=[...(state.backlog||[]),...interleavePersonalised(settled.filter(x=>x.status==='fulfilled').map(x=>x.value),72)];
       if(focus?.strong){for(let round=0;round<2&&incoming.filter(x=>focused({query:x.title})).length<8;round++){const more=lanes.filter(x=>focused(x)&&wishwaveLaneCanAdvance(x)).sort((a,b)=>(a.page||0)-(b.page||0)||(b.score||0)-(a.score||0)).slice(0,2);if(!more.length)break;const extra=await Promise.allSettled(more.map(fetchPersonalisedLane));if(feedState!==state)return;incoming.push(...interleavePersonalised(extra.filter(x=>x.status==='fulfilled').map(x=>x.value),32));}}
       const admission=window.wishwaveAdmitRecommendations?wishwaveAdmitRecommendations(incoming,currentFeedItems,36):{items:sequencePersonalisedBatch(incoming,currentFeedItems,36),deferred:[]};
-      state.backlog=admission.deferred.slice(0,120);const fresh=admission.items;
+      state.backlog=admission.deferred.slice(0,480);const fresh=admission.items;
       if(fresh.length){
         document.getElementById('wishwaveHomeMoreRetry')?.remove();
         appendFeedItems(fresh,currentFeedData);writePersonalisedCache();return;
@@ -6238,7 +6242,8 @@ document.addEventListener('visibilitychange',()=>{
   }
   const hiddenFor=personalisedHiddenAt?Date.now()-personalisedHiddenAt:0;
   personalisedHiddenAt=0;
-  if(hiddenFor>=PERSONALISED_FOREGROUND_HIDDEN_MS) refreshPersonalisedPresentationOnForeground();
+  if(hiddenFor>=5*60000&&window.wishwaveTreasureStatus?.().active&&$('#discover').classList.contains('active')){rotatePersonalisedSessionSeed();loadPersonalisedFeed({forceNetwork:true});}
+  else if(hiddenFor>=PERSONALISED_FOREGROUND_HIDDEN_MS) refreshPersonalisedPresentationOnForeground();
   else beginReelTracking(activeReelIndex);
 });
 
@@ -7052,7 +7057,7 @@ function appendFeedItems(items,data){
     const unique=[...(feedState.backlog||[]),...items].filter(item=>{const key=listingKey(item);if(!key||delivered.has(key))return false;delivered.add(key);return true;});
     const incoming=window.wishwaveDiscoverySurfaces?.filter(unique,'home')||unique;
     const admission=wishwaveAdmitRecommendations(incoming,currentFeedItems,36);
-    feedState.backlog=admission.deferred.slice(0,120);items=admission.items;
+    feedState.backlog=admission.deferred.slice(0,480);items=admission.items;
   }
   if(feedState.source==='personalised')items=window.wishwaveDiscoverySurfaces?.claim(items,'home')||items;
   if(!items.length)return;
@@ -7247,11 +7252,13 @@ function teachSwipeOnce(count){ /* No delayed automatic scrolling. */ }
 function openDeal(index,event){
   if(event) event.stopPropagation();
   const item = currentFeedItems[index];
-  if(item) recordInterest(item._interestQuery||feedState.query||item.title,'click',null,{item});
+  if(!item)return;
+  try{recordInterest(item._interestQuery||feedState.query||item.title,'click',null,{item});}catch(_){}
   if(item && getSource(item)==='findai'){ wishwaveCheckoutOpenItem(item); return; }
   const url = getListingUrl(item);
   if(!url){ toast('This listing does not include a direct link'); return; }
-  window.open(url,'_blank','noopener,noreferrer');
+  if(window.webkit?.messageHandlers?.findaiHaptic)location.assign(url);
+  else window.open(url,'_blank','noopener,noreferrer');
 }
 async function shareItem(index,event){
   if(event) event.stopPropagation();
@@ -15843,7 +15850,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     if(curated&&window.wishwaveStarterItems){
       const starter=await window.wishwaveStarterItems('search');
       if(generation!==exploreGeneration||exploreLiveSearchQuery||accountOwner!==window.wishwaveRecommendationAccount?.()||sectionOwner!==premiumDiscoverySections[0])return;
-      const fresh=window.FindAITreasureHunt.varied(starter.filter(item=>!seenExplore.has(exploreItemKey(item))&&wishwaveRecommendationCandidate(item,item._interestQuery)),sectionOwner.items,36,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('search')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('search')||9}).items;
+      const fresh=window.FindAITreasureHunt.varied(starter.filter(item=>!seenExplore.has(exploreItemKey(item))&&wishwaveRecommendationCandidate(item,item._interestQuery)),sectionOwner.items,36,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('search')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('search')||9,allowSparse:true}).items;
       fresh.forEach(item=>{seenExplore.add(exploreItemKey(item));sectionOwner.items.push(item);});
       if(fresh.length){renderExploreGrid({replace:false});cacheExploreBrowseState();}
       if(fresh.length&&sectionOwner.items.length>=24){exploreLoading=false;return;}
@@ -17769,6 +17776,7 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
     }catch(_){ }
   }
   function hydrateSearchCache(){
+    if(new URLSearchParams(location.search).get('treasure-test')==='1')return false;
     const root=document.getElementById('premiumDiscoverySections');if(!root)return false;
     const data=safeJSON(localStorage.getItem(SEARCH_CACHE_KEY)||'',null);
     if(!data||!Array.isArray(data.items)||!data.items.length||now()-Number(data.at||0)>30*60*1000)return false;
@@ -35404,14 +35412,17 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  let starterCache=null,starterFlight=null;
  window.wishwaveStarterItems=async function(surface){
   if(!active())return [];
-  const select=items=>surface&&window.wishwaveDiscoverySurfaces?window.wishwaveDiscoverySurfaces.partition(items,surface):items;
+  const select=items=>{
+   const owned=surface&&window.wishwaveDiscoverySurfaces?window.wishwaveDiscoverySurfaces.partition(items,surface):items;
+   return [...owned].sort((a,b)=>(personalisedSeenInfo(a).count-personalisedSeenInfo(b).count)||seededUnit(personalisedSessionSeed,listingKey(a))-seededUnit(personalisedSessionSeed,listingKey(b)));
+  };
   if(starterCache&&Date.now()-starterCache.at<60000)return select(starterCache.items);
   if(starterFlight)return select(await starterFlight);
   const flight=(async()=>{try{const data=await appFetchJsonTimed(WORKER_BASE+'/recommendations/starter?country=US',{cache:'no-store'},15000);const items=(data.items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery));if(items.length)starterCache={at:Date.now(),items};return items;}catch(_){return [];}})();
   starterFlight=flight;try{return select(await flight);}finally{if(starterFlight===flight)starterFlight=null;}
  };
  window.wishwaveReadyStarter=function(items){
-  const list=window.FindAITreasureHunt.varied(items||[],[],36,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9}).items,verified=new Map();let cursor=0,published=false,resolveOpening;
+  const list=window.FindAITreasureHunt.varied(items||[],[],36,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9,allowSparse:true}).items,verified=new Map();let cursor=0,published=false,resolveOpening;
   const opening=new Promise(resolve=>resolveOpening=resolve);
   const snapshot=()=>[...verified.entries()].sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
   function publish(){if(published)return;published=true;const ready=snapshot();Object.defineProperty(ready,'completion',{value:completion});resolveOpening(ready);}
@@ -35428,7 +35439,9 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  window.fetchPersonalisedLanePage=async function(lane){
   if(!active())return page.apply(this,arguments);
   if(running>=4)await new Promise(resolve=>waiting.push(resolve));running++;
-  try{const result=await page.apply(this,arguments);const target=window.FindAITreasureHunt.forQuery(lane.originalQuery||lane.query),candidates=[...(result.items||[]),...(result.data?.listings||[])].filter(item=>window.FindAITreasureHunt.match(target,item)),accepted=[],checked=new Set();const unique=candidates.slice(0,8).filter(item=>{const src=appImagePlan(item,0,{personalised:true})?.src;if(!src||checked.has(src))return false;checked.add(src);return true;});for(let offset=0;offset<unique.length;offset+=4){try{const item=await Promise.any(unique.slice(offset,offset+4).map(async item=>{if(await imageReady(item))return item;throw new Error('Image unavailable');}));accepted.push(item);break;}catch(_){}}return {...result,items:preparePersonalisedLaneItems(accepted,lane)};}
+  try{const requestState=feedState;const result=await page.apply(this,arguments);if(feedState!==requestState)return {...result,items:[],stale:true};const target=window.FindAITreasureHunt.forQuery(lane.originalQuery||lane.query),candidates=[...(result.items||[]),...(result.data?.listings||[])].filter(item=>window.FindAITreasureHunt.match(target,item)),accepted=[],checked=new Set();const unique=candidates.filter(item=>{const src=appImagePlan(item,0,{personalised:true})?.src;if(!src||checked.has(src))return false;checked.add(src);return true;}).slice(0,8);for(let offset=0;offset<unique.length;offset+=4){try{const item=await Promise.any(unique.slice(offset,offset+4).map(async item=>{if(await imageReady(item))return item;throw new Error('Image unavailable');}));accepted.push(item);}catch(_){}}if(feedState!==requestState)return {...result,items:[],stale:true};const acceptedKeys=new Set(accepted.map(listingKey));
+   Promise.all(unique.map(async item=>await imageReady(item)?item:null)).then(verified=>{if(feedState!==requestState)return;const rest=preparePersonalisedLaneItems(verified.filter(item=>item&&!acceptedKeys.has(listingKey(item))),lane);requestState.backlog=[...(requestState.backlog||[]),...rest].slice(-480);}).catch(()=>{});
+   return {...result,items:preparePersonalisedLaneItems(accepted,lane)};}
   finally{running--;waiting.shift()?.();}
  };
  const render=window.renderPersonalisedFeed,append=window.appendFeedItems;
@@ -35449,11 +35462,11 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  const admit=window.wishwaveAdmitRecommendations,sequence=window.sequencePersonalisedBatch;
  window.wishwaveAdmitRecommendations=function(items,history=[],max=36){
   if(!active())return admit.apply(this,arguments);
-  return window.FindAITreasureHunt.varied((items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||'')),history,max,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9});
+  return window.FindAITreasureHunt.varied((items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||'')),history,max,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9,allowSparse:!feedState.initialPool?.pending});
  };
  window.sequencePersonalisedBatch=function(items,history=[],max=60){
   if(!active())return sequence.apply(this,arguments);
-  return window.FindAITreasureHunt.varied((items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||'')),history,max).items;
+  return window.FindAITreasureHunt.varied((items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||'')),history,max,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9,allowSparse:!feedState.initialPool?.pending}).items;
  };
  window.wishwaveTreasureStatus=()=>({version:window.FindAITreasureHunt?.version,active:active(),targets:window.FindAITreasureHunt?.previewTargets.map(x=>x.id)||[],categories:window.FindAITreasureHunt?.groups.map(x=>x.category)||[]});
 })();

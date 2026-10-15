@@ -4,8 +4,8 @@ assert.equal(catalogue.targets.length,500);assert.equal(new Set(catalogue.target
 assert(catalogue.targets.every(x=>x.inventory===null&&x.rarityVerified===false));
 const target=id=>policy.targets.find(x=>x.id===id);
 const offer=(title,extra={})=>({title,price:60,currency:'USD',source:'eBay',url:'https://www.ebay.com/itm/123',image:'https://i.ebayimg.com/123.jpg',...extra});
-assert(!policy.targets.some(x=>/nickelodeon|panasonic/i.test(x.query)),'rejected novelty picks removed');
-assert.equal(new Set(policy.targets.map(x=>x.category)).size,14);
+assert(!policy.targets.filter(x=>!x.catalogueCandidate).some(x=>/nickelodeon|panasonic/i.test(x.query)),'rejected novelty picks removed');
+assert.equal(new Set(policy.targets.filter(x=>!x.catalogueCandidate).map(x=>x.category)).size,14);
 assert(policy.match(target('FF118'),offer('Nintendo Game Boy Color Atomic Purple original console')));
 for(const title of ['Nintendo Game Boy Color Atomic Purple replacement shell','Nintendo Game Boy Color Atomic Purple box only','Nintendo Game Boy Color Atomic Purple not working'])assert(!policy.match(target('FF118'),offer(title)),title);
 assert(policy.match(target('FF001'),offer('Vintage Carhartt Detroit Jacket J01 Brown')));
