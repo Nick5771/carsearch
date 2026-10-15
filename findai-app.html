@@ -3,7 +3,7 @@
 <head>
 <script src="wishwave-discovery-surfaces.js?v=254"></script>
 <script src="wishwave-photo-hygiene.js?v=260"></script>
-<meta name="findai-build" content="v266-rounded-photo-card">
+<meta name="findai-build" content="v260-screenshot-photo-cleanup">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0d0f">
@@ -4428,26 +4428,11 @@ async function deleteMarketplaceListing(id){
 }
 
 function wishwaveDeliveryMarkup(text){return '<svg class="wishwave-delivery-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h11v12H3zM14 9h4l3 4v4h-7"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/></svg><span>'+escapeHTML(text)+'</span>';}
-function wishwavePlaceRoundedPhoto(img){
-  const card=img?.closest('.reel-card'),stage=img?.closest('.hero-stage');
-  if(!card?.closest('#discover,#searchDetailOverlay')||!stage||!img.naturalWidth||!img.naturalHeight)return;
-  const box=img.getBoundingClientRect();if(box.width<=0||box.height<=0)return;
-  const scale=Math.min(box.width/img.naturalWidth,box.height/img.naturalHeight);
-  const x=Math.max(0,(box.width-img.naturalWidth*scale)/2),y=Math.max(0,(box.height-img.naturalHeight*scale)/2);
-  // Round the actual contained photo, including portrait and landscape sources.
-  const clip='inset('+y+'px '+x+'px round 16px)';
-  if(img.style.clipPath!==clip)img.style.clipPath=clip;
-  const slide=img.closest('.reel-gallery-slide');
-  if(slide&&Number(slide.dataset.gallerySlide)!==Number(stage.dataset.galleryIndex||0))return;
-  const bottom=(y+12)+'px';
-  if(stage.style.getPropertyValue('--wishwave-photo-dots-bottom')!==bottom)stage.style.setProperty('--wishwave-photo-dots-bottom',bottom);
-}
 function adaptListingImage(img){
   if(!img||!img.naturalWidth||!img.naturalHeight) return;
   const stage=img.closest('.hero-stage');
   if(!stage) return;
   if(typeof window.wishwaveCleanListingPhoto==='function')window.wishwaveCleanListingPhoto(img);
-  wishwavePlaceRoundedPhoto(img);
   if(img.closest('.wishwave-quality-reel')){img.classList.add('fit-contain');img.classList.remove('fit-cover');stage.classList.remove('fill-light','fill-cover','has-bg-fill');stage.classList.add('fill-solid');stage.style.setProperty('--hero-fill','#000');return;}
   const slide=img.closest('.reel-gallery-slide');
   if(slide&&Number(slide.dataset.gallerySlide)!==Number(stage.dataset.galleryIndex||0))return;
@@ -33823,9 +33808,9 @@ html.findai-light body .app #createListingScreen:not(.preview-mode) .wishwave-qu
 <script id="wishwave-light-reel-fit-script">
 (function(){
  const panels=new Set();let frame=0;
- function measure(panel){const card=panel.closest('.reel-card');if(!card)return;const stage=card.querySelector('.hero-stage');const image=stage?.querySelector('.reel-gallery-slide[data-gallery-slide="'+(stage.dataset.galleryIndex||0)+'"] img.hero-image');if(image)wishwavePlaceRoundedPhoto(image);const height=Math.ceil(panel.getBoundingClientRect().height);if(height>0&&card.style.getPropertyValue('--wishwave-light-caption-height')!==height+'px')card.style.setProperty('--wishwave-light-caption-height',height+'px');const surface=card.closest('#searchDetailOverlay')||card.closest('#discover');const header=surface?.querySelector('.search-detail-header,.discover-social-topbar');if(header){const top=Math.max(0,Math.ceil(header.getBoundingClientRect().bottom-surface.getBoundingClientRect().top));if(card.style.getPropertyValue('--wishwave-light-header-height')!==top+'px')card.style.setProperty('--wishwave-light-header-height',top+'px');}}
+ function measure(panel){const card=panel.closest('.reel-card');if(!card)return;const height=Math.ceil(panel.getBoundingClientRect().height);if(height>0&&card.style.getPropertyValue('--wishwave-light-caption-height')!==height+'px')card.style.setProperty('--wishwave-light-caption-height',height+'px');const surface=card.closest('#searchDetailOverlay')||card.closest('#discover');const header=surface?.querySelector('.search-detail-header,.discover-social-topbar');if(header){const top=Math.max(0,Math.ceil(header.getBoundingClientRect().bottom-surface.getBoundingClientRect().top));if(card.style.getPropertyValue('--wishwave-light-header-height')!==top+'px')card.style.setProperty('--wishwave-light-header-height',top+'px');}}
  const resize=typeof ResizeObserver==='function'?new ResizeObserver(entries=>entries.forEach(e=>e.target.matches('.product-panel')?measure(e.target):schedule())):null;
- function bind(){frame=0;document.querySelectorAll('#discover .discover-social-topbar,#searchDetailOverlay .search-detail-header').forEach(header=>resize?.observe(header));for(const panel of panels)if(!panel.isConnected){resize?.unobserve?.(panel);const stage=panel.closest('.reel-card')?.querySelector('.hero-stage');if(stage)resize?.unobserve?.(stage);panels.delete(panel);}document.querySelectorAll('#discover .reel-card .product-panel,#searchDetailOverlay .reel-card .product-panel,#createListingScreen.preview-mode .reel-card .product-panel').forEach(panel=>{if(!panels.has(panel)){panels.add(panel);resize?.observe(panel);const stage=panel.closest('.reel-card')?.querySelector('.hero-stage');if(stage)resize?.observe(stage);}measure(panel);});}
+ function bind(){frame=0;document.querySelectorAll('#discover .discover-social-topbar,#searchDetailOverlay .search-detail-header').forEach(header=>resize?.observe(header));for(const panel of panels)if(!panel.isConnected){resize?.unobserve?.(panel);panels.delete(panel);}document.querySelectorAll('#discover .reel-card .product-panel,#searchDetailOverlay .reel-card .product-panel,#createListingScreen.preview-mode .reel-card .product-panel').forEach(panel=>{if(!panels.has(panel)){panels.add(panel);resize?.observe(panel);}measure(panel);});}
  function schedule(){if(!frame)frame=requestAnimationFrame(bind);}
  new MutationObserver(records=>{if(records.some(r=>r.type==='characterData'||r.target.closest?.('.product-panel')||[...r.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('.reel-card,.product-panel')||n.querySelector?.('.reel-card,.product-panel')))))schedule();}).observe(document.body,{childList:true,subtree:true,characterData:true});
  new MutationObserver(schedule).observe(document.documentElement,{attributes:true,attributeFilter:['class']});
@@ -35681,28 +35666,5 @@ html body #findaiSendSheetBg.show.wishwave-sheet-entering .findai-send-sheet:not
  new MutationObserver(scan).observe(document.body,{childList:true,subtree:true});scan();
 })();
 </script>
-
-<style id="wishwave-rounded-photo-card-v266">
-/* Option 3: bounded, rounded photo above a separate solid caption in both themes. */
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .hero-stage{inset:calc(var(--wishwave-light-header-height,94px) + 6px) 0 calc(var(--wishwave-light-caption-height,240px) + 4px)!important;width:100%!important;height:calc(100% - var(--wishwave-light-header-height,94px) - var(--wishwave-light-caption-height,240px) - 10px)!important;border-radius:16px!important;overflow:hidden!important;background:#0c0d0f!important;}
-html.findai-light body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .hero-stage{background:#fff!important;}
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .reel-gallery-slide{background:#0c0d0f!important;}
-html.findai-light body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .reel-gallery-slide{background:#fff!important;}
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .reel-gallery-slide img.hero-image{object-fit:contain!important;object-position:center!important;border-radius:16px!important;filter:none!important;}
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel{padding-top:12px!important;background:#0c0d0f!important;}
-html.findai-light body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel{background:#fff!important;}
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .reel-gallery-dots{top:auto!important;bottom:var(--wishwave-photo-dots-bottom,12px)!important;transform:translateX(-50%)!important;opacity:1!important;filter:none!important;}
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel::after{display:none!important;content:none!important;}
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .hero-stage::before,html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .hero-stage::after{display:none!important;content:none!important;}
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .reel-gallery-dots i{background:rgba(255,255,255,.55)!important;opacity:1!important;box-shadow:0 1px 3px rgba(0,0,0,.5)!important;}
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .reel-gallery-dots i.active{background:#fff!important;}
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel .source-chip{margin-bottom:8px!important;min-height:20px!important;}
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel .source-chip .ebay-logo{height:20px!important;width:auto!important;max-width:64px!important;}
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel .source-chip .app-source-logo{max-height:20px!important;max-width:72px!important;width:auto!important;object-fit:contain!important;}
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel .title{margin:0!important;min-height:2.5em!important;max-height:2.5em!important;line-height:1.25!important;display:-webkit-box!important;-webkit-line-clamp:2!important;-webkit-box-orient:vertical!important;overflow:hidden!important;}
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel .price-action-row{margin-top:10px!important;}
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel .source-chip .findai-exact-brand{height:20px!important;min-height:0!important;line-height:20px!important;}
-html body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel.wishwave-quality-reel .product-panel .source-chip .findai-exact-brand img{height:20px!important;max-height:20px!important;max-width:72px!important;width:auto!important;object-fit:contain!important;}
-</style>
 </body>
 </html>
