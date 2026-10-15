@@ -19,3 +19,7 @@ Create WishWave under My Apps in App Store Connect using the same bundle identif
 ## What still needs verification
 
 This is an initial device-test project, not an Apple-approved release. The hosted service must remain reachable; it is not an offline catalogue. Build/sign/upload require Apple's SDK and your developer team. A macOS CI workflow performs an unsigned simulator build. Camera and photo picker use WebKit's native input handling; validate them on a phone. OAuth redirects, payment redirects, downloads and background/resume behavior need device checks. External pages open in Safari's in-app browser and do not share the WKWebView session. Push notifications, universal links and an Apple sign-in bridge are not implemented here. Store privacy declarations must describe the actual hosted service; moderation, account deletion and review requirements must be audited before external distribution. Do not enable live buying until checkout and shipping are independently verified.
+
+## Camera fix: build 259
+
+This version enables inline camera playback and disables picture-in-picture and AirPlay for the preview. The installed iPhone app must be rebuilt; refreshing the hosted page cannot change WKWebViewConfiguration. Open this updated Xcode project, select your existing signing team and iPhone, then press Command-R. Confirm the target build number is 259. After installation, opening Search’s camera should keep the WishWave capture frame, white shutter, Upload and Rotate controls. Validate actual capture on your iPhone.

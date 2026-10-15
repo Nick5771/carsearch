@@ -1,19 +1,19 @@
 const fs=require('fs'),assert=require('assert'),{JSDOM,VirtualConsole}=require('jsdom');
 const html=fs.readFileSync(__dirname+'/../findai-app.html','utf8');
-const css=html.match(/<style id="wishwave-photo-camera-search-v258">([\s\S]*?)<\/style>/)[1];
-const dom=new JSDOM('<html><head><style>.hero-stage{height:100%;inset:0}.premium-explore-grid{background:#050607}'+css+'</style></head><body><div class="app"><div id="discover"><header class="discover-social-topbar"></header>'+[1,2].map(i=>'<div class="reel-card wishwave-quality-reel" id="c'+i+'"><div class="hero-stage"></div><div class="product-panel"></div></div>').join('')+'</div><div id="search"><div id="premiumDiscoverySections"><div class="premium-explore-grid"></div></div></div><div id="profile"><div class="wishwave-collection-empty"><button class="social-profile-create-first"></button></div></div></div></body></html>',{runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:new VirtualConsole()});
-const w=dom.window,d=w.document;let callback,caption=250,header=114;
-w.ResizeObserver=class{constructor(cb){callback=cb}observe(){}unobserve(){}};
-d.getElementById('discover').getBoundingClientRect=()=>({top:0});d.querySelector('header').getBoundingClientRect=()=>({bottom:header});
-d.querySelectorAll('.product-panel').forEach(p=>p.getBoundingClientRect=()=>({height:caption}));
-w.eval(html.match(/<script id="wishwave-light-reel-fit-script">([\s\S]*?)<\/script>/)[1]);
-(async()=>{await new Promise(r=>setTimeout(r,40));
- for(const c of d.querySelectorAll('.reel-card')){assert.equal(c.style.getPropertyValue('--wishwave-light-header-height'),'114px');assert.equal(c.style.getPropertyValue('--wishwave-light-caption-height'),'250px');}
- assert.equal(w.getComputedStyle(d.querySelector('.hero-stage')).height,'100%','dark canvas remains unchanged');
- d.documentElement.classList.add('findai-light');assert(w.getComputedStyle(d.querySelector('.hero-stage')).inset.includes('--wishwave-light-header-height'),'light stage reserves measured header');
- caption=320;callback([{target:d.querySelector('.product-panel')}]);assert.equal(d.getElementById('c1').style.getPropertyValue('--wishwave-light-caption-height'),'320px');
- header=140;callback([{target:d.querySelector('header')}]);await new Promise(r=>setTimeout(r,40));for(const c of d.querySelectorAll('.reel-card'))assert.equal(c.style.getPropertyValue('--wishwave-light-header-height'),'140px','all snap pages reserve header even while offscreen');
- assert.equal(w.getComputedStyle(d.querySelector('.premium-explore-grid')).backgroundColor,'rgba(0, 0, 0, 0)');assert.equal(w.getComputedStyle(d.querySelector('button')).backgroundColor,'rgb(232, 224, 244)');
- d.documentElement.classList.remove('findai-light');assert.equal(w.getComputedStyle(d.querySelector('.hero-stage')).height,'100%');
- await new Promise(r=>setTimeout(r,40));console.log('PASS: measured header/caption bounds on all light snap pages, dynamic chrome, unchanged dark canvas, transparent sparse grid and lavender action');w.close();
+const ids=['wishwave-photo-camera-search-v258','wishwave-reel-sheet-parity-v259'];
+const css=ids.map(id=>html.match(new RegExp('<style id="'+id+'">([\\s\\S]*?)<\\/style>'))[1]).join('\n');
+const dom=new JSDOM('<html><head><style>.hero-stage{height:100%;width:100%;inset:0}.hero-image{width:100%;height:100%;object-fit:contain}.premium-explore-grid{background:#050607}'+css+'</style></head><body><div class="app"><div id="discover"><div class="reel-card wishwave-quality-reel"><div class="hero-stage"><img class="hero-image"></div><div class="product-panel"></div></div></div><div id="search"><div id="premiumDiscoverySections"><div class="premium-explore-grid"></div></div></div><div id="profile"><div class="wishwave-collection-empty"><button class="social-profile-create-first"></button></div></div></div><div id="scan"><video id="cam"></video></div><div id="appMpSheetBg"><div class="app-mp-sheet"><header class="app-mp-sheet-head"></header><div id="comments"></div></div></div></body></html>',{runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:new VirtualConsole()});
+const w=dom.window,d=w.document,wait=ms=>new Promise(r=>setTimeout(r,ms));
+(async()=>{
+ const geometry=[];
+ for(const theme of ['dark','light']){d.documentElement.classList.toggle('findai-light',theme==='light');const c=w.getComputedStyle(d.querySelector('.hero-stage')),i=w.getComputedStyle(d.querySelector('img'));geometry.push([c.height,c.width,c.inset,i.objectFit]);}
+ assert.deepEqual(geometry[0],geometry[1],'switching appearance must not shrink or reposition the same photo');assert.equal(geometry[1][0],'100%');assert.equal(geometry[1][2],'0');assert(w.getComputedStyle(d.querySelector('.product-panel')).backgroundImage.includes('linear-gradient'),'light caption fades over image rather than masking a separate box');
+ assert.equal(w.getComputedStyle(d.querySelector('.premium-explore-grid')).backgroundColor,'rgba(0, 0, 0, 0)');assert.equal(w.getComputedStyle(d.querySelector('button')).backgroundColor,'rgb(232, 224, 244)');assert.equal(w.getComputedStyle(d.getElementById('cam')).pointerEvents,'none');
+ w.eval(html.match(/<script id="wishwave-sheet-entrance-v259">([\s\S]*?)<\/script>/)[1]);
+ const bg=d.getElementById('appMpSheetBg');bg.classList.add('show','wishwave-comments-mode');await wait(20);assert(bg.classList.contains('wishwave-sheet-entering'));assert(w.getComputedStyle(bg.querySelector('.app-mp-sheet')).animation.includes('wishwaveSheetEnter'));
+ await wait(420);assert(!bg.classList.contains('wishwave-sheet-entering'));d.getElementById('comments').innerHTML='<p>Loaded comment</p>';bg.dataset.motionVersion='2';await wait(20);assert(!bg.classList.contains('wishwave-sheet-entering'),'data updates must not restart entry');bg.classList.add('comments-dragging');await wait(20);bg.classList.remove('comments-dragging');await wait(20);assert(!bg.classList.contains('wishwave-sheet-entering'),'drag snap must not replay entrance');
+ bg.classList.remove('show');await wait(20);bg.classList.add('show');await wait(20);assert(bg.classList.contains('wishwave-sheet-entering'),'reopening gets a new entrance');bg.classList.remove('show');
+ const send=d.createElement('div');send.id='findaiSendSheetBg';send.className='show';send.innerHTML='<section class="findai-send-sheet"><header class="findai-send-head"></header></section>';d.body.appendChild(send);await wait(20);assert(send.classList.contains('wishwave-sheet-entering'),'newly mounted sharing sheet animates');send.querySelector('header').dispatchEvent(new w.Event('pointerdown',{bubbles:true}));await wait(20);assert(!send.classList.contains('wishwave-sheet-entering'),'dragging can interrupt entrance');send.classList.remove('show');await wait(20);
+ assert(css.includes('@media(prefers-reduced-motion:reduce)'));
+ console.log('PASS: identical light/dark photo geometry, fading light caption, transparent grid, lavender action, non-interactive stream and one-shot interruptible comment/share entrances');w.close();
 })().catch(e=>{console.error(e);w.close();process.exitCode=1});

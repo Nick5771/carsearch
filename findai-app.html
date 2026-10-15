@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <script src="wishwave-discovery-surfaces.js?v=254"></script>
-<meta name="findai-build" content="v258-photo-camera-search">
+<meta name="findai-build" content="v259-reel-sheet-parity">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0d0f">
@@ -35625,5 +35625,44 @@ html body .app #search #premiumDiscoverySections .premium-explore-load-marker.se
 html.findai-light .premium-explore-grid>.wishwave-search-placeholder{background:linear-gradient(100deg,#f0edf5 20%,#e4dfeb 40%,#f0edf5 60%);background-size:220% 100%}
 #cam::-webkit-media-controls,#cam::-webkit-media-controls-enclosure{display:none!important}
 </style>
+
+<style id="wishwave-reel-sheet-parity-v259">
+/* Theme changes colors, never the photo canvas or image scale. */
+html.findai-light body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel .hero-stage{inset:0!important;width:100%!important;height:100%!important}
+html.findai-light body .app :is(#discover,#searchDetailOverlay) .reel-card.wishwave-quality-reel.wishwave-quality-reel .product-panel{background:linear-gradient(transparent,rgba(255,255,255,.92))!important}
+html.findai-light body .app #discover .discover-social-topbar,
+html.findai-light body #searchDetailOverlay.search-owned-v186.wishwave-home-reel-parity .search-detail-header{background:linear-gradient(180deg,#fff 0%,rgba(255,255,255,.94) 70%,rgba(255,255,255,0) 100%)!important}
+/* The stream is a backdrop, never a tappable native video-player control. */
+#scan #cam{pointer-events:none!important}
+/* Individual translate composes with the existing swipe-to-dismiss transform. */
+@keyframes wishwaveSheetEnter{from{translate:0 105%}to{translate:0 0}}
+html body #appMpSheetBg.wishwave-comments-mode.show.wishwave-sheet-entering:not(.comments-dragging):not(.comments-dismissing) .app-mp-sheet,
+html body #findaiSendSheetBg.show.wishwave-sheet-entering .findai-send-sheet:not(.findai-v175-dragging){animation:wishwaveSheetEnter 360ms cubic-bezier(.22,1,.36,1) both!important}
+@media(prefers-reduced-motion:reduce){
+ html body #appMpSheetBg.wishwave-comments-mode.show.wishwave-sheet-entering:not(.comments-dragging):not(.comments-dismissing) .app-mp-sheet,
+ html body #findaiSendSheetBg.show.wishwave-sheet-entering .findai-send-sheet:not(.findai-v175-dragging){animation:none!important}
+}
+</style>
+
+<script id="wishwave-sheet-entrance-v259">
+(function(){
+ const bound=new WeakSet();
+ function bind(bg,comments){
+  if(!bg||bound.has(bg))return;bound.add(bg);let opened=false,timer=0;
+  const stop=()=>{clearTimeout(timer);if(bg.classList.contains('wishwave-sheet-entering'))bg.classList.remove('wishwave-sheet-entering');};
+  function sync(){
+   const showing=bg.classList.contains('show')&&(!comments||bg.classList.contains('wishwave-comments-mode'));
+   if(showing&&!opened){bg.classList.add('wishwave-sheet-entering');clearTimeout(timer);timer=setTimeout(stop,400);}
+   if(!showing||bg.classList.contains('comments-dragging')||bg.classList.contains('comments-dismissing'))stop();
+   opened=showing;
+  }
+  new MutationObserver(sync).observe(bg,{attributes:true,attributeFilter:['class']});
+  bg.addEventListener('touchstart',e=>{if(e.target.closest('.findai-send-handle,.findai-send-head,.app-mp-sheet-head'))stop();},{passive:true});
+  bg.addEventListener('pointerdown',e=>{if(e.target.closest('.findai-send-handle,.findai-send-head,.app-mp-sheet-head'))stop();},{passive:true});sync();
+ }
+ const scan=()=>{bind(document.getElementById('appMpSheetBg'),true);bind(document.getElementById('findaiSendSheetBg'),false);};
+ new MutationObserver(scan).observe(document.body,{childList:true,subtree:true});scan();
+})();
+</script>
 </body>
 </html>
