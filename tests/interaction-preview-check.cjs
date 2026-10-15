@@ -13,6 +13,12 @@ async function check(url,on){
    const number=button.querySelector('.ww-preview-count');assert.ok(number.textContent,'every action, including heart, has a number');assert.equal(button.lastElementChild,number);
    assert.equal(dom.window.getComputedStyle(button).flexDirection,'column');assert.equal(dom.window.getComputedStyle(button).alignItems,'center');
   }
+  const read=type=>Number(rail.querySelector('.'+type+' .ww-preview-count').textContent.replace(/,/g,''));
+  const like=rail.querySelector('.like'),baseLike=read('like');like.classList.add('active');await new Promise(r=>setTimeout(r,10));assert.equal(read('like'),baseLike+1,'liking visibly adds exactly one');
+  like.classList.remove('active');await new Promise(r=>setTimeout(r,10));assert.equal(read('like'),baseLike,'unliking restores baseline');
+  const comment=rail.querySelector('.comment'),baseComment=read('comment');comment.insertAdjacentHTML('beforeend','<span class="reel-comment-count">1</span>');await new Promise(r=>setTimeout(r,10));assert.equal(read('comment'),baseComment+1,'posted comment adds one');
+  comment.querySelector('.reel-comment-count').firstChild.data='2';await new Promise(r=>setTimeout(r,10));assert.equal(read('comment'),baseComment+2,'text-node updates are observed');
+  comment.querySelector('.reel-comment-count').textContent='';await new Promise(r=>setTimeout(r,10));assert.equal(read('comment'),baseComment,'deletion restores baseline');
   rail.insertAdjacentHTML('beforeend','<span>Loaded</span>');await new Promise(r=>setTimeout(r,10));assert.equal(rail.querySelectorAll('.ww-preview-count').length,5,'subsequent paints do not duplicate numbers');
   rail.querySelector('.bookmark').remove();rail.insertAdjacentHTML('beforeend','<button class="reel-social-action bookmark"><span class="reel-social-icon"></span></button>');await new Promise(r=>setTimeout(r,10));assert.ok(rail.querySelector('.bookmark .ww-preview-count').textContent,'late-mounted bookmark receives a count');
  }
