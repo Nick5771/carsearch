@@ -21336,17 +21336,18 @@ function treasureActiveTargets(env){
 async function treasureAuditTarget(target,env){
  const observedAt=Date.now();
  const result=await promiseWithin(searchEbay(target.query,'US','',ebayTrafficEnv(env,'background')),6500,{items:[],error:'timeout'});
- const candidates=(result.items||[]).filter(x=>globalThis.FindAITreasureHunt.match(target,x)).slice(0,6);
+ const candidates=(result.items||[]).filter(x=>globalThis.FindAITreasureHunt.match(target,x)).slice(0,16);
  return {id:target.id,query:target.query,country:'US',observedAt,status:candidates.length?'provider_candidates_found':result.error?'supply_check_incomplete':'no_matching_candidates',error:result.error||'',candidates,authenticationVerified:false};
 }
 async function treasureWarmup(env){
  const targets=treasureActiveTargets(env);if(!targets.length||!env.DB)return;
- const slot=Math.floor(Date.now()/900000)*2;
- for(let i=0;i<Math.min(2,targets.length);i++){
-  const audit=await treasureAuditTarget(targets[(slot+i)%targets.length],env);
+ const count=Math.min(32,targets.length),slot=Math.floor(Date.now()/900000)*count;
+ let next=0;
+ await Promise.all(Array.from({length:Math.min(4,count)},async()=>{while(next<count){
+  const index=next++,audit=await treasureAuditTarget(targets[(slot+index)%targets.length],env);
   if(audit.candidates.length)await catalogueIngest(audit.candidates,'US',env);
   if(env.CACHE)await env.CACHE.put('treasure:audit:v238:'+audit.id,JSON.stringify({...audit,candidates:audit.candidates.map(x=>({itemId:x.itemId,title:x.title,price:x.price,currency:x.currency,url:x.url}))}),{expirationTtl:21600});
- }
+ }}));
 }
 async function treasureRoute(request,env){
  const url=new URL(request.url);
@@ -21384,11 +21385,12 @@ async function wishwaveStarterInventory(request,env){
  }
  // A starter is a reservoir, not just the opening screen: both surfaces draw
  // different offers from it as they scroll. Keep diversity possible in thin pools.
- const targets=new Set(items.map(x=>x._treasureTargetId)),categories=new Set(items.map(x=>x._treasureCategory));
  const requested=Number(url.searchParams.get('limit'));
  const limit=Number.isFinite(requested)&&requested>0?Math.max(36,Math.min(360,Math.floor(requested))):240;
- const selected=policy.varied(items,[],limit,{repeatWindow:Math.max(1,Math.min(20,targets.size-1)),categoryWindow:Math.max(1,Math.min(9,categories.size*2-1))}).items;
- return reply({version:269,country,items:selected,matchedTargets:new Set(selected.map(x=>x._treasureTargetId)).size,scanned:(rows.results||[]).length});
+ // Preserve offer depth here. Card spacing belongs to each surface after partition.
+ const queues=new Map();for(const item of items){const id=item._treasureTargetId;if(!queues.has(id))queues.set(id,[]);queues.get(id).push(item);}
+ const selected=[];while(selected.length<limit&&queues.size){for(const[id,offers]of queues){if(selected.length>=limit)break;selected.push(offers.shift());if(!offers.length)queues.delete(id);}}
+ return reply({version:270,country,items:selected,matchedTargets:new Set(selected.map(x=>x._treasureTargetId)).size,scanned:(rows.results||[]).length});
 }
 
 // v244: Password accounts. Challenges store only salted password/code hashes.
