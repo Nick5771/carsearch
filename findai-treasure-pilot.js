@@ -48,8 +48,8 @@
   const title=String(item.title||'');
   if(target.category==='cards'&&(/\bgraded\b/i.test(String(item.condition||''))||/\b(?:slabbed|sgc|ace|tag)\s*(?:graded|[0-9])/i.test(title)))return false;
   if(target.category==='fragrance'&&/\b(?:set|duo|bundle|[2-9]\s*pc)\b/i.test(title))return false;
-  if(target.category==='sneakers'&&/\b(?:td|ps|gs)\b|\b\d+(?:\.\d+)?[cy]\b/i.test(title))return false;
-  if(['beauty','fragrance'].includes(target.category)&&/used|pre.?owned|open.?box/i.test(String(item.condition||'')))return false;
+  if(['sneakers','modern_sneakers_footwear'].includes(target.category)&&/\b(?:td|ps|gs)\b|\b\d+(?:\.\d+)?[cy]\b/i.test(title))return false;
+  if(['beauty','beauty_hair','fragrance'].includes(target.category)&&/used|pre.?owned|open.?box/i.test(String(item.condition||'')))return false;
   if(packaging.test(title)||target.reject.some(x=>includes(title,x)))return false;
   if(target.terms.some(group=>group.includes('lego'))&&/pieces?\s*(?:&|and)\s*parts/i.test(String(item.categoryName||'')))return false;
   if(!target.terms.every(group=>group.some(x=>includes(title,x))))return false;

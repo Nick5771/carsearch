@@ -5909,7 +5909,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     // The request pool owns the opening lanes until each has completed. Pagination
     // must not race that pool and consume the same lane before its first result.
     const openingLanes=[...lanes].sort((a,b)=>Number(!!window.FindAITreasureHunt?.forQuery(a.originalQuery||a.query)?.catalogueCandidate)-Number(!!window.FindAITreasureHunt?.forQuery(b.originalQuery||b.query)?.catalogueCandidate)).slice(0,32);
-    loadingState.initialPool={pending:openingLanes.length};
+    loadingState.initialPool={pending:openingLanes.length,opening:true};
     const lanePromises=openingLanes.map((lane,index)=>fetchPersonalisedLane(lane)
       .then(value=>({index,value}))
       .catch(error=>({index,error}))
@@ -5974,6 +5974,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
         }
       }
       if(stillOwnsFeed()){
+        loadingState.initialPool.opening=false;
         writePersonalisedCache();
         // Start replenishing before the user reaches the last available card.
         if(currentFeedItems.length-activeReelIndex<12)loadMorePersonalisedListings();
@@ -35462,11 +35463,11 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  const admit=window.wishwaveAdmitRecommendations,sequence=window.sequencePersonalisedBatch;
  window.wishwaveAdmitRecommendations=function(items,history=[],max=36){
   if(!active())return admit.apply(this,arguments);
-  return window.FindAITreasureHunt.varied((items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||'')),history,max,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9,allowSparse:!feedState.initialPool?.pending});
+  return window.FindAITreasureHunt.varied((items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||'')),history,max,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9,allowSparse:!feedState.initialPool?.opening});
  };
  window.sequencePersonalisedBatch=function(items,history=[],max=60){
   if(!active())return sequence.apply(this,arguments);
-  return window.FindAITreasureHunt.varied((items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||'')),history,max,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9,allowSparse:!feedState.initialPool?.pending}).items;
+  return window.FindAITreasureHunt.varied((items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||'')),history,max,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9,allowSparse:!feedState.initialPool?.opening}).items;
  };
  window.wishwaveTreasureStatus=()=>({version:window.FindAITreasureHunt?.version,active:active(),targets:window.FindAITreasureHunt?.previewTargets.map(x=>x.id)||[],categories:window.FindAITreasureHunt?.groups.map(x=>x.category)||[]});
 })();

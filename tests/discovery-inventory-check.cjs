@@ -9,6 +9,7 @@ const offer={title:'Sanrio Kuromi Spooky House DIY book nook kit',price:55,curre
 assert.equal(policy.identify(offer)?.id,'FF661','new Sanrio target can be retrieved without a pilot hint');
 assert(!policy.match(policy.targets.find(x=>x.id==='FF661'),{...offer,title:'Sanrio Kuromi plush toy'}),'wrong product format rejected');
 assert(!policy.identify({...offer,title:'Sanrio Kuromi Spooky House DIY book nook kit empty box'}));
+const beauty=policy.targets.find(x=>x.catalogueCandidate&&x.category==='beauty_hair');assert(beauty);assert(!policy.match(beauty,{...offer,title:beauty.query,condition:'Used'}),'expanded beauty queries retain hygiene guards');
 const targets=policy.targets.filter(x=>!x.catalogueCandidate).slice(0,24);
 const offers=targets.flatMap((t,i)=>{const item=audit.results.find(x=>x.id===t.id)?.candidates.find(x=>policy.match(t,x));return item?Array.from({length:i===0?1:8},(_,n)=>({...item,itemId:t.id+'-'+n,url:'https://www.ebay.com/itm/'+t.id+'-'+n})):[];});
 const varied=policy.varied(offers,[],240,{allowSparse:true}).items;
