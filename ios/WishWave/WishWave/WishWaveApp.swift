@@ -31,6 +31,10 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
     private(set) lazy var webView: WKWebView = {
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
+        // Keep the camera preview beneath WishWave's own shutter controls.
+        config.allowsInlineMediaPlayback = true
+        config.allowsPictureInPictureMediaPlayback = false
+        config.mediaTypesRequiringUserActionForPlayback = []
         config.userContentController.add(self, name: "findaiHaptic")
         config.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "wishwaveShare")
         config.userContentController.addUserScript(WKUserScript(source: """
