@@ -23,8 +23,8 @@ the regular retrieval queue can supply other categories; typed searches remain
 exempt from passive discovery caps.
 
 The interaction mock-up displays stable per-offer sample numbers from 1–10,000
-beside likes, comments, comparison, sends and bookmarks. Comment/send/save values
-are proportional to the like baseline. Each rail says “Preview counts”. No item
+underneath centered likes, comments, comparison, sends and bookmarks. Comment/send/save values
+are proportional to the like baseline. The visible preview caption is removed; accessible descriptions retain the sample designation. No item
 fields, API payloads, account counters, comments or analytics are fabricated.
 The mock-up is enabled for the existing treasure-test beta session or explicit
 interaction-preview=1, and disabled with interaction-preview=0. Ordinary sessions
