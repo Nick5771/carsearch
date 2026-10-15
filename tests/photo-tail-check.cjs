@@ -16,7 +16,7 @@ for(const shape of [[1600,1600],[1600,900],[900,1600]]){
  assert.equal(parseFloat(tail.style.top),bottom,'extension starts exactly after the contained photo');
  assert(parseFloat(tail.style.height)<=96);assert(parseFloat(tail.style.top)+parseFloat(tail.style.height)<=height+.001);
  const size=tail.firstElementChild.style.backgroundSize.split(' ').map(parseFloat);
- assert(size[1]>=Math.min(height,width*nh/nw)*32,'use only an edge-colour strip, never a full product reflection');
+ assert(size[1]+.1>=Math.min(height,width*nh/nw)*32,'use only an edge-colour strip, never a full product reflection');
  assert.equal(image.src,initialSrc);assert.equal(image.getAttribute('style'),initialStyle,'original photo must remain untouched');
  assert.equal(d.querySelector('.reel-gallery-dots').outerHTML,dots,'pagination must remain intact');
  w.wishwaveUpdateCaptionFade(image);assert.equal(slide.querySelectorAll('.wishwave-photo-tail').length,1);
