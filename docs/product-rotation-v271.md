@@ -24,7 +24,7 @@ exempt from passive discovery caps.
 
 The interaction mock-up displays stable per-offer sample numbers from 1–10,000
 underneath centered likes, comments, comparison, sends and bookmarks. Comment/send/save values
-are proportional to the like baseline. The visible preview caption is removed; accessible descriptions retain the sample designation. No item
+are proportional to the like baseline. Totals use exact numbers so a single interaction is visible. The display adds the current like/save state and real comment count to its sample baseline, including unlike and comment deletion; sample values never enter real metrics. The visible preview caption is removed; accessible descriptions retain the sample designation. No item
 fields, API payloads, account counters, comments or analytics are fabricated.
 The mock-up is enabled for the existing treasure-test beta session or explicit
 interaction-preview=1, and disabled with interaction-preview=0. Ordinary sessions
