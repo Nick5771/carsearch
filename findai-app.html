@@ -3,7 +3,7 @@
 <head>
 <script src="wishwave-discovery-surfaces.js?v=254"></script>
 <script src="wishwave-photo-hygiene.js?v=260"></script>
-<meta name="findai-build" content="v260-screenshot-photo-cleanup">
+<meta name="findai-build" content="v269-discovery-replenishment">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0d0f">
@@ -5897,10 +5897,10 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
       if(!stillOwnsFeed())return;
       const ready=await window.wishwaveReadyStarter?.(starter)||[];
       if(!stillOwnsFeed())return;
-      if(ready.length>=8){
+      if(ready.length){
         renderPersonalisedFeed(ready);feedState.loading=false;
         ready.completion?.then(items=>{if(stillOwnsFeed()){appendFeedItems(items.filter(item=>!currentFeedItems.some(old=>listingKey(old)===listingKey(item))),currentFeedData);writePersonalisedCache();}}).catch(()=>{});
-        setTimeout(()=>backgroundRefreshPersonalisedFeed(),250);return;
+        setTimeout(()=>{if(currentFeedItems.length<24&&starter.some(item=>!currentFeedItems.some(old=>listingKey(old)===listingKey(item))))loadMorePersonalisedListings();else backgroundRefreshPersonalisedFeed();},250);return;
       }
     }
     // The request pool owns the opening lanes until each has completed. Pagination
@@ -7048,7 +7048,9 @@ function hideFeedLoader(){
 }
 function appendFeedItems(items,data){
   if(feedState.source==='personalised'&&window.wishwaveAdmitRecommendations){
-    const incoming=window.wishwaveDiscoverySurfaces?.filter([...(feedState.backlog||[]),...items],'home')||[...(feedState.backlog||[]),...items];
+    const delivered=new Set(currentFeedItems.map(listingKey));
+    const unique=[...(feedState.backlog||[]),...items].filter(item=>{const key=listingKey(item);if(!key||delivered.has(key))return false;delivered.add(key);return true;});
+    const incoming=window.wishwaveDiscoverySurfaces?.filter(unique,'home')||unique;
     const admission=wishwaveAdmitRecommendations(incoming,currentFeedItems,36);
     feedState.backlog=admission.deferred.slice(0,120);items=admission.items;
   }
@@ -15810,6 +15812,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     let items=config._page?[]:v116PreviewItemsForConfig(config,pool);
     const exactIntent=!!config._findaiInterest?._prioritySearch;
     if((config._forceLive||config._page||exactIntent||items.length<6)&&queryUsed){
+      config._attempts=(config._attempts||0)+1;
       try{
         const result=await (window.wishwaveFetchRecommendationResults||fetchProductResults)(queryUsed,{page:(config._page||0)+1,cursor:config._cursor||null,limit:16,preserveExact:true,skipResolve:true,passive:true,signal:exploreBrowseController?.signal});
         if(generation!==exploreGeneration)return [];
@@ -15837,13 +15840,13 @@ if(typeof v116RenderMarketplaceListing==='function'){
     exploreLoading=true;const generation=exploreGeneration;
     try{
     const curated=exploreFilter==='for-you'&&window.wishwaveTreasureStatus?.().active;
-    if(curated&&(initial||sectionOwner.items.length<12)&&window.wishwaveStarterItems){
+    if(curated&&window.wishwaveStarterItems){
       const starter=await window.wishwaveStarterItems('search');
       if(generation!==exploreGeneration||exploreLiveSearchQuery||accountOwner!==window.wishwaveRecommendationAccount?.()||sectionOwner!==premiumDiscoverySections[0])return;
-      const fresh=window.FindAITreasureHunt.varied(starter.filter(item=>!seenExplore.has(exploreItemKey(item))&&wishwaveRecommendationCandidate(item,item._interestQuery)),sectionOwner.items,36).items;
+      const fresh=window.FindAITreasureHunt.varied(starter.filter(item=>!seenExplore.has(exploreItemKey(item))&&wishwaveRecommendationCandidate(item,item._interestQuery)),sectionOwner.items,36,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('search')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('search')||9}).items;
       fresh.forEach(item=>{seenExplore.add(exploreItemKey(item));sectionOwner.items.push(item);});
       if(fresh.length){renderExploreGrid({replace:false});cacheExploreBrowseState();}
-      if(sectionOwner.items.length>=24){exploreLoading=false;return;}
+      if(fresh.length&&sectionOwner.items.length>=24){exploreLoading=false;return;}
     }
     const pool=curated?[]:await v116GetPreviewPool(false);
     const batch=exploreQueue.splice(0,Math.min(curated?(initial?12:8):initial?10:5,exploreQueue.length));
@@ -15874,7 +15877,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
       const fresh=[];
       for(const item of group||[]){
         const key=exploreItemKey(item),family=curated?window.FindAITreasureHunt.identify(item)?.id||exploreFamilyKey(item):exploreFamilyKey(item);
-        const repeated=exploreFilter==='for-you'&&sectionOwner.items.slice(-20).some(old=>(curated?window.FindAITreasureHunt.identify(old)?.id||exploreFamilyKey(old):exploreFamilyKey(old))===family);
+        const repeated=exploreFilter==='for-you'&&sectionOwner.items.slice(-(curated?(window.wishwaveDiscoverySurfaces?.repeatWindow('search')||20):20)).some(old=>(curated?window.FindAITreasureHunt.identify(old)?.id||exploreFamilyKey(old):exploreFamilyKey(old))===family);
         if(!key||seenExplore.has(key)||!premiumProductImage(item)||Number(item.price)<=0||repeated||(batchFamilies.get(family)||0)>=(exploreFilter==='for-you'?1:2)||window.wishwaveDiscoverySurfaces&&!window.wishwaveDiscoverySurfaces.allowed(item,'search'))continue;
         seenExplore.add(key);batchFamilies.set(family,(batchFamilies.get(family)||0)+1);fresh.push(item);
       }
@@ -15889,7 +15892,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     batch.filter(config=>config._more!==false).forEach(config=>{config._forceLive=true;exploreQueue.push(config);});
     exploreEmptyBatches=incoming.length?0:exploreEmptyBatches+1;
     const target=sectionOwner.items;exploreLoading=false;cacheExploreBrowseState();
-    if(exploreQueue.length&&exploreEmptyBatches<3&&((!incoming.length)||(target.length<24||document.querySelector('#search .premium-search-home-scroll')?.scrollHeight-document.querySelector('#search .premium-search-home-scroll')?.scrollTop<document.querySelector('#search .premium-search-home-scroll')?.clientHeight*3.4)&&exploreTopups++<8))setTimeout(()=>{if(generation===exploreGeneration&&!exploreLiveSearchQuery&&document.body.dataset.activeTab==='search')loadExploreMore(false);},100);
+    if(exploreQueue.length&&(exploreEmptyBatches<3||curated&&exploreQueue.some(config=>!config._attempts))&&((!incoming.length)||(target.length<24||document.querySelector('#search .premium-search-home-scroll')?.scrollHeight-document.querySelector('#search .premium-search-home-scroll')?.scrollTop<document.querySelector('#search .premium-search-home-scroll')?.clientHeight*3.4)&&exploreTopups++<8))setTimeout(()=>{if(generation===exploreGeneration&&!exploreLiveSearchQuery&&document.body.dataset.activeTab==='search')loadExploreMore(false);},100);
     }finally{if(generation===exploreGeneration)exploreLoading=false;}
   }
   function bindExploreScroll(){
@@ -35408,7 +35411,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   starterFlight=flight;try{return select(await flight);}finally{if(starterFlight===flight)starterFlight=null;}
  };
  window.wishwaveReadyStarter=function(items){
-  const list=(items||[]).slice(0,36),verified=new Map();let cursor=0,published=false,resolveOpening;
+  const list=window.FindAITreasureHunt.varied(items||[],[],36,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9}).items,verified=new Map();let cursor=0,published=false,resolveOpening;
   const opening=new Promise(resolve=>resolveOpening=resolve);
   const snapshot=()=>[...verified.entries()].sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
   function publish(){if(published)return;published=true;const ready=snapshot();Object.defineProperty(ready,'completion',{value:completion});resolveOpening(ready);}
@@ -35429,7 +35432,8 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   finally{running--;waiting.shift()?.();}
  };
  const render=window.renderPersonalisedFeed,append=window.appendFeedItems;
- window.renderPersonalisedFeed=function(items,options){return render.call(this,active()?window.FindAITreasureHunt.varied(items,[],60).items:items,options);};
+ // Base rendering owns surface partitioning and adaptive diversity admission.
+ window.renderPersonalisedFeed=function(items,options){return render.call(this,items,options);};
  // Base append admission retains deferred targets in feedState.backlog. Filtering
  // them before that admission would discard the upcoming product buffer.
  window.appendFeedItems=function(items,data){return append.call(this,items,data);};
@@ -35666,5 +35670,14 @@ html body #findaiSendSheetBg.show.wishwave-sheet-entering .findai-send-sheet:not
  new MutationObserver(scan).observe(document.body,{childList:true,subtree:true});scan();
 })();
 </script>
+
+<style id="wishwave-theme-aware-nav-avatar-v268">
+html body #wishwaveMainNav #navProfileAvatar:not(.has-image){background:#24272d!important;border-color:#414650!important;color:#969ba3!important;--wishwave-avatar-disc:#24272d;--wishwave-avatar-person:#969ba3;}
+html.findai-light body #wishwaveMainNav #navProfileAvatar:not(.has-image){background:#e9ebef!important;border-color:#cdd1d8!important;color:#626b77!important;--wishwave-avatar-disc:#e9ebef;--wishwave-avatar-person:#626b77;}
+html body #wishwaveMainNav #navProfileAvatar:not(.has-image) .findai-default-avatar-icon>circle:first-child{fill:var(--wishwave-avatar-disc)!important;}
+html body #wishwaveMainNav #navProfileAvatar:not(.has-image) .findai-default-avatar-icon>circle:nth-child(2),
+html body #wishwaveMainNav #navProfileAvatar:not(.has-image) .findai-default-avatar-icon>path{fill:var(--wishwave-avatar-person)!important;}
+html body #wishwaveMainNav #navProfileAvatar:not(.has-image) .guest-profile-person-icon{color:inherit!important;stroke:currentColor!important;}
+</style>
 </body>
 </html>
