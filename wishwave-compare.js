@@ -1,13 +1,13 @@
 /* Comparable current asking prices. No sold-price or authenticity claims. */
 (function(root){
  'use strict';
- const noise=new Set(('a an and the for with of to in on from by new used preowned pre owned sealed unopened boxed box nib bnib mint excellent good condition authentic genuine official rare vintage complete tested working free shipping ship fast sale figure figures toy toys import imported japan japanese jp us usa uk mens men womens women size edition').split(' '));
+ const noise=new Set(('a an and the for with of to in on from by new used preowned pre owned sealed unopened boxed box nib bnib mint excellent good condition authentic genuine official rare vintage complete tested working free shipping ship fast expedited express delivery adult unisex sale figure figures toy toys import imported japan japanese jp us usa uk mens men womens women size edition').split(' '));
  function tokens(value){return [...new Set(String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/s[.\s]*h[.\s]*figuarts/g,'shfiguarts').replace(/chibimoon/g,'chibi moon').replace(/[’']/g,'').replace(/[^a-z0-9]+/g,' ').trim().split(/\s+/).filter(x=>x&&!noise.has(x)&&x.length>1))];}
  function condition(item){const s=String(item?.condition||item?.conditionText||'').toLowerCase();if(/refurb/.test(s))return 'refurbished';if(/pre.?owned|used|very good|excellent|acceptable|fair/.test(s))return 'used';if(/new|sealed|unopened|unworn/.test(s))return 'new';return '';}
  function currency(item,fallback=''){return String(item?.currency||fallback||'').toUpperCase();}
  function context(query,item={}){
   const base=tokens(query),extras=tokens(item.title).filter(x=>!base.includes(x));
-  return {query:[String(query||'').trim(),...extras].join(' ').slice(0,180),required:[...new Set([...base,...extras])],currency:currency(item),condition:condition(item)};
+  return {query:[...base,...extras].join(' ').slice(0,180),required:[...new Set([...base,...extras])],currency:currency(item),condition:condition(item)};
  }
  const variants=new Set('chibi pluto mercury mars jupiter venus saturn uranus neptune mini super pro max plus lite xl deluxe limited remastered reissue anniversary'.split(' '));
  function matches(item,ctx){
