@@ -5,7 +5,7 @@
 <script src="wishwave-discovery-rotation.js?v=271"></script>
 <script src="wishwave-interaction-preview.js?v=273"></script>
 <script src="wishwave-photo-hygiene.js?v=260"></script>
-<meta name="findai-build" content="v273.1-contrast-live-counts">
+<meta name="findai-build" content="v274-clean-reel-icons">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0d0f">
@@ -6777,7 +6777,7 @@ function renderSearchGridPages(items,data){
 }
 function renderSearchDetailCard(item,index){
   const title=String(item.title||'Product listing'),plan=appImagePlan(item,index,currentFeedData),image=plan.src,source=getSource(item),country=appListingCountry(item),shipping=item&&item._retailerLinkOnly?'':getShippingText(item),condition=conditionText(item);
-  return `<article class="search-detail-card" data-detail-index="${index}"><div class="search-detail-media">${image?`<img src="${escapeAttr(image)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,'${escapeAttr(item&& (item.retailer||item.source) || 'Retailer')}','${escapeAttr(item&&item.retailerLogo||'')}','image-fallback')">`:appRetailerProductPlaceholder(item,'image-fallback')}</div><div class="search-detail-content"><div class="search-detail-source">${sourceMarkup(source,item)}</div><h2 class="search-detail-title">${escapeHTML(title)}</h2><div class="search-detail-price">${escapeHTML(appListingPriceText(item,currentFeedData))}</div><div class="search-detail-meta">${condition?`<div><b>Condition</b> · ${escapeHTML(condition)}</div>`:''}${country?`<div><b>${escapeHTML(country)}</b></div>`:''}${shipping?`<div class="${/^free\s+shipping$/i.test(shipping)?'findai-free-shipping':''}">${escapeHTML(shipping)}</div>`:''}</div><div class="search-detail-actions"><button class="search-detail-view" onclick="openDeal(${index},event)">${item&&item._retailerLinkOnly?'View retailer':'View Deal'}</button><button class="search-detail-icon ${isTracked(item)?'active':''}" onclick="toggleLike(${index},event)" aria-label="Save"><svg viewBox="0 0 24 24" fill="${isTracked(item)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></button><button class="search-detail-icon" onclick="shareItem(${index},event)" aria-label="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 9.7 14.3"/><path d="m22 2-7.8 20-4.5-7.7L2 10.2 22 2Z"/></svg></button></div></div></article>`;
+  return `<article class="search-detail-card" data-detail-index="${index}"><div class="search-detail-media">${image?`<img src="${escapeAttr(image)}" data-image-alts="${appImageAltAttr(plan.alts)}" alt="${escapeAttr(title)}" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,'${escapeAttr(item&& (item.retailer||item.source) || 'Retailer')}','${escapeAttr(item&&item.retailerLogo||'')}','image-fallback')">`:appRetailerProductPlaceholder(item,'image-fallback')}</div><div class="search-detail-content"><div class="search-detail-source">${sourceMarkup(source,item)}</div><h2 class="search-detail-title">${escapeHTML(title)}</h2><div class="search-detail-price">${escapeHTML(appListingPriceText(item,currentFeedData))}</div><div class="search-detail-meta">${condition?`<div><b>Condition</b> · ${escapeHTML(condition)}</div>`:''}${country?`<div><b>${escapeHTML(country)}</b></div>`:''}${shipping?`<div class="${/^free\s+shipping$/i.test(shipping)?'findai-free-shipping':''}">${escapeHTML(shipping)}</div>`:''}</div><div class="search-detail-actions"><button class="search-detail-view" onclick="openDeal(${index},event)">${item&&item._retailerLinkOnly?'View retailer':'View Deal'}</button><button class="search-detail-icon ${isTracked(item)?'active':''}" onclick="toggleLike(${index},event)" aria-label="Save"><svg viewBox="0 0 24 24" fill="${isTracked(item)?'currentColor':'none'}" stroke="currentColor" stroke-width="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/></svg></button><button class="search-detail-icon" onclick="shareItem(${index},event)" aria-label="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4v4C7.5 8 3.8 11.5 2 18c3.3-3.5 6.5-5 11-5v4l8-6.5L13 4Z"/></svg></button></div></div></article>`;
 }
 function openSearchResultDetail(index){
   if(feedState.source==='personalised')return;
@@ -7015,14 +7015,14 @@ function renderReelCard(item,index,data){
         <span class="reel-social-label reel-like-count">${itemLikeLabel(item)}</span>
       </button>
       <button class="reel-social-action comment" data-comment-listing="${escapeAttr(wishwaveCommentMetricKey(item))}" onclick="openWishWaveComments(${index},event)" aria-label="Comments">
-        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5c-5.25 0-9.5 3.35-9.5 7.5s4.25 7.5 9.5 7.5c1.75 0 3.39-.37 4.79-1.02L21 21l-1.02-5.05A6.63 6.63 0 0 0 21.5 11c0-4.15-4.25-7.5-9.5-7.5Z"/></svg></span>
+        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3C6.5 3 2 6.4 2 10.7s4.5 7.7 10 7.7c1.8 0 3.6-.4 5.1-1L21 20l-1.2-4.5C21.2 14.2 22 12.5 22 10.7 22 6.4 17.5 3 12 3Z"/></svg></span>
         <span class="reel-social-label reel-comment-count">${commentCount>0?escapeHTML(String(commentCount)):''}</span>
       </button>
       <button class="reel-social-action compare" onclick="compareItem(${index},event)" aria-label="Compare prices for this product">
-        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 7H3m0 0 4-4M3 7l4 4M3 17h18m0 0-4-4m4 4-4 4"/></svg></span>
+        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 8V5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-3M14 8V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-3M5 18h2m10 0h2M8 12h8m-2-2 2 2-2 2M10 10l-2 2 2 2"/></svg></span>
       </button>
       <button class="reel-social-action share" onclick="shareItem(${index},event)" aria-label="Send this listing">
-        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 9.7 14.3"/><path d="m22 2-7.8 20-4.5-7.7L2 10.2 22 2Z"/></svg></span>
+        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4v4C7.5 8 3.8 11.5 2 18c3.3-3.5 6.5-5 11-5v4l8-6.5L13 4Z"/></svg></span>
       </button>
       ${window.wishwaveBookmarkMarkup?window.wishwaveBookmarkMarkup(item,index):''}
     </div>
@@ -35715,11 +35715,9 @@ html body #profile .social-profile-avatar:not(.has-image) .guest-profile-person-
 html body #profile .social-profile-avatar:not(.has-image) .findai-default-avatar-icon>circle:first-child{fill:var(--ww-avatar-disc)!important;}
 html body #profile .social-profile-avatar:not(.has-image) .findai-default-avatar-icon>circle:nth-child(2),
 html body #profile .social-profile-avatar:not(.has-image) .findai-default-avatar-icon>path{fill:var(--ww-avatar-person)!important;}
-/* A tight opposite-tone edge stays legible over both bright and dark photos. */
-html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createListingScreen) article.reel-card .reel-actions-rail .reel-social-action .reel-social-icon svg{filter:drop-shadow(1px 0 0 #090a0c) drop-shadow(-1px 0 0 #090a0c) drop-shadow(0 1px 0 #090a0c) drop-shadow(0 -1px 0 #090a0c)!important;}
-html.findai-light body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createListingScreen) article.reel-card .reel-actions-rail .reel-social-action .reel-social-icon svg{filter:drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff) drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)!important;}
-html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createListingScreen) article.reel-card .reel-actions-rail :is(.ww-preview-count,.reel-social-label){text-shadow:1px 0 #090a0c,-1px 0 #090a0c,0 1px #090a0c,0 -1px #090a0c!important;}
-html.findai-light body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createListingScreen) article.reel-card .reel-actions-rail :is(.ww-preview-count,.reel-social-label){text-shadow:1px 0 #fff,-1px 0 #fff,0 1px #fff,0 -1px #fff!important;}
+/* Clean single strokes for the approved reel actions; no added halos. */
+html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createListingScreen) article.reel-card .reel-actions-rail .reel-social-action .reel-social-icon svg{filter:none!important;}
+html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createListingScreen) article.reel-card .reel-actions-rail :is(.ww-preview-count,.reel-social-label){text-shadow:none!important;}
 </style>
 </body>
 </html>
