@@ -27,7 +27,7 @@ const EPN_CAMPAIGN_ID = '5339155260';
 // deploy automatically invalidates old cached responses instead of serving stale
 // results for 5 minutes. It is also returned in meta, so you can confirm which
 // engine is actually live from DevTools rather than guessing.
-const ENGINE_VERSION = 'v235-ebay-shared-quota-gateway';
+const ENGINE_VERSION = 'v282-etsy-search-restored';
 // v120: restores live source progress metadata + search UX while preserving the Claude/eBay result fix.
 // v116: preserves owned retailer search while making eBay usage quota-safe and separating passive discovery from live shopper search.
 // EPN rotation IDs (mkrid) per marketplace. Only markets where eBay Partner
@@ -5250,6 +5250,8 @@ function findAISearchSourcePlan(query,country,env=null,identity=null) {
     add(findAISourceIconDescriptor('Amazon',wishwaveAmazonHost(c),'marketplace'));
   }else if(intent.source==='ebay'){
     add(findAISourceIconDescriptor('eBay',findAISourceIconEbayHost(c),'marketplace'));
+  }else if(intent.source==='etsy'){
+    add(findAISourceIconDescriptor('Etsy','etsy.com','specialist'));
   }else if(intent.source==='ali'){
     add(findAISourceIconDescriptor('AliExpress','aliexpress.com','marketplace'));
   }else{
@@ -5280,7 +5282,7 @@ function findAISearchSourcePlan(query,country,env=null,identity=null) {
   if(planCategory==='sneakers' && (!env || (env.DB&&env.STOCKX_CLIENT_SECRET))) add(findAISourceIconDescriptor('StockX','stockx.com','specialist'));
   if(planCategory==='music' && (!env || (env.DISCOGS_KEY&&env.DISCOGS_SECRET))) add(findAISourceIconDescriptor('Discogs','discogs.com','specialist'));
   if(planCategory==='lego' && (!env || (env.DB&&env.BL_CONSUMER_KEY&&env.BL_TOKEN))) add(findAISourceIconDescriptor('BrickLink','bricklink.com','specialist'));
-  if(findAIEtsyRelevantQuery(intent.original||effective) && (!env || env.ETSY_KEY)) add(findAISourceIconDescriptor('Etsy','etsy.com','specialist'));
+  if((!intent.source&&findAIEtsyRelevantQuery(intent.original||effective)||intent.source==='etsy') && (!env || etsyCredentials(env).configured)) add(findAISourceIconDescriptor('Etsy','etsy.com','specialist'));
 
   // The loading plan should mirror the web lanes FindAI can genuinely consult for the
   // resolved category. These are not fake results: they are retailer discovery targets,
@@ -8389,8 +8391,82 @@ function findAIRankMergedResults(items,intent,query,country,maxItems) {
     _authorityDestinationLabel:row.item&&row.item._retailerLinkOnly?findAIAuthorityDestinationLabel(row.item):''
   }));
 }
+// Etsy v3 public listing search. Credentials stay in Worker secrets. ETSY_KEY
+// accepts either a keystring or the complete keystring:shared_secret header.
+function etsyCredentials(env={}) {
+  env=env||{};
+  const key=String(env.ETSY_KEY||env.ETSY_API_KEY||env.ETSY_KEYSTRING||'').trim();
+  const secret=String(env.ETSY_SHARED_SECRET||env.ETSY_SECRET||env.ETSY_API_SECRET||'').trim();
+  const paired=key.includes(':')?key.split(':'):[];
+  const configured=paired.length===2?!!(paired[0]&&paired[1]):!!(key&&secret);
+  return {header:configured?(paired.length?key:key+':'+secret):'',configured,
+    keyPresent:!!key,secretPresent:!!secret||!!(paired.length===2&&paired[1]),
+    status:configured?'configured':key?'missing-shared-secret':'missing-api-key'};
+}
+async function etsyRequest(url,env) {
+  const credentials=etsyCredentials(env);
+  if(!credentials.configured)return {ok:false,status:0,results:[],error:credentials.status};
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),2000);
+  try{
+    const response=await fetch(url,{headers:{'x-api-key':credentials.header,Accept:'application/json'},signal:controller.signal});
+    // Do not expose upstream bodies/headers: authentication errors may echo credentials.
+    if(!response.ok)return {ok:false,status:response.status,results:[],error:'Etsy API HTTP '+response.status};
+    const data=await response.json();
+    if(!Array.isArray(data.results))return {ok:false,status:502,results:[],error:'Invalid Etsy listing response'};
+    return {ok:true,status:response.status,results:data.results,count:Number(data.count)||0};
+  }catch(error){
+    return {ok:false,status:0,results:[],error:controller.signal.aborted?'Etsy API timed out':'Etsy API request failed'};
+  }finally{clearTimeout(timer);}
+}
+async function etsyFetchRaw(query,env,limit=8,country='AU') {
+  const c=webDiscoveryCountry(country),url=new URL('https://openapi.etsy.com/v3/application/listings/active');
+  url.search=new URLSearchParams({keywords:String(query||'').trim().slice(0,180),
+    limit:String(Math.max(1,Math.min(20,Number(limit)||8))),sort_on:'score',
+    is_safe:'true',currency:currencyFor(c),buyer_country:c==='UK'?'GB':c}).toString();
+  const result=await etsyRequest(url.toString(),env);
+  return {...result,tried:['active-listings'],credentials:etsyCredentials(env).status};
+}
+function etsyListingItem(row) {
+  if(!row||!/^\d+$/.test(String(row.listing_id||''))||row.state&&row.state!=='active'||Number(row.quantity)===0)return null;
+  const amount=Number(row.price&&row.price.amount),divisor=Number(row.price&&row.price.divisor);
+  const currency=String(row.price&&row.price.currency_code||'').toUpperCase();
+  if(!Number.isFinite(amount)||!Number.isFinite(divisor)||!(amount>0)||!(divisor>0)||!/^[A-Z]{3}$/.test(currency))return null;
+  const decode=text=>String(text||'').replace(/&(?:amp|quot|apos|lt|gt|#39|#x27);/gi,entity=>({'&amp;':'&','&quot;':'"','&apos;':"'",'&lt;':'<','&gt;':'>','&#39;':"'",'&#x27;':"'"}[entity.toLowerCase()]||entity));
+  const title=decode(row.title).replace(/\s+/g,' ').trim();if(!title)return null;
+  const photos=Array.isArray(row.images)?row.images:Array.isArray(row.Images)?row.Images:[];
+  const images=photos.slice().sort((a,b)=>(Number(a.rank)||0)-(Number(b.rank)||0))
+    .map(photo=>photo.url_fullxfull||photo.url_570xN||photo.url_170x135||'')
+    .filter(url=>/^https:\/\/(?:[a-z0-9-]+\.)*etsystatic\.com\//i.test(url));
+  const url='https://www.etsy.com/listing/'+row.listing_id;
+  return {itemId:'etsy-'+row.listing_id,listingId:String(row.listing_id),source:'Etsy',_etsy:true,
+    title,price:amount/divisor,currency,url,itemWebUrl:url,image:images[0]||'',images,
+    shippingCost:null,shippingText:'Shipping calculated on Etsy',condition:'',
+    retailer:'Etsy',retailerHost:'etsy.com',shopId:String(row.shop_id||'')};
+}
+async function searchEtsy(query,env,limit=8,country='AU') {
+  const credentials=etsyCredentials(env);
+  if(!credentials.configured)throw new Error('Etsy: '+credentials.status);
+  const q=String(query||'').trim().slice(0,180);if(!q)return [];
+  const c=webDiscoveryCountry(country),n=Math.max(1,Math.min(20,Number(limit)||8));
+  const key='etsy-search-v282:'+c+':'+currencyFor(c)+':'+n+':'+q.toLowerCase();
+  try{const cached=await env.CACHE?.get(key,'json');if(Array.isArray(cached)&&cached.length)return cached;}catch(_){}
+  const result=await etsyFetchRaw(q,env,n,c);
+  if(!result.ok)throw new Error(result.error);
+  if(!result.results.length)return [];
+  // Active search does not include photos. One bulk lookup attaches real images
+  // for the entire batch instead of a separate paid request for every listing.
+  const ids=result.results.map(row=>String(row.listing_id||'')).filter(id=>/^\d+$/.test(id));
+  const details=new URL('https://openapi.etsy.com/v3/application/listings');
+  details.search=new URLSearchParams({listing_ids:ids.join(','),includes:'Images',currency:currencyFor(c),buyer_country:c==='UK'?'GB':c}).toString();
+  const enriched=ids.length?await etsyRequest(details.toString(),env):{ok:true,results:[]};
+  if(!enriched.ok)throw new Error(enriched.error);
+  const byId=new Map(enriched.results.map(row=>[String(row.listing_id),row]));
+  const items=result.results.map(row=>etsyListingItem({...row,...byId.get(String(row.listing_id))})).filter(Boolean);
+  if(items.length)try{await env.CACHE?.put(key,JSON.stringify(items),{expirationTtl:900});}catch(_){}
+  return items;
+}
 function findAIEtsyRelevantQuery(query) {
-  return /\b(?:handmade|handcrafted|custom|customised|customized|personalised|personalized|vintage|antique|craft|crochet|knit|wedding|jewellery|jewelry|art print|printable|embroidery|engraved|artisan)\b/i.test(String(query||''));
+  return /\b(?:handmade|handcrafted|custom|customised|customized|personalised|personalized|vintage|antique|craft|crochet|knit|wedding|jewellery|jewelry|art print|wall art|painting|paintings|poster|pottery|ceramic|ceramics|vase|vases|printable|embroidery|engraved|artisan)\b/i.test(String(query||''));
 }
 
 // BrickLink's public Store API exposes a price guide rather than other sellers'
@@ -8447,7 +8523,7 @@ async function findAIFetchSpecialistResults(query,intent,country,env,ctx=null) {
     }));
   }
   if(wantsDiscogs)jobs.push(promiseWithin(searchDiscogs(q,country,env,explicit==='discogs'?8:3),5000,[]).then(rows=>(rows||[]).map(x=>Object.assign(x,{_discogs:true,source:'Discogs'}))));
-  if(wantsEtsy)jobs.push(promiseWithin(searchEtsy(q,env,explicit==='etsy'?8:3),5000,[]).then(rows=>(rows||[]).map(x=>Object.assign(x,{_etsy:true,source:'Etsy'}))));
+  if(wantsEtsy)jobs.push(promiseWithin(searchEtsy(q,env,explicit==='etsy'?12:8,country),5000,[]).then(rows=>(rows||[]).map(x=>Object.assign(x,{_etsy:true,source:'Etsy'}))));
   if(wantsBrickLink)jobs.push(promiseWithin(findAIBrickLinkSearchResults(q,country,env),6000,[]));
   if(!jobs.length)return [];
   const settled=await Promise.allSettled(jobs),out=[];
@@ -8721,6 +8797,7 @@ function parseSearchIntent(raw) {
   // Marketplace intent. Keep these out of product keywords.
   take(/\b(?:on|from|via|at|off)?\s*ebay(?:\s+only)?\b/gi, 'ebay', 's');
   take(/\b(?:on|from|via|at|off)?\s*ali\s*express(?:\s+only)?\b/gi, 'ali', 's');
+  take(/\b(?:on|from|via|at|off)?\s*etsy(?:\s+only)?\b/gi, 'etsy', 's');
   take(/\b(?:on|from|via|at|off)\s+stock\s*x(?:\s+only)?\b/gi, 'stockx', 's');
   take(/\b(?:on|from|via|at|off)\s+amazon(?:\s+only)?\b/gi, 'amazon', 's');
   take(/\b(?:on|from|via|at|off)\s+(?:wish\s*wave|findai)(?:\s+only)?\b/gi, 'wishwave', 's');
@@ -20107,7 +20184,7 @@ async function findAIFastShoppingSearch(query,country,env,ctx,opts={}){
 // approved Amazon connector is available, setting AMAZON_SHOPPING_CONNECTOR_URL
 // makes it join this exact same pipeline without any frontend rewrite.
 // ═══════════════════════════════════════════════════════════════════════════
-const WISHWAVE_SHOPPING_ENGINE_VERSION = 'wishwave-shopping-v1.0';
+const WISHWAVE_SHOPPING_ENGINE_VERSION = 'wishwave-shopping-v1.1-etsy';
 
 function wishwaveAmazonHost(country){
   const c=webDiscoveryCountry(country||'AU');
@@ -20413,6 +20490,7 @@ function wishwaveShoppingEngineStatus(env,country='AU'){
       ebay:{configured:!!(EBAY_CLIENT_ID&&env&&env.EBAY_CLIENT_SECRET),live:true},
       aliexpress:{configured:!!(env&&env.ALI_APP_KEY&&env.ALI_APP_SECRET),live:true},
       stockx:{configured:!!(env&&env.STOCKX_CLIENT_SECRET),live:true,relevantCategories:['sneakers','streetwear']},
+      etsy:{configured:etsyCredentials(env).configured,live:etsyCredentials(env).configured,status:etsyCredentials(env).status,required:['ETSY_KEY','ETSY_SHARED_SECRET']},
       wishwave:{configured:!!(env&&env.DB&&mpPublicMarketplaceEnabled(env)),live:true},
       indexedRetailers:{configured:!!(env&&env.DB),live:true},
       amazon:{
@@ -20494,13 +20572,18 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
       {enabled:mpPublicMarketplaceEnabled(env)});
   }
 
-  const specialistEligible=should('stockx')||(!explicitSource&&!passive);
+  if(!sourceOffset&&should('etsy')&&(explicitSource==='etsy'||findAIEtsyRelevantQuery(raw))){
+    addJob('etsy','Etsy','etsy.com','specialist',4400,
+      ()=>searchEtsy(effective,env,explicitSource==='etsy'?Math.min(20,limit):8,c));
+  }
+
+  const specialistEligible=explicitSource==='stockx'||should('stockx')&&!!wishwaveShoppingStockxCategory(effective);
   if(!sourceOffset&&specialistEligible){
     addJob('specialists','Specialists','stockx.com','specialist',
       explicitSource==='stockx'?6200:(wishwaveShoppingStockxCategory(effective)?5500:2100),
       ()=>findAIFetchSpecialistResults(
         effective,
-        explicitSource==='stockx'?{...(intent||{}),source:'stockx'}:intent,
+        {...(intent||{}),source:'stockx'},
         c,env,ctx
       )
     );
@@ -29272,29 +29355,22 @@ export default {
         }
       }
 
-      // ── Etsy handmade/vintage cards ─ GET /etsy/search?q=... ─────────────────
-      // Read-only keyword search across Etsy. Client only calls this for
-      // non-sneaker queries. Safe: [] on any failure or missing key.
+      // Etsy diagnostics report configuration/provider failures without revealing secrets.
       if (url.pathname === '/etsy/search') {
         const q = (url.searchParams.get('q') || '').trim();
-        const limit = Math.max(1, Math.min(4, parseInt(url.searchParams.get('limit') || '3', 10) || 3));
-        if (!q) return jsonResp({ items: [] }, 200);
-        // ?debug=1 → return Etsy's raw status/body so we can see exactly why a
-        // call failed (403 = auth, 400 = bad param, etc.) instead of guessing.
+        const limit = Math.max(1, Math.min(20, Number(url.searchParams.get('limit')) || 8));
+        const country = requestedCountry(request,url);
+        const credentials=etsyCredentials(env);
+        if (!q) return jsonResp({ items: [],status:credentials.status }, 200, {'Cache-Control':'no-store'});
         if (url.searchParams.get('debug') === '1') {
-          try {
-            const r = await etsyFetchRaw(q, env, limit);
-            return jsonResp({ ok: r.ok, status: r.status, tried: r.tried, resultCount: (r.results || []).length, body: r.body || '' }, 200);
-          } catch (e) {
-            return jsonResp({ error: String(e && e.message || e) }, 200);
-          }
+          const r=await etsyFetchRaw(q,env,limit,country);
+          return jsonResp({ok:r.ok,status:r.status,credentials:r.credentials,tried:r.tried,resultCount:r.results.length,error:r.error||''},200,{'Cache-Control':'no-store'});
         }
         try {
-          const items = await searchEtsy(q, env, limit);
-          const cc = items.length ? 'public, max-age=1800' : 'no-store';
-          return jsonResp({ items }, 200, { 'Cache-Control': cc });
-        } catch (_) {
-          return jsonResp({ items: [] }, 200, { 'Cache-Control': 'no-store' });
+          const items = await searchEtsy(q, env, limit, country);
+          return jsonResp({ items,status:items.length?'returned':'checked',country }, 200, { 'Cache-Control':items.length?'public, max-age=300':'no-store' });
+        } catch (error) {
+          return jsonResp({items:[],status:credentials.configured?'failed':credentials.status,error:String(error.message||'Etsy search failed')},200,{'Cache-Control':'no-store'});
         }
       }
       // For the custom Google button (OAuth2 token flow). Verifies the token was
@@ -30114,7 +30190,7 @@ export default {
         promiseWithin(Promise.resolve(searchListings(rawKeywords,maxPriceParam,country,env,false,{passive:passiveRequest})).catch(()=>({items:[],meta:{shoppingIntent:parsedIntent},error:'core_search_failed'})),passiveRequest?2200:3800,{items:[],meta:{shoppingIntent:parsedIntent},error:'core_search_timeout'}),
         promiseWithin(indexedRaw,650,{items:[]}),
         promiseWithin(webRaw,passiveRequest?850:1800,webFallback),
-        promiseWithin(specialistRaw,passiveRequest?1200:2500,[]),
+        promiseWithin(specialistRaw,parsedIntent.source==='etsy'||findAIEtsyRelevantQuery(effectiveQuery)?4400:(passiveRequest?1200:2500),[]),
         promiseWithin(seededSemantic,passiveRequest?20:1400,null),
         promiseWithin(semanticAiRaw,passiveRequest?20:500,null),
         promiseWithin(semanticAiRecoveryRaw,passiveRequest?20:1500,null)
@@ -30302,7 +30378,7 @@ export default {
       const sourceActivity=findAISearchSourceActivity(rawKeywords,country,{...meta,...webMeta},mergedItems,env);
       const healthyForCache=mergedItems.length>0&&findAIStrongResultCount(mergedItems,correctedQuery||effectiveQuery)>0;
       const cacheHeader=healthyForCache?(passiveRequest?'public, max-age=600, s-maxage=900':'public, max-age=45, s-maxage=60'):'no-store';
-      const qResp = jsonResp({ items: mergedItems, ...meta, ...webMeta, findaiMarketplaceCount: findaiListings.length, etsyCount: 0, country, cached: false, serverElapsedMs, sourceActivity, sourceHealth:{coreError:String(coreSearch&&coreSearch.error||''),indexedRetailers:Array.isArray(indexedWeb&&indexedWeb.items)?indexedWeb.items.length:0,specialists:Array.isArray(specialistItems)?specialistItems.length:0}, searchNarrative }, 200, { 'Cache-Control': cacheHeader });
+      const qResp = jsonResp({ items: mergedItems, ...meta, ...webMeta, findaiMarketplaceCount: findaiListings.length, etsyCount: mergedItems.filter(item=>item._etsy||String(item.source||'').toLowerCase()==='etsy').length, country, cached: false, serverElapsedMs, sourceActivity, sourceHealth:{coreError:String(coreSearch&&coreSearch.error||''),indexedRetailers:Array.isArray(indexedWeb&&indexedWeb.items)?indexedWeb.items.length:0,specialists:Array.isArray(specialistItems)?specialistItems.length:0}, searchNarrative }, 200, { 'Cache-Control': cacheHeader });
       if(healthyForCache){try { await qCache.put(qKey, qResp.clone()); } catch (_) {}}
       return qResp;
 
