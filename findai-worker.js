@@ -8456,7 +8456,7 @@ async function searchEtsy(query,env,limit=8,country='AU') {
   // Active search does not include photos. One bulk lookup attaches real images
   // for the entire batch instead of a separate paid request for every listing.
   const ids=result.results.map(row=>String(row.listing_id||'')).filter(id=>/^\d+$/.test(id));
-  const details=new URL('https://openapi.etsy.com/v3/application/listings');
+  const details=new URL('https://openapi.etsy.com/v3/application/listings/batch');
   details.search=new URLSearchParams({listing_ids:ids.join(','),includes:'Images',currency:currencyFor(c),buyer_country:c==='UK'?'GB':c}).toString();
   const enriched=ids.length?await etsyRequest(details.toString(),env):{ok:true,results:[]};
   if(!enriched.ok)throw new Error(enriched.error);

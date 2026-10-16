@@ -9,7 +9,9 @@ function runtime(mode='success'){
    if(mode==='network')throw Error('private upstream detail');
    if(mode==='auth')return new Response('secret-key:secret-value',{status:403});
    if(mode==='invalid')return Response.json({bad:'response'});
-   const detail=new URL(url).pathname.endsWith('/listings');
+   const pathname=new URL(url).pathname;
+   if(!['/v3/application/listings/active','/v3/application/listings/batch'].includes(pathname))return new Response('Unknown endpoint',{status:404});
+   const detail=pathname==='/v3/application/listings/batch';
    if(mode==='images-failed'&&detail)return new Response('down',{status:503});
    return Response.json({count:1,results:mode==='empty'?[]:[{...listing(),...(detail?{images:[{rank:2,url_fullxfull:'https://i.etsystatic.com/other.jpg'},{rank:1,url_fullxfull:'https://i.etsystatic.com/vase.jpg'}]}:{} )}]});
  }});
@@ -29,7 +31,7 @@ function runtime(mode='success'){
  assert.equal(items[0].url,'https://www.etsy.com/listing/123');assert.equal(items[0].shippingCost,null);
  assert.equal(r.calls.length,2);assert.equal(r.calls[0].options.headers['x-api-key'],'test-key:test-secret');
  const search=new URL(r.calls[0].url);assert.equal(search.searchParams.get('currency'),'AUD');assert.equal(search.searchParams.get('buyer_country'),'AU');
- const detail=new URL(r.calls[1].url);assert.equal(detail.searchParams.get('includes'),'Images');assert.equal(detail.searchParams.get('listing_ids'),'123');
+ const detail=new URL(r.calls[1].url);assert.equal(detail.pathname,'/v3/application/listings/batch');assert.equal(detail.searchParams.get('includes'),'Images');assert.equal(detail.searchParams.get('listing_ids'),'123');
  pass('Map live listing prices and ordered real photos using one bulk image lookup');
  await r.ctx.searchEtsy('vintage ceramic vase',r.env,8,'AU');assert.equal(r.calls.length,2);pass('Reuse successful cached results');
  await r.ctx.searchEtsy('vintage ceramic vase',r.env,8,'UK');assert.equal(r.calls.length,4);assert.equal(new URL(r.calls[2].url).searchParams.get('buyer_country'),'GB');pass('Separate market caches and send Etsy GB for UK shoppers');
