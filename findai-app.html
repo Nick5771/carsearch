@@ -5,7 +5,7 @@
 <script src="wishwave-discovery-rotation.js?v=271"></script>
 <script src="wishwave-interaction-preview.js?v=273"></script>
 <script src="wishwave-photo-hygiene.js?v=260"></script>
-<meta name="findai-build" content="v274-clean-reel-icons">
+<meta name="findai-build" content="v275-photo-aware-actions">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0d0f">
@@ -7015,11 +7015,11 @@ function renderReelCard(item,index,data){
         <span class="reel-social-label reel-like-count">${itemLikeLabel(item)}</span>
       </button>
       <button class="reel-social-action comment" data-comment-listing="${escapeAttr(wishwaveCommentMetricKey(item))}" onclick="openWishWaveComments(${index},event)" aria-label="Comments">
-        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3C6.5 3 2 6.4 2 10.7s4.5 7.7 10 7.7c1.8 0 3.6-.4 5.1-1L21 20l-1.2-4.5C21.2 14.2 22 12.5 22 10.7 22 6.4 17.5 3 12 3Z"/></svg></span>
+        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 11.5a9.5 9.5 0 1 0-4.1 7.8L21 21l-1.5-4.2a9.4 9.4 0 0 0 1.5-5.3Z"/></svg></span>
         <span class="reel-social-label reel-comment-count">${commentCount>0?escapeHTML(String(commentCount)):''}</span>
       </button>
       <button class="reel-social-action compare" onclick="compareItem(${index},event)" aria-label="Compare prices for this product">
-        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 8V5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-3M14 8V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-3M5 18h2m10 0h2M8 12h8m-2-2 2 2-2 2M10 10l-2 2 2 2"/></svg></span>
+        <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/></svg></span>
       </button>
       <button class="reel-social-action share" onclick="shareItem(${index},event)" aria-label="Send this listing">
         <span class="reel-social-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 4v4C7.5 8 3.8 11.5 2 18c3.3-3.5 6.5-5 11-5v4l8-6.5L13 4Z"/></svg></span>
@@ -35719,5 +35719,46 @@ html body #profile .social-profile-avatar:not(.has-image) .findai-default-avatar
 html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createListingScreen) article.reel-card .reel-actions-rail .reel-social-action .reel-social-icon svg{filter:none!important;}
 html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createListingScreen) article.reel-card .reel-actions-rail :is(.ww-preview-count,.reel-social-label){text-shadow:none!important;}
 </style>
+<style id="wishwave-photo-aware-actions-v275">
+/* Only controls actually over the photo use a white foreground. */
+html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createListingScreen) article.reel-card .reel-actions-rail .reel-social-icon.ww-on-photo,
+html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createListingScreen) article.reel-card .reel-actions-rail .reel-social-icon.ww-on-photo svg{color:#fff!important;stroke:currentColor!important;}
+html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createListingScreen) article.reel-card .reel-actions-rail .reel-social-icon.ww-on-photo svg{filter:drop-shadow(0 1px 2px rgba(0,0,0,.65))!important;}
+html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createListingScreen) article.reel-card .reel-actions-rail :is(.ww-preview-count,.reel-social-label).ww-on-photo{color:#fff!important;text-shadow:0 1px 3px rgba(0,0,0,.75)!important;}
+html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createListingScreen) article.reel-card .reel-actions-rail .reel-social-action.like.active .reel-social-icon svg{color:#ff3045!important;stroke:#ff3045!important;}
+</style>
+<script id="wishwave-photo-aware-actions-v275-script">
+(function(){
+ 'use strict';
+ const pageWindow=window;
+ let queued=false;
+ const observed=new WeakSet(),resize=window.ResizeObserver?new ResizeObserver(schedule):null;
+ function schedule(){if(!pageWindow.document?.documentElement)return;if(!queued){queued=true;requestAnimationFrame(()=>{queued=false;paint();});}}
+ function photoRect(img,stage,card){
+  if(!img?.naturalWidth||!img.naturalHeight)return null;
+  const box=img.getBoundingClientRect(),clip=stage.getBoundingClientRect(),outer=card.getBoundingClientRect();
+  if(!box.width||!box.height)return null;
+  const fit=getComputedStyle(img).objectFit,scale=fit==='cover'?Math.max(box.width/img.naturalWidth,box.height/img.naturalHeight):Math.min(box.width/img.naturalWidth,box.height/img.naturalHeight);
+  const width=fit==='fill'?box.width:img.naturalWidth*scale,height=fit==='fill'?box.height:img.naturalHeight*scale;
+  return {left:Math.max(box.left+(box.width-width)/2,clip.left,outer.left),right:Math.min(box.left+(box.width+width)/2,clip.right,outer.right),top:Math.max(box.top+(box.height-height)/2,clip.top,outer.top),bottom:Math.min(box.top+(box.height+height)/2,clip.bottom,outer.bottom)};
+ }
+ function paint(){
+  if(!pageWindow.document?.documentElement)return;
+  document.querySelectorAll('article.reel-card').forEach(card=>{
+   const rail=card.querySelector('.reel-actions-rail'),stage=card.querySelector('.hero-stage');if(!rail||!stage)return;
+   const outer=card.getBoundingClientRect();if(outer.bottom<=0||outer.top>=window.innerHeight)return;
+   const index=stage.dataset.galleryIndex||'0',img=stage.querySelector('[data-gallery-slide="'+index+'"] img.hero-image')||stage.querySelector('img.hero-image'),bounds=photoRect(img,stage,card);
+   for(const node of [card,img])if(node&&resize&&!observed.has(node)){observed.add(node);resize.observe(node);}
+   rail.querySelectorAll('.reel-social-icon,.reel-social-label,.ww-preview-count').forEach(node=>{
+    const rect=node.getBoundingClientRect(),x=rect.left+rect.width/2,y=rect.top+rect.height/2;
+    const over=!!bounds&&rect.width>0&&rect.height>0&&x>=bounds.left&&x<=bounds.right&&y>=bounds.top&&y<=bounds.bottom;
+    if(node.classList.contains('ww-on-photo')!==over)node.classList.toggle('ww-on-photo',over);
+   });
+  });
+ }
+ new MutationObserver(records=>{if(records.some(r=>r.type==='childList'||r.target===document.documentElement||r.target.matches?.('img.hero-image,.hero-stage,article.reel-card')))schedule();}).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class','src','data-gallery-index']});
+ document.addEventListener('load',schedule,true);document.addEventListener('scroll',schedule,true);document.addEventListener('transitionend',schedule,true);window.addEventListener('resize',schedule,{passive:true});schedule();
+})();
+</script>
 </body>
 </html>
