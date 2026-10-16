@@ -1,0 +1,11 @@
+Compare retrieves by product identity instead of requiring the whole seller title.
+
+Known LEGO set numbers use brand + set number (for example LEGO 75356). Structured style/SKU/model fields and identifiable alphanumeric model codes use brand + code. Card numbers retain the card name, exact fraction, edition/language and grading constraints. Other products use the cleaned product query with source character, colour, version and edition markers; seller-only title extras are not mandatory. Common spelling/format aliases are normalized (S.H.Figuarts, ChibiMoon, colour/gray, GameBoy, N64, PlayStation and light-stick version forms).
+
+If the first retrieval and up to two additional pages produce fewer than four comparable offers, one shorter alternative retrieval is available where a safe alternative exists. Every returned offer is checked against the same fixed source identity. Model identifiers, variants, currency and condition rules are never relaxed because results are sparse. An unsuccessful alternative does not discard the original pagination cursor. A successful alternative owns subsequent pagination. Exact listing IDs/URLs are deduplicated across batches.
+
+Matching offers in another condition are displayed under Other conditions with their condition text. They are excluded from Matches, Lowest and Typical price. Unknown condition is also separate when the source condition is known. The summary still uses loaded, same-condition asking prices with known shipping in one currency; it is not a sold-price or whole-market estimate.
+
+Accessory and false-positive guards reject known wrong sets/models, incompatible edition/character/version markers, card grade mismatches, replicas, compatible knockoffs, instructions, empty packaging, light kits, parts and standalone accessories. These are conservative lexical rules, not authentication or guaranteed semantic equivalence. Missing essential evidence can still exclude a valid offer.
+
+Checks cover ten category families, the reported LEGO 75356 regression, stronger identifier formatting aliases, positive shorter-title cases and adversarial wrong products/accessories. DOM tests cover broader-query recovery, other-condition separation, correct price statistics, pagination/deduplication and stale-response protection. Existing startup and Compare checks also pass.
