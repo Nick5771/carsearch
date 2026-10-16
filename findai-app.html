@@ -35455,7 +35455,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
    const rotated=window.wishwaveDiscoveryRotation?.rank(owned);if(rotated)return rotated;
    return [...owned].sort((a,b)=>(personalisedSeenInfo(a).count-personalisedSeenInfo(b).count)||seededUnit(personalisedSessionSeed,listingKey(a))-seededUnit(personalisedSessionSeed,listingKey(b)));
   };
-  if(starterCache&&Date.now()-starterCache.at<60000)return select(starterCache.items);
+  if(starterCache&&Date.now()-starterCache.at<(starterCache.failed?5000:60000))return select(starterCache.items);
   if(starterFlight)return select(await starterFlight);
   const valid=items=>(Array.isArray(items)?items:[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery)&&Number(item._catalogueObservedAt||item._ebayFetchedAt)>Date.now()-6*3600000);
   const saved=()=>{try{const row=JSON.parse(localStorage.getItem('ww_starter_reservoir_v280_US')||'null');return row&&Date.now()-Number(row.at)>=0&&Date.now()-Number(row.at)<10*60000?valid(row.items):[];}catch(_){return [];}};
@@ -35469,7 +35469,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
       const retained=saved();if(retained.length){starterCache={at:Date.now()-45000,items:retained};return retained;}
       if(!attempt)await new Promise(resolve=>setTimeout(resolve,450));
     }
-    return [];
+    starterCache={at:Date.now(),items:[],failed:true};return [];
   })();
   starterFlight=flight;try{return select(await flight);}finally{if(starterFlight===flight)starterFlight=null;}
  };
