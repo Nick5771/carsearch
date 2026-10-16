@@ -8,6 +8,7 @@ const prepared=api.prepare(rows,ctx);assert.deepEqual(prepared.map(x=>x.itemId),
 assert.equal(api.quote(offer('null',20,{shippingCost:null})).known,false,'null is not free shipping');assert.equal(api.quote(offer('empty',20,{shippingCost:''})).known,false);assert.equal(api.quote(offer('free',20,{shippingCost:null,freeShipping:true})).total,20);assert.equal(api.quote(offer('foreign-shipping',20,{shippingCost:3,shipping:{currency:'AUD'}})).known,false);
 assert.equal(api.summary([offer('one',20)],'USD').typical,null,'one asking price is not a typical price');assert.equal(api.summary([],'USD').lowest,null);assert.equal(api.summary([offer('a',10),offer('b',20),offer('c',40),offer('d',1000)],'USD').typical,30,'median resists extreme asks');
 assert.equal(api.format(49.3,'USD'),'$49.30');assert(ctx.query.includes('chibi'),'source character refines broad query');
+const shoe=api.context('ASICS Gel Kayano 14 White Midnight adult',{title:'*Expedited shipping* ASICS Gel-Kayano 14 White Midnight 1202A056-109 Women Size',currency:'USD',condition:'New with box'});assert(!/adult|expedited|shipping/.test(shoe.query));assert(api.matches({title:'ASICS Gel Kayano 14 White Midnight 1202A056-109',currency:'USD',condition:'New with box',price:150},shoe),'delivery and generated audience terms must not remove the same shoe');
 const html=fs.readFileSync(__dirname+'/../findai-app.html','utf8');for(const script of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))new vm.Script(script[1]);
 const worker=fs.readFileSync(__dirname+'/../findai-worker.js','utf8');
 (async()=>{
