@@ -78,6 +78,7 @@
   const price=numeric(item?.price),code=currency(item,fallback);let shipping=null;
   const detail=item?.shipping;
   const shipCurrency=String(detail?.currency||detail?.cost?.currency||item?.shippingCurrency||code).toUpperCase();
+  if(item?.shippingIncludedInPrice===true)return {price,currency:code,shipping:0,known:price!==null,total:price};
   if(item?.deliveryMode!=='pickup'&&shipCurrency===code){
    for(const value of [item?.shippingCost,item?.deliveryCost,detail?.cost?.value,detail?.cost,detail?.amount,detail?.value]){const n=numeric(value);if(n!==null){shipping=n;break;}}
    if(shipping===null&&(item?.freeShipping===true||detail?.free===true||/^free(?: shipping| delivery)?$/i.test(String(detail||item?.shippingText||'').trim())))shipping=0;

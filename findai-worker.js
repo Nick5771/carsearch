@@ -27,7 +27,7 @@ const EPN_CAMPAIGN_ID = '5339155260';
 // deploy automatically invalidates old cached responses instead of serving stale
 // results for 5 minutes. It is also returned in meta, so you can confirm which
 // engine is actually live from DevTools rather than guessing.
-const ENGINE_VERSION = 'v282-etsy-search-currency';
+const ENGINE_VERSION = 'v286-etsy-buyer-price';
 // v120: restores live source progress metadata + search UX while preserving the Claude/eBay result fix.
 // v116: preserves owned retailer search while making eBay usage quota-safe and separating passive discovery from live shopper search.
 // EPN rotation IDs (mkrid) per marketplace. Only markets where eBay Partner
@@ -8426,10 +8426,12 @@ async function etsyFetchRaw(query,env,limit=8,country='AU') {
   const result=await etsyRequest(url.toString(),env);
   return {...result,tried:['active-listings'],credentials:etsyCredentials(env).status};
 }
-function etsyListingItem(row) {
+function etsyListingItem(row,country='AU') {
   if(!row||!/^\d+$/.test(String(row.listing_id||''))||row.state&&row.state!=='active'||Number(row.quantity)===0)return null;
-  const converted=row.converted_price;
-  const money=converted&&Number(converted.amount)>0&&Number(converted.divisor)>0?converted:row.price;
+  const validMoney=value=>value&&Number.isFinite(Number(value.amount))&&Number(value.amount)>0&&Number.isFinite(Number(value.divisor))&&Number(value.divisor)>0&&/^[A-Z]{3}$/.test(String(value.currency_code||''));
+  const buyer=row.buyer_price;
+  const sale=buyer?.has_discount===true&&validMoney(buyer.discounted_price)?buyer.discounted_price:null;
+  const money=[sale,buyer?.original_price,buyer?.base_price,row.converted_price,row.price].find(validMoney);
   const amount=Number(money&&money.amount),divisor=Number(money&&money.divisor);
   const currency=String(money&&money.currency_code||'').toUpperCase();
   if(!Number.isFinite(amount)||!Number.isFinite(divisor)||!(amount>0)||!(divisor>0)||!/^[A-Z]{3}$/.test(currency))return null;
@@ -8440,9 +8442,17 @@ function etsyListingItem(row) {
     .map(photo=>photo.url_fullxfull||photo.url_570xN||photo.url_170x135||'')
     .filter(url=>/^https:\/\/(?:[a-z0-9-]+\.)*etsystatic\.com\//i.test(url));
   const url='https://www.etsy.com/listing/'+row.listing_id;
+  const shipping=buyer?.shipping_cost;
+  const knownShipping=shipping&&Number.isFinite(Number(shipping.amount))&&Number(shipping.amount)>=0&&Number(shipping.divisor)>0;
+  const free=buyer?.is_free_shipping===true;
+  const shippingCost=free?0:knownShipping?Number(shipping.amount)/Number(shipping.divisor):null;
+  const shippingCurrency=String(shipping?.currency_code||currency).toUpperCase();
+  const shippingIncludedInPrice=!!buyer&&['UK','GB'].includes(String(country).toUpperCase());
   return {itemId:'etsy-'+row.listing_id,listingId:String(row.listing_id),source:'Etsy',_etsy:true,
     title,price:amount/divisor,currency,url,itemWebUrl:url,image:images[0]||'',images,
-    shippingCost:null,shippingText:'Shipping calculated on Etsy',condition:'',
+    shippingCost,shippingCurrency,freeShipping:free,shippingIncludedInPrice,
+    shippingText:free?'Free shipping':shippingIncludedInPrice?'Shipping included':shippingCost!=null?'':'Shipping calculated on Etsy',condition:'',
+    _etsyPriceVersion:'buyer-v286',_etsyPriceBasis:sale?'buyer-sale':buyer?'buyer-price':'converted-base',_etsyFetchedAt:Date.now(),
     retailer:'Etsy',retailerHost:'etsy.com',shopId:String(row.shop_id||'')};
 }
 async function searchEtsy(query,env,limit=8,country='AU') {
@@ -8450,7 +8460,7 @@ async function searchEtsy(query,env,limit=8,country='AU') {
   if(!credentials.configured)throw new Error('Etsy: '+credentials.status);
   const q=String(query||'').trim().slice(0,180);if(!q)return [];
   const c=webDiscoveryCountry(country),n=Math.max(1,Math.min(20,Number(limit)||8));
-  const key='etsy-search-v282.1:'+c+':'+currencyFor(c)+':'+n+':'+q.toLowerCase();
+  const key='etsy-search-v286:'+c+':'+currencyFor(c)+':'+n+':'+q.toLowerCase();
   try{const cached=await env.CACHE?.get(key,'json');if(Array.isArray(cached)&&cached.length)return cached;}catch(_){}
   const result=await etsyFetchRaw(q,env,n,c);
   if(!result.ok)throw new Error(result.error);
@@ -8459,12 +8469,12 @@ async function searchEtsy(query,env,limit=8,country='AU') {
   // for the entire batch instead of a separate paid request for every listing.
   const ids=result.results.map(row=>String(row.listing_id||'')).filter(id=>/^\d+$/.test(id));
   const details=new URL('https://openapi.etsy.com/v3/application/listings/batch');
-  details.search=new URLSearchParams({listing_ids:ids.join(','),includes:'Images',currency:currencyFor(c),buyer_country:c==='UK'?'GB':c}).toString();
+  details.search=new URLSearchParams({listing_ids:ids.join(','),includes:'Images,BuyerPrice',currency:currencyFor(c),buyer_country:c==='UK'?'GB':c}).toString();
   const enriched=ids.length?await etsyRequest(details.toString(),env):{ok:true,results:[]};
   if(!enriched.ok)throw new Error(enriched.error);
   const byId=new Map(enriched.results.map(row=>[String(row.listing_id),row]));
-  const items=result.results.map(row=>etsyListingItem({...row,...byId.get(String(row.listing_id))})).filter(Boolean);
-  if(items.length)try{await env.CACHE?.put(key,JSON.stringify(items),{expirationTtl:900});}catch(_){}
+  const items=result.results.map(row=>etsyListingItem({...row,...byId.get(String(row.listing_id))},c)).filter(Boolean);
+  if(items.length)try{await env.CACHE?.put(key,JSON.stringify(items),{expirationTtl:300});}catch(_){}
   return items;
 }
 function findAIEtsyRelevantQuery(query) {
@@ -20231,7 +20241,16 @@ function wishwaveShoppingProductKey(item){
   const model=String(item&&item.model||item&&item.styleId||'').toLowerCase().replace(/[^a-z0-9]+/g,'');
   return [brand,model,tokens.join('-')].filter(Boolean).join('|').slice(0,240);
 }
+function findAIEtsyListingId(item){
+  if(!item)return '';
+  const value=String(item.url||item.itemWebUrl||item.canonicalUrl||'');
+  if(value)try{const url=new URL(value);if(url.hostname==='etsy.com'||url.hostname.endsWith('.etsy.com')){const match=url.pathname.match(/\/listing\/(\d+)(?:\/|$)/);if(match)return match[1];}}catch(_){}
+  if(!item._etsy&&!/^etsy$/i.test(String(item.source||item.marketplace||'')))return '';
+  const id=String(item.listingId||item.listing_id||item.itemId||item.id||'').replace(/^etsy[-:]/i,'');
+  return /^\d+$/.test(id)?id:'';
+}
 function wishwaveShoppingOfferKey(item){
+  const etsyId=findAIEtsyListingId(item);if(etsyId)return 'etsy|'+etsyId;
   const source=wishwaveShoppingSourceKey(item);
   const id=String(item&&(
     item.marketplaceListingId||item.itemId||item.offerId||item.canonicalUrl||item.url
@@ -21349,6 +21368,7 @@ function cataloguePublicItem(item){
  const out={...clean,source,itemId:String(item.itemId||item.id||item.url).slice(0,200),url:url.toString(),currency:clean.currency.toUpperCase()};
  for(const key of ['image','imageFallback','colorway','shoeSize','modelNumber','styleId','styleCode','ean','upc','edition','generation','category','retailerHost','sellerName'])if(typeof item[key]==='string')out[key]=item[key].slice(0,key.startsWith('image')?1500:120);
  out.image=out.image||String(item.images?.[0]||'').slice(0,1500);out.images=[out.image].filter(Boolean);if(typeof item.shippingCost==='number')out.shippingCost=Math.max(0,item.shippingCost);
+ if(findAIEtsyListingId(item)){out.itemId='etsy-'+findAIEtsyListingId(item);out.listingId=findAIEtsyListingId(item);out._etsyPriceVersion=item._etsyPriceVersion||'';out._etsyFetchedAt=Number(item._etsyFetchedAt)||0;out._etsyPriceBasis=item._etsyPriceBasis||'';out.freeShipping=item.freeShipping===true;out.shippingText=typeof item.shippingText==='string'?item.shippingText:'Shipping calculated on Etsy';out.shippingCurrency=String(item.shippingCurrency||item.currency);out.shippingIncludedInPrice=item.shippingIncludedInPrice===true;out.shippingCost=typeof item.shippingCost==='number'?item.shippingCost:null;}
  out.available=RecommendationShoppingCore.available(item);out._providerObservedAt=Math.min(Date.now(),Number(item._ebayFetchedAt)||Date.now());return out;
 }
 function catalogueDocument(item){const meta=RecommendationInterestCore.classify(item);return [item.title,item.brand,meta.type.replace(/_/g,' '),meta.theme,meta.subject,meta.scale,item.model,item.mpn,item.styleCode,item.colorway,item.size].filter(Boolean).join(' ').slice(0,800);}
@@ -21399,7 +21419,7 @@ async function catalogueSearch(request,env,ctx){
  const rows=await env.DB.prepare('SELECT * FROM recommendation_catalogue WHERE '+conditions.join(' AND ')+' ORDER BY observed_at DESC LIMIT 256').bind(...values).all();
  const nativePromise=promiseWithin(mpSearchPublicListings(env,query,8,0).catch(()=>[]),700,[]);
  const vector=rows.results?.length?await catalogueQueryVector(query,env,ctx):null,ranked=[];
- for(const row of rows.results||[]){let item,stored;try{item=JSON.parse(row.item);stored=row.vector_model===CATALOGUE_VECTOR_MODEL?JSON.parse(row.vector||'null'):null;}catch(_){continue;}const meta=RecommendationInterestCore.classify(item),fit=RecommendationCatalogueCore.fit(item,constraints,meta,RecommendationShoppingCore);if(!fit.eligible||(meta.type==='accessory'&&constraints.type!=='accessory'))continue;
+ for(const row of rows.results||[]){let item,stored;try{item=JSON.parse(row.item);stored=row.vector_model===CATALOGUE_VECTOR_MODEL?JSON.parse(row.vector||'null'):null;}catch(_){continue;}if(findAIEtsyListingId(item)&&(item._etsyPriceVersion!=='buyer-v286'||Date.now()-Number(item._etsyFetchedAt||0)>300000))continue;const meta=RecommendationInterestCore.classify(item),fit=RecommendationCatalogueCore.fit(item,constraints,meta,RecommendationShoppingCore);if(!fit.eligible||(meta.type==='accessory'&&constraints.type!=='accessory'))continue;
   const similarity=vector&&stored?intelligenceCosine(vector,stored):0,tokens=query.toLowerCase().split(/[^a-z0-9]+/).filter(x=>x.length>2),title=item.title.toLowerCase(),lexical=tokens.length?tokens.filter(x=>title.includes(x)).length/tokens.length:0;
   if(!constraints.type&&similarity<.62&&lexical<.5)continue;
   ranked.push({item:{...item,_wwSemantic:similarity,_wwSemanticSource:'catalogue',_catalogueFit:fit.score,_catalogueCoverage:fit.coverage,_catalogueObservedAt:row.observed_at,_catalogueFamily:row.family},family:row.family,score:(vector&&stored?similarity*35:lexical*28)+lexical*12+fit.score});

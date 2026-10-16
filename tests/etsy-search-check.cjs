@@ -31,7 +31,7 @@ function runtime(mode='success'){
  assert.equal(items[0].url,'https://www.etsy.com/listing/123');assert.equal(items[0].shippingCost,null);
  assert.equal(r.calls.length,2);assert.equal(r.calls[0].options.headers['x-api-key'],'test-key:test-secret');
  const search=new URL(r.calls[0].url);assert.equal(search.searchParams.get('currency'),'AUD');assert.equal(search.searchParams.get('buyer_country'),'AU');
- const detail=new URL(r.calls[1].url);assert.equal(detail.pathname,'/v3/application/listings/batch');assert.equal(detail.searchParams.get('includes'),'Images');assert.equal(detail.searchParams.get('listing_ids'),'123');
+ const detail=new URL(r.calls[1].url);assert.equal(detail.pathname,'/v3/application/listings/batch');assert.equal(detail.searchParams.get('includes'),'Images,BuyerPrice');assert.equal(detail.searchParams.get('listing_ids'),'123');
  pass('Map live listing prices and ordered real photos using one bulk image lookup');
  await r.ctx.searchEtsy('vintage ceramic vase',r.env,8,'AU');assert.equal(r.calls.length,2);pass('Reuse successful cached results');
  await r.ctx.searchEtsy('vintage ceramic vase',r.env,8,'UK');assert.equal(r.calls.length,4);assert.equal(new URL(r.calls[2].url).searchParams.get('buyer_country'),'GB');pass('Separate market caches and send Etsy GB for UK shoppers');
@@ -46,6 +46,25 @@ function runtime(mode='success'){
  assert.equal(r.ctx.etsyListingItem({...listing(),quantity:0}),null);
  assert.equal(r.ctx.etsyListingItem({...listing(),images:[{url_fullxfull:'https://evil.example/x.jpg'}]}).image,'');pass('Reject invalid prices, unavailable listings and unrelated photo URLs');
  const converted=r.ctx.etsyListingItem({...listing(),price:{amount:4500,divisor:100,currency_code:'EUR'},converted_price:{amount:8050,divisor:100,currency_code:'AUD'}});assert.equal(converted.price,80.5);assert.equal(converted.currency,'AUD');pass('Use Etsy converted_price for the shopper currency instead of the seller base price');
+ const aud=amount=>({amount,divisor:100,currency_code:'AUD'});
+ const buyer={base_price:aud(7832),original_price:aud(7832),discounted_price:aud(5873),has_discount:true,shipping_cost:null,is_free_shipping:false};
+ let item=r.ctx.etsyListingItem({...listing(),buyer_price:buyer});assert.equal(item.price,58.73);assert.equal(item.currency,'AUD');assert.equal(item._etsyPriceBasis,'buyer-sale');assert.equal(item.shippingCost,null);assert.equal(item.freeShipping,false);assert.equal(item.shippingText,'Shipping calculated on Etsy');
+ assert.equal(r.ctx.etsyListingItem({...listing(),buyer_price:{...buyer,has_discount:false}}).price,78.32);
+ assert.equal(r.ctx.etsyListingItem({...listing(),buyer_price:{...buyer,discounted_price:{amount:1,divisor:0,currency_code:'AUD'}}}).price,78.32);
+ pass('Use buyer sale prices and ignore inactive or invalid discounts');
+ item=r.ctx.etsyListingItem({...listing(),buyer_price:{...buyer,is_free_shipping:true}});assert.equal(item.shippingCost,0);assert.equal(item.freeShipping,true);assert.equal(item.shippingText,'Free shipping');
+ const saved=r.ctx.cataloguePublicItem(item);assert.equal(saved.freeShipping,true);assert.equal(saved.shippingCost,0);assert.equal(saved._etsyPriceVersion,'buyer-v286');assert.equal(saved._etsyFetchedAt,item._etsyFetchedAt);
+ item=r.ctx.etsyListingItem({...listing(),buyer_price:{...buyer,shipping_cost:aud(1250)}});assert.equal(item.shippingCost,12.5);assert.equal(item.freeShipping,false);assert.equal(r.ctx.cataloguePublicItem(item).shippingText,'');
+ pass('Preserve confirmed free, paid and unknown shipping through catalogue cards');
+ const variants=[{source:'Etsy',itemId:'etsy-123'},{source:'Etsy',listingId:'123'},{source:'Etsy',itemId:'catalogue:123',url:'https://www.etsy.com/au/listing/123/vase?ref=search'},{url:'https://etsy.com/listing/123'}];
+ for(const variant of variants)assert.equal(r.ctx.wishwaveShoppingOfferKey(variant),'etsy|123');assert.notEqual(r.ctx.wishwaveShoppingOfferKey({source:'Etsy',itemId:'etsy-124'}),'etsy|123');
+ pass('Canonical Etsy IDs deduplicate live, catalogue and regional tracking URLs');
+ const html=fs.readFileSync(path.join(__dirname,'..','findai-app.html'),'utf8');
+ const ui=vm.createContext({URL,getSource:item=>item.source||'',getListingUrl:item=>item.url||'',normaliseQueryText:text=>String(text||'').toLowerCase(),money:(n,c)=>c+' '+n.toFixed(2)});
+ for(const name of ['wishwaveEtsyListingId','listingKey','trackedKey','getShippingText']){const fn=html.match(new RegExp('function '+name+'\\([^]*?^}', 'm'));assert(fn,name+' exists');vm.runInContext(fn[0],ui);}
+ for(const variant of variants){assert.equal(ui.listingKey(variant),'etsy:123');assert.equal(ui.trackedKey({...variant,key:'stale-key'}),'etsy:123');}
+ assert.equal(ui.getShippingText({shippingCost:null}),'Shipping shown by seller');assert.equal(ui.getShippingText({shippingCost:0}),'Free shipping');assert.equal(ui.getShippingText({shippingCost:12.5,currency:'AUD'}),'AUD 12.50 shipping');assert.equal(ui.getShippingText({shippingCost:null,freeShipping:true}),'Free shipping');
+ pass('Frontend canonical keys collapse duplicates and unknown shipping is never labelled free');
  for(const q of ['vintage vase on Etsy','Etsy vintage vase','vintage vase Etsy only'])assert.equal(r.ctx.parseSearchIntent(q).source,'etsy');
  assert.equal(r.ctx.parseSearchIntent('vintage vase on Etsy').keywords,'vintage vase');pass('Recognise Etsy source filters and remove the provider name from product keywords');
  r.ctx.searchEbay=async()=>({items:[]});r.ctx.searchAliExpress=async()=>({items:[]});

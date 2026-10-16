@@ -3855,7 +3855,7 @@ const MAX_INTERESTS = 40;
 const PERSONALISED_INTEREST_LIMIT = 6;
 const PERSONALISED_LANE_LIMIT = 8;
 const PERSONALISED_LOAD_MORE_LANES = 3;
-const PERSONALISED_CACHE_KEY = 'fa_personalised_feed_cache_v14_balanced_pages';
+const PERSONALISED_CACHE_KEY = 'fa_personalised_feed_cache_v286_etsy_buyer';
 const PERSONALISED_CACHE_TTL = 10 * 60 * 1000;
 const PERSONALISED_CACHE_STALE_TTL = 24 * 60 * 60 * 1000;
 const PERSONALISED_REQUEST_BUDGET_KEY = 'fa_personalised_request_count_v1';
@@ -4829,7 +4829,8 @@ function getShippingText(item){
     structured.cost ?? structured.value ?? structured.amount ??
     (structured.shippingCost&&structured.shippingCost.value)
   );
-  const cost=Number(item.shippingCost ?? item.deliveryCost ?? structuredCost);
+  const rawCost=item.shippingCost ?? item.deliveryCost ?? structuredCost;
+  const cost=rawCost!==null&&rawCost!==undefined&&String(rawCost).trim()!==''?Number(rawCost):NaN;
   if(Number.isFinite(cost)&&cost>=0){
     if(cost===0)return 'Free shipping';
     const currency=String((structured&&structured.currency)||item.currency||'AUD').toUpperCase();
@@ -6384,7 +6385,16 @@ function shouldAcceptResolvedQuery(original,resolved){
   if(originalNumbers.some(token=>!resolvedSet.has(token))) return false;
   return tokenRetention(original,resolved)>=0.72;
 }
+function wishwaveEtsyListingId(item){
+  if(!item)return '';
+  const value=String(item.url||item.itemWebUrl||item.canonicalUrl||'');
+  if(value)try{const url=new URL(value);if(url.hostname==='etsy.com'||url.hostname.endsWith('.etsy.com')){const match=url.pathname.match(/\/listing\/(\d+)(?:\/|$)/);if(match)return match[1];}}catch(_){}
+  if(!item._etsy&&!/^etsy$/i.test(String(item.source||item.marketplace||'')))return '';
+  const id=String(item.listingId||item.listing_id||item.itemId||item.id||'').replace(/^etsy[-:]/i,'');
+  return /^\d+$/.test(id)?id:'';
+}
 function listingKey(item){
+  const etsyId=wishwaveEtsyListingId(item);if(etsyId)return 'etsy:'+etsyId;
   const direct=String(item && (item.itemId || item.id || item.listingId || item.sku || '')).trim();
   if(direct) return `${getSource(item)}:${direct}`.toLowerCase();
   const url=getListingUrl(item);
@@ -7185,6 +7195,7 @@ async function loadMoreListings(){
 
 function trackedKey(item){
   item=item||{};
+  const etsyId=wishwaveEtsyListingId(item);if(etsyId)return 'etsy:'+etsyId;
   if(item.key)return String(item.key);
   const marketplaceId=String(item.marketplaceListingId||((item._findaiMarketplace||String(item.source||'').toLowerCase()==='findai')?item.itemId:'')||'').trim();
   if(marketplaceId)return 'findai:'+marketplaceId;
@@ -9250,7 +9261,7 @@ function premiumFilterForSection(item,config){
   return String(source||'').toLowerCase()===config.source||key===config.source;
 }
 async function v116GetPreviewPool(force=false){
-  const market=appShoppingRegion(),key='findai_app_preview_pool_v241_'+market;
+  const market=appShoppingRegion(),key='findai_app_preview_pool_v286_'+market;
   if(!force){try{const c=JSON.parse(sessionStorage.getItem(key)||'null');if(c&&Array.isArray(c.items)&&Date.now()-Number(c.savedAt||0)<600000)return c.items.filter(wishwaveAllowedListing);}catch(_){}}
   try{
     const data=await appFetchJsonTimed(WORKER+'/?previews=1&country='+encodeURIComponent(market),{headers:{'Accept':'application/json'},cache:force?'reload':'default'},4500),items=(Array.isArray(data&&data.items)?data.items:[]).filter(wishwaveAllowedListing);
@@ -15901,7 +15912,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     const root=document.getElementById('premiumDiscoverySections');if(!root)return;
     const section=premiumDiscoverySections[0];
     const originalLength=section?.items?.length||0;
-    if(section){section.items=(section.items||[]).filter(item=>wishwaveAllowedListing(item)&&(exploreLiveSearchQuery||!window.wishwaveRecommendationRejected?.(item)));if(!exploreLiveSearchQuery)section.items=window.wishwaveDiscoverySurfaces?.claim(section.items,'search')||section.items;}
+    if(section){const unique=new Set();section.items=(section.items||[]).filter(item=>{const key=exploreItemKey(item);if(unique.has(key))return false;unique.add(key);return true;}).filter(item=>wishwaveAllowedListing(item)&&(exploreLiveSearchQuery||!window.wishwaveRecommendationRejected?.(item)));if(!exploreLiveSearchQuery)section.items=window.wishwaveDiscoverySurfaces?.claim(section.items,'search')||section.items;}
     const items=section&&section.items||[];
     const replace=!!options.replace||root.dataset.refreshPending==='1'||items.length!==originalLength;
     if(!items.length){
@@ -17867,7 +17878,7 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
 <script id="findai-v133-navigation-performance-script">
 (function(){
   const NAV_TABS=['discover','search','notifications','profile'];
-  const SEARCH_CACHE_KEY='findai_v242_search_cache:'+appShoppingRegion();
+  const SEARCH_CACHE_KEY='findai_v286_search_cache:'+appShoppingRegion();
   const PROFILE_CACHE_PREFIX='findai_v133_profile_cache:';
   const now=()=>Date.now();
   const safeJSON=(raw,fallback)=>{try{return JSON.parse(raw)}catch(_){return fallback}};
@@ -35875,6 +35886,12 @@ html body .app #searchResults .ww-compare-meta{padding:0 3px 10px!important;}
 @media(max-width:360px){.ww-compare-stats>div{padding-left:7px;padding-right:7px;}.ww-compare-stats span{font-size:10px;}}
 html.findai-light .ww-compare-stats,html.findai-light .ww-compare-stats>div{border-color:#e2e5e9;}html.findai-light .ww-compare-stats strong{color:#17191d;}html.findai-light .ww-compare-stats span{color:#666d77;}
 .ww-compare-other-heading{grid-column:1/-1;padding:15px 3px 5px;color:#fff;}.ww-compare-other-heading b{display:block;font-size:14px;}.ww-compare-other-heading span{display:block;margin-top:4px;font-size:11px;color:#969da7;}html.findai-light .ww-compare-other-heading{color:#17191d;}
+</style>
+
+<style id="wishwave-confirmed-free-shipping-v286">
+html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168) .reel-card .listing-meta.findai-free-shipping{color:#34c759!important;}
+html.findai-light body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168) .reel-card .listing-meta.findai-free-shipping{color:#16883f!important;}
+html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168) .reel-card .listing-meta.findai-free-shipping .wishwave-delivery-icon{color:inherit!important;stroke:currentColor!important;}
 </style>
 </body>
 </html>
