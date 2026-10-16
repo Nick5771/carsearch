@@ -6,7 +6,7 @@
 <script src="wishwave-discovery-rotation.js?v=271"></script>
 <script src="wishwave-interaction-preview.js?v=273"></script>
 <script src="wishwave-photo-hygiene.js?v=260"></script>
-<meta name="findai-build" content="v279-compare-source-identity">
+<meta name="findai-build" content="v280-compact-compare-startup">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0d0f">
@@ -5850,7 +5850,24 @@ async function v116RenderPersonalisedPreviewFallback(){
   }catch(_){return false;}
 }
 
-async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
+let wishwaveCancelStartupRecovery=null;
+function recoverPersonalisedStartup(state,controller,attempt=0){
+  wishwaveCancelStartupRecovery?.();
+  const root=$('#personalFeed'),retry=attempt<2;
+  if(root)root.innerHTML='<div class="feed-status" role="status"><div><b>'+(!navigator.onLine?'You’re offline':retry?'Loading fresh finds…':'Fresh listings are temporarily unavailable')+'</b>'+(!navigator.onLine?'Reconnect to load your feed.':retry?'Trying again automatically.':'Try again in a moment.')+'<br><button class="retry-btn" onclick="loadPersonalisedFeed({forceNetwork:true})">Try again</button></div></div>';
+  let timer=null,done=false;
+  const cancel=()=>{done=true;clearTimeout(timer);window.removeEventListener('online',resume);document.removeEventListener('visibilitychange',resume);if(wishwaveCancelStartupRecovery===cancel)wishwaveCancelStartupRecovery=null;};
+  const resume=()=>{
+    if(done||document.hidden)return;
+    if(feedState!==state||feedRequestController!==controller||!$('#discover')?.classList.contains('active')){cancel();return;}
+    if(!navigator.onLine)return;
+    cancel();loadPersonalisedFeed({recoveryAttempt:attempt+1});
+  };
+  wishwaveCancelStartupRecovery=cancel;
+  if(retry){timer=setTimeout(resume,attempt?4000:1500);window.addEventListener('online',resume);document.addEventListener('visibilitychange',resume);}
+}
+async function loadPersonalisedFeed({showToast=false,forceNetwork=false,recoveryAttempt=0}={}){
+  wishwaveCancelStartupRecovery?.();
   if(forceNetwork){rotatePersonalisedSessionSeed();window.wishwaveDiscoveryRotation?.newVisit();}
   const retained=forceNetwork&&document.querySelector('#personalFeed .reel-card')?{
     items:currentFeedItems.slice(),data:currentFeedData,state:feedState,active:activeReelIndex
@@ -5954,7 +5971,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     if(!early.length){
       if(keepRetained())return;
       if(await v116RenderPersonalisedPreviewFallback()){feedState.loading=false;return;}
-      $('#personalFeed').innerHTML='<div class="feed-status"><div><b>Fresh listings are temporarily unavailable</b>Try again in a moment.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
+      recoverPersonalisedStartup(loadingState,loadingController,recoveryAttempt);
       feedState.loading=false;return;
     }
     const earlyMixed=sequencePersonalisedBatch(interleavePersonalised(early,24),[],24);
@@ -5987,7 +6004,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false}={}){
     if(!stillOwnsFeed()||(error&&error.name==='AbortError')) return;
     if(keepRetained())return;
     if(await v116RenderPersonalisedPreviewFallback()){if(feedState.source==='personalised')feedState.loading=false;return;}
-    $('#personalFeed').innerHTML='<div class="feed-status"><div><b>Fresh listings are temporarily unavailable</b>Try again in a moment.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
+    recoverPersonalisedStartup(loadingState,loadingController,recoveryAttempt);
     if(feedState.source==='personalised')feedState.loading=false;
   }
 }
@@ -9327,7 +9344,7 @@ function premiumCard(item,index,kind){
     <div class="${kind==='ebay'?'premium-ebay-copy':'premium-result-copy'}">
       <div class="source">${sourceMarkup(isEbay?'ebay':source,item)}</div>
       <h3>${escapeHTML(item.title||'Product')}</h3>
-      <strong>${escapeHTML(compare?WishWaveCompare.format(quote.known?quote.total:quote.price,quote.currency)+' '+quote.currency:money(Number(item.price)||0,currencyOf(item,kind==='result'?premiumResultData:null)||'AUD'))}</strong>
+      <strong>${escapeHTML(compare?WishWaveCompare.format(quote.known?quote.total:quote.price,quote.currency):money(Number(item.price)||0,currencyOf(item,kind==='result'?premiumResultData:null)||'AUD'))}</strong>
       <small>${escapeHTML(compare?(quote.known?'Total incl. shipping':'Shipping not provided'):premiumItemMeta(item)||'Live listing')}</small>
     </div>
   </article>`;
@@ -9426,8 +9443,8 @@ async function launchPremiumSearch(query,options={}){
 }
 function renderPremiumCompareSummary(){
   const stats=WishWaveCompare.summary(premiumResultItems,premiumCompareContext.currency);
-  const value=n=>escapeHTML(WishWaveCompare.format(n,stats.currency))+(n===null?'':' <small>'+escapeHTML(stats.currency)+'</small>');
-  return '<div class="ww-compare-stats" role="group" aria-label="Current matching asking price totals"><div><span>Lowest</span><strong>'+value(stats.lowest)+'</strong></div><div><span>Typical price <button type="button" class="ww-compare-info" onclick="toast(\'Median of currently loaded matching asking prices with known shipping, in one currency. Unknown shipping is excluded. These are not sold prices.\')" aria-label="About typical price">ⓘ</button></span><strong>'+value(stats.typical)+'</strong></div><div><span title="Matching offers loaded in this comparison">Matching listings</span><strong>'+stats.count+'</strong></div></div>';
+  const value=n=>escapeHTML(WishWaveCompare.format(n,stats.currency));
+  return '<div class="ww-compare-stats" role="group" aria-label="Current matching asking price totals"><div><span>Lowest</span><strong>'+value(stats.lowest)+'</strong></div><div><span>Typical price <button type="button" class="ww-compare-info" onclick="toast(\'Median of currently loaded matching asking prices with known shipping, in one currency. Unknown shipping is excluded. These are not sold prices.\')" aria-label="About typical price">ⓘ</button></span><strong>'+value(stats.typical)+'</strong></div><div><span title="Matching offers loaded in this comparison">Matches</span><strong>'+stats.count+'</strong></div></div>';
 }
 function paintPremiumResults(append){
   const grid=$('#premiumResultsGrid'),meta=$('#premiumResultsMeta'),more=$('#premiumLoadMore');if(!grid)return;
@@ -35440,7 +35457,20 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   };
   if(starterCache&&Date.now()-starterCache.at<60000)return select(starterCache.items);
   if(starterFlight)return select(await starterFlight);
-  const flight=(async()=>{try{const data=await appFetchJsonTimed(WORKER_BASE+'/recommendations/starter?country=US',{cache:'no-store'},15000);const items=(data.items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery));if(items.length)starterCache={at:Date.now(),items};return items;}catch(_){return [];}})();
+  const valid=items=>(Array.isArray(items)?items:[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery)&&Number(item._catalogueObservedAt||item._ebayFetchedAt)>Date.now()-6*3600000);
+  const saved=()=>{try{const row=JSON.parse(localStorage.getItem('ww_starter_reservoir_v280_US')||'null');return row&&Date.now()-Number(row.at)>=0&&Date.now()-Number(row.at)<10*60000?valid(row.items):[];}catch(_){return [];}};
+  const flight=(async()=>{
+    for(let attempt=0;attempt<2;attempt++){
+      try{
+        const data=await appFetchJsonTimed(WORKER_BASE+'/recommendations/starter?country=US',{cache:'no-store'},attempt?8000:10000);
+        const items=(data.items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery));
+        if(items.length){starterCache={at:Date.now(),items};try{localStorage.setItem('ww_starter_reservoir_v280_US',JSON.stringify(starterCache));}catch(_){}return items;}
+      }catch(_){}
+      const retained=saved();if(retained.length){starterCache={at:Date.now()-45000,items:retained};return retained;}
+      if(!attempt)await new Promise(resolve=>setTimeout(resolve,450));
+    }
+    return [];
+  })();
   starterFlight=flight;try{return select(await flight);}finally{if(starterFlight===flight)starterFlight=null;}
  };
  window.wishwaveReadyStarter=function(items){
@@ -35455,8 +35485,12 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
 
  async function imageReady(item){
   const plan=appImagePlan(item,0,{personalised:true}),src=plan?.src;if(!src)return false;
-  if(!images.has(src))images.set(src,new Promise(resolve=>{const img=new Image();let done=false;const finish=ok=>{if(done)return;done=true;clearTimeout(timer);img.onload=img.onerror=null;img.removeAttribute?.('src');resolve(ok);};const timer=setTimeout(()=>finish(false),4500);img.onload=()=>finish(img.naturalWidth>0);img.onerror=()=>finish(false);img.referrerPolicy='no-referrer';img.src=src;}));
-  return images.get(src);
+  const previous=images.get(src);if(previous&&Date.now()-previous.at>(previous.ok===false?10000:10*60000))images.delete(src);
+  if(!images.has(src)){
+    const record={at:Date.now(),ok:null,promise:null};
+    record.promise=new Promise(resolve=>{const img=new Image();let done=false;const finish=ok=>{if(done)return;done=true;record.at=Date.now();record.ok=ok;clearTimeout(timer);img.onload=img.onerror=null;img.removeAttribute?.('src');resolve(ok);};const timer=setTimeout(()=>finish(false),4500);img.onload=()=>finish(img.naturalWidth>0);img.onerror=()=>finish(false);img.referrerPolicy='no-referrer';img.src=src;});images.set(src,record);
+  }
+  return images.get(src).promise;
  }
  window.fetchPersonalisedLanePage=async function(lane){
   if(!active())return page.apply(this,arguments);
@@ -35743,18 +35777,19 @@ html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createLi
 </style>
 
 <style id="wishwave-camera-compare-v277">
-html body .app :is(#search,#searchResults) button:is(.premium-search-scan,.premium-results-scan){width:40px!important;height:40px!important;min-width:40px!important;flex:0 0 40px!important;padding:8px!important;border:0!important;border-radius:10px!important;background:#242830!important;color:#fff!important;box-shadow:none!important;display:grid!important;place-items:center!important;}
+html body .app :is(#search,#searchResults) button:is(.premium-search-scan,.premium-results-scan){width:40px!important;height:40px!important;min-width:40px!important;flex:0 0 40px!important;padding:8px!important;border:0!important;border-radius:10px!important;background:transparent!important;color:#fff!important;box-shadow:none!important;display:grid!important;place-items:center!important;}
 html body .app :is(#search,#searchResults) button:is(.premium-search-scan,.premium-results-scan) svg{width:24px!important;height:24px!important;color:inherit!important;stroke:currentColor!important;}
-html.findai-light body .app :is(#search,#searchResults) button:is(.premium-search-scan,.premium-results-scan){background:#e7eaee!important;color:#20242a!important;}
+html.findai-light body .app :is(#search,#searchResults) button:is(.premium-search-scan,.premium-results-scan){background:transparent!important;color:#20242a!important;}
 html body .app #searchResults .premium-results-header{grid-template-columns:38px minmax(0,1fr)!important;}
 html body .app #searchResults .premium-results-search{padding-right:5px!important;min-height:50px!important;}
 html body .app #searchResults .premium-results-search input{flex:1;min-width:0;}
-html body .app #searchResults .ww-compare-meta{padding:4px 3px 17px!important;}
-.ww-compare-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;padding:6px 0 14px;border-bottom:1px solid #282c33;}
+html body .app #searchResults .ww-compare-meta{padding:0 3px 10px!important;}
+.ww-compare-stats{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(68px,.7fr);gap:0;padding:7px 0 11px;border-bottom:1px solid #282c33;}
 .ww-compare-stats>div{min-width:0;padding:0 10px;border-right:1px solid #282c33;}.ww-compare-stats>div:first-child{padding-left:0}.ww-compare-stats>div:last-child{padding-right:0;border-right:0}
-.ww-compare-stats span{display:flex;align-items:center;gap:3px;color:#969da7;font-size:11px;line-height:1.4;margin-bottom:5px;}
-.ww-compare-stats strong{display:block;color:#fff;font-size:17px;font-weight:650;line-height:1.4;font-variant-numeric:tabular-nums;}.ww-compare-stats strong small{font-size:9px;font-weight:500;}
-.ww-compare-info{background:none;border:0;color:inherit;font:inherit;padding:0;cursor:pointer;}
+.ww-compare-stats span{display:flex;align-items:center;gap:3px;color:#969da7;font-size:11px;line-height:16px;height:16px;white-space:nowrap;margin-bottom:3px;}
+.ww-compare-stats strong{display:block;color:#fff;font-size:clamp(15px,4.5vw,18px);font-weight:650;line-height:24px;height:24px;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.ww-compare-info{background:none;border:0;color:inherit;font:inherit;font-size:10px;padding:0;flex:none;cursor:pointer;}
+@media(max-width:360px){.ww-compare-stats>div{padding-left:7px;padding-right:7px;}.ww-compare-stats span{font-size:10px;}}
 html.findai-light .ww-compare-stats,html.findai-light .ww-compare-stats>div{border-color:#e2e5e9;}html.findai-light .ww-compare-stats strong{color:#17191d;}html.findai-light .ww-compare-stats span{color:#666d77;}
 </style>
 </body>
