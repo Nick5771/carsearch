@@ -9423,6 +9423,8 @@ async function launchPremiumSearch(query,options={}){
   const home=$('#q');if(home)home.value=q;
   const resultInput=$('#premiumResultQuery');if(resultInput)resultInput.value=q;
   go('searchResults');setSearchNavActive();
+  // Closing an owned Search reel restores its old fields during navigation.
+  if(home)home.value=q;if(resultInput)resultInput.value=q;
   const meta=$('#premiumResultsMeta'),grid=$('#premiumResultsGrid'),more=$('#premiumLoadMore');
   if(meta){meta.closest('.premium-results-meta')?.classList.remove('ww-compare-meta');meta.textContent=preserveExact?'Finding matching listings…':'Searching live listings…';}
   if(grid)grid.innerHTML='<div class="premium-results-loading"><div class="feed-more-spinner"></div>Finding the best current listings…</div>';
