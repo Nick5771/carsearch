@@ -45,6 +45,8 @@
   if(item.available===false||item.soldOut||item.sold||item.outOfStock)return false;
   const title=String(item.title||''),words=new Set(tokens(title));
   if(/\b(replica|bootleg|recast|counterfeit|proxy|replacement|accessory|accessories|parts only|for parts|case only|remote only|charger only|battery only|strap only|shell only|box only|empty box|manual only|instructions only|digital download|light(?:ing)? kit|led kit|compatible|incomplete|minifigure only|figure only|bag only|bags only)\b/i.test(title))return false;
+  const extras=/\b(?:wall mount|display plaque|photo frame|display frame|mounting bracket|protectors?|protective cover|storage case|carrying case|card sleeves?|top ?loaders?|art print|poster|photograph)\b/i;
+  if(extras.test(title)&&!extras.test((ctx.sourceWords||[]).join(' ')))return false;
   const accessory=/\b(?:case|charger|battery|strap|remote|cable|screen protector|lens cap|earpads?|insoles?|shell|housing|bracelet|manuals?|instructions?|sticker sheet)\b/i;
   if(accessory.test(title)&&!accessory.test((ctx.sourceWords||[]).join(' '))&&!/\b(?:with|includes?|including|w\/)\s+(?:(?:original|new|a|the|and)\s+)*(?:case|charger|battery|strap|remote|cable|screen protector|lens cap|earpads?|insoles?|shell|housing|bracelet|manuals?|instructions?|sticker sheet)\b/i.test(title))return false;
   if(/\b(bundle|lot of|set of|[2-9]\s*pack|pack of [2-9])\b/i.test(title)&&!ctx.required.some(x=>['bundle','lot','set'].includes(x)))return false;
