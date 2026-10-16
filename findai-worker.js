@@ -27,7 +27,7 @@ const EPN_CAMPAIGN_ID = '5339155260';
 // deploy automatically invalidates old cached responses instead of serving stale
 // results for 5 minutes. It is also returned in meta, so you can confirm which
 // engine is actually live from DevTools rather than guessing.
-const ENGINE_VERSION = 'v282-etsy-search-restored';
+const ENGINE_VERSION = 'v282-etsy-search-currency';
 // v120: restores live source progress metadata + search UX while preserving the Claude/eBay result fix.
 // v116: preserves owned retailer search while making eBay usage quota-safe and separating passive discovery from live shopper search.
 // EPN rotation IDs (mkrid) per marketplace. Only markets where eBay Partner
@@ -8428,8 +8428,10 @@ async function etsyFetchRaw(query,env,limit=8,country='AU') {
 }
 function etsyListingItem(row) {
   if(!row||!/^\d+$/.test(String(row.listing_id||''))||row.state&&row.state!=='active'||Number(row.quantity)===0)return null;
-  const amount=Number(row.price&&row.price.amount),divisor=Number(row.price&&row.price.divisor);
-  const currency=String(row.price&&row.price.currency_code||'').toUpperCase();
+  const converted=row.converted_price;
+  const money=converted&&Number(converted.amount)>0&&Number(converted.divisor)>0?converted:row.price;
+  const amount=Number(money&&money.amount),divisor=Number(money&&money.divisor);
+  const currency=String(money&&money.currency_code||'').toUpperCase();
   if(!Number.isFinite(amount)||!Number.isFinite(divisor)||!(amount>0)||!(divisor>0)||!/^[A-Z]{3}$/.test(currency))return null;
   const decode=text=>String(text||'').replace(/&(?:amp|quot|apos|lt|gt|#39|#x27);/gi,entity=>({'&amp;':'&','&quot;':'"','&apos;':"'",'&lt;':'<','&gt;':'>','&#39;':"'",'&#x27;':"'"}[entity.toLowerCase()]||entity));
   const title=decode(row.title).replace(/\s+/g,' ').trim();if(!title)return null;
@@ -8448,7 +8450,7 @@ async function searchEtsy(query,env,limit=8,country='AU') {
   if(!credentials.configured)throw new Error('Etsy: '+credentials.status);
   const q=String(query||'').trim().slice(0,180);if(!q)return [];
   const c=webDiscoveryCountry(country),n=Math.max(1,Math.min(20,Number(limit)||8));
-  const key='etsy-search-v282:'+c+':'+currencyFor(c)+':'+n+':'+q.toLowerCase();
+  const key='etsy-search-v282.1:'+c+':'+currencyFor(c)+':'+n+':'+q.toLowerCase();
   try{const cached=await env.CACHE?.get(key,'json');if(Array.isArray(cached)&&cached.length)return cached;}catch(_){}
   const result=await etsyFetchRaw(q,env,n,c);
   if(!result.ok)throw new Error(result.error);

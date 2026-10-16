@@ -45,6 +45,7 @@ function runtime(mode='success'){
  assert.equal(r.ctx.etsyListingItem({...listing(),state:'sold_out'}),null);
  assert.equal(r.ctx.etsyListingItem({...listing(),quantity:0}),null);
  assert.equal(r.ctx.etsyListingItem({...listing(),images:[{url_fullxfull:'https://evil.example/x.jpg'}]}).image,'');pass('Reject invalid prices, unavailable listings and unrelated photo URLs');
+ const converted=r.ctx.etsyListingItem({...listing(),price:{amount:4500,divisor:100,currency_code:'EUR'},converted_price:{amount:8050,divisor:100,currency_code:'AUD'}});assert.equal(converted.price,80.5);assert.equal(converted.currency,'AUD');pass('Use Etsy converted_price for the shopper currency instead of the seller base price');
  for(const q of ['vintage vase on Etsy','Etsy vintage vase','vintage vase Etsy only'])assert.equal(r.ctx.parseSearchIntent(q).source,'etsy');
  assert.equal(r.ctx.parseSearchIntent('vintage vase on Etsy').keywords,'vintage vase');pass('Recognise Etsy source filters and remove the provider name from product keywords');
  r.ctx.searchEbay=async()=>({items:[]});r.ctx.searchAliExpress=async()=>({items:[]});
