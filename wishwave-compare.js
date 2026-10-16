@@ -6,7 +6,7 @@
  function condition(item){const s=String(item?.condition||item?.conditionText||'').toLowerCase();if(/refurb/.test(s))return 'refurbished';if(/pre.?owned|used|very good|excellent|acceptable|fair/.test(s))return 'used';if(/new|sealed|unopened|unworn/.test(s))return 'new';return '';}
  function currency(item,fallback=''){return String(item?.currency||fallback||'').toUpperCase();}
  function context(query,item={}){
-  const base=tokens(query),extras=tokens(item.title).filter(x=>!base.includes(x));
+  const source=tokens(item.title),base=tokens(query).filter(x=>!source.length||source.includes(x)),extras=source.filter(x=>!base.includes(x));
   return {query:[...base,...extras].join(' ').slice(0,180),required:[...new Set([...base,...extras])],currency:currency(item),condition:condition(item)};
  }
  const variants=new Set('chibi pluto mercury mars jupiter venus saturn uranus neptune mini super pro max plus lite xl deluxe limited remastered reissue anniversary'.split(' '));
