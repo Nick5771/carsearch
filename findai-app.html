@@ -3260,7 +3260,7 @@ html body .source-chip .findai-exact-brand[data-brand="etsy"] img{
     </header>
     <div class="premium-results-scroll">
       <div id="premiumProfileMatches" aria-live="polite"></div>
-      <div class="premium-results-meta"><span id="premiumResultsMeta">Searching live listings…</span></div>
+      <div class="premium-results-meta"><span id="premiumResultsMeta"></span></div>
       <div class="premium-results-grid" id="premiumResultsGrid" aria-live="polite"></div>
       <button class="premium-load-more" id="premiumLoadMore" type="button" onclick="loadMorePremiumResults()" hidden>Load more</button>
     </div>
@@ -9446,7 +9446,7 @@ async function launchPremiumSearch(query,options={}){
   // Closing an owned Search reel restores its old fields during navigation.
   if(home)home.value=q;if(resultInput)resultInput.value=q;
   const meta=$('#premiumResultsMeta'),grid=$('#premiumResultsGrid'),more=$('#premiumLoadMore');
-  if(meta){meta.closest('.premium-results-meta')?.classList.remove('ww-compare-meta');meta.textContent=preserveExact?'Finding matching listings…':'Searching live listings…';}
+  if(meta){meta.closest('.premium-results-meta')?.classList.remove('ww-compare-meta');meta.textContent='';}
   if(grid)grid.innerHTML='<div class="premium-results-loading"><div class="feed-more-spinner"></div>Finding the best current listings…</div>';
   if(more)more.hidden=true;
   try{
@@ -35816,7 +35816,8 @@ html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createLi
 html body .app :is(#search,#searchResults) button:is(.premium-search-scan,.premium-results-scan){width:40px!important;height:40px!important;min-width:40px!important;flex:0 0 40px!important;padding:8px!important;border:0!important;border-radius:10px!important;background:transparent!important;color:#fff!important;box-shadow:none!important;display:grid!important;place-items:center!important;}
 html body .app :is(#search,#searchResults) button:is(.premium-search-scan,.premium-results-scan) svg{width:24px!important;height:24px!important;color:inherit!important;stroke:currentColor!important;}
 html.findai-light body .app :is(#search,#searchResults) button:is(.premium-search-scan,.premium-results-scan){background:transparent!important;color:#20242a!important;}
-html body .app #searchResults .premium-results-header{grid-template-columns:38px minmax(0,1fr)!important;}
+html body .app #searchResults .premium-results-header{grid-template-columns:44px minmax(0,1fr)!important;padding-left:0!important;column-gap:2px!important;}
+html body .app #searchResults .premium-results-back{width:44px!important;height:44px!important;padding:0!important;}
 html body .app #searchResults .premium-results-search{padding-right:5px!important;min-height:50px!important;}
 html body .app #searchResults .premium-results-search input{flex:1;min-width:0;}
 html body .app #searchResults .ww-compare-meta{padding:0 3px 10px!important;}
