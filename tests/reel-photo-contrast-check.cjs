@@ -1,0 +1,20 @@
+const fs=require('fs'),assert=require('assert'),{JSDOM}=require('jsdom');
+const html=fs.readFileSync(__dirname+'/../findai-app.html','utf8');
+const script=html.match(/<script id="wishwave-photo-aware-actions-v275-script">([\s\S]*?)<\/script>/)[1];
+const dom=new JSDOM('<html class="findai-light"><body><article class="reel-card"><div class="hero-stage" data-gallery-index="0"><div data-gallery-slide="0"><img class="hero-image" style="object-fit:contain"></div><div data-gallery-slide="1"><img class="hero-image" style="object-fit:contain"></div></div><div class="reel-actions-rail"><button class="reel-social-action like"><span class="reel-social-icon"></span><span class="ww-preview-count">100</span></button></div></article></body></html>',{runScripts:'outside-only',pretendToBeVisual:true});
+const w=dom.window,d=w.document,wait=()=>new Promise(r=>setTimeout(r,40));
+const rect=(left,top,width,height)=>({left,top,width,height,right:left+width,bottom:top+height});
+const card=d.querySelector('article'),stage=d.querySelector('.hero-stage'),images=[...d.querySelectorAll('img')],icon=d.querySelector('.reel-social-icon'),count=d.querySelector('.ww-preview-count');
+Object.defineProperty(w,'innerHeight',{value:900});card.getBoundingClientRect=stage.getBoundingClientRect=()=>rect(0,0,400,800);
+images.forEach((img,i)=>{Object.defineProperty(img,'naturalWidth',{value:400});Object.defineProperty(img,'naturalHeight',{value:i?800:400});img.getBoundingClientRect=()=>rect(0,0,400,800);});
+icon.getBoundingClientRect=()=>rect(360,250,28,28);count.getBoundingClientRect=()=>rect(360,650,40,15);
+(async()=>{
+ w.eval(script);await wait();assert(icon.classList.contains('ww-on-photo'),'icon over actual photo uses white');assert(!count.classList.contains('ww-on-photo'),'count outside photo retains theme colour independently');
+ const dimensions=images[0].getBoundingClientRect();assert.deepEqual(dimensions,rect(0,0,400,800),'photo geometry remains unchanged');
+ stage.dataset.galleryIndex='1';await wait();assert(count.classList.contains('ww-on-photo'),'portrait gallery photo updates lower controls');
+ stage.dataset.galleryIndex='0';await wait();assert(!count.classList.contains('ww-on-photo'),'swiping back restores below-photo colour');
+ icon.getBoundingClientRect=()=>rect(360,100,28,28);d.dispatchEvent(new w.Event('scroll'));await wait();assert(!icon.classList.contains('ww-on-photo'),'letterboxed space does not count as image');
+ icon.getBoundingClientRect=()=>rect(360,250,28,28);images[0].dispatchEvent(new w.Event('load'));await wait();assert(icon.classList.contains('ww-on-photo'),'loaded/resized photo refreshes contrast');
+ count.remove();const late=d.createElement('span');late.className='ww-preview-count';late.getBoundingClientRect=()=>rect(360,300,40,15);d.querySelector('button').append(late);await wait();assert(late.classList.contains('ww-on-photo'),'late preview counts get contrast');
+ console.log('PASS: independent photo-aware icon/count colours, letterboxing, gallery changes and late counts without photo layout changes');w.close();
+})().catch(e=>{console.error(e);w.close();process.exitCode=1});
