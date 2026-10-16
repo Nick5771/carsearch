@@ -1,4 +1,5 @@
 import './findai-treasure-pilot.js';
+import './wishwave-compare.js';
 // FindAI Cloudflare Worker — api.carsearchapi.workers.dev
 // eBay Browse API + AliExpress Affiliates API (Advanced, real signed calls)
 //
@@ -20440,6 +20441,7 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
   };
 
   const intent=parseSearchIntent(raw);
+  if(opts.sort==='price_asc')intent.sort='price_asc';
   const effective=String(intent&&intent.keywords||raw).trim();
   const explicitSource=String(intent&&intent.source||'').toLowerCase();
   const category=String(webDiscoveryQueryCategory(effective)||'').toLowerCase();
@@ -20477,7 +20479,7 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
 
   if(should('ebay')){
     addJob('ebay','eBay',findAISourceIconEbayHost(c),'marketplace',passive?1700:4400,
-      ()=>searchEbay(effective,c,maxPrice,env,false,intent&&intent.sort==='newest'?'newlyListed':'',sourceOffset));
+      ()=>searchEbay(effective,c,maxPrice,env,false,opts.sort==='price_asc'?'price':intent&&intent.sort==='newest'?'newlyListed':'',sourceOffset));
   }
 
   const aliEligible=explicitSource==='ali'||(!explicitSource&&!webDiscoveryQueryBrand(effective)&&!findAIExplicitResaleQuery(effective));
@@ -20536,7 +20538,8 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
     const s=Number(it&&it.shippingCost);
     return p+(Number.isFinite(s)&&s>0?s:0);
   };
-  if(intent&&intent.sort==='price_asc')deduped.sort((a,b)=>delivered(a)-delivered(b));
+  if(opts.sort==='price_asc'){const ordered=globalThis.WishWaveCompare.order(deduped,opts.compareCurrency||'');deduped.splice(0,deduped.length,...ordered);}
+  else if(intent&&intent.sort==='price_asc')deduped.sort((a,b)=>delivered(a)-delivered(b));
   else if(intent&&intent.sort==='price_desc')deduped.sort((a,b)=>delivered(b)-delivered(a));
   else deduped.sort((a,b)=>Number(b._shoppingRank)-Number(a._shoppingRank));
 
@@ -20637,7 +20640,7 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
 // likes, private listings or per-user recommendations.
 async function wishwaveSharedShoppingWindow(query,country,env,ctx,opts={}){
   if(!env||!env.CACHE||typeof crypto==='undefined'){const result=await wishwaveShoppingEngineSearch(query,country,env,ctx,opts);catalogueQueue(result.items||[],country,env,ctx);return result;}
-  const identity=JSON.stringify([ENGINE_VERSION,String(query).replace(/\s+/g,' ').trim().toLowerCase(),String(country).toUpperCase(),String(opts.maxPrice||''),Number(opts.sourceOffset)||0,!!opts.passive,Number(opts.limit)||400]);
+  const identity=JSON.stringify([ENGINE_VERSION,String(query).replace(/\s+/g,' ').trim().toLowerCase(),String(country).toUpperCase(),String(opts.maxPrice||''),Number(opts.sourceOffset)||0,!!opts.passive,Number(opts.limit)||400,String(opts.sort||''),String(opts.compareCurrency||'')]);
   const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(identity))),x=>x.toString(16).padStart(2,'0')).join('');
   const key='wishwave:shopping:window:v1:'+digest,state=ebayGatewayState(env),now=Date.now();
   const cached=await ebayGatewayCacheRead(env,state,key,now);
@@ -27110,7 +27113,7 @@ export default {
         const windowOffset=offsetCursor?Math.min(400,Number(offsetCursor[2])):offset-sourceOffset;
         const explicit=String(body&&body.country||'').trim().toUpperCase();
         const country=explicit||requestedCountry(request,url);
-        const full=await wishwaveSharedShoppingWindow(query,country,env,ctx,{limit:400,sourceOffset,passive:!!body.passive,maxPrice:body&&body.maxPrice});
+        const full=await wishwaveSharedShoppingWindow(query,country,env,ctx,{limit:400,sourceOffset,passive:!!body.passive,maxPrice:body&&body.maxPrice,sort:body.sort==='price_asc'?'price_asc':'',compareCurrency:body.sort==='price_asc'&&/^[A-Z]{3}$/.test(String(body.compareCurrency||''))?String(body.compareCurrency):''});
         const listings=full.items.slice(windowOffset,windowOffset+limit);
         const moreInWindow=windowOffset+listings.length<full.items.length;
         const hasMore=moreInWindow||!!full.ebayHasMore;

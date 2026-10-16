@@ -1,11 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="wishwave-compare.js?v=277"></script>
 <script src="wishwave-discovery-surfaces.js?v=271"></script>
 <script src="wishwave-discovery-rotation.js?v=271"></script>
 <script src="wishwave-interaction-preview.js?v=273"></script>
 <script src="wishwave-photo-hygiene.js?v=260"></script>
-<meta name="findai-build" content="v276-consistent-white-actions">
+<meta name="findai-build" content="v277-compare-summary-camera">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0c0d0f">
@@ -3198,8 +3199,8 @@ html body .app #profile .wishwave-collection-empty{gap:12px;min-height:300px;pad
     <header class="premium-search-home-header">
       <form class="premium-search-bar" onsubmit="return handlePremiumExploreSubmit(event)">
         <svg class="premium-search-glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>
-        <input id="q" type="search" placeholder="Search FindAI" enterkeyhint="search" autocomplete="off" autocapitalize="sentences" oninput="handlePremiumExploreInput(this.value)" onsearch="wishwaveSearchFieldAction(event)">
-        <button class="premium-search-scan" type="button" onclick="go('scan')" aria-label="Scan a product">
+        <input id="q" type="search" placeholder="Search WishWave" enterkeyhint="search" autocomplete="off" autocapitalize="sentences" oninput="handlePremiumExploreInput(this.value)" onsearch="wishwaveSearchFieldAction(event)">
+        <button class="premium-search-scan" type="button" onclick="go('scan')" aria-label="Search with camera">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6 9.5 3.8h5L16 6h3.2A2.3 2.3 0 0 1 21.5 8.3v10A2.3 2.3 0 0 1 19.2 20.6H4.8a2.3 2.3 0 0 1-2.3-2.3v-10A2.3 2.3 0 0 1 4.8 6Z"/><circle cx="12" cy="13" r="4"/></svg>
         </button>
       </form>
@@ -3234,11 +3235,10 @@ html body .app #profile .wishwave-collection-empty{gap:12px;min-height:300px;pad
       </button>
       <form class="premium-results-search" onsubmit="return submitPremiumSearchOrSeller(event,'results')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>
-        <input id="premiumResultQuery" type="search" placeholder="Search FindAI" enterkeyhint="search" autocomplete="off">
+        <input id="premiumResultQuery" type="search" placeholder="Search WishWave" enterkeyhint="search" autocomplete="off">
+      <button class="premium-results-scan" type="button" onclick="go('scan')" aria-label="Search with camera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6 9.5 3.8h5L16 6h3.2A2.3 2.3 0 0 1 21.5 8.3v10A2.3 2.3 0 0 1 19.2 20.6H4.8a2.3 2.3 0 0 1-2.3-2.3v-10A2.3 2.3 0 0 1 4.8 6Z"/><circle cx="12" cy="13" r="4"/></svg></button>
       </form>
-      <button class="premium-results-scan" type="button" onclick="go('scan')" aria-label="Scan">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75"><path d="M5 8V5.8A.8.8 0 0 1 5.8 5H8M16 5h2.2a.8.8 0 0 1 .8.8V8M19 16v2.2a.8.8 0 0 1-.8.8H16M8 19H5.8a.8.8 0 0 1-.8-.8V16"/><circle cx="12" cy="12" r="3"/></svg>
-      </button>
+
     </header>
     <div class="premium-results-scroll">
       <div id="premiumProfileMatches" aria-live="polite"></div>
@@ -6541,7 +6541,7 @@ function extractPagination(data,rawCount,limit){
 }
 
 async function fetchProductResults(query,{
-  page=1,cursor=null,limit=FEED_BATCH_SIZE,preserveExact=false,skipResolve=false,signal=null,useTracker=false,passive=false
+  page=1,cursor=null,limit=FEED_BATCH_SIZE,preserveExact=false,skipResolve=false,signal=null,useTracker=false,passive=false,sort='',compareCurrency=''
 }={}){
   limit=Math.max(4,Math.min(40,Number(limit)||FEED_BATCH_SIZE));
   let resolvedQuery=String(query || '').trim();
@@ -6565,6 +6565,7 @@ async function fetchProductResults(query,{
   if(!useTracker)payload.country=appShoppingRegion();
   if(cursor)payload.cursor=cursor;
   if(passive)payload.passive=true;
+  if(sort==='price_asc'){payload.sort='price_asc';if(compareCurrency)payload.compareCurrency=compareCurrency;}
   const endpoint=useTracker?'/tracker/search':'/search';
   let data;
   try{
@@ -7385,7 +7386,7 @@ function compareItem(index,event){
   const query=buildCompareQuery(item);
   if(!query){toast('Not enough product details to compare yet');return;}
   recordInterest(item._interestQuery||query,'compare',null,{item});
-  launchPremiumSearch(query,{preserveExact:true,source:'compare'});
+  launchPremiumSearch(query,{preserveExact:true,source:'compare',compareItem:item});
 }
 
 /* Scan */
@@ -9280,6 +9281,7 @@ let premiumEbayItems=[];
 let premiumResultItems=[];
 let premiumResultData=null;
 let premiumResultQuery='';
+let premiumCompareContext=null;
 let premiumResultPage=1;
 let premiumResultCursor=null;
 let premiumResultHasMore=false;
@@ -9314,7 +9316,7 @@ function premiumItemMeta(item){
 }
 function premiumCard(item,index,kind){
   const img=premiumProductImage(item),active=isTracked(item),source=getSource(item);
-  const isEbay=premiumIsEbay(item);
+  const isEbay=premiumIsEbay(item),compare=kind==='result'&&premiumCompareContext,quote=compare?WishWaveCompare.quote(item,compare.currency):null;
   return `<article class="${kind==='ebay'?'premium-ebay-card':'premium-result-card'}" onclick="${kind==='ebay'?'openPremiumEbayItem':'openPremiumResultItem'}(${index})">
     <div class="${kind==='ebay'?'premium-ebay-media':'premium-result-media'}">
       ${img?`<img src="${escapeAttr(img)}" alt="${escapeAttr(item.title||'Product')}" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.visibility='hidden'">`:''}
@@ -9325,8 +9327,8 @@ function premiumCard(item,index,kind){
     <div class="${kind==='ebay'?'premium-ebay-copy':'premium-result-copy'}">
       <div class="source">${sourceMarkup(isEbay?'ebay':source,item)}</div>
       <h3>${escapeHTML(item.title||'Product')}</h3>
-      <strong>${escapeHTML(money(Number(item.price)||0,currencyOf(item,kind==='result'?premiumResultData:null)||'AUD'))}</strong>
-      <small>${escapeHTML(premiumItemMeta(item)||'Live listing')}</small>
+      <strong>${escapeHTML(compare?WishWaveCompare.format(quote.known?quote.total:quote.price,quote.currency)+' '+quote.currency:money(Number(item.price)||0,currencyOf(item,kind==='result'?premiumResultData:null)||'AUD'))}</strong>
+      <small>${escapeHTML(compare?(quote.known?'Total incl. shipping':'Shipping not provided'):premiumItemMeta(item)||'Live listing')}</small>
     </div>
   </article>`;
 }
@@ -9392,7 +9394,9 @@ function submitPremiumSearch(event,origin){
   return false;
 }
 async function launchPremiumSearch(query,options={}){
-  const q=String(query||'').trim();if(!q)return;
+  const compare=options.source==='compare'?(options.compareContext||WishWaveCompare.context(query,options.compareItem||{})):null;
+  const q=String(compare?.query||query||'').trim();if(!q)return;
+  premiumCompareContext=compare;
   const preserveExact=!!(options&&options.preserveExact);
   const searchSource=String(options&&options.source||'search');
   if(premiumSearchController)premiumSearchController.abort();
@@ -9403,30 +9407,39 @@ async function launchPremiumSearch(query,options={}){
   const resultInput=$('#premiumResultQuery');if(resultInput)resultInput.value=q;
   go('searchResults');setSearchNavActive();
   const meta=$('#premiumResultsMeta'),grid=$('#premiumResultsGrid'),more=$('#premiumLoadMore');
-  if(meta)meta.textContent=preserveExact?'Finding matching listings…':'Searching live listings…';
+  if(meta){meta.closest('.premium-results-meta')?.classList.remove('ww-compare-meta');meta.textContent=preserveExact?'Finding matching listings…':'Searching live listings…';}
   if(grid)grid.innerHTML='<div class="premium-results-loading"><div class="feed-more-spinner"></div>Finding the best current listings…</div>';
   if(more)more.hidden=true;
   try{
-    const result=await fetchProductResults(q,{page:1,limit:24,preserveExact,skipResolve:preserveExact,signal:controller.signal});
+    const result=await fetchProductResults(q,{page:1,limit:24,preserveExact,skipResolve:preserveExact,signal:controller.signal,sort:compare?'price_asc':'',compareCurrency:compare?.currency||''});
     if(controller.signal.aborted||controller!==premiumSearchController||premiumResultQuery!==q)return;
     premiumResultData=result.data||{};
     premiumResultItems=(Array.isArray(premiumResultData.listings)?premiumResultData.listings:[]).filter(item=>Number(item.price)>0);
     premiumResultCursor=result.nextCursor||null;premiumResultHasMore=!!result.hasMore;
     paintPremiumResults(false);
+    for(let batch=0;compare&&premiumResultItems.length<4&&premiumResultHasMore&&batch<2&&controller===premiumSearchController;batch++)await loadMorePremiumResults();
   }catch(error){
     if(controller.signal.aborted||controller!==premiumSearchController||error&&error.name==='AbortError')return;
     if(meta)meta.textContent='Search unavailable';
     if(grid)grid.innerHTML='<div class="premium-results-empty">FindAI could not load these listings right now. Try the search again in a moment.</div>';
   }
 }
+function renderPremiumCompareSummary(){
+  const stats=WishWaveCompare.summary(premiumResultItems,premiumCompareContext.currency);
+  const value=n=>escapeHTML(WishWaveCompare.format(n,stats.currency))+(n===null?'':' <small>'+escapeHTML(stats.currency)+'</small>');
+  return '<div class="ww-compare-stats" role="group" aria-label="Current matching asking price totals"><div><span>Lowest</span><strong>'+value(stats.lowest)+'</strong></div><div><span>Typical price <button type="button" class="ww-compare-info" onclick="toast(\'Median of currently loaded matching asking prices with known shipping, in one currency. Unknown shipping is excluded. These are not sold prices.\')" aria-label="About typical price">ⓘ</button></span><strong>'+value(stats.typical)+'</strong></div><div><span title="Matching offers loaded in this comparison">Matching listings</span><strong>'+stats.count+'</strong></div></div>';
+}
 function paintPremiumResults(append){
   const grid=$('#premiumResultsGrid'),meta=$('#premiumResultsMeta'),more=$('#premiumLoadMore');if(!grid)return;
+  const compare=premiumCompareContext;
+  if(compare){if(!compare.currency)compare.currency=String(premiumResultData?.currency||premiumResultItems.find(x=>x.currency)?.currency||'').toUpperCase();premiumResultItems=WishWaveCompare.prepare(premiumResultItems,compare,compare.currency);}
+  if(meta)meta.closest('.premium-results-meta')?.classList.toggle('ww-compare-meta',!!compare);
   if(!premiumResultItems.length){
     grid.innerHTML='<div class="premium-results-empty">No close live matches yet. Try the exact product, model, card number or set name.</div>';
-    if(meta)meta.textContent='No close live matches';if(more)more.hidden=true;return;
+    if(meta){if(compare)meta.innerHTML=renderPremiumCompareSummary();else meta.textContent='No close live matches';}if(more){more.hidden=!compare||!premiumResultHasMore;if(!premiumResultLoadJob){more.disabled=false;more.textContent='Load more';}}return;
   }
   grid.innerHTML=premiumResultItems.map((item,i)=>premiumCard(item,i,'result')).join('');
-  if(meta)meta.textContent=`${premiumResultItems.length} current listings for “${premiumResultQuery}”`;
+  if(meta){if(compare)meta.innerHTML=renderPremiumCompareSummary();else meta.textContent=`${premiumResultItems.length} current listings for “${premiumResultQuery}”`;}
   if(more){more.hidden=!premiumResultHasMore;if(!premiumResultLoadJob){more.disabled=false;more.textContent='Load more';}}
 }
 let premiumResultLoadJob=null;
@@ -9436,7 +9449,7 @@ async function loadMorePremiumResults(){
   const more=$('#premiumLoadMore');if(more){more.disabled=true;more.textContent='Loading…';}
   try{
     const page=premiumResultPage+1;
-    const result=await fetchProductResults(query,{page,cursor:premiumResultCursor,limit:24,preserveExact:true,skipResolve:true,signal:owner?.signal});
+    const result=await fetchProductResults(query,{page,cursor:premiumResultCursor,limit:24,preserveExact:true,skipResolve:true,signal:owner?.signal,sort:premiumCompareContext?'price_asc':'',compareCurrency:premiumCompareContext?.currency||''});
     if(owner!==premiumSearchController||owner?.signal.aborted||query!==premiumResultQuery)return;
     const incoming=(Array.isArray(result.data&&result.data.listings)?result.data.listings:[]).filter(item=>Number(item.price)>0);
     const seen=new Set(premiumResultItems.map(item=>listingKey(item)||trackedKey(item)));
@@ -31101,7 +31114,7 @@ html.findai-light body .app #appMpInbox .app-mp-compose-send{color:#111!importan
       if(document.body.dataset.activeTab==='messages'&&!document.getElementById('appMpInbox')?.classList.contains('chat-open'))renderAppMpConversationList(data,false,'');return;
     }
     if(key==='notifications')return window.loadHomeNotifications?.();
-    if(key==='searchResults'){const q=document.getElementById('premiumResultQuery')?.value||'';return q?launchPremiumSearch(q):window.resetPremiumExploreHome(true);}
+    if(key==='searchResults'){const q=document.getElementById('premiumResultQuery')?.value||'';return q?launchPremiumSearch(q,premiumCompareContext?{source:'compare',preserveExact:true,compareContext:premiumCompareContext}:{}):window.resetPremiumExploreHome(true);}
     if(key==='publicProfile'){
       const previous=wishwavePublicSellerData,id=previous?.seller?.id,tab=wishwavePublicSellerTab;if(!id)return;
       const data=await marketplaceFetch('/marketplace/sellers/'+encodeURIComponent(id)+'/profile',{method:'GET'});
@@ -35727,6 +35740,22 @@ html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createLi
 html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createListingScreen) article.reel-card .reel-actions-rail .reel-social-action :is(.ww-preview-count,.reel-social-label){color:#fff!important;text-shadow:0 1px 3px rgba(0,0,0,.75)!important;}
 html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createListingScreen) article.reel-card .reel-actions-rail .reel-social-action.like.active .reel-social-icon svg{color:#ff3045!important;stroke:#ff3045!important;}
 html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168,#createListingScreen) article.reel-card .reel-actions-rail .reel-social-action.bookmark.active .reel-social-icon svg{fill:currentColor!important;}
+</style>
+
+<style id="wishwave-camera-compare-v277">
+html body .app :is(#search,#searchResults) button:is(.premium-search-scan,.premium-results-scan){width:40px!important;height:40px!important;min-width:40px!important;flex:0 0 40px!important;padding:8px!important;border:0!important;border-radius:10px!important;background:#242830!important;color:#fff!important;box-shadow:none!important;display:grid!important;place-items:center!important;}
+html body .app :is(#search,#searchResults) button:is(.premium-search-scan,.premium-results-scan) svg{width:24px!important;height:24px!important;color:inherit!important;stroke:currentColor!important;}
+html.findai-light body .app :is(#search,#searchResults) button:is(.premium-search-scan,.premium-results-scan){background:#e7eaee!important;color:#20242a!important;}
+html body .app #searchResults .premium-results-header{grid-template-columns:38px minmax(0,1fr)!important;}
+html body .app #searchResults .premium-results-search{padding-right:5px!important;min-height:50px!important;}
+html body .app #searchResults .premium-results-search input{flex:1;min-width:0;}
+html body .app #searchResults .ww-compare-meta{padding:4px 3px 17px!important;}
+.ww-compare-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0;padding:6px 0 14px;border-bottom:1px solid #282c33;}
+.ww-compare-stats>div{min-width:0;padding:0 10px;border-right:1px solid #282c33;}.ww-compare-stats>div:first-child{padding-left:0}.ww-compare-stats>div:last-child{padding-right:0;border-right:0}
+.ww-compare-stats span{display:flex;align-items:center;gap:3px;color:#969da7;font-size:11px;line-height:1.4;margin-bottom:5px;}
+.ww-compare-stats strong{display:block;color:#fff;font-size:17px;font-weight:650;line-height:1.4;font-variant-numeric:tabular-nums;}.ww-compare-stats strong small{font-size:9px;font-weight:500;}
+.ww-compare-info{background:none;border:0;color:inherit;font:inherit;padding:0;cursor:pointer;}
+html.findai-light .ww-compare-stats,html.findai-light .ww-compare-stats>div{border-color:#e2e5e9;}html.findai-light .ww-compare-stats strong{color:#17191d;}html.findai-light .ww-compare-stats span{color:#666d77;}
 </style>
 </body>
 </html>

@@ -1,0 +1,24 @@
+const assert=require('assert'),fs=require('fs'),vm=require('vm'),api=require('../wishwave-compare.js');
+const source={title:'Bandai S.H.Figuarts Sailor Chibi Moon Animation Color Edition Figure JP',currency:'USD',condition:'New'};
+const ctx=api.context('Bandai Sailor Moon S.H.Figuarts Animation Color Edition',source);
+const offer=(id,price,extra={})=>({...source,itemId:id,price,shippingCost:0,...extra});
+const rows=[offer('b',52,{shippingCost:5}),offer('a',49.3),offer('c',54,{shippingCost:2}),offer('unknown',1,{shippingCost:null}),offer('wrong-character',10,{title:'Bandai S.H.Figuarts Sailor Pluto Animation Color Edition'}),offer('wrong-edition',10,{title:'Bandai S.H.Figuarts Sailor Chibi Moon Original Color Edition'}),offer('used',10,{condition:'Used'}),offer('currency',10,{currency:'AUD'}),offer('box',1,{title:source.title+' empty box'}),offer('a',49.3)];
+const moon=api.context('Bandai Sailor Moon S.H.Figuarts Animation Color Edition',{...source,title:'Bandai S.H.Figuarts Sailor Moon Animation Color Edition'});assert(!api.matches(offer('chibi',20),moon),'base character must not accept Chibi variant');assert(!api.matches(offer('pluto',20,{title:'Bandai S.H.Figuarts Sailor Moon Sailor Pluto Animation Color Edition'}),moon),'series name must not mask a different character');
+const prepared=api.prepare(rows,ctx);assert.deepEqual(prepared.map(x=>x.itemId),['a','c','b','unknown']);assert.deepEqual(api.summary(prepared,'USD'),{currency:'USD',count:4,pricedCount:3,lowest:49.3,typical:56});
+assert.equal(api.quote(offer('null',20,{shippingCost:null})).known,false,'null is not free shipping');assert.equal(api.quote(offer('empty',20,{shippingCost:''})).known,false);assert.equal(api.quote(offer('free',20,{shippingCost:null,freeShipping:true})).total,20);assert.equal(api.quote(offer('foreign-shipping',20,{shippingCost:3,shipping:{currency:'AUD'}})).known,false);
+assert.equal(api.summary([offer('one',20)],'USD').typical,null,'one asking price is not a typical price');assert.equal(api.summary([],'USD').lowest,null);assert.equal(api.summary([offer('a',10),offer('b',20),offer('c',40),offer('d',1000)],'USD').typical,30,'median resists extreme asks');
+assert.equal(api.format(49.3,'USD'),'$49.30');assert(ctx.query.includes('chibi'),'source character refines broad query');
+const html=fs.readFileSync(__dirname+'/../findai-app.html','utf8');for(const script of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))new vm.Script(script[1]);
+const worker=fs.readFileSync(__dirname+'/../findai-worker.js','utf8');
+(async()=>{
+ const state={pending:new Map(),rows:new Map()};let calls=0;
+ const sandbox={crypto:require('crypto').webcrypto,TextEncoder,ENGINE_VERSION:'test',catalogueQueue(){},ebayGatewayState:()=>state,ebayGatewayCacheRead:async(env,state,key)=>state.rows.get(key),ebayGatewayRemember:(state,key,entry)=>state.rows.set(key,entry),wishwaveShoppingEngineSearch:async(q,c,e,x,opts)=>{calls++;return {items:[{title:'Offer',price:20,currency:opts.compareCurrency||'USD'}],sourceHealth:{}};}};
+ vm.createContext(sandbox);vm.runInContext(worker.slice(worker.indexOf('async function wishwaveSharedShoppingWindow('),worker.indexOf('// v208: shared engagement')),sandbox);
+ const env={CACHE:{put:async()=>{}}};
+ await sandbox.wishwaveSharedShoppingWindow('same product','US',env,null,{});
+ await sandbox.wishwaveSharedShoppingWindow('same product','US',env,null,{sort:'price_asc',compareCurrency:'USD'});
+ await sandbox.wishwaveSharedShoppingWindow('same product','US',env,null,{});
+ assert.equal(calls,2,'ordinary search and price comparison have separate reusable windows');
+ await sandbox.wishwaveSharedShoppingWindow('same product','US',env,null,{sort:'price_asc',compareCurrency:'AUD'});assert.equal(calls,3,'different comparison currencies cannot share a window');
+ console.log('PASS: character/edition/condition/currency matching, shipping-aware order, dedupe, median, empty states and isolated server windows');
+})().catch(e=>{console.error(e);process.exitCode=1});
