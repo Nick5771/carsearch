@@ -6728,6 +6728,7 @@ function marketComparables(items){
   return filtered.length>=2 ? filtered : base;
 }
 function renderFirstListingMarketStrip(items,data){
+  if(data?.profileContext||data?.personalised||feedState.source==='contextual-reel')return '';
   const comps=marketComparables(items);
   if(comps.length<2) return '';
   const prices=comps.map(listingTotalPrice).filter(Number.isFinite).sort((a,b)=>a-b);
@@ -7086,7 +7087,6 @@ function renderReelCard(item,index,data){
         </div>
       </div>
       ${wishwavePromotionButton(item)}
-      ${index===0 && feedState.source!=='personalised' ? renderFirstListingMarketStrip(currentFeedItems,data) : ''}
     </div>
   </article>`;
 }
@@ -8607,10 +8607,22 @@ function appMpMessageTime(value){try{const d=new Date(value),n=new Date(),same=d
 function appMpInitial(value){return String(value||'F').trim().charAt(0).toUpperCase()||'F';}
 function appMpStatus(value){return ({active:'Available',reserved:'Reserved',sold:'Sold',paused:'Unavailable'})[String(value||'active')]||'Available';}
 function appMpRequireLogin(){if(marketplaceSession())return true;openLogin();return false;}
+function wishwaveIsOwnMarketplaceListing(item,context){
+  if(!item||!isFindAIListing(item)||!marketplaceSession())return false;
+  const id=appMpId(item);if(!id)return false;
+  if(context?.viewer?.isSeller===true&&appMpId(context.listing)===id)return true;
+  const account=getAccountProfile();if(!account)return false;
+  const email=String(account.email||'').trim().toLowerCase(),owner=String(item.ownerEmail||'').trim().toLowerCase();
+  if(owner)return !!email&&owner===email;
+  const username=String(account.username||'').trim().toLowerCase(),seller=String(item.sellerUsername||'').trim().toLowerCase();
+  if(username&&seller&&username===seller)return true;
+  const known=[...(typeof socialProfileListings!=='undefined'?socialProfileListings:[]),...getMarketplaceListings()];
+  return known.some(row=>appMpId(row)===id&&(!row.ownerEmail||String(row.ownerEmail).trim().toLowerCase()===email));
+}
 async function openAppMarketplaceListing(item){
   const id=appMpId(item);if(!id)return;
   const screen=$('#appMpProduct'),root=$('#appMpProductContent');screen.classList.add('show');root.innerHTML='<div class="app-mp-loading"><div><div class="app-mp-spinner"></div><b>Loading listing</b></div></div>';
-  try{const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id),{method:'GET'});appMpContext=data;appMpListing=data.listing;renderAppMarketplaceListing();}
+  try{const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id),{method:'GET'});appMpContext={...data,viewer:{...data.viewer,isSeller:wishwaveIsOwnMarketplaceListing(data.listing,data)}};appMpListing=data.listing;renderAppMarketplaceListing();}
   catch(error){root.innerHTML='<div class="app-mp-loading"><div><b>Listing unavailable</b><p>'+escapeHTML(error.message||'Could not load this listing')+'</p></div></div>';}
 }
 function closeAppMarketplaceListing(){closeAppMpSheet();clearInterval(appMpMessageTimer);appMpMessageTimer=null;$('#appMpProduct').classList.remove('show');appMpListing=null;appMpContext=null;}
@@ -34113,25 +34125,19 @@ html body #appMpProduct .wishwave-detail-save{display:flex!important;align-items
     const owner=!!appMpContext?.viewer?.isSeller;
     openAppMpSheet('Listing options','<div class="app-mp-actions">'+(!owner?'<button class="app-mp-action tertiary" onclick="closeAppMpSheet();wishwaveRecommendationOptions(appMpListing)">Not interested</button>':'')+'<button class="app-mp-action tertiary" onclick="closeAppMpSheet();openAppMarketplaceOfferInMessages()">'+(owner?'Manage offers':'Make offer')+'</button><button class="app-mp-action tertiary" onclick="closeAppMpSheet();openAppMarketplaceMessages()">'+(owner?'Messages':'Message seller')+'</button><button class="app-mp-action tertiary" onclick="closeAppMpSheet();openWishWaveListingComments()">Comments</button>'+(!owner?'<button class="app-mp-action tertiary" onclick="closeAppMpSheet();openWishWaveSafetyReport(\'listing\',{id:appMpId(appMpListing)})">Report listing</button>':'')+'</div>');
   };
-  const profileListing=window.openProfileListingItem;
-  window.openProfileListingItem=function(index,source){
-    const list=(socialProfileListings||[]).filter(x=>source==='sold'?String(x.status||'').toLowerCase()==='sold':String(x.status||'active').toLowerCase()!=='sold');
-    const item=list[Math.max(0,Number(index)||0)];
-    if(item&&isFindAIListing(item))return wishwaveCheckoutOpenItem(item);
-    return profileListing.apply(this,arguments);
-  };
+  // Profile listings keep the tab-owned reel; checkout opens only from a purchase action.
   const publicListing=window.openWishWavePublicListing;
   window.openWishWavePublicListing=function(index,kind){
     const list=(wishwavePublicSellerData?.listings||[]).filter(x=>kind==='sold'?String(x.status||'').toLowerCase()==='sold':String(x.status||'active').toLowerCase()!=='sold');
     const item=list[Math.max(0,Number(index)||0)];
-    if(item&&isFindAIListing(item))return wishwaveCheckoutOpenItem(item);
+    if(item&&isFindAIListing(item)&&!wishwaveIsOwnMarketplaceListing(item))return wishwaveCheckoutOpenItem(item);
     return publicListing.apply(this,arguments);
   };
   const likedListing=window.openProfileLikedItem;
-  window.openProfileLikedItem=function(index){const item=getTracked()[Math.max(0,Number(index)||0)];if(item&&isFindAIListing(item))return wishwaveCheckoutOpenItem(item);return likedListing.apply(this,arguments);};
+  window.openProfileLikedItem=function(index){const item=getTracked()[Math.max(0,Number(index)||0)];if(item&&isFindAIListing(item)&&!wishwaveIsOwnMarketplaceListing(item))return wishwaveCheckoutOpenItem(item);return likedListing.apply(this,arguments);};
   const searchListing=window.openSearchResultDetail;
-  window.openSearchResultDetail=function(index){const item=currentFeedItems[Math.max(0,Number(index)||0)];if(item&&isFindAIListing(item))return wishwaveCheckoutOpenItem(item);return searchListing.apply(this,arguments);};
-  window.wishwaveOpenNativeDetail=function(index,event){if(event){event.preventDefault();event.stopPropagation();}const item=currentFeedItems[Number(index)||0];if(item&&isFindAIListing(item))return wishwaveCheckoutOpenItem(item);};
+  window.openSearchResultDetail=function(index){const item=currentFeedItems[Math.max(0,Number(index)||0)];if(item&&isFindAIListing(item)&&!wishwaveIsOwnMarketplaceListing(item))return wishwaveCheckoutOpenItem(item);return searchListing.apply(this,arguments);};
+  window.wishwaveOpenNativeDetail=function(index,event){if(event){event.preventDefault();event.stopPropagation();}const item=currentFeedItems[Number(index)||0];if(item&&isFindAIListing(item))return openAppMarketplaceListing(item);};
   window.wishwaveOpenDetailSeller=async function(){
     const seller=appMpContext?.seller||{},listing=appMpListing;
     if(!listing)return;
@@ -34279,7 +34285,7 @@ html body .app:has(#wwCheckout.show) #wishwaveMainNav{visibility:visible!importa
  window.appMpBuy=function(offerId){
   if(offerId){toast('Accepted-offer payments are unavailable in this test checkout');return;}
   if(!appMpListing||!appMpRequireLogin())return;
-  if(appMpContext?.viewer?.isSeller){toast('You cannot buy your own listing');return;}
+  if(wishwaveIsOwnMarketplaceListing(appMpListing,appMpContext)){wishwaveCloseCheckout();return openAppMarketplaceListing(appMpListing);}
   if(appMpListing.deliveryMode==='pickup'){wishwaveCloseCheckout();return openAppMarketplaceMessages();}
   const l={...appMpListing};if(String(l.status||'active')!=='active'){wishwaveCloseCheckout();toast('Listing is unavailable');return;}
   cleanElements();state={listing:l,country:'US',postal:'',shippingMinor:null,shippingCarrier:String(l.shippingCarrier||''),shippingService:String(l.shippingService||''),deliveryEstimate:String(l.deliveryEstimate||''),quote:null,error:'',busy:false,config:{},elements:[]};root.classList.add('show');root.scrollTop=0;render();const current=state;marketplaceFetch('/marketplace/config',{method:'GET'}).then(data=>{if(state!==current)return;current.config=data.marketplace||{};current.country=countryCode(current.config.detectedCountry);quote();}).catch(()=>{if(state===current)quote();});
@@ -34315,10 +34321,13 @@ html body .app:has(#wwCheckout.show) #wishwaveMainNav{visibility:visible!importa
   }catch(e){if(state!==current)return;let message=root.querySelector('.wwc-error');if(!message){message=document.createElement('div');message.className='wwc-error';message.setAttribute('role','alert');button.before(message);}message.textContent=e.message||'Test payment failed';}finally{if(state===current){current.busy=false;button.disabled=false;}}
  }
  window.wishwaveCheckoutOpenItem=async function(item){
-  if(!item||!isFindAIListing(item)||!appMpRequireLogin())return;
-  wishwaveCloseCheckout();const request=++version;root.classList.add('show');root.innerHTML='<header class="wwc-head"><button class="wwc-back" onclick="wishwaveCloseCheckout()" aria-label="Back">'+icon('back')+'</button><h1>Checkout</h1></header><div class="app-mp-loading"><div><div class="app-mp-spinner"></div>Loading checkout</div></div>';
-  try{const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(appMpId(item)),{method:'GET'});if(version!==request)return;appMpListing=data.listing;appMpContext=data;if(data.viewer?.isSeller){wishwaveCloseCheckout();return openAppMarketplaceListing(data.listing);}return appMpBuy();}
-  catch(e){if(version!==request)return;root.innerHTML='<header class="wwc-head"><button class="wwc-back" onclick="wishwaveCloseCheckout()" aria-label="Back">'+icon('back')+'</button><h1>Checkout</h1></header><p class="wwc-error">'+escapeHTML(e.message||'Listing unavailable')+'</p>';}
+  if(!item||!isFindAIListing(item))return;
+  if(wishwaveIsOwnMarketplaceListing(item,appMpContext)){wishwaveCloseCheckout();return openAppMarketplaceListing(item);}
+  if(!appMpRequireLogin())return;
+  // Verify ownership before displaying any checkout UI.
+  wishwaveCloseCheckout();const request=++version;
+  try{const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(appMpId(item)),{method:'GET'});if(version!==request)return;appMpListing=data.listing;appMpContext=data;if(wishwaveIsOwnMarketplaceListing(data.listing,data)){wishwaveCloseCheckout();return openAppMarketplaceListing(data.listing);}return appMpBuy();}
+  catch(e){if(version!==request)return;root.classList.add('show');root.innerHTML='<header class="wwc-head"><button class="wwc-back" onclick="wishwaveCloseCheckout()" aria-label="Back">'+icon('back')+'</button><h1>Checkout</h1></header><p class="wwc-error">'+escapeHTML(e.message||'Listing unavailable')+'</p>';}
  };
  const closeListing=window.closeAppMarketplaceListing;window.closeAppMarketplaceListing=function(){wishwaveCloseCheckout();return closeListing.apply(this,arguments);};
  document.getElementById('wishwaveMainNav')?.addEventListener('click',()=>{if(root.classList.contains('show'))closeAppMarketplaceListing();});
