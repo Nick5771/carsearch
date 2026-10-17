@@ -32,6 +32,8 @@
   unlock(flush);if(!flush)queued=null;
  }
  function displayedY(el){
+  const rect=el.getBoundingClientRect(),bounds=layer.getBoundingClientRect();
+  if(rect.height>0&&bounds.height>0)return Math.max(0,rect.bottom-bounds.bottom);
   const transform=getComputedStyle(el).transform;
   if(transform&&transform!=='none'){
    try{return Math.max(0,new DOMMatrixReadOnly(transform).m42);}catch(_){}
@@ -73,7 +75,7 @@
    if(event.target.closest('input,textarea,button,a,select,[contenteditable],.wishwave-comment-composer,.wishwave-comment-form,.wishwave-comment-reactions'))return false;
    const el=panel(),t=event.touches[0],h=height(),list=el.querySelector('.wishwave-comments-list');
    let y=0,active=false,baseOpacity=1;
-   if(settle){
+   if(settle||layer.classList.contains('wishwave-sheet-entering')){
     // Sample the composited position once, then freeze it before cancelling.
     y=displayedY(el);const preview=layer.querySelector('.wishwave-comment-listing-preview');
     const sampledOpacity=preview?Number(getComputedStyle(preview).opacity):clamp(1-y/h,0,1);
