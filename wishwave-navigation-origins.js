@@ -106,15 +106,28 @@
   restore(entry.saved);
  }
  window.__wishwaveCompleteSheetDismiss=function(){const entry=entryFor(node('appMpSheetBg'));if(!entry||entry.root.id!=='appMpSheetBg')return false;back(entry);return true;};
+ function savedPreview(layer,saved){
+  // Reused containers (inbox/chat) need a visual of the saved parent while the
+  // live container moves. Build from its saved tree, not the current chat DOM.
+  const copies=new Map();
+  for(const part of layer.tree){const copy=part.el.cloneNode(false);for(const attr of Array.from(copy.attributes))copy.removeAttribute(attr.name);for(const [name,value] of part.attrs)if(name!=='id'&&!/^on/i.test(name))copy.setAttribute(name,value);copies.set(part.el,copy);}
+  for(const part of layer.tree)copies.get(part.el).replaceChildren(...part.children.map(child=>copies.get(child)||child.cloneNode(true)));
+  const preview=copies.get(layer.el);preview.removeAttribute('id');preview.classList.remove('chat-open','direct-message-chat');preview.classList.add('show','wishwave-inbox-preview');preview.dataset.originPreview='1';preview.setAttribute('aria-hidden','true');preview.inert=true;
+  preview.style.setProperty('z-index','999999','important');preview.style.setProperty('pointer-events','none','important');preview.style.setProperty('background',getComputedStyle(layer.el).backgroundColor||'#0c0d0f','important');preview.style.setProperty('color',getComputedStyle(layer.el).color||'#fff','important');
+  document.querySelector('.app').appendChild(preview);
+  for(const [el,y,x] of saved.scroll){const copy=copies.get(el);if(copy){copy.scrollTop=y;copy.scrollLeft=x;}}
+  return preview;
+ }
  window.__wishwaveOriginSurface=function(target){
   const entry=entryFor(target);if(!entry)return null;
   if(entry.root.id==='findaiNotificationPanel'&&entry.saved.main==='notifications')return null;
   const root=entry.root,isReel=['findaiContextualReelV168','searchDetailOverlay'].includes(root.id);
-  let moved=null,under=null,underActive=false,underShown=false,underScreen=null,screenActive=false,z=null;
+  let moved=null,under=null,underActive=false,underShown=false,underScreen=null,screenActive=false,z=null,preview=null;
   return {root,kind:isReel?'searchReel':root.id,originBound:true,open:()=>shown(root),back:()=>back(entry),
    prepareUnder(){
     under=entry.saved.layers.at(-1)?.el||node(entry.saved.main==='messages'?'appMpInbox':entry.saved.main);
-    if(under===root)under=node(entry.saved.main==='messages'?'appMpInbox':entry.saved.main);
+    if(under===root&&root.id==='appMpInbox'){preview=savedPreview(entry.saved.layers.find(x=>x.el===root),entry.saved);under=preview;}
+    else if(under===root)under=node(entry.saved.main==='messages'?'appMpInbox':entry.saved.main);
     if(under&&under!==root){
      underActive=under.classList.contains('active');underShown=shown(under);
      if(under.classList.contains('screen'))under.classList.add('active');else {under.classList.add('show');if(under.id==='wwDashboard')under.hidden=false;}
@@ -130,6 +143,7 @@
     return under;
    },
    releaseUnder(closed){
+    preview?.remove();
     if(moved){moved.parent.insertBefore(root,moved.next?.parentNode===moved.parent?moved.next:null);moved.style.forEach(([key,value,priority])=>value?root.style.setProperty(key,value,priority):root.style.removeProperty(key));}
     if(z)z[0]?root.style.setProperty('z-index',z[0],z[1]):root.style.removeProperty('z-index');
     if(!closed&&under){if(under.classList.contains('screen'))under.classList.toggle('active',underActive);else {under.classList.toggle('show',underShown);if(under.id==='wwDashboard')under.hidden=!underShown;}if(underScreen)underScreen.classList.toggle('active',screenActive);}
