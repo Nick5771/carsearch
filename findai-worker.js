@@ -21360,6 +21360,34 @@ async function catalogueEnsure(env){
  if(Date.now()-catalogueCleanupAt>3600000){await env.DB.prepare('DELETE FROM recommendation_catalogue WHERE observed_at<?').bind(Date.now()-7*86400000).run();catalogueCleanupAt=Date.now();}
 }
 function catalogueCountry(value){const x=String(value||'AU').toUpperCase();return x==='GB'?'UK':/^[A-Z]{2}$/.test(x)?x:'AU';}
+// Real listing galleries are separate from price refreshes and never borrow peer photos.
+function catalogueGalleryImages(item){
+ const out=[],seen=new Set();
+ const add=value=>{const raw=typeof value==='string'?value:value&&(value.imageUrl||value.url||value.src||value.url_fullxfull||value.url_570xN);if(typeof raw!=='string'||raw.length>1500)return;let u;try{u=new URL(raw);}catch(_){return;}if(u.protocol!=='https:'||u.username||u.password||u.port)return;const url=u.toString();if(!seen.has(url)&&out.length<12){seen.add(url);out.push(url);}};
+ add(item.image);for(const key of ['images','imageUrls','galleryImages','additionalImages','photos','thumbnailImages'])if(Array.isArray(item[key]))item[key].forEach(add);return out;
+}
+const listingGalleryRequests=new Map();
+async function wishwaveListingImages(request,env,ctx){
+ const url=new URL(request.url),source=url.searchParams.get('source'),id=String(url.searchParams.get('id')||''),country=catalogueCountry(url.searchParams.get('country')||'US');
+ if(request.method!=='GET')return jsonResp({error:'GET only'},405);
+ if(!(source==='ebay'&&/^v1\|\d{9,15}\|\d{1,20}$/.test(id)||source==='etsy'&&/^\d{6,20}$/.test(id)))return jsonResp({error:'Invalid listing'},400);
+ const key='listing-gallery:v296:'+source+':'+country+':'+id;
+ try{const cached=await env.CACHE?.get(key,'json');if(cached)return jsonResp(cached,200,{'Cache-Control':'private,max-age=300'});}catch(_){}
+ if(await rateLimited(env,request,'listing-gallery',24,60))return tooManyResp(60);
+ if(!listingGalleryRequests.has(key))listingGalleryRequests.set(key,(async()=>{
+  let images=[];
+  if(source==='ebay'){
+   const token=await getEbayToken(env),response=await ebayBrowseFetch(ebayTrafficEnv(env,'enrichment'),'https://api.ebay.com/buy/browse/v1/item/'+encodeURIComponent(id),{headers:{Authorization:'Bearer '+token,'X-EBAY-C-MARKETPLACE-ID':EBAY_MARKETPLACES[country]||'EBAY_US'}});
+   if(!response.ok)throw Error('Gallery unavailable');const data=await response.json();if(data.itemId!==id)throw Error('Listing mismatch');images=catalogueGalleryImages({image:data.image?.imageUrl,additionalImages:data.additionalImages});
+  }else{
+   const endpoint=new URL('https://openapi.etsy.com/v3/application/listings/batch');endpoint.search=new URLSearchParams({listing_ids:id,includes:'Images'}).toString();const data=await etsyRequest(endpoint.toString(),env);const row=data.results?.find(x=>String(x.listing_id)===id);if(!data.ok||!row)throw Error('Gallery unavailable');images=catalogueGalleryImages({images:(row.images||row.Images||[]).slice().sort((a,b)=>(Number(a.rank)||0)-(Number(b.rank)||0))});
+  }
+  const result={source,itemId:id,images};try{await env.CACHE?.put(key,JSON.stringify(result),{expirationTtl:86400});}catch(_){}
+  if(env.DB&&images.length){const task=env.DB.prepare("UPDATE recommendation_catalogue SET item=json_set(item,'$.images',json(?),'$._galleryFetchedAt',?) WHERE item_key=? AND country=?").bind(JSON.stringify(images),Date.now(),source+':'+(source==='etsy'?'etsy-':'')+id,country).run().catch(()=>{});if(ctx?.waitUntil)ctx.waitUntil(task);else await task;}
+  return result;
+ })().catch(async()=>{const result={source,itemId:id,images:[],retry:true};try{await env.CACHE?.put(key,JSON.stringify(result),{expirationTtl:300});}catch(_){}return result;}).finally(()=>listingGalleryRequests.delete(key)));
+ return jsonResp(await listingGalleryRequests.get(key),200,{'Cache-Control':'private,max-age=300'});
+}
 function cataloguePublicItem(item){
  if(!item||item._findaiMarketplace||['wishwave','findai','ali','aliexpress'].includes(wishwaveShoppingSourceKey(item)))return null;
  const source=String(item.source||item.marketplace||item.retailer||'').toLowerCase();let url;try{url=new URL(item.url||item.itemWebUrl);}catch(_){return null;}
@@ -21367,7 +21395,7 @@ function cataloguePublicItem(item){
  const clean=RecommendationShoppingCore.cleanItem(item);if(!clean.title||!clean.price||!/^[A-Z]{3}$/.test(String(clean.currency||'').toUpperCase()))return null;
  const out={...clean,source,itemId:String(item.itemId||item.id||item.url).slice(0,200),url:url.toString(),currency:clean.currency.toUpperCase()};
  for(const key of ['image','imageFallback','colorway','shoeSize','modelNumber','styleId','styleCode','ean','upc','edition','generation','category','retailerHost','sellerName'])if(typeof item[key]==='string')out[key]=item[key].slice(0,key.startsWith('image')?1500:120);
- out.image=out.image||String(item.images?.[0]||'').slice(0,1500);out.images=[out.image].filter(Boolean);if(typeof item.shippingCost==='number')out.shippingCost=Math.max(0,item.shippingCost);
+ out.image=out.image||String(item.images?.[0]||'').slice(0,1500);out.images=catalogueGalleryImages({...item,image:out.image});if(typeof item.shippingCost==='number')out.shippingCost=Math.max(0,item.shippingCost);
  if(findAIEtsyListingId(item)){out.itemId='etsy-'+findAIEtsyListingId(item);out.listingId=findAIEtsyListingId(item);out._etsyPriceVersion=item._etsyPriceVersion||'';out._etsyFetchedAt=Number(item._etsyFetchedAt)||0;out._etsyPriceBasis=item._etsyPriceBasis||'';out.freeShipping=item.freeShipping===true;out.shippingText=typeof item.shippingText==='string'?item.shippingText:'Shipping calculated on Etsy';out.shippingCurrency=String(item.shippingCurrency||item.currency);out.shippingIncludedInPrice=item.shippingIncludedInPrice===true;out.shippingCost=typeof item.shippingCost==='number'?item.shippingCost:null;}
  out.available=RecommendationShoppingCore.available(item);out._providerObservedAt=Math.min(Date.now(),Number(item._ebayFetchedAt)||Date.now());return out;
 }
@@ -21376,7 +21404,7 @@ function cataloguePreviewItems(value,depth=0){if(depth>4||!value||typeof value!=
 async function catalogueIngest(items,country,env){
  if(!env.DB)return;const candidates=(items||[]).slice(0,48).map(cataloguePublicItem).filter(Boolean);if(!candidates.length)return;await catalogueEnsure(env);const now=Date.now(),c=catalogueCountry(country),statements=[];
  const keys=candidates.map(item=>String(item.source+':'+item.itemId).toLowerCase());const prior=await env.DB.prepare('SELECT item_key,item,document_hash FROM recommendation_catalogue WHERE country=? AND item_key IN ('+keys.map(()=>'?').join(',')+')').bind(c,...keys).all();const previous=new Map((prior.results||[]).map(row=>[row.item_key,row]));
- for(const item of candidates){const document=catalogueDocument(item),hash=await shoppingHash(env,'catalogue-doc-v230|'+document),key=String(item.source+':'+item.itemId).toLowerCase();const old=previous.get(key);if(old?.document_hash===hash)try{const metadata=JSON.parse(old.item);for(const name of ['productType','brand','theme','scale'])if(!item[name]&&metadata[name])item[name]=metadata[name];}catch(_){}const meta=RecommendationInterestCore.classify(item),id=RecommendationCatalogueCore.identity(item,meta);
+ for(const item of candidates){const document=catalogueDocument(item),hash=await shoppingHash(env,'catalogue-doc-v230|'+document),key=String(item.source+':'+item.itemId).toLowerCase();const old=previous.get(key);if(old)try{const gallery=JSON.parse(old.item);if(Number(gallery._galleryFetchedAt)>now-86400000){if(gallery.images?.length>item.images.length)item.images=catalogueGalleryImages({...item,images:[...item.images,...gallery.images]});item._galleryFetchedAt=gallery._galleryFetchedAt;}}catch(_){}if(old?.document_hash===hash)try{const metadata=JSON.parse(old.item);for(const name of ['productType','brand','theme','scale'])if(!item[name]&&metadata[name])item[name]=metadata[name];}catch(_){}const meta=RecommendationInterestCore.classify(item),id=RecommendationCatalogueCore.identity(item,meta);
   statements.push(env.DB.prepare(`INSERT INTO recommendation_catalogue(item_key,country,family,product_type,brand,theme,currency,price,available,item,document,document_hash,observed_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(item_key,country) DO UPDATE SET family=excluded.family,product_type=excluded.product_type,brand=excluded.brand,theme=excluded.theme,currency=excluded.currency,price=excluded.price,available=excluded.available,item=excluded.item,document=excluded.document,vector=CASE WHEN recommendation_catalogue.document_hash=excluded.document_hash THEN recommendation_catalogue.vector ELSE NULL END,vector_model=CASE WHEN recommendation_catalogue.document_hash=excluded.document_hash THEN recommendation_catalogue.vector_model ELSE NULL END,enriched_at=CASE WHEN recommendation_catalogue.document_hash=excluded.document_hash THEN recommendation_catalogue.enriched_at ELSE 0 END,document_hash=excluded.document_hash,observed_at=excluded.observed_at`)
    .bind(key,c,id.variant,meta.type,item.brand||meta.brand||'',meta.theme,item.currency,item.price,item.available?1:0,JSON.stringify(item),document,hash,item._providerObservedAt||now));
  }
@@ -21974,6 +22002,7 @@ export default {
         return jsonResp(await ebayGatewayStatus(env),200,{'Cache-Control':'no-store'});
       }
 
+      if(url.pathname==='/recommendations/listing-images')return await wishwaveListingImages(request,env,ctx);
       if(url.pathname==='/recommendations/starter')return await wishwaveStarterInventory(request,env);
       if(url.pathname==='/recommendations/catalogue-search'&&request.method==='POST')return await catalogueSearch(request,env,ctx);
       const treasureResponse=await treasureRoute(request,env);if(treasureResponse)return treasureResponse;
