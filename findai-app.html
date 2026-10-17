@@ -8661,7 +8661,7 @@ function renderAppMarketplaceListing(){
 function appMpSelectImage(index){const images=Array.isArray(appMpListing&&appMpListing.images)?appMpListing.images:[],img=images[index];if(img)$('#appMpMainImage').src=img;$$('.app-mp-thumb').forEach((el,i)=>el.classList.toggle('active',i===index));appMpSelectedImage=index;}
 async function appMpShareListing(){if(!appMpListing)return;const url='https://findai.ai/findai-app.html?listing='+encodeURIComponent(appMpId(appMpListing));try{if(navigator.share)await navigator.share({title:appMpListing.title||'WishWave listing',url});else{await navigator.clipboard.writeText(url);toast('Listing link copied');}}catch(_){}}
 async function appMpBuy(offerId){if(!appMpListing||!appMpRequireLogin())return;if(appMpListing.deliveryMode==='pickup'){openAppMarketplaceMessages();return;}try{const data=await marketplaceFetch('/marketplace/checkout',{method:'POST',body:JSON.stringify({listingId:appMpId(appMpListing),offerId:offerId||''})});if(data.checkoutUrl)location.href=data.checkoutUrl;else throw new Error('Checkout is not available yet');}catch(error){toast(error.message||'Checkout could not be opened');}}
-function openAppMpSheet(title,html){const bg=$('#appMpSheetBg');bg.dataset.motionVersion=String(Number(bg.dataset.motionVersion||0)+1);bg.classList.remove('comments-dragging','comments-snapping','comments-dismissing');bg.style.removeProperty('--wishwave-comments-drag-y');if(title!=='Comments')bg.classList.remove('wishwave-comments-mode');$('#appMpSheetTitle').textContent=title;$('#appMpSheetBody').innerHTML=html||'';$('#appMpSheetBg').classList.add('show');setTimeout(syncAppMpSheetViewport,30);}
+function openAppMpSheet(title,html){const bg=$('#appMpSheetBg');bg.dataset.motionVersion=String(Number(bg.dataset.motionVersion||0)+1);bg.classList.remove('comments-dragging','comments-snapping','comments-dismissing');bg.style.removeProperty('--wishwave-comments-drag-y');bg.style.removeProperty('--wishwave-comments-preview-opacity');if(title!=='Comments')bg.classList.remove('wishwave-comments-mode');$('#appMpSheetTitle').textContent=title;$('#appMpSheetBody').innerHTML=html||'';$('#appMpSheetBg').classList.add('show');setTimeout(syncAppMpSheetViewport,30);}
 function closeAppMpSheet(){clearInterval(appMpMessageTimer);appMpMessageTimer=null;const bg=$('#appMpSheetBg');if(bg)bg.classList.remove('show');document.documentElement.style.setProperty('--app-mp-keyboard-pad','0px');}
 function syncAppMpSheetViewport(){
   const bg=$('#appMpSheetBg');
@@ -14492,7 +14492,6 @@ function wishwavePublicProfileTile(item,index,kind){
   const img=wishwavePublicProfileImage(item);
   const price=wishwavePublicProfilePrice(item);
   const views=profileListingViewCount(item);
-  const likes=profileListingLikeCount(item);
   const list=kind==='sold'
     ?wishwavePublicSellerData.listings.filter(x=>String(x.status||'').toLowerCase()==='sold')
     :wishwavePublicSellerData.listings.filter(x=>String(x.status||'active').toLowerCase()!=='sold');
@@ -14503,7 +14502,6 @@ function wishwavePublicProfileTile(item,index,kind){
       (price?'<span class="social-profile-tile-price">'+escapeHTML(price)+'</span>':'')+
       '<span class="social-profile-tile-stats">'+
         '<span class="social-profile-tile-stat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6Z"/><circle cx="12" cy="12" r="2.7"/></svg>'+escapeHTML(profileMetricCompact(views))+'</span>'+
-        (likes>0?'<span class="social-profile-tile-stat"><svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="M20.8 4.7a5.6 5.6 0 0 0-7.9 0L12 5.6l-.9-.9a5.6 5.6 0 0 0-7.9 7.9L12 21l8.8-8.4a5.6 5.6 0 0 0 0-7.9Z"/></svg>'+escapeHTML(profileMetricCompact(likes))+'</span>':'')+
       '</span>'+
     '</span>'+
   '</article>';
@@ -15266,6 +15264,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
   html.findai-light #wishwavePublicProfilePage .social-profile-tile-stat{
     color:#fff!important;
   }
+  html body #wishwavePublicProfilePage .social-profile-grid{background:transparent!important;}
 </style>
 
 
@@ -15447,7 +15446,10 @@ if(typeof v116RenderMarketplaceListing==='function'){
   let commentDrag=null,commentDragRaf=0,commentSettle=null;
   function paintCommentDrag(){
     commentDragRaf=0;
-    if(commentDrag)bg()?.style.setProperty('--wishwave-comments-drag-y',Math.max(0,commentDrag.dy)+'px');
+    if(commentDrag){
+      const layer=bg();layer?.style.setProperty('--wishwave-comments-drag-y',Math.max(0,commentDrag.dy)+'px');
+      layer?.style.setProperty('--wishwave-comments-preview-opacity',String(Math.max(0,1-commentDrag.dy/commentDrag.height)));
+    }
   }
   function finishCommentDrag(cancelled){
     const drag=commentDrag;commentDrag=null;
@@ -15462,6 +15464,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     layer.classList.remove('comments-dragging');
     layer.classList.add(dismiss?'comments-dismissing':'comments-snapping');
     layer.style.setProperty('--wishwave-comments-drag-y',dismiss?Math.max(height+24,drag.dy+24)+'px':'0px');
+    layer.style.setProperty('--wishwave-comments-preview-opacity',dismiss?'0':'1');
     let timer=0;
     const complete=()=>{
       clearTimeout(timer);panel.removeEventListener('transitionend',ended);
@@ -15470,6 +15473,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
       if(dismiss&&!window.__wishwaveCompleteSheetDismiss?.())closeAppMpSheet();
       layer.classList.remove('comments-dismissing','comments-snapping');
       layer.style.removeProperty('--wishwave-comments-drag-y');
+      layer.style.removeProperty('--wishwave-comments-preview-opacity');
     };
     const ended=e=>{if(e.target===panel&&e.propertyName==='transform')complete();};
     commentSettle=complete;panel.addEventListener('transitionend',ended);
@@ -15488,7 +15492,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
       if(commentSettle)commentSettle();
       layer.classList.remove('wishwave-sheet-entering');
       const t=event.touches[0];
-      commentDrag={startX:t.clientX,startY:t.clientY,lastY:t.clientY,lastT:performance.now(),velocity:0,dy:0,active:false,version:layer.dataset.motionVersion};
+      commentDrag={startX:t.clientX,startY:t.clientY,lastY:t.clientY,lastT:performance.now(),velocity:0,dy:0,active:false,height:panel.getBoundingClientRect().height||parseFloat(layer.style.getPropertyValue('--wishwave-comment-sheet-height'))||innerHeight*.64,version:layer.dataset.motionVersion};
       return false;
     }
     if(!commentDrag)return false;
@@ -31818,6 +31822,11 @@ html body .app-mp-sheet-bg.wishwave-comments-mode .app-mp-sheet-head h3{font-siz
 .wishwave-comment-listing-preview{position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 6px);transform:translateX(-50%);height:calc(34% - env(safe-area-inset-top,0px) - 18px);max-width:72%;object-fit:contain;border-radius:16px;pointer-events:none;}
 .wishwave-comment-keyboard .wishwave-comment-listing-preview{top:8px;height:calc(22% - 16px);max-width:50%;}
 html body .app #appMpInbox.wishwave-chat-back-drag,html body .app #appMpInbox.wishwave-chat-back-settle{contain:layout paint!important;backface-visibility:hidden!important;}
+/* The preview and backdrop leave together; never expose a duplicate floating photo. */
+html body #appMpSheetBg.wishwave-comments-mode .wishwave-comment-listing-preview{opacity:var(--wishwave-comments-preview-opacity,1)!important;}
+html body #appMpSheetBg.wishwave-comments-mode:is(.comments-dismissing,.comments-snapping) .wishwave-comment-listing-preview{transition:opacity 300ms cubic-bezier(.22,.78,.25,1)!important;}
+html body #appMpSheetBg.wishwave-comments-mode.comments-dragging .wishwave-comment-listing-preview{transition:none!important;}
+html body #appMpSheetBg.wishwave-comments-mode.comments-dismissing{background:transparent!important;transition:background 300ms cubic-bezier(.22,.78,.25,1)!important;}
 </style>
 <script id="wishwave-v210-control-routing">
 (function(){
@@ -34119,12 +34128,14 @@ html body #appMpProduct .wishwave-detail-save{display:flex!important;align-items
     openAppMpSheet('Listing options','<div class="app-mp-actions">'+(!owner?'<button class="app-mp-action tertiary" onclick="closeAppMpSheet();wishwaveRecommendationOptions(appMpListing)">Not interested</button>':'')+'<button class="app-mp-action tertiary" onclick="closeAppMpSheet();openAppMarketplaceOfferInMessages()">'+(owner?'Manage offers':'Make offer')+'</button><button class="app-mp-action tertiary" onclick="closeAppMpSheet();openAppMarketplaceMessages()">'+(owner?'Messages':'Message seller')+'</button><button class="app-mp-action tertiary" onclick="closeAppMpSheet();openWishWaveListingComments()">Comments</button>'+(!owner?'<button class="app-mp-action tertiary" onclick="closeAppMpSheet();openWishWaveSafetyReport(\'listing\',{id:appMpId(appMpListing)})">Report listing</button>':'')+'</div>');
   };
   // Profile listings keep the tab-owned reel; checkout opens only from a purchase action.
-  const publicListing=window.openWishWavePublicListing;
   window.openWishWavePublicListing=function(index,kind){
     const list=(wishwavePublicSellerData?.listings||[]).filter(x=>kind==='sold'?String(x.status||'').toLowerCase()==='sold':String(x.status||'active').toLowerCase()!=='sold');
-    const item=list[Math.max(0,Number(index)||0)];
-    if(item&&isFindAIListing(item)&&!wishwaveIsOwnMarketplaceListing(item))return wishwaveCheckoutOpenItem(item);
-    return publicListing.apply(this,arguments);
+    if(!list.length)return false;
+    const owner=String(document.body.dataset.activeTab||'discover');
+    const opened=window.__wishwaveOpenTabOwnedReel(list,index,{personalised:true,profileContext:true,publicProfileContext:true},'public-profile-v291',owner);
+    // Keep the real profile nodes/data for the origin stack to restore on back.
+    if(opened)document.getElementById('wishwavePublicProfilePage')?.classList.remove('show');
+    return opened;
   };
   const likedListing=window.openProfileLikedItem;
   window.openProfileLikedItem=function(index){const item=getTracked()[Math.max(0,Number(index)||0)];if(item&&isFindAIListing(item)&&!wishwaveIsOwnMarketplaceListing(item))return wishwaveCheckoutOpenItem(item);return likedListing.apply(this,arguments);};
