@@ -14,6 +14,7 @@ function main(tab){w.document.querySelectorAll('.screen').forEach(el=>el.classLi
  w.openAppSettings=()=>{const root=w.document.getElementById('appThemeOverlay');root.classList.add('show');root.querySelector('.app-theme-sheet').innerHTML='<div class="findai-settings-page"><header class="findai-settings-head">Settings</header></div>';};
  w.findaiOpenSettingsPane=()=>{w.document.querySelector('#appThemeOverlay .app-theme-sheet').innerHTML='<div class="findai-settings-detail">Account management</div>';};
  w.eval(fs.readFileSync(__dirname+'/../wishwave-compare.js','utf8'));
+ w.eval(fs.readFileSync(__dirname+'/../wishwave-comments-motion.js','utf8'));
  w.eval(fs.readFileSync(__dirname+'/../wishwave-navigation-origins.js','utf8'));
  for(const tab of ['listings','saved','sold']){
   main('profile');w.eval('socialProfileTab="'+tab+'";socialProfileListings=[]');w.eval('socialProfileListings').push({...own,status:tab==='sold'?'sold':'active'});w.wishwaveBookmarks=()=>[own];

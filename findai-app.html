@@ -15442,80 +15442,6 @@ if(typeof v116RenderMarketplaceListing==='function'){
   const bg=()=>document.getElementById('appMpSheetBg');
   const sheet=()=>document.querySelector('#appMpSheetBg .app-mp-sheet');
 
-  /* Comments own vertical drags before page/pull-to-refresh recognizers. */
-  let commentDrag=null,commentDragRaf=0,commentSettle=null;
-  function paintCommentDrag(){
-    commentDragRaf=0;
-    if(commentDrag){
-      const layer=bg();layer?.style.setProperty('--wishwave-comments-drag-y',Math.max(0,commentDrag.dy)+'px');
-      layer?.style.setProperty('--wishwave-comments-preview-opacity',String(Math.max(0,1-commentDrag.dy/commentDrag.height)));
-    }
-  }
-  function finishCommentDrag(cancelled){
-    const drag=commentDrag;commentDrag=null;
-    if(commentDragRaf){cancelAnimationFrame(commentDragRaf);commentDragRaf=0;}
-    const layer=bg(),panel=sheet();if(!drag||!layer||!panel)return false;
-    if(!drag.active)return false;
-    layer.style.setProperty('--wishwave-comments-drag-y',drag.dy+'px');
-    void panel.offsetWidth;
-    const height=panel.getBoundingClientRect().height||parseFloat(layer.style.getPropertyValue('--wishwave-comment-sheet-height'))||innerHeight*.64;
-    const velocity=performance.now()-drag.lastT<100?drag.velocity:0;
-    const dismiss=!cancelled&&(drag.dy>Math.min(150,height*.25)||(drag.dy>28&&velocity>.55));
-    layer.classList.remove('comments-dragging');
-    layer.classList.add(dismiss?'comments-dismissing':'comments-snapping');
-    layer.style.setProperty('--wishwave-comments-drag-y',dismiss?Math.max(height+24,drag.dy+24)+'px':'0px');
-    layer.style.setProperty('--wishwave-comments-preview-opacity',dismiss?'0':'1');
-    let timer=0;
-    const complete=()=>{
-      clearTimeout(timer);panel.removeEventListener('transitionend',ended);
-      if(commentSettle===complete)commentSettle=null;
-      if(layer.dataset.motionVersion!==drag.version)return;
-      if(dismiss&&!window.__wishwaveCompleteSheetDismiss?.())closeAppMpSheet();
-      layer.classList.remove('comments-dismissing','comments-snapping');
-      layer.style.removeProperty('--wishwave-comments-drag-y');
-      layer.style.removeProperty('--wishwave-comments-preview-opacity');
-    };
-    const ended=e=>{if(e.target===panel&&e.propertyName==='transform')complete();};
-    commentSettle=complete;panel.addEventListener('transitionend',ended);
-    timer=setTimeout(complete,360);
-    return true;
-  }
-  window.__wishwaveCommentsTouch=function(type,event){
-    const layer=bg(),panel=sheet();
-    if(type==='touchstart'){
-      commentDrag=null;
-      if(!layer?.classList.contains('show')||!layer.classList.contains('wishwave-comments-mode')||!panel?.contains(event.target)||event.touches.length!==1)return false;
-      if(event.target.closest('input,textarea,button,a,select,[contenteditable],.wishwave-comment-composer,.wishwave-comment-form,.wishwave-comment-reactions'))return false;
-      if(layer.classList.contains('comments-dismissing'))return true;
-      const list=panel.querySelector('.wishwave-comments-list'),fromHead=!!event.target.closest('.app-mp-sheet-head');
-      if(!fromHead&&((list?.scrollTop||0)>1||(document.getElementById('appMpSheetBody')?.scrollTop||0)>1))return false;
-      if(commentSettle)commentSettle();
-      layer.classList.remove('wishwave-sheet-entering');
-      const t=event.touches[0];
-      commentDrag={startX:t.clientX,startY:t.clientY,lastY:t.clientY,lastT:performance.now(),velocity:0,dy:0,active:false,height:panel.getBoundingClientRect().height||parseFloat(layer.style.getPropertyValue('--wishwave-comment-sheet-height'))||innerHeight*.64,version:layer.dataset.motionVersion};
-      return false;
-    }
-    if(!commentDrag)return false;
-    if(!layer?.classList.contains('show')||layer.dataset.motionVersion!==commentDrag.version){commentDrag=null;return false;}
-    if(type==='touchmove'){
-      if(event.touches.length!==1)return finishCommentDrag(true);
-      const t=event.touches[0],dy=t.clientY-commentDrag.startY,dx=t.clientX-commentDrag.startX;
-      if(!commentDrag.active){
-        if(Math.max(Math.abs(dy),Math.abs(dx))<5)return false;
-        if(dy<=0||Math.abs(dx)>Math.abs(dy)){commentDrag=null;return false;}
-        commentDrag.active=true;layer.classList.add('comments-dragging');
-      }
-      if(event.cancelable)event.preventDefault();
-      const now=performance.now(),dt=Math.max(8,now-commentDrag.lastT);
-      commentDrag.velocity=commentDrag.velocity*.4+(t.clientY-commentDrag.lastY)/dt*.6;
-      commentDrag.lastY=t.clientY;commentDrag.lastT=now;commentDrag.dy=Math.max(0,dy);
-      if(!commentDragRaf)commentDragRaf=requestAnimationFrame(paintCommentDrag);
-      return true;
-    }
-    if(type==='touchend'||type==='touchcancel')return finishCommentDrag(type==='touchcancel');
-    return false;
-  };
-
   /* Side-to-side profile sections follow the finger and then settle with the
      existing springy tab animation. This deliberately leaves vertical scrolling alone. */
   let tabSwipe=null;
@@ -31842,6 +31768,7 @@ html body #appMpSheetBg.wishwave-comments-mode.comments-dismissing{background:tr
     if(img.getAttribute('src')!==src)img.src=src;
   }
   window.wishwaveSyncCommentViewport=function(){
+    if(window.__wishwaveCommentsMotion)return;
     if(!bg?.classList.contains('show')||!bg.classList.contains('wishwave-comments-mode'))return;
     // Escape any transformed/contained app ancestor so Safari keyboard positioning
     // has one viewport coordinate system, including Search-owned reel overlays.
@@ -35907,6 +35834,19 @@ html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168) .reel-ca
 html.findai-light body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168) .reel-card .listing-meta.findai-free-shipping{color:#16883f!important;}
 html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168) .reel-card .listing-meta.findai-free-shipping .wishwave-delivery-icon{color:inherit!important;stroke:currentColor!important;}
 </style>
+<style id="wishwave-comments-motion-v292">
+html body #appMpSheetBg.wishwave-comments-mode{background:transparent!important;transition:none!important;isolation:isolate;}
+html body #appMpSheetBg.wishwave-comments-mode::before{content:"";position:absolute;inset:0;background:rgba(0,0,0,.82);opacity:var(--wishwave-comments-preview-opacity,1);pointer-events:none;will-change:opacity;}
+html body #appMpSheetBg.wishwave-comments-mode .wishwave-comment-listing-preview{z-index:1;will-change:opacity;}
+html body #appMpSheetBg.wishwave-comments-mode .app-mp-sheet{position:relative;z-index:2;}
+html body #appMpSheetBg.wishwave-comments-mode:is(.comments-dismissing,.comments-snapping) .app-mp-sheet{transition:transform var(--wishwave-comments-duration,300ms) cubic-bezier(.22,.82,.25,1)!important;}
+html body #appMpSheetBg.wishwave-comments-mode:is(.comments-dismissing,.comments-snapping)::before,
+html body #appMpSheetBg.wishwave-comments-mode:is(.comments-dismissing,.comments-snapping) .wishwave-comment-listing-preview{transition:opacity var(--wishwave-comments-duration,300ms) cubic-bezier(.22,.82,.25,1)!important;}
+html body #appMpSheetBg.wishwave-comments-mode.comments-dragging::before,
+html body #appMpSheetBg.wishwave-comments-mode.comments-dragging .app-mp-sheet,
+html body #appMpSheetBg.wishwave-comments-mode.comments-dragging .wishwave-comment-listing-preview{transition:none!important;animation:none!important;}
+</style>
+<script src="wishwave-comments-motion.js?v=292"></script>
 <script src="wishwave-navigation-origins.js?v=290"></script>
 </body>
 </html>

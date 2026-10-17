@@ -7,6 +7,7 @@ async function back(root){touch(root,'touchstart',12);touch(root,'touchmove',310
 (async()=>{
  await wait(350);w.document.body.dataset.activeTab='search';w.setMainNavActive('search');await wait(60);
  w.getAccountProfile=()=>({email:'viewer@test.com',username:'viewer'});w.marketplaceSession=()=>'fixture';w.recordInterest=()=>{};
+ w.eval(fs.readFileSync(__dirname+'/../wishwave-comments-motion.js','utf8'));
  w.eval(fs.readFileSync(__dirname+'/../wishwave-navigation-origins.js','utf8'));
  const native={itemId:'native-one',marketplaceListingId:'native-one',source:'findai',title:'Seller monitor',price:249,currency:'USD',condition:'Used',image:'https://example.com/monitor.jpg',status:'active',sellerUsername:'seller',viewCount:234,likeCount:3};
  const external={itemId:'external-one',source:'ebay',title:'LEGO Death Star',price:566,currency:'USD',image:'https://example.com/lego.jpg',status:'active',viewCount:44,likeCount:1};
