@@ -20166,16 +20166,17 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
 (function(){
   'use strict';
 
-  const COMMIT_DISTANCE = 38;       // short intentional swipe
+  const COMMIT_DISTANCE = .18;      // proportion of the visible photo width
   const FLICK_DISTANCE = 14;        // a quick flick may be very short
-  const FLICK_VELOCITY = 0.24;      // px/ms
-  const PROJECTION_MS = 105;        // projects momentum without overshooting
-  const AXIS_START = 3;             // lock direction quickly
-  const EDGE_RESISTANCE = 0.24;
+  const FLICK_VELOCITY = 0.38;      // px/ms
+  const PROJECTION_MS = 135;        // projects momentum without overshooting
+  const AXIS_START = 5;             // lock direction quickly
+  const EDGE_RESISTANCE = 0.32;
 
   let gesture=null;
   let frame=0;
   const countTimers=new WeakMap();
+  const clickTokens=new WeakMap();
   const loaded=new WeakSet();
 
   function images(stage){
@@ -20277,7 +20278,16 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
 
   const settleTimers=new WeakMap();
   const settleAnimations=new WeakMap();
+  const settleTokens=new WeakMap();
+  window.__wishwaveGalleryInFlight=stage=>!!settleTokens.get(stage?.querySelector('.reel-gallery-track'));
+  function galleryWidth(stage){return Math.max(1,stage.clientWidth||document.querySelector('.app')?.clientWidth||innerWidth);}
+  function dragPosition(g){
+    const raw=g.baseX+g.dx,min=-(g.list.length-1)*g.width;
+    const rubber=d=>d*EDGE_RESISTANCE/(1+d/g.width);
+    return raw>0?rubber(raw):raw<min?min-rubber(min-raw):raw;
+  }
   function clearSettle(track){
+    settleTokens.delete(track);
     const timer=settleTimers.get(track);if(timer)clearTimeout(timer);settleTimers.delete(track);
     const animation=settleAnimations.get(track);if(animation){animation.onfinish=null;animation.cancel();settleAnimations.delete(track);}
   }
@@ -20295,11 +20305,11 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
   function snap(stage,target,fromVelocity){
     const track=stage.querySelector('.reel-gallery-track');
     const list=images(stage);
-    const width=Math.max(1,stage.clientWidth);
+    const width=galleryWidth(stage);
     target=Math.max(0,Math.min(list.length-1,target));
 
     const currentX=gesture&&gesture.stage===stage
-      ? (-gesture.startIndex*width + gesture.renderDx)
+      ? (Number.isFinite(gesture.renderX)?gesture.renderX:-gesture.startIndex*width + gesture.renderDx)
       : trackPosition(track,-current(stage)*width);
 
     const targetX=-target*width;
@@ -20307,7 +20317,9 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
 
     clearSettle(track);
     track.style.willChange='transform';
+    const token={};settleTokens.set(track,token);
     const done=()=>{
+      if(settleTokens.get(track)!==token)return;settleTokens.delete(track);
       settleTimers.delete(track);
       const animation=settleAnimations.get(track);settleAnimations.delete(track);
       track.style.transition='none';track.style.transform='translate3d('+targetX+'px,0,0)';
@@ -20340,6 +20352,8 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
       settleTimers.set(track,setTimeout(done,duration+24));
     }
     setDots(stage,target,true,true);
+    // Decode the next neighbour during the compositor settle, ahead of another swipe.
+    warm(stage,target);
   }
 
   function renderDrag(){
@@ -20347,15 +20361,9 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     if(!gesture||gesture.axis!=='x')return;
 
     const g=gesture;
-    const list=g.list;
-    let dx=g.dx;
-
-    const tryingPastFirst=g.startIndex===0&&dx>0;
-    const tryingPastLast=g.startIndex===list.length-1&&dx<0;
-    if(tryingPastFirst||tryingPastLast)dx*=EDGE_RESISTANCE;
-
-    g.renderDx=g.offset+dx;
-    g.track.style.transform='translate3d('+(-g.startIndex*g.width+g.renderDx)+'px,0,0)';
+    g.renderX=dragPosition(g);
+    g.renderDx=g.renderX+g.startIndex*g.width;
+    g.track.style.transform='translate3d('+g.renderX+'px,0,0)';
   }
 
   function queueDrag(){
@@ -20383,7 +20391,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
 
     const t=e.touches[0];
     const now=performance.now();
-    const width=Math.max(1,stage.clientWidth);
+    const width=galleryWidth(stage);
     const position=trackPosition(track,-current(stage)*width);
     const startIndex=Math.max(0,Math.min(list.length-1,Math.round(-position/width)));
 
@@ -20399,7 +20407,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
       card,stage,track,list,width,startIndex,
       x:t.clientX,y:t.clientY,
       lastX:t.clientX,lastT:now,
-      dx:0,dy:0,renderDx:position+startIndex*width,offset:position+startIndex*width,
+      dx:0,dy:0,baseX:position,renderX:position,renderDx:position+startIndex*width,offset:position+startIndex*width,
       velocity:0,axis:'',
       startedAt:now
     };
@@ -20427,7 +20435,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
       if(Math.abs(g.dx)>Math.abs(g.dy)*1.15){
         g.axis='x';
         document.body.classList.add('findai-premium-gallery-dragging');
-        g.card.dataset.gallerySuppressClick='1';
+        g.card.dataset.gallerySuppressClick='1';clickTokens.set(g.card,{});
       }else if(Math.abs(g.dy)>Math.abs(g.dx)*1.22){
         g.track.style.removeProperty('will-change');
         snap(g.stage,g.startIndex,0);
@@ -20481,33 +20489,30 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
     /* Paint the exact release position first. This removes the tiny visual
        discontinuity that can otherwise happen between the last touchmove
        frame and touchend. */
-    g.renderDx=g.offset+(((g.startIndex===0&&g.dx>0)||(g.startIndex===g.list.length-1&&g.dx<0))?g.dx*EDGE_RESISTANCE:g.dx);
-    translate(g.track,-g.startIndex*g.width+g.renderDx,false);
+    g.renderX=dragPosition(g);
+    g.renderDx=g.renderX+g.startIndex*g.width;
+    translate(g.track,g.renderX,false);
 
-    const rawDx=g.dx;
-    const distance=Math.abs(rawDx);
+    const displacement=g.baseX+g.dx+g.startIndex*g.width;
     const velocity=performance.now()-g.lastT>90?0:g.velocity;
-    const projected=rawDx+velocity*PROJECTION_MS;
-
-    const commits=!cancelled&&(
-      distance>=COMMIT_DISTANCE ||
-      (distance>=FLICK_DISTANCE&&Math.abs(velocity)>=FLICK_VELOCITY) ||
-      Math.abs(projected)>=COMMIT_DISTANCE
-    );
-
+    const projected=displacement+velocity*PROJECTION_MS;
+    const threshold=Math.max(45,Math.min(90,g.width*COMMIT_DISTANCE));
+    const commits=!cancelled&&(Math.abs(projected)>=threshold||
+      (Math.abs(g.dx)>=FLICK_DISTANCE&&Math.abs(velocity)>=FLICK_VELOCITY));
     let target=g.startIndex;
-    if(commits)target += projected<0?1:-1;
+    if(commits)target+=projected<0?1:-1;
     target=Math.max(0,Math.min(g.list.length-1,target));
 
     gesture=null;
 
     /* Re-create the minimum state snap() needs for the current visual offset. */
-    gesture={stage:g.stage,startIndex:g.startIndex,width:g.width,renderDx:g.renderDx};
+    gesture={stage:g.stage,startIndex:g.startIndex,width:g.width,renderDx:g.renderDx,renderX:g.renderX};
     snap(g.stage,target,velocity);
     gesture=null;
 
+    const clickToken=clickTokens.get(g.card);
     setTimeout(()=>{
-      if(g.card&&g.card.dataset.gallerySuppressClick==='1'){
+      if(g.card&&clickTokens.get(g.card)===clickToken&&gesture?.card!==g.card&&g.card.dataset.gallerySuppressClick==='1'){
         g.card.dataset.gallerySuppressClick='0';
       }
     },330);
@@ -20542,7 +20547,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
       if(window.__wishwavePageMotion)continue;
       const index=current(stage);
       const track=stage.querySelector('.reel-gallery-track');
-      const width=Math.max(1,stage.clientWidth);
+      const width=galleryWidth(stage);
 
       if(track&&!stage.dataset.v149Positioned){
         stage.dataset.v149Positioned='1';stage.dataset.v149Width=String(width);
@@ -20570,7 +20575,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
       record.removedNodes.forEach(node=>{
         if(node.nodeType!==1||node.isConnected)return;
         const stages=[...(node.matches('.reel-gallery-stage')?[node]:[]),...node.querySelectorAll('.reel-gallery-stage')];
-        stages.forEach(stage=>{observer.unobserve(stage);delete stage.dataset.v149Observed;clearSettle(stage.querySelector('.reel-gallery-track'));clearTimeout(countTimers.get(stage));countTimers.delete(stage);});
+        stages.forEach(stage=>{if(gesture?.stage===stage){cancelAnimationFrame(frame);frame=0;gesture=null;document.body.classList.remove('findai-premium-gallery-dragging');stage.closest('.reel-card')?.removeAttribute('data-gallery-suppress-click');}observer.unobserve(stage);delete stage.dataset.v149Observed;clearSettle(stage.querySelector('.reel-gallery-track'));clearTimeout(countTimers.get(stage));countTimers.delete(stage);});
       });
       record.addedNodes.forEach(node=>{if(node.nodeType===1)bind(node);});
     });
@@ -20580,7 +20585,7 @@ body.findai-premium-gallery-dragging .findai-swipe-preview{
   window.addEventListener('resize',()=>{
     document.querySelectorAll('.reel-gallery-stage').forEach(stage=>{
       const track=stage.querySelector('.reel-gallery-track');
-      const width=Math.max(1,stage.clientWidth);
+      const width=galleryWidth(stage);
       if(track&&Math.abs(width-Number(stage.dataset.v149Width||width))>1){
         if(gesture?.stage===stage){cancelAnimationFrame(frame);frame=0;gesture=null;document.body.classList.remove('findai-premium-gallery-dragging');stage.closest('.reel-card')?.removeAttribute('data-gallery-suppress-click');}
         clearSettle(track);track.style.removeProperty('will-change');translate(track,-current(stage)*width,false);stage.dataset.v149Width=String(width);
@@ -31487,7 +31492,10 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
       const photoZone=!!stage&&(Number.isFinite(boundary)&&boundary>0?t.clientY<boundary:!e.target.closest('.product-panel'));
       drag={...surface,start:e,x:t.clientX,y:t.clientY,lastX:t.clientX,lastT:performance.now(),dx:0,velocity:0,axis:'',stage,photoZone,photoIndex:Number(stage?.dataset.galleryIndex||0),width:surface.root.getBoundingClientRect().width||document.querySelector('.app').clientWidth||innerWidth};
       // Claim the child page before older window listeners can close it or page tabs.
-      drag.observer=new MutationObserver(()=>{if(drag&&!drag.open())clean();});drag.observer.observe(surface.root,{attributes:true,attributeFilter:['class']});return true;
+      drag.observer=new MutationObserver(()=>{if(drag&&!drag.open())clean();});drag.observer.observe(surface.root,{attributes:true,attributeFilter:['class']});
+      // Catch an in-flight photo before the page router can claim a back swipe.
+      if(photoZone&&stage&&window.__wishwaveGalleryInFlight?.(stage)){drag.axis='gallery';window.__wishwaveGalleryTouchV149?.('touchstart',e);}
+      return true;
     }
     const g=drag;if(!g)return false;if(g.settling)return true;
     if(!g.open()){clean();return false;}
