@@ -105,6 +105,7 @@
   try{if(entry.root.id==='appMpInbox'){window.__wishwaveCancelChatBack?.();window.__wishwaveInboxRequest=(window.__wishwaveInboxRequest||0)+1;clearInterval(appMpMessageTimer);clearInterval(appMpTypingTimer);clearTimeout(appMpTypingClearTimer);entry.root.classList.remove('show','chat-open','direct-message-chat');}else {const close=routes[entry.root.id];if(close&&typeof window[close]==='function')window[close]();else entry.root.classList.remove('show');}}finally{restoring=false;}
   restore(entry.saved);
  }
+ window.__wishwaveCompleteSheetDismiss=function(){const entry=entryFor(node('appMpSheetBg'));if(!entry||entry.root.id!=='appMpSheetBg')return false;back(entry);return true;};
  window.__wishwaveOriginSurface=function(target){
   const entry=entryFor(target);if(!entry)return null;
   if(entry.root.id==='findaiNotificationPanel'&&entry.saved.main==='notifications')return null;

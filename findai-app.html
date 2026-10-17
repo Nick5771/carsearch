@@ -31,7 +31,7 @@
     document.documentElement.classList.toggle('wishwave-installed',navigator.standalone===true||!!(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches));
     // Route Search nav before older capture listeners can reopen Recents.
     ['touchstart','touchmove','touchend','touchcancel'].forEach(type=>window.addEventListener(type,e=>{
-      const handled=window.__wishwaveSearchListingTouch?.(type,e)||window.__wishwaveZoomTouch?.(type,e)||window.__wishwavePageTouch?.(type,e)||window.__wishwaveBackTouch?.(type,e)||window.__wishwaveTabTouch?.(type,e)||window.__wishwaveRefreshTouch?.(type,e);
+      const handled=window.__wishwaveCommentsTouch?.(type,e)||window.__wishwaveSearchListingTouch?.(type,e)||window.__wishwaveZoomTouch?.(type,e)||window.__wishwavePageTouch?.(type,e)||window.__wishwaveBackTouch?.(type,e)||window.__wishwaveTabTouch?.(type,e)||window.__wishwaveRefreshTouch?.(type,e);
       if(handled)e.stopImmediatePropagation();
     },{capture:true,passive:false}));
     window.addEventListener('click',function(e){
@@ -15443,90 +15443,74 @@ if(typeof v116RenderMarketplaceListing==='function'){
   const bg=()=>document.getElementById('appMpSheetBg');
   const sheet=()=>document.querySelector('#appMpSheetBg .app-mp-sheet');
 
-  /* Instagram-like Comments drag: 1:1 finger tracking, frame-synced updates,
-     velocity-based dismissal and no expensive blur while the sheet is moving. */
-  let commentDrag=null;
-  let commentDragRaf=0;
+  /* Comments own vertical drags before page/pull-to-refresh recognizers. */
+  let commentDrag=null,commentDragRaf=0,commentSettle=null;
   function paintCommentDrag(){
     commentDragRaf=0;
-    if(!commentDrag)return;
-    const layer=bg();if(!layer)return;
-    const y=Math.max(0,commentDrag.paintY||0);
-    layer.style.setProperty('--wishwave-comments-drag-y',y.toFixed(1)+'px');
+    if(commentDrag)bg()?.style.setProperty('--wishwave-comments-drag-y',Math.max(0,commentDrag.dy)+'px');
   }
-  function queueCommentDrag(y){
-    if(!commentDrag)return;
-    commentDrag.paintY=y;
-    if(!commentDragRaf)commentDragRaf=requestAnimationFrame(paintCommentDrag);
-  }
-  document.addEventListener('touchstart',event=>{
-    const layer=bg(),panel=sheet();
-    if(!layer||!panel||!layer.classList.contains('show')||!layer.classList.contains('wishwave-comments-mode'))return;
-    if(!panel.contains(event.target)||event.touches.length!==1)return;
-    if(event.target.closest('.wishwave-comment-form,input,textarea,button'))return;
-    const list=panel.querySelector('.wishwave-comments-list');
-    const fromHead=!!event.target.closest('.app-mp-sheet-head');
-    if(!fromHead)return;
-    const t=event.touches[0];
-    commentDrag={
-      startY:t.clientY,startX:t.clientX,lastY:t.clientY,lastT:performance.now(),
-      velocity:0,dy:0,paintY:0,active:false,fromHead,list,version:layer.dataset.motionVersion
-    };
-  },{passive:true});
-
-  document.addEventListener('touchmove',event=>{
-    if(!commentDrag||event.touches.length!==1)return;
-    const layer=bg(),t=event.touches[0];if(!layer)return;
-    const dy=t.clientY-commentDrag.startY,dx=t.clientX-commentDrag.startX;
-    if(!commentDrag.active){
-      if(Math.abs(dy)<4)return;
-      if(Math.abs(dx)>Math.abs(dy)*1.08){commentDrag=null;return;}
-      if(dy<0){commentDrag=null;return;}
-      if(!commentDrag.fromHead&&commentDrag.list&&commentDrag.list.scrollTop>1){commentDrag=null;return;}
-      commentDrag.active=true;
-      layer.classList.add('comments-dragging');
-    }
-    event.preventDefault();
-    const now=performance.now(),dt=Math.max(8,now-commentDrag.lastT);
-    const instantaneous=(t.clientY-commentDrag.lastY)/dt;
-    commentDrag.velocity=commentDrag.velocity*.58+instantaneous*.42;
-    commentDrag.lastY=t.clientY;commentDrag.lastT=now;
-    commentDrag.dy=Math.max(0,dy);
-    queueCommentDrag(commentDrag.dy);
-  },{passive:false});
-
-  function finishCommentDrag(event){
-    if(!commentDrag)return;
-    const layer=bg(),drag=commentDrag;commentDrag=null;
+  function finishCommentDrag(cancelled){
+    const drag=commentDrag;commentDrag=null;
     if(commentDragRaf){cancelAnimationFrame(commentDragRaf);commentDragRaf=0;}
-    if(!layer)return;
-    layer.style.setProperty('--wishwave-comments-drag-y',Math.max(0,drag.dy)+'px');
-    void sheet()?.offsetWidth;
-    if(!drag.active){layer.style.removeProperty('--wishwave-comments-drag-y');return;}
-    const dismiss=event?.type!=='touchcancel'&&(drag.dy>105||(drag.dy>22&&drag.velocity>.52));
+    const layer=bg(),panel=sheet();if(!drag||!layer||!panel)return false;
+    if(!drag.active)return false;
+    layer.style.setProperty('--wishwave-comments-drag-y',drag.dy+'px');
+    void panel.offsetWidth;
+    const height=panel.getBoundingClientRect().height||parseFloat(layer.style.getPropertyValue('--wishwave-comment-sheet-height'))||innerHeight*.64;
+    const velocity=performance.now()-drag.lastT<100?drag.velocity:0;
+    const dismiss=!cancelled&&(drag.dy>Math.min(150,height*.25)||(drag.dy>28&&velocity>.55));
     layer.classList.remove('comments-dragging');
-    if(dismiss){
-      layer.classList.add('comments-dismissing');
-      layer.style.setProperty('--wishwave-comments-drag-y','calc(100dvh + 24px)');
-      try{haptic();}catch(_){ }
-      setTimeout(()=>{
-        if(layer.dataset.motionVersion!==drag.version)return;
-        closeAppMpSheet();
-        layer.classList.remove('comments-dismissing');
-        layer.style.removeProperty('--wishwave-comments-drag-y');
-      },205);
-    }else{
-      layer.classList.add('comments-snapping');
-      layer.style.setProperty('--wishwave-comments-drag-y','0px');
-      setTimeout(()=>{
-        if(layer.dataset.motionVersion!==drag.version)return;
-        layer.classList.remove('comments-snapping');
-        layer.style.removeProperty('--wishwave-comments-drag-y');
-      },285);
-    }
+    layer.classList.add(dismiss?'comments-dismissing':'comments-snapping');
+    layer.style.setProperty('--wishwave-comments-drag-y',dismiss?Math.max(height+24,drag.dy+24)+'px':'0px');
+    let timer=0;
+    const complete=()=>{
+      clearTimeout(timer);panel.removeEventListener('transitionend',ended);
+      if(commentSettle===complete)commentSettle=null;
+      if(layer.dataset.motionVersion!==drag.version)return;
+      if(dismiss&&!window.__wishwaveCompleteSheetDismiss?.())closeAppMpSheet();
+      layer.classList.remove('comments-dismissing','comments-snapping');
+      layer.style.removeProperty('--wishwave-comments-drag-y');
+    };
+    const ended=e=>{if(e.target===panel&&e.propertyName==='transform')complete();};
+    commentSettle=complete;panel.addEventListener('transitionend',ended);
+    timer=setTimeout(complete,360);
+    return true;
   }
-  document.addEventListener('touchend',finishCommentDrag,{passive:true});
-  document.addEventListener('touchcancel',finishCommentDrag,{passive:true});
+  window.__wishwaveCommentsTouch=function(type,event){
+    const layer=bg(),panel=sheet();
+    if(type==='touchstart'){
+      commentDrag=null;
+      if(!layer?.classList.contains('show')||!layer.classList.contains('wishwave-comments-mode')||!panel?.contains(event.target)||event.touches.length!==1)return false;
+      if(event.target.closest('input,textarea,button,a,select,[contenteditable],.wishwave-comment-composer,.wishwave-comment-form,.wishwave-comment-reactions'))return false;
+      if(layer.classList.contains('comments-dismissing'))return true;
+      const list=panel.querySelector('.wishwave-comments-list'),fromHead=!!event.target.closest('.app-mp-sheet-head');
+      if(!fromHead&&((list?.scrollTop||0)>1||(document.getElementById('appMpSheetBody')?.scrollTop||0)>1))return false;
+      if(commentSettle)commentSettle();
+      layer.classList.remove('wishwave-sheet-entering');
+      const t=event.touches[0];
+      commentDrag={startX:t.clientX,startY:t.clientY,lastY:t.clientY,lastT:performance.now(),velocity:0,dy:0,active:false,version:layer.dataset.motionVersion};
+      return false;
+    }
+    if(!commentDrag)return false;
+    if(!layer?.classList.contains('show')||layer.dataset.motionVersion!==commentDrag.version){commentDrag=null;return false;}
+    if(type==='touchmove'){
+      if(event.touches.length!==1)return finishCommentDrag(true);
+      const t=event.touches[0],dy=t.clientY-commentDrag.startY,dx=t.clientX-commentDrag.startX;
+      if(!commentDrag.active){
+        if(Math.max(Math.abs(dy),Math.abs(dx))<5)return false;
+        if(dy<=0||Math.abs(dx)>Math.abs(dy)){commentDrag=null;return false;}
+        commentDrag.active=true;layer.classList.add('comments-dragging');
+      }
+      if(event.cancelable)event.preventDefault();
+      const now=performance.now(),dt=Math.max(8,now-commentDrag.lastT);
+      commentDrag.velocity=commentDrag.velocity*.4+(t.clientY-commentDrag.lastY)/dt*.6;
+      commentDrag.lastY=t.clientY;commentDrag.lastT=now;commentDrag.dy=Math.max(0,dy);
+      if(!commentDragRaf)commentDragRaf=requestAnimationFrame(paintCommentDrag);
+      return true;
+    }
+    if(type==='touchend'||type==='touchcancel')return finishCommentDrag(type==='touchcancel');
+    return false;
+  };
 
   /* Side-to-side profile sections follow the finger and then settle with the
      existing springy tab animation. This deliberately leaves vertical scrolling alone. */
@@ -31492,6 +31476,7 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
 (function(){
   let drag=null,frame=0,timer=0,blockClickUntil=0,clickRoot=null;
   function currentSurface(target){
+    if(target.closest('#appMpSheetBg.wishwave-comments-mode')&&!target.closest('.app-mp-sheet-head'))return null;
     if(target.closest('.premium-bottom-nav,input,textarea,select,[contenteditable],.reel-social-action,.reel-compare-button,.premium-card-like,.wishwave-public-profile-tabs,.premium-explore-chips,[data-horizontal-scroll]:not(.reel-gallery-stage)'))return null;
     const origin=window.__wishwaveOriginSurface?.(target);if(origin)return origin;
     if(document.querySelector('.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,.wishwave-comment-media-viewer.show,#loginOverlay.show'))return null;
@@ -31617,6 +31602,9 @@ html body .app:has(#appMpSheetBg.wishwave-comments-mode.show)>.premium-bottom-na
 html body .findai-comment-hold-overlay{z-index:12100!important;}
 .wishwave-pull-surface{overscroll-behavior-y:contain!important;backface-visibility:hidden;}
 html body .wishwave-refresh-indicator{z-index:12060!important;contain:layout paint;will-change:transform,opacity;}
+html body #appMpSheetBg.wishwave-comments-mode.comments-dragging .app-mp-sheet{transition:none!important;animation:none!important;will-change:transform;}
+html body #appMpSheetBg.wishwave-comments-mode:is(.comments-dismissing,.comments-snapping) .app-mp-sheet{transition:transform 300ms cubic-bezier(.22,.78,.25,1)!important;animation:none!important;will-change:transform;}
+html body #appMpSheetBg.wishwave-comments-mode .wishwave-comments-list{overscroll-behavior-y:contain;}
 </style>
 
 <style id="wishwave-v205-page-return-rendering">
@@ -35908,6 +35896,6 @@ html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168) .reel-ca
 html.findai-light body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168) .reel-card .listing-meta.findai-free-shipping{color:#16883f!important;}
 html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168) .reel-card .listing-meta.findai-free-shipping .wishwave-delivery-icon{color:inherit!important;stroke:currentColor!important;}
 </style>
-<script src="wishwave-navigation-origins.js?v=289"></script>
+<script src="wishwave-navigation-origins.js?v=290"></script>
 </body>
 </html>
