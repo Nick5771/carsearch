@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="wishwave-compare.js?v=283"></script>
+<script src="wishwave-compare.js?v=287"></script>
 <script src="wishwave-discovery-surfaces.js?v=271"></script>
 <script src="wishwave-discovery-rotation.js?v=271"></script>
 <script src="wishwave-interaction-preview.js?v=273"></script>
@@ -9503,7 +9503,8 @@ async function launchPremiumSearch(query,options={}){
   if(grid)grid.innerHTML='<div class="premium-results-loading"><div class="feed-more-spinner"></div>Finding the best current listings…</div>';
   if(more)more.hidden=true;
   try{
-    const result=await fetchProductResults(q,{page:1,limit:24,preserveExact,skipResolve:preserveExact,signal:controller.signal,sort:compare?'price_asc':'',compareCurrency:compare?.currency||''});
+    // Retrieve by relevance like normal Search; rank verified matches by total price locally.
+    const result=await fetchProductResults(q,{page:1,limit:24,preserveExact,skipResolve:preserveExact,signal:controller.signal,sort:'',compareCurrency:compare?.currency||''});
     if(controller.signal.aborted||controller!==premiumSearchController||premiumResultQuery!==q)return;
     premiumResultData=result.data||{};
     premiumResultItems=(Array.isArray(premiumResultData.listings)?premiumResultData.listings:[]).filter(item=>Number(item.price)>0);
@@ -9515,7 +9516,7 @@ async function launchPremiumSearch(query,options={}){
       if(premiumResultItems.filter(x=>!x._compareOtherCondition).length>=4||controller.signal.aborted||controller!==premiumSearchController||premiumResultLoadJob)break;
       const job={controller};premiumResultLoadJob=job;if(more){more.disabled=true;more.textContent='Finding more matches…';}
       try{
-        const extra=await fetchProductResults(alternate,{page:1,limit:36,preserveExact:true,skipResolve:true,signal:controller.signal,sort:'price_asc',compareCurrency:compare.currency||''});
+        const extra=await fetchProductResults(alternate,{page:1,limit:36,preserveExact:true,skipResolve:true,signal:controller.signal,sort:'',compareCurrency:compare.currency||''});
         if(controller.signal.aborted||controller!==premiumSearchController)return;
         const incoming=Array.isArray(extra.data?.listings)?extra.data.listings:[],usable=incoming.some(item=>WishWaveCompare.identityMatches(item,compare));
         if(usable){premiumResultQuery=alternate;premiumResultPage=1;premiumResultCursor=extra.nextCursor||null;premiumResultHasMore=!!extra.hasMore;if(resultInput)resultInput.value=alternate;}
@@ -9555,7 +9556,7 @@ async function loadMorePremiumResults(){
   const more=$('#premiumLoadMore');if(more){more.disabled=true;more.textContent='Loading…';}
   try{
     const page=premiumResultPage+1;
-    const result=await fetchProductResults(query,{page,cursor:premiumResultCursor,limit:24,preserveExact:true,skipResolve:true,signal:owner?.signal,sort:premiumCompareContext?'price_asc':'',compareCurrency:premiumCompareContext?.currency||''});
+    const result=await fetchProductResults(query,{page,cursor:premiumResultCursor,limit:24,preserveExact:true,skipResolve:true,signal:owner?.signal,sort:'',compareCurrency:premiumCompareContext?.currency||''});
     if(owner!==premiumSearchController||owner?.signal.aborted||query!==premiumResultQuery)return;
     const incoming=(Array.isArray(result.data&&result.data.listings)?result.data.listings:[]).filter(item=>Number(item.price)>0);
     const seen=new Set(premiumResultItems.map(item=>listingKey(item)||trackedKey(item)));

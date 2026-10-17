@@ -15,6 +15,15 @@
  function hasCode(item,id){if(codeFields(item).some(x=>code(x)===id))return true;const pattern=[...id].join('[\\s._/-]*');return new RegExp('\\b'+pattern+'\\b','i').test(normal(item?.title||''));}
  function fraction(value){const m=String(value||'').match(/\b([a-z]{0,3}0*\d{1,3})\s*\/\s*([a-z]{0,3}0*\d{1,3})\b/i);return m?m.slice(1).map(x=>x.toLowerCase().replace(/(^|[a-z])0+(?=\d)/g,'$1')):null;}
  function grade(value){const m=String(value||'').match(/\b(psa|bgs|cgc|sgc)\s*(\d+(?:\.\d+)?)/i);return m?m[1].toLowerCase()+m[2]:/\b(?:graded|slabbed)\b/i.test(value||'')?'graded':'';}
+ // Identify the item being sold, excluding accessories explicitly included with it.
+ function componentKind(value){
+  const head=normal(value).replace(/\b(?:mini\s*fig(?:ure)?s?|minifigs?)\s+included\b/g,'').split(/\b(?:with|includes?|including|plus)\b/)[0];
+  if(/\b(?:stickers?|decals?)\b/.test(head))return 'sticker';
+  if(/\b(?:mini\s*fig(?:ure)?s?|minifigs?)\b/.test(head))return 'minifigure';
+  if(/\b(?:display\s+(?:stands?|cases?|plaques?|frames?)|wall mounts?|mounting brackets?)\b/.test(head))return 'display-accessory';
+  if(/\b(?:light(?:ing)? kits?|led (?:light|kit)|light for)\b/.test(head))return 'lighting';
+  return '';
+ }
  function context(query,item={}){
   const title=String(item.title||query||''),source=tokens(title),input=tokens(query),base=input.filter(x=>!item.title||source.includes(x)),core=base.length>=2?base:source.slice(0,8);
   const brand=tokens(item.brand||'')[0]||core[0]||source[0]||'';
@@ -38,12 +47,14 @@
   // A second retrieval can omit supporting words but acceptance keeps the same identity.
   const alternate=kind==='code'?core.filter(x=>code(x)!==identifier).join(' '):kind==='name'?required.filter(x=>!['color','animation','original'].includes(x)).join(' '):'';
   const queries=[...new Set([main,alternate].map(x=>x.trim().slice(0,160)).filter(x=>tokens(x).length>=2))].slice(0,2);
-  return {query:queries[0]||main,queries,required,kind,identifier,pair,currency:currency(item),condition:condition(item),sourceGrade:grade(title),sourceWords:source,critical};
+  return {query:queries[0]||main,queries,required,kind,identifier,pair,currency:currency(item),condition:condition(item),sourceGrade:grade(title),sourceWords:source,critical,component:componentKind(title)};
  }
  function identityMatches(item,ctx){
   if(!ctx||!item||!Number.isFinite(Number(item.price))||Number(item.price)<=0)return false;
   if(item.available===false||item.soldOut||item.sold||item.outOfStock)return false;
   const title=String(item.title||''),words=new Set(tokens(title));
+  if(componentKind(title)!==(ctx.component||''))return false;
+  if(/\b(?:no|without|missing)\s+(?:(?:the|any|all|some|original)\s+)*(?:bricks|pieces|parts|minifigures?|mini\s*figs?|figures?)\b/i.test(title))return false;
   if(/\b(replica|bootleg|recast|counterfeit|proxy|replacement|accessory|accessories|parts only|for parts|case only|remote only|charger only|battery only|strap only|shell only|box only|empty box|manual only|instructions only|digital download|light(?:ing)? kit|led kit|compatible|incomplete|minifigure only|figure only|bag only|bags only)\b/i.test(title))return false;
   const extras=/\b(?:wall mount|display plaque|photo frame|display frame|mounting bracket|protectors?|protective cover|storage case|carrying case|card sleeves?|top ?loaders?|art print|poster|photograph)\b/i;
   if(extras.test(title)&&!extras.test((ctx.sourceWords||[]).join(' ')))return false;
@@ -52,6 +63,8 @@
   if(/\b(bundle|lot of|set of|[2-9]\s*pack|pack of [2-9])\b/i.test(title)&&!ctx.required.some(x=>['bundle','lot','set'].includes(x)))return false;
   if(ctx.kind==='lego'){
    if(!(words.has('lego')||tokens(item.brand).includes('lego'))||!words.has(ctx.identifier))return false;
+   if(/\b(?:generic bricks|non[ -]?lego|alt(?:ernative)? of|moc|custom build)\b/i.test(title))return false;
+   if(!ctx.component&&/\b(?:bricks?|wheels?|tiles?|plates?|heads?|torsos?|helmets?|weapons?)\s+(?:only|for)|\b(?:spare|loose|individual)\s+(?:parts?|pieces?|bricks?)\b/i.test(title))return false;
    if(/\b(?:no|without|missing) (?:bricks|pieces|parts)|\b(?:instructions|manual|stickers|packaging)\s*(?:only|alone)\b/i.test(title))return false;
    if(/\b(?:instructions?|manuals?|sticker sheet)\b/i.test(title)&&!/\b(?:includes?|with|including)\s+(?:original\s+)?(?:instructions?|manuals?)\b/i.test(title))return false;
    if(/^(?:acrylic\s+)?display (?:case|stand)|\b(?:case|stand|box) for (?:the )?lego\b/i.test(title))return false;
