@@ -29,7 +29,7 @@
    stage.dataset.galleryImages=JSON.stringify(images);card.dataset.hasGallery='1';
    if(!stage.querySelector('.reel-gallery-dots'))stage.insertAdjacentHTML('beforeend',reelGalleryDotsMarkup(images));
    for(const item of currentFeedItems)if(String(item.itemId||'')===card.dataset.galleryItemId&&getSource(item)===source)item.images=images;
-   const next=track.children[1]?.querySelector('img');if(next?.dataset.src){next.src=next.dataset.src;try{next.decode?.().catch(()=>{});}catch(_){}}
+   window.wishwaveWarmReelPhotos?.(stage,Number(stage.dataset.galleryIndex)||0);
   }catch(_){}finally{active--;}
  }
  window.wishwaveHydrateListingPhotos=hydrate;
