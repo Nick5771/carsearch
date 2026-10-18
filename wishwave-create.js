@@ -1,0 +1,62 @@
+/* Create choices and a focused listing composer. Auction drafts never enter the fixed-price publisher. */
+(function(){
+'use strict';
+const root=document.getElementById('createListingScreen'),form=document.getElementById('createListingForm');
+if(!root||!form)return;
+const el=id=>document.getElementById(id),submit=el('createListingSubmit');
+let type='sell',drafts={},draftOwner='';
+const ids=['listingItemName','listingItemDescription','listingPrice','listingCondition','listingCategory','listingDeliveryMode','listingShippingFee','listingPickupArea','listingAuctionDuration'];
+const icon=(paths)=>'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+paths+'</svg>';
+const tag=icon('<path d="M8 7h18l15 15-19 19L7 26V8z"/><circle cx="17" cy="17" r="3"/>');
+const gavel=icon('<path d="m20 7 18 18M14 13l18 18M15 12l8-8 19 19-8 8zM23 24 7 40M27 41h16"/>');
+const choices=document.createElement('div');choices.id='wwCreateChoices';choices.innerHTML='<h1>Create</h1><p>How would you like to sell?</p><button type="button" class="ww-create-choice" data-create-type="sell"><span><small>FIXED PRICE</small><b>Sell an item</b><em>Set a price. Find its next owner.</em><i>→</i></span>'+tag+'</button><button type="button" class="ww-create-choice" data-create-type="auction"><span><small>AUCTION · DRAFT ONLY</small><b>Start an auction</b><em>Prepare your next auction.</em><i>→</i></span>'+gavel+'</button><button type="button" class="ww-create-manage" onclick="wishwaveCreatePromote()"><span>Promote a listing<small>Reach more interested buyers.</small></span><span>›</span></button><button type="button" class="ww-create-manage" onclick="openMyListings()"><span>Manage listings<small>Edit and track your items.</small></span><span>›</span></button>';
+root.querySelector('.marketplace-header').after(choices);
+window.wishwaveCreatePromote=function(){window.openWishWaveDashboard();document.querySelector('#wwDashboard [data-wwd-action="promotions"]')?.click();};
+const save=document.createElement('button');save.type='button';save.className='ww-save-draft';save.textContent='Save draft';root.querySelector('.marketplace-header-spacer').replaceWith(save);
+root.querySelector('.marketplace-header button').setAttribute('onclick','closeCreateListing()');
+const details=root.querySelector('.wishwave-listing-details');
+const category=document.createElement('label');category.className='marketplace-field ww-category';category.innerHTML='<span>Category</span><select id="listingCategory"><option value="">Choose category</option>'+['Clothing','Shoes','Accessories','Collectibles','Electronics','Home','Art','Books and music','Other'].map(x=>'<option>'+x+'</option>').join('')+'</select>';
+details.insertBefore(category,details.children[1]);
+const condition=root.querySelector('.wishwave-condition-row');condition.classList.add('ww-condition');
+const select=document.createElement('select');select.id='wwConditionSelect';select.setAttribute('aria-label','Condition');select.innerHTML=['New','Like new','Used','New (Other)'].map(x=>'<option>'+x+'</option>').join('');condition.appendChild(select);select.onchange=()=>window.selectListingCondition(select.value);
+root.querySelector('#listingItemDescription').placeholder='Tell buyers what makes it worth finding.';
+const duration=document.createElement('label');duration.className='marketplace-field ww-auction-duration';duration.innerHTML='<span>Duration</span><select id="listingAuctionDuration"><option value="3">3 days</option><option value="5">5 days</option><option value="7">7 days</option></select>';details.appendChild(duration);
+const notice=document.createElement('p');notice.className='ww-auction-notice';notice.textContent='Auction drafts only for now. Bidding and publishing are not available yet.';details.after(notice);
+const hint=document.createElement('p');hint.className='ww-create-review';hint.textContent='Review everything before you publish.';submit.before(hint);
+const key=()=>{const p=getAccountProfile();return 'wishwave-create-drafts-v308:'+String(p?.email||p?.username||p?.id||'guest');};
+function remember(){drafts[type]={fields:Object.fromEntries(ids.map(id=>[id,el(id)?.value||''])),images:pendingListingImages.slice()};}
+function persist(){remember();try{localStorage.setItem(key(),JSON.stringify(drafts));toast('Draft saved on this device');return true;}catch(_){toast('Draft could not be saved. Keep this page open or use fewer photos.');return false;}}
+function sync(){
+ root.dataset.createType=type;
+ root.querySelector('.marketplace-header h2').textContent=root.dataset.createStage==='choices'?'Create':type==='auction'?'New auction':'New listing';
+ save.textContent=root.dataset.createStage==='choices'?'Drafts':'Save draft';
+ select.value=el('listingCondition').value;
+ root.querySelector('.wishwave-listing-price>span').textContent=type==='auction'?'Starting bid':'Price';
+ if(!submit.dataset.publishing)submit.textContent=type==='auction'?'Save auction draft':root.classList.contains('preview-mode')?'Publish listing':'Preview listing';
+ if(type==='auction'&&!submit.dataset.publishing)submit.disabled=false;
+}
+function stage(value){root.dataset.createStage=value;window.wishwaveSetCreateMode('edit');root.querySelector('.marketplace-scroll').scrollTop=0;sync();}
+window.wishwaveChooseCreateType=function(next){
+ if(!['sell','auction'].includes(next))return;
+ if(root.dataset.createStage==='form')remember();
+ type=next;window.resetCreateListingForm();
+ const draft=drafts[type];if(draft){for(const [id,value]of Object.entries(draft.fields))if(el(id))el(id).value=value;pendingListingImages=draft.images.slice();window.selectListingCondition(el('listingCondition').value);window.renderListingImagePreviews();window.wishwaveSyncCreateDelivery();}
+ stage('form');
+};
+choices.addEventListener('click',event=>{const button=event.target.closest('[data-create-type]');if(button)window.wishwaveChooseCreateType(button.dataset.createType);});
+save.onclick=()=>{if(root.dataset.createStage==='form')persist();else {const available=Object.keys(drafts);if(!available.length){toast('No saved drafts on this device');return;}let panel=choices.querySelector('.ww-draft-list');panel?.remove();panel=document.createElement('div');panel.className='ww-draft-list';for(const kind of available.filter(x=>['sell','auction'].includes(x))){const button=document.createElement('button');button.type='button';button.textContent=(kind==='auction'?'Auction: ':'Listing: ')+(drafts[kind].fields.listingItemName||'Untitled draft');button.onclick=()=>window.wishwaveChooseCreateType(kind);panel.appendChild(button);}choices.appendChild(panel);}};
+const open=window.openCreateListing;window.openCreateListing=function(){const out=open.apply(this,arguments);if(root.classList.contains('show')){if(draftOwner!==key()){draftOwner=key();try{drafts=JSON.parse(localStorage.getItem(key())||'{}');}catch(_){drafts={};}}stage('choices');}return out;};
+const close=window.closeCreateListing;window.closeCreateListing=function(options={}){if(root.classList.contains('show')&&!options.published&&!options.navigation&&root.dataset.createStage==='form'){if(root.classList.contains('preview-mode')){window.wishwaveSetCreateMode('edit');sync();return;}remember();stage('choices');return;}if(root.classList.contains('show')&&root.dataset.createStage==='form'&&!options.published)remember();if(options.published){delete drafts.sell;try{localStorage.setItem(key(),JSON.stringify(drafts));}catch(_){}}return close.apply(this,arguments);};
+const mode=window.wishwaveSetCreateMode;window.wishwaveSetCreateMode=function(){const out=mode.apply(this,arguments);sync();return out;};
+const photos=window.wishwaveSyncCreatePreview;window.wishwaveSyncCreatePreview=function(){const out=photos.apply(this,arguments);const empty=root.querySelector('.wishwave-draft-empty');if(empty){empty.innerHTML='<img src="assets/wishwave-collection-v256.png" alt=""><span class="ww-upload-plus" aria-hidden="true">+</span><b>Add photos</b><small>Bring your listing to life.</small>';}
+root.classList.toggle('ww-has-photos',pendingListingImages.length>0);sync();return out;};
+const publish=window.submitCreateListing;window.submitCreateListing=function(event){if(type==='auction'){event?.preventDefault();persist();return false;}return publish.apply(this,arguments);};
+// Preview is a separate step. Only its Publish button reaches the existing validated publisher.
+submit.addEventListener('click',event=>{if(type==='auction'){event.preventDefault();event.stopImmediatePropagation();persist();return;}if(!root.classList.contains('preview-mode')){event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;if(!pendingListingImages.length){toast('Add at least one photo');return;}if(!window.wishwaveListingDeliveryPayload()){toast('Choose delivery and add its details');return;}window.wishwaveSetCreateMode('preview');}},true);
+const delivery=window.wishwaveSyncCreateDelivery;window.wishwaveSyncCreateDelivery=function(){const out=delivery.apply(this,arguments);sync();return out;};
+form.addEventListener('change',()=>{window.wishwaveSyncCreatePreview();window.wishwaveSyncCreateDelivery();});
+// The composer is a child of Create. Back pans reveal the choice page and retain the draft.
+document.addEventListener('click',event=>{if(root.classList.contains('show')&&event.target.closest('.premium-bottom-nav button[data-tab]'))window.closeCreateListing({navigation:true});},true);
+const child=window.__wishwaveChildSurface;window.__wishwaveChildSurface=function(target){const surface=child?.(target);if(surface?.root===root&&root.dataset.createStage==='form'){let under;return {...surface,prepareUnder(){under=document.createElement('div');under.className='ww-create-under';if(root.classList.contains('preview-mode')){const heading=document.createElement('h2');heading.textContent=type==='auction'?'New auction':'New listing';under.appendChild(heading);const editor=form.cloneNode(true);editor.querySelector('#wishwaveCreateCompactSlot')?.remove();under.appendChild(editor);under.classList.add('ww-create-under-editor');}else under.appendChild(choices.cloneNode(true));under.querySelectorAll('[id]').forEach(node=>node.removeAttribute('id'));under.querySelectorAll('button,input,textarea,select').forEach(b=>{b.disabled=true;b.removeAttribute('onclick');});root.before(under);return under;},releaseUnder(){under?.remove();}};}return surface;};
+stage('choices');window.wishwaveSyncCreatePreview();
+})();
