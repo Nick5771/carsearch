@@ -5,7 +5,7 @@ const root=document.getElementById('createListingScreen'),form=document.getEleme
 if(!root||!form)return;
 const el=id=>document.getElementById(id),submit=el('createListingSubmit');
 let type='sell',drafts={},draftOwner='';
-const ids=['listingItemName','listingItemDescription','listingPrice','listingCondition','listingCategory','listingDeliveryMode','listingShippingFee','listingPickupArea','listingAuctionDuration'];
+const ids=['listingItemName','listingItemDescription','listingPrice','listingCondition','listingCategory','listingDeliveryMode','listingShippingFee','listingPickupArea','listingAuctionDuration','listingQuantity','listingAllowOffers'];
 const icon=(paths)=>'<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+paths+'</svg>';
 const tag=icon('<path d="M8 7h18l15 15-19 19L7 26V8z"/><circle cx="17" cy="17" r="3"/>');
 const gavel=icon('<path d="m20 7 18 18M14 13l18 18M15 12l8-8 19 19-8 8zM23 24 7 40M27 41h16"/>');
@@ -15,7 +15,7 @@ window.wishwaveCreatePromote=function(){window.openWishWaveDashboard();document.
 const save=document.createElement('button');save.type='button';save.className='ww-save-draft';save.textContent='Save draft';root.querySelector('.marketplace-header-spacer').replaceWith(save);
 root.querySelector('.marketplace-header button').setAttribute('onclick','closeCreateListing()');
 const details=root.querySelector('.wishwave-listing-details');
-const category=document.createElement('label');category.className='marketplace-field ww-category';category.innerHTML='<span>Category</span><select id="listingCategory"><option value="">Choose</option>'+['Clothing','Shoes','Accessories','Collectibles','Electronics','Home','Art','Books and music','Other'].map(x=>'<option>'+x+'</option>').join('')+'</select>';
+const category=document.createElement('label');category.className='marketplace-field ww-category';category.innerHTML='<span>Category</span><select id="listingCategory"><option value="">Choose category</option>'+['Clothing','Shoes','Accessories','Collectibles','Electronics','Home','Art','Books and music','Other'].map(x=>'<option>'+x+'</option>').join('')+'</select>';
 details.insertBefore(category,details.children[1]);
 const condition=root.querySelector('.wishwave-condition-row');condition.classList.add('ww-condition');
 const select=document.createElement('select');select.id='wwConditionSelect';select.setAttribute('aria-label','Condition');select.innerHTML=['New','Like new','Used','New (Other)'].map(x=>'<option>'+x+'</option>').join('');condition.appendChild(select);select.onchange=()=>window.selectListingCondition(select.value);
@@ -24,15 +24,19 @@ const duration=document.createElement('label');duration.className='marketplace-f
 const deliverySection=root.querySelector('.wishwave-listing-delivery');deliverySection.classList.add('ww-compact-delivery');details.appendChild(deliverySection);
 const deliveryLabel=document.createElement('label');deliveryLabel.className='ww-delivery-select';deliveryLabel.innerHTML='<span>Delivery</span><select id="wwDeliverySelect"><option value="">Choose options</option><option value="shipping">Shipping</option><option value="pickup">Pickup</option><option value="both">Shipping or pickup</option></select>';deliverySection.prepend(deliveryLabel);el('wwDeliverySelect').onchange=event=>window.wishwaveSelectDelivery(event.target.value);
 const notice=document.createElement('p');notice.className='ww-auction-notice';notice.textContent='Draft only. Live bidding is not available yet.';details.after(notice);
+const more=document.createElement('details');more.className='ww-more-details';more.innerHTML='<summary>More details<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg></summary><div class="ww-more-panel"><label><span>Quantity</span><input id="listingQuantity" type="number" min="1" max="99" step="1" inputmode="numeric" value="1" required></label><label><span>Accept offers</span><input id="listingAllowOffers" type="checkbox" checked></label></div>';form.appendChild(more);form.addEventListener('invalid',event=>{if(more.contains(event.target))more.open=true;},true);more.addEventListener('toggle',()=>root.classList.toggle('ww-more-open',more.open));
+const reset=window.resetCreateListingForm;window.resetCreateListingForm=function(){const out=reset.apply(this,arguments);el('listingAllowOffers').checked=window.findaiV137Prefs?.().sellerAllowOffers!==false;more.open=false;root.classList.remove('ww-more-open');return out;};
 const hint=document.createElement('p');hint.className='ww-create-review';hint.textContent='Review everything before you publish.';submit.before(hint);
+// A readable custom value and chevron sit above a native 16px select, preserving iPhone picker behavior without focus zoom.
+root.querySelectorAll('select').forEach(control=>{const wrapper=document.createElement('span');wrapper.className='ww-select-control';const copy=document.createElement('span');copy.className='ww-select-value';copy.setAttribute('aria-hidden','true');control.before(wrapper);wrapper.append(control,copy);});
 const key=()=>{const p=getAccountProfile();return 'wishwave-create-drafts-v308:'+String(p?.email||p?.username||p?.id||'guest');};
-function remember(){drafts[type]={fields:Object.fromEntries(ids.map(id=>[id,el(id)?.value||''])),images:pendingListingImages.slice()};}
+function remember(){drafts[type]={fields:Object.fromEntries(ids.map(id=>[id,el(id)?.type==='checkbox'?el(id).checked:el(id)?.value||''])),images:pendingListingImages.slice()};}
 function persist(){remember();try{localStorage.setItem(key(),JSON.stringify(drafts));toast('Draft saved on this device');return true;}catch(_){toast('Draft could not be saved. Keep this page open or use fewer photos.');return false;}}
 function sync(){
  root.dataset.createType=type;
  root.querySelector('.marketplace-header h2').textContent=root.dataset.createStage==='choices'?'Create':type==='auction'?'New auction':'New listing';
  save.textContent=root.dataset.createStage==='choices'?'Drafts':'Save draft';
- select.value=el('listingCondition').value;el('wwDeliverySelect').value=el('listingDeliveryMode').value;root.classList.toggle('ww-expanded-delivery',!!el('listingDeliveryMode').value);
+ select.value=el('listingCondition').value;el('wwDeliverySelect').value=el('listingDeliveryMode').value;root.classList.toggle('ww-expanded-delivery',!!el('listingDeliveryMode').value);root.querySelectorAll('.ww-select-control').forEach(wrapper=>{const control=wrapper.querySelector('select');wrapper.querySelector('.ww-select-value').textContent=control.options[control.selectedIndex]?.textContent||'';});
  root.querySelector('.wishwave-listing-price>span').textContent=type==='auction'?'Starting bid':'Price';
  if(!submit.dataset.publishing)submit.textContent=type==='auction'?'Save auction draft':root.classList.contains('preview-mode')?'Publish listing':'Preview listing';
  if(type==='auction'&&!submit.dataset.publishing)submit.disabled=false;
@@ -42,7 +46,7 @@ window.wishwaveChooseCreateType=function(next){
  if(!['sell','auction'].includes(next))return;
  if(root.dataset.createStage==='form')remember();
  type=next;window.resetCreateListingForm();
- const draft=drafts[type];if(draft){for(const [id,value]of Object.entries(draft.fields))if(el(id))el(id).value=value;pendingListingImages=draft.images.slice();window.selectListingCondition(el('listingCondition').value);window.renderListingImagePreviews();window.wishwaveSyncCreateDelivery();}
+ const draft=drafts[type];if(draft){for(const [id,value]of Object.entries(draft.fields))if(el(id)){if(el(id).type==='checkbox')el(id).checked=Boolean(value);else el(id).value=value;}pendingListingImages=draft.images.slice();window.selectListingCondition(el('listingCondition').value);window.renderListingImagePreviews();window.wishwaveSyncCreateDelivery();}
  stage('form');
 };
 choices.addEventListener('click',event=>{const button=event.target.closest('[data-create-type]');if(button)window.wishwaveChooseCreateType(button.dataset.createType);});
@@ -60,6 +64,6 @@ form.addEventListener('change',()=>{window.wishwaveSyncCreatePreview();window.wi
 // The composer is a child of Create. Back pans reveal the choice page and retain the draft.
 document.addEventListener('click',event=>{if(root.classList.contains('show')&&event.target.closest('.premium-bottom-nav button[data-tab]'))window.closeCreateListing({navigation:true});},true);
 const child=window.__wishwaveChildSurface;window.__wishwaveChildSurface=function(target){const surface=child?.(target);if(surface?.root===root&&root.dataset.createStage==='form'){let under;return {...surface,prepareUnder(){under=document.createElement('div');under.className='ww-create-under';if(root.classList.contains('preview-mode')){const heading=document.createElement('h2');heading.textContent=type==='auction'?'New auction':'New listing';under.appendChild(heading);const editor=form.cloneNode(true);editor.querySelector('#wishwaveCreateCompactSlot')?.remove();under.appendChild(editor);under.classList.add('ww-create-under-editor');}else under.appendChild(choices.cloneNode(true));under.querySelectorAll('[id]').forEach(node=>node.removeAttribute('id'));under.querySelectorAll('button,input,textarea,select').forEach(b=>{b.disabled=true;b.removeAttribute('onclick');});root.before(under);return under;},releaseUnder(){under?.remove();}};}return surface;};
-const uploadSlot=el('wishwaveCreateCompactSlot');function size(){const height=root.getBoundingClientRect().height||window.innerHeight;if(height>0)root.style.setProperty('--ww-create-height',height+'px');const available=uploadSlot.getBoundingClientRect().height;if(available>0){const short=height<=740;const artwork=Math.max(44,Math.min(short?96:146,available-(short?24:48)));root.style.setProperty('--ww-create-art-height',artwork+'px');}}const sizing=new ResizeObserver(size);sizing.observe(root);sizing.observe(uploadSlot);window.visualViewport?.addEventListener('resize',size);size();
+const uploadSlot=el('wishwaveCreateCompactSlot');function size(){const height=root.getBoundingClientRect().height||window.innerHeight;if(height>0)root.style.setProperty('--ww-create-height',height+'px');const available=uploadSlot.getBoundingClientRect().height;if(available>0){const short=height<=740;const artwork=Math.max(44,Math.min(short?106:176,available-(short?42:50)));root.style.setProperty('--ww-create-art-height',artwork+'px');}}const sizing=new ResizeObserver(size);sizing.observe(root);sizing.observe(uploadSlot);window.visualViewport?.addEventListener('resize',size);size();
 stage('choices');window.wishwaveSyncCreatePreview();
 })();

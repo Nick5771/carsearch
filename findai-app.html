@@ -4362,7 +4362,7 @@ async function submitCreateListing(event){
   try{
     const uploaded=await marketplaceFetch('/marketplace/images',{method:'POST',body:JSON.stringify({images:pendingListingImages,displayName:profile.name||'WishWave seller',country:(window.findaiV137Prefs?window.findaiV137Prefs().region:'AU')})});
     if(submit) submit.textContent='Publishing…';
-    const created=await marketplaceFetch('/marketplace/listings',{method:'POST',body:JSON.stringify({title:name,description,condition,category:document.getElementById('listingCategory')?.value||'',itemPrice:Number(price.toFixed(2)),currency:(window.findaiV137Prefs?window.findaiV137Prefs().currency:'AUD'),...delivery,offersEnabled:(window.findaiV137Prefs?window.findaiV137Prefs().sellerAllowOffers!==false:true),imageUrls:uploaded.imageUrls||[],displayName:profile.name||'WishWave seller',publish:true})});
+    const created=await marketplaceFetch('/marketplace/listings',{method:'POST',body:JSON.stringify({title:name,description,condition,category:document.getElementById('listingCategory')?.value||'',itemPrice:Number(price.toFixed(2)),currency:(window.findaiV137Prefs?window.findaiV137Prefs().currency:'AUD'),...delivery,quantity:Number(document.getElementById('listingQuantity')?.value||1),offersEnabled:document.getElementById('listingAllowOffers')?document.getElementById('listingAllowOffers').checked:(window.findaiV137Prefs?window.findaiV137Prefs().sellerAllowOffers!==false:true),imageUrls:uploaded.imageUrls||[],displayName:profile.name||'WishWave seller',publish:true})});
     const current=getMarketplaceListings();
     const createdId=created&&created.listing&&(created.listing.marketplaceListingId||created.listing.itemId||created.listing.id);
     const nextListings=created&&created.listing?[created.listing,...current.filter(item=>(item.marketplaceListingId||item.itemId||item.id)!==createdId)]:current.slice();
@@ -36003,8 +36003,8 @@ html body.keyboard-open[data-active-tab="search"] .app #searchResults .premium-r
 </script>
 <script src="wishwave-listing-photos.js?v=299"></script>
 <script src="wishwave-comments-motion.js?v=293"></script>
-<link rel="stylesheet" href="wishwave-create.css?v=310">
-<script src="wishwave-create.js?v=310"></script>
+<link rel="stylesheet" href="wishwave-create.css?v=311">
+<script src="wishwave-create.js?v=311"></script>
 <script src="wishwave-navigation-origins.js?v=306"></script>
 </body>
 </html>
