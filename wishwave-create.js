@@ -32,7 +32,7 @@ function sync(){
  root.dataset.createType=type;
  root.querySelector('.marketplace-header h2').textContent=root.dataset.createStage==='choices'?'Create':type==='auction'?'New auction':'New listing';
  save.textContent=root.dataset.createStage==='choices'?'Drafts':'Save draft';
- select.value=el('listingCondition').value;el('wwDeliverySelect').value=el('listingDeliveryMode').value;
+ select.value=el('listingCondition').value;el('wwDeliverySelect').value=el('listingDeliveryMode').value;root.classList.toggle('ww-expanded-delivery',!!el('listingDeliveryMode').value);
  root.querySelector('.wishwave-listing-price>span').textContent=type==='auction'?'Starting bid':'Price';
  if(!submit.dataset.publishing)submit.textContent=type==='auction'?'Save auction draft':root.classList.contains('preview-mode')?'Publish listing':'Preview listing';
  if(type==='auction'&&!submit.dataset.publishing)submit.disabled=false;
@@ -60,6 +60,6 @@ form.addEventListener('change',()=>{window.wishwaveSyncCreatePreview();window.wi
 // The composer is a child of Create. Back pans reveal the choice page and retain the draft.
 document.addEventListener('click',event=>{if(root.classList.contains('show')&&event.target.closest('.premium-bottom-nav button[data-tab]'))window.closeCreateListing({navigation:true});},true);
 const child=window.__wishwaveChildSurface;window.__wishwaveChildSurface=function(target){const surface=child?.(target);if(surface?.root===root&&root.dataset.createStage==='form'){let under;return {...surface,prepareUnder(){under=document.createElement('div');under.className='ww-create-under';if(root.classList.contains('preview-mode')){const heading=document.createElement('h2');heading.textContent=type==='auction'?'New auction':'New listing';under.appendChild(heading);const editor=form.cloneNode(true);editor.querySelector('#wishwaveCreateCompactSlot')?.remove();under.appendChild(editor);under.classList.add('ww-create-under-editor');}else under.appendChild(choices.cloneNode(true));under.querySelectorAll('[id]').forEach(node=>node.removeAttribute('id'));under.querySelectorAll('button,input,textarea,select').forEach(b=>{b.disabled=true;b.removeAttribute('onclick');});root.before(under);return under;},releaseUnder(){under?.remove();}};}return surface;};
-function size(){const height=root.getBoundingClientRect().height||window.innerHeight;if(height>0)root.style.setProperty('--ww-create-height',height+'px');}new ResizeObserver(size).observe(root);window.visualViewport?.addEventListener('resize',size);size();
+const uploadSlot=el('wishwaveCreateCompactSlot');function size(){const height=root.getBoundingClientRect().height||window.innerHeight;if(height>0)root.style.setProperty('--ww-create-height',height+'px');const available=uploadSlot.getBoundingClientRect().height;if(available>0){const short=height<=740;const artwork=Math.max(44,Math.min(short?96:146,available-(short?24:48)));root.style.setProperty('--ww-create-art-height',artwork+'px');}}const sizing=new ResizeObserver(size);sizing.observe(root);sizing.observe(uploadSlot);window.visualViewport?.addEventListener('resize',size);size();
 stage('choices');window.wishwaveSyncCreatePreview();
 })();
