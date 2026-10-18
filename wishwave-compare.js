@@ -8,7 +8,7 @@
  function currency(item,fallback=''){return String(item?.currency||fallback||'').toUpperCase();}
  const variants=new Set('chibi pluto mercury mars jupiter venus saturn uranus neptune mini super pro max plus lite xl deluxe limited remastered reissue anniversary original animation oled digital disc remake ips modded japanese korean chinese english first second third hg rg mg pg sd'.split(' '));
  const variantWord=(x,source)=>(variants.has(x)&&(x!=='digital'||/playstation|xbox/.test((source||[]).join(' '))))||/^version\d+$/.test(x);
- const colors=new Set('black white grey red blue green pink purple brown midnight silver gold cream atomic indigo coral yellow orange'.split(' '));
+ const colors=new Set('black white grey red blue green pink purple brown midnight silver gold cream atomic indigo coral yellow orange beige tan oatmeal orewood sail phantom summit light dark navy olive burgundy'.split(' '));
  const code=value=>String(value||'').toLowerCase().replace(/[^a-z0-9]/g,'');
  const codeFields=item=>[item?.styleId,item?.sku,item?.modelNumber,item?.mpn].filter(x=>typeof x==='string'||typeof x==='number').map(String);
  function codes(value){return (String(value||'').match(/\b[a-z0-9]+(?:[-.][a-z0-9]+)*\b/gi)||[]).filter(x=>x.length>=3&&/[a-z]/i.test(x)&&/\d/.test(x)&&!/^\d+(?:gb|tb|mb|ml|mm|cm|hz|mah|w|v|k|pk|pcs)$/i.test(x)&&!/^version\d+$/i.test(x)&&!/^(?:nintendo\d+|playstation\d+|new3ds|3ds|2ds)$/i.test(x)&&!/^\d+(?:st|nd|rd|th)$/i.test(x)).map(code);}
@@ -47,7 +47,7 @@
   // A second retrieval can omit supporting words but acceptance keeps the same identity.
   const alternate=kind==='code'?core.filter(x=>code(x)!==identifier).join(' '):kind==='name'?required.filter(x=>!['color','animation','original'].includes(x)).join(' '):'';
   const queries=[...new Set([main,alternate].map(x=>x.trim().slice(0,160)).filter(x=>tokens(x).length>=2))].slice(0,2);
-  return {query:queries[0]||main,queries,required,kind,identifier,pair,currency:currency(item),condition:condition(item),sourceGrade:grade(title),sourceWords:source,critical,component:componentKind(title)};
+  return {query:queries[0]||main,queries,required,kind,identifier,pair,currency:currency(item),condition:condition(item),sourceGrade:grade(title),sourceWords:source,sourceTitle:title,critical,component:componentKind(title)};
  }
  function identityMatches(item,ctx){
   if(!ctx||!item||!Number.isFinite(Number(item.price))||Number(item.price)<=0)return false;
@@ -71,17 +71,68 @@
    const sets=String(title).match(/\b\d{5,6}\b/g)||[];if(sets.some(x=>x!==ctx.identifier))return false;
   }else if(ctx.kind==='code'){
    if(!hasCode(item,ctx.identifier)||!(words.has(ctx.required[0])||tokens(item.brand).includes(ctx.required[0]))||!(ctx.critical||[]).every(x=>words.has(x)))return false;
-   if([...words].some(x=>variantWord(x,ctx.sourceWords)&&!ctx.sourceWords?.includes(x)))return false;
+   if(!ctx.allowVariants&&[...words].some(x=>variantWord(x,ctx.sourceWords)&&!ctx.sourceWords?.includes(x)))return false;
   }else{
    if(ctx.required.length<2||!ctx.required.every(x=>words.has(x)))return false;
    if(ctx.kind==='card'){
     const p=fraction(title);if(!p||p.join('/')!==ctx.identifier)return false;
     const g=grade(title);if(g!==ctx.sourceGrade)return false;
    }
-   if([...words].some(x=>variantWord(x,ctx.sourceWords)&&!ctx.sourceWords?.includes(x)))return false;
+   if(!ctx.allowVariants&&[...words].some(x=>variantWord(x,ctx.sourceWords)&&!ctx.sourceWords?.includes(x)))return false;
   }
   if(ctx.currency&&currency(item)!==ctx.currency)return false;
   return true;
+ }
+ // Model families let retrieval broaden without adding alternatives to exact-price stats.
+ function shoeModel(value){
+  const text=normal(value).split(/\b(?:size|sz)\b/)[0],m=text.match(/\b(nike|adidas|asics|new balance|jordan|puma|reebok|saucony|hoka|brooks|mizuno)\s+([a-z][a-z -]{1,45}?)\s*(\d{1,4})(?:\s+(v\d+|low|high|mid))?\b/);
+  return m?tokens(m[0]).filter(x=>!['air','zoom','originals'].includes(x)):null;
+ }
+ function queryForItem(item={}){
+  const title=String(item.title||'').trim();
+  if(!title)return String(item.productName||item.model||item.productQuery||item.searchQ||item.query||item._interestQuery||'').trim();
+  const model=shoeModel(title);
+  if(model){const palette=tokens(title).filter(x=>colors.has(x));return [...model,...palette,...codeFields(item)].join(' ');}
+  return tokens(title.split(/\b(?:size|sz)\s*[:\d]/i)[0]).slice(0,12).join(' ');
+ }
+ function fallbackPlan(ctx){
+  const model=shoeModel(ctx.sourceTitle),palette=(ctx.sourceWords||[]).filter(x=>colors.has(x));
+  const relaxed={...ctx,critical:(ctx.critical||[]).filter(x=>!colors.has(x)),required:ctx.required.filter(x=>!colors.has(x))};
+  if(model){relaxed.kind='name';relaxed.identifier='';relaxed.required=model;}
+  const plans=[];
+  if((palette.length||model)&&relaxed.required.length>=2){
+   const query=relaxed.kind==='code'?[relaxed.required[0],relaxed.identifier].join(' '):relaxed.required.join(' ');
+   plans.push({tier:'variant',query,context:relaxed,label:'Same model · other colours or details'});
+  }
+  // Only offer a broader family when a meaningful family can be named. Never
+  // turn a bare brand or a card/set identifier into an unrelated product search.
+  let family=model?.filter(x=>!/^\d+$/.test(x)&&!/^v\d+$/.test(x));
+  if(!family&&ctx.kind==='code')family=tokens(ctx.sourceTitle).filter(x=>!codes(ctx.sourceTitle).includes(code(x))&&!colors.has(x)&&!/^\d+$/.test(x));
+  if(!family&&['name','lego','card'].includes(ctx.kind))family=(ctx.kind==='lego'?ctx.sourceWords:ctx.required).filter(x=>!colors.has(x)&&!variantWord(x,ctx.sourceWords)&&!/^\d+$/.test(x)&&!['animation','color','psa','bgs','cgc','sgc'].includes(x));
+  if(family&&family.length>=2&&family.some(x=>x!==family[0]&&!['camera','shoe','shoes','sneaker','sneakers'].includes(x))){
+   const similar={...ctx,kind:'name',identifier:'',required:family.slice(0,5),critical:[],allowVariants:true};
+   plans.push({tier:'similar',query:similar.required.join(' '),context:similar,label:'Similar items'});
+  }
+  return plans;
+ }
+ function alternativeTier(item,ctx){
+  if(identityMatches(item,ctx))return '';
+  if(shoeModel(ctx.sourceTitle)&&/\b(?:socks?|laces?|t[ -]?shirts?|hoodies?|posters?|keychains?)\b/i.test(item.title||''))return '';
+  for(const plan of ctx.fallbacks||[]){
+   if(!ctx.enabledTiers?.includes(plan.tier))continue;
+   if(identityMatches(item,plan.context))return plan.tier;
+  }
+  return '';
+ }
+ function groups(items,ctx){
+  const seen=new Set(),out={same:[],other:[],variant:[],similar:[]};
+  for(const item of items||[]){
+   const key=String(item.itemId||item.marketplaceListingId||item.url||'');if(key&&seen.has(key))continue;if(key)seen.add(key);
+   const exact=classify(item,ctx),tier=exact==='same'?'same':exact==='other-condition'?'other':alternativeTier(item,ctx);
+   if(tier)out[tier].push(item);
+  }
+  for(const key of Object.keys(out))out[key]=order(out[key],ctx.currency);
+  return out;
  }
  function classify(item,ctx){if(!identityMatches(item,ctx))return 'reject';return ctx.condition&&condition(item)!==ctx.condition?'other-condition':'same';}
  function matches(item,ctx){return classify(item,ctx)==='same';}
@@ -107,5 +158,5 @@
  }
  function summary(items,code){const prices=items.map(x=>quote(x,code)).filter(x=>x.known&&x.currency===code).map(x=>x.total).sort((a,b)=>a-b),n=prices.length;return {currency:code,count:items.length,pricedCount:n,lowest:n?prices[0]:null,typical:n>=2?(n%2?prices[(n-1)/2]:(prices[n/2-1]+prices[n/2])/2):null};}
  function format(value,code){return value===null||!Number.isFinite(value)?'—':new Intl.NumberFormat('en-US',{style:'currency',currency:code||'USD',minimumFractionDigits:2,maximumFractionDigits:2}).format(value);}
- const api={tokens,context,matches,identityMatches,classify,quote,order,prepare,related,summary,format};root.WishWaveCompare=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
+ const api={tokens,queryForItem,fallbackPlan,alternativeTier,groups,context,matches,identityMatches,classify,quote,order,prepare,related,summary,format};root.WishWaveCompare=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
 })(globalThis);

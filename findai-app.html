@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<script src="wishwave-compare.js?v=287"></script>
+<script src="wishwave-compare.js?v=305"></script>
 <script src="wishwave-discovery-surfaces.js?v=271"></script>
 <script src="wishwave-discovery-rotation.js?v=271"></script>
 <script src="wishwave-interaction-preview.js?v=273"></script>
@@ -7419,15 +7419,7 @@ function toggleTrack(index,event){ toggleLike(index,event); }
 
 function buildCompareQuery(item){
   if(!item)return '';
-  const preferred=[
-    item._interestQuery,item.searchQ,item.query,item.productQuery,item.resolvedQuery,
-    item._findaiResolvedQuery,item.productName,item.model
-  ].map(value=>String(value||'').trim()).find(value=>importantQueryTokens(value).length>=2);
-  if(preferred)return preferred;
-  const title=String(item.title||'').trim();
-  const noise=new Set(['new','used','preowned','pre-owned','sealed','boxed','box','free','shipping','sale','authentic','genuine']);
-  const tokens=importantQueryTokens(title).filter(token=>!noise.has(String(token).toLowerCase())).slice(0,9);
-  return tokens.length>=2?tokens.join(' '):title;
+  return WishWaveCompare.queryForItem(item);
 }
 function capturePremiumCompareReturn(index,event){
   const screen=document.querySelector('.screen.active')?.id||'discover';
@@ -9432,7 +9424,7 @@ function premiumCard(item,index,kind){
       <div class="source">${sourceMarkup(isEbay?'ebay':source,item)}</div>
       <h3>${escapeHTML(item.title||'Product')}</h3>
       <strong>${escapeHTML(compare?WishWaveCompare.format(quote.known?quote.total:quote.price,quote.currency):money(Number(item.price)||0,currencyOf(item,kind==='result'?premiumResultData:null)||'AUD'))}</strong>
-      <small>${escapeHTML(compare?((item._compareOtherCondition?(item.condition||item.conditionText||'Condition not specified')+' · ':'')+(quote.known?'Total incl. shipping':'Shipping not provided')):premiumItemMeta(item)||'Live listing')}</small>
+      <small>${escapeHTML(compare?((item._compareTier?(item._compareTier==='variant'?'Alternative colour / details':'Similar item')+' · '+(item.condition||item.conditionText||'Condition not specified')+' · ':item._compareOtherCondition?(item.condition||item.conditionText||'Condition not specified')+' · ':'')+(quote.known?'Total incl. shipping':'Shipping not provided')):premiumItemMeta(item)||'Live listing')}</small>
     </div>
   </article>`;
 }
@@ -9500,6 +9492,7 @@ function submitPremiumSearch(event,origin){
 async function launchPremiumSearch(query,options={}){
   const compare=options.source==='compare'?(options.compareContext||WishWaveCompare.context(query,options.compareItem||{})):null;
   const q=String(compare?.query||query||'').trim();if(!q)return;
+  if(compare){compare.fallbacks=WishWaveCompare.fallbackPlan(compare);compare.enabledTiers=[];compare.candidates=[];}
   premiumCompareContext=compare;
   if(!compare)premiumCompareReturn=null;
   const preserveExact=!!(options&&options.preserveExact);
@@ -9525,10 +9518,10 @@ async function launchPremiumSearch(query,options={}){
     premiumResultItems=(Array.isArray(premiumResultData.listings)?premiumResultData.listings:[]).filter(item=>Number(item.price)>0);
     premiumResultCursor=result.nextCursor||null;premiumResultHasMore=!!result.hasMore;
     paintPremiumResults(false);
-    for(let batch=0;compare&&premiumResultItems.filter(x=>!x._compareOtherCondition).length<4&&premiumResultHasMore&&batch<2&&controller===premiumSearchController;batch++)await loadMorePremiumResults();
+    for(let batch=0;compare&&premiumResultItems.filter(x=>!x._compareOtherCondition&&!x._compareTier).length<4&&premiumResultHasMore&&batch<2&&controller===premiumSearchController;batch++)await loadMorePremiumResults();
     // Retrieval may broaden; the source identity acceptance rules stay fixed.
     for(const alternate of (compare?.queries||[]).slice(1)){
-      if(premiumResultItems.filter(x=>!x._compareOtherCondition).length>=4||controller.signal.aborted||controller!==premiumSearchController||premiumResultLoadJob)break;
+      if(premiumResultItems.filter(x=>!x._compareOtherCondition&&!x._compareTier).length>=4||controller.signal.aborted||controller!==premiumSearchController||premiumResultLoadJob)break;
       const job={controller};premiumResultLoadJob=job;if(more){more.disabled=true;more.textContent='Finding more matches…';}
       try{
         const extra=await fetchProductResults(alternate,{page:1,limit:36,preserveExact:true,skipResolve:true,signal:controller.signal,sort:'',compareCurrency:compare.currency||''});
@@ -9539,6 +9532,23 @@ async function launchPremiumSearch(query,options={}){
       }catch(error){if(controller.signal.aborted||controller!==premiumSearchController)return;}
       finally{if(premiumResultLoadJob===job)premiumResultLoadJob=null;if(controller===premiumSearchController&&more){more.disabled=false;more.textContent='Load more';}}
     }
+    if(compare){
+      const exactCount=()=>premiumResultItems.filter(x=>!x._compareOtherCondition&&!x._compareTier).length;
+      for(const plan of compare.fallbacks){
+        if(controller.signal.aborted||controller!==premiumSearchController)break;
+        if(plan.tier==='variant'&&exactCount()>=4)continue;
+        if(plan.tier==='similar'&&(exactCount()>0||premiumResultItems.some(x=>x._compareTier==='variant')))continue;
+        const job={controller};premiumResultLoadJob=job;
+        compare.enabledTiers.push(plan.tier);paintPremiumResults(true);
+        if(more){more.hidden=false;more.disabled=true;more.textContent='Finding alternatives…';}
+        try{
+          const extra=await fetchProductResults(plan.query,{page:1,limit:36,preserveExact:true,skipResolve:true,signal:controller.signal,sort:'',compareCurrency:compare.currency||''});
+          if(controller.signal.aborted||controller!==premiumSearchController)return;
+          premiumResultItems.push(...(extra.data?.listings||[]));paintPremiumResults(true);
+        }catch(error){if(controller.signal.aborted||controller!==premiumSearchController)return;}
+        finally{if(premiumResultLoadJob===job)premiumResultLoadJob=null;if(controller===premiumSearchController&&more){more.hidden=!premiumResultHasMore;more.disabled=false;more.textContent='Load more';}}
+      }
+    }
   }catch(error){
     if(controller.signal.aborted||controller!==premiumSearchController||error&&error.name==='AbortError')return;
     if(meta)meta.textContent='Search unavailable';
@@ -9546,7 +9556,7 @@ async function launchPremiumSearch(query,options={}){
   }
 }
 function renderPremiumCompareSummary(){
-  const stats=WishWaveCompare.summary(premiumResultItems.filter(item=>!item._compareOtherCondition),premiumCompareContext.currency);
+  const stats=WishWaveCompare.summary(premiumResultItems.filter(item=>!item._compareOtherCondition&&!item._compareTier),premiumCompareContext.currency);
   const value=n=>escapeHTML(WishWaveCompare.format(n,stats.currency));
   return '<div class="ww-compare-stats" role="group" aria-label="Current matching asking price totals"><div><span>Lowest</span><strong>'+value(stats.lowest)+'</strong></div><div><span>Typical price <button type="button" class="ww-compare-info" onclick="toast(\'Median of currently loaded matching asking prices with known shipping, in one currency. Unknown shipping is excluded. These are not sold prices.\')" aria-label="About typical price">ⓘ</button></span><strong>'+value(stats.typical)+'</strong></div><div><span title="Matching offers loaded in this comparison">Matches</span><strong>'+stats.count+'</strong></div></div>';
 }
@@ -9554,13 +9564,24 @@ function paintPremiumResults(append){
   const queryField=$('#premiumResultQuery');if(premiumCompareContext&&queryField)queryField.value=premiumResultQuery;
   const grid=$('#premiumResultsGrid'),meta=$('#premiumResultsMeta'),more=$('#premiumLoadMore');if(!grid)return;
   const compare=premiumCompareContext;
-  if(compare){if(!compare.currency)compare.currency=String(premiumResultData?.currency||premiumResultItems.find(x=>x.currency)?.currency||'').toUpperCase();const same=WishWaveCompare.prepare(premiumResultItems,compare,compare.currency),other=WishWaveCompare.related(premiumResultItems,compare);premiumResultItems=[...same.map(item=>({...item,_compareOtherCondition:false})),...other.map(item=>({...item,_compareOtherCondition:true}))];}
+  if(compare){
+    if(!compare.currency)compare.currency=String(premiumResultData?.currency||premiumResultItems.find(x=>x.currency)?.currency||'').toUpperCase();
+    compare.candidates=[...(compare.candidates||[]),...premiumResultItems];
+    const seen=new Set();compare.candidates=compare.candidates.filter(item=>{const key=listingKey(item)||trackedKey(item);if(key&&seen.has(key))return false;if(key)seen.add(key);return true;});
+    const groups=WishWaveCompare.groups(compare.candidates,compare);
+    premiumResultItems=[...groups.same.map(item=>({...item,_compareOtherCondition:false,_compareTier:''})),...groups.other.map(item=>({...item,_compareOtherCondition:true,_compareTier:''})),...groups.variant.map(item=>({...item,_compareOtherCondition:false,_compareTier:'variant'})),...groups.similar.map(item=>({...item,_compareOtherCondition:false,_compareTier:'similar'}))];
+  }
   if(meta)meta.closest('.premium-results-meta')?.classList.toggle('ww-compare-meta',!!compare);
   if(!premiumResultItems.length){
     grid.innerHTML='<div class="premium-results-empty">No close live matches yet. Try the exact product, model, card number or set name.</div>';
     if(meta){if(compare)meta.innerHTML=renderPremiumCompareSummary();else meta.textContent='No close live matches';}if(more){more.hidden=!compare||!premiumResultHasMore;if(!premiumResultLoadJob){more.disabled=false;more.textContent='Load more';}}return;
   }
-  let otherHeading=false;grid.innerHTML=premiumResultItems.map((item,i)=>{const heading=item._compareOtherCondition&&!otherHeading?(otherHeading=true,'<div class="ww-compare-other-heading"><b>Other conditions</b><span>Not included in the price summary</span></div>'):'';return heading+premiumCard(item,i,'result');}).join('');
+  const headings=new Set();grid.innerHTML=premiumResultItems.map((item,i)=>{
+    const tier=item._compareTier||(item._compareOtherCondition?'other':'');let heading='';
+    if(tier&&!headings.has(tier)){headings.add(tier);const label=tier==='variant'?'Same model · other colours or details':tier==='similar'?'Similar items':'Other conditions';heading='<div class="ww-compare-other-heading"><b>'+label+'</b><span>Not included in the exact-match price summary</span></div>';}
+    return heading+premiumCard(item,i,'result');
+  }).join('');
+  if(compare&&premiumResultItems.filter(x=>!x._compareOtherCondition&&!x._compareTier).length<=1){const only=premiumResultItems.some(x=>!x._compareOtherCondition&&!x._compareTier);grid.insertAdjacentHTML('afterbegin','<div class="ww-compare-other-heading"><b>'+(only?'Only one exact offer found':'No exact offers found')+'</b><span>Alternatives are shown separately when available.</span></div>');}
   if(meta){if(compare)meta.innerHTML=renderPremiumCompareSummary();else meta.textContent=`${premiumResultItems.length} current listings for “${premiumResultQuery}”`;}
   if(more){more.hidden=!premiumResultHasMore;if(!premiumResultLoadJob){more.disabled=false;more.textContent='Load more';}}
 }

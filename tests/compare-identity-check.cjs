@@ -25,3 +25,13 @@ const graded=api.context('Pokemon Umbreon VMAX 215 203',item('Pokemon Umbreon VM
 const n3ds=api.context('Nintendo New 3DS XL',item('New Nintendo 3DS XL console'));assert(api.matches(item('Nintendo New 3DS XL console'),n3ds));assert(!api.matches(item('Nintendo 3DS XL console'),n3ds));
 const alternate=api.context('Canon PowerShot SD1000 camera',item('Canon PowerShot SD1000 camera'));assert(alternate.queries.length>1);assert(!api.matches(item('Canon PowerShot SD1100 camera'),alternate),'broad retrieval never relaxes model acceptance');
 console.log('PASS: shorter identity queries across LEGO, cameras, audio, sneakers, anime, Sanrio, Disney, music, consoles and cards; wrong models, variants, grades, accessories and condition-price contamination rejected');
+
+// Alternative contexts keep exact acceptance unchanged and price groups disjoint.
+for(const source of [item('Nike Air Zoom Vomero 5 Light Orewood Brown'),item('ASICS Gel Kayano 14 White Midnight 1202A056-109')]){
+ const ctx=api.context(api.queryForItem(source),source);ctx.fallbacks=api.fallbackPlan(ctx);ctx.enabledTiers=['variant'];
+ const name=source.title.startsWith('Nike')?'Nike Vomero 5 Blue':'ASICS Gel Kayano 14 Blue 1201A019-400';
+ const blue=item(name,{itemId:'blue',price:1}),g=api.groups([blue,blue,item(name+' replacement insoles',{itemId:'accessory'}),item(name,{itemId:'foreign',currency:'AUD'})],ctx);
+ assert(!api.matches(blue,ctx));assert.equal(g.same.length,0);assert.equal(g.variant.length,1);assert.equal(g.similar.length,0);assert.equal(api.summary(g.same,'USD').lowest,null);
+}
+const consoleSource=item('Nintendo Game Boy Color Atomic Purple console'),consoleCtx=api.context(api.queryForItem(consoleSource),consoleSource);consoleCtx.fallbacks=api.fallbackPlan(consoleCtx);consoleCtx.enabledTiers=['variant'];
+assert.equal(api.groups([item('Nintendo Game Boy Color Yellow console'),item('Nintendo Game Boy Color Yellow replacement shell')],consoleCtx).variant.length,1,'colour fallback also applies outside sneakers');
