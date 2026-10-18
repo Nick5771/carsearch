@@ -1,0 +1,9 @@
+Recent searches now extends to the bottom of Search instead of ending 50px above it. Bottom navigation clearance lives in the overlay padding, reduced while the keyboard is open. This covers the discovery grid both beside the capsule and above the keyboard, without re-enabling the Search keyboard mask.
+
+Inbox previews now explicitly use app-relative full-width geometry and no base transform. The old clone.show viewport-centred translateX(-50%) rule was still winning on transform even after the clone received correct theme selectors. Direct chat drag now writes the preview transform with important priority, matching generic back gestures and spring release. CSS regression coverage includes that previous centring rule.
+
+Shared chat listings now use the existing searchDetailOverlay reel renderer with a messages owner. The old explicit go(discover), hidden inbox and Home contextual layer path has been removed. Opening from Messages retains the chat, exposes an ordinary top-left Back arrow, hides Home/Search brand chrome and disables unrelated discovery injection/pagination. Existing navigation-origin hooks save and restore the actual chat nodes, conversation, draft and scroll for arrow and gesture Back. Exact source listing rendering, gallery and action behavior use the same existing renderer.
+
+Entering a shared listing also stops the short initial chat auto-pin window. Pending timers/image callbacks cannot push the saved conversation to the bottom after returning. New chat openings still establish their usual initial bottom pin.
+
+Validation: CSS fixture for recents bottom/preview centring; actual shared-card click through the fully loaded app scripts; no Home navigation or feed rewrite; one shared reel; arrow and swipe return preserve chat DOM/scroll/draft. Existing back gesture, origin, Compare handoff and keyboard tests remain in the suite. Physical iOS layout/frame pacing still needs device verification.

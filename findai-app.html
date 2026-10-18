@@ -27338,64 +27338,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
 
   function openSharedAsReel(shared){
     const item=itemFromShared(shared);
-
-    /* Close Messages, but do not rebuild Home. */
-    try{
-      clearInterval(appMpMessageTimer);
-      clearInterval(appMpTypingTimer);
-      appMpMessageTimer=null;
-      appMpTypingTimer=null;
-      document.getElementById('appMpInbox')?.classList.remove('show');
-    }catch(_){}
-
-    go('discover');
-    try{setMainNavActive('discover');}catch(_){}
-    try{showFeedHeader();bindFeedHeaderAutoHide();}catch(_){}
-
-    let layer=document.getElementById('findaiContextualReelV168');
-    if(!layer){
-      const wrap=document.querySelector('#discover .discover-feed-wrap');
-      if(wrap){
-        layer=document.createElement('div');
-        layer.id='findaiContextualReelV168';
-        layer.innerHTML='<div class="findai-v168-context-feed" id="findaiContextualFeedV168"></div>';
-        wrap.appendChild(layer);
-      }
-    }
-
-    const out=document.getElementById('findaiContextualFeedV168');
-    if(!layer||!out){
-      /* Fallback to the existing exact-reel path. */
-      try{findaiOpenItemsInHomeReelV158([item],0,{personalised:true});}catch(_){}
-      return;
-    }
-
-    try{if(reelObserver)reelObserver.disconnect();}catch(_){}
-
-    currentFeedItems=[item];
-    currentFeedData={personalised:true,sharedMessage:true};
-    feedState={
-      ...(feedState||{}),
-      source:'contextual-reel',
-      query:'',
-      resolvedQuery:'',
-      loading:false,
-      hasMore:false,
-      cursor:null
-    };
-    activeReelIndex=0;
-    window.__findaiExploreInjectedFeed=false;
-
-    out.innerHTML=renderReelCard(item,0,currentFeedData);
-    out.scrollTop=0;
-    layer.dataset.contextOrigin='messages';
-    layer.classList.add('show');
-
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      out.scrollTop=0;
-      activeReelIndex=0;
-      try{beginReelTracking(0);}catch(_){}
-    }));
+    return window.__wishwaveOpenMessageReel?.(item);
   }
 
   window.openSharedListingMessageV172=function(button){
@@ -28828,8 +28771,9 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
      Polling later keeps the user's manual scroll position as before.
      --------------------------------------------------------- */
   let forceBottomUntil=0;
+  window.__wishwaveStopChatAutoPin=function(){forceBottomUntil=0;};
   function bottomNow(root){
-    if(!root||window.__wishwavePageMotion)return;
+    if(!root?.isConnected||window.__wishwavePageMotion||Date.now()>forceBottomUntil)return;
     root.scrollTop=root.scrollHeight;
   }
   function pinNewestMessage(){
@@ -30446,12 +30390,13 @@ body>.nav.findai-five-nav.premium-bottom-nav,
       requestAnimationFrame(()=>{const scroller=searchScroller(saved.screen);if(scroller)scroller.scrollTop=saved.scroll||0;});
     }
     opening=false;window.__wishwavePageMotion=false;
-    setSearchNav();
+    if(returnState?.owner!=='messages')setSearchNav();
+    delete view.dataset.reelOwner;
     return true;
   }
   window.__wishwaveCloseSearchReelV186=closeOwnedReel;
 
-  function openList(items,index,data,host){
+  function openList(items,index,data,host,owner='search'){
     const originToken=window.__wishwaveWillOpenView?.('searchDetailOverlay');
     const session=++reelSession;
     window.__wishwaveCancelReelOpen?.();
@@ -30462,13 +30407,15 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     if(!sourceList.length)return false;
     const matched=requested?sourceList.findIndex(item=>keyOf(item)===keyOf(requested)):-1;
     const sourceIndex=matched>=0?matched:Math.max(0,Math.min(sourceList.length-1,Number(index)||0));
-    const list=wishwaveMixedSearchReel(sourceList,sourceIndex);
+    const list=owner==='messages'?[sourceList[sourceIndex]]:wishwaveMixedSearchReel(sourceList,sourceIndex);
     const chosen=0;
     const selected=list[chosen];
     if(!selected)return false;
 
     opening=true;
+    if(owner==='messages')window.__wishwaveStopChatAutoPin?.();
     captureReturn();
+    returnState.owner=owner;
     hideLegacyContext();
     try{if(typeof findaiRememberRecentProduct==='function')findaiRememberRecentProduct(selected);}catch(_){ }
 
@@ -30477,18 +30424,19 @@ body>.nav.findai-five-nav.premium-bottom-nav,
 
     /* Search remains the active screen underneath. There is deliberately no
        go('discover'), openForYou(), or .screen activation of #discover here. */
-    const screen=activeSearchScreen();
-    document.body.dataset.activeTab=screen;
-    setSearchNav();
+    if(owner!=='messages'){
+      const screen=activeSearchScreen();document.body.dataset.activeTab=screen;setSearchNav();
+    }
 
     currentFeedItems=list.slice();
     currentFeedData=data||{personalised:true};
-    feedState={...(feedState||{}),source:'search-reel-v186',loading:false,hasMore:true,cursor:null};
+    feedState={...(feedState||{}),source:owner==='messages'?'message-reel-v307':'search-reel-v186',loading:false,hasMore:owner!=='messages',cursor:null};
     activeReelIndex=chosen;
     try{if(reelObserver)reelObserver.disconnect();}catch(_){ }
 
     feed.innerHTML=list.map((item,i)=>i===chosen?renderReelCard(item,i,currentFeedData):'<article class="reel-card wishwave-reel-placeholder" data-index="'+i+'"></article>').join('');
     feed.onscroll=()=>{if(!scrollRaf)scrollRaf=requestAnimationFrame(syncIndex);};
+    view.dataset.reelOwner=owner;
     view.classList.add('explore-reel-mode','search-owned-v186','show');
     window.__wishwaveDidOpenView?.(originToken);
     if(tile?.width>0){view.classList.add('wishwave-reel-preparing');window.__wishwavePageMotion=true;}
@@ -30509,6 +30457,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
       };
       if(tile&&tile.width>0&&typeof window.__wishwaveExpandSearchReel==='function')window.__wishwaveExpandSearchReel(view,tile,finishOpening);else finishOpening();
     }));
+    if(owner==='messages'){moreReels=null;lastOpenedAt=Date.now();return true;}
     const sessionItems=currentFeedItems;
     let nextPage=2,loadingMore=false,emptyMore=0;
     moreReels=async function(){
@@ -30554,7 +30503,8 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     }catch(_){return null;}
   }
 
-  window.__wishwaveRestoreComparedSearchReel=function(saved){return openList(saved.items,saved.index,saved.data);};
+  window.__wishwaveOpenMessageReel=function(item){return openList([item],0,{personalised:true,sharedMessage:true},null,'messages');};
+  window.__wishwaveRestoreComparedSearchReel=function(saved){return openList(saved.items,saved.index,saved.data,null,saved.owner==='messages'?'messages':'search');};
 
   /* Final global listing openers. Inline onclick calls now terminate here. */
   window.openPremiumDiscoveryItem=function(sectionId,index){
@@ -31447,7 +31397,7 @@ html.findai-light .wishwave-inbox-preview .app-mp-header{border-color:#00000012!
     const list=preview.querySelector('.app-mp-conversation-list');if(list)list.scrollTop=cachedScroll;
   }
   function clean(){back?.stopSpring?.();clearTimeout(timer);timer=0;cancelAnimationFrame(raf);raf=0;const r=inbox();if(endListener){r?.removeEventListener('transitionend',endListener);endListener=null;}r?.classList.remove('wishwave-chat-back-drag','wishwave-chat-back-settle');r?.style.removeProperty('transform');r?.style.removeProperty('transition');preview?.remove();preview=null;back=null;settling=false;window.__wishwavePageMotion=false;window.__wishwaveFlushInboxRender?.();}
-  function draw(){raf=0;if(back?.active){inbox().style.setProperty('transform','translate3d('+back.dx+'px,0,0)','important');if(preview)preview.style.transform='translate3d('+(-back.width*.22+back.dx*.22)+'px,0,0)';}}
+  function draw(){raf=0;if(back?.active){inbox().style.setProperty('transform','translate3d('+back.dx+'px,0,0)','important');if(preview)preview.style.setProperty('transform','translate3d('+(-back.width*.22+back.dx*.22)+'px,0,0)','important');}}
   function finish(commit){
     const g=back;if(!g?.active){clean();return;}settling=true;suppressUntil=Date.now()+500;
     cancelAnimationFrame(raf);draw();const r=inbox();r.classList.remove('wishwave-chat-back-drag');r.classList.add('wishwave-chat-back-settle');
@@ -36001,6 +35951,18 @@ html:not(.findai-light) body .app #discover .discover-social-topbar{background:#
 html:not(.findai-light) body .app #discover .wishwave-quality-reel.wishwave-quality-reel{background:#000!important;}
 html:not(.findai-light) body .app #discover .wishwave-quality-reel.wishwave-quality-reel :is(.hero-stage,.reel-gallery-slide){background:#000!important;--hero-fill:#000!important;}
 html:not(.findai-light) body[data-active-tab="discover"] #wishwaveMainNav.nav::before,html:not(.findai-light) body[data-active-tab="discover"] #wishwaveMainNav.nav::after{background:#000!important;}
+</style>
+<style id="wishwave-search-chat-surfaces-v307">
+/* Recents covers the whole Search canvas, including the area around the capsule. */
+html body .app #search #findaiSearchRecents{bottom:0!important;padding-bottom:calc(var(--wishwave-nav-total,52px) + 16px)!important;box-sizing:border-box!important;}
+html body.keyboard-open .app #search #findaiSearchRecents{padding-bottom:16px!important;}
+/* A saved inbox has the same origin as the live inbox. Old viewport centring
+   must never be composed into its finger-tracked parallax transform. */
+html body .app .wishwave-inbox-preview.wishwave-inbox-clone.show{position:absolute!important;inset:0!important;left:0!important;right:0!important;bottom:0!important;width:100%!important;height:100%!important;transform:none!important;box-sizing:border-box!important;}
+html body .app #searchDetailOverlay[data-reel-owner="messages"] .search-detail-header{display:flex!important;align-items:center!important;justify-content:flex-start!important;z-index:90!important;}
+html body .app #searchDetailOverlay[data-reel-owner="messages"] :is(.wishwave-search-reel-topbar,.search-detail-count){display:none!important;}
+html body .app #searchDetailOverlay[data-reel-owner="messages"] .search-detail-header button{display:grid!important;width:40px!important;height:40px!important;padding:8px!important;border:0!important;background:transparent!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}
+html body .app #searchDetailOverlay[data-reel-owner="messages"] .search-detail-header button svg{width:26px!important;height:26px!important;}
 </style>
 <style id="wishwave-profile-messages-v306">
 html body #wishwavePublicProfilePage .social-profile-handle{font-size:20px!important;line-height:24px!important;font-weight:var(--ww-type-semibold,600)!important;letter-spacing:-.2px!important;}
