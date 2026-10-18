@@ -8737,7 +8737,7 @@ function appMpPresenceText(p){if(!p||!p.lastActiveAt)return 'Active recently';if
 function appMpRenderMessageHeader(c,presence){appMpCurrentConversation=c||appMpCurrentConversation;if(!appMpCurrentConversation)return;const h=$('#appMpChatHead');if(!h)return;const x=appMpCurrentConversation,online=!!(presence&&presence.online),image=x.listingImage?`<img src="${escapeAttr(x.listingImage)}" alt="">`:'<span class="app-mp-chat-listing-placeholder">◇</span>';h.innerHTML=`<div class="app-mp-chat-person"><div class="app-mp-chat-avatar">${escapeHTML(appMpInitial(x.otherParty))}<span class="app-mp-presence-dot ${online?'online':''}"></span></div><div class="app-mp-chat-person-copy"><b>${escapeHTML(x.otherParty||'WishWave member')}</b><span class="app-mp-chat-presence ${online?'online':''}" id="appMpChatPresence">${escapeHTML(appMpPresenceText(presence))}</span></div></div><button class="app-mp-chat-listing" type="button" onclick="appMpOpenConversationListing()">${image}<span class="app-mp-chat-listing-copy"><span>About item</span><b>${escapeHTML(x.listingTitle||'WishWave listing')}</b><strong>${escapeHTML(appMpMoney(x.listingPrice,x.currency))}</strong></span></button>`;const offer=$('#appMpComposeOffer'),activeOffer=appMpCurrentOffers.some(o=>o.status==='pending'||o.status==='accepted');if(offer){offer.style.display=x.viewerRole==='buyer'&&Number(x.listingPrice)>0?'block':'none';offer.disabled=activeOffer;offer.textContent=activeOffer?'Active':'Offer';}}
 function appMpUpdatePresence(p){const el=$('#appMpChatPresence'),dot=document.querySelector('#appMpChatHead .app-mp-presence-dot');if(el){el.textContent=appMpPresenceText(p);el.classList.toggle('online',!!(p&&p.online));}if(dot)dot.classList.toggle('online',!!(p&&p.online));}
 async function appMpOpenConversationListing(){const id=appMpCurrentConversation&&appMpCurrentConversation.listingId;if(!id)return;$('#appMpInbox').classList.remove('show');try{const data=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id),{method:'GET'});openAppMarketplaceListing(data.listing,data);}catch(error){toast(error.message||'Listing could not be opened');}}
-async function appMpOpenConversation(id){appMpRemoteTypingActive=false;appMpCurrentConversation=appMpConversationList.find(c=>c.id===id)||appMpCurrentConversation;const title=$('#appMpInboxTitle');if(title)title.textContent=(appMpCurrentConversation&&appMpCurrentConversation.otherParty)||'Messages';renderAppMpChat(id,false);appMpRenderMessageHeader(appMpCurrentConversation,null);await appMpLoadMessages();clearInterval(appMpMessageTimer);clearInterval(appMpTypingTimer);appMpMessageTimer=setInterval(()=>{if(document.visibilityState==='visible')appMpLoadMessages();},12000);appMpTypingTimer=setInterval(appMpPollTyping,3000);appMpPollTyping();}
+async function appMpOpenConversation(id){appMpRemoteTypingActive=false;appMpCurrentConversation=appMpConversationList.find(c=>c.id===id)||appMpCurrentConversation;const title=$('#appMpInboxTitle');if(title)title.textContent=(appMpCurrentConversation&&appMpCurrentConversation.otherParty)||'Messages';renderAppMpChat(id,false);appMpRenderMessageHeader(appMpCurrentConversation,null);const messageRoot=document.getElementById('appMpMessages'),inboxRequest=window.__wishwaveInboxRequest;await appMpLoadMessages();if(appMpConversation!==id||messageRoot!==document.getElementById('appMpMessages')||!document.getElementById('appMpInbox')?.classList.contains('show')||inboxRequest!==window.__wishwaveInboxRequest)return;clearInterval(appMpMessageTimer);clearInterval(appMpTypingTimer);appMpMessageTimer=setInterval(()=>{if(document.visibilityState==='visible')appMpLoadMessages();},12000);appMpTypingTimer=setInterval(appMpPollTyping,3000);appMpPollTyping();}
 function appMpMessageDay(value){try{const d=new Date(value),n=new Date(),y=new Date();y.setDate(n.getDate()-1);if(d.toDateString()===n.toDateString())return 'Today';if(d.toDateString()===y.toDateString())return 'Yesterday';return new Intl.DateTimeFormat(undefined,{day:'numeric',month:'long',year:d.getFullYear()===n.getFullYear()?undefined:'numeric'}).format(d)}catch(_){return ''}}
 function appMpOfferCountdown(value){const ms=Date.parse(value||'')-Date.now();if(!Number.isFinite(ms)||ms<=0)return 'Expired';const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000);return h>=24?`Expires in ${Math.floor(h/24)}d ${h%24}h`:`Expires in ${h}h ${m}m`;}
 function appMpMessageOfferTitle(o){if(o.status==='accepted')return 'Offer accepted';if(o.status==='declined')return 'Offer declined';if(o.status==='withdrawn')return 'Offer withdrawn';if(o.status==='expired')return 'Offer expired';if(o.canRespond)return o.revision>1?'Counter offer received':'Offer received';return o.revision>1?'Counter offer sent':'Offer sent';}
@@ -18931,48 +18931,31 @@ html.findai-light .findai-settings-delete-box input{background:#fff;color:#111;b
   /* Follow buttons understand private-account requests. */
   const oldTogglePublic=window.toggleWishWavePublicSellerFollow;
   window.toggleWishWavePublicSellerFollow=async function(){
-    if(!wishwavePublicSellerData)return;
-    const seller=wishwavePublicSellerData.seller||{},viewer=wishwavePublicSellerData.viewer||{};
-    if(viewer.isSeller)return;if(!viewer.signedIn){openLogin();return;}
-    const username=String(seller.username||'').replace(/^@+/,'').trim();
-    if(!username)return;
-
+    const profile=wishwavePublicSellerData;if(!profile)return;
+    const seller=profile.seller||{},viewer=profile.viewer||{};
+    if(viewer.isSeller||viewer._followBusy)return;if(!viewer.signedIn){openLogin();return;}
+    const username=String(seller.username||'').replace(/^@+/,'').trim();if(!username)return;
     const button=document.getElementById('wishwavePublicFollowButton');
-    const wasFollowing=!!viewer.isFollowing,wasPending=!!viewer.pending;
+    const wasFollowing=!!viewer.isFollowing,wasPending=!!viewer.pending,countBefore=Math.max(0,Number(seller.followerCount)||0);
     const removing=wasFollowing||wasPending;
-
-    if(button){
-      button.disabled=true;
-      button.textContent=removing?'Follow':(viewer.isPrivate?'Requested':'Following');
-      button.classList.toggle('following',!removing);
+    viewer._followBusy=true;viewer.isFollowing=!removing&&!viewer.isPrivate;viewer.pending=!removing&&!!viewer.isPrivate;
+    seller.followerCount=Math.max(0,countBefore+Number(viewer.isFollowing)-Number(wasFollowing));
+    function paint(){
+      if(wishwavePublicSellerData!==profile)return;
+      const count=document.getElementById('wishwavePublicFollowerCount');if(count)count.textContent=profileMetricCompact(seller.followerCount);
+      if(button?.isConnected){button.textContent=viewer.isFollowing?'Following':viewer.pending?'Requested':'Follow';button.classList.toggle('following',viewer.isFollowing||viewer.pending);button.disabled=!!viewer._followBusy;button.setAttribute('aria-busy',String(!!viewer._followBusy));}
     }
-
+    paint();
+    // Feedback belongs to the user's tap, before the network round trip.
+    try{if(window.findaiFollowFeedback)window.findaiFollowFeedback(button);else haptic();}catch(_){}
     try{
-      const data=await marketplaceFetch('/social/follow-user/'+encodeURIComponent(username),{
-        method:removing?'DELETE':'POST'
-      });
-      viewer.isFollowing=!!data.isFollowing;
-      viewer.pending=!!data.pending;
-
-      if(!wasFollowing&&viewer.isFollowing)seller.followerCount=Math.max(0,Number(seller.followerCount||0)+1);
-      if(wasFollowing&&!viewer.isFollowing)seller.followerCount=Math.max(0,Number(seller.followerCount||0)-1);
-
-      const count=document.getElementById('wishwavePublicFollowerCount');
-      if(count)count.textContent=profileMetricCompact(seller.followerCount);
-
-      if(button){
-        button.textContent=viewer.isFollowing?'Following':viewer.pending?'Requested':'Follow';
-        button.classList.toggle('following',viewer.isFollowing||viewer.pending);
-      }
-      try{if(window.findaiFollowFeedback)window.findaiFollowFeedback(button);else haptic();}catch(_){}
+      const data=await marketplaceFetch('/social/follow-user/'+encodeURIComponent(username),{method:removing?'DELETE':'POST'});
+      viewer.isFollowing=!!data.isFollowing;viewer.pending=!!data.pending;
+      seller.followerCount=Number.isFinite(Number(data.followerCount))&&data.followerCount!=null?Math.max(0,Number(data.followerCount)):Math.max(0,countBefore+Number(viewer.isFollowing)-Number(wasFollowing));
     }catch(e){
-      viewer.isFollowing=wasFollowing;viewer.pending=wasPending;
-      if(button){
-        button.textContent=wasFollowing?'Following':wasPending?'Requested':'Follow';
-        button.classList.toggle('following',wasFollowing||wasPending);
-      }
-      toast(e.message||'Could not update follow');
-    }finally{if(button)button.disabled=false;}
+      viewer.isFollowing=wasFollowing;viewer.pending=wasPending;seller.followerCount=countBefore;
+      if(wishwavePublicSellerData===profile)toast(e.message||'Could not update follow');
+    }finally{delete viewer._followBusy;paint();}
   };
 
   /* Seller defaults are actually applied to Create Listing. */
@@ -36019,6 +36002,22 @@ html:not(.findai-light) body .app #discover .wishwave-quality-reel.wishwave-qual
 html:not(.findai-light) body .app #discover .wishwave-quality-reel.wishwave-quality-reel :is(.hero-stage,.reel-gallery-slide){background:#000!important;--hero-fill:#000!important;}
 html:not(.findai-light) body[data-active-tab="discover"] #wishwaveMainNav.nav::before,html:not(.findai-light) body[data-active-tab="discover"] #wishwaveMainNav.nav::after{background:#000!important;}
 </style>
+<style id="wishwave-profile-messages-v306">
+html body #wishwavePublicProfilePage .social-profile-handle{font-size:20px!important;line-height:24px!important;font-weight:var(--ww-type-semibold,600)!important;letter-spacing:-.2px!important;}
+html body #wishwavePublicProfilePage .social-profile-hero{grid-template-columns:92px minmax(0,1fr)!important;gap:16px!important;padding:2px 0 14px!important;}
+html body #wishwavePublicProfilePage .social-profile-avatar{width:92px!important;height:92px!important;font-size:27px!important;}
+html body #wishwavePublicProfilePage .social-profile-stats button{padding:7px 2px!important;}
+html body #wishwavePublicProfilePage .social-profile-stats b{font-size:17px!important;line-height:20px!important;font-weight:var(--ww-type-semibold,600)!important;letter-spacing:0!important;}
+html body #wishwavePublicProfilePage .social-profile-stats span{font-size:var(--ww-type-caption,12px)!important;line-height:1.3!important;margin-top:4px!important;font-weight:400!important;}
+html body #wishwavePublicProfilePage .social-profile-copy h2{font-size:14px!important;line-height:18px!important;font-weight:600!important;}
+html body #wishwavePublicProfilePage .social-profile-meta{font-size:13px!important;line-height:17px!important;}
+html body #wishwavePublicProfilePage .social-profile-bio{font-size:var(--ww-type-body,15px)!important;line-height:1.45!important;font-weight:var(--ww-type-regular,400)!important;}
+html body #wishwavePublicProfilePage .social-profile-actions button{height:34px!important;line-height:16px!important;touch-action:manipulation;font-size:15px!important;font-weight:var(--ww-type-semibold,600)!important;}
+/* The inbox is a full page. Reserve navigation space inside its scroller,
+   never by exposing the previous screen below the inbox. */
+html body .app #appMpInbox.show{position:absolute!important;inset:0!important;left:0!important;right:0!important;bottom:0!important;width:100%!important;height:var(--wishwave-chat-height,100%)!important;min-height:0!important;max-height:none!important;transform:none!important;box-sizing:border-box!important;}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone):not(.chat-open) .app-mp-conversation-list{padding-bottom:calc(var(--wishwave-nav-total,52px) + 16px)!important;}
+</style>
 <style id="wishwave-notifications-canvas-v304">
 /* Notifications is a main tab now; the old pop-up scrim must not dim its footer. */
 html body .app #notifications > #findaiNotificationBackdrop{display:none!important;background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}
@@ -36042,6 +36041,6 @@ html body.keyboard-open[data-active-tab="search"] .app #searchResults .premium-r
 </script>
 <script src="wishwave-listing-photos.js?v=299"></script>
 <script src="wishwave-comments-motion.js?v=293"></script>
-<script src="wishwave-navigation-origins.js?v=297"></script>
+<script src="wishwave-navigation-origins.js?v=306"></script>
 </body>
 </html>

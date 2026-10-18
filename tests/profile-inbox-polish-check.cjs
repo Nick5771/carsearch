@@ -1,0 +1,19 @@
+const fs=require('fs'),assert=require('assert'),{JSDOM}=require('jsdom');
+const html=fs.readFileSync(__dirname+'/../findai-app.html','utf8');
+const dom=new JSDOM('<body><div id="wishwavePublicFollowerCount">2</div><button id="wishwavePublicFollowButton">Follow</button><section id="appMpInbox" class="show"><h2 id="appMpInboxTitle"></h2><div id="appMpMessages"></div></section></body>',{url:'https://test/',runScripts:'outside-only'}),w=dom.window;
+const start=html.indexOf('  window.toggleWishWavePublicSellerFollow=async function(){',html.indexOf('/* Follow buttons understand private-account requests. */'));
+w.eval('var wishwavePublicSellerData;'+html.slice(start,html.indexOf('\n  /* Seller defaults',start)));
+w.profileMetricCompact=String;let buzz=0,requests=[],toasts=[];w.findaiFollowFeedback=()=>buzz++;w.openLogin=()=>{};w.toast=s=>toasts.push(s);w.marketplaceFetch=(url,opts)=>new Promise((resolve,reject)=>requests.push({url,opts,resolve,reject}));
+const setProfile=(extra={})=>{w.wishwavePublicSellerData={seller:{username:'nick',followerCount:2},viewer:{signedIn:true,isFollowing:false,...extra}};return w.wishwavePublicSellerData;};
+(async()=>{
+ let p=setProfile(),job=w.toggleWishWavePublicSellerFollow();assert.equal(buzz,1,'buzz occurs while the server request is still pending');assert(p.viewer.isFollowing);assert.equal(p.seller.followerCount,3);assert.equal(w.document.querySelector('button').textContent,'Following');assert(w.document.querySelector('button').disabled);await w.toggleWishWavePublicSellerFollow();assert.equal(requests.length,1,'pending tap cannot duplicate the follow');requests[0].resolve({isFollowing:true});await job;assert.equal(buzz,1,'response never triggers another buzz');assert(!w.document.querySelector('button').disabled);
+ p=setProfile({isPrivate:true});job=w.toggleWishWavePublicSellerFollow();assert(p.viewer.pending);assert.equal(p.seller.followerCount,2);assert.equal(w.document.querySelector('button').textContent,'Requested');requests.at(-1).resolve({pending:true});await job;
+ p=setProfile();job=w.toggleWishWavePublicSellerFollow();requests.at(-1).reject(new Error('Offline'));await job;assert(!p.viewer.isFollowing);assert.equal(p.seller.followerCount,2);assert.equal(w.document.querySelector('button').textContent,'Follow');assert.equal(toasts.length,1);
+ p=setProfile();job=w.toggleWishWavePublicSellerFollow();const newer=setProfile();newer.seller.username='someoneelse';w.document.getElementById('wishwavePublicFollowerCount').textContent='88';requests.at(-1).resolve({isFollowing:true,followerCount:99});await job;assert.equal(w.document.getElementById('wishwavePublicFollowerCount').textContent,'88','late follow response cannot alter another profile');
+ // A conversation closed while loading must not restart background polling.
+ const a=html.indexOf('async function appMpOpenConversation(id){'),b=html.indexOf('\n',a);
+ w.eval('var appMpRemoteTypingActive=false,appMpCurrentConversation=null,appMpConversationList=[{id:"chat-a",otherParty:"Nick"}],appMpConversation="",appMpMessageTimer=null,appMpTypingTimer=null;var $=s=>document.querySelector(s);'+html.slice(a,b));
+ let finishLoad,polls=0;w.appMpLoadMessages=()=>new Promise(r=>finishLoad=r);w.renderAppMpChat=id=>w.appMpConversation=id;w.appMpRenderMessageHeader=()=>{};w.appMpPollTyping=()=>{};w.setInterval=()=>++polls;
+ const chat=w.appMpOpenConversation('chat-a');w.appMpConversation='';w.document.getElementById('appMpInbox').classList.remove('show');finishLoad();await chat;assert.equal(polls,0,'closed conversation cannot start stale timers');
+ console.log('PASS: immediate follow state/count/haptic, private requests, duplicate tap guard, rollback, profile response isolation and stale chat polling prevention');w.close();
+})().catch(e=>{console.error(e);w.close();process.exitCode=1});

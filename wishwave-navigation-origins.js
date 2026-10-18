@@ -110,9 +110,9 @@
   // Reused containers (inbox/chat) need a visual of the saved parent while the
   // live container moves. Build from its saved tree, not the current chat DOM.
   const copies=new Map();
-  for(const part of layer.tree){const copy=part.el.cloneNode(false);for(const attr of Array.from(copy.attributes))copy.removeAttribute(attr.name);for(const [name,value] of part.attrs)if(name!=='id'&&!/^on/i.test(name))copy.setAttribute(name,value);copies.set(part.el,copy);}
+  for(const part of layer.tree){const copy=part.el.cloneNode(false);for(const attr of Array.from(copy.attributes))copy.removeAttribute(attr.name);for(const [name,value] of part.attrs)if(name==='id')copy.dataset.inboxPreviewId=value;else if(!/^on/i.test(name))copy.setAttribute(name,value);copies.set(part.el,copy);}
   for(const part of layer.tree)copies.get(part.el).replaceChildren(...part.children.map(child=>copies.get(child)||child.cloneNode(true)));
-  const preview=copies.get(layer.el);preview.removeAttribute('id');preview.classList.remove('chat-open','direct-message-chat');preview.classList.add('show','wishwave-inbox-preview');preview.dataset.originPreview='1';preview.setAttribute('aria-hidden','true');preview.inert=true;
+  const preview=copies.get(layer.el);preview.removeAttribute('id');preview.classList.remove('chat-open','direct-message-chat');preview.classList.add('show','wishwave-inbox-preview','wishwave-inbox-clone');preview.dataset.originPreview='1';preview.setAttribute('aria-hidden','true');preview.inert=true;
   preview.style.setProperty('z-index','999999','important');preview.style.setProperty('pointer-events','none','important');preview.style.setProperty('background',getComputedStyle(layer.el).backgroundColor||'#0c0d0f','important');preview.style.setProperty('color',getComputedStyle(layer.el).color||'#fff','important');
   document.querySelector('.app').appendChild(preview);
   for(const [el,y,x] of saved.scroll){const copy=copies.get(el);if(copy){copy.scrollTop=y;copy.scrollLeft=x;}}
