@@ -1,0 +1,31 @@
+const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM,VirtualConsole}=require('jsdom');
+const source=fs.readFileSync(process.env.WISHWAVE_TEST_HTML||__dirname+'/../findai-app.html','utf8');
+const dom=new JSDOM(source.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,''),{url:'https://test/?country=US',runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:new VirtualConsole(),beforeParse(w){w.matchMedia=()=>({matches:false,addEventListener(){},addListener(){}});w.IntersectionObserver=class{observe(){}unobserve(){}disconnect(){}};w.ResizeObserver=class{observe(){}disconnect(){}};w.scrollTo=()=>{};w.HTMLElement.prototype.scrollIntoView=function(){};w.fetch=async()=>({ok:true,json:async()=>({items:[],listings:[],comments:[]}),text:async()=>''});}});
+const w=dom.window,wait=ms=>new Promise(r=>setTimeout(r,ms));
+function touch(target,type,x,y=420){const e=new w.Event(type,{bubbles:true,cancelable:true});Object.defineProperties(e,{touches:{value:/end|cancel/.test(type)?[]:[{clientX:x,clientY:y}]},changedTouches:{value:[{clientX:x,clientY:y}]}});target.dispatchEvent(e);return e;}
+(async()=>{
+ await wait(300);Object.defineProperty(w.document.querySelector('.app'),'clientWidth',{value:390,configurable:true});w.getAccountProfile=()=>({email:'test@test.com',username:'nick'});w.marketplaceSession=()=>'fixture';w.marketplaceFetch=async()=>({listings:[],items:[]});w.eval(fs.readFileSync(__dirname+'/../wishwave-bookmarks.js','utf8'));w.go('profile');await wait(60);
+ const root=w.document.getElementById('socialProfileContent'),profile=w.document.getElementById('profile'),scroll=profile.querySelector('.profile-scroll');scroll.scrollTop=110;
+ const listing={itemId:'active',title:'Active camera',source:'findai',status:'active',price:100},sold={...listing,itemId:'sold',status:'sold',title:'Sold camera'};w.eval('socialProfileListings='+JSON.stringify([listing,sold]));
+ w.setProfileTab('saved');await wait(350);
+ // Preview rendering must leave the live selection untouched.
+ const preview=w.document.createElement('div');w.renderSocialProfileContent(preview,'sold');assert(preview.querySelector('.social-profile-sold-badge'));assert.equal(w.eval('socialProfileTab'),'saved');
+ async function right(from,to){touch(root,'touchstart',20);touch(root,'touchmove',160);await wait(25);assert(root.classList.contains('wishwave-profile-paging'));assert.equal(root.children.length,2);assert(root.firstChild.style.transform.includes('140px'));assert(root.lastChild.style.transform.includes('-250px'));assert.equal(w.eval('socialProfileTab'),from);assert(!profile.classList.contains('findai-v132-current'));touch(root,'touchend',160);await wait(480);assert.equal(w.eval('socialProfileTab'),to);assert.equal(w.document.body.dataset.activeTab,'profile');assert(!root.classList.contains('wishwave-profile-paging'));assert(!root.classList.contains('profile-tab-in-left'));assert.equal(scroll.scrollTop,110);}
+ await right('saved','sold');await right('sold','listings');
+ // Only Listings' right boundary can leave the profile.
+ touch(root,'touchstart',20);touch(root,'touchmove',330);await wait(25);assert(profile.classList.contains('findai-v132-current'));touch(root,'touchend',330);await wait(500);assert.equal(w.document.body.dataset.activeTab,'notifications');
+ w.go('profile');w.setProfileTab('listings');await wait(350);const original=root.firstChild;
+ touch(root,'touchstart',300);const vertical=touch(root,'touchmove',295,160);touch(root,'touchend',295,160);assert(!vertical.defaultPrevented);assert.equal(root.firstChild,original);
+ // Cancel preserves the exact original grid and its listeners, with no second entrance animation.
+ touch(root,'touchstart',300);touch(root,'touchmove',250);await wait(25);touch(root,'touchcancel',250);await wait(480);assert.equal(root.firstChild,original);assert.equal(w.eval('socialProfileTab'),'listings');
+ // Catch a settling section and reverse it, keeping the visible position.
+ touch(root,'touchstart',330);touch(root,'touchmove',100);touch(root,'touchend',100);await wait(40);const held=root.firstChild.style.transform;touch(root,'touchstart',100);assert.equal(root.firstChild.style.transform,held);touch(root,'touchmove',380);touch(root,'touchcancel',380);await wait(480);assert.equal(w.eval('socialProfileTab'),'listings');assert.equal(root.firstChild,original);
+ // Reverse traversal and the final Saved boundary cannot skip to another main tab.
+ for(const tab of ['sold','saved']){touch(root,'touchstart',340);touch(root,'touchmove',30);touch(root,'touchend',30);await wait(480);assert.equal(w.eval('socialProfileTab'),tab);}
+ touch(root,'touchstart',340);touch(root,'touchmove',30);touch(root,'touchend',30);await wait(480);assert.equal(w.eval('socialProfileTab'),'saved');assert.equal(w.document.body.dataset.activeTab,'profile');assert(!w.__wishwavePageMotion);
+ // A public profile's Sold section also has priority over closing the seller page.
+ w.eval('wishwavePublicSellerData='+JSON.stringify({seller:{username:'seller'},listings:[listing,sold]})+';wishwavePublicSellerTab="sold"');w.ensureWishWavePublicProfilePage();w.renderWishWavePublicProfile();w.setWishWavePublicSellerTab('sold');const seller=w.document.getElementById('wishwavePublicProfilePage');seller.classList.add('show');const publicRoot=w.document.getElementById('wishwavePublicProfileContent');touch(publicRoot,'touchstart',20);touch(publicRoot,'touchmove',320);touch(publicRoot,'touchend',320);await wait(480);assert.equal(w.eval('wishwavePublicSellerTab'),'listings');assert(seller.classList.contains('show'),'Sold returns to Listings before leaving the seller');
+ // Signed release velocity is carried through a reversal, not reset at release.
+ const positions=[];const stop=w.__wishwaveSpringMotion(20,0,2,x=>positions.push(x),()=>{});await wait(22);stop();assert(positions[0]>20,'a cancelling spring first decelerates the outward release velocity');const heldCount=positions.length;await wait(40);assert.equal(positions.length,heldCount,'catch cancels every pending spring frame');
+ console.log('PASS: actual capture routing Saved→Sold→Listings→Notifications, reverse section order, adjacent previews, native scrolling, exact cancelled DOM, interrupt/reverse, and Saved boundary');w.close();
+})().catch(e=>{console.error(e);w.close();process.exitCode=1;});

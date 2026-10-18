@@ -31,7 +31,7 @@
     document.documentElement.classList.toggle('wishwave-installed',navigator.standalone===true||!!(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches));
     // Route Search nav before older capture listeners can reopen Recents.
     ['touchstart','touchmove','touchend','touchcancel'].forEach(type=>window.addEventListener(type,e=>{
-      const handled=window.__wishwaveCommentsTouch?.(type,e)||window.__wishwaveBackRegrabTouch?.(type,e)||window.__wishwaveChatRegrabTouch?.(type,e)||window.__wishwaveSearchListingTouch?.(type,e)||window.__wishwaveZoomTouch?.(type,e)||window.__wishwavePageTouch?.(type,e)||window.__wishwaveBackTouch?.(type,e)||window.__wishwaveTabTouch?.(type,e)||window.__wishwaveRefreshTouch?.(type,e);
+      const handled=window.__wishwaveCommentsTouch?.(type,e)||window.__wishwaveBackRegrabTouch?.(type,e)||window.__wishwaveChatRegrabTouch?.(type,e)||window.__wishwaveSearchListingTouch?.(type,e)||window.__wishwaveZoomTouch?.(type,e)||window.__wishwaveProfileSectionTouch?.(type,e)||window.__wishwavePageTouch?.(type,e)||window.__wishwaveBackTouch?.(type,e)||window.__wishwaveTabTouch?.(type,e)||window.__wishwaveRefreshTouch?.(type,e);
       if(handled)e.stopImmediatePropagation();
     },{capture:true,passive:false}));
     window.addEventListener('click',function(e){
@@ -9686,7 +9686,7 @@ function setProfileTab(tab){
   $$('#profileSignedIn .social-profile-tabs [data-profile-tab]').forEach(button=>button.classList.toggle('active',button.dataset.profileTab===socialProfileTab));
   if(next===previous){renderSocialProfileContent();return;}
   const root=$('#socialProfileContent');
-  if(root){
+  if(root&&!window.__wishwaveProfileSwipeCommit){
     root.classList.remove('profile-tab-in-left','profile-tab-in-right');
     void root.offsetWidth;
     root.classList.add(toIndex>fromIndex?'profile-tab-in-right':'profile-tab-in-left');
@@ -9759,21 +9759,21 @@ function socialProfileTile(item,index,source){
     ${owned&&id?`<button class="social-profile-tile-menu" type="button" onclick="openProfileListingMenu(event,'${escapeAttr(id)}')" aria-label="Manage listing"><span></span><span></span><span></span></button>`:''}
   </article>`;
 }
-function renderSocialProfileContent(){
-  const root=$('#socialProfileContent');if(!root)return;
-  if(socialProfileTab==='listings'){
+function renderSocialProfileContent(root=$('#socialProfileContent'),tab=socialProfileTab){
+  if(!root)return;
+  if(tab==='listings'){
     const items=socialProfileListings.filter(x=>String(x.status||'active').toLowerCase()!=='sold');
     root.innerHTML=items.length?`<div class="social-profile-grid">${items.map((x,i)=>socialProfileTile(x,i,'listings')).join('')}</div>`:
       `<div class="social-profile-empty wishwave-collection-empty"><img class="wishwave-collection-illustration" src="assets/wishwave-collection-v256.png" width="190" height="95" alt="" aria-hidden="true"><b>Your collection starts here</b><p>List your first find and make it someone’s next favourite.</p><button class="social-profile-create-first" type="button" onclick="openCreateListing()">Create a listing</button></div>`;
     return;
   }
-  if(socialProfileTab==='sold'){
+  if(tab==='sold'){
     const items=socialProfileListings.filter(x=>String(x.status||'').toLowerCase()==='sold');
     root.innerHTML=items.length?`<div class="social-profile-grid">${items.map((x,i)=>socialProfileTile(x,i,'sold')).join('')}</div>`:
       '<div class="social-profile-empty"><b>Nothing sold yet</b>Completed marketplace sales will appear here.</div>';
     return;
   }
-  if(socialProfileTab==='liked'){
+  if(tab==='liked'){
     const items=getTracked();
     root.innerHTML=items.length?`<div class="social-profile-grid">${items.map((x,i)=>socialProfileTile(x,i,'liked')).join('')}</div>`:
       '<div class="social-profile-empty"><b>No liked items yet</b>Heart products around FindAI and they will appear here.</div>';
@@ -14507,19 +14507,18 @@ function wishwavePublicProfileTile(item,index,kind){
     '</span>'+
   '</article>';
 }
-function renderWishWavePublicProfileContent(){
+function renderWishWavePublicProfileContent(root=document.getElementById('wishwavePublicProfileContent'),tab=wishwavePublicSellerTab){
   const data=wishwavePublicSellerData;
-  const root=document.getElementById('wishwavePublicProfileContent');
   if(!root||!data)return;
   const listings=Array.isArray(data.listings)?data.listings:[];
-  if(wishwavePublicSellerTab==='sold'){
+  if(tab==='sold'){
     const items=listings.filter(x=>String(x.status||'').toLowerCase()==='sold');
     root.innerHTML=items.length
       ?'<div class="social-profile-grid">'+items.map((item,i)=>wishwavePublicProfileTile(item,i,'sold')).join('')+'</div>'
       :'<div class="social-profile-empty"><b>Nothing sold yet</b>Completed sales will appear here.</div>';
     return;
   }
-  if(wishwavePublicSellerTab==='reviews'){
+  if(tab==='reviews'){
     const reviews=Array.isArray(data.seller&&data.seller.recentReviews)?data.seller.recentReviews:[];
     root.innerHTML=reviews.length
       ?'<div class="social-profile-reviews">'+reviews.map(review=>
@@ -14547,7 +14546,7 @@ function setWishWavePublicSellerTab(tab){
     button.classList.toggle('active',button.dataset.publicProfileTab===wishwavePublicSellerTab);
   });
   const root=document.getElementById('wishwavePublicProfileContent');
-  if(root&&next!==previous){
+  if(root&&next!==previous&&!window.__wishwaveProfileSwipeCommit){
     root.classList.remove('profile-tab-in-left','profile-tab-in-right');
     void root.offsetWidth;
     root.classList.add(toIndex>fromIndex?'profile-tab-in-right':'profile-tab-in-left');
@@ -15440,79 +15439,115 @@ if(typeof v116RenderMarketplaceListing==='function'){
 
 <script id="wishwave-v120-instagram-social-script">
 (function(){
-  const bg=()=>document.getElementById('appMpSheetBg');
-  const sheet=()=>document.querySelector('#appMpSheetBg .app-mp-sheet');
-
-  /* Side-to-side profile sections follow the finger and then settle with the
-     existing springy tab animation. This deliberately leaves vertical scrolling alone. */
-  let tabSwipe=null;
-  let suppressProfileClickUntil=0;
-  function swipeRootFromTarget(target){
-    return target&&target.closest&&target.closest('#socialProfileContent,#wishwavePublicProfileContent');
-  }
-  function tabSpec(root){
-    if(!root)return null;
-    if(root.id==='socialProfileContent')return {tabs:['listings','sold','saved'],current:()=>socialProfileTab,set:setProfileTab};
-    if(root.id==='wishwavePublicProfileContent')return {tabs:['listings','sold'],current:()=>wishwavePublicSellerTab,set:setWishWavePublicSellerTab};
+  // Shared critically damped motion: position and release velocity are continuous.
+  window.__wishwaveSpringMotion=function(from,to,velocity,paint,complete){
+    let frame=0,stopped=false,last=performance.now(),started=last,x=from,v=Math.max(-2600,Math.min(2600,velocity*1000));
+    const omega=34;
+    function tick(now){
+      if(stopped)return;
+      const dt=Math.min(.032,Math.max(.001,(now-last)/1000));last=now;
+      const distance=x-to,b=v+omega*distance,decay=Math.exp(-omega*dt);
+      x=to+(distance+b*dt)*decay;v=(v-omega*b*dt)*decay;
+      paint(x);
+      if((Math.abs(x-to)<.5&&Math.abs(v)<18)||now-started>500){paint(to);complete();return;}
+      frame=requestAnimationFrame(tick);
+    }
+    if(matchMedia('(prefers-reduced-motion: reduce)').matches){paint(to);complete();}
+    else frame=requestAnimationFrame(tick);
+    return ()=>{stopped=true;cancelAnimationFrame(frame);};
+  };
+  let swipe=null,blockUntil=0,blockRoot=null;
+  function specFor(target){
+    // Include the profile header and empty space: a section swipe is not limited to tiles.
+    if(target.closest('.premium-bottom-nav,input,textarea,select,[contenteditable],button,a,.social-profile-tabs,.wishwave-public-profile-tabs'))return null;
+    if(target.closest('#wishwavePublicProfilePage.show'))return {root:document.getElementById('wishwavePublicProfileContent'),tabs:['listings','sold'],current:()=>wishwavePublicSellerTab,set:t=>setWishWavePublicSellerTab(t),render:(root,tab)=>renderWishWavePublicProfileContent(root,tab),bar:document.querySelector('.wishwave-public-profile-tabs'),variable:'--public-profile-tab-index'};
+    if(target.closest('#profile.active')&&!document.querySelector('#findaiContextualReelV168.show,#searchDetailOverlay.show,.app-mp-sheet-bg.show,.account-overlay.show,.findai-settings-bg.show'))return {root:document.getElementById('socialProfileContent'),tabs:['listings','sold','saved'],current:()=>socialProfileTab,set:t=>setProfileTab(t),render:(root,tab)=>renderSocialProfileContent(root,tab),bar:document.querySelector('#profileSignedIn .social-profile-tabs'),variable:'--profile-tab-index'};
     return null;
   }
-  document.addEventListener('touchstart',event=>{
-    const root=swipeRootFromTarget(event.target),spec=tabSpec(root);
-    if(!root||!spec||event.touches.length!==1)return;
-    const t=event.touches[0];
-    tabSwipe={root,spec,startX:t.clientX,startY:t.clientY,lastX:t.clientX,startAt:performance.now(),horizontal:false,dx:0};
-  },{passive:true});
-  document.addEventListener('touchmove',event=>{
-    if(!tabSwipe||event.touches.length!==1)return;
-    const t=event.touches[0],dx=t.clientX-tabSwipe.startX,dy=t.clientY-tabSwipe.startY;
-    if(!tabSwipe.horizontal){
-      if(Math.abs(dx)<9)return;
-      if(Math.abs(dx)<=Math.abs(dy)*1.12){tabSwipe=null;return;}
-      tabSwipe.horizontal=true;
+  function paint(g){
+    g.current.style.transform='translate3d('+g.dx+'px,0,0)';
+    g.next.style.transform='translate3d('+(g.direction*g.width+g.dx)+'px,0,0)';
+    g.spec.bar?.style.setProperty(g.spec.variable,String(g.index-g.dx/g.width));
+  }
+  function cleanup(commit=false){
+    const g=swipe;if(!g)return;swipe=null;g.stop?.();g.observer?.disconnect();cancelAnimationFrame(g.frame);
+    if(g.active){
+      g.root.replaceChildren(...(commit?Array.from(g.next.childNodes):g.nodes));
+      g.root.classList.remove('wishwave-profile-paging');
+      g.root.style.minHeight=g.minHeight;
+      if(commit){window.__wishwaveProfileSwipeCommit=true;try{g.spec.set(g.spec.tabs[g.index+g.direction]);}finally{window.__wishwaveProfileSwipeCommit=false;}}
+      g.root.classList.remove('profile-tab-in-left','profile-tab-in-right');
+      g.spec.bar?.style.setProperty(g.spec.variable,String(g.index+(commit?g.direction:0)));
+      g.spec.bar?.classList.remove('wishwave-profile-bar-drag');
+      window.__wishwavePageMotion=false;
     }
-    event.preventDefault();
-    tabSwipe.dx=dx;tabSwipe.lastX=t.clientX;
-    const tabs=tabSwipe.spec.tabs;
-    const index=Math.max(0,tabs.indexOf(tabSwipe.spec.current()));
-    const blocked=(index===0&&dx>0)||(index===tabs.length-1&&dx<0);
-    const translated=dx*(blocked?.16:.46);
-    tabSwipe.root.style.setProperty('transition','none','important');
-    tabSwipe.root.style.setProperty('transform','translate3d('+translated+'px,0,0)','important');
-    tabSwipe.root.style.setProperty('opacity',String(Math.max(.82,1-Math.abs(translated)/520)),'important');
-  },{passive:false});
-  document.addEventListener('touchend',()=>{
-    if(!tabSwipe)return;
-    const state=tabSwipe;tabSwipe=null;
-    const {root,spec}=state;
-    root.style.removeProperty('transition');
-    root.style.removeProperty('transform');
-    root.style.removeProperty('opacity');
-    if(!state.horizontal)return;
-    const elapsed=Math.max(1,performance.now()-state.startAt);
-    const velocity=state.dx/elapsed;
-    const shouldMove=Math.abs(state.dx)>62||Math.abs(velocity)>.48;
-    if(!shouldMove)return;
-    const tabs=spec.tabs,current=spec.current(),index=Math.max(0,tabs.indexOf(current));
-    const nextIndex=state.dx<0?Math.min(tabs.length-1,index+1):Math.max(0,index-1);
-    if(nextIndex===index)return;
-    suppressProfileClickUntil=Date.now()+360;
-    try{haptic();}catch(_){}
-    spec.set(tabs[nextIndex]);
-  },{passive:true});
-  document.addEventListener('touchcancel',()=>{
-    if(!tabSwipe)return;
-    tabSwipe.root.style.removeProperty('transition');
-    tabSwipe.root.style.removeProperty('transform');
-    tabSwipe.root.style.removeProperty('opacity');
-    tabSwipe=null;
-  },{passive:true});
-  document.addEventListener('click',event=>{
-    if(Date.now()<suppressProfileClickUntil&&swipeRootFromTarget(event.target)){
-      event.preventDefault();event.stopPropagation();
+  }
+  function settle(commit){
+    const g=swipe;if(!g?.active){cleanup();return;}
+    cancelAnimationFrame(g.frame);paint(g);g.settling=true;g.commit=commit;blockRoot=g.root;blockUntil=Date.now()+400;
+    const velocity=performance.now()-g.lastT>90?0:g.velocity;
+    g.stop=window.__wishwaveSpringMotion(g.dx,commit?-g.direction*g.width:0,velocity,x=>{if(swipe!==g)return;g.dx=x;paint(g);},()=>{if(swipe!==g)return;cleanup(commit);if(commit)try{haptic();}catch(_){}});
+  }
+  window.__wishwaveProfileSectionTouch=function(type,e){
+    if(type==='touchstart'){
+      if(swipe?.settling){
+        const g=swipe;if(e.touches.length!==1||!g.root.closest('#profile,#wishwavePublicProfilePage')?.contains(e.target)||e.target.closest('.premium-bottom-nav,.social-profile-tabs,.wishwave-public-profile-tabs')){cleanup();return false;}if(!g.root.closest('#profile.active,#wishwavePublicProfilePage.show')){cleanup();return false;}
+        g.stop?.();g.settling=false;g.offset=g.dx;g.startX=g.lastX=e.touches[0].clientX;g.startY=e.touches[0].clientY;g.lastT=performance.now();g.velocity=0;g.regrab=true;return true;
+      }
+      cleanup();if(e.touches.length!==1)return false;
+      const spec=specFor(e.target);if(!spec?.root)return false;
+      if(window.__wishwaveTabSettling)return false;
+      const t=e.touches[0];swipe={spec,root:spec.root,start:e,startX:t.clientX,startY:t.clientY,lastX:t.clientX,lastT:performance.now(),dx:0,velocity:0,index:Math.max(0,spec.tabs.indexOf(spec.current())),width:spec.root.getBoundingClientRect().width||document.querySelector('.app').clientWidth||innerWidth};return true;
     }
-  },true);
+    const g=swipe;if(!g)return false;if(g.settling)return true;
+    if(type==='touchmove'){
+      if(e.touches.length!==1){settle(false);return true;}
+      const t=e.touches[0],travel=t.clientX-g.startX,dy=t.clientY-g.startY;
+      if(!g.active){
+        if(Math.abs(dy)>8&&Math.abs(dy)>Math.abs(travel)*.85){cleanup();return false;}
+        if(Math.abs(travel)<7)return true;
+        const direction=travel<0?1:-1,next=g.index+direction;
+        if(next<0||next>=g.spec.tabs.length){
+          const start=g.start;swipe=null;
+          // Only a section boundary may hand the original gesture to the parent.
+          window.__wishwavePageTouch?.('touchstart',start);
+          if(window.__wishwavePageTouch?.(type,e))return true;
+          window.__wishwaveTabTouch?.('touchstart',start);return !!window.__wishwaveTabTouch?.(type,e);
+        }
+        g.direction=direction;g.active=true;
+        const owner=g.root.closest('#profile,#wishwavePublicProfilePage');
+        g.observer=new MutationObserver(()=>{if(!owner?.matches('#profile.active,#wishwavePublicProfilePage.show'))cleanup();});if(owner)g.observer.observe(owner,{attributes:true,attributeFilter:['class']});
+        g.nodes=Array.from(g.root.childNodes);g.minHeight=g.root.style.minHeight;
+        g.root.style.minHeight=Math.max(g.root.getBoundingClientRect().height,150)+'px';
+        g.current=document.createElement('div');g.next=document.createElement('div');
+        g.current.className=g.next.className='wishwave-profile-pane';g.current.append(...g.nodes);
+        g.spec.render(g.next,g.spec.tabs[next]);g.next.inert=true;
+        g.root.replaceChildren(g.current,g.next);g.root.classList.remove('profile-tab-in-left','profile-tab-in-right');g.root.classList.add('wishwave-profile-paging');g.spec.bar?.classList.add('wishwave-profile-bar-drag');
+        window.__wishwavePageMotion=true;window.__wishwaveRefreshTouch?.('touchcancel',e);
+      }
+      if(e.cancelable)e.preventDefault();
+      const now=performance.now();g.dx=g.direction>0?Math.max(-g.width,Math.min(0,(g.offset||0)+travel)):Math.min(g.width,Math.max(0,(g.offset||0)+travel));
+      g.velocity=g.velocity*.3+(t.clientX-g.lastX)/Math.max(1,now-g.lastT)*.7;g.lastX=t.clientX;g.lastT=now;
+      if(!g.frame)g.frame=requestAnimationFrame(()=>{g.frame=0;if(swipe===g)paint(g);});return true;
+    }
+    if(type==='touchend'||type==='touchcancel'){
+      if(!g.active){cleanup();return false;}
+      const velocity=performance.now()-g.lastT>90?0:g.velocity;
+      settle(type==='touchend'&&((g.dx+velocity*120)*-g.direction>g.width*.25));return true;
+    }
+    return true;
+  };
+  window.addEventListener('click',e=>{if(e.target.closest('.premium-bottom-nav,.social-profile-tabs,.wishwave-public-profile-tabs'))cleanup();if(Date.now()<blockUntil&&blockRoot?.contains(e.target)){e.preventDefault();e.stopImmediatePropagation();}},true);
+  window.addEventListener('pagehide',()=>cleanup());window.addEventListener('resize',()=>cleanup());
+  window.addEventListener('pointerdown',e=>{if(e.target.closest('.premium-bottom-nav,.social-profile-tabs,.wishwave-public-profile-tabs'))cleanup();},true);
 })();
 </script>
+<style>
+html body .wishwave-profile-paging{position:relative!important;overflow:hidden!important;animation:none!important;transform:none!important;opacity:1!important;}
+.wishwave-profile-pane{width:100%;will-change:transform;backface-visibility:hidden;}
+.wishwave-profile-pane+.wishwave-profile-pane{position:absolute;top:0;left:0;}
+html body .wishwave-profile-bar-drag::after{transition:none!important;}
+</style>
 
 
 <style id="findai-v121-explore-comments-style">
@@ -31347,18 +31382,16 @@ html.findai-light .wishwave-inbox-preview .app-mp-header{border-color:#00000012!
     document.querySelector('.app').appendChild(preview);
     const list=preview.querySelector('.app-mp-conversation-list');if(list)list.scrollTop=cachedScroll;
   }
-  function clean(){clearTimeout(timer);timer=0;cancelAnimationFrame(raf);raf=0;const r=inbox();if(endListener){r?.removeEventListener('transitionend',endListener);endListener=null;}r?.classList.remove('wishwave-chat-back-drag','wishwave-chat-back-settle');r?.style.removeProperty('transform');r?.style.removeProperty('transition');preview?.remove();preview=null;back=null;settling=false;window.__wishwavePageMotion=false;window.__wishwaveFlushInboxRender?.();}
+  function clean(){back?.stopSpring?.();clearTimeout(timer);timer=0;cancelAnimationFrame(raf);raf=0;const r=inbox();if(endListener){r?.removeEventListener('transitionend',endListener);endListener=null;}r?.classList.remove('wishwave-chat-back-drag','wishwave-chat-back-settle');r?.style.removeProperty('transform');r?.style.removeProperty('transition');preview?.remove();preview=null;back=null;settling=false;window.__wishwavePageMotion=false;window.__wishwaveFlushInboxRender?.();}
   function draw(){raf=0;if(back?.active){inbox().style.setProperty('transform','translate3d('+back.dx+'px,0,0)','important');if(preview)preview.style.transform='translate3d('+(-back.width*.22+back.dx*.22)+'px,0,0)';}}
   function finish(commit){
     const g=back;if(!g?.active){clean();return;}settling=true;suppressUntil=Date.now()+500;
     cancelAnimationFrame(raf);draw();const r=inbox();void r.offsetWidth;r.classList.remove('wishwave-chat-back-drag');r.classList.add('wishwave-chat-back-settle');
-    const distance=commit?g.width-g.dx:g.dx;
-    const duration=window.matchMedia?.('(prefers-reduced-motion:reduce)').matches?1:Math.round(Math.max(120,Math.min(280,distance/Math.max(1.2,Math.abs(g.velocity||0))+45)));
-    void r.offsetWidth;r.style.setProperty('transition','transform '+duration+'ms cubic-bezier(.22,.82,.25,1)','important');
-    r.style.setProperty('transform','translate3d('+(commit?g.width:0)+'px,0,0)','important');
-    if(preview){preview.style.setProperty('transition','transform '+duration+'ms cubic-bezier(.22,.82,.25,1)','important');preview.style.transform='translate3d('+(commit?0:-g.width*.22)+'px,0,0)';}
-    const token={};g.settleToken=token;g.regrab=false;let done=false;const complete=()=>{if(done||back!==g||!settling||g.settleToken!==token)return;done=true;r.removeEventListener('transitionend',ended);endListener=null;if(commit&&r.classList.contains('chat-open')){document.activeElement?.blur?.();window.appMpInboxBack();}clean();};
-    const ended=e=>{if(e.target===r&&e.propertyName==='transform')complete();};endListener=ended;r.addEventListener('transitionend',ended);timer=setTimeout(complete,duration+32);
+    const token={};g.settleToken=token;g.regrab=false;let done=false;
+    const complete=()=>{if(done||back!==g||!settling||g.settleToken!==token)return;done=true;if(commit&&r.classList.contains('chat-open')){document.activeElement?.blur?.();window.appMpInboxBack();}clean();};
+    r.style.setProperty('transition','none','important');preview?.style.setProperty('transition','none','important');
+    const velocity=performance.now()-g.lastT>90?0:g.velocity||0;
+    g.stopSpring=window.__wishwaveSpringMotion(g.dx,commit?g.width:0,velocity,x=>{if(back!==g||!settling||g.settleToken!==token)return;g.dx=Math.max(0,Math.min(g.width,x));draw();},complete);
   }
   window.__wishwaveCancelChatBack=clean;
   document.addEventListener('pointerdown',e=>{if(e.target.closest?.('.premium-bottom-nav button'))clean();},true);
@@ -31369,7 +31402,7 @@ html.findai-light .wishwave-inbox-preview .app-mp-header{border-color:#00000012!
   function grabChat(e){
     const r=inbox();if(!settling||!back||e.touches.length!==1||!r?.contains(e.target))return false;
     let x=null;try{const value=getComputedStyle(r).transform;if(typeof DOMMatrixReadOnly==='function')x=new DOMMatrixReadOnly(value).m41;else {const m=value.match(/^matrix(3d)?\(([^)]+)\)$/);if(m)x=Number(m[2].split(',')[m[1]?12:4]);}}catch(_){}
-    clearTimeout(timer);timer=0;if(endListener)r.removeEventListener('transitionend',endListener);endListener=null;settling=false;
+    back.stopSpring?.();clearTimeout(timer);timer=0;if(endListener)r.removeEventListener('transitionend',endListener);endListener=null;settling=false;
     const t=e.touches[0];back.dx=Math.max(0,Math.min(back.width,x===null?back.dx:x));back.offset=back.dx;back.x=t.clientX;back.y=t.clientY;back.lastX=t.clientX;back.lastT=performance.now();back.velocity=0;back.regrab=true;
     r.classList.remove('wishwave-chat-back-settle');r.classList.add('wishwave-chat-back-drag');r.style.setProperty('transition','none','important');if(preview)preview.style.setProperty('transition','none','important');draw();return true;
   }
@@ -31449,7 +31482,7 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
   function translate(el,x,original){el.style.setProperty('transform','translate3d('+x+'px,0,0)'+(original?' '+original:''),'important');}
   function clean(){
     const g=drag;drag=null;cancelAnimationFrame(frame);frame=0;clearTimeout(timer);timer=0;
-    if(!g)return;g.observer?.disconnect();if(g.ended)g.root.removeEventListener('transitionend',g.ended);
+    if(!g)return;g.stopSpring?.();g.observer?.disconnect();if(g.ended)g.root.removeEventListener('transitionend',g.ended);
     if(g.axis==='tabs')window.__wishwaveTabTouch?.('touchcancel',{touches:[],target:g.root});
     if(g.axis==='gallery')window.__wishwaveGalleryTouchV149?.('touchcancel',{changedTouches:[],stopPropagation(){},stopImmediatePropagation(){}});
     restore(g.root,g.styles);restore(g.under,g.underStyles);g.root.classList.remove('wishwave-page-return-drag');g.releaseUnder?.(g.closed);
@@ -31462,7 +31495,7 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
   function grab(e){
     const g=drag;if(!g?.settling||g.axis!=='back'||e.touches.length!==1||!g.open())return false;
     if(!g.root.contains(e.target)&&!g.under?.contains(e.target))return false;
-    const t=e.touches[0],visible=position(g.root);clearTimeout(timer);timer=0;if(g.ended)g.root.removeEventListener('transitionend',g.ended);g.ended=null;
+    const t=e.touches[0],visible=position(g.root);g.stopSpring?.();clearTimeout(timer);timer=0;if(g.ended)g.root.removeEventListener('transitionend',g.ended);g.ended=null;
     g.dx=Math.max(0,Math.min(g.width,visible===null?g.dx:visible-g.baseX));g.offset=g.dx;g.settling=false;g.regrab=true;g.regrabTarget=e.target;g.x=t.clientX;g.y=t.clientY;g.lastX=t.clientX;g.lastT=performance.now();g.velocity=0;
     g.root.style.setProperty('transition','none','important');g.under?.style.setProperty('transition','none','important');draw();return true;
   }
@@ -31488,15 +31521,18 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
     };
     // A page already at its destination has no transitionend to wait for.
     if(remaining<1){complete();return;}
-    void g.root.offsetWidth;
-    const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const speed=performance.now()-g.lastT>90?0:Math.abs(g.velocity);
-    const duration=reduce?1:Math.round(Math.max(120,Math.min(280,remaining/Math.max(1.2,speed)+45)));
-    g.root.style.setProperty('transition','transform '+duration+'ms cubic-bezier(.22,.82,.25,1)','important');
-    translate(g.root,commit?g.width:0,g.base);
-    if(g.under&&g.under!==g.root){g.under.style.setProperty('transition','transform '+duration+'ms cubic-bezier(.22,.82,.25,1)','important');translate(g.under,commit?0:-g.width*.2,g.underBase);}
+    g.root.style.setProperty('transition','none','important');
+    g.under?.style.setProperty('transition','none','important');
+    const velocity=performance.now()-g.lastT>90?0:g.velocity;
+    // Keep the finger's signed velocity; reversing into a cancellation must
+    // decelerate continuously rather than restart a generic easing curve.
+    g.stopSpring=window.__wishwaveSpringMotion(g.dx,commit?g.width:0,velocity,x=>{
+      if(drag!==g||!g.settling||g.settleToken!==token)return;
+      g.dx=Math.max(0,Math.min(g.width,x));draw();
+    },complete);
+    // Retain the guarded completion hook for legacy transition callers.
     g.ended=e=>{if(e.target===g.root&&e.propertyName==='transform')complete();};
-    g.root.addEventListener('transitionend',g.ended);timer=setTimeout(complete,duration+32);
+    if(drag===g)g.root.addEventListener('transitionend',g.ended);
   }
   window.__wishwaveResetPageReturn=function(){clean();blockClickUntil=0;clickRoot=null;clickUnder=null;};
   window.wishwaveSlidePageBack=function(surface){
@@ -35707,7 +35743,7 @@ html body .reel-actions-rail .reel-social-action svg{stroke-width:1.8!important}
 html body .reel-actions-rail .reel-social-action.bookmark.active svg{fill:currentColor!important}
 @media(prefers-reduced-motion:reduce){.wishwave-notification-tabs::after{transition:none}}
 </style>
-<script src="wishwave-bookmarks.js?v=249"></script>
+<script src="wishwave-bookmarks.js?v=298"></script>
 <script src="wishwave-tab-paging.js?v=253"></script>
 <style id="wishwave-stable-main-tabs-v252">html body .app>:is(#discover,#search,#searchResults,#notifications,#profile){animation:none!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;margin:0!important;contain:layout paint!important;backface-visibility:hidden!important;}html body .app .findai-v132-swipe-surface{opacity:1!important;}</style>
 <style id="wishwave-account-discovery-polish-v254">
