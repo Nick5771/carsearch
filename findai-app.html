@@ -15456,6 +15456,32 @@ if(typeof v116RenderMarketplaceListing==='function'){
     else frame=requestAnimationFrame(tick);
     return ()=>{stopped=true;cancelAnimationFrame(frame);};
   };
+  // Release runs as a browser transform transition, with a sampled spring curve.
+  // No per-frame JS is required after the finger lifts on supporting engines.
+  window.__wishwaveTransformSpring=function({from,to,velocity=0,surfaces,paint,complete,min=-Infinity,max=Infinity}){
+    if(!window.CSS?.supports?.('transition-timing-function','linear(0, 1)')||matchMedia('(prefers-reduced-motion: reduce)').matches||Math.abs(to-from)<.5)return window.__wishwaveSpringMotion(from,to,velocity,paint,complete);
+    const omega=.034,v=Math.max(-2.6,Math.min(2.6,velocity)),delta=from-to,b=v+omega*delta;
+    const sample=t=>Math.max(min,Math.min(max,to+(delta+b*t)*Math.exp(-omega*t)));
+    let duration=96;while(duration<440&&(Math.abs(sample(duration)-to)>.35||Math.abs((v-omega*b*duration)*Math.exp(-omega*duration))>.018))duration+=8;
+    const values=Array.from({length:61},(_,i)=>i===0?'0':i===60?'1':String(Number(((sample(duration*i/60)-from)/(to-from)).toFixed(5))));
+    const easing='linear('+values.join(',')+')';
+    if(!window.CSS.supports('transition-timing-function',easing))return window.__wishwaveSpringMotion(from,to,velocity,paint,complete);
+    let stopped=false,timer=0;
+    const items=surfaces.filter(s=>s.el),primary=items[0]?.el;
+    if(!primary)return window.__wishwaveSpringMotion(from,to,velocity,paint,complete);
+    const done=()=>{if(stopped)return;stopped=true;clearTimeout(timer);primary.removeEventListener('transitionend',ended);complete();};
+    const ended=e=>{if(e.target===primary&&e.propertyName==='transform')done();};
+    items.forEach(s=>{s.el.style.setProperty('transition','none','important');s.el.style.setProperty('transform',s.transform(from),'important');});
+    // One batched style flush starts every surface from the same displayed frame.
+    getComputedStyle(primary).transform;
+    items.forEach(s=>{s.el.style.setProperty('transition','transform '+duration+'ms '+easing,'important');s.el.style.setProperty('transform',s.transform(to),'important');});
+    primary.addEventListener('transitionend',ended);timer=setTimeout(done,duration+48);
+    return ()=>{
+      if(stopped)return;stopped=true;clearTimeout(timer);primary.removeEventListener('transitionend',ended);
+      const visible=items.map(s=>getComputedStyle(s.el).transform);
+      items.forEach((s,i)=>{s.el.style.setProperty('transition','none','important');s.el.style.setProperty('transform',visible[i]==='none'?s.transform(from):visible[i],'important');});
+    };
+  };
   let swipe=null,blockUntil=0,blockRoot=null;
   function specFor(target){
     // Include the profile header and empty space: a section swipe is not limited to tiles.
@@ -31420,12 +31446,14 @@ html.findai-light .wishwave-inbox-preview .app-mp-header{border-color:#00000012!
   function draw(){raf=0;if(back?.active){inbox().style.setProperty('transform','translate3d('+back.dx+'px,0,0)','important');if(preview)preview.style.transform='translate3d('+(-back.width*.22+back.dx*.22)+'px,0,0)';}}
   function finish(commit){
     const g=back;if(!g?.active){clean();return;}settling=true;suppressUntil=Date.now()+500;
-    cancelAnimationFrame(raf);draw();const r=inbox();void r.offsetWidth;r.classList.remove('wishwave-chat-back-drag');r.classList.add('wishwave-chat-back-settle');
+    cancelAnimationFrame(raf);draw();const r=inbox();r.classList.remove('wishwave-chat-back-drag');r.classList.add('wishwave-chat-back-settle');
     const token={};g.settleToken=token;g.regrab=false;let done=false;
     const complete=()=>{if(done||back!==g||!settling||g.settleToken!==token)return;done=true;if(commit&&r.classList.contains('chat-open')){document.activeElement?.blur?.();window.appMpInboxBack();}clean();};
     r.style.setProperty('transition','none','important');preview?.style.setProperty('transition','none','important');
     const velocity=performance.now()-g.lastT>90?0:g.velocity||0;
-    g.stopSpring=window.__wishwaveSpringMotion(g.dx,commit?g.width:0,velocity,x=>{if(back!==g||!settling||g.settleToken!==token)return;g.dx=Math.max(0,Math.min(g.width,x));draw();},complete);
+    const surfaces=[{el:r,transform:x=>'translate3d('+x+'px,0,0)'}];
+    if(preview)surfaces.push({el:preview,transform:x=>'translate3d('+(-g.width*.22+x*.22)+'px,0,0)'});
+    g.stopSpring=window.__wishwaveTransformSpring({from:g.dx,to:commit?g.width:0,velocity,min:0,max:g.width,surfaces,paint:x=>{if(back!==g||!settling||g.settleToken!==token)return;g.dx=Math.max(0,Math.min(g.width,x));draw();},complete});
   }
   window.__wishwaveCancelChatBack=clean;
   document.addEventListener('pointerdown',e=>{if(e.target.closest?.('.premium-bottom-nav button'))clean();},true);
@@ -31454,7 +31482,7 @@ html.findai-light .wishwave-inbox-preview .app-mp-header{border-color:#00000012!
       if(e.touches.length!==1){finish(false);return true;}const t=e.touches[0],dx=t.clientX-back.x,dy=t.clientY-back.y,now=performance.now();
       if(!back.active){if(Math.abs(dy)>10&&Math.abs(dy)>Math.abs(dx)*.8||dx< -10){clean();return false;}if(dx<10||dx<Math.abs(dy)*1.3)return false;back.active=true;window.__wishwavePageMotion=true;underlay();r.classList.add('wishwave-chat-back-drag');window.__wishwaveRefreshTouch?.('touchcancel',e);}
       back.dx=Math.max(0,Math.min(back.width,(back.offset||0)+dx));back.velocity=back.velocity*.3+(t.clientX-back.lastX)/Math.max(1,now-back.lastT)*.7;back.lastX=t.clientX;back.lastT=now;
-      if(!raf)raf=requestAnimationFrame(draw);if(e.cancelable)e.preventDefault();return true;
+      draw();if(e.cancelable)e.preventDefault();return true;
     }
     if(type==='touchend'){if(!back.active){clean();return false;}if(performance.now()-back.lastT>90)back.velocity=0;finish(back.dx+back.velocity*120>back.width*.28||(back.velocity>.65&&back.dx>28));return true;}
     if(type==='touchcancel'){const active=back.active;finish(false);return active;}return false;
@@ -31550,7 +31578,7 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
     const remaining=commit?g.width-g.dx:g.dx;
     const token={};g.settleToken=token;let done=false;const complete=()=>{
       if(done||drag!==g||!g.settling||g.settleToken!==token)return;done=true;
-      if(commit&&g.open()){g.closed=true;g.back();}
+      if(commit&&g.open()){blockClickUntil=Date.now()+350;g.closed=true;g.back();}
       clean();
     };
     // A page already at its destination has no transitionend to wait for.
@@ -31560,10 +31588,12 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
     const velocity=performance.now()-g.lastT>90?0:g.velocity;
     // Keep the finger's signed velocity; reversing into a cancellation must
     // decelerate continuously rather than restart a generic easing curve.
-    g.stopSpring=window.__wishwaveSpringMotion(g.dx,commit?g.width:0,velocity,x=>{
+    const surfaces=[{el:g.root,transform:x=>'translate3d('+x+'px,0,0)'+(g.base?' '+g.base:'')}];
+    if(g.under&&g.under!==g.root)surfaces.push({el:g.under,transform:x=>'translate3d('+(-g.width*.2+x*.2)+'px,0,0)'+(g.underBase?' '+g.underBase:'')});
+    g.stopSpring=window.__wishwaveTransformSpring({from:g.dx,to:commit?g.width:0,velocity,min:0,max:g.width,surfaces,paint:x=>{
       if(drag!==g||!g.settling||g.settleToken!==token)return;
       g.dx=Math.max(0,Math.min(g.width,x));draw();
-    },complete);
+    },complete});
     // Retain the guarded completion hook for legacy transition callers.
     g.ended=e=>{if(e.target===g.root&&e.propertyName==='transform')complete();};
     if(drag===g)g.root.addEventListener('transitionend',g.ended);
@@ -31609,7 +31639,7 @@ html body .app .findai-v132-swipe-surface.findai-v132-settle{
       if(g.axis==='tabs'){window.__wishwaveTabTouch?.(type,e);return true;}
       if(g.axis!=='back')return true;
       g.dx=Math.max(0,Math.min(g.width,(g.offset||0)+dx));g.velocity=g.velocity*.3+(t.clientX-g.lastX)/Math.max(1,now-g.lastT)*.7;g.lastX=t.clientX;g.lastT=now;
-      if(!frame)frame=requestAnimationFrame(draw);if(e.cancelable)e.preventDefault();return true;
+      draw();if(e.cancelable)e.preventDefault();return true;
     }
     if(type==='touchend'||type==='touchcancel'){
       if(g.axis==='gallery'||g.axis==='tabs'){if(g.axis==='gallery')window.__wishwaveGalleryTouchV149?.(type,e);else window.__wishwaveTabTouch?.(type,e);g.axis='';g.observer?.disconnect();drag=null;return true;}
