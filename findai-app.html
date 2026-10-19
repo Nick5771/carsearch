@@ -4289,9 +4289,11 @@ function forgetOwnedListingForFeed(id){
   }catch(_){}
 }
 async function loadMarketplaceListings(){
-  if(!marketplaceSession()) return getMarketplaceListings();
+  const owner=marketplaceSession();
+  if(!owner)return [];
   const local=getMarketplaceListings();
   const data=await marketplaceFetch('/marketplace/me/listings',{method:'GET'});
+  if(owner!==marketplaceSession())return [];
   const remote=Array.isArray(data.listings)?data.listings:[];
   const remoteIds=new Set(remote.map(item=>String(item.marketplaceListingId||item.itemId||item.id||'')));
   const recentLocal=local.filter(item=>{
@@ -9637,13 +9639,17 @@ function findaiProfileJoined(profile){
   try{return 'Joined '+new Intl.DateTimeFormat(undefined,{month:'short',year:'numeric'}).format(new Date(value));}catch(_){return '';}
 }
 async function loadProfileMarketplaceData(force=false){
+  const owner=marketplaceSession();
   const profile=getAccountProfile();
   if(!profile)return;
   try{
-    socialProfileListings=await loadMarketplaceListings();
+    const listings=await loadMarketplaceListings();
+    if(owner!==marketplaceSession()||!getAccountProfile())return;
+    socialProfileListings=listings;
   }catch(_){
     socialProfileListings=getMarketplaceListings();
   }
+  if(owner!==marketplaceSession()||!getAccountProfile())return;
   const preservedFollowerCount=Math.max(0,Number(socialProfileSeller&&socialProfileSeller.followerCount)||0);
   socialProfileSeller={rating:0,reviewCount:0,soldCount:socialProfileListings.filter(x=>String(x.status||'').toLowerCase()==='sold').length,followerCount:preservedFollowerCount,recentReviews:[],joinedAt:''};
   const candidate=socialProfileListings.find(Boolean);
@@ -9652,6 +9658,7 @@ async function loadProfileMarketplaceData(force=false){
       const id=appMpId(candidate);
       if(id){
         const detail=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(id),{method:'GET'});
+        if(owner!==marketplaceSession()||!getAccountProfile())return;
         const seller=detail&&detail.seller||{};
         socialProfileSeller={
           rating:Number(seller.rating)||0,
@@ -9694,7 +9701,7 @@ function paintSocialProfileHeader(){
 }
 function setProfileTab(tab){
   const allowed=['listings','sold','saved'];
-  const next=allowed.includes(tab)?tab:'listings';
+  const next=getAccountProfile()&&allowed.includes(tab)?tab:'listings';
   const previous=socialProfileTab;
   const fromIndex=Math.max(0,allowed.indexOf(previous));
   const toIndex=Math.max(0,allowed.indexOf(next));
@@ -9782,6 +9789,7 @@ function socialProfileTile(item,index,source){
 }
 function renderSocialProfileContent(root=$('#socialProfileContent'),tab=socialProfileTab){
   if(!root)return;
+  if(!getAccountProfile()){socialProfileTab='listings';root.replaceChildren();return;}
   if(tab==='listings'){
     const items=socialProfileListings.filter(x=>String(x.status||'active').toLowerCase()!=='sold');
     root.innerHTML=items.length?`<div class="social-profile-grid">${items.map((x,i)=>socialProfileTile(x,i,'listings')).join('')}</div>`:
@@ -12795,36 +12803,33 @@ window.addEventListener('load', function(){
     }
   };
 
+  let notificationFollowVersion=0,notificationFollowBusy=0;
   let findaiNotificationUnfollowState=null;
   window.findaiConfirmNotificationUnfollow=async function(){
-    const state=findaiNotificationUnfollowState;
-    findaiNotificationUnfollowState=null;
+    const state=findaiNotificationUnfollowState;findaiNotificationUnfollowState=null;
     if(!state||!state.username)return;
+    if(!marketplaceSession()){closeAppMpSheet();openLogin();return;}
+    const owner=marketplaceSession(),actorEmail=String(state.actorEmail||'').toLowerCase(),actorUsername=String(state.actorUsername||state.username).replace(/^@+/,'').toLowerCase();
+    const before=appNotificationCache.filter(item=>(actorEmail&&String(item.actor_email||'').toLowerCase()===actorEmail)||String(item.actor_username||'').replace(/^@+/,'').toLowerCase()===actorUsername).map(item=>({item,following:item.viewer_is_following,pending:item.viewer_follow_pending}));
+    notificationFollowVersion++;notificationFollowBusy++;
+    before.forEach(({item})=>{item.viewer_is_following=false;item.viewer_follow_pending=false;});
+    closeAppMpSheet();renderHomeNotifications();try{haptic();}catch(_){}
     try{
       const data=await marketplaceFetch('/social/follow-user/'+encodeURIComponent(state.username),{method:'DELETE'});
-      const actorEmail=String(state.actorEmail||'').toLowerCase();
-      const actorUsername=String(state.actorUsername||'').replace(/^@+/,'').toLowerCase();
-      appNotificationCache.forEach(item=>{
-        const sameEmail=actorEmail&&String(item.actor_email||'').toLowerCase()===actorEmail;
-        const sameUser=actorUsername&&String(item.actor_username||'').replace(/^@+/,'').toLowerCase()===actorUsername;
-        if(sameEmail||sameUser){
-          item.viewer_is_following=!!data.isFollowing;
-          item.viewer_follow_pending=!!data.pending;
-        }
-      });
-      try{closeAppMpSheet();}catch(_){}
-      renderHomeNotifications();
-      try{if(typeof haptic==='function')haptic();}catch(_){}
+      if(owner!==marketplaceSession())return;
+      before.forEach(({item})=>{item.viewer_is_following=!!data.isFollowing;item.viewer_follow_pending=!!data.pending;});renderHomeNotifications();
     }catch(error){
-      try{toast(error&&error.message||'Could not unfollow this account');}catch(_){}
-      renderHomeNotifications();
-    }
+      if(owner!==marketplaceSession())return;
+      before.forEach(({item,following,pending})=>{item.viewer_is_following=following;item.viewer_follow_pending=pending;});
+      toast(error?.message||'Could not unfollow this account');renderHomeNotifications();
+    }finally{notificationFollowBusy--;notificationFollowVersion++;}
   };
 
   window.findaiNotificationFollowBack=async function(event,index,button){
     if(event){event.preventDefault();event.stopPropagation();}
+    if(!marketplaceSession()){openLogin();return;}
     const n=appNotificationCache[Number(index)];
-    if(!n||!button||button.disabled)return;
+    if(!n||!button||button.disabled||n._followBusy)return;
     const username=String(n.actor_username||'').replace(/^@+/,'').trim();
     if(!username)return;
 
@@ -12855,9 +12860,14 @@ window.addEventListener('load', function(){
     }
 
     try{if(typeof haptic==='function')haptic();}catch(_){}
-    const cancelling=alreadyPending;
+    const cancelling=alreadyPending,owner=marketplaceSession();
+    notificationFollowVersion++;notificationFollowBusy++;n._followBusy=true;
+    const actorEmail=String(n.actor_email||'').toLowerCase(),actorUsername=username.toLowerCase();
+    const sameActor=item=>(actorEmail&&String(item.actor_email||'').toLowerCase()===actorEmail)||String(item.actor_username||'').replace(/^@+/,'').toLowerCase()===actorUsername;
+    const before=appNotificationCache.filter(sameActor).map(item=>({item,following:item.viewer_is_following,pending:item.viewer_follow_pending}));
+    before.forEach(({item})=>{item.viewer_is_following=!cancelling;item.viewer_follow_pending=false;});
     button.disabled=true;
-    button.textContent=cancelling?'Follow':'Following';
+    button.textContent=cancelling?'Follow':n.actor_is_private?'Requested':'Following';
     button.classList.toggle('primary',cancelling);
 
     try{
@@ -12865,6 +12875,7 @@ window.addEventListener('load', function(){
         method:cancelling?'DELETE':'POST'
       });
 
+      if(owner!==marketplaceSession())return;
       const actorEmail=String(n.actor_email||'').toLowerCase();
       const actorUsername=String(n.actor_username||'').replace(/^@+/,'').toLowerCase();
 
@@ -12879,9 +12890,11 @@ window.addEventListener('load', function(){
 
       renderHomeNotifications();
     }catch(error){
+      if(owner!==marketplaceSession())return;
+      before.forEach(({item,following,pending})=>{item.viewer_is_following=following;item.viewer_follow_pending=pending;});
       try{toast(error&&error.message||'Could not update follow request');}catch(_){}
       renderHomeNotifications();
-    }
+    }finally{delete n._followBusy;notificationFollowBusy--;notificationFollowVersion++;if(button.isConnected)button.disabled=false;}
   };
   window.findaiNotificationFollowRequestAction=async function(event,index,action){
     if(event){event.preventDefault();event.stopPropagation();}
@@ -12916,6 +12929,7 @@ window.addEventListener('load', function(){
     }
   };
   async function loadHomeNotifications(){
+    const owner=marketplaceSession(),followVersion=notificationFollowVersion;
     ensureNotificationUI();
     let server={unreadCount:0,notifications:[]};
     let conversations={unreadCount:0,conversations:[]};
@@ -12923,6 +12937,7 @@ window.addEventListener('load', function(){
       try{server=await marketplaceFetch('/marketplace/notifications/summary',{method:'GET'});}catch(_){}
       try{conversations=await marketplaceFetch('/marketplace/conversations',{method:'GET'});}catch(_){}
     }
+    if(owner!==marketplaceSession()||followVersion!==notificationFollowVersion||notificationFollowBusy)return appNotificationCache;
     const remote=Array.isArray(server&&server.notifications)
       ?server.notifications.filter(n=>!String(n&&n.notification_type||'').toLowerCase().includes('message'))
       :[];
@@ -13082,6 +13097,7 @@ window.addEventListener('load', function(){
     },
     readLocalNoticeState,
     writeLocalNoticeState,
+    reset(){notificationFollowVersion++;appNotificationCache=[];appNotificationUnread=0;document.getElementById('findaiNotificationList')?.replaceChildren();setHomeNotificationState(0);},
     ensureUI:ensureNotificationUI,
     load:loadHomeNotifications,
     render:renderHomeNotifications,
@@ -15511,7 +15527,7 @@ if(typeof v116RenderMarketplaceListing==='function'){
     // Include the profile header and empty space: a section swipe is not limited to tiles.
     if(target.closest('.premium-bottom-nav,input,textarea,select,[contenteditable],button,a,.social-profile-tabs,.wishwave-public-profile-tabs'))return null;
     if(target.closest('#wishwavePublicProfilePage.show'))return {root:document.getElementById('wishwavePublicProfileContent'),tabs:['listings','sold'],current:()=>wishwavePublicSellerTab,set:t=>setWishWavePublicSellerTab(t),render:(root,tab)=>renderWishWavePublicProfileContent(root,tab),bar:document.querySelector('.wishwave-public-profile-tabs'),variable:'--public-profile-tab-index'};
-    if(target.closest('#profile.active')&&!document.querySelector('#findaiContextualReelV168.show,#searchDetailOverlay.show,.app-mp-sheet-bg.show,.account-overlay.show,.findai-settings-bg.show'))return {root:document.getElementById('socialProfileContent'),tabs:['listings','sold','saved'],current:()=>socialProfileTab,set:t=>setProfileTab(t),render:(root,tab)=>renderSocialProfileContent(root,tab),bar:document.querySelector('#profileSignedIn .social-profile-tabs'),variable:'--profile-tab-index'};
+    if(getAccountProfile()&&target.closest('#profile.active')&&!document.querySelector('#findaiContextualReelV168.show,#searchDetailOverlay.show,.app-mp-sheet-bg.show,.account-overlay.show,.findai-settings-bg.show'))return {root:document.getElementById('socialProfileContent'),tabs:['listings','sold','saved'],current:()=>socialProfileTab,set:t=>setProfileTab(t),render:(root,tab)=>renderSocialProfileContent(root,tab),bar:document.querySelector('#profileSignedIn .social-profile-tabs'),variable:'--profile-tab-index'};
     return null;
   }
   function paint(g){
@@ -16568,7 +16584,7 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
 #discover .reel-social-action.like .reel-social-icon,#discover .reel-social-action.like.active .reel-social-icon,#discover .reel-social-action.like.just-liked .reel-social-icon,#search .reel-social-action.like .reel-social-icon,#search .reel-social-action.like.active .reel-social-icon,#search .reel-social-action.like.just-liked .reel-social-icon{width:auto!important;height:auto!important;min-width:0!important;min-height:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;outline:0!important;animation:none!important;transform:none!important;isolation:auto!important;overflow:visible!important}
 #discover .reel-social-action.like .reel-social-icon:before,#discover .reel-social-action.like .reel-social-icon:after,#search .reel-social-action.like .reel-social-icon:before,#search .reel-social-action.like .reel-social-icon:after{content:none!important;display:none!important;background:none!important;animation:none!important}
 #discover .reel-social-action.like.just-liked .reel-social-icon svg,#search .reel-social-action.like.just-liked .reel-social-icon svg{animation:findaiHeartPop .46s cubic-bezier(.18,.86,.28,1.16)!important}
-#wishwavePublicFollowButton:not(.following):not(:disabled),.premium-seller-action:not(.following):not(:disabled){background:#4d8cff!important;color:#fff!important;border-color:#4d8cff!important}
+#wishwavePublicFollowButton:not(.following),.premium-seller-action:not(.following){background:#4d8cff!important;color:#fff!important;border-color:#4d8cff!important}
 #wishwavePublicFollowButton.following,.premium-seller-action.following{background:#1a1d22!important;color:#f3f4f6!important;border:1px solid rgba(255,255,255,.13)!important}
 </style>
 
@@ -30111,6 +30127,7 @@ body>.nav.findai-five-nav.premium-bottom-nav .nav-profile-avatar.has-image>span,
   }
 
   function authoritativeAvatar(){
+    if(!getAccountProfile())return '';
     /* Prefer the image the profile screen is actually painting. This guarantees the
        bottom-nav photo cannot disagree with the visible profile after remote sync. */
     const profileRoot=document.getElementById('profileAvatar');
@@ -36107,6 +36124,40 @@ html body #appMpSheetBg.wishwave-conversation-options .app-mp-action{width:100%;
   openAppMpSheet('Conversation','<div class="app-mp-actions"><button type="button" class="app-mp-action tertiary" onclick="closeAppMpSheet();findaiOpenCurrentChatProfileV178()">View profile</button>'+(appMpCurrentConversation?.listingId?'<button type="button" class="app-mp-action tertiary" onclick="closeAppMpSheet();appMpOpenConversationListing()">View listing</button>':'')+'<button type="button" class="app-mp-action tertiary" onclick="closeAppMpSheet()">Cancel</button></div>');
   const sheet=document.getElementById('appMpSheetBg');sheet?.classList.add('wishwave-conversation-options');sheet?.querySelector('#appMpSheetBody button')?.focus({preventScroll:true});
  };
+})();
+</script>
+<style id="wishwave-session-polish-v319">
+html body #wishwavePublicProfilePage .social-profile-loading{display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:16px!important;text-align:center!important;}
+html body #wishwavePublicProfilePage .social-profile-loading>.feed-more-spinner{position:static!important;inset:auto!important;align-self:center!important;flex-shrink:0!important;margin:0!important;}
+html body #wishwavePublicProfilePage .social-profile-loading>br{display:none!important;}
+html body #wishwavePublicFollowButton:not(.following),html body .premium-seller-action:not(.following){background:#4d8cff!important;color:#fff!important;border-color:#4d8cff!important;transition:transform .18s ease!important;}
+html body #appMpSheetBg.show{z-index:20050!important;}
+html body #appMpSheetBg:not(.wishwave-comments-mode) .app-mp-sheet-body{padding-bottom:calc(var(--wishwave-nav-total,52px) + env(safe-area-inset-bottom,0px) + 24px)!important;scroll-padding-bottom:calc(var(--wishwave-nav-total,52px) + 24px);}
+html body #appThemeOverlay .findai-settings-page{padding-bottom:calc(var(--wishwave-nav-total,52px) + env(safe-area-inset-bottom,0px) + 32px)!important;}
+html body #profileSignedOut .guest-profile-tabs{pointer-events:none!important;}
+html body #profileSignedOut [data-guest-likes]{display:none!important;}
+</style>
+<script id="wishwave-session-cleanup-v319">
+(function(){
+ const signout=window.signOutAccount;
+ window.signOutAccount=function(){
+  const out=signout.apply(this,arguments);
+  socialProfileTab='listings';socialProfileListings=[];socialProfileSeller={};
+  appMpConversationList=[];appMpCurrentConversation=null;appMpConversation='';
+  window.findaiNotificationState?.reset?.();
+  window.__wishwaveInboxRequest=(window.__wishwaveInboxRequest||0)+1;
+  ['profileAvatar','navProfileAvatar','accountAvatar','menuAvatar','profileEditAvatar'].forEach(id=>{const root=document.getElementById(id);if(!root)return;root.classList.remove('has-image');root.querySelectorAll('img').forEach(img=>{img.removeAttribute('src');img.removeAttribute('srcset');});});
+  ['socialProfileContent','findaiNotificationList','appMpInboxBody'].forEach(id=>document.getElementById(id)?.replaceChildren());
+  document.querySelectorAll('.wishwave-inbox-preview,[data-guest-likes]').forEach(el=>el.remove());
+  document.querySelectorAll('#profileSignedIn .social-profile-tabs [data-profile-tab]').forEach(b=>b.classList.toggle('active',b.dataset.profileTab==='listings'));
+  document.querySelector('#profileSignedIn .social-profile-tabs')?.style.setProperty('--profile-tab-index','0');
+  document.getElementById('appMpInbox')?.classList.remove('show','chat-open');
+  try{localStorage.removeItem('wishwave-v175-message-unread');}catch(_){}
+  window.wishwaveSyncNavAvatar?.();window.appRefreshMarketplaceBadge?.();window.setHomeNotificationState?.(0);
+  return out;
+ };
+ const header=window.updateAccountHeader;
+ window.updateAccountHeader=function(){const out=header.apply(this,arguments);window.wishwaveSyncNavAvatar?.();return out;};
 })();
 </script>
 <script src="wishwave-auth.js?v=316"></script>
