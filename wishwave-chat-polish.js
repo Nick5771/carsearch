@@ -93,7 +93,7 @@
    if(action==='mute'&&context.kind==='chat')await marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(context.id)+'/mute',{method:context.muted?'DELETE':'POST'});
    else {if(!context.username)throw Error('Profile unavailable');await marketplaceFetch('/social/controls',{method:(action==='mute'?context.muted:context.blocked)?'DELETE':'POST',body:JSON.stringify({kind:action==='mute'?'muted':'blocked',username:context.username})});}
    if(context.session!==marketplaceSession())return;closeAppMpSheet();toast(action==='mute'?(context.muted?'Notifications unmuted':'Notifications muted'):(context.blocked?'Account unblocked':'Account blocked'));
-   if(action==='block'&&!context.blocked){if(context.kind==='chat')appMpInboxBack();else closeWishWavePublicProfile();}
+   if(action==='block'&&!context.blocked){window.findaiNotificationState?.removeActor?.(context.username);if(context.kind==='chat')appMpInboxBack();else closeWishWavePublicProfile();}
   }catch(error){if(context.session===marketplaceSession()){toast(error.message||'Could not update');}}finally{button.disabled=false;}
  },true);
  const update=window.updateAccountHeader;window.updateAccountHeader=function(){const result=update.apply(this,arguments);syncAuth();return result;};

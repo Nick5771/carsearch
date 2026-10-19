@@ -1,12 +1,18 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert'),{DatabaseSync}=require('node:sqlite'),{JSDOM}=require('jsdom');
 const html=fs.readFileSync('findai-app.html','utf8'),source=fs.readFileSync('findai-worker.js','utf8');
 const db=new DatabaseSync(':memory:');
-db.exec(`CREATE TABLE marketplace_notifications(id TEXT PRIMARY KEY,user_email TEXT,notification_type TEXT,actor_email TEXT,created_at TEXT,read_at TEXT);CREATE TABLE marketplace_sellers(id TEXT,user_email TEXT,created_at TEXT);CREATE TABLE marketplace_follows(seller_id TEXT,follower_email TEXT);`);
+db.exec(`CREATE TABLE marketplace_notifications(id TEXT PRIMARY KEY,user_email TEXT,notification_type TEXT,actor_email TEXT,created_at TEXT,read_at TEXT);CREATE TABLE findai_user_controls(owner_email TEXT,target_email TEXT,kind TEXT);CREATE TABLE marketplace_sellers(id TEXT,user_email TEXT,created_at TEXT);CREATE TABLE marketplace_follows(seller_id TEXT,follower_email TEXT);`);
 const context=vm.createContext({});vm.runInContext(source.slice(source.indexOf('function wishwaveVisibleNotificationSQL('),source.indexOf('async function mpNotifyUser(')),context);
 const env={DB:{prepare(sql){let args=[];return{bind(...v){args=v;return this},async first(){return db.prepare(sql).get(...args)},async run(){db.prepare(sql).run(...args);return {}}}}}};
 const add=db.prepare('INSERT INTO marketplace_notifications VALUES(?,?,?,?,?,?)');
 add.run('old','owner','follow','Actor@test','2026-10-17',null);add.run('new','owner','follow_mutual','actor@test','2026-10-19',null);add.run('like-a','owner','like','actor@test','2026-10-18',null);add.run('like-b','owner','like','actor@test','2026-10-19',null);add.run('other','owner','follow','another@test','2026-10-19',null);add.run('other-owner','else','follow','actor@test','2026-10-20',null);
 const ids=db.prepare('SELECT n.id FROM marketplace_notifications n WHERE user_email=? AND '+context.wishwaveVisibleNotificationSQL()).all('owner').map(x=>x.id);assert.deepEqual(ids.sort(),['like-a','like-b','new','other']);
+add.run('listing-blocked','owner','followed_seller_listing','blocked@test','2026-10-19',null);
+add.run('reverse-block','owner','follow','reverse@test','2026-10-19',null);
+db.exec("INSERT INTO findai_user_controls VALUES('OWNER','BLOCKED@test','blocked'),('reverse@test','owner','blocked')");
+const visible=db.prepare('SELECT n.id FROM marketplace_notifications n WHERE user_email=? AND '+context.wishwaveVisibleNotificationSQL()).all('owner').map(x=>x.id);
+assert(!visible.includes('listing-blocked')&&!visible.includes('reverse-block'),'blocked alerts are excluded in either direction');
+
 db.prepare('INSERT INTO marketplace_sellers VALUES(?,?,?)').run('seller-a','OWNER@test','2026-01-01');db.prepare('INSERT INTO marketplace_sellers VALUES(?,?,?)').run('seller-b','else@test','2026-01-01');for(const [seller,email]of[['seller-a','one@test'],['seller-a','two@test'],['seller-b','three@test']])db.prepare('INSERT INTO marketplace_follows VALUES(?,?)').run(seller,email);
 const dom=new JSDOM('<b id="socialFollowersValue"></b><button id="follow">Follow</button>',{url:'https://test',runScripts:'outside-only'}),w=dom.window;let profile={email:'a@test'},session='a-session',calls=[];w.getAccountProfile=()=>profile;w.marketplaceSession=()=>session;w.profileMetricCompact=String;w.socialProfileSeller={};w.paintSocialProfileHeader=()=>{};w.openProfile=()=>{};w.applyFindaiUser=user=>{profile=user;session=user.email+'-session';};w.marketplaceFetch=(url,opts)=>new Promise((resolve,reject)=>calls.push({url,opts,resolve,reject}));w.setTimeout=()=>{};
 const start=html.indexOf('  function followerIdentity(){',html.indexOf('3) Own follower count:')),end=html.indexOf('\n})();',start);w.eval('(function(){'+html.slice(start,end)+'})();');
@@ -21,13 +27,16 @@ const tick=()=>new Promise(r=>setImmediate(r));
 
  // Repeated and concurrent follow notifications update one stable relationship row.
  for(const column of ['title','body','target_url','image_url','entity_id'])db.exec('ALTER TABLE marketplace_notifications ADD COLUMN '+column+' TEXT');
- Object.assign(context,{crypto:require('crypto').webcrypto,TextEncoder,Uint8Array,btoa,mpEnsureSchema:async()=>{},mpCleanText:(v,n)=>String(v||'').slice(0,n),mpId:()=>require('crypto').randomUUID(),findaiNotificationPrefs:async()=>({}),findaiNotificationPushAllowed:()=>false});
+ Object.assign(context,{crypto:require('crypto').webcrypto,TextEncoder,Uint8Array,btoa,mpEnsureSchema:async()=>{},findaiSocialControlsEnsureSchema:async()=>{},mpCleanText:(v,n)=>String(v||'').slice(0,n),mpId:()=>require('crypto').randomUUID(),findaiNotificationPrefs:async()=>({}),findaiNotificationPushAllowed:()=>false});
  vm.runInContext(source.slice(source.indexOf('function b64urlEncode('),source.indexOf('function b64urlDecodeToString(')),context);
+ vm.runInContext(source.slice(source.indexOf('async function findaiEitherBlocked('),source.indexOf('async function findaiMessageAllowed(')),context);
  vm.runInContext(source.slice(source.indexOf('async function mpNotifyUser('),source.indexOf('async function findaiNotificationActor(')),context);
  await Promise.all([context.mpNotifyUser(env,'recipient@test',{type:'follow',actorEmail:'ACTOR@test',title:'Follow one'}),context.mpNotifyUser(env,'recipient@test',{type:'follow',actorEmail:'actor@test',title:'Follow two'})]);
  assert.equal(db.prepare('SELECT COUNT(*) n FROM marketplace_notifications WHERE user_email=?').get('recipient@test').n,1);
  await context.mpNotifyUser(env,'recipient@test',{type:'follow_request',actorEmail:'actor@test',title:'Requested'});
  assert.equal(db.prepare('SELECT notification_type FROM marketplace_notifications WHERE user_email=?').get('recipient@test').notification_type,'follow_request');
+ await context.mpNotifyUser(env,'owner',{type:'followed_seller_listing',actorEmail:'BLOCKED@test',title:'Must not arrive'});assert.equal(db.prepare("SELECT COUNT(*) n FROM marketplace_notifications WHERE title='Must not arrive'").get().n,0,'blocked event is rejected before inbox insert');
+ w.escapeHTML=w.escapeAttr=String;w.eval(html.slice(html.indexOf('  function notificationActorName('),html.indexOf('  function renderHomeNotifications(')));const listingNotice={notification_type:'followed_seller_listing',actor_username:'seller',body:'Vintage camera'};assert(!w.notificationSide(listingNotice,0).includes('findaiNotificationFollowBack'),'listing alerts have no Follow button');assert.equal(w.notificationSecondaryText(listingNotice),'Vintage camera');assert.equal(w.notificationTypeLabel(listingNotice),'seller listed something new');
  const native=fs.readFileSync('ios/WishWave/WishWave/WishWaveApp.swift','utf8');assert(native.includes('session.prefersEphemeralWebBrowserSession = true'));assert(native.includes('private let selectionFeedback = UISelectionFeedbackGenerator()'));assert(native.includes('message.body as? String == "prepare"'));assert(html.includes('width:6px!important;min-width:6px!important'));assert(!fs.readFileSync('wishwave-auth.js','utf8').includes("feedback('Opening"));
  console.log('PASS: latest follow-event visibility and unread consistency, account-scoped fast count query, immediate sign-in fetch, request sharing, stale account protection, count decreases/zero, immediate notification Follow haptic and duplicate-tap guard; private native auth and prepared haptics');db.close();w.close();
 })().catch(e=>{console.error(e);db.close();w.close();process.exitCode=1});

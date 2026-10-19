@@ -19145,7 +19145,11 @@ function findaiNotificationPushAllowed(type, prefs) {
 // A follow relationship has one current inbox entry, even if old rows or
 // repeated unfollow/refollow events exist. Other activity remains event-based.
 function wishwaveVisibleNotificationSQL(alias='n') {
-  return `(${alias}.notification_type NOT IN ('follow','follow_mutual','follow_request')
+  return `NOT EXISTS (SELECT 1 FROM findai_user_controls blocked
+      WHERE blocked.kind='blocked' AND (
+        (lower(blocked.owner_email)=lower(${alias}.user_email) AND lower(blocked.target_email)=lower(${alias}.actor_email))
+        OR (lower(blocked.target_email)=lower(${alias}.user_email) AND lower(blocked.owner_email)=lower(${alias}.actor_email))))
+    AND (${alias}.notification_type NOT IN ('follow','follow_mutual','follow_request')
     OR COALESCE(${alias}.actor_email,'')=''
     OR NOT EXISTS (SELECT 1 FROM marketplace_notifications newer
       WHERE newer.user_email=${alias}.user_email
@@ -19170,6 +19174,7 @@ async function mpNotifyUser(env, userEmail, notification) {
   const targetUrl = String(notification && notification.url || 'https://findai.ai/findai-app.html').slice(0, 1000);
   const type = mpCleanText(notification && notification.type || 'marketplace', 50) || 'marketplace';
   const actorEmail = String(notification && notification.actorEmail || '').trim().toLowerCase().slice(0,320) || null;
+  if(actorEmail && await findaiEitherBlocked(env,email,actorEmail)) return;
   const imageUrl = String(notification && notification.imageUrl || '').trim().slice(0,1200) || null;
   const entityId = String(notification && notification.entityId || '').trim().slice(0,220) || null;
   const dedupeWindowMs = Math.max(0, Number(notification && notification.dedupeWindowMs || 0));
@@ -25127,6 +25132,7 @@ export default {
         try {
           await mpEnsureSchema(env);
           await findaiProfileEnsureSchema(env);
+          await findaiSocialControlsEnsureSchema(env);
           const count = await env.DB.prepare(`SELECT COUNT(*) AS n FROM marketplace_notifications n WHERE n.user_email=? AND n.read_at IS NULL AND n.notification_type<>'message' AND ${wishwaveVisibleNotificationSQL('n')}`).bind(auth.email).first();
           const rows = await env.DB.prepare(
             `SELECT n.id,n.notification_type,n.title,n.body,n.target_url,n.actor_email,n.image_url,n.entity_id,n.read_at,n.created_at,

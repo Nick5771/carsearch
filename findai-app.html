@@ -9701,7 +9701,7 @@ function paintSocialProfileHeader(){
 }
 function setProfileTab(tab){
   const allowed=['listings','sold','saved'];
-  const next=getAccountProfile()&&allowed.includes(tab)?tab:'listings';
+  const next=getAccountProfile()&&marketplaceSession()&&allowed.includes(tab)?tab:'listings';
   const previous=socialProfileTab;
   const fromIndex=Math.max(0,allowed.indexOf(previous));
   const toIndex=Math.max(0,allowed.indexOf(next));
@@ -12643,14 +12643,14 @@ window.addEventListener('load', function(){
     if(type.includes('price'))return 'Price drop';
     if(type.includes('offer')&&type.includes('accept'))return 'Offer accepted';
     if(type.includes('offer'))return 'Offer update';
-    if(type.includes('listing'))return 'New listing';
+    if(type.includes('listing'))return actor?(actor+' listed something new'):'New listing';
     if(type.includes('view'))return String(n.title||'Listing update');
     return String(n.title||'FindAI notification');
   }
   function notificationSecondaryText(n){
     const type=String(n.notification_type||'').toLowerCase();
     const body=String(n.body||'').trim();
-    if(type.includes('follow'))return '';
+    if(type.includes('follow')&&!type.includes('listing'))return '';
     if(type.includes('comment'))return body;
     return body;
   }
@@ -12740,7 +12740,7 @@ window.addEventListener('load', function(){
     if(type.includes('follow_mutual')){
       return '<span class="findai-notification-side"></span>';
     }
-    if(type==='follow'||(type.includes('follow')&&!type.includes('request')&&!type.includes('accepted')&&!type.includes('mutual'))){
+    if(type==='follow'||type==='started_following'){
       const isFollowing=!!(n.viewer_is_following===true||Number(n.viewer_is_following||0));
       const isPending=!!(n.viewer_follow_pending===true||Number(n.viewer_follow_pending||0));
       const label=isFollowing?'Following':isPending?'Requested':'Follow';
@@ -13089,6 +13089,13 @@ window.addEventListener('load', function(){
      Do not duplicate this state in later scripts. */
   window.findaiNotificationState={
     getCache:()=>appNotificationCache,
+    removeActor:username=>{
+      const target=String(username||'').replace(/^@/,'').trim().toLowerCase();if(!target)return;
+      notificationFollowVersion++;
+      appNotificationCache=appNotificationCache.filter(n=>String(n.actor_username||'').replace(/^@/,'').trim().toLowerCase()!==target);
+      appNotificationUnread=appNotificationCache.reduce((sum,n)=>sum+(!n.read_at?1:0),0);
+      setHomeNotificationState(appNotificationUnread);renderHomeNotifications();
+    },
     getUnread:()=>appNotificationUnread,
     setUnread:value=>{
       appNotificationUnread=Math.max(0,Number(value)||0);
@@ -18612,6 +18619,7 @@ html.findai-light .findai-settings-switch.on{background:#4d8cff}
 
   const previousOpenSettings=window.openAppSettings;
   window.openAppSettings=function(){
+    if(!getAccountProfile()||!marketplaceSession()){closeAppSettings();openLogin();return;}
     try{closeAccountMenu()}catch(_){}
     readPrefs();syncPrefs().catch(()=>{});
     findaiOpenSettingsHome();
@@ -34495,7 +34503,7 @@ html.findai-light body #appThemeOverlay .wishwave-reference-settings .wishwave-s
 
  // Keep the original searchable settings catalogue and pane actions.
  const settingsHome=window.findaiOpenSettingsHome;
- window.findaiOpenSettingsHome=function(){const out=settingsHome.apply(this,arguments),root=document.querySelector('#appThemeOverlay .findai-settings-page');if(!root)return out;root.classList.add('wishwave-reference-settings');const heading=root.querySelector('.findai-settings-head');if(heading){const title=heading.querySelector('b,h2,h1');if(title)title.textContent='Settings';}const sections=[...root.querySelectorAll('.findai-settings-section')];sections.forEach((section,i)=>{const title=section.querySelector('.findai-settings-section-title');if(title)title.textContent=['Account','Preferences','Help'][i]||title.textContent;});const account=root.querySelector('.findai-settings-account-card');if(account){account.setAttribute('role','button');account.tabIndex=0;account.setAttribute('aria-label','Edit profile');account.onclick=()=>{closeAppSettings();openProfileEdit();};account.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();account.click();}};}const appearance=[...root.querySelectorAll('.findai-settings-row')].find(r=>r.textContent.includes('Appearance'));if(appearance&&sections[1]){sections[1].appendChild(appearance);const choices=document.createElement('div');choices.className='wishwave-settings-theme app-theme-segment';choices.setAttribute('aria-label','Appearance');choices.innerHTML=['dark','light','system'].map(t=>'<button type="button" class="app-theme-choice" data-app-theme-choice="'+t+'" onclick="setAppTheme(\''+t+'\')">'+t[0].toUpperCase()+t.slice(1)+'</button>').join('');sections[1].appendChild(choices);}applyAppTheme();return out;};
+ window.findaiOpenSettingsHome=function(){if(!getAccountProfile()||!marketplaceSession()){closeAppSettings();openLogin();return;}const out=settingsHome.apply(this,arguments),root=document.querySelector('#appThemeOverlay .findai-settings-page');if(!root)return out;root.classList.add('wishwave-reference-settings');const heading=root.querySelector('.findai-settings-head');if(heading){const title=heading.querySelector('b,h2,h1');if(title)title.textContent='Settings';}const sections=[...root.querySelectorAll('.findai-settings-section')];sections.forEach((section,i)=>{const title=section.querySelector('.findai-settings-section-title');if(title)title.textContent=['Account','Preferences','Help'][i]||title.textContent;});const account=root.querySelector('.findai-settings-account-card');if(account){account.setAttribute('role','button');account.tabIndex=0;account.setAttribute('aria-label','Edit profile');account.onclick=()=>{closeAppSettings();openProfileEdit();};account.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();account.click();}};}const appearance=[...root.querySelectorAll('.findai-settings-row')].find(r=>r.textContent.includes('Appearance'));if(appearance&&sections[1]){sections[1].appendChild(appearance);const choices=document.createElement('div');choices.className='wishwave-settings-theme app-theme-segment';choices.setAttribute('aria-label','Appearance');choices.innerHTML=['dark','light','system'].map(t=>'<button type="button" class="app-theme-choice" data-app-theme-choice="'+t+'" onclick="setAppTheme(\''+t+'\')">'+t[0].toUpperCase()+t.slice(1)+'</button>').join('');sections[1].appendChild(choices);}applyAppTheme();return out;};
  // Preserve conversation metadata for offers while removing the visual item strip.
  const messageHeader=window.appMpRenderMessageHeader;
  window.appMpRenderMessageHeader=function(c,presence){const out=messageHeader.apply(this,arguments),party=appMpCurrentConversation||c,title=document.getElementById('appMpInboxTitle');if(!party||!title)return out;const copy=document.createElement('span');copy.className='wishwave-chat-identity-copy';const name=title.querySelector('.findai-chat-title-name');if(name)copy.appendChild(name);const status=document.createElement('span');status.className='wishwave-chat-presence';status.textContent=presence?appMpPresenceText(presence):'Private conversation';copy.appendChild(status);const person=title.querySelector('.findai-chat-title-person');if(person)person.appendChild(copy);if(presence?.online){const dot=document.createElement('span');dot.className='wishwave-chat-online-dot';title.querySelector('.findai-chat-title-avatar')?.appendChild(dot);}const head=document.getElementById('appMpChatHead');if(head)head.replaceChildren();const spacer=document.querySelector('#appMpInbox .app-mp-header-spacer');if(spacer){spacer.innerHTML='<button type="button" class="wishwave-chat-menu" onclick="wishwaveChatMenu()" aria-label="Conversation options">'+svg('<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>')+'</button>';}return out;};
@@ -35827,7 +35835,7 @@ html body .reel-actions-rail .reel-social-action svg{stroke-width:1.8!important}
 html body .reel-actions-rail .reel-social-action.bookmark.active svg{fill:currentColor!important}
 @media(prefers-reduced-motion:reduce){.wishwave-notification-tabs::after{transition:none}}
 </style>
-<script src="wishwave-bookmarks.js?v=298"></script>
+<script src="wishwave-bookmarks.js?v=329"></script>
 <script src="wishwave-tab-paging.js?v=253"></script>
 <style id="wishwave-stable-main-tabs-v252">html body .app>:is(#discover,#search,#searchResults,#notifications,#profile){animation:none!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;margin:0!important;contain:layout paint!important;backface-visibility:hidden!important;}html body .app .findai-v132-swipe-surface{opacity:1!important;}</style>
 <style id="wishwave-account-discovery-polish-v254">
@@ -36014,6 +36022,11 @@ html:not(.findai-light) body[data-active-tab="discover"],html:not(.findai-light)
 html:not(.findai-light) body .app #discover{--bg:#17181a;background:#17181a!important;}
 html:not(.findai-light) body .app #discover :is(.feed-wrap,.discover-feed-wrap,.reel-feed,#findaiContextualReelV168,#findaiContextualFeedV168,.reel-loading-splash,.reel-loading-card,.feed-status){background:#17181a!important;}
 html:not(.findai-light) body .app #discover .discover-social-topbar{background:#17181a!important;}
+html body .app #discover .wishwave-quality-reel.wishwave-quality-reel .hero-stage{
+ inset:var(--wishwave-light-header-height,calc(var(--safe-top,0px) + 94px)) 0 0!important;
+ height:calc(100% - var(--wishwave-light-header-height,calc(var(--safe-top,0px) + 94px)))!important;
+}
+
 html:not(.findai-light) body .app #discover .wishwave-quality-reel.wishwave-quality-reel{background:#17181a!important;}
 html:not(.findai-light) body .app #discover .wishwave-quality-reel.wishwave-quality-reel :is(.hero-stage,.reel-gallery-slide){background:#17181a!important;--hero-fill:#17181a!important;}
 html:not(.findai-light) body[data-active-tab="discover"] #wishwaveMainNav.nav::before,html:not(.findai-light) body[data-active-tab="discover"] #wishwaveMainNav.nav::after{background:#17181a!important;}
@@ -36173,7 +36186,7 @@ html body #profileSignedOut [data-guest-likes]{display:none!important;}
 })();
 </script>
 <link rel="stylesheet" href="wishwave-chat-polish.css?v=326">
-<script src="wishwave-chat-polish.js?v=326"></script>
+<script src="wishwave-chat-polish.js?v=330"></script>
 <link rel="stylesheet" href="wishwave-connections.css?v=325">
 <script src="wishwave-connections.js?v=323"></script>
 <script src="wishwave-auth.js?v=316"></script>
