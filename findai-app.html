@@ -35672,7 +35672,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  };
 
  async function imageReady(item){
-  await window.wishwavePreparePortrait?.(item);
+  if(typeof window!=='undefined')await window.wishwavePreparePortrait?.(item);
   const plan=appImagePlan(item,0,{personalised:true}),src=plan?.src;if(!src)return false;
   const previous=images.get(src);if(previous&&Date.now()-previous.at>(previous.ok===false?10000:10*60000))images.delete(src);
   if(!images.has(src)){
