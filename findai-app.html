@@ -12668,9 +12668,9 @@ window.addEventListener('load', function(){
     const dot=unread?'<i class="findai-notification-unread"></i>':'';
     if(type.includes('comment')&&!type.includes('like')&&text){
       const actor=notificationActorName(n)||'Someone',reply=type.includes('reply');
-      return '<span class="findai-notification-copy ww-notification-comment"><b>'+notificationTitleMarkup(n,index,actor)+dot+'</b>'+
-        '<span class="ww-notification-inline-comment"><span>'+(reply?'replied: ':'commented: ')+'</span><q>'+escapeHTML(text)+'</q></span>'+
-        '<span class="findai-notification-meta">'+(reply?'On your comment':'On your listing')+(time?' · '+escapeHTML(time):'')+'</span></span>';
+      return '<span class="findai-notification-copy ww-notification-comment"><b>'+notificationTitleMarkup(n,index,actor+(reply?' replied':' commented'))+dot+'</b>'+
+        '<span class="ww-notification-inline-comment"><q>'+escapeHTML(text)+'</q></span>'+
+        (time?'<span class="findai-notification-meta">'+escapeHTML(time)+'</span>':'')+'</span>';
     }
     return '<span class="findai-notification-copy"><b>'+notificationTitleMarkup(n,index,title)+dot+'</b>'+notificationSecondaryMarkup(n,secondary)+(time?'<span class="findai-notification-meta">'+escapeHTML(time)+'</span>':'')+'</span>';
   }
@@ -36173,7 +36173,7 @@ html body #profileSignedOut [data-guest-likes]{display:none!important;}
 </script>
 <link rel="stylesheet" href="wishwave-chat-polish.css?v=322">
 <script src="wishwave-chat-polish.js?v=321"></script>
-<link rel="stylesheet" href="wishwave-connections.css?v=324">
+<link rel="stylesheet" href="wishwave-connections.css?v=325">
 <script src="wishwave-connections.js?v=323"></script>
 <script src="wishwave-auth.js?v=316"></script>
 </body>
