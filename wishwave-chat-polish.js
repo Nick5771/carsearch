@@ -58,35 +58,43 @@
  window.addEventListener('click',e=>{const identity=e.target.closest?.('#appMpInboxTitle .findai-chat-title-person');if(identity){e.preventDefault();e.stopImmediatePropagation();findaiOpenCurrentChatProfileV178();}},true);
  function row(action,label,danger=false){return '<button type="button" class="ww-chat-action'+(danger?' danger':'')+'" data-chat-action="'+action+'">'+icon(icons[action]||icons.profile)+'<span>'+label+'</span>'+icon('<path d="m9 5 7 7-7 7"/>')+'</button>';}
  function showSheet(context){
-  menu=context;const avatar=context.avatar?'<img src="'+escapeAttr(context.avatar)+'" alt="">':icon(icons.profile);
+  menu=context;context.confirmingBlock=false;const avatar=context.avatar?'<img src="'+escapeAttr(context.avatar)+'" alt="">':findaiDefaultAvatarSvg();
   const rows=context.kind==='chat'?row('profile','View profile')+row('mute',context.muted?'Unmute conversation':'Mute conversation')+row('block','Block user',true)+row('report','Report conversation',true):row('mute',context.muted?'Unmute':'Mute')+row('block',context.blocked?'Unblock':'Block',true)+row('report','Report account',true);
   openAppMpSheet(context.kind==='chat'?'Conversation':'Profile options','<div class="ww-chat-sheet-handle"></div><div class="ww-chat-sheet-identity">'+(context.kind==='chat'?'<span class="ww-chat-sheet-avatar">'+avatar+'</span>':'')+'<div><b>'+escapeHTML(context.kind==='chat'?context.name:'Profile options')+'</b><span>'+escapeHTML(context.kind==='chat'?'Conversation':'@'+context.username)+'</span></div></div><div class="ww-chat-action-group">'+rows+'</div><button type="button" class="ww-chat-cancel" data-chat-action="cancel">Cancel</button>');
   document.getElementById('appMpSheetBg')?.classList.add('ww-chat-action-sheet');
  }
+ function showBlockConfirmation(context){
+  openAppMpSheet('Confirm block','<div class="ww-chat-block-confirm" role="alertdialog" aria-modal="true" aria-labelledby="wwBlockTitle" aria-describedby="wwBlockDescription"><h2 id="wwBlockTitle">'+(context.blocked?'Unblock ':'Block ')+escapeHTML(context.name||context.username)+'?</h2><p id="wwBlockDescription">'+(context.blocked?'They will be able to follow and message you again.':'Are you sure you want to block this user? They won’t be able to follow or message you.')+'</p><div class="ww-chat-confirm-actions"><button type="button" data-chat-action="cancel-block">Cancel</button><button type="button" class="danger" data-chat-action="confirm-block">'+(context.blocked?'Unblock':'Block')+'</button></div></div>');
+  context.confirmingBlock=true;document.getElementById('appMpSheetBg')?.classList.add('ww-chat-action-sheet','ww-chat-confirm-sheet');
+  document.querySelector('[data-chat-action="cancel-block"]')?.focus();
+ }
+ window.addEventListener('keydown',e=>{if(!document.getElementById('appMpSheetBg')?.classList.contains('ww-chat-confirm-sheet'))return;if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();if(menu)showSheet(menu);}else if(e.key==='Tab'){const buttons=[...document.querySelectorAll('.ww-chat-confirm-actions button')];if(e.shiftKey&&document.activeElement===buttons[0]){e.preventDefault();buttons.at(-1)?.focus();}else if(!e.shiftKey&&document.activeElement===buttons.at(-1)){e.preventDefault();buttons[0]?.focus();}}},true);
  const open=window.openAppMpSheet,close=window.closeAppMpSheet;
- window.openAppMpSheet=function(){document.getElementById('appMpSheetBg')?.classList.remove('ww-chat-action-sheet');return open.apply(this,arguments);};
- window.closeAppMpSheet=function(){document.getElementById('appMpSheetBg')?.classList.remove('ww-chat-action-sheet');return close.apply(this,arguments);};
+ window.openAppMpSheet=function(){document.getElementById('appMpSheetBg')?.classList.remove('ww-chat-action-sheet','ww-chat-confirm-sheet');return open.apply(this,arguments);};
+ window.closeAppMpSheet=function(){document.getElementById('appMpSheetBg')?.classList.remove('ww-chat-action-sheet','ww-chat-confirm-sheet');return close.apply(this,arguments);};
  window.wishwaveChatMenu=function(){
   if(!marketplaceSession()){openLogin();return;}const c=appMpCurrentConversation;if(!c||!appMpConversation)return;
   document.getElementById('appMpMessageInput')?.blur();const context={kind:'chat',id:appMpConversation,username:c.otherPartyUsername||'',name:c.otherParty||'Conversation',avatar:c.otherPartyAvatar||'',muted:false,session:scope()};showSheet(context);
-  marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(context.id)+'/mute',{method:'GET'}).then(data=>{if(menu===context&&context.session===marketplaceSession()&&document.getElementById('appMpSheetBg')?.classList.contains('show')){context.muted=!!data.muted;const text=document.querySelector('.ww-chat-action[data-chat-action="mute"] span');if(text)text.textContent=context.muted?'Unmute conversation':'Mute conversation';}}).catch(()=>{});
+  marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(context.id)+'/mute',{method:'GET'}).then(data=>{if(menu===context&&context.session===marketplaceSession()&&!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show')){context.muted=!!data.muted;const text=document.querySelector('.ww-chat-action[data-chat-action="mute"] span');if(text)text.textContent=context.muted?'Unmute conversation':'Mute conversation';}}).catch(()=>{});
  };
  window.openFindAIProfileActions=function(){
   if(!marketplaceSession()){openLogin();return;}const s=wishwavePublicSellerData?.seller;if(!s?.username)return;const context={kind:'profile',username:s.username,name:s.displayName||s.username,muted:false,blocked:false,session:scope()};showSheet(context);
-  marketplaceFetch('/social/relationship?username='+encodeURIComponent(s.username),{method:'GET'}).then(data=>{if(menu===context&&context.session===marketplaceSession()&&document.getElementById('appMpSheetBg')?.classList.contains('show')){Object.assign(context,{muted:!!data.muted,blocked:!!data.blocked});showSheet(context);}}).catch(()=>{});
+  marketplaceFetch('/social/relationship?username='+encodeURIComponent(s.username),{method:'GET'}).then(data=>{if(menu===context&&context.session===marketplaceSession()&&!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show')){Object.assign(context,{muted:!!data.muted,blocked:!!data.blocked});showSheet(context);}}).catch(()=>{});
  };
  window.addEventListener('click',async e=>{
-  const button=e.target.closest?.('#appMpSheetBg.ww-chat-action-sheet [data-chat-action]');if(!button)return;e.preventDefault();e.stopPropagation();const action=button.dataset.chatAction,context=menu;if(action==='cancel'){closeAppMpSheet();return;}if(!context||context.session!==marketplaceSession())return;
+  const button=e.target.closest?.('#appMpSheetBg.ww-chat-action-sheet [data-chat-action]');if(!button)return;e.preventDefault();e.stopPropagation();let action=button.dataset.chatAction;const context=menu;if(action==='cancel'){closeAppMpSheet();return;}if(!context||context.session!==marketplaceSession())return;
   if(action==='profile'){closeAppMpSheet();findaiOpenCurrentChatProfileV178();return;}
   if(action==='report'){closeAppMpSheet();openWishWaveSafetyReport(context.kind==='chat'?'conversation':'user',{id:context.kind==='chat'?context.id:context.username});return;}
-  if(action==='block'&&!context.confirmingBlock){context.confirmingBlock=true;button.querySelector('span').textContent=context.blocked?'Confirm unblock':'Confirm block';return;}
+  if(action==='cancel-block'){showSheet(context);return;}
+  if(action==='block'){showBlockConfirmation(context);return;}
+  if(action==='confirm-block'){if(!context.confirmingBlock)return;action='block';}
   if(button.disabled)return;button.disabled=true;
   try{
    if(action==='mute'&&context.kind==='chat')await marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(context.id)+'/mute',{method:context.muted?'DELETE':'POST'});
    else {if(!context.username)throw Error('Profile unavailable');await marketplaceFetch('/social/controls',{method:(action==='mute'?context.muted:context.blocked)?'DELETE':'POST',body:JSON.stringify({kind:action==='mute'?'muted':'blocked',username:context.username})});}
    if(context.session!==marketplaceSession())return;closeAppMpSheet();toast(action==='mute'?(context.muted?'Notifications unmuted':'Notifications muted'):(context.blocked?'Account unblocked':'Account blocked'));
    if(action==='block'&&!context.blocked){if(context.kind==='chat')appMpInboxBack();else closeWishWavePublicProfile();}
-  }catch(error){if(context.session===marketplaceSession()){context.confirmingBlock=false;toast(error.message||'Could not update');}}finally{button.disabled=false;}
+  }catch(error){if(context.session===marketplaceSession()){toast(error.message||'Could not update');}}finally{button.disabled=false;}
  },true);
  const update=window.updateAccountHeader;window.updateAccountHeader=function(){const result=update.apply(this,arguments);syncAuth();return result;};
  const signout=window.signOutAccount;window.signOutAccount=function(){const result=signout.apply(this,arguments);cache.clear();inflight.clear();syncAuth();return result;};
