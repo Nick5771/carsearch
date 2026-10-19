@@ -18,7 +18,7 @@ const w=dom.window,item={title:'Test camera',itemId:'test-camera',source:'ebay',
  assert(w.document.querySelector('#profileSignedOut .guest-profile-signin'),'guest keeps the sign-in prompt');
  tabs[0].click();assert(w.document.querySelector('#profileSignedOut .guest-profile-signin'));assert(!w.document.querySelector('#profileSignedOut .social-profile-grid'));
  assert.equal(w.document.querySelector('#profileSignedOut .social-profile-handle').textContent,'Profile');
- const beforeLogin=loginRequests;w.openAppSettings();assert.equal(loginRequests,beforeLogin+1,'guest Settings requires sign-in');assert(!w.document.getElementById('appThemeOverlay').classList.contains('show'));signedIn=true;
+ const beforeLogin=loginRequests;w.openAppSettings();assert.equal(loginRequests,beforeLogin+1,'guest Settings requires sign-in');assert(!w.document.getElementById('appThemeOverlay').classList.contains('show'));const messageLogin=loginRequests;w.openMessagesTab();assert.equal(loginRequests,messageLogin+1,'guest Messages opens sign-in');signedIn=true;
  w.openAppSettings();const likedRow=[...w.document.querySelectorAll('[onclick]')].find(x=>x.getAttribute('onclick')==="closeAppSettings();go('liked')");assert(likedRow,'Liked items stays accessible through Settings');likedRow.click();assert(w.document.querySelector('#liked').classList.contains('active'));
  assert(!w.document.querySelector('#profileSignedIn [data-profile-tab=liked]'));
  const headStyles=source.slice(0,source.indexOf('</head>'));assert(headStyles.includes('wishwave-home-critical-v249'));assert(headStyles.includes('flex-wrap:nowrap!important'));assert(headStyles.includes('border-radius:0!important'));

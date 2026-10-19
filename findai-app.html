@@ -3175,7 +3175,7 @@ html.findai-light .nav.findai-five-nav.premium-bottom-nav button.active .nav-ico
 </style>
 
 <style id="wishwave-home-critical-v249">
-html body #discover .discover-social-topbar{height:calc(var(--safe-top,0px) + 94px)!important;display:grid!important;grid-template-columns:1fr auto!important;grid-template-rows:46px 40px!important;align-content:start!important;}
+html body #discover .discover-social-topbar{height:calc(var(--safe-top,0px) + 78px)!important;display:grid!important;grid-template-columns:1fr auto!important;grid-template-rows:40px 32px!important;align-content:start!important;}
 html body #discover .discover-social-brand{grid-row:1;grid-column:1;}
 html body #discover #homeMessageButton{grid-row:1;grid-column:2;position:relative!important;}
 html body #discover .wishwave-home-feed-tabs{grid-row:2;grid-column:1/-1;justify-self:center;display:flex!important;flex-direction:row!important;flex-wrap:nowrap!important;align-items:center!important;gap:25px;white-space:nowrap;pointer-events:auto;}
@@ -3598,7 +3598,7 @@ html body .source-chip .findai-exact-brand[data-brand="etsy"] img{
           <button class="active" type="button" tabindex="-1">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><rect x="13.5" y="13.5" width="7" height="7" rx="1"/></svg>
           </button>
-          <button type="button" tabindex="-1">
+          <button type="button" disabled aria-disabled="true" tabindex="-1">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h16v13H4z"/><path d="M7 7V5h10v2M9 11h6"/><path d="m9.2 15 1.8 1.8 4-4"/></svg>
           </button>
         </div>
@@ -6195,6 +6195,7 @@ function syncMainNavActive(){
   setMainNavActive(document.body.dataset.activeTab||'discover');
 }
 async function openMessagesTab(){
+  if(!getAccountProfile()||!marketplaceSession()){openLogin();return;}
   const previous=document.body.dataset.activeTab||'discover';
   setMainNavActive('messages');
   try{
@@ -34483,7 +34484,7 @@ html.findai-light body #appThemeOverlay .wishwave-reference-settings .wishwave-s
  window.go=function(tab){if(tab!=='notifications')notificationClose();return previousGo.apply(this,arguments);};
  const messagesOpen=window.openMessagesTab;
  let messageOrigin='discover';
- window.openMessagesTab=function(){closeAppSettings();if(document.body.dataset.activeTab!=='messages')messageOrigin=document.body.dataset.activeTab||'discover';notificationClose();return messagesOpen.apply(this,arguments);};
+ window.openMessagesTab=function(){if(!getAccountProfile()||!marketplaceSession()){openLogin();return;}closeAppSettings();if(document.body.dataset.activeTab!=='messages')messageOrigin=document.body.dataset.activeTab||'discover';notificationClose();return messagesOpen.apply(this,arguments);};
  const inboxBack=window.appMpInboxBack;
  window.appMpInboxBack=function(){if(document.getElementById('appMpInbox')?.classList.contains('chat-open'))return inboxBack.apply(this,arguments);if(messageOrigin==='notifications')return wishwaveOpenNotificationTab();if(messageOrigin==='profile')return openProfile();if(messageOrigin==='search')return openSearchHome(false);return openForYou();};
  window.setHomeNotificationState=function(count){const unread=Math.max(0,Number(count)||0),button=document.querySelector('#wishwaveMainNav [data-tab="notifications"]'),dot=document.getElementById('navNotificationsBadge');if(button){button.classList.toggle('has-unread',unread>0);button.setAttribute('aria-label',unread?'Notifications — '+unread+' unread':'Notifications');}if(dot){dot.classList.toggle('show',unread>0);dot.style.display=unread?'block':'none';}};
@@ -35835,7 +35836,7 @@ html body .reel-actions-rail .reel-social-action svg{stroke-width:1.8!important}
 html body .reel-actions-rail .reel-social-action.bookmark.active svg{fill:currentColor!important}
 @media(prefers-reduced-motion:reduce){.wishwave-notification-tabs::after{transition:none}}
 </style>
-<script src="wishwave-bookmarks.js?v=329"></script>
+<script src="wishwave-bookmarks.js?v=331"></script>
 <script src="wishwave-tab-paging.js?v=253"></script>
 <style id="wishwave-stable-main-tabs-v252">html body .app>:is(#discover,#search,#searchResults,#notifications,#profile){animation:none!important;position:absolute!important;inset:0!important;width:100%!important;height:100%!important;margin:0!important;contain:layout paint!important;backface-visibility:hidden!important;}html body .app .findai-v132-swipe-surface{opacity:1!important;}</style>
 <style id="wishwave-account-discovery-polish-v254">
@@ -36022,9 +36023,10 @@ html:not(.findai-light) body[data-active-tab="discover"],html:not(.findai-light)
 html:not(.findai-light) body .app #discover{--bg:#17181a;background:#17181a!important;}
 html:not(.findai-light) body .app #discover :is(.feed-wrap,.discover-feed-wrap,.reel-feed,#findaiContextualReelV168,#findaiContextualFeedV168,.reel-loading-splash,.reel-loading-card,.feed-status){background:#17181a!important;}
 html:not(.findai-light) body .app #discover .discover-social-topbar{background:#17181a!important;}
-html body .app #discover .wishwave-quality-reel.wishwave-quality-reel .hero-stage{
- inset:var(--wishwave-light-header-height,calc(var(--safe-top,0px) + 94px)) 0 0!important;
- height:calc(100% - var(--wishwave-light-header-height,calc(var(--safe-top,0px) + 94px)))!important;
+html.findai-light body .app #discover .reel-card.wishwave-quality-reel.wishwave-quality-reel .hero-stage,
+html:not(.findai-light) body .app #discover .reel-card.wishwave-quality-reel.wishwave-quality-reel .hero-stage{
+ inset:var(--wishwave-light-header-height,calc(var(--safe-top,0px) + 78px)) 0 0!important;
+ height:calc(100% - var(--wishwave-light-header-height,calc(var(--safe-top,0px) + 78px)))!important;
 }
 
 html:not(.findai-light) body .app #discover .wishwave-quality-reel.wishwave-quality-reel{background:#17181a!important;}
@@ -36185,7 +36187,7 @@ html body #profileSignedOut [data-guest-likes]{display:none!important;}
  window.updateAccountHeader=function(){const out=header.apply(this,arguments);window.wishwaveSyncNavAvatar?.();return out;};
 })();
 </script>
-<link rel="stylesheet" href="wishwave-chat-polish.css?v=326">
+<link rel="stylesheet" href="wishwave-chat-polish.css?v=331">
 <script src="wishwave-chat-polish.js?v=330"></script>
 <link rel="stylesheet" href="wishwave-connections.css?v=325">
 <script src="wishwave-connections.js?v=323"></script>
