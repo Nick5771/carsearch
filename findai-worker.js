@@ -23931,6 +23931,43 @@ export default {
         }
       }
 
+      const connectionsMatch=url.pathname.match(/^\/social\/connections\/([^/]+)$/);
+      if(connectionsMatch&&request.method==='GET'){
+        const auth=await requireUser(request,env);if(auth.fail)return auth.fail;
+        if(!env.DB)return jsonResp({error:'Profiles unavailable'},503);
+        try{
+          await Promise.all([mpEnsureSchema(env),findaiProfileEnsureSchema(env),findaiSocialControlsEnsureSchema(env)]);
+          const name=decodeURIComponent(connectionsMatch[1]);
+          const target=name==='@me'?String(auth.email).toLowerCase():await findaiEmailForUsername(env,findaiUsernameNormalize(name));
+          if(!target||await findaiEitherBlocked(env,auth.email,target))return jsonResp({error:'Profile unavailable'},404,{'Cache-Control':'no-store'});
+          const counts=await env.DB.prepare(`SELECT
+            (SELECT COUNT(*) FROM marketplace_follows f JOIN marketplace_sellers s ON s.id=f.seller_id WHERE lower(s.user_email)=lower(?)) AS followers,
+            (SELECT COUNT(*) FROM marketplace_follows WHERE lower(follower_email)=lower(?)) AS following`).bind(target,target).first();
+          if(url.searchParams.get('counts')==='1')return jsonResp({followers:Number(counts?.followers||0),following:Number(counts?.following||0)},200,{'Cache-Control':'no-store'});
+          const prefs=await findaiAppPrefsRead(env,target);
+          if(String(auth.email).toLowerCase()!==target&&prefs.privateAccount){
+            const allowed=await env.DB.prepare(`SELECT 1 AS yes FROM marketplace_follows f JOIN marketplace_sellers s ON s.id=f.seller_id WHERE lower(s.user_email)=lower(?) AND lower(f.follower_email)=lower(?) LIMIT 1`).bind(target,auth.email).first();
+            if(!allowed)return jsonResp({error:'Follow this private account to view its connections'},403,{'Cache-Control':'no-store'});
+          }
+          const kind=url.searchParams.get('type')==='following'?'following':'followers';
+          const offset=Math.max(0,Math.min(100000,parseInt(url.searchParams.get('offset')||'0',10)||0));
+          const limit=30,q=String(url.searchParams.get('q')||'').trim().slice(0,80);
+          const joins=kind==='following'?`JOIN marketplace_sellers person ON person.id=f.seller_id JOIN findai_profiles p ON lower(p.user_email)=lower(person.user_email)`:
+            `JOIN marketplace_sellers owner ON owner.id=f.seller_id JOIN findai_profiles p ON lower(p.user_email)=lower(f.follower_email) LEFT JOIN marketplace_sellers person ON lower(person.user_email)=lower(p.user_email)`;
+          const where=kind==='following'?`lower(f.follower_email)=lower(?)`:`lower(owner.user_email)=lower(?)`;
+          const result=await env.DB.prepare(`SELECT p.username,p.display_name,p.avatar_url,
+            CASE WHEN lower(p.user_email)=lower(?) THEN 1 ELSE 0 END AS is_self,
+            EXISTS(SELECT 1 FROM marketplace_follows mine WHERE mine.seller_id=person.id AND lower(mine.follower_email)=lower(?)) AS is_following,
+            EXISTS(SELECT 1 FROM findai_follow_requests req WHERE req.seller_id=person.id AND lower(req.follower_email)=lower(?)) AS is_pending
+            FROM marketplace_follows f ${joins} WHERE ${where} AND COALESCE(p.username,'')!=''
+            AND (lower(p.username) LIKE lower(?) OR lower(p.display_name) LIKE lower(?))
+            AND NOT EXISTS(SELECT 1 FROM findai_user_controls c WHERE c.kind='blocked' AND ((lower(c.owner_email)=lower(?) AND lower(c.target_email)=lower(p.user_email)) OR (lower(c.target_email)=lower(?) AND lower(c.owner_email)=lower(p.user_email))))
+            ORDER BY f.created_at DESC,p.username ASC LIMIT ? OFFSET ?`).bind(auth.email,auth.email,auth.email,target,'%'+q+'%','%'+q+'%',auth.email,auth.email,limit+1,offset).all();
+          const rows=result.results||[],hasMore=rows.length>limit;
+          return jsonResp({followers:Number(counts?.followers||0),following:Number(counts?.following||0),people:rows.slice(0,limit).map(p=>({username:String(p.username),displayName:String(p.display_name||p.username),avatarUrl:String(p.avatar_url||''),isSelf:!!p.is_self,isFollowing:!!p.is_following,pending:!!p.is_pending})),hasMore,nextOffset:offset+limit},200,{'Cache-Control':'no-store'});
+        }catch(e){return jsonResp({error:String(e.message||e)},500,{'Cache-Control':'no-store'});}
+      }
+
       // Header count does not need follower profiles or relationship joins.
       if(url.pathname==='/social/followers/count'&&request.method==='GET'){
         const auth=await requireUser(request,env);if(auth.fail)return auth.fail;
