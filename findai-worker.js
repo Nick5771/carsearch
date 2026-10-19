@@ -17918,6 +17918,12 @@ async function marketplaceSetup(env) {
       FOREIGN KEY (seller_id) REFERENCES marketplace_sellers(id),
       UNIQUE(listing_id, buyer_email, seller_id)
     )`,
+    `CREATE TABLE IF NOT EXISTS marketplace_conversation_mutes (
+      conversation_id TEXT NOT NULL,
+      user_email TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      PRIMARY KEY(conversation_id,user_email)
+    )`,
     `CREATE TABLE IF NOT EXISTS marketplace_messages (
       id TEXT PRIMARY KEY,
       conversation_id TEXT NOT NULL,
@@ -18295,13 +18301,31 @@ function findaiSafetyAssertText(value) {
   throw Object.assign(new Error('That content cannot be posted on WishWave.'),{status:422,code:'CONTENT_NOT_ALLOWED',moderationCode:result.code});
 }
 
+async function wishwaveConversationMember(env,id,email){
+  const row=await env.DB.prepare(`SELECT c.id,c.buyer_email,s.user_email AS seller_email FROM marketplace_conversations c JOIN marketplace_sellers s ON s.id=c.seller_id WHERE c.id=? LIMIT 1`).bind(id).first();
+  if(!row)throw Object.assign(new Error('Conversation not found'),{status:404});
+  const viewer=String(email||'').toLowerCase(),buyer=String(row.buyer_email||'').toLowerCase(),seller=String(row.seller_email||'').toLowerCase();
+  if(viewer!==buyer&&viewer!==seller)throw Object.assign(new Error('Not allowed'),{status:403});
+  return {id:String(row.id),otherEmail:viewer===seller?buyer:seller};
+}
+async function wishwaveConversationMuted(env,id,email){
+ return !!await env.DB.prepare(`SELECT 1 AS yes FROM marketplace_conversation_mutes WHERE conversation_id=? AND user_email=? LIMIT 1`).bind(String(id),String(email||'').toLowerCase()).first();
+}
+
 async function findaiSafetyTarget(env,reporterEmail,targetType,targetId,contextId) {
   const reporter=String(reporterEmail||'').toLowerCase();
   const type=String(targetType||'').toLowerCase();
   const id=String(targetId||'').trim().slice(0,1000);
   const context=String(contextId||'').trim().slice(0,1000);
-  if(!['user','listing','comment','message'].includes(type)||!id)throw Object.assign(new Error('Invalid report target'),{status:400});
+  if(!['user','listing','comment','message','conversation'].includes(type)||!id)throw Object.assign(new Error('Invalid report target'),{status:400});
   await Promise.all([mpEnsureSchema(env),findaiProfileEnsureSchema(env),findaiSocialControlsEnsureSchema(env)]);
+
+  if(type==='conversation'){
+    const member=await wishwaveConversationMember(env,id,reporter);
+    const profile=await env.DB.prepare(`SELECT username FROM findai_profiles WHERE lower(user_email)=lower(?) LIMIT 1`).bind(member.otherEmail).first();
+    const recent=await env.DB.prepare(`SELECT body FROM marketplace_messages WHERE conversation_id=? ORDER BY created_at DESC LIMIT 8`).bind(id).all();
+    return {type,id,context:id,ownerEmail:member.otherEmail,username:String(profile?.username||''),excerpt:mpCleanText((recent.results||[]).map(m=>m.body||'Photo or shared listing').join(' | '),500),surface:'conversation'};
+  }
 
   if(type==='user'){
     const username=findaiUsernameNormalize(id.replace(/^@+/,''));
@@ -24889,6 +24913,19 @@ export default {
         }
       }
 
+      const conversationMuteMatch=url.pathname.match(/^\/marketplace\/conversations\/([^/]+)\/mute$/);
+      if(conversationMuteMatch&&['GET','POST','DELETE'].includes(request.method)){
+        const auth=await requireUser(request,env);if(auth.fail)return auth.fail;
+        if(!env.DB)return jsonResp({error:'Messaging unavailable'},503);
+        try{
+          await mpEnsureSchema(env);const id=decodeURIComponent(conversationMuteMatch[1]);
+          await wishwaveConversationMember(env,id,auth.email);
+          if(request.method==='POST')await env.DB.prepare(`INSERT OR IGNORE INTO marketplace_conversation_mutes(conversation_id,user_email,created_at) VALUES(?,?,?)`).bind(id,String(auth.email).toLowerCase(),new Date().toISOString()).run();
+          if(request.method==='DELETE')await env.DB.prepare(`DELETE FROM marketplace_conversation_mutes WHERE conversation_id=? AND user_email=?`).bind(id,String(auth.email).toLowerCase()).run();
+          return jsonResp({ok:true,muted:await wishwaveConversationMuted(env,id,auth.email)},200,{'Cache-Control':'no-store'});
+        }catch(e){return jsonResp({error:String(e.message||e)},Number(e.status)||500,{'Cache-Control':'no-store'});}
+      }
+
       const mpMessagesMatch = url.pathname.match(/^\/marketplace\/conversations\/([^/]+)\/messages$/);
       if (mpMessagesMatch && (request.method === 'GET' || request.method === 'POST')) {
         const auth = await requireUser(request, env);
@@ -24951,12 +24988,13 @@ export default {
               .bind(now, now, conversationId).run();
             const recipientEmail = auth.email === sellerEmail ? String(conversation.buyer_email || '').toLowerCase() : sellerEmail;
             const senderLabel = auth.email === sellerEmail ? mpPublicFirstName(conversation.seller_name, 'Seller') : 'A buyer';
-            ctx.waitUntil(mpNotifyUser(env, recipientEmail, {
+            ctx.waitUntil((async()=>{if(await wishwaveConversationMuted(env,conversationId,recipientEmail))return;await mpNotifyUser(env, recipientEmail, {
+              actorEmail:auth.email,
               type: 'message', title: 'New FindAI message',
               body: senderLabel + ': ' + (message ? message.slice(0,150) : (sharedItemJson ? 'Shared a listing' : 'Photo')),
               url: 'https://findai.ai/findai-app.html?conversation=' + encodeURIComponent(conversationId),
               tag: 'conversation-' + conversationId, urgency: 'high', skipInbox: true
-            }));
+            });})());
             return jsonResp({ ok: true, message: { id, body: message, imageUrl, sharedItem:sharedItemJson?JSON.parse(sharedItemJson):null, createdAt: now, mine: true, readAt: '' } }, 201, { 'Cache-Control': 'no-store' });
           }
           await mpTouchPresence(env, auth.email);
