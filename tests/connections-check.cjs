@@ -23,5 +23,16 @@ const dom=new JSDOM('<div class="app"><div id="profileSignedIn"><div class="soci
  w.wishwaveOpenConnections('@me','following');const request=calls.at(-1);w.wishwaveCloseConnections();request.resolve({people:[{username:'alice',displayName:'Alice'}],nextOffset:30,hasMore:false});await tick();assert(!w.document.querySelector('#wishwaveConnectionsPage').classList.contains('show'));assert.equal(w.document.querySelector('.ww-connections-rows').textContent,'','closed response ignored');
  const sheet=w.document.querySelector('.app-theme-sheet');sheet.scrollTop=100;w.findaiOpenSettingsHome();assert.equal(sheet.scrollTop,0);
  assert(html.includes("if(document.getElementById('appThemeOverlay')?.classList.contains('show'))return false;"),'Settings cannot trigger background pull refresh or haptics');
+ const notificationStart=html.indexOf('  function notificationActorName(n){'),notificationEnd=html.indexOf('  function notificationSide(n,index){',notificationStart);
+ w.eval(html.slice(notificationStart,notificationEnd));
+ const comment={notification_type:'listing_comment',actor_display_name:'Nick <Test>',body:'Nice <img src=x onerror=alert(1)>'};
+ const notification=w.document.createElement('div');notification.innerHTML=w.notificationCopyMarkup(comment,7,w.notificationTypeLabel(comment),comment.body,'2m',true);
+ assert.equal(notification.querySelector('q').textContent,comment.body);assert(!notification.querySelector('img'),'comment body is escaped');
+ assert.equal(notification.querySelector('.findai-notification-actor-name').textContent,'Nick <Test>');assert(notification.querySelector('button').getAttribute('onclick').includes('event,7'));
+ assert.equal(notification.querySelector('.findai-notification-meta').textContent,'On your listing · 2m');assert(notification.querySelector('.findai-notification-unread'));
+ notification.innerHTML=w.notificationCopyMarkup({...comment,notification_type:'comment_reply'},7,'Reply','Thanks','',false);assert(notification.textContent.includes('replied:'));assert(notification.textContent.includes('On your comment'));assert(!notification.querySelector('.findai-notification-unread'));
+ notification.innerHTML=w.notificationCopyMarkup(comment,7,'New comment','','2m',false);assert(!notification.querySelector('q'),'empty comment uses existing fallback');
+ notification.innerHTML=w.notificationVisual({notification_type:'listing_like',actor_display_name:'Alice'},0);assert(notification.querySelector('.findai-notification-actor-avatar .findai-notification-mini-badge.like svg'),'heart overlaps actor avatar');
+ notification.innerHTML=w.notificationVisual(comment,0);assert(!notification.querySelector('.findai-notification-mini-badge.like'),'comments do not receive a like badge');
  console.log('PASS: connection counts and lists, viewer privacy and block filtering, profile stat order, stale list response isolation, Settings scroll reset and refresh guard');
 })().catch(e=>{console.error(e);process.exitCode=1;});
