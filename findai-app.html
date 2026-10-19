@@ -34452,7 +34452,17 @@ html.findai-light body #appThemeOverlay .wishwave-reference-settings .wishwave-s
  window.appMpInboxBack=function(){if(document.getElementById('appMpInbox')?.classList.contains('chat-open'))return inboxBack.apply(this,arguments);if(messageOrigin==='notifications')return wishwaveOpenNotificationTab();if(messageOrigin==='profile')return openProfile();if(messageOrigin==='search')return openSearchHome(false);return openForYou();};
  window.setHomeNotificationState=function(count){const unread=Math.max(0,Number(count)||0),button=document.querySelector('#wishwaveMainNav [data-tab="notifications"]'),dot=document.getElementById('navNotificationsBadge');if(button){button.classList.toggle('has-unread',unread>0);button.setAttribute('aria-label',unread?'Notifications — '+unread+' unread':'Notifications');}if(dot){dot.classList.toggle('show',unread>0);dot.style.display=unread?'block':'none';}};
  const oldBadge=window.appRefreshMarketplaceBadge;
- if(oldBadge)window.appRefreshMarketplaceBadge=async function(){const out=await oldBadge.apply(this,arguments);const badge=document.getElementById('navMessagesBadge');document.querySelectorAll('.wishwave-header-message').forEach(b=>b.classList.toggle('has-unread',!!badge?.classList.contains('show')));return out;};
+ function syncHeaderMessageCount(){
+  const badge=document.getElementById('navMessagesBadge'),unread=!!badge?.classList.contains('show'),label=unread?badge.textContent.trim():'';
+  document.querySelectorAll('#homeMessageButton,.wishwave-header-message').forEach(b=>{
+   b.classList.toggle('has-unread',unread);b.dataset.unreadCount=label;
+   b.setAttribute('aria-label',unread?'Messages — '+label+' unread':'Messages');
+  });
+ }
+ if(oldBadge)window.appRefreshMarketplaceBadge=async function(){try{return await oldBadge.apply(this,arguments);}finally{syncHeaderMessageCount();}};
+ const messageBadge=document.getElementById('navMessagesBadge');
+ if(messageBadge)new MutationObserver(syncHeaderMessageCount).observe(messageBadge,{childList:true,characterData:true,subtree:true,attributes:true,attributeFilter:['class']});
+ syncHeaderMessageCount();
 
 
  // Keep the original searchable settings catalogue and pane actions.
@@ -34481,11 +34491,22 @@ html.findai-light body #appThemeOverlay .wishwave-reference-settings .wishwave-s
 </script>
 <style id="wishwave-social-header-layout">
 html body #profileSignedIn .social-profile-topbar>div:first-child{flex:1!important;}
-html body #discover #navMessagesBadge{font-size:0!important;width:6px!important;min-width:6px!important;height:6px!important;top:4px!important;right:2px!important;}
+/* Compact unread count, attached to the message icon (option B). */
+html body #discover #homeMessageButton{overflow:visible!important;}
+html body #discover #navMessagesBadge{
+ font:700 10px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",sans-serif!important;
+ width:auto!important;min-width:18px!important;height:18px!important;min-height:18px!important;
+ top:0!important;right:0!important;padding:0 4px!important;border:2px solid #000!important;
+ border-radius:999px!important;background:#ff3045!important;color:#fff!important;
+ box-sizing:border-box!important;align-items:center!important;justify-content:center!important;
+ transform:none!important;box-shadow:none!important;
+}
+html.findai-light body #discover #navMessagesBadge{border-color:#f7f7f8!important;}
 html body #appThemeOverlay .wishwave-reference-settings .findai-settings-head{grid-template-columns:38px 1fr 38px!important;}
 .wishwave-search-social-header{display:flex;align-items:center;justify-content:space-between;padding:0 0 10px;color:inherit;}
 .wishwave-search-social-header b{font-size:22px;font-weight:650;letter-spacing:-.4px;}
-.wishwave-header-message.has-unread::after{content:'';position:absolute;right:4px;top:4px;width:6px;height:6px;border-radius:50%;background:#ff3045;}
+.wishwave-header-message.has-unread::after{content:attr(data-unread-count);position:absolute;right:0;top:0;min-width:18px;height:18px;padding:0 4px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;border:2px solid #17181a;border-radius:999px;background:#ff3045;color:#fff;font:700 10px/1 -apple-system,BlinkMacSystemFont,"SF Pro Text",sans-serif;}
+html.findai-light .wishwave-header-message.has-unread::after{border-color:#f7f7f8;}
 html body #appThemeOverlay .wishwave-reference-settings .findai-settings-head .wishwave-header-message{margin-left:auto!important;}
 </style>
 
