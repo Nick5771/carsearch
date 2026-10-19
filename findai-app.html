@@ -10484,13 +10484,14 @@ async function handleGoogleToken(resp){
 function startGoogleAuth(){
   var fb = document.getElementById('googleAuthError'); if(fb) fb.textContent='';
   if(!googleTokenClient){ if(fb) fb.textContent='Google sign-in is still loading — try again in a moment.'; return; }
-  googleTokenClient.requestAccessToken();
+  try{googleTokenClient.requestAccessToken();}catch(error){if(fb)fb.textContent='Could not open Google sign-in. Please try again.';}
 }
 function initGoogleAuth(){
   try{ var u = JSON.parse(localStorage.getItem('findai_user')||'null'); if(u && u.email && u.session) applyFindaiUser(u,u.provider||'google'); }catch(_){}
   if(!(window.google && google.accounts && google.accounts.oauth2)){ setTimeout(initGoogleAuth,400); return; }
   googleTokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: GOOGLE_CLIENT_ID, scope: 'openid email profile', callback: handleGoogleToken
+    client_id: GOOGLE_CLIENT_ID, scope: 'openid email profile', callback: handleGoogleToken,
+    error_callback: function(error){var fb=document.getElementById('googleAuthError');if(fb)fb.textContent=error&&error.type==='popup_closed'?'Google sign-in was cancelled.':'Could not open Google sign-in. Allow pop-ups and try again.';}
   });
 }
 window.addEventListener('load', initGoogleAuth);
@@ -36009,5 +36010,6 @@ html body.keyboard-open[data-active-tab="search"] .app #searchResults .premium-r
 <link rel="stylesheet" href="wishwave-create.css?v=313">
 <script src="wishwave-create.js?v=312"></script>
 <script src="wishwave-navigation-origins.js?v=306"></script>
+<script src="wishwave-auth.js?v=315"></script>
 </body>
 </html>

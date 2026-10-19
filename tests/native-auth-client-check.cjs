@@ -1,0 +1,12 @@
+const fs=require('fs'),assert=require('assert'),{JSDOM}=require('jsdom');
+const script=fs.readFileSync('wishwave-auth.js','utf8');
+function setup(native=false,bridge){const dom=new JSDOM('<div id="googleAuthError"></div><div id="profileAppleFeedback"></div><button class="google-signin-btn"></button><button class="apple-signin-btn"></button>',{url:'https://findai.ai/findai-app.html',runScripts:'outside-only'}),w=dom.window;let google=0,apple=0,users=[];w.startGoogleAuth=()=>google++;w.startAppleAuth=()=>apple++;w.applyFindaiUser=(...args)=>users.push(args);if(native)w.wishwaveNativeBuild=315;if(bridge)w.webkit={messageHandlers:{wishwaveAuth:bridge}};w.eval(script);return {w,users,counts:()=>[google,apple],close:()=>w.close()};}
+(async()=>{
+ let a=setup();await a.w.startGoogleAuth();await a.w.startAppleAuth();assert.deepEqual(a.counts(),[1,1]);a.close();
+ a=setup(true);await a.w.startGoogleAuth();assert(a.w.document.body.textContent.includes('Update the WishWave iPhone build'));assert.deepEqual(a.counts(),[0,0]);a.close();
+ let resolve,calls=0;a=setup(true,{postMessage:({provider})=>{calls++;assert.equal(provider,'google');return new Promise(r=>resolve=r)}});const pending=a.w.startGoogleAuth();assert(a.w.document.querySelector('button').disabled);await a.w.startAppleAuth();assert.equal(calls,1);resolve({provider:'google',email:'test@example.test',session:'session'});await pending;assert.equal(a.users.length,1);assert(!a.w.document.querySelector('button').disabled);assert.equal(a.w.document.getElementById('googleAuthError').textContent,'');a.close();
+ a=setup(true,{postMessage:()=>Promise.reject(new Error('Sign-in was cancelled.'))});await a.w.startAppleAuth();assert.equal(a.users.length,0);assert(a.w.document.body.textContent.includes('cancelled'));assert(!a.w.document.querySelector('button').disabled);a.close();
+ a=setup(true,{postMessage:()=>Promise.resolve({provider:'apple',email:'x',session:'x'})});await a.w.startGoogleAuth();assert.equal(a.users.length,0);a.close();
+ const html=fs.readFileSync('findai-app.html','utf8');assert(html.includes('wishwave-auth.js?v=315'));assert(html.includes('error_callback: function(error)'));
+ console.log('PASS: browser fallback, old-build guidance, native dispatch, duplicate-tap lock, session application, provider mismatch, cancellation and button recovery');
+})().catch(e=>{console.error(e);process.exitCode=1});

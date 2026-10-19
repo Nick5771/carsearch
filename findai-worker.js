@@ -420,7 +420,99 @@ async function verifyAppleIdentityToken(env, token, expectedNonce) {
   return claims;
 }
 
+// Native OAuth uses an OS authentication session and proof-bound, single-use
+// tickets. Provider tokens and WishWave sessions never travel in callback URLs.
+const WISHWAVE_GOOGLE_CLIENT_ID = '258387139240-a60g5n1hortfo0tnpm03dj8ht7jemqt0.apps.googleusercontent.com';
+const WISHWAVE_GOOGLE_CALLBACK = 'https://api.carsearchapi.workers.dev/auth/native/google/callback';
+function wishwaveNativeRedirect(provider, values = {}) {
+  const url = new URL('com.nickfiani.wishwave://auth');
+  url.searchParams.set('provider', provider);
+  for (const [key,value] of Object.entries(values)) url.searchParams.set(key,String(value));
+  return new Response(null,{status:303,headers:{Location:url.toString(),'Cache-Control':'no-store','Referrer-Policy':'no-referrer'}});
+}
+async function wishwaveNativeSchema(env) {
+  await env.DB.prepare(`CREATE TABLE IF NOT EXISTS wishwave_native_auth (
+    id TEXT PRIMARY KEY, kind TEXT NOT NULL, payload TEXT NOT NULL, expires INTEGER NOT NULL
+  )`).run();
+  await env.DB.prepare('DELETE FROM wishwave_native_auth WHERE expires < ?').bind(Date.now()).run();
+}
+async function wishwaveNativePut(env,kind,payload,ttl) {
+  const id=crypto.randomUUID().replace(/-/g,'')+crypto.randomUUID().replace(/-/g,'');
+  await env.DB.prepare('INSERT INTO wishwave_native_auth(id,kind,payload,expires) VALUES(?,?,?,?)').bind(id,kind,JSON.stringify(payload),Date.now()+ttl*1000).run();
+  return id;
+}
+async function wishwaveNativeTake(env,id,kind) {
+  const row=await env.DB.prepare('DELETE FROM wishwave_native_auth WHERE id=? AND kind=? AND expires>=? RETURNING payload').bind(id,kind,Date.now()).first();
+  return row?JSON.parse(row.payload):null;
+}
+async function wishwaveNativeDigest(value) {
+  return b64urlEncode(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value))));
+}
+async function wishwaveNativeHandoff(env,provider,challenge,user) {
+  await wishwaveNativeSchema(env);
+  const ticket=await wishwaveNativePut(env,'ticket',{provider,challenge,user},90);
+  return wishwaveNativeRedirect(provider,{ticket});
+}
+async function wishwaveNativeAuthRoute(request,env,ctx,url) {
+  const reply=(body,status=200)=>jsonResp(body,status,{'Cache-Control':'no-store'});
+  if(url.pathname==='/auth/native/config') return reply({version:315,apple:!!(env.DB&&env.CACHE&&appleConfigured(env)),google:!!(env.DB&&env.GOOGLE_CLIENT_SECRET),googleRedirectUri:WISHWAVE_GOOGLE_CALLBACK});
+  if(!env.DB) return reply({error:'App sign-in is temporarily unavailable.'},503);
+  await wishwaveNativeSchema(env);
+  if(url.pathname==='/auth/native/complete') {
+    if(request.method!=='POST')return reply({error:'POST only'},405);
+    let body;try{body=await request.json();}catch(_){return reply({error:'Invalid request'},400);}
+    const ticket=String(body.ticket||''),verifier=String(body.verifier||'');
+    if(!/^[a-f0-9]{64}$/.test(ticket)||!/^[A-Za-z0-9_-]{43,128}$/.test(verifier))return reply({error:'Invalid sign-in handoff'},400);
+    const challenge=await wishwaveNativeDigest(verifier);
+    // Include the proof in the atomic DELETE: a wrong verifier must neither
+    // expose a session nor consume the legitimate app's ticket.
+    const row=await env.DB.prepare("DELETE FROM wishwave_native_auth WHERE id=? AND kind='ticket' AND expires>=? AND json_extract(payload,'$.challenge')=? RETURNING payload").bind(ticket,Date.now(),challenge).first();
+    if(!row)return reply({error:'Sign-in expired. Please try again.'},400);
+    const data=JSON.parse(row.payload);
+    return reply({...data.user,provider:data.provider});
+  }
+  if(url.pathname==='/auth/native/start') {
+    if(request.method!=='GET')return reply({error:'GET only'},405);
+    if(await rateLimited(env,request,'native-auth-start',20,900))return tooManyResp(900);
+    const provider=url.searchParams.get('provider'),challenge=url.searchParams.get('challenge')||'';
+    if(!['google','apple'].includes(provider)||!/^[A-Za-z0-9_-]{43}$/.test(challenge))return reply({error:'Invalid sign-in request'},400);
+    if(provider==='apple') {
+      if(!appleConfigured(env)||!env.CACHE)return wishwaveNativeRedirect(provider,{error:'not_configured'});
+      const target=new URL('/auth/apple/start',url.origin);
+      target.searchParams.set('client','native');target.searchParams.set('challenge',challenge);
+      return new Response(null,{status:302,headers:{Location:target.toString(),'Cache-Control':'no-store'}});
+    }
+    if(!env.GOOGLE_CLIENT_SECRET)return wishwaveNativeRedirect(provider,{error:'not_configured'});
+    const verifier=b64urlEncode(crypto.getRandomValues(new Uint8Array(32)));
+    const state=await wishwaveNativePut(env,'google-state',{challenge,verifier},600);
+    const target=new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    target.search=new URLSearchParams({client_id:WISHWAVE_GOOGLE_CLIENT_ID,redirect_uri:WISHWAVE_GOOGLE_CALLBACK,response_type:'code',scope:'openid email profile',state,code_challenge:await wishwaveNativeDigest(verifier),code_challenge_method:'S256',prompt:'select_account'}).toString();
+    return new Response(null,{status:302,headers:{Location:target.toString(),'Cache-Control':'no-store'}});
+  }
+  if(url.pathname==='/auth/native/google/callback') {
+    if(request.method!=='GET')return wishwaveNativeRedirect('google',{error:'invalid_method'});
+    const state=url.searchParams.get('state')||'';
+    if(!/^[a-f0-9]{64}$/.test(state))return wishwaveNativeRedirect('google',{error:'state_expired'});
+    const attempt=await wishwaveNativeTake(env,state,'google-state');
+    if(!attempt)return wishwaveNativeRedirect('google',{error:'state_expired'});
+    if(url.searchParams.has('error'))return wishwaveNativeRedirect('google',{error:url.searchParams.get('error')==='access_denied'?'cancelled':'denied'});
+    const code=url.searchParams.get('code');if(!code)return wishwaveNativeRedirect('google',{error:'code_missing'});
+    try {
+      const response=await fetch('https://oauth2.googleapis.com/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({client_id:WISHWAVE_GOOGLE_CLIENT_ID,client_secret:String(env.GOOGLE_CLIENT_SECRET||''),redirect_uri:WISHWAVE_GOOGLE_CALLBACK,grant_type:'authorization_code',code,code_verifier:attempt.verifier}).toString()});
+      const token=await response.json();if(!response.ok||!token.access_token)throw Error('Google token exchange failed');
+      const profileResponse=await fetch('https://openidconnect.googleapis.com/v1/userinfo',{headers:{Authorization:'Bearer '+token.access_token}});
+      const profile=await profileResponse.json();
+      if(!profileResponse.ok||profile.email_verified!==true||!profile.sub||!profile.email)throw Error('Google account is not verified');
+      const email=String(profile.email).trim().toLowerCase(),name=String(profile.name||''),picture=String(profile.picture||'');
+      await upsertUser(env,ctx,email,name,0);
+      return await wishwaveNativeHandoff(env,'google',attempt.challenge,{email,name,picture,session:await issueSession(env,email)});
+    }catch(error){logErr('native Google callback',error);return wishwaveNativeRedirect('google',{error:'failed'});}
+  }
+  return reply({error:'Not found'},404);
+}
+
 function appleRedirect(code, client = 'web') {
+  if(client==='native')return wishwaveNativeRedirect('apple',{error:code||'failed'});
   const u = new URL(client === 'app' ? 'https://findai.ai/findai-app.html' : 'https://findai.ai/');
   if (code) u.searchParams.set('apple_error', String(code));
   return new Response(null, { status: 303, headers: { 'Location': u.toString(), 'Cache-Control': 'no-store' } });
@@ -21992,6 +22084,10 @@ export default {
   async handle(request, env, ctx) {
     try {
       const url = new URL(request.url);
+      if(url.pathname.startsWith('/auth/native/')){
+        try{return await wishwaveNativeAuthRoute(request,env,ctx,url);}
+        catch(error){logErr('native auth',error);return jsonResp({error:'App sign-in is temporarily unavailable. Please try again.'},503,{'Cache-Control':'no-store'});}
+      }
       if(url.pathname.startsWith('/auth/password/')){
         try{return await wishwavePasswordRoute(request,env,ctx,url);}
         catch(error){logErr('password auth',error);return jsonResp({error:'Account sign-in is temporarily unavailable. Please try again.'},503,{'Cache-Control':'no-store'});}
@@ -29047,8 +29143,10 @@ export default {
         const state = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
         const nonce = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
         const notify = url.searchParams.get('notify') === '1' ? 1 : 0;
-        const client = url.searchParams.get('client') === 'app' ? 'app' : 'web';
-        await env.CACHE.put('auth:apple:state:' + state, JSON.stringify({ nonce, notify, client, createdAt: Date.now() }), { expirationTtl: APPLE_STATE_TTL_SEC });
+        const client = ['app','native'].includes(url.searchParams.get('client')) ? url.searchParams.get('client') : 'web';
+        const nativeChallenge=client==='native'?String(url.searchParams.get('challenge')||''):'';
+        if(client==='native'&&!/^[A-Za-z0-9_-]{43}$/.test(nativeChallenge))return jsonResp({error:'Invalid app sign-in request'},400);
+        await env.CACHE.put('auth:apple:state:' + state, JSON.stringify({ nonce, notify, client, nativeChallenge, createdAt: Date.now() }), { expirationTtl: APPLE_STATE_TTL_SEC });
         const params = new URLSearchParams({
           response_type: 'code',
           response_mode: 'form_post',
@@ -29068,6 +29166,7 @@ export default {
       if (url.pathname === '/auth/apple/callback') {
         if (request.method !== 'POST') return appleRedirect('invalid_method');
         if (!appleConfigured(env) || !env.CACHE || !env.DB) return appleRedirect('not_configured');
+        let stateInfo = {};
         try {
           const form = await request.formData();
           const state = String(form.get('state') || '');
@@ -29078,7 +29177,6 @@ export default {
           const stateRaw = await env.CACHE.get(stateKey);
           await env.CACHE.delete(stateKey);
           if (!stateRaw) return appleRedirect('state_expired');
-          let stateInfo = {};
           try { stateInfo = JSON.parse(stateRaw); } catch (_) {}
           if (appleError) return appleRedirect(appleError === 'user_cancelled_authorize' ? 'cancelled' : 'apple_denied', stateInfo.client);
           if (!code) return appleRedirect('code_missing', stateInfo.client);
@@ -29099,11 +29197,11 @@ export default {
           const tokenData = await tokenResp.json().catch(() => ({}));
           if (!tokenResp.ok || !tokenData.id_token) {
             logErr('apple token exchange', new Error(String(tokenData.error_description || tokenData.error || tokenResp.status)));
-            return appleRedirect('token_exchange_failed');
+            return appleRedirect('token_exchange_failed', stateInfo.client);
           }
           const claims = await verifyAppleIdentityToken(env, tokenData.id_token, String(stateInfo.nonce || ''));
           const email = String(claims.email || '').trim().toLowerCase();
-          if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return appleRedirect('email_missing');
+          if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return appleRedirect('email_missing', stateInfo.client);
           if (tokenData.refresh_token) {
             try { await findaiAppleStoreRefreshToken(env,email,tokenData.refresh_token); } catch (e) { logErr('apple refresh token store',e); }
           }
@@ -29129,6 +29227,8 @@ export default {
           await upsertUser(env, ctx, email, suppliedName || existingName, stateInfo.notify ? 1 : 0);
           const session = await issueSession(env, email);
 
+          if(stateInfo.client==='native')return await wishwaveNativeHandoff(env,'apple',stateInfo.nativeChallenge,{email,name,picture:'',session});
+
           // Never place the session token in a URL. Store a one-time handoff in
           // KV, then redirect to findai.ai with only an opaque short-lived ticket.
           const ticket = crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
@@ -29138,7 +29238,7 @@ export default {
           return new Response(null, { status: 303, headers: { 'Location': done.toString(), 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' } });
         } catch (e) {
           logErr('apple callback', e);
-          return appleRedirect('failed');
+          return appleRedirect('failed', stateInfo.client);
         }
       }
 

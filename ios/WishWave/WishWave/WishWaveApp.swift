@@ -1,6 +1,9 @@
 import SwiftUI
 import WebKit
 import SafariServices
+import AuthenticationServices
+import CryptoKit
+import Security
 
 @main
 struct WishWaveApp: App {
@@ -15,12 +18,14 @@ struct ShoppingView: UIViewControllerRepresentable {
     static func dismantleUIViewController(_ controller: ShoppingController, coordinator: ()) {
         controller.webView.configuration.userContentController.removeScriptMessageHandler(forName: "findaiHaptic")
         controller.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wishwaveShare", contentWorld: .page)
+        controller.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wishwaveAuth", contentWorld: .page)
+        controller.cancelAuthentication()
         controller.webView.stopLoading()
         controller.cancelRecovery()
     }
 }
 
-final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, WKScriptMessageHandlerWithReply {
+final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, WKScriptMessageHandlerWithReply, ASWebAuthenticationPresentationContextProviding {
     private static let home = URL(string: "https://findai.ai/findai-app.html?country=US&catalogue-test=1&treasure-test=1")!
     private let spinner = UIActivityIndicatorView(style: .large)
     private let failure = UIStackView()
@@ -32,7 +37,7 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.userContentController.addUserScript(WKUserScript(
-            source: "window.wishwaveNativeBuild = 259;",
+            source: "window.wishwaveNativeBuild = 315;",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
         // Keep the camera preview beneath WishWave's own shutter controls.
         config.allowsInlineMediaPlayback = true
@@ -41,6 +46,7 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         config.mediaTypesRequiringUserActionForPlayback = []
         config.userContentController.add(self, name: "findaiHaptic")
         config.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "wishwaveShare")
+        config.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "wishwaveAuth")
         config.userContentController.addUserScript(WKUserScript(source: """
         if (location.protocol === 'https:' && ['findai.ai','www.findai.ai'].includes(location.hostname) && !navigator.share) {
           Object.defineProperty(navigator, 'share', {value: async function(data) {
@@ -109,6 +115,11 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         cancelRecovery()
         recoveryAttempts = 0
         loadHome()
+    }
+
+    func cancelAuthentication() {
+        authSession?.cancel()
+        authSession = nil
     }
 
     func cancelRecovery() {
@@ -193,10 +204,90 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         UISelectionFeedbackGenerator().selectionChanged()
     }
 
+    // Safari authentication owns provider cookies; only a short-lived ticket
+    // returns to this controller. The verifier never leaves the native process
+    // except in the HTTPS redemption request.
+    private var authSession: ASWebAuthenticationSession?
+
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        return view.window ?? ASPresentationAnchor()
+    }
+
+    private func startAuthentication(provider: String, reply: @escaping (Any?, String?) -> Void) {
+        guard ["apple", "google"].contains(provider), authSession == nil, presentedViewController == nil else {
+            reply(nil, "Another sign-in or sheet is already open."); return
+        }
+        var bytes = [UInt8](repeating: 0, count: 32)
+        guard SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes) == errSecSuccess else {
+            reply(nil, "Could not start secure sign-in. Please try again."); return
+        }
+        func base64URL(_ data: Data) -> String {
+            data.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
+        }
+        let verifier = base64URL(Data(bytes))
+        let challenge = base64URL(Data(SHA256.hash(data: Data(verifier.utf8))))
+        var start = URLComponents(string: "https://api.carsearchapi.workers.dev/auth/native/start")!
+        start.queryItems = [URLQueryItem(name: "provider", value: provider), URLQueryItem(name: "challenge", value: challenge)]
+        let session = ASWebAuthenticationSession(url: start.url!, callbackURLScheme: "com.nickfiani.wishwave") { [weak self] callback, error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                self.authSession = nil
+                if let error = error {
+                    let cancelled = (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin
+                    reply(nil, cancelled ? "Sign-in was cancelled." : "Could not complete sign-in. Please try again.")
+                    return
+                }
+                guard let callback = callback, callback.scheme == "com.nickfiani.wishwave", callback.host == "auth",
+                      let components = URLComponents(url: callback, resolvingAgainstBaseURL: false) else {
+                    reply(nil, "Invalid sign-in response."); return
+                }
+                let values = components.queryItems ?? []
+                guard values.first(where: { $0.name == "provider" })?.value == provider else {
+                    reply(nil, "Invalid sign-in provider."); return
+                }
+                if let failure = values.first(where: { $0.name == "error" })?.value {
+                    reply(nil, failure == "not_configured" ? "This sign-in provider needs server setup. Please use email for now." : failure == "cancelled" ? "Sign-in was cancelled." : "Sign-in could not be completed. Please try again.")
+                    return
+                }
+                guard let ticket = values.first(where: { $0.name == "ticket" })?.value, ticket.count == 64 else {
+                    reply(nil, "Sign-in response was incomplete."); return
+                }
+                var request = URLRequest(url: URL(string: "https://api.carsearchapi.workers.dev/auth/native/complete")!)
+                request.httpMethod = "POST"
+                request.timeoutInterval = 20
+                request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                request.httpBody = try? JSONSerialization.data(withJSONObject: ["ticket": ticket, "verifier": verifier])
+                URLSession.shared.dataTask(with: request) { data, response, error in
+                    let result = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+                    DispatchQueue.main.async {
+                        guard error == nil, (response as? HTTPURLResponse)?.statusCode == 200,
+                              let result = result, result["provider"] as? String == provider,
+                              result["session"] is String, result["email"] is String else {
+                            reply(nil, "Sign-in expired or the connection failed. Please try again."); return
+                        }
+                        reply(result, nil)
+                    }
+                }.resume()
+            }
+        }
+        session.presentationContextProvider = self
+        session.prefersEphemeralWebBrowserSession = false
+        authSession = session
+        if !session.start() {
+            authSession = nil
+            reply(nil, "Could not open sign-in. Please try again.")
+        }
+    }
+
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping (Any?, String?) -> Void) {
         guard message.frameInfo.isMainFrame, trusted(message.frameInfo.request.url), let data = message.body as? [String: String], presentedViewController == nil else {
             replyHandler(nil, "Share is unavailable"); return
         }
+        if message.name == "wishwaveAuth" {
+            startAuthentication(provider: data["provider"] ?? "", reply: replyHandler)
+            return
+        }
+        guard message.name == "wishwaveShare" else { replyHandler(nil, "Unknown action"); return }
         var items: [Any] = []
         if let text = data["text"], !text.isEmpty { items.append(String(text.prefix(10000))) }
         else if let title = data["title"], !title.isEmpty { items.append(String(title.prefix(500))) }
