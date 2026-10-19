@@ -24999,7 +24999,7 @@ export default {
           }
           await mpTouchPresence(env, auth.email);
           const readNow = new Date().toISOString();
-          await env.DB.prepare('UPDATE marketplace_messages SET read_at=? WHERE conversation_id=? AND sender_email<>? AND read_at IS NULL')
+          if(url.searchParams.get('markRead')!=='0')await env.DB.prepare('UPDATE marketplace_messages SET read_at=? WHERE conversation_id=? AND sender_email<>? AND read_at IS NULL')
             .bind(readNow, conversationId, auth.email).run();
           await env.DB.prepare("UPDATE marketplace_notifications SET read_at=? WHERE user_email=? AND read_at IS NULL AND notification_type='offer' AND instr(COALESCE(target_url,''),?)>0")
             .bind(readNow, auth.email, conversationId).run();
