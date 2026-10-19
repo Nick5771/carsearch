@@ -19118,6 +19118,24 @@ function findaiNotificationPushAllowed(type, prefs) {
   return true;
 }
 
+// A follow relationship has one current inbox entry, even if old rows or
+// repeated unfollow/refollow events exist. Other activity remains event-based.
+function wishwaveVisibleNotificationSQL(alias='n') {
+  return `(${alias}.notification_type NOT IN ('follow','follow_mutual','follow_request')
+    OR COALESCE(${alias}.actor_email,'')=''
+    OR NOT EXISTS (SELECT 1 FROM marketplace_notifications newer
+      WHERE newer.user_email=${alias}.user_email
+        AND lower(newer.actor_email)=lower(${alias}.actor_email)
+        AND newer.notification_type IN ('follow','follow_mutual','follow_request')
+        AND (newer.created_at>${alias}.created_at OR (newer.created_at=${alias}.created_at AND newer.id>${alias}.id))))`;
+}
+async function wishwaveOwnFollowerCount(env,email) {
+  const row=await env.DB.prepare(`SELECT COUNT(*) AS count FROM marketplace_follows
+    WHERE seller_id=(SELECT id FROM marketplace_sellers WHERE lower(user_email)=lower(?) ORDER BY created_at ASC LIMIT 1)`)
+    .bind(email).first();
+  return Math.max(0,Number(row&&row.count)||0);
+}
+
 async function mpNotifyUser(env, userEmail, notification) {
   const email = String(userEmail || '').trim().toLowerCase();
   if (!env || !env.DB || !email) return;
@@ -19142,11 +19160,16 @@ async function mpNotifyUser(env, userEmail, notification) {
       ).bind(email, type, targetUrl, cutoff).first();
       if (existing) return;
     }
+    const followEvent=actorEmail&&['follow','follow_mutual','follow_request'].includes(type);
+    const notificationId=followEvent?'ntf_follow_'+b64urlEncode(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(email+'|'+actorEmail)))):mpId('ntf');
     await env.DB.prepare(
       `INSERT INTO marketplace_notifications
        (id, user_email, notification_type, title, body, target_url, actor_email, image_url, entity_id, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(mpId('ntf'), email, type, title, body, targetUrl, actorEmail, imageUrl, entityId, now).run();
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET notification_type=excluded.notification_type,title=excluded.title,
+         body=excluded.body,target_url=excluded.target_url,image_url=excluded.image_url,
+         entity_id=excluded.entity_id,created_at=excluded.created_at,read_at=NULL`
+    ).bind(notificationId, email, type, title, body, targetUrl, actorEmail, imageUrl, entityId, now).run();
   }
   const notificationPrefs = await findaiNotificationPrefs(env, email);
   if (!findaiNotificationPushAllowed(type, notificationPrefs)) return;
@@ -19163,7 +19186,7 @@ async function mpNotifyUser(env, userEmail, notification) {
   ).bind(email).all();
   const subscriptions = result.results || [];
   if (!subscriptions.length) return;
-  const unread = await env.DB.prepare("SELECT COUNT(*) AS n FROM marketplace_notifications WHERE user_email=? AND read_at IS NULL AND notification_type<>'message'").bind(email).first();
+  const unread = await env.DB.prepare(`SELECT COUNT(*) AS n FROM marketplace_notifications n WHERE n.user_email=? AND n.read_at IS NULL AND n.notification_type<>'message' AND ${wishwaveVisibleNotificationSQL('n')}`).bind(email).first();
   const payload = {
     title,
     body,
@@ -23884,6 +23907,14 @@ export default {
         }
       }
 
+      // Header count does not need follower profiles or relationship joins.
+      if(url.pathname==='/social/followers/count'&&request.method==='GET'){
+        const auth=await requireUser(request,env);if(auth.fail)return auth.fail;
+        if(!env.DB)return jsonResp({count:0},200,{'Cache-Control':'no-store'});
+        await mpEnsureSchema(env);
+        return jsonResp({count:await wishwaveOwnFollowerCount(env,auth.email)},200,{'Cache-Control':'no-store'});
+      }
+
       // ── Signed-in user's own followers ─────────────────────────────────
       if (url.pathname === '/social/followers' && request.method === 'GET') {
         const auth=await requireUser(request,env);if(auth.fail)return auth.fail;
@@ -25021,7 +25052,7 @@ export default {
         try {
           await mpEnsureSchema(env);
           await findaiProfileEnsureSchema(env);
-          const count = await env.DB.prepare("SELECT COUNT(*) AS n FROM marketplace_notifications WHERE user_email=? AND read_at IS NULL AND notification_type<>'message'").bind(auth.email).first();
+          const count = await env.DB.prepare(`SELECT COUNT(*) AS n FROM marketplace_notifications n WHERE n.user_email=? AND n.read_at IS NULL AND n.notification_type<>'message' AND ${wishwaveVisibleNotificationSQL('n')}`).bind(auth.email).first();
           const rows = await env.DB.prepare(
             `SELECT n.id,n.notification_type,n.title,n.body,n.target_url,n.actor_email,n.image_url,n.entity_id,n.read_at,n.created_at,
                     p.username AS actor_username,p.display_name AS actor_display_name,p.avatar_url AS actor_avatar_url,
@@ -25043,7 +25074,7 @@ export default {
              FROM marketplace_notifications n
              LEFT JOIN findai_profiles p ON lower(p.user_email)=lower(n.actor_email)
              LEFT JOIN marketplace_sellers actor_seller ON lower(actor_seller.user_email)=lower(n.actor_email)
-             WHERE n.user_email=? AND n.notification_type<>'message' ORDER BY n.created_at DESC LIMIT 60`
+             WHERE n.user_email=? AND n.notification_type<>'message' AND ${wishwaveVisibleNotificationSQL('n')} ORDER BY n.created_at DESC LIMIT 60`
           ).bind(auth.email,auth.email,auth.email).all();
           return jsonResp({ unreadCount: Math.max(0, Number(count && count.n || 0)), notifications: rows.results || [] }, 200, { 'Cache-Control': 'no-store' });
         } catch (e) { return jsonResp({ error: String(e && e.message || e) }, 500, { 'Cache-Control': 'no-store' }); }

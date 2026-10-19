@@ -27,6 +27,7 @@ struct ShoppingView: UIViewControllerRepresentable {
 
 final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, WKScriptMessageHandlerWithReply, ASWebAuthenticationPresentationContextProviding {
     private static let home = URL(string: "https://findai.ai/findai-app.html?country=US&catalogue-test=1&treasure-test=1")!
+    private let selectionFeedback = UISelectionFeedbackGenerator()
     private let spinner = UIActivityIndicatorView(style: .large)
     private let failure = UIStackView()
     private var didShowPage = false
@@ -37,7 +38,7 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.userContentController.addUserScript(WKUserScript(
-            source: "window.wishwaveNativeBuild = 315;",
+            source: "window.wishwaveNativeBuild = 316;",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
         // Keep the camera preview beneath WishWave's own shutter controls.
         config.allowsInlineMediaPlayback = true
@@ -108,6 +109,7 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
             failure.widthAnchor.constraint(lessThanOrEqualTo: view.widthAnchor, multiplier: 0.8)
         ])
         failure.isHidden = true
+        selectionFeedback.prepare()
         reloadPage()
     }
 
@@ -201,7 +203,9 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, trusted(message.frameInfo.request.url), message.name == "findaiHaptic" else { return }
-        UISelectionFeedbackGenerator().selectionChanged()
+        if message.body as? String == "prepare" { selectionFeedback.prepare(); return }
+        selectionFeedback.selectionChanged()
+        selectionFeedback.prepare()
     }
 
     // Safari authentication owns provider cookies; only a short-lived ticket
@@ -271,7 +275,7 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
             }
         }
         session.presentationContextProvider = self
-        session.prefersEphemeralWebBrowserSession = false
+        session.prefersEphemeralWebBrowserSession = true
         authSession = session
         if !session.start() {
             authSession = nil

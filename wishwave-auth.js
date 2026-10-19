@@ -20,7 +20,7 @@
       return fallback?.();
     }
     busy = true;
-    feedback('Opening ' + (provider === 'google' ? 'Google' : 'Apple') + ' sign-in…');
+    feedback('');
     const buttons = [...document.querySelectorAll('.google-signin-btn,.apple-signin-btn')];
     const states = buttons.map(button => button.disabled);
     buttons.forEach(button => { button.disabled = true; button.setAttribute('aria-busy', 'true'); });
@@ -30,7 +30,8 @@
       feedback('');
       window.applyFindaiUser(user, provider);
     } catch (error) {
-      feedback(String(error?.message || error || 'Sign-in could not be completed. Please try again.'));
+      const message=String(error?.message || error || 'Sign-in could not be completed. Please try again.');
+      feedback(/cancelled/i.test(message)?'':message);
     } finally {
       busy = false;
       buttons.forEach((button, index) => { button.disabled = states[index]; button.removeAttribute('aria-busy'); });

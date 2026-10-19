@@ -1,0 +1,10 @@
+# Sign-in and social feedback — v316
+
+- Removes the red Opening Google/Apple sign-in status and silently handles cancellation. Actual failures remain visible and buttons retain busy semantics.
+- iPhone build 316 uses ASWebAuthenticationSession's private/ephemeral option. Apple documents that this avoids the cookie-sharing consent dialog. It does not reuse Safari's existing provider session, so users may need to enter credentials. The authenticated WishWave session is still persisted in the app. Rebuild/install 316 to change this native behavior; no additional OAuth secret/redirect setup is needed beyond v315.
+- Native haptics retain and prepare one selection generator; follow pointerdown warms it, completed taps trigger it. Follow in notifications and own followers now buzzes before the network request, with a duplicate-tap guard, and never again on completion. Public-profile feedback avoids forced synchronous layout.
+- Profile header requests `/social/followers/count` immediately during sign-in. One count query replaces loading up to 500 profiles and relationship joins. Reuses an in-flight request, isolates responses by account/session, restores the account's cached count and replaces the dash with a static loading placeholder only when no value is known. Counts can decrease to zero. Loading the full followers list also updates the header cache.
+- Follow, follow-request and mutual-follow notifications collapse to the newest relationship event for each stable actor. SQL filtering keeps unread counts and visible inbox entries consistent without deleting history. Future events upsert a deterministic per-recipient/actor row; comments, likes, and other event types remain separate.
+- Bell unread indicator is a 6px dot anchored to the bell, without the previous 18px badge dimensions, padding or black ring.
+
+Checks: native auth client/server, targeted social tests, existing profile/inbox and password tests, full account/discovery CI and unsigned iOS simulator compile. Device testing remains necessary for perceived haptic latency and the OS's auth presentation; the environment cannot install/sign on the user's iPhone.

@@ -12824,7 +12824,7 @@ window.addEventListener('load', function(){
   window.findaiNotificationFollowBack=async function(event,index,button){
     if(event){event.preventDefault();event.stopPropagation();}
     const n=appNotificationCache[Number(index)];
-    if(!n||!button)return;
+    if(!n||!button||button.disabled)return;
     const username=String(n.actor_username||'').replace(/^@+/,'').trim();
     if(!username)return;
 
@@ -12854,6 +12854,7 @@ window.addEventListener('load', function(){
       return;
     }
 
+    try{if(typeof haptic==='function')haptic();}catch(_){}
     const cancelling=alreadyPending;
     button.disabled=true;
     button.textContent=cancelling?'Follow':'Following';
@@ -12877,7 +12878,6 @@ window.addEventListener('load', function(){
       });
 
       renderHomeNotifications();
-      try{if(typeof haptic==='function')haptic();}catch(_){}
     }catch(error){
       try{toast(error&&error.message||'Could not update follow request');}catch(_){}
       renderHomeNotifications();
@@ -12932,8 +12932,10 @@ window.addEventListener('load', function(){
     }));
     const messageNotices=[];
     const seen=new Set();
-    appNotificationCache=[...remote,...messageNotices,...milestones].filter(n=>{
-      const key=String(n.id||n.title||'')+'|'+String(n.created_at||'');
+    appNotificationCache=[...remote,...messageNotices,...milestones].sort((a,b)=>Date.parse(b.created_at||0)-Date.parse(a.created_at||0)).filter(n=>{
+      const type=String(n.notification_type||'').toLowerCase();
+      const actor=String(n.actor_email||n.actor_username||n.entity_id||'').trim().toLowerCase();
+      const key=['follow','follow_mutual','follow_request'].includes(type)&&actor?'follow:'+actor:String(n.id||n.title||'')+'|'+String(n.created_at||'');
       if(seen.has(key))return false;
       seen.add(key);return true;
     }).sort((a,b)=>Date.parse(b.created_at||0)-Date.parse(a.created_at||0)).slice(0,40);
@@ -18040,7 +18042,10 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
     if(button){button.classList.remove('findai-follow-crisp','findai-follow-settling');void button.offsetWidth;button.classList.add('findai-follow-crisp','findai-follow-settling');setTimeout(()=>button.classList.remove('findai-follow-crisp'),240);setTimeout(()=>button.classList.remove('findai-follow-settling'),420);}
   }
   const priorFollowFeedback=window.findaiFollowFeedback;
-  window.findaiFollowFeedback=function(button){tactile(button);};
+  window.findaiFollowFeedback=function(button){
+    try{haptic();}catch(_){}
+    if(button){button.classList.add('findai-follow-crisp');setTimeout(()=>button.classList.remove('findai-follow-crisp'),240);}
+  };
 
   async function refreshCurrentTab(tab,button){
     document.body.classList.add('findai-tab-refreshing');setTimeout(()=>document.body.classList.remove('findai-tab-refreshing'),520);
@@ -19763,6 +19768,7 @@ html.findai-light .findai-followers-empty b{color:#0c0d0f}
     ownFollowersFetchedAt=Date.now();
     const count=Math.max(0,Number(data&&data.count||ownFollowersCache.length));
     ownFollowersCount=count;ownFollowersReady=true;saveFollowersCache();
+    window.wishwaveApplyOwnFollowerCount?.(count);
 
     const countEl=document.getElementById('findaiFollowersCount');
     if(countEl)countEl.textContent=profileMetricCompact(count);
@@ -19837,14 +19843,14 @@ html.findai-light .findai-followers-empty b{color:#0c0d0f}
   if(typeof signInBefore==='function')window.applyFindaiUser=function(){
     closeOwnFollowersList();
     const result=signInBefore.apply(this,arguments);
-    syncFollowersIdentity();prefetchOwnFollowersList(false);
+    syncFollowersIdentity();
     return result;
   };
 
 
   window.followOwnFollower=async function(username,button,event){
     if(event){event.preventDefault();event.stopPropagation();}
-    const clean=String(username||'').replace(/^@+/,'').trim();if(!clean||!button)return;
+    const clean=String(username||'').replace(/^@+/,'').trim();if(!clean||!button||button.disabled)return;
     syncFollowersIdentity();followersVersion++;
     const session=marketplaceSession();
     const row=ownFollowersCache.find(r=>String(r.username||'').replace(/^@+/,'').toLowerCase()===clean.toLowerCase());
@@ -19855,6 +19861,7 @@ html.findai-light .findai-followers-empty b{color:#0c0d0f}
       return;
     }
 
+    try{if(typeof haptic==='function')haptic();}catch(_){}
     const cancelling=wasPending;
     button.disabled=true;
     const old=button.textContent;
@@ -19877,7 +19884,6 @@ html.findai-light .findai-followers-empty b{color:#0c0d0f}
       saveFollowersCache();
       button.textContent=data.pending?'Requested':data.isFollowing?'Following':'Follow';
       button.classList.toggle('following',!!data.isFollowing||!!data.pending);
-      try{if(typeof haptic==='function')haptic();}catch(_){}
     }catch(error){
       if(row){row.isFollowing=wasFollowing;row.pending=wasPending;}
       if(session!==marketplaceSession())return;
@@ -22423,9 +22429,8 @@ html.findai-light .nav-messages-badge{border-color:#f7f7f8!important}
 }
 
 /* First profile paint can show a neutral placeholder rather than a false zero. */
-#socialFollowersValue.findai-followers-pending{
-  color:#777b83!important;
-}
+#socialFollowersValue.findai-followers-pending{color:transparent!important;}
+#socialFollowersValue.findai-followers-pending::after{content:'';display:inline-block;width:20px;height:12px;border-radius:4px;background:rgba(140,145,154,.16);vertical-align:middle;}
 </style>
 
 <script id="findai-v160-final-script">
@@ -22507,29 +22512,38 @@ html.findai-light .nav-messages-badge{border-color:#f7f7f8!important}
     const el=document.getElementById('socialFollowersValue');
     if(el){
       el.textContent=profileMetricCompact(Math.max(0,Number(count)||0));
-      el.classList.toggle('findai-followers-pending',!ready);
+      el.classList.toggle('findai-followers-pending',!ready);if(ready)el.removeAttribute('aria-label');
     }
   }
 
-  let followerReady=false;
+  let followerReady=false,followerReadyOwner='',followerCountRequest=null,followerCountAt=0;
   const cached=cachedFollowerCount();
-  if(cached!=null){
-    followerReady=true;
-    applyFollowerCount(cached,true);
+  if(cached!=null){followerReady=true;followerReadyOwner=followerIdentity();applyFollowerCount(cached,true);}
+  window.wishwaveApplyOwnFollowerCount=function(count){
+    if(count==null||!Number.isFinite(Number(count)))return;
+    count=Math.max(0,Number(count));followerReady=true;followerReadyOwner=followerIdentity();followerCountAt=Date.now();
+    saveFollowerCount(count);applyFollowerCount(count,true);
+  };
+  function followerPlaceholder(el){
+    if(!el)return;el.textContent='';el.classList.add('findai-followers-pending');el.setAttribute('aria-label','Loading follower count');
   }
-
-  async function warmFollowerCount(){
-    if(!marketplaceSession())return;
-    try{
-      const data=await prefetchOwnFollowersList(false);
-      if(!data)return;
-      const count=Math.max(0,Number(data&&data.count||0));
-      followerReady=true;
-      saveFollowerCount(count);
-      applyFollowerCount(count,true);
-    }catch(_){}
+  async function warmFollowerCount(force=false){
+    const session=marketplaceSession(),owner=followerIdentity();if(!session||!owner)return;
+    if(followerCountRequest?.owner===owner&&followerCountRequest.session===session)return followerCountRequest.promise;
+    if(!force&&followerReadyOwner===owner&&followerReady&&Date.now()-followerCountAt<15000)return;
+    const promise=(async()=>{
+      try{
+        const data=await marketplaceFetch('/social/followers/count',{method:'GET'});
+        if(session!==marketplaceSession()||owner!==followerIdentity()||data?.count==null||!Number.isFinite(Number(data.count)))return;
+        window.wishwaveApplyOwnFollowerCount(data.count);
+      }catch(_){}
+    })();
+    const request={owner,session,promise};followerCountRequest=request;
+    try{return await promise;}finally{if(followerCountRequest===request)followerCountRequest=null;}
   }
   window.__findaiWarmFollowerCountV160=warmFollowerCount;
+  const signInBeforeCount=window.applyFindaiUser;
+  window.applyFindaiUser=function(){const result=signInBeforeCount.apply(this,arguments);warmFollowerCount(true);return result;};
 
   const priorPaint=window.paintSocialProfileHeader;
   if(typeof priorPaint==='function'){
@@ -22539,9 +22553,8 @@ html.findai-light .nav-messages-badge{border-color:#f7f7f8!important}
       const el=document.getElementById('socialFollowersValue');
       if(stable!=null){
         applyFollowerCount(stable,true);
-      }else if(!followerReady&&el){
-        el.textContent='—';
-        el.classList.add('findai-followers-pending');
+      }else if((!followerReady||followerReadyOwner!==followerIdentity())&&el){
+        followerPlaceholder(el);
       }
       return result;
     };
@@ -22554,7 +22567,7 @@ html.findai-light .nav-messages-badge{border-color:#f7f7f8!important}
       if(stable!=null)applyFollowerCount(stable,true);
       else{
         const el=document.getElementById('socialFollowersValue');
-        if(el){el.textContent='—';el.classList.add('findai-followers-pending');}
+        followerPlaceholder(el);
       }
       const result=priorOpenProfile.apply(this,arguments);
       warmFollowerCount();
@@ -36010,6 +36023,23 @@ html body.keyboard-open[data-active-tab="search"] .app #searchResults .premium-r
 <link rel="stylesheet" href="wishwave-create.css?v=313">
 <script src="wishwave-create.js?v=312"></script>
 <script src="wishwave-navigation-origins.js?v=306"></script>
-<script src="wishwave-auth.js?v=315"></script>
+<style id="wishwave-notification-dot-v316">
+html body #wishwaveMainNav #navNotificationsBadge{
+ top:calc(50% - 16px)!important;left:calc(50% + 8px)!important;right:auto!important;
+ width:6px!important;min-width:6px!important;height:6px!important;min-height:6px!important;
+ padding:0!important;border:0!important;border-radius:50%!important;box-shadow:none!important;
+ background:#ff3045!important;transform:none!important;animation:none!important;
+}
+</style>
+<style id="wishwave-follow-tap-v316">
+#wishwavePublicFollowButton,.premium-seller-action,.findai-follower-follow,.findai-notification-follow{touch-action:manipulation!important;}
+</style>
+<script id="wishwave-follow-haptic-prepare-v316">
+document.addEventListener('pointerdown',function(event){
+ const target=event.target.closest?.('#wishwavePublicFollowButton,.premium-seller-action,.findai-follower-row button,.findai-notification-item button');
+ if(target&&!target.disabled){try{window.webkit?.messageHandlers?.findaiHaptic?.postMessage('prepare');}catch(_){}}
+},{capture:true,passive:true});
+</script>
+<script src="wishwave-auth.js?v=316"></script>
 </body>
 </html>
