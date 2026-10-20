@@ -42,7 +42,7 @@
  let repairQueued=false;
  function scheduleRepair(){
   if(repairQueued)return;repairQueued=true;
-  requestAnimationFrame(()=>{repairQueued=false;repairProfileTabs();});
+  (window.requestAnimationFrame||window.setTimeout)(()=>{repairQueued=false;repairProfileTabs();},0);
  }
  function decorate(){stats(document.querySelector('#profileSignedIn .social-profile-stats'),'@me');const username=wishwavePublicSellerData?.seller?.username;if(username)stats(document.querySelector('#wishwavePublicProfileBody .social-profile-stats'),username);repairProfileTabs();}
  const profileRoot=document.getElementById('profile');
