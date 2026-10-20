@@ -78,5 +78,6 @@
  // Settings opens at the top, while its header remains below the system status bar.
  const settings=window.findaiOpenSettingsHome;window.findaiOpenSettingsHome=function(){const out=settings.apply(this,arguments);const scroll=document.querySelector('#appThemeOverlay .app-theme-sheet');if(scroll)scroll.scrollTop=0;return out;};
  document.querySelectorAll('#profileSignedOut .social-profile-stats button').forEach((button,i)=>{const label=button.querySelector('span');if(label)label.textContent=['Listings','Followers','Following'][i];});
+ document.addEventListener('wishwave-social-block-changed',()=>{countEpoch++;counts.clear();pending.clear();decorate();});
  decorate();
 })();
