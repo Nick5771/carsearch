@@ -18391,7 +18391,8 @@ async function wishwaveRestrictedProfile(env,viewerEmail,targetEmail) {
     findaiControlExists(env,viewerEmail,targetEmail,'blocked'),
     findaiControlExists(env,targetEmail,viewerEmail,'blocked')
   ]);
-  return {restricted:blockedByViewer||blockedViewer,blockedByViewer,blockedViewer};
+  // The blocker may still view the account they blocked. Only the blocked viewer sees the restricted shell.
+  return {restricted:blockedViewer,blockedByViewer,blockedViewer};
 }
 
 async function findaiSafetyBlockByEmail(env,ownerEmail,targetEmail) {
@@ -23472,9 +23473,7 @@ export default {
           ).bind(sellerId).all();
 
           const viewerEmail=String(await emailFromSession(request,env)||'').toLowerCase();
-          if(viewerEmail && await findaiControlExists(env,String(sellerRow.user_email||'').toLowerCase(),viewerEmail,'blocked')) {
-            return jsonResp({error:'Profile not found'},404,{ 'Cache-Control':'no-store' });
-          }
+          // The restricted response is returned earlier; the blocker may still manage the visible profile.
           const viewerFollowRow=viewerEmail?await env.DB.prepare(
             `SELECT 1 AS yes FROM marketplace_follows WHERE seller_id=? AND lower(follower_email)=lower(?) LIMIT 1`
           ).bind(sellerId,viewerEmail).first():null;
@@ -23516,6 +23515,9 @@ export default {
               isPrivate:!!targetPrefs.privateAccount,
               canViewListings,
               blocked:viewerEmail?await findaiControlExists(env,viewerEmail,String(sellerRow.user_email||'').toLowerCase(),'blocked'):false,
+              blockedByViewer:viewerEmail?await findaiControlExists(env,viewerEmail,String(sellerRow.user_email||'').toLowerCase(),'blocked'):false,
+              blockedViewer:viewerEmail?await findaiControlExists(env,String(sellerRow.user_email||'').toLowerCase(),viewerEmail,'blocked'):false,
+              restricted:false,
               muted:viewerEmail?await findaiControlExists(env,viewerEmail,String(sellerRow.user_email||'').toLowerCase(),'muted'):false
             }
           },200,{ 'Cache-Control':'no-store' });
@@ -24430,7 +24432,8 @@ export default {
           if(!canViewListings)listings=[];
           return jsonResp({
             profile:findaiProfileJson(row),sellerId,country:String(row.seller_country||'AU'),activeCount,soldCount,followerCount,listings,
-            viewer:{signedIn:!!viewerEmail,isSelf,isFollowing,pending,isPrivate,canViewListings}
+            viewer:{signedIn:!!viewerEmail,isSelf,isFollowing,pending,isPrivate,canViewListings,
+              blockedByViewer:!!access.blockedByViewer,blockedViewer:!!access.blockedViewer,restricted:false}
           },200,{ 'Cache-Control':'no-store' });
         } catch(e) {
           return jsonResp({ error:String(e&&e.message||e) },500,{ 'Cache-Control':'no-store' });
