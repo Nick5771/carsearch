@@ -35492,6 +35492,9 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  function scheduleApply(){clearTimeout(applyTimer);applyTimer=setTimeout(apply,180);}
  function apply(){
   if(!active()||revision===applied||!pool||pool.version!==revision||pool.owner!==epoch||document.body.dataset.activeTab!=='discover'||feedState.source!=='personalised')return;
+  // Never replace a returning user's visible Home queue. Wait until the
+  // visitor intentionally changes reels or explicitly refreshes instead.
+  if(returning&&activeReelIndex===returnIndex)return;
   if(window.__wishwavePageMotion||feedState.loading||!window.wishwaveRecommendationScrollIdle?.()){scheduleApply();return;}
   const feed=document.getElementById('personalFeed');if(!feed?.querySelector('.reel-card'))return;
   const ready=pool;
@@ -35509,7 +35512,14 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  const record=window.recordInterest;
  window.recordInterest=function(query,event){const out=record.apply(this,arguments);if(['search','scan'].includes(event))dirty();return out;};
  const open=window.openForYou;
- window.openForYou=function(){const from=document.body.dataset.activeTab,out=open.apply(this,arguments);if(from!=='discover'&&revision!==applied){returning=true;returnAt=Date.now();setTimeout(()=>{returnIndex=activeReelIndex;prepare();scheduleApply();},220);}return out;};
+ window.openForYou=function(){const from=document.body.dataset.activeTab,out=open.apply(this,arguments);
+  if(from!=='discover'&&revision!==applied){returning=true;returnAt=Date.now();returnIndex=activeReelIndex;prepare();}
+  return out;
+ };
+ document.getElementById('personalFeed')?.addEventListener('scroll',()=>{
+  if(!returning||document.body.dataset.activeTab!=='discover')return;
+  requestAnimationFrame(()=>{if(returning&&activeReelIndex!==returnIndex){returning=false;scheduleApply();}});
+ },{passive:true});
  window.wishwaveRefreshLearningFeed=()=>{dirty();return prepare();};
  window.wishwaveResponsiveFeedStatus=()=>({revision,applied,preparing:!!job,ready:!!pool,focus:focus()});
  document.addEventListener('wishwave-recommendation-account-change',()=>{epoch++;revision=0;applied=0;pool=null;job=null;returning=false;controller?.abort();clearTimeout(warmTimer);clearTimeout(applyTimer);});
@@ -36196,10 +36206,10 @@ html body #profileSignedOut [data-guest-likes]{display:none!important;}
  window.updateAccountHeader=function(){const out=header.apply(this,arguments);window.wishwaveSyncNavAvatar?.();return out;};
 })();
 </script>
-<link rel="stylesheet" href="wishwave-chat-polish.css?v=342">
-<script src="wishwave-chat-polish.js?v=342"></script>
-<link rel="stylesheet" href="wishwave-connections.css?v=342">
-<script src="wishwave-connections.js?v=342"></script>
+<link rel="stylesheet" href="wishwave-chat-polish.css?v=344">
+<script src="wishwave-chat-polish.js?v=344"></script>
+<link rel="stylesheet" href="wishwave-connections.css?v=344">
+<script src="wishwave-connections.js?v=344"></script>
 <script src="wishwave-auth.js?v=316"></script>
 
 <style id="wishwave-reel-heart-polish-v332">
