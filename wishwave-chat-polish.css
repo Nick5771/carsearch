@@ -55,3 +55,27 @@ html body .app #appMpInbox:not(.chat-open) .app-mp-header-spacer button,
 html body .app .wishwave-inbox-preview.wishwave-inbox-clone:not(.chat-open) .app-mp-header-spacer button{
  display:none!important;
 }
+
+/* The list-level back arrow is real navigation, not the thread actions menu. */
+html body .app #appMpInbox.show:not(.chat-open) > .app-mp-header > button[aria-label="Back"]{
+ display:flex!important;visibility:visible!important;opacity:1!important;
+ pointer-events:auto!important;align-items:center!important;justify-content:center!important;
+ flex:none!important;width:38px!important;min-width:38px!important;height:44px!important;
+ padding:8px!important;color:#f4f5f6!important;
+}
+html body .app #appMpInbox.show:not(.chat-open) > .app-mp-header > button[aria-label="Back"] svg{
+ display:block!important;width:23px!important;height:23px!important;
+}
+html.findai-light body .app #appMpInbox.show:not(.chat-open) > .app-mp-header > button[aria-label="Back"]{color:#17181a!important;}
+/* A thread has the only ellipsis menu; list navigation is unambiguous. */
+html body .app #appMpInbox.show:not(.chat-open) .app-mp-header-spacer .wishwave-chat-menu{display:none!important;}
+/* Shared products must render above Messages while preserving the chat below. */
+html body .app #searchDetailOverlay.search-owned-v186.show[data-reel-owner="messages"]{
+ z-index:20015!important;visibility:visible!important;pointer-events:auto!important;
+}
+/* Messages is a child surface, not the Search tab: no false highlighted pill. */
+html body:has(#appMpInbox.show) .premium-bottom-nav button.active,
+html body:has(#appMpInbox.show) .premium-bottom-nav button[aria-selected="true"]{
+ background:transparent!important;
+ box-shadow:none!important;
+}
