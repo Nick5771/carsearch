@@ -19,7 +19,37 @@
   if(!pending.has(cacheKey))pending.set(cacheKey,marketplaceFetch('/social/connections/'+encodeURIComponent(key)+'?counts=1',{method:'GET'}).then(data=>{if(epoch===countEpoch&&owner===account())counts.set(cacheKey,{data,at:Date.now()});return data;}).finally(()=>pending.delete(cacheKey)));
   pending.get(cacheKey).then(paint).catch(()=>{if(root.dataset.connectionsOwner===key&&owner===account())following.querySelector('b').textContent='—';});
  }
- function decorate(){stats(document.querySelector('#profileSignedIn .social-profile-stats'),'@me');const username=wishwavePublicSellerData?.seller?.username;if(username)stats(document.querySelector('#wishwavePublicProfileBody .social-profile-stats'),username);}
+
+ // Legacy profile swipe snapshots can reattach older tab nodes. Repair labels
+ // deterministically after a restore; never overwrite fractional drag progress.
+ const captions={listings:'Listings',sold:'Sold',saved:'Saved'};
+ function repairProfileTabs(){
+  for(const tabs of document.querySelectorAll('#profileSignedIn .social-profile-tabs,#profileSignedOut .social-profile-tabs')){
+   const buttons=[...tabs.querySelectorAll(':scope > button')];
+   buttons.forEach((button,index)=>{
+    const key=String(button.dataset.profileTab||['listings','sold','saved'][index]||'').toLowerCase();
+    if(!captions[key])return;
+    let label=button.querySelector('.wishwave-profile-tab-label');
+    if(!label){label=document.createElement('span');label.className='wishwave-profile-tab-label';button.append(label);}
+    if(label.textContent!==captions[key])label.textContent=captions[key];
+   });
+   if(!tabs.classList.contains('wishwave-profile-bar-drag')){
+    const active=buttons.findIndex(b=>b.classList.contains('active'));
+    if(active>=0&&tabs.style.getPropertyValue('--profile-tab-index')!==String(active))tabs.style.setProperty('--profile-tab-index',String(active));
+   }
+  }
+ }
+ let repairQueued=false;
+ function scheduleRepair(){
+  if(repairQueued)return;repairQueued=true;
+  requestAnimationFrame(()=>{repairQueued=false;repairProfileTabs();});
+ }
+ function decorate(){stats(document.querySelector('#profileSignedIn .social-profile-stats'),'@me');const username=wishwavePublicSellerData?.seller?.username;if(username)stats(document.querySelector('#wishwavePublicProfileBody .social-profile-stats'),username);repairProfileTabs();}
+ const profileRoot=document.getElementById('profile');
+ if(profileRoot)new MutationObserver(records=>{
+  if(records.some(record=>record.target.closest?.('.social-profile-tabs')||[...record.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('.social-profile-tabs')||n.querySelector?.('.social-profile-tabs')))))scheduleRepair();
+ }).observe(profileRoot,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+
  const own=window.paintSocialProfileHeader;window.paintSocialProfileHeader=function(){const out=own.apply(this,arguments);decorate();return out;};
  const pub=window.renderWishWavePublicProfile;window.renderWishWavePublicProfile=function(){const out=pub.apply(this,arguments);decorate();return out;};
  const profile=window.renderProfileTab;window.renderProfileTab=function(){const out=profile.apply(this,arguments);decorate();return out;};
