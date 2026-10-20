@@ -1,15 +1,31 @@
 /* Account-scoped chat rendering, native-sized action sheets and safety controls. */
 (function(){
  'use strict';
- const cache=new Map(),inflight=new Map();let owner=marketplaceSession(),menu=null;
+ const cache=new Map(),inflight=new Map(),profileAccess=new Map();let owner=marketplaceSession(),menu=null;
+ const profileKey=u=>String(u||'').replace(/^@+/,'').toLowerCase().trim();
+ function accessFor(u){return profileAccess.get(profileKey(u));}
+ function rememberAccess(data){
+  const username=profileKey(data?.seller?.username||data?.profile?.username);
+  if(username&&data?.viewer){
+   const v=data.viewer;
+   profileAccess.set(username,{restricted:!!v.restricted,blockedByViewer:!!(v.blockedByViewer??v.blocked),blockedViewer:!!v.blockedViewer});
+  }
+ }
+
  const icon=path=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+path+'</svg>';
  const icons={profile:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2Z"/>',mute:'<path d="M18 8a6 6 0 0 0-10-4M6 7v4c0 3-2 5-2 6h13M10 21h4M3 3l18 18"/>',block:'<circle cx="12" cy="12" r="9"/><path d="m6 18 12-12"/>',report:'<path d="M5 22V3c5-4 9 4 14 0v11c-5 4-9-4-14 0"/>'};
- function scope(){const next=marketplaceSession();if(next!==owner){owner=next;cache.clear();inflight.clear();menu=null;}return next;}
+ function scope(){const next=marketplaceSession();if(next!==owner){owner=next;cache.clear();inflight.clear();profileAccess.clear();menu=null;}return next;}
  function syncAuth(){scope();const guest=!getAccountProfile()||!marketplaceSession();document.body.classList.toggle('wishwave-chat-guest',guest);if(guest){const badge=document.getElementById('navMessagesBadge');if(badge){badge.textContent='';badge.classList.remove('show');}document.querySelectorAll('.wishwave-header-message,#homeMessageButton').forEach(b=>{b.classList.remove('has-unread');delete b.dataset.unreadCount;});}}
  const fetchBefore=window.marketplaceFetch;
  window.marketplaceFetch=function(path,options){
   const session=scope(),method=String(options?.method||'GET').toUpperCase(),eligible=path==='/marketplace/conversations'||/^\/marketplace\/conversations\/[^/]+\/messages$/.test(path);
-  if(!eligible)return fetchBefore.apply(this,arguments);
+  if(!eligible){
+   // Keep restricted-profile status even when legacy profile loaders only copy
+   // a subset of the server's viewer fields into their rendering model.
+   if(method==='GET'&&(/^\/profile\/public\/[^/]+$/.test(path)||/^\/marketplace\/sellers\/[^/]+\/profile$/.test(path)))
+    return Promise.resolve(fetchBefore.apply(this,arguments)).then(data=>{if(session===marketplaceSession())rememberAccess(data);return data;});
+   return fetchBefore.apply(this,arguments);
+  }
   if(method!=='GET'){
    cache.delete(path);const pending=document.querySelector('#appMpMessages .app-mp-bubble.mine.pending:last-child');
    return Promise.resolve(fetchBefore.apply(this,arguments)).then(data=>{
@@ -59,7 +75,7 @@
  function row(action,label,danger=false){return '<button type="button" class="ww-chat-action'+(danger?' danger':'')+'" data-chat-action="'+action+'">'+icon(icons[action]||icons.profile)+'<span>'+label+'</span>'+icon('<path d="m9 5 7 7-7 7"/>')+'</button>';}
  function showSheet(context){
   menu=context;context.confirmingBlock=false;const avatar=context.avatar?'<img src="'+escapeAttr(context.avatar)+'" alt="">':findaiDefaultAvatarSvg();
-  const rows=context.kind==='chat'?row('profile','View profile')+row('mute',context.muted?'Unmute conversation':'Mute conversation')+row('block','Block user',true)+row('report','Report conversation',true):row('mute',context.muted?'Unmute':'Mute')+row('block',context.blocked?'Unblock':'Block',true)+row('report','Report account',true);
+  const rows=context.kind==='chat'?row('profile','View profile')+row('mute',context.muted?'Unmute conversation':'Mute conversation')+row('block',context.blocked?'Unblock user':'Block user',true)+row('report','Report conversation',true):row('mute',context.muted?'Unmute':'Mute')+row('block',context.blocked?'Unblock':'Block',true)+row('report','Report account',true);
   openAppMpSheet(context.kind==='chat'?'Conversation':'Profile options','<div class="ww-chat-sheet-handle"></div><div class="ww-chat-sheet-identity">'+(context.kind==='chat'?'<span class="ww-chat-sheet-avatar">'+avatar+'</span>':'')+'<div><b>'+escapeHTML(context.kind==='chat'?context.name:'Profile options')+'</b><span>'+escapeHTML(context.kind==='chat'?'Conversation':'@'+context.username)+'</span></div></div><div class="ww-chat-action-group">'+rows+'</div><button type="button" class="ww-chat-cancel" data-chat-action="cancel">Cancel</button>');
   document.getElementById('appMpSheetBg')?.classList.add('ww-chat-action-sheet');
  }
@@ -74,8 +90,20 @@
  window.closeAppMpSheet=function(){document.getElementById('appMpSheetBg')?.classList.remove('ww-chat-action-sheet','ww-chat-confirm-sheet');return close.apply(this,arguments);};
  window.wishwaveChatMenu=function(){
   if(!marketplaceSession()){openLogin();return;}const c=appMpCurrentConversation;if(!c||!appMpConversation)return;
-  document.getElementById('appMpMessageInput')?.blur();const context={kind:'chat',id:appMpConversation,username:c.otherPartyUsername||'',name:c.otherParty||'Conversation',avatar:c.otherPartyAvatar||'',muted:false,session:scope()};showSheet(context);
-  marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(context.id)+'/mute',{method:'GET'}).then(data=>{if(menu===context&&context.session===marketplaceSession()&&!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show')){context.muted=!!data.muted;const text=document.querySelector('.ww-chat-action[data-chat-action="mute"] span');if(text)text.textContent=context.muted?'Unmute conversation':'Mute conversation';}}).catch(()=>{});
+  document.getElementById('appMpMessageInput')?.blur();
+  const username=c.otherPartyUsername||'';
+  const context={kind:'chat',id:appMpConversation,username,name:c.otherParty||'Conversation',avatar:c.otherPartyAvatar||'',muted:false,blocked:!!accessFor(username)?.blockedByViewer,session:scope()};
+  showSheet(context);
+  if(username)marketplaceFetch('/social/relationship?username='+encodeURIComponent(username),{method:'GET'}).then(data=>{
+   if(menu!==context||context.session!==marketplaceSession())return;
+   context.blocked=!!data.blockedByViewer||!!data.blocked;
+   profileAccess.set(profileKey(username),{...accessFor(username),blockedByViewer:context.blocked,blockedViewer:!!data.blockedViewer,restricted:context.blocked||!!data.blockedViewer});
+   if(!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show')){
+    const label=document.querySelector('.ww-chat-action[data-chat-action="block"] span');
+    if(label)label.textContent=context.blocked?'Unblock user':'Block user';
+   }
+  }).catch(()=>{});
+  marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(context.id)+'/mute',{method:'GET'}).then(data=>{if(menu===context&&context.session===marketplaceSession()&&!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show')){context.muted=!!data.muted;const label=document.querySelector('.ww-chat-action[data-chat-action="mute"] span');if(label)label.textContent=context.muted?'Unmute conversation':'Mute conversation';}}).catch(()=>{});
  };
  window.openFindAIProfileActions=function(){
   if(!marketplaceSession()){openLogin();return;}const s=wishwavePublicSellerData?.seller;if(!s?.username)return;const context={kind:'profile',username:s.username,name:s.displayName||s.username,muted:false,blocked:false,session:scope()};showSheet(context);
@@ -92,10 +120,50 @@
   try{
    if(action==='mute'&&context.kind==='chat')await marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(context.id)+'/mute',{method:context.muted?'DELETE':'POST'});
    else {if(!context.username)throw Error('Profile unavailable');await marketplaceFetch('/social/controls',{method:(action==='mute'?context.muted:context.blocked)?'DELETE':'POST',body:JSON.stringify({kind:action==='mute'?'muted':'blocked',username:context.username})});}
-   if(context.session!==marketplaceSession())return;closeAppMpSheet();toast(action==='mute'?(context.muted?'Notifications unmuted':'Notifications muted'):(context.blocked?'Account unblocked':'Account blocked'));
-   if(action==='block'&&!context.blocked){window.findaiNotificationState?.removeActor?.(context.username);if(context.kind==='chat')appMpInboxBack();else closeWishWavePublicProfile();}
+   if(context.session!==marketplaceSession())return;
+   if(action==='block'){
+    const newlyBlocked=!context.blocked,prev=accessFor(context.username)||{};
+    profileAccess.set(profileKey(context.username),{...prev,blockedByViewer:newlyBlocked,restricted:newlyBlocked||!!prev.blockedViewer});
+    window.wishwaveBlockedProfileUpdated?.(context.username,newlyBlocked);
+    if(newlyBlocked)window.findaiNotificationState?.removeActor?.(context.username);
+   }
+   closeAppMpSheet();
+   toast(action==='mute'?(context.muted?'Notifications unmuted':'Notifications muted'):(context.blocked?'Account unblocked':'Account blocked'));
   }catch(error){if(context.session===marketplaceSession()){toast(error.message||'Could not update');}}finally{button.disabled=false;}
  },true);
+
+ // A blocked relationship retains a minimal profile shell so either user
+ // can open its top-right options, but cannot view photos, posts or follow.
+ const renderPublic=window.renderWishWavePublicProfile;
+ window.renderWishWavePublicProfile=function(){
+  const data=wishwavePublicSellerData,username=data?.seller?.username||'';
+  const access=accessFor(username)||data?.viewer||{};
+  const restricted=!!access.restricted;
+  const page=document.getElementById('wishwavePublicProfilePage');
+  page?.classList.toggle('ww-restricted-profile',restricted);
+  if(!restricted)return renderPublic.apply(this,arguments);
+  const handle=document.getElementById('wishwavePublicHandle');
+  if(handle)handle.textContent=username;
+  const root=document.getElementById('wishwavePublicProfileBody');
+  if(root)root.innerHTML='<div class="ww-restricted-profile-message" role="status">Profile not found</div>';
+ };
+ window.wishwaveBlockedProfileUpdated=async function(username,blocked){
+  const current=wishwavePublicSellerData;
+  if(!current||profileKey(current.seller?.username)!==profileKey(username))return;
+  if(blocked){window.renderWishWavePublicProfile();return;}
+  // A later reciprocal block may still exist; always refresh from the server.
+  const session=marketplaceSession(),key=profileKey(username);
+  try{
+   const response=await marketplaceFetch('/profile/public/'+encodeURIComponent(username),{method:'GET'});
+   if(session!==marketplaceSession()||wishwavePublicSellerData!==current)return;
+   const profile=response.profile||{},v=response.viewer||{};
+   current.seller={...current.seller,id:String(response.sellerId||current.seller.id||''),displayName:String(profile.displayName||username),avatarUrl:String(profile.avatarUrl||''),bio:String(profile.bio||''),location:String(profile.location||''),activeCount:Number(response.activeCount||0),soldCount:Number(response.soldCount||0),followerCount:Number(response.followerCount||0)};
+   current.listings=Array.isArray(response.listings)?response.listings:[];
+   current.viewer={...current.viewer,...v};
+   if(!accessFor(key))profileAccess.set(key,{restricted:!!v.restricted,blockedByViewer:!!v.blockedByViewer,blockedViewer:!!v.blockedViewer});
+   window.renderWishWavePublicProfile();
+  }catch(_){window.renderWishWavePublicProfile();}
+ };
  const update=window.updateAccountHeader;window.updateAccountHeader=function(){const result=update.apply(this,arguments);syncAuth();return result;};
  const signout=window.signOutAccount;window.signOutAccount=function(){const result=signout.apply(this,arguments);cache.clear();inflight.clear();syncAuth();return result;};
  window.addEventListener('storage',e=>{if(e.key==='fa_account_profile_v1'||e.key==='findai_user')syncAuth();});syncAuth();
