@@ -123,6 +123,7 @@
     const newlyBlocked=!context.blocked,prev=accessFor(context.username)||{};
     profileAccess.set(profileKey(context.username),{...prev,blockedByViewer:newlyBlocked,restricted:!!prev.blockedViewer});
     window.wishwaveBlockedProfileUpdated?.(context.username,newlyBlocked);
+    document.dispatchEvent(new Event('wishwave-social-block-changed'));
     if(newlyBlocked)window.findaiNotificationState?.removeActor?.(context.username);
    }
    closeAppMpSheet();
