@@ -98,7 +98,7 @@
    if(menu!==context||context.session!==marketplaceSession())return;
    context.blocked=!!data.blockedByViewer||!!data.blocked;
    context.blockReady=true;
-   profileAccess.set(profileKey(username),{...accessFor(username),blockedByViewer:context.blocked,blockedViewer:!!data.blockedViewer,restricted:context.blocked||!!data.blockedViewer});
+   profileAccess.set(profileKey(username),{...accessFor(username),blockedByViewer:context.blocked,blockedViewer:!!data.blockedViewer,restricted:!!data.blockedViewer});
    if(!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show'))showSheet(context);
   }).catch(()=>{});
   marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(context.id)+'/mute',{method:'GET'}).then(data=>{if(menu===context&&context.session===marketplaceSession()&&!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show')){context.muted=!!data.muted;const label=document.querySelector('.ww-chat-action[data-chat-action="mute"] span');if(label)label.textContent=context.muted?'Unmute conversation':'Mute conversation';}}).catch(()=>{});
@@ -121,7 +121,7 @@
    if(context.session!==marketplaceSession())return;
    if(action==='block'){
     const newlyBlocked=!context.blocked,prev=accessFor(context.username)||{};
-    profileAccess.set(profileKey(context.username),{...prev,blockedByViewer:newlyBlocked,restricted:newlyBlocked||!!prev.blockedViewer});
+    profileAccess.set(profileKey(context.username),{...prev,blockedByViewer:newlyBlocked,restricted:!!prev.blockedViewer});
     window.wishwaveBlockedProfileUpdated?.(context.username,newlyBlocked);
     if(newlyBlocked)window.findaiNotificationState?.removeActor?.(context.username);
    }
@@ -136,9 +136,10 @@
  window.renderWishWavePublicProfile=function(){
   const data=wishwavePublicSellerData,username=data?.seller?.username||'';
   const access=accessFor(username)||data?.viewer||{};
-  const restricted=!!access.restricted;
+  const restricted=!!access.restricted,blockedByMe=!!access.blockedByViewer;
   const page=document.getElementById('wishwavePublicProfilePage');
   page?.classList.toggle('ww-restricted-profile',restricted);
+  page?.classList.toggle('ww-blocked-by-me',blockedByMe&&!restricted);
   if(!restricted)return renderPublic.apply(this,arguments);
   const handle=document.getElementById('wishwavePublicHandle');
   if(handle)handle.textContent=username;
@@ -148,7 +149,16 @@
  window.wishwaveBlockedProfileUpdated=async function(username,blocked){
   const current=wishwavePublicSellerData;
   if(!current||profileKey(current.seller?.username)!==profileKey(username))return;
-  if(blocked){window.renderWishWavePublicProfile();return;}
+  if(blocked){
+   const viewer=current.viewer||(current.viewer={}),wasFollowing=!!viewer.isFollowing;
+   viewer.blockedByViewer=true;viewer.blocked=true;viewer.isFollowing=false;viewer.pending=false;
+   if(wasFollowing)current.seller.followerCount=Math.max(0,(Number(current.seller.followerCount)||0)-1);
+   const count=document.getElementById('wishwavePublicFollowerCount');
+   if(count)count.textContent=profileMetricCompact(current.seller.followerCount||0);
+   document.getElementById('wishwavePublicProfilePage')?.classList.add('ww-blocked-by-me');
+   // Do not re-render or close the visible profile: that would make it disappear.
+   return;
+  }
   // A later reciprocal block may still exist; always refresh from the server.
   const session=marketplaceSession(),key=profileKey(username);
   try{
@@ -158,10 +168,68 @@
    current.seller={...current.seller,id:String(response.sellerId||current.seller.id||''),displayName:String(profile.displayName||username),avatarUrl:String(profile.avatarUrl||''),bio:String(profile.bio||''),location:String(profile.location||''),activeCount:Number(response.activeCount||0),soldCount:Number(response.soldCount||0),followerCount:Number(response.followerCount||0)};
    current.listings=Array.isArray(response.listings)?response.listings:[];
    current.viewer={...current.viewer,...v};
-   if(!accessFor(key))profileAccess.set(key,{restricted:!!v.restricted,blockedByViewer:!!v.blockedByViewer,blockedViewer:!!v.blockedViewer});
    window.renderWishWavePublicProfile();
   }catch(_){window.renderWishWavePublicProfile();}
  };
+
+ // A Messages-list back button must use the same origin-aware navigation as
+ // edge swipes; close only the chat if a thread is currently open.
+ window.wishwaveInboxBackFromHeader=function(){
+  const inbox=document.getElementById('appMpInbox');if(!inbox?.classList.contains('show'))return;
+  if(inbox.classList.contains('chat-open')){appMpInboxBack();return;}
+  const back=inbox.querySelector('.app-mp-header > button[aria-label="Back"]');
+  const surface=back&&window.__wishwaveOriginSurface?.(back);
+  if(surface&&typeof window.wishwaveSlidePageBack==='function'){
+   window.wishwaveSlidePageBack(surface);return;
+  }
+  inbox.classList.remove('show','chat-open');
+  const tab=String(document.body.dataset.activeTab||'discover');
+  if(typeof setMainNavActive==='function')setMainNavActive(tab==='messages'?'discover':tab);
+ };
+ function syncInboxBack(){
+  const back=document.querySelector('#appMpInbox .app-mp-header > button[aria-label="Back"]');
+  if(back){back.onclick=window.wishwaveInboxBackFromHeader;back.setAttribute('aria-label','Back');}
+ }
+ syncInboxBack();
+ // Older chat renderers may reconstruct the header: observe only that header.
+ const inboxHeader=document.querySelector('#appMpInbox .app-mp-header');
+ if(inboxHeader)new MutationObserver(syncInboxBack).observe(inboxHeader,{childList:true});
+
+ // Shared messages use the same product reel as the main feed, preserving the
+ // conversation DOM and exact message position behind the full-screen overlay.
+ const legacySharedOpen=window.openSharedListingMessageV172;
+ if(typeof legacySharedOpen==='function')window.openSharedListingMessageV172=async function(host){
+  try{
+   const raw=host?.closest?.('[data-shared-json]')?.dataset.sharedJson;
+   if(!raw)return legacySharedOpen.call(this,host);
+   const shared=JSON.parse(decodeURIComponent(raw));
+   let item=null;
+   const listingId=String(shared.listingId||'').trim();
+   if(listingId){
+    try{
+     const response=await marketplaceFetch('/marketplace/listings/'+encodeURIComponent(listingId),{method:'GET'});
+     if(response?.listing)item={...response.listing,source:'findai',marketplaceListingId:listingId};
+    }catch(_){}
+   }
+   if(!item)item={
+    id:listingId||shared.url||('shared-'+String(shared.title||'item')),
+    itemId:listingId||'',marketplaceListingId:listingId,
+    title:String(shared.title||'Shared listing'),
+    price:Number(shared.price)||0,currency:shared.currency||'USD',
+    source:String(shared.source||'WishWave'),retailer:String(shared.retailerName||shared.source||'WishWave'),
+    retailerName:String(shared.retailerName||shared.source||'WishWave'),
+    retailerHost:String(shared.retailerHost||''),retailerLogo:String(shared.retailerLogo||''),
+    image:String(shared.imageUrl||''),imageUrl:String(shared.imageUrl||''),
+    images:shared.imageUrl?[shared.imageUrl]:[],imageUrls:shared.imageUrl?[shared.imageUrl]:[],
+    condition:String(shared.condition||''),shipping:String(shared.shipping||''),
+    url:String(shared.url||''),itemWebUrl:String(shared.url||'')
+   };
+   const opened=window.__wishwaveOpenMessageReel?.(item);
+   if(!opened)toast('Could not open this listing');
+   return opened;
+  }catch(error){toast('Could not open this listing');return false;}
+ };
+
  const update=window.updateAccountHeader;window.updateAccountHeader=function(){const result=update.apply(this,arguments);syncAuth();return result;};
  const signout=window.signOutAccount;window.signOutAccount=function(){const result=signout.apply(this,arguments);cache.clear();inflight.clear();syncAuth();return result;};
  window.addEventListener('storage',e=>{if(e.key==='fa_account_profile_v1'||e.key==='findai_user')syncAuth();});syncAuth();
