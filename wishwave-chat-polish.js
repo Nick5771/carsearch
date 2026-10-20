@@ -72,10 +72,10 @@
   return out;
  };
  window.addEventListener('click',e=>{const identity=e.target.closest?.('#appMpInboxTitle .findai-chat-title-person');if(identity){e.preventDefault();e.stopImmediatePropagation();findaiOpenCurrentChatProfileV178();}},true);
- function row(action,label,danger=false){return '<button type="button" class="ww-chat-action'+(danger?' danger':'')+'" data-chat-action="'+action+'">'+icon(icons[action]||icons.profile)+'<span>'+label+'</span>'+icon('<path d="m9 5 7 7-7 7"/>')+'</button>';}
+ function row(action,label,danger=false,disabled=false){return '<button type="button" class="ww-chat-action'+(danger?' danger':'')+'" data-chat-action="'+action+'"'+(disabled?' disabled':'')+'>'+icon(icons[action]||icons.profile)+'<span>'+label+'</span>'+icon('<path d="m9 5 7 7-7 7"/>')+'</button>';}
  function showSheet(context){
   menu=context;context.confirmingBlock=false;const avatar=context.avatar?'<img src="'+escapeAttr(context.avatar)+'" alt="">':findaiDefaultAvatarSvg();
-  const rows=context.kind==='chat'?row('profile','View profile')+row('mute',context.muted?'Unmute conversation':'Mute conversation')+row('block',context.blocked?'Unblock user':'Block user',true)+row('report','Report conversation',true):row('mute',context.muted?'Unmute':'Mute')+row('block',context.blocked?'Unblock':'Block',true)+row('report','Report account',true);
+  const rows=context.kind==='chat'?row('profile','View profile')+row('mute',context.muted?'Unmute conversation':'Mute conversation')+row('block',!context.blockReady?'Checking block status…':context.blocked?'Unblock user':'Block user',true,!context.blockReady)+row('report','Report conversation',true):row('mute',context.muted?'Unmute':'Mute')+row('block',!context.blockReady?'Checking block status…':context.blocked?'Unblock':'Block',true,!context.blockReady)+row('report','Report account',true);
   openAppMpSheet(context.kind==='chat'?'Conversation':'Profile options','<div class="ww-chat-sheet-handle"></div><div class="ww-chat-sheet-identity">'+(context.kind==='chat'?'<span class="ww-chat-sheet-avatar">'+avatar+'</span>':'')+'<div><b>'+escapeHTML(context.kind==='chat'?context.name:'Profile options')+'</b><span>'+escapeHTML(context.kind==='chat'?'Conversation':'@'+context.username)+'</span></div></div><div class="ww-chat-action-group">'+rows+'</div><button type="button" class="ww-chat-cancel" data-chat-action="cancel">Cancel</button>');
   document.getElementById('appMpSheetBg')?.classList.add('ww-chat-action-sheet');
  }
@@ -92,29 +92,27 @@
   if(!marketplaceSession()){openLogin();return;}const c=appMpCurrentConversation;if(!c||!appMpConversation)return;
   document.getElementById('appMpMessageInput')?.blur();
   const username=c.otherPartyUsername||'';
-  const context={kind:'chat',id:appMpConversation,username,name:c.otherParty||'Conversation',avatar:c.otherPartyAvatar||'',muted:false,blocked:!!accessFor(username)?.blockedByViewer,session:scope()};
+  const context={kind:'chat',id:appMpConversation,username,name:c.otherParty||'Conversation',avatar:c.otherPartyAvatar||'',muted:false,blocked:!!accessFor(username)?.blockedByViewer,blockReady:false,session:scope()};
   showSheet(context);
   if(username)marketplaceFetch('/social/relationship?username='+encodeURIComponent(username),{method:'GET'}).then(data=>{
    if(menu!==context||context.session!==marketplaceSession())return;
    context.blocked=!!data.blockedByViewer||!!data.blocked;
+   context.blockReady=true;
    profileAccess.set(profileKey(username),{...accessFor(username),blockedByViewer:context.blocked,blockedViewer:!!data.blockedViewer,restricted:context.blocked||!!data.blockedViewer});
-   if(!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show')){
-    const label=document.querySelector('.ww-chat-action[data-chat-action="block"] span');
-    if(label)label.textContent=context.blocked?'Unblock user':'Block user';
-   }
+   if(!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show'))showSheet(context);
   }).catch(()=>{});
   marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(context.id)+'/mute',{method:'GET'}).then(data=>{if(menu===context&&context.session===marketplaceSession()&&!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show')){context.muted=!!data.muted;const label=document.querySelector('.ww-chat-action[data-chat-action="mute"] span');if(label)label.textContent=context.muted?'Unmute conversation':'Mute conversation';}}).catch(()=>{});
  };
  window.openFindAIProfileActions=function(){
-  if(!marketplaceSession()){openLogin();return;}const s=wishwavePublicSellerData?.seller;if(!s?.username)return;const context={kind:'profile',username:s.username,name:s.displayName||s.username,muted:false,blocked:false,session:scope()};showSheet(context);
-  marketplaceFetch('/social/relationship?username='+encodeURIComponent(s.username),{method:'GET'}).then(data=>{if(menu===context&&context.session===marketplaceSession()&&!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show')){Object.assign(context,{muted:!!data.muted,blocked:!!data.blocked});showSheet(context);}}).catch(()=>{});
+  if(!marketplaceSession()){openLogin();return;}const s=wishwavePublicSellerData?.seller;if(!s?.username)return;const context={kind:'profile',username:s.username,name:s.displayName||s.username,muted:false,blocked:!!accessFor(s.username)?.blockedByViewer,blockReady:false,session:scope()};showSheet(context);
+  marketplaceFetch('/social/relationship?username='+encodeURIComponent(s.username),{method:'GET'}).then(data=>{if(menu===context&&context.session===marketplaceSession()&&!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show')){Object.assign(context,{muted:!!data.muted,blocked:!!data.blocked,blockReady:true});showSheet(context);}}).catch(()=>{});
  };
  window.addEventListener('click',async e=>{
   const button=e.target.closest?.('#appMpSheetBg.ww-chat-action-sheet [data-chat-action]');if(!button)return;e.preventDefault();e.stopPropagation();let action=button.dataset.chatAction;const context=menu;if(action==='cancel'){closeAppMpSheet();return;}if(!context||context.session!==marketplaceSession())return;
   if(action==='profile'){closeAppMpSheet();findaiOpenCurrentChatProfileV178();return;}
   if(action==='report'){closeAppMpSheet();openWishWaveSafetyReport(context.kind==='chat'?'conversation':'user',{id:context.kind==='chat'?context.id:context.username});return;}
   if(action==='cancel-block'){showSheet(context);return;}
-  if(action==='block'){showBlockConfirmation(context);return;}
+  if(action==='block'){if(!context.blockReady)return;showBlockConfirmation(context);return;}
   if(action==='confirm-block'){if(!context.confirmingBlock)return;action='block';}
   if(button.disabled)return;button.disabled=true;
   try{
