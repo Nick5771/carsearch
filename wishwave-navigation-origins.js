@@ -94,7 +94,7 @@
  wrap('openAppMarketplaceListing',['appMpProduct']);wrap('wishwaveCheckoutOpenItem',['wwCheckout','appMpProduct']);
  for(const name of ['openWishWaveComments','openWishWaveListingComments','openAppMpSheet'])wrap(name,['appMpSheetBg']);
  for(const [name,id] of [['openAppSettings','appThemeOverlay'],['openOwnFollowersList','findaiOwnFollowersPage'],['openMyListings','myListingsScreen'],['openPurchases','purchasesScreen'],['openLogin','loginOverlay'],['openWishWaveDashboard','wwDashboard'],['openHomeNotifications','findaiNotificationPanel']])wrap(name,[id]);
- for(const name of ['openAppMarketplaceInbox','openAppMarketplaceMessages','appMpOpenConversation'])wrap(name,['appMpInbox']);
+ for(const name of ['openAppMarketplaceInbox','openAppMarketplaceMessages','appMpOpenConversation','openMessagesTab'])wrap(name,['appMpInbox']);
  function entryFor(target){
   for(let i=stack.length-1;i>=0;i--){const entry=stack[i];if(shown(entry.root)&&entry.root.contains(target))return entry;}
   return null;
