@@ -79,3 +79,21 @@ html body #wishwavePublicProfilePage.ww-restricted-profile #wishwavePublicProfil
 html body #wishwavePublicProfilePage.ww-restricted-profile .findai-public-top-more{
  display:block!important;pointer-events:auto!important;
 }
+
+/* The blocker retains the complete profile but cannot follow or message. */
+html body #wishwavePublicProfilePage.ww-blocked-by-me:not(.ww-restricted-profile) .social-profile-actions{display:none!important;}
+/* Hard guarantee for all three profile captions after swipe DOM reconciliation. */
+html body .app #profile :is(#profileSignedIn,#profileSignedOut) .social-profile-tabs button .wishwave-profile-tab-label{
+ display:block!important;visibility:visible!important;opacity:1!important;
+ font-size:12px!important;line-height:16px!important;font-weight:600!important;
+ color:inherit!important;white-space:nowrap!important;
+}
+html body .app #profile :is(#profileSignedIn,#profileSignedOut) .social-profile-tabs{
+ position:relative!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;
+}
+html body .app #profile :is(#profileSignedIn,#profileSignedOut) .social-profile-tabs::after{
+ display:block!important;visibility:visible!important;opacity:1!important;
+ width:33.333333%!important;height:2px!important;bottom:0!important;
+ transform:translate3d(calc(var(--profile-tab-index,0) * 100%),0,0)!important;
+ transition:transform .23s cubic-bezier(.22,.8,.2,1)!important;
+}
