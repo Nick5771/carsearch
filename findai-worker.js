@@ -18385,6 +18385,15 @@ async function findaiSafetyTarget(env,reporterEmail,targetType,targetId,contextI
   return {type,id:String(row.id||id),context,ownerEmail:String(row.sender_email||'').toLowerCase(),username:String(row.username||''),excerpt:mpCleanText(row.body||'Photo message',500),surface:'message'};
 }
 
+async function wishwaveRestrictedProfile(env,viewerEmail,targetEmail) {
+  if(!viewerEmail||!targetEmail||viewerEmail===targetEmail)return {restricted:false,blockedByViewer:false,blockedViewer:false};
+  const [blockedByViewer,blockedViewer]=await Promise.all([
+    findaiControlExists(env,viewerEmail,targetEmail,'blocked'),
+    findaiControlExists(env,targetEmail,viewerEmail,'blocked')
+  ]);
+  return {restricted:blockedByViewer||blockedViewer,blockedByViewer,blockedViewer};
+}
+
 async function findaiSafetyBlockByEmail(env,ownerEmail,targetEmail) {
   const owner=String(ownerEmail||'').toLowerCase(),target=String(targetEmail||'').toLowerCase();
   if(!owner||!target||owner===target)return false;
@@ -23371,7 +23380,7 @@ export default {
           if (!seller) return jsonResp({ error:'Seller not found' },404,{ 'Cache-Control':'no-store' });
           const sellerEmail=String(seller.user_email||'').toLowerCase();
           if (sellerEmail === String(auth.email||'').toLowerCase()) return jsonResp({ error:'You cannot follow your own profile' },400,{ 'Cache-Control':'no-store' });
-          if (await findaiEitherBlocked(env,auth.email,sellerEmail)) return jsonResp({error:'This profile is unavailable'},403,{ 'Cache-Control':'no-store' });
+          if (await findaiEitherBlocked(env,auth.email,sellerEmail)) return jsonResp({error:'Profile not found'},404,{ 'Cache-Control':'no-store' });
 
           const wasFollowing=await env.DB.prepare(`SELECT 1 AS yes FROM marketplace_follows WHERE seller_id=? AND lower(follower_email)=lower(?) LIMIT 1`)
             .bind(sellerId,String(auth.email||'').toLowerCase()).first();
@@ -23418,6 +23427,14 @@ export default {
              WHERE s.id=? LIMIT 1`
           ).bind(sellerId).first();
           if(!sellerRow)return jsonResp({ error:'Seller not found' },404,{ 'Cache-Control':'no-store' });
+          const viewerEmailForRestricted=String(await emailFromSession(request,env)||'').toLowerCase();
+          const targetEmailForRestricted=String(sellerRow.user_email||'').toLowerCase();
+          const access=await wishwaveRestrictedProfile(env,viewerEmailForRestricted,targetEmailForRestricted);
+          if(access.restricted)return jsonResp({
+            seller:{id:String(sellerRow.id||''),username:String(sellerRow.username||''),displayName:String(sellerRow.username||''),avatarUrl:'',bio:'',location:'',activeCount:0,soldCount:0,followerCount:0,recentReviews:[]},
+            listings:[],
+            viewer:{signedIn:true,isSeller:false,isFollowing:false,pending:false,canViewListings:false,...access}
+          },200,{ 'Cache-Control':'no-store' });
 
           const stats=await env.DB.prepare(
             `SELECT
@@ -23774,6 +23791,8 @@ export default {
         if(!targetEmail)return jsonResp({ error:'Profile not found' },404,{ 'Cache-Control':'no-store' });
         return jsonResp({
           blocked:await findaiControlExists(env,auth.email,targetEmail,'blocked'),
+          blockedByViewer:await findaiControlExists(env,auth.email,targetEmail,'blocked'),
+          blockedViewer:await findaiControlExists(env,targetEmail,auth.email,'blocked'),
           muted:await findaiControlExists(env,auth.email,targetEmail,'muted')
         },200,{ 'Cache-Control':'no-store' });
       }
@@ -23791,7 +23810,7 @@ export default {
           const targetEmail=await findaiEmailForUsername(env,username);
           if(!targetEmail)return jsonResp({error:'Profile not found'},404,{ 'Cache-Control':'no-store' });
           if(targetEmail===String(auth.email||'').toLowerCase())return jsonResp({error:'You cannot follow yourself'},400,{ 'Cache-Control':'no-store' });
-          if(await findaiEitherBlocked(env,auth.email,targetEmail))return jsonResp({error:'This profile is unavailable'},403,{ 'Cache-Control':'no-store' });
+          if(await findaiEitherBlocked(env,auth.email,targetEmail))return jsonResp({error:'Profile not found'},404,{ 'Cache-Control':'no-store' });
 
           const targetProfile=await findaiUsernameForEmail(env,targetEmail);
           const prefs=await findaiAppPrefsRead(env,targetEmail);
@@ -24362,6 +24381,13 @@ export default {
              WHERE lower(p.username)=lower(?) LIMIT 1`
           ).bind(username).first();
           if(!row)return jsonResp({ error:'Profile not found' },404,{ 'Cache-Control':'no-store' });
+          const viewerEmailForRestricted=String(await emailFromSession(request,env)||'').toLowerCase();
+          const access=await wishwaveRestrictedProfile(env,viewerEmailForRestricted,String(row.user_email||'').toLowerCase());
+          if(access.restricted)return jsonResp({
+            profile:{username:String(row.username||''),displayName:'',avatarUrl:'',bio:'',location:''},
+            sellerId:'',activeCount:0,soldCount:0,followerCount:0,listings:[],
+            viewer:{signedIn:true,isSelf:false,isFollowing:false,pending:false,canViewListings:false,...access}
+          },200,{ 'Cache-Control':'no-store' });
           const sellerId=String(row.seller_id||'');
           let activeCount=0,soldCount=0,followerCount=0,isFollowing=false,pending=false,isPrivate=false,canViewListings=true,listings=[];
           if(sellerId){
