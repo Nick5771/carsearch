@@ -1,3 +1,4 @@
+import './wishwave-auctions-engine.js';
 import './findai-treasure-pilot.js';
 import './wishwave-compare.js';
 // FindAI Cloudflare Worker — api.carsearchapi.workers.dev
@@ -16751,6 +16752,7 @@ function mpPublicConfig(env) {
     applicationsEnabled: c.applicationsEnabled,
     listingCreationVisible: c.listingApiEnabled,
     listingApiEnabled: c.listingApiEnabled,
+    auctionsEnabled:c.listingApiEnabled&&c.checkoutEnabled,
     checkoutEnabled: c.checkoutEnabled,
     disputesEnabled: c.disputesEnabled,
     sellerFeeBps: c.sellerFeeBps,
@@ -18273,7 +18275,25 @@ let mpSchemaReady = false;
 async function mpEnsureSchema(env) {
   if (mpSchemaReady) return;
   await marketplaceSetup(env);
+  await WishWaveAuctions.ensure(env);
   mpSchemaReady = true;
+}
+function mpAuctionDeps(){return {ensure:mpEnsureSchema,auth:requireUser,json:jsonResp,config:marketplaceConfig,rate:rateLimited,blocked:findaiEitherBlocked,notify:mpNotifyUser,publicUrl:mpPublicListingUrl,stripePost:mpStripeRequest,stripeGet:mpAuctionStripeGet,isTest:mpStripeIsTest};}
+async function mpAuctionSellerReady(env,seller){
+ if(seller.status!=='approved'||!seller.stripe_account_id)return false;
+ const account=await mpAuctionStripeGet(env,'/accounts/'+encodeURIComponent(seller.stripe_account_id));
+ await env.DB.prepare('UPDATE marketplace_sellers SET stripe_details_submitted=?,stripe_charges_enabled=?,stripe_payouts_enabled=?,updated_at=? WHERE id=?').bind(account.details_submitted?1:0,account.charges_enabled?1:0,account.payouts_enabled?1:0,new Date().toISOString(),seller.id).run();return !!(account.charges_enabled&&account.payouts_enabled);
+}
+async function mpAuctionStripeGet(env,path){
+ const key=String(env.STRIPE_SECRET_KEY||'');if(!key||(!mpStripeIsTest(env)&&!mpFlag(env,'MARKETPLACE_LIVE',false)))throw new Error('Stripe is unavailable');
+ const response=await fetch('https://api.stripe.com/v1'+path,{headers:{Authorization:'Bearer '+key}});const data=await response.json();if(!response.ok)throw new Error('Could not verify payment status');return data;
+}
+async function mpAuctionCheckoutReset(env,orderId){
+ const now=new Date().toISOString();
+ const order=await env.DB.prepare('SELECT listing_id FROM marketplace_orders WHERE id=? UNION ALL SELECT id AS listing_id FROM marketplace_listings WHERE reserved_order_id=? LIMIT 1').bind(orderId,orderId).first();
+ const a=order&&await env.DB.prepare('SELECT state,payment_due_at FROM marketplace_auctions WHERE listing_id=?').bind(order.listing_id).first();
+ if(!a)return false;
+ await env.DB.prepare("UPDATE marketplace_listings SET status='reserved',reserved_order_id=?,reserved_until=?,updated_at=? WHERE id=? AND reserved_order_id=? AND EXISTS(SELECT 1 FROM marketplace_auctions WHERE listing_id=? AND state='awaiting_payment')").bind('auction:'+order.listing_id,new Date(a.payment_due_at).toISOString(),now,order.listing_id,orderId,order.listing_id).run();return true;
 }
 function mpCleanText(value, max = 5000) {
   return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max);
@@ -18411,6 +18431,7 @@ function mpListingItem(row) {
     itemId: String(row.id || ''), marketplaceListingId: String(row.id || ''),
     title: String(row.title || 'FindAI listing'), description: String(row.description || ''),
     price, totalPrice: price + shippingCost, shippingCost,
+    listingType:row.listing_type||'fixed',auctionEndsAt:row.auction_ends_at||null,auctionBidCount:Number(row.auction_bid_count||0),
     currency: mpSafeCurrency(row.currency, 'AUD'),
     image: images[0] || '', images,
     condition: String(row.condition_label || ''),
@@ -19190,7 +19211,8 @@ async function mpNotifyUser(env, userEmail, notification) {
       if (existing) return;
     }
     const followEvent=actorEmail&&['follow','follow_mutual','follow_request'].includes(type);
-    const notificationId=followEvent?'ntf_follow_'+b64urlEncode(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(email+'|'+actorEmail)))):mpId('ntf');
+    const notificationId=notification?.idempotencyKey?'ntf_auction_'+String(notification.idempotencyKey).replace(/[^a-zA-Z0-9:_-]/g,'').slice(0,180):followEvent?'ntf_follow_'+b64urlEncode(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(email+'|'+actorEmail)))):mpId('ntf');
+    if(notification?.idempotencyKey&&await env.DB.prepare('SELECT id FROM marketplace_notifications WHERE id=?').bind(notificationId).first())return;
     await env.DB.prepare(
       `INSERT INTO marketplace_notifications
        (id, user_email, notification_type, title, body, target_url, actor_email, image_url, entity_id, created_at)
@@ -21788,6 +21810,8 @@ export default {
   // Needs a KV namespace bound as CACHE and a Cron Trigger (e.g. */15 * * * *) in the dashboard.
   async scheduled(event, env, ctx) {
     env=ebayTrafficEnv(env,'background');
+    try{await WishWaveAuctions.maintenance(env,mpAuctionDeps());}catch(e){logErr('auction maintenance',e);}
+    if(new Date(event.scheduledTime||Date.now()).getUTCMinutes()%15!==0)return;
     try{await ebayGatewayMaintenance(env);}catch(e){logErr('eBay gateway maintenance',e);}
     try{await treasureWarmup(env);}catch(e){logErr('Treasure catalogue warmup',e);}
     // Quota-safe passive warmup: rotate one major market per 15-minute tick instead of
@@ -22828,12 +22852,14 @@ export default {
         }
       }
 
+      const auctionResponse=await WishWaveAuctions.route(request,env,ctx,mpAuctionDeps());if(auctionResponse)return auctionResponse;
       const mpSingleListingMatch=url.pathname.match(/^\/marketplace\/listings\/([^/]+)$/);
       if(mpSingleListingMatch && request.method==='GET'){
         if(!env.DB)return jsonResp({error:'Marketplace database is unavailable'},503,{ 'Cache-Control':'no-store' });
         try{
           await Promise.all([mpEnsureSchema(env),findaiProfileEnsureSchema(env)]);
           const listingId=decodeURIComponent(mpSingleListingMatch[1]||'').trim();
+          await WishWaveAuctions.closeDue(env,listingId);
           const row=await env.DB.prepare(
             `SELECT l.*,s.display_name,s.country AS seller_country,
                     p.username AS seller_username,p.avatar_url AS seller_avatar_url,
@@ -23571,7 +23597,11 @@ export default {
           const description = mpCleanText(body.description, 5000);
           findaiSafetyAssertText(title+' '+description);
           const itemMinor = mpReadMinor(body, 'itemPriceMinor', 'itemPrice', -1);
-          const offersEnabled = body.offersEnabled !== false;
+          const auctionType=body.listingType==='auction';
+          if(body.listingType&&!['fixed','auction'].includes(body.listingType))return jsonResp({error:'Invalid listing type'},400);
+          if(auctionType&&(!cfg.checkoutEnabled||!await mpAuctionSellerReady(env,seller)))return jsonResp({error:'Auction publishing requires enabled checkout and an approved seller with payments connected'},409);
+          if(auctionType&&(![3,5,7].includes(body.auctionDurationDays)||body.publish===false||deliveryMode!=='shipping'||shippingMode==='calculated'||!['USD','AUD','CAD','NZD','EUR','GBP'].includes(listingCurrency)))return jsonResp({error:'Auctions require 3, 5 or 7 days, a supported currency, and fixed or free shipping'},400);
+          const offersEnabled = !auctionType&&body.offersEnabled !== false;
           const minimumOfferMinor = offersEnabled ? mpReadMinor(body, 'minimumOfferMinor', 'minimumOffer', 0) : null;
           const weightOz = Math.max(0, Math.round(Number(body.parcelWeightOz) || 0));
           const lengthIn = Math.max(0, Number(body.parcelLengthIn) || 0);
@@ -23591,13 +23621,13 @@ export default {
           if (!imageUrls.length) return jsonResp({ error: 'At least one uploaded image is required' }, 400);
           const id = mpId('lst'), now = new Date().toISOString();
           const status = body.publish === false ? 'draft' : 'active';
-          await env.DB.prepare(
+          const listingInsert=env.DB.prepare(
             `INSERT INTO marketplace_listings
              (id, seller_id, product_id, canonical_key, title, description, category, condition_label,
               currency, item_price_minor, shipping_minor, shipping_mode, shipping_carrier, shipping_service,
               parcel_weight_oz, parcel_length_in, parcel_width_in, parcel_height_in, offers_enabled, minimum_offer_minor,
-              quantity, status, image_urls_json, created_at, updated_at, published_at, delivery_mode, pickup_area)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+              quantity, status, image_urls_json, created_at, updated_at, published_at, delivery_mode, pickup_area, listing_type, auction_ends_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
           ).bind(id, seller.id, Number.isInteger(Number(body.productId)) ? Number(body.productId) : null,
             mpCleanText(body.canonicalKey,180) || mpCanonicalKey(title + ' ' + description), title, description,
             mpCleanText(body.category,80), mpCleanText(body.condition,80), listingCurrency,
@@ -23606,8 +23636,11 @@ export default {
             mpCleanText(body.shippingService,80),
             weightOz || null, lengthIn || null, widthIn || null, heightIn || null,
             offersEnabled ? 1 : 0, minimumOfferMinor || null,
-            Math.max(1,Math.min(99,Math.round(Number(body.quantity)||1))), status,
-            mpJson(imageUrls), now, now, status === 'active' ? now : null, deliveryMode, pickupArea).run();
+            auctionType?1:Math.max(1,Math.min(99,Math.round(Number(body.quantity)||1))), status,
+            mpJson(imageUrls), now, now, status === 'active' ? now : null, deliveryMode, pickupArea,auctionType?'auction':'fixed',auctionType?Date.parse(now)+body.auctionDurationDays*86400000:null);
+          const inserts=[listingInsert];
+          if(auctionType)inserts.push(env.DB.prepare('INSERT INTO marketplace_auctions(listing_id,seller_email,start_minor,current_minor,ends_at,created_at,payment_mode) VALUES(?,?,?,?,?,?,?)').bind(id,auth.email,itemMinor,itemMinor,Date.parse(now)+body.auctionDurationDays*86400000,Date.parse(now),mpStripeIsTest(env)?'test':'live'));
+          await env.DB.batch(inserts);
           await mpBumpCatalogueVersion(env);
           const row = await env.DB.prepare(
             `SELECT l.*, s.display_name, s.country AS seller_country FROM marketplace_listings l
@@ -23631,6 +23664,7 @@ export default {
              FROM marketplace_listings l JOIN marketplace_sellers s ON s.id=l.seller_id WHERE l.id=?`
           ).bind(id).first();
           if (!row || String(row.user_email).toLowerCase() !== auth.email) return jsonResp({ error:'Listing not found' },404);
+          if(row.listing_type==='auction')return jsonResp({error:'Published auction terms are locked. Contact support for a cancellation.'},409,{'Cache-Control':'no-store'});
           if (request.method === 'DELETE') {
             await env.DB.prepare(`UPDATE marketplace_listings SET status='removed', quantity=0, updated_at=? WHERE id=?`)
               .bind(new Date().toISOString(), id).run();
@@ -24466,6 +24500,7 @@ export default {
              JOIN marketplace_sellers s ON s.id=l.seller_id WHERE l.id=? LIMIT 1`
           ).bind(listingId).first();
           if (!listing || listing.status !== 'active' || Number(listing.quantity) < 1) return jsonResp({ error: 'Listing is unavailable' }, 409);
+          if(listing.listing_type==='auction')return jsonResp({error:'Place a bid on this auction instead'},409);
           if (Number(listing.offers_enabled === undefined ? 1 : listing.offers_enabled) === 0) return jsonResp({ error: 'This seller is not accepting offers' }, 409);
           if (String(listing.seller_email || '').toLowerCase() === auth.email) return jsonResp({ error: 'You cannot make an offer on your own listing' }, 400);
           if (amountMinor < 1 || amountMinor >= Number(listing.item_price_minor || 0)) return jsonResp({ error: 'Offer must be below the Buy Now price' }, 400);
@@ -25214,6 +25249,26 @@ export default {
              WHERE l.id = ?`
           ).bind(listingId).first();
           if (!listing || Number(listing.quantity) < 1) return jsonResp({ error: 'Listing is unavailable' }, 409);
+          let auction=null;
+          if(listing.listing_type==='auction'){
+            await WishWaveAuctions.closeDue(env,listing.id);
+            auction=await env.DB.prepare('SELECT * FROM marketplace_auctions WHERE listing_id=?').bind(listing.id).first();
+            if(!auction||auction.payment_mode!==(mpStripeIsTest(env)?'test':'live')||auction.state!=='awaiting_payment'||auction.leader_email!==auth.email||auction.payment_due_at<=Date.now()||offerId)return jsonResp({error:'Only the auction winner can pay before the payment deadline'},409);
+            const fresh=await env.DB.prepare('SELECT status,reserved_order_id FROM marketplace_listings WHERE id=?').bind(listing.id).first();Object.assign(listing,fresh);
+            if(listing.reserved_order_id&&listing.reserved_order_id!=='auction:'+listing.id){
+              const prior=await env.DB.prepare('SELECT * FROM marketplace_orders WHERE id=?').bind(listing.reserved_order_id).first();
+              if(!prior?.checkout_session_id){
+                const saved=await env.DB.prepare('SELECT params_json FROM marketplace_auction_checkout_requests WHERE order_id=?').bind(listing.reserved_order_id).first();
+                if(saved){const recovered=await mpStripeRequest(env,'/checkout/sessions',JSON.parse(saved.params_json),'auction-checkout-'+prior.id);await env.DB.prepare('UPDATE marketplace_orders SET checkout_session_id=? WHERE id=?').bind(recovered.id,prior.id).run();return jsonResp({ok:true,orderId:prior.id,checkoutUrl:recovered.url,clientSecret:elementsCheckout?recovered.client_secret:undefined,publishableKey:elementsCheckout?String(env.STRIPE_PUBLISHABLE_KEY):undefined,testMode:mpStripeIsTest(env),reused:true},200,{'Cache-Control':'no-store'});}
+                if(prior&&Date.now()-Date.parse(prior.created_at)>120000){await mpAuctionCheckoutReset(env,prior.id);return jsonResp({error:'Checkout recovered. Please try again.'},409);}
+                return jsonResp({error:'Checkout is being prepared. Try again shortly.'},409);
+              }
+              const session=await mpAuctionStripeGet(env,'/checkout/sessions/'+encodeURIComponent(prior.checkout_session_id));
+              if(session.payment_status==='paid'||session.status==='complete')return jsonResp({error:'Payment received; confirmation is processing'},409);
+              if(session.status==='open')return jsonResp({ok:true,orderId:prior.id,checkoutUrl:session.url,clientSecret:elementsCheckout?session.client_secret:undefined,publishableKey:elementsCheckout?String(env.STRIPE_PUBLISHABLE_KEY):undefined,testMode:mpStripeIsTest(env),reused:true},200,{'Cache-Control':'no-store'});
+              await mpAuctionCheckoutReset(env,prior.id);listing.reserved_order_id='auction:'+listing.id;
+            }
+          }
           let acceptedOffer = null;
           if (offerId) {
             acceptedOffer = await env.DB.prepare(
@@ -25224,10 +25279,10 @@ export default {
             if (!(listing.status === 'active' || (listing.status === 'reserved' && String(listing.reserved_order_id || '') === expectedReservation))) {
               return jsonResp({ error: 'Listing is unavailable' }, 409);
             }
-          } else if (listing.status !== 'active') return jsonResp({ error: 'Listing is unavailable' }, 409);
+          } else if (!auction&&listing.status !== 'active') return jsonResp({ error: 'Listing is unavailable' }, 409);
           if (listing.seller_status !== 'approved' || !listing.stripe_account_id) return jsonResp({ error: 'Seller cannot accept payments yet' }, 409);
           if (String(listing.seller_email).toLowerCase() === auth.email) return jsonResp({ error: 'You cannot buy your own listing' }, 400);
-          const checkoutItemMinor = acceptedOffer ? Number(acceptedOffer.amount_minor) : Number(listing.item_price_minor);
+          const checkoutItemMinor = auction?Number(auction.current_minor):acceptedOffer ? Number(acceptedOffer.amount_minor) : Number(listing.item_price_minor);
           let checkoutShippingMinor = Number(listing.shipping_minor || 0);
           let checkoutShippingCarrier = String(listing.shipping_carrier || '');
           let checkoutShippingService = String(listing.shipping_service || '');
@@ -25249,29 +25304,31 @@ export default {
           const quote = mpQuote(env, checkoutItemMinor, checkoutShippingMinor, listing.currency);
           const orderId = checkoutOrderId = mpId('ord'), now = new Date().toISOString();
           const reserveUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-          const reserved = acceptedOffer
-            ? await env.DB.prepare(
+          const reservation = auction
+            ? env.DB.prepare(`UPDATE marketplace_listings SET reserved_order_id=?,updated_at=? WHERE id=? AND status='reserved' AND reserved_order_id=? AND EXISTS(SELECT 1 FROM marketplace_auctions WHERE listing_id=? AND state='awaiting_payment' AND leader_email=? AND payment_due_at>CAST(ROUND((julianday('now')-2440587.5)*86400000) AS INTEGER))`).bind(orderId,now,listing.id,'auction:'+listing.id,listing.id,auth.email)
+            : acceptedOffer
+            ? env.DB.prepare(
                 `UPDATE marketplace_listings SET status='reserved', reserved_order_id=?, reserved_until=?, updated_at=?
                  WHERE id=? AND quantity>0 AND (status='active' OR (status='reserved' AND reserved_order_id=?))`
-              ).bind(orderId, reserveUntil, now, listing.id, 'offer:' + acceptedOffer.id).run()
-            : await env.DB.prepare(
+              ).bind(orderId, reserveUntil, now, listing.id, 'offer:' + acceptedOffer.id)
+            : env.DB.prepare(
                 `UPDATE marketplace_listings SET status='reserved', reserved_order_id=?, reserved_until=?, updated_at=?
                  WHERE id=? AND status='active' AND quantity>0`
-              ).bind(orderId, reserveUntil, now, listing.id).run();
-          if (!Number(reserved && reserved.meta && reserved.meta.changes || 0)) {
-            return jsonResp({ error: 'Another buyer is already checking out this item' }, 409, { 'Cache-Control': 'no-store' });
-          }
-          await env.DB.prepare(
+              ).bind(orderId, reserveUntil, now, listing.id);
+          const orderInsert=env.DB.prepare(
             `INSERT INTO marketplace_orders
              (id, listing_id, seller_id, buyer_email, currency, item_subtotal_minor, shipping_minor,
               buyer_fee_minor, seller_fee_minor, platform_gross_minor, seller_net_minor, total_minor,
               shipping_carrier, shipping_service, destination_postal_code,
               status, payout_status, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_payment', 'not_started', ?, ?)`
+             SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_payment', 'not_started', ?, ? WHERE EXISTS(SELECT 1 FROM marketplace_listings WHERE id=? AND reserved_order_id=?)`
           ).bind(orderId, listing.id, listing.seller_id, auth.email, quote.currency,
             quote.itemMinor, quote.shippingMinor, quote.buyerFeeMinor, quote.sellerFeeMinor,
             quote.platformGrossMinor, quote.sellerNetMinor, quote.buyerTotalMinor,
-            checkoutShippingCarrier, checkoutShippingService, destinationPostalCode, now, now).run();
+            checkoutShippingCarrier, checkoutShippingService, destinationPostalCode, now, now,listing.id,orderId);
+
+          const reserved=await env.DB.batch([reservation,orderInsert]);
+          if(!Number(reserved[0]?.meta?.changes)||!Number(reserved[1]?.meta?.changes))return jsonResp({error:'Another checkout is already being prepared for this item'},409,{'Cache-Control':'no-store'});
 
           const currency = quote.currency.toLowerCase();
           const params = {
@@ -25312,7 +25369,8 @@ export default {
             params[`line_items[${line}][price_data][unit_amount]`] = quote.buyerFeeMinor;
             params[`line_items[${line}][price_data][product_data][name]`] = 'FindAI Buyer Protection';
           }
-          const idem = (request.headers.get('Idempotency-Key') || '').trim() || ('checkout-' + orderId);
+          if(auction)await env.DB.prepare('INSERT INTO marketplace_auction_checkout_requests(order_id,params_json) VALUES(?,?)').bind(orderId,JSON.stringify(params)).run();
+          const idem = auction?'auction-checkout-'+orderId:(request.headers.get('Idempotency-Key') || '').trim() || ('checkout-' + orderId);
           const session = await mpStripeRequest(env, '/checkout/sessions', params, idem);
           await env.DB.prepare('UPDATE marketplace_orders SET checkout_session_id = ?, updated_at = ? WHERE id = ?')
             .bind(session.id || '', new Date().toISOString(), orderId).run();
@@ -25323,7 +25381,8 @@ export default {
             if (checkoutOrderId) {
               const failNow = new Date().toISOString();
               await env.DB.prepare("UPDATE marketplace_orders SET status = 'payment_failed', updated_at = ? WHERE id = ? AND status = 'pending_payment'").bind(failNow, checkoutOrderId).run();
-              await env.DB.prepare("UPDATE marketplace_listings SET status = 'active', reserved_order_id = NULL, reserved_until = NULL, updated_at = ? WHERE reserved_order_id = ?").bind(failNow, checkoutOrderId).run();
+              const auctionOrder=await env.DB.prepare('SELECT 1 AS yes FROM marketplace_auction_checkout_requests WHERE order_id=?').bind(checkoutOrderId).first();
+              if(!auctionOrder&&!await mpAuctionCheckoutReset(env,checkoutOrderId))await env.DB.prepare("UPDATE marketplace_listings SET status = 'active', reserved_order_id = NULL, reserved_until = NULL, updated_at = ? WHERE reserved_order_id = ?").bind(failNow, checkoutOrderId).run();
             }
           } catch (_) {}
           return jsonResp({ error: String(e && e.message || e) }, Number(e && e.status) || 500, { 'Cache-Control': 'no-store' });
@@ -25338,6 +25397,7 @@ export default {
         let event = {};
         try { event = JSON.parse(raw); } catch (_) { return jsonResp({ error: 'Invalid JSON' }, 400); }
         const obj = event && event.data && event.data.object ? event.data.object : {};
+        if(event.type==='account.updated'&&env.DB){await mpEnsureSchema(env);await env.DB.prepare('UPDATE marketplace_sellers SET stripe_details_submitted=?,stripe_charges_enabled=?,stripe_payouts_enabled=?,updated_at=? WHERE stripe_account_id=?').bind(obj.details_submitted?1:0,obj.charges_enabled?1:0,obj.payouts_enabled?1:0,new Date().toISOString(),String(obj.id||'')).run();return jsonResp({received:true},200,{'Cache-Control':'no-store'});}
         let orderId = String((obj.metadata && obj.metadata.findai_order_id) || obj.client_reference_id || '');
         if(!orderId&&env.DB&&['charge.refunded','charge.dispute.created'].includes(event.type)&&obj.payment_intent){const mapped=await env.DB.prepare('SELECT id FROM marketplace_orders WHERE payment_intent_id=? LIMIT 1').bind(String(obj.payment_intent)).first();orderId=String(mapped?.id||'');}
         if (env.DB && orderId) {
@@ -25347,13 +25407,11 @@ export default {
               const expectedOrder=await env.DB.prepare('SELECT * FROM marketplace_orders WHERE id=?').bind(orderId).first();
               if(!expectedOrder||String(expectedOrder.checkout_session_id)!==String(obj.id)||Number(expectedOrder.total_minor)!==Number(obj.amount_total)||String(expectedOrder.currency).toUpperCase()!==String(obj.currency).toUpperCase())return jsonResp({error:'Checkout does not match order'},400,{'Cache-Control':'no-store'});
               const paidNow = new Date().toISOString();
-              await env.DB.prepare(
-                `UPDATE marketplace_orders SET status = 'paid', payment_intent_id = ?, checkout_session_id = COALESCE(checkout_session_id, ?), updated_at = ? WHERE id = ?`
-              ).bind(String(obj.payment_intent || ''), String(obj.id || ''), paidNow, orderId).run();
-              await env.DB.prepare(
-                `UPDATE marketplace_listings SET status = 'sold', quantity = 0, sold_at = ?, reserved_order_id = NULL, reserved_until = NULL, updated_at = ?
-                 WHERE reserved_order_id = ?`
-              ).bind(paidNow, paidNow, orderId).run();
+              await env.DB.batch([
+                env.DB.prepare(`UPDATE marketplace_orders SET status='paid',payment_intent_id=?,checkout_session_id=COALESCE(checkout_session_id,?),updated_at=? WHERE id=?`).bind(String(obj.payment_intent||''),String(obj.id||''),paidNow,orderId),
+                env.DB.prepare("UPDATE marketplace_auctions SET state='paid',revision=revision+1 WHERE listing_id=? AND state='awaiting_payment' AND leader_email=?").bind(expectedOrder.listing_id,expectedOrder.buyer_email),
+                env.DB.prepare(`UPDATE marketplace_listings SET status='sold',quantity=0,sold_at=?,reserved_order_id=NULL,reserved_until=NULL,updated_at=? WHERE reserved_order_id=?`).bind(paidNow,paidNow,orderId)
+              ]);
               await mpOrderEvent(env, orderId, 'stripe', '', 'payment_completed', { eventId: event.id, paymentIntentId: obj.payment_intent || '' });
               const order = await env.DB.prepare('SELECT * FROM marketplace_orders WHERE id = ?').bind(orderId).first();
               if (order) {
@@ -25377,10 +25435,12 @@ export default {
                 }
               }
             } else if (event.type === 'checkout.session.async_payment_failed' || event.type === 'checkout.session.expired') {
+              const failedOrder=await env.DB.prepare('SELECT * FROM marketplace_orders WHERE id=?').bind(orderId).first();
+              if(!failedOrder||String(failedOrder.checkout_session_id)!==String(obj.id)||!['pending_payment','payment_failed'].includes(failedOrder.status))return jsonResp({received:true},200);
               const failedNow = new Date().toISOString();
               await env.DB.prepare("UPDATE marketplace_orders SET status = 'payment_failed', updated_at = ? WHERE id = ?")
                 .bind(failedNow, orderId).run();
-              await env.DB.prepare("UPDATE marketplace_listings SET status = 'active', reserved_order_id = NULL, reserved_until = NULL, updated_at = ? WHERE reserved_order_id = ?")
+              if(!await mpAuctionCheckoutReset(env,orderId))await env.DB.prepare("UPDATE marketplace_listings SET status = 'active', reserved_order_id = NULL, reserved_until = NULL, updated_at = ? WHERE reserved_order_id = ?")
                 .bind(failedNow, orderId).run();
               await mpOrderEvent(env, orderId, 'stripe', '', event.type === 'checkout.session.expired' ? 'checkout_expired' : 'payment_failed', { eventId: event.id });
             } else if (event.type === 'charge.refunded') {

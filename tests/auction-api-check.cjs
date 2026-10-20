@@ -1,0 +1,74 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),{DatabaseSync}=require('node:sqlite');
+const engine=require('../wishwave-auctions-engine.js'),source=fs.readFileSync(__dirname+'/../findai-worker.js','utf8');
+class D1{constructor(){this.db=new DatabaseSync(':memory:');this.queue=Promise.resolve();}prepare(sql){const db=this.db;let args=[];const p={bind(...a){args=a;return p},async run(){const r=db.prepare(sql).run(...args);return{meta:{changes:Number(r.changes)}}},async first(){return db.prepare(sql).get(...args)||null},async all(){return{results:db.prepare(sql).all(...args)}}};return p;}async batch(items){const work=this.queue.then(async()=>{this.db.exec('BEGIN');try{const r=[];for(const x of items)r.push(await x.run());this.db.exec('COMMIT');return r;}catch(e){this.db.exec('ROLLBACK');throw e;}});this.queue=work.catch(()=>{});return work;}}
+const DB=new D1(),env={DB,STRIPE_PUBLISHABLE_KEY:'pk_test_fixture'},schema=`
+CREATE TABLE marketplace_sellers(id TEXT PRIMARY KEY,user_email TEXT,status TEXT,stripe_account_id TEXT,stripe_charges_enabled INTEGER,stripe_details_submitted INTEGER,stripe_payouts_enabled INTEGER,display_name TEXT,country TEXT,dispatch_postal_code TEXT,updated_at TEXT);
+CREATE TABLE marketplace_listings(id TEXT PRIMARY KEY,seller_id TEXT,product_id INTEGER,canonical_key TEXT,title TEXT,description TEXT,category TEXT,condition_label TEXT,currency TEXT,item_price_minor INTEGER,shipping_minor INTEGER,shipping_mode TEXT,shipping_carrier TEXT,shipping_service TEXT,parcel_weight_oz INTEGER,parcel_length_in REAL,parcel_width_in REAL,parcel_height_in REAL,offers_enabled INTEGER,minimum_offer_minor INTEGER,quantity INTEGER,status TEXT,image_urls_json TEXT,created_at TEXT,updated_at TEXT,published_at TEXT,sold_at TEXT,delivery_mode TEXT,pickup_area TEXT,reserved_order_id TEXT,reserved_until TEXT);
+CREATE TABLE marketplace_orders(id TEXT PRIMARY KEY,listing_id TEXT,seller_id TEXT,buyer_email TEXT,currency TEXT,item_subtotal_minor INTEGER,shipping_minor INTEGER,buyer_fee_minor INTEGER,seller_fee_minor INTEGER,platform_gross_minor INTEGER,seller_net_minor INTEGER,total_minor INTEGER,shipping_carrier TEXT,shipping_service TEXT,destination_postal_code TEXT,status TEXT,payout_status TEXT,created_at TEXT,updated_at TEXT,checkout_session_id TEXT,payment_intent_id TEXT);
+CREATE TABLE marketplace_offers(id TEXT,listing_id TEXT,buyer_email TEXT,status TEXT,updated_at TEXT);
+CREATE TABLE marketplace_ledger(id TEXT,order_id TEXT,entry_type TEXT,amount_minor INTEGER,currency TEXT,status TEXT,stripe_reference TEXT,metadata_json TEXT,created_at TEXT);
+`;
+DB.db.exec(schema);const jobs=[],ctx={waitUntil(p){jobs.push(p)}},json=(data,status=200)=>({data,status});let blocked=false,enabled=true,seq=0,loseResponse=false;const sessions=new Map(),calls=[];
+const request=(path,method='GET',email='alice@test',body={},key)=>new Request('https://test'+path,{method,headers:{'X-User':email,...(key?{'Idempotency-Key':key}:{})},...(method==='GET'?{}:{body:JSON.stringify(body)})});
+const config=()=>({checkoutEnabled:enabled,listingApiEnabled:true,currency:'USD'});
+const auth=async r=>r.headers.get('X-User')?{email:r.headers.get('X-User')}:{fail:json({error:'Sign in'},401)};
+const ensure=async e=>engine.ensure(e);
+const stripe=async(e,path,params,key)=>{calls.push([path,key]);if(path.endsWith('/expire')){const id=path.split('/')[3],s=[...sessions.values()].find(s=>s.id===id);if(s.status==='complete')throw Error('already paid');s.status='expired';return s;}if(sessions.has(key))return sessions.get(key);const s={id:'cs_'+(++seq),url:'https://checkout.test/'+seq,client_secret:'secret_'+seq,status:'open',payment_status:'unpaid',...params};sessions.set(key,s);if(loseResponse){loseResponse=false;throw Error('network lost after Stripe accepted');}return s;};
+const stripeGet=async(e,path)=>{const s=[...sessions.values()].find(s=>s.id===path.split('/').pop());if(!s)throw Error('not found');return s;};
+const d={ensure,auth,json,config,rate:async()=>false,blocked:async()=>blocked,notify:async()=>{},publicUrl:id=>'https://test/?listing='+id,stripePost:stripe,stripeGet,isTest:()=>true};
+const quote=(env,item,shipping,currency)=>({currency,itemMinor:item,shippingMinor:shipping,buyerFeeMinor:0,sellerFeeMinor:0,platformGrossMinor:0,sellerNetMinor:item+shipping,buyerTotalMinor:item+shipping});
+const deps={marketplaceConfig:config,requireUser:auth,jsonResp:json,rateLimited:async()=>false,tooManyResp:()=>json({},429),mpCheckoutTestGuard:()=>null,mpEnsureSchema:ensure,mpCleanText:x=>String(x||''),mpPostalCode:x=>String(x||''),mpShippingMode:x=>x,mpQuote:quote,mpId:prefix=>prefix+'_'+(++seq),mpStripeRequest:stripe,mpStripeIsTest:()=>true,mpOrderEvent:async()=>{},mpAuctionStripeGet:stripeGet,WishWaveAuctions:engine,mpJson:JSON.stringify,mpVerifyStripeWebhook:async()=>true,logErr:()=>{},intelligenceVerifiedOrder:async()=>{}};
+const AsyncFunction=Object.getPrototypeOf(async function(){}).constructor;
+const start=source.indexOf("      if (url.pathname === '/marketplace/checkout'"),end=source.indexOf("      if (url.pathname === '/marketplace/webhook/stripe'",start);
+const resetStart=source.indexOf('async function mpAuctionCheckoutReset('),resetEnd=source.indexOf('\nfunction mpCleanText(',resetStart);
+const checkout=new AsyncFunction('request','env','ctx','deps',`const {${Object.keys(deps).join(',')}}=deps;const url=new URL(request.url);${source.slice(resetStart,resetEnd)}${source.slice(start,end)}`);
+const webhookEnd=source.indexOf("      if (url.pathname === '/marketplace/orders'",end);
+const webhook=new AsyncFunction('request','env','ctx','deps',`const {${Object.keys(deps).join(',')}}=deps;const url=new URL(request.url);${source.slice(resetStart,resetEnd)}${source.slice(end,webhookEnd)}`);
+async function make(id){const now=new Date().toISOString();await DB.prepare("INSERT INTO marketplace_listings(id,seller_id,title,description,currency,item_price_minor,shipping_minor,shipping_mode,offers_enabled,quantity,status,image_urls_json,created_at,updated_at,delivery_mode,listing_type,auction_ends_at) VALUES(?,'seller','Camera','Film camera','USD',1000,500,'flat',0,1,'active','[]',?,?,'shipping','auction',?)").bind(id,now,now,Date.now()+60000).run();await DB.prepare("INSERT INTO marketplace_auctions(listing_id,seller_email,start_minor,current_minor,ends_at,created_at,payment_mode) VALUES(?,'seller@test',1000,1000,?,?,'test')").bind(id,Date.now()+60000,Date.now()).run();}
+(async()=>{
+ await ensure(env);DB.db.exec("INSERT INTO marketplace_sellers VALUES('seller','seller@test','approved','acct_test',1,1,1,'Seller','US','10001','')");await make('one');
+ assert.equal((await engine.route(request('/marketplace/auctions/one','GET',''),env,ctx,d)).status,401);
+ const path='/marketplace/auctions/one/bids',body={maximumMinor:10000,confirmed:true};
+ assert.equal((await engine.route(request(path,'POST','alice@test',body,'request-0001'),env,ctx,d)).status,201);
+ assert.equal((await engine.route(request(path,'POST','alice@test',body,'request-0001'),env,ctx,d)).data.replayed,true);
+ assert.equal((await engine.route(request(path,'POST','alice@test',{...body,maximumMinor:11000},'request-0001'),env,ctx,d)).status,409);
+ let view=(await engine.route(request('/marketplace/auctions/one','GET','bob@test'),env,ctx,d)).data.auction;
+ assert.equal(view.myMaximumMinor,null);assert(!JSON.stringify(view).includes('alice@test'),'leader email and maximum are not public');
+ blocked=true;assert.equal((await engine.route(request(path,'POST','bob@test',body,'request-0002'),env,ctx,d)).status,403);blocked=false;
+ assert.equal((await engine.route(request(path,'POST','seller@test',body,'request-0003'),env,ctx,d)).data.code,'OWN_AUCTION');
+ assert.equal((await engine.route(request(path,'POST','bob@test',{...body,maximumMinor:1.2},'request-0004'),env,ctx,d)).status,400);
+ const buy=email=>checkout(request('/marketplace/checkout','POST',email,{listingId:'one',uiMode:'elements'}),env,ctx,deps);
+ assert.equal((await buy('alice@test')).status,409,'even the leader cannot buy before close');
+ DB.db.exec("UPDATE marketplace_auctions SET ends_at=ends_at-120000 WHERE listing_id='one'");
+ assert.equal((await buy('bob@test')).status,409,'only winner can check out');
+ const parallel=await Promise.all([buy('alice@test'),buy('alice@test'),buy('alice@test')]);const paid=parallel.find(x=>x.status===201);assert(paid,JSON.stringify(parallel));assert.equal(parallel.filter(x=>x.status===201).length,1,'simultaneous checkouts create a single reservation');assert.equal(paid.data.quote.itemMinor,1000,'checkout uses final price, not private maximum');
+ const repeated=await buy('alice@test');assert.equal(repeated.status,200);assert.equal(repeated.data.orderId,paid.data.orderId);assert.equal(DB.db.prepare('SELECT count(*) AS n FROM marketplace_orders').get().n,1);
+ const order=DB.db.prepare('SELECT * FROM marketplace_orders WHERE id=?').get(paid.data.orderId);const session=[...sessions.values()].find(s=>s.id===order.checkout_session_id);
+ const event=(type,extra={})=>request('/marketplace/webhook/stripe','POST','stripe',{id:'evt_'+(++seq),type,data:{object:{id:session.id,client_reference_id:order.id,metadata:{findai_order_id:order.id},payment_status:'paid',payment_intent:'pi_test',amount_total:order.total_minor,currency:'usd',...extra}}});
+ assert.equal((await webhook(event('checkout.session.completed',{amount_total:1}),env,ctx,deps)).status,400);
+ assert.equal(DB.db.prepare('SELECT state FROM marketplace_auctions WHERE listing_id=?').get('one').state,'awaiting_payment');
+ assert.equal((await webhook(event('checkout.session.completed'),env,ctx,deps)).status,200);
+ assert.equal(DB.db.prepare('SELECT state FROM marketplace_auctions WHERE listing_id=?').get('one').state,'paid');
+ await webhook(event('checkout.session.expired'),env,ctx,deps);assert.equal(DB.db.prepare('SELECT status FROM marketplace_orders WHERE id=?').get(order.id).status,'paid','late expiry never reverses paid order');
+ await make('lost');await engine.route(request('/marketplace/auctions/lost/bids','POST','alice@test',body,'request-lost'),env,ctx,d);DB.db.exec("UPDATE marketplace_auctions SET ends_at=ends_at-120000 WHERE listing_id='lost'");
+ loseResponse=true;let result=await checkout(request('/marketplace/checkout','POST','alice@test',{listingId:'lost',uiMode:'elements'}),env,ctx,deps);assert.equal(result.status,500);
+ const locked=DB.db.prepare("SELECT reserved_order_id FROM marketplace_listings WHERE id='lost'").get();assert(locked.reserved_order_id.startsWith('ord_'),'ambiguous payment keeps winner reservation');
+ result=await checkout(request('/marketplace/checkout','POST','alice@test',{listingId:'lost',uiMode:'elements'}),env,ctx,deps);assert.equal(result.status,200);assert.equal(result.data.orderId,locked.reserved_order_id);assert.equal(result.data.testMode,true);
+ // Deadline cleanup expires an open checkout before marking unpaid, never reopens it as fixed price.
+ DB.db.exec("UPDATE marketplace_auctions SET payment_due_at=1 WHERE listing_id='lost'");await engine.maintenance(env,d);
+ assert.equal(DB.db.prepare("SELECT state FROM marketplace_auctions WHERE listing_id='lost'").get().state,'unpaid');assert.equal(DB.db.prepare("SELECT status FROM marketplace_listings WHERE id='lost'").get().status,'ended');
+ assert.equal((await checkout(request('/marketplace/checkout','POST','alice@test',{listingId:'lost'}),env,ctx,deps)).status,409);
+ // Execute the real listing creation route, including its atomic auction insert.
+ const createDeps={...deps,detectCountry:()=> 'US',mpSafeCurrency:(x,f)=>x||f,mpReadMinor:(b,m,k,f)=>b[m]??(b[k]===undefined?f:Math.round(b[k]*100)),mpEnsureSeller:async()=>DB.db.prepare("SELECT * FROM marketplace_sellers WHERE id='seller'").get(),mpAuctionSellerReady:async()=>true,findaiSafetyAssertText:()=>{},mpUspsConfigured:()=>false,mpCanonicalKey:x=>x,mpBumpCatalogueVersion:async()=>{},mpNotifyFollowersOfNewListing:async()=>{},mpListingItem:r=>({itemId:r.id,listingType:r.listing_type,price:r.item_price_minor/100})};
+ const cs=source.indexOf("      if (url.pathname === '/marketplace/listings' && request.method === 'POST')"),ce=source.indexOf('      const mpOwnerListingMatch',cs);
+ const create=new AsyncFunction('request','env','ctx','deps',`const {${Object.keys(createDeps).join(',')}}=deps;const url=new URL(request.url);${source.slice(cs,ce)}`);
+ const listingBody={listingType:'auction',auctionDurationDays:3,title:'Auction camera',description:'Film camera',itemPrice:15,currency:'USD',shippingMode:'free',deliveryMode:'shipping',imageUrls:['https://test/photo.jpg'],quantity:9,publish:true};
+ let created=await create(request('/marketplace/listings','POST','seller@test',listingBody),env,ctx,createDeps);assert.equal(created.status,201,JSON.stringify(created));
+ let row=DB.db.prepare('SELECT l.*,a.start_minor,a.payment_mode FROM marketplace_listings l JOIN marketplace_auctions a ON a.listing_id=l.id WHERE l.id=?').get(created.data.listingId);assert.equal(row.quantity,1);assert.equal(row.offers_enabled,0);assert.equal(row.start_minor,1500);assert.equal(row.payment_mode,'test');
+ assert.equal((await create(request('/marketplace/listings','POST','seller@test',{...listingBody,auctionDurationDays:1}),env,ctx,createDeps)).status,400);
+ assert.equal((await create(request('/marketplace/listings','POST','seller@test',{...listingBody,deliveryMode:'pickup',pickupArea:'Sydney'}),env,ctx,createDeps)).status,400);
+ enabled=false;assert.equal((await create(request('/marketplace/listings','POST','seller@test',listingBody),env,ctx,createDeps)).status,409);enabled=true;
+ const before=DB.db.prepare('SELECT count(*) AS n FROM marketplace_listings').get().n;DB.db.exec("CREATE TRIGGER test_rollback BEFORE INSERT ON marketplace_auctions BEGIN SELECT RAISE(ABORT,'simulated auction failure'); END");
+ assert.equal((await create(request('/marketplace/listings','POST','seller@test',listingBody),env,ctx,createDeps)).status,500);assert.equal(DB.db.prepare('SELECT count(*) AS n FROM marketplace_listings').get().n,before,'failed auction insert cannot leave a Buy now listing');DB.db.exec('DROP TRIGGER test_rollback');
+ await Promise.all(jobs);console.log('PASS: authenticated bids, idempotency, private maxima, blocked/seller rejection, money validation, winner-only checkout, final price, one order per checkout, signed-webhook handler amount checks, stale expiry protection, lost Stripe response recovery, unpaid cleanup');
+})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -4364,7 +4364,7 @@ async function submitCreateListing(event){
   try{
     const uploaded=await marketplaceFetch('/marketplace/images',{method:'POST',body:JSON.stringify({images:pendingListingImages,displayName:profile.name||'WishWave seller',country:(window.findaiV137Prefs?window.findaiV137Prefs().region:'AU')})});
     if(submit) submit.textContent='Publishing…';
-    const created=await marketplaceFetch('/marketplace/listings',{method:'POST',body:JSON.stringify({title:name,description,condition,category:document.getElementById('listingCategory')?.value||'',itemPrice:Number(price.toFixed(2)),currency:(window.findaiV137Prefs?window.findaiV137Prefs().currency:'AUD'),...delivery,quantity:Number(document.getElementById('listingQuantity')?.value||1),offersEnabled:document.getElementById('listingAllowOffers')?document.getElementById('listingAllowOffers').checked:(window.findaiV137Prefs?window.findaiV137Prefs().sellerAllowOffers!==false:true),imageUrls:uploaded.imageUrls||[],displayName:profile.name||'WishWave seller',publish:true})});
+    const created=await marketplaceFetch('/marketplace/listings',{method:'POST',body:JSON.stringify({listingType:document.getElementById('createListingScreen')?.dataset.createType==='auction'?'auction':'fixed',auctionDurationDays:Number(document.getElementById('listingAuctionDuration')?.value||7),title:name,description,condition,category:document.getElementById('listingCategory')?.value||'',itemPrice:Number(price.toFixed(2)),currency:(window.findaiV137Prefs?window.findaiV137Prefs().currency:'AUD'),...delivery,quantity:Number(document.getElementById('listingQuantity')?.value||1),offersEnabled:document.getElementById('listingAllowOffers')?document.getElementById('listingAllowOffers').checked:(window.findaiV137Prefs?window.findaiV137Prefs().sellerAllowOffers!==false:true),imageUrls:uploaded.imageUrls||[],displayName:profile.name||'WishWave seller',publish:true})});
     const current=getMarketplaceListings();
     const createdId=created&&created.listing&&(created.listing.marketplaceListingId||created.listing.itemId||created.listing.id);
     const nextListings=created&&created.listing?[created.listing,...current.filter(item=>(item.marketplaceListingId||item.itemId||item.id)!==createdId)]:current.slice();
@@ -12771,7 +12771,7 @@ window.addEventListener('load', function(){
     const buckets=[{key:'today',title:'Today',items:[]},{key:'yesterday',title:'Yesterday',items:[]},{key:'week',title:'This week',items:[]},{key:'earlier',title:'Earlier',items:[]}];
     appNotificationCache.forEach((n,index)=>{
       const type=String(n.notification_type||'').toLowerCase();
-      const order=/order|payment|shipping|shipment|delivery|refund|dispute|offer/.test(type);
+      const order=/order|payment|shipping|shipment|delivery|refund|dispute|offer|auction/.test(type);
       if(notificationFilter==='orders'&&!order)return;
       if(notificationFilter==='social'&&order)return;
       const stamp=Date.parse(n.created_at||'')||now,age=Math.max(0,now-stamp);
@@ -34359,7 +34359,7 @@ html body .app:has(#wwCheckout.show) #wishwaveMainNav{visibility:visible!importa
   if(!appMpListing||!appMpRequireLogin())return;
   if(wishwaveIsOwnMarketplaceListing(appMpListing,appMpContext)){wishwaveCloseCheckout();return openAppMarketplaceListing(appMpListing);}
   if(appMpListing.deliveryMode==='pickup'){wishwaveCloseCheckout();return openAppMarketplaceMessages();}
-  const l={...appMpListing};if(String(l.status||'active')!=='active'){wishwaveCloseCheckout();toast('Listing is unavailable');return;}
+  const l={...appMpListing};if(String(l.status||'active')!=='active'&&!(l.listingType==='auction'&&l._auctionWinnerVerified&&l.status==='reserved')){wishwaveCloseCheckout();toast('Listing is unavailable');return;}
   cleanElements();state={listing:l,country:'US',postal:'',shippingMinor:null,shippingCarrier:String(l.shippingCarrier||''),shippingService:String(l.shippingService||''),deliveryEstimate:String(l.deliveryEstimate||''),quote:null,error:'',busy:false,config:{},elements:[]};root.classList.add('show');root.scrollTop=0;render();const current=state;marketplaceFetch('/marketplace/config',{method:'GET'}).then(data=>{if(state!==current)return;current.config=data.marketplace||{};current.country=countryCode(current.config.detectedCountry);quote();}).catch(()=>{if(state===current)quote();});
  };
  window.wishwaveCloseCheckout=function(){version++;cleanElements();state=null;root.classList.remove('show');root.innerHTML='';};
@@ -36095,7 +36095,7 @@ html body.keyboard-open[data-active-tab="search"] .app #searchResults .premium-r
 <script src="wishwave-listing-photos.js?v=299"></script>
 <script src="wishwave-comments-motion.js?v=293"></script>
 <link rel="stylesheet" href="wishwave-create.css?v=313">
-<script src="wishwave-create.js?v=312"></script>
+<script src="wishwave-create.js?v=333"></script>
 <script src="wishwave-navigation-origins.js?v=323"></script>
 <style id="wishwave-notification-dot-v316">
 html body #wishwaveMainNav #navNotificationsBadge{
@@ -36227,5 +36227,7 @@ html body .reel-actions-rail .reel-social-action.like .reel-social-icon::after{c
   html body :is(#discover,#search,#searchDetailOverlay,#findaiContextualReelV168,#createListingScreen) article.reel-card .reel-actions-rail .reel-social-action.like.just-liked .reel-social-icon svg{animation:none!important;}
 }
 </style>
+<link rel="stylesheet" href="wishwave-auctions.css?v=333">
+<script src="wishwave-auctions.js?v=333"></script>
 </body>
 </html>
