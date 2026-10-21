@@ -19243,8 +19243,10 @@ async function mpNotifyUser(env, userEmail, notification) {
     if (actorEmail && await findaiControlExists(env,email,actorEmail,'muted')) return;
     if (actorEmail && (type==='message'?await findaiControlExists(env,email,actorEmail,'blocked'):await findaiEitherBlocked(env,email,actorEmail))) return;
   }
+  const pushActor=actorEmail&&globalThis.WishWaveNativePush?.presentation?await findaiNotificationActor(env,actorEmail):null;
+  const pushNotice=globalThis.WishWaveNativePush?.presentation?globalThis.WishWaveNativePush.presentation({title,body,url:targetUrl,type},pushActor):{title,body,url:targetUrl,type};
   if(globalThis.WishWaveNativePush) {
-    try{await globalThis.WishWaveNativePush.notify(env,email,{title,body,url:targetUrl,type});}catch(error){logErr('native push',error);}
+    try{await globalThis.WishWaveNativePush.notify(env,email,pushNotice);}catch(error){logErr('native push',error);}
   }
   const result = await env.DB.prepare(
     `SELECT endpoint, p256dh, auth_secret FROM marketplace_push_subscriptions
@@ -19254,9 +19256,9 @@ async function mpNotifyUser(env, userEmail, notification) {
   if (!subscriptions.length) return;
   const unread = await env.DB.prepare(`SELECT COUNT(*) AS n FROM marketplace_notifications n WHERE n.user_email=? AND n.read_at IS NULL AND n.notification_type<>'message' AND ${wishwaveVisibleNotificationSQL('n')}`).bind(email).first();
   const payload = {
-    title,
-    body,
-    url: targetUrl,
+    title:pushNotice.title,
+    body:pushNotice.body,
+    url:pushNotice.url,
     tag: String(notification && notification.tag || type),
     badgeCount: Math.max(1, Number(unread && unread.n || 1)),
     type,
@@ -23329,6 +23331,7 @@ export default {
         try {
           await mpEnsureSchema(env);
           await findaiProfileEnsureSchema(env);
+          await findaiSocialControlsEnsureSchema(env);
           const q = mpCleanText(url.searchParams.get('q') || '', 60).toLowerCase();
           const like = '%' + q.replace(/[%_]/g, '') + '%';
           const requestedLimit = Math.max(1, Math.min(50, Number(url.searchParams.get('limit')) || 30));
@@ -23342,7 +23345,8 @@ export default {
                     CASE WHEN ?<>'' AND EXISTS(
                       SELECT 1 FROM marketplace_follows vf
                       WHERE vf.seller_id=s.id AND lower(vf.follower_email)=lower(?)
-                    ) THEN 1 ELSE 0 END AS is_following
+                    ) THEN 1 ELSE 0 END AS is_following,
+                    EXISTS(SELECT 1 FROM findai_follow_requests pending WHERE pending.seller_id=s.id AND lower(pending.follower_email)=lower(?)) AS follow_pending
              FROM marketplace_sellers s
              LEFT JOIN findai_profiles p ON lower(p.user_email)=lower(s.user_email)
              WHERE s.status='approved'
@@ -23351,7 +23355,7 @@ export default {
                     OR lower(COALESCE(p.location,'')) LIKE ?)
              ORDER BY active_count DESC,follower_count DESC,s.created_at DESC
              LIMIT ?`
-          ).bind(viewerEmail,viewerEmail,q,like,like,like,requestedLimit).all();
+          ).bind(viewerEmail,viewerEmail,viewerEmail,q,like,like,like,requestedLimit).all();
           return jsonResp({
             sellers:(rows.results||[]).map(row=>({
               id:String(row.id||''),
@@ -23366,6 +23370,7 @@ export default {
               soldCount:Math.max(0,Number(row.sold_count||0)),
               followerCount:Math.max(0,Number(row.follower_count||0)),
               isFollowing:!!Number(row.is_following||0),
+              pending:!!Number(row.follow_pending||0),
               isSelf:!!viewerEmail&&viewerEmail===String(row.user_email||'').toLowerCase()
             })),
             query:q

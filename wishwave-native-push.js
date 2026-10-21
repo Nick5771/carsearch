@@ -28,9 +28,17 @@ function targetURL(value){
  try{const u=new URL(value);if(u.protocol==='https:'&&['findai.ai','www.findai.ai'].includes(u.hostname)&&u.pathname==='/findai-app.html'&&!u.username&&!u.password)return u.href;}catch(_){}
  return 'https://findai.ai/findai-app.html';
 }
+function presentation(notice,actor){
+ const type=String(notice.type||''),username=String(actor?.username||'').replace(/^@+/,''),name=username?'@'+username:String(actor?.name||'Someone');
+ const social={follow_request:name+' requested to follow you',follow:name+' started following you',follow_mutual:'You and '+name+' started following each other',follow_accepted:name+' accepted your follow request',like:name+' liked your listing',comment:name+' commented on your listing',followed_seller_listing:name+' listed something new'};
+ let body=social[type]||[notice.title,notice.body].filter(Boolean).join(' — ');
+ if(type==='message')body=name+' sent you a message'+(notice.body?' — '+String(notice.body).replace(/^[^:]{1,100}:\s*/, ''):'');
+ const url=social[type]?'https://findai.ai/findai-app.html?notifications=social':targetURL(notice.url);
+ return {...notice,title:'WishWave',body,url};
+}
 async function send(env,device,notice,transport=fetch){
  if(!configuration(env).configured)return {accepted:false,reason:'NotConfigured'};
- const payload={aps:{alert:{title:String(notice.title||'WishWave').slice(0,120),body:String(notice.body||'').slice(0,240)},sound:'default'},url:targetURL(notice.url),type:String(notice.type||'activity')};
+ const payload={aps:{alert:{title:'WishWave',body:String(notice.body||'').slice(0,240)},sound:'default'},url:targetURL(notice.url),type:String(notice.type||'activity')};
  // The app uses an unread dot, so do not publish a misleading app-icon count.
  const host=device.environment==='sandbox'?'api.sandbox.push.apple.com':'api.push.apple.com';
  let response;
@@ -83,5 +91,5 @@ async function route(request,env,d){
  const result=await send(env,device,{title:'WishWave notifications are on',body:'This is a real push notification sent through Apple.',type:'test',url:'https://findai.ai/findai-app.html'},d.transport);
  return json(result,result.accepted?200:502);
 }
-const api={configuration,ensure,authorization,targetURL,send,notify,route};root.WishWaveNativePush=api;if(typeof module!=='undefined')module.exports=api;
+const api={configuration,ensure,authorization,targetURL,presentation,send,notify,route};root.WishWaveNativePush=api;if(typeof module!=='undefined')module.exports=api;
 })(globalThis);
