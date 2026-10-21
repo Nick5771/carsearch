@@ -12941,12 +12941,14 @@ window.addEventListener('load', function(){
       try{toast(err&&err.message?err.message:'Could not update follow request');}catch(_){}
     }
   };
-  async function loadHomeNotifications(){
+  async function loadHomeNotifications(snapshot){
     const owner=marketplaceSession(),followVersion=notificationFollowVersion;
     ensureNotificationUI();
     let server={unreadCount:0,notifications:[]};
     let conversations={unreadCount:0,conversations:[]};
-    if(marketplaceSession()){
+    if(snapshot&&snapshot.server&&snapshot.conversations){
+      server=snapshot.server;conversations=snapshot.conversations;
+    }else if(marketplaceSession()){
       try{server=await marketplaceFetch('/marketplace/notifications/summary',{method:'GET'});}catch(_){}
       try{conversations=await marketplaceFetch('/marketplace/conversations',{method:'GET'});}catch(_){}
     }
@@ -36355,5 +36357,6 @@ html.findai-light body #findaiNotificationPanel .findai-notification-item.ww-fol
  html body #findaiNotificationPanel .ww-follow-request .findai-notification-side{padding-left:0!important;}
 }
 </style>
+<script src="wishwave-live-activity.js?v=355"></script>
 </body>
 </html>
