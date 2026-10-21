@@ -1,6 +1,6 @@
 /* Home keeps a visible sign-in entry point; private header shortcuts stay hidden. */
 html body.wishwave-chat-guest .wishwave-header-message{display:none!important;pointer-events:none!important;}
-html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .wishwave-chat-menu svg{transform:rotate(90deg);}
+html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .wishwave-chat-menu svg{transform:none!important;}
 html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .findai-chat-title-person{cursor:pointer;pointer-events:auto!important;}
 html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .findai-v173-message-row.incoming{display:grid!important;grid-template-columns:28px minmax(0,1fr)!important;column-gap:8px!important;align-items:end!important;}
 html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .findai-v173-message-row.incoming>.findai-v173-message-avatar{display:grid!important;grid-column:1;grid-row:1;width:28px!important;height:28px!important;min-width:28px!important;align-self:end;}
@@ -21,7 +21,7 @@ html body #appMpSheetBg .ww-chat-action+.ww-chat-action{border-top:1px solid #ff
 html body #appMpSheetBg .ww-chat-action.danger{color:#ee7776;}.ww-chat-action:disabled{opacity:.6;}
 html body #appMpSheetBg .ww-chat-cancel{display:block;width:100%;height:48px;margin-top:12px;border:0;border-radius:14px;background:#28292d;color:#f3f3f4;font:500 16px/1 -apple-system,BlinkMacSystemFont,sans-serif;}
 html.findai-light body #appMpSheetBg.ww-chat-action-sheet .app-mp-sheet{background:#f2f3f5!important;}html.findai-light .ww-chat-sheet-identity{color:#17181a;}html.findai-light .ww-chat-action-group,html.findai-light body #appMpSheetBg .ww-chat-cancel{background:#fff;color:#17181a;}html.findai-light body #appMpSheetBg .ww-chat-action:not(.danger){color:#17181a;}
-html body #wishwavePublicProfilePage .findai-public-top-more{transform:rotate(90deg);}
+html body #wishwavePublicProfilePage .findai-public-top-more{transform:none!important;}
 /* Profiles opened from chat must sit in front of its full-page surface. */
 html body[data-active-tab="messages"] .app #wishwavePublicProfilePage.show{z-index:20020!important;}
 html body .app :is(#appMpInbox,.wishwave-inbox-preview.wishwave-inbox-clone) .ww-chat-receipt{display:block!important;align-self:flex-end;grid-column:2;text-align:right;font-size:11px;line-height:1.3;font-weight:400;color:#999da5;margin:3px 1px 0;}
@@ -87,3 +87,30 @@ html body:has(#appMpInbox.show) .app>.nav.findai-five-nav.premium-bottom-nav::be
 html body:has(#appMpInbox.show) .app>.nav.findai-five-nav.premium-bottom-nav button.active .nav-icon-shell{
  background:transparent!important;box-shadow:none!important;
 }
+
+/* Stable, generously sized menu hit targets. Press feedback never rotates the glyph. */
+html body .app :is(#appMpInbox,#wishwavePublicProfilePage) :is(.wishwave-chat-menu,.findai-public-top-more,.findai-public-more){
+ display:grid!important;place-items:center!important;width:44px!important;min-width:44px!important;height:44px!important;padding:10px!important;
+ border:0!important;border-radius:50%!important;background:transparent!important;color:inherit!important;
+ transform:none!important;rotate:none!important;transition:background-color .15s ease!important;touch-action:manipulation;
+}
+html body .app :is(#appMpInbox,#wishwavePublicProfilePage) :is(.wishwave-chat-menu,.findai-public-top-more,.findai-public-more):active{background:#ffffff10!important;transform:none!important;}
+html body .app :is(#appMpInbox,#wishwavePublicProfilePage) :is(.wishwave-chat-menu,.findai-public-top-more,.findai-public-more) svg{display:block!important;width:24px!important;height:24px!important;transform:none!important;rotate:none!important;stroke:none!important;}
+html.findai-light body .app :is(#appMpInbox,#wishwavePublicProfilePage) :is(.wishwave-chat-menu,.findai-public-top-more,.findai-public-more):active{background:#0000000c!important;}
+/* A shared reel retains the same navigation affordances as other WishWave reels. */
+html body .app #searchDetailOverlay.search-owned-v186[data-reel-owner="messages"] .search-detail-header{display:none!important;}
+html body .app #searchDetailOverlay.search-owned-v186[data-reel-owner="messages"] .wishwave-search-reel-topbar{
+ display:grid!important;grid-template-columns:44px minmax(0,1fr) 44px!important;align-items:center!important;
+ padding-left:12px!important;padding-right:12px!important;
+}
+html body .app #searchDetailOverlay[data-reel-owner="messages"] .wishwave-search-reel-brand{justify-self:center!important;}
+html body .app #searchDetailOverlay[data-reel-owner="messages"] :is(.ww-message-reel-back,.ww-message-reel-inbox){
+ display:grid!important;place-items:center!important;pointer-events:auto!important;width:44px!important;height:44px!important;
+ padding:10px!important;background:transparent!important;border:0!important;color:inherit!important;touch-action:manipulation;
+}
+html body .app #searchDetailOverlay[data-reel-owner="messages"] :is(.ww-message-reel-back,.ww-message-reel-inbox) svg{width:25px!important;height:25px!important;}
+/* Match the letterbox canvas, header, caption and safe area with one charcoal. */
+html:not(.findai-light) body .app #searchDetailOverlay.search-owned-v186,
+html:not(.findai-light) body .app #searchDetailOverlay.search-owned-v186 :is(.search-detail-feed,.reel-card,.hero-stage,.reel-gallery-slide){background:#17181a!important;--hero-fill:#17181a!important;}
+html:not(.findai-light) body .app #searchDetailOverlay.search-owned-v186 .product-panel{background:linear-gradient(transparent,rgba(23,24,26,.95))!important;}
+html:not(.findai-light) body .app #searchDetailOverlay.search-owned-v186 .wishwave-search-reel-topbar{background:linear-gradient(#17181a,rgba(23,24,26,0))!important;}

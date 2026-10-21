@@ -22,5 +22,24 @@ const relation=(a,b)=>ctx.wishwaveRestrictedProfile({},a,b);
  assert(worker.includes("if (await findaiEitherBlocked(env,auth.email,sellerEmail)) return jsonResp({error:'Profile not found'},404"),'blocked follow by seller is rejected');
  assert(worker.includes("DELETE FROM marketplace_follows WHERE seller_id=? AND lower(follower_email)=lower(?)"),'blocking removes follows');
  assert(worker.includes("DELETE FROM findai_follow_requests WHERE seller_id=? AND lower(follower_email)=lower(?)"),'blocking removes pending requests');
+ // Exercise the full username endpoint. A helper-only test missed the later
+ // symmetric guard that undid the directional access decision.
+ const routeStart=worker.indexOf('      const publicFindAIProfileMatch =');
+ const routeEnd=worker.indexOf("      if (url.pathname === '/profile/me'",routeStart);
+ let viewer='a';
+ Object.assign(ctx,{
+  mpEnsureSchema:async()=>{},findaiProfileEnsureSchema:async()=>{},findaiSocialControlsEnsureSchema:async()=>{},
+  emailFromSession:async()=>viewer,findaiUsernameNormalize:s=>s,
+  findaiEitherBlocked:async(_env,a,b)=>blocks.has(a+'>'+b+':blocked')||blocks.has(b+'>'+a+':blocked'),
+  findaiAppPrefsRead:async()=>({privateAccount:false}),findaiProfileJson:row=>({username:row.username,displayName:row.display_name}),
+  jsonResp:(body,status=200)=>({body,status})
+ });
+ vm.runInContext('async function getProfile(request,env,url){'+worker.slice(routeStart,routeEnd)+'}',ctx);
+ const env={DB:{prepare(){return {bind(){return this},first:async()=>({user_email:'b',username:'target',display_name:'Visible seller'})}}}};
+ const get=()=>ctx.getProfile({method:'GET'},env,new URL('https://test/profile/public/target'));
+ blocks.clear();blocks.add('a>b:blocked');
+ r=await get();assert.equal(r.status,200);assert.equal(r.body.profile.displayName,'Visible seller','blocker can reopen the full profile endpoint');assert.equal(r.body.viewer.blockedByViewer,true);assert.equal(r.body.viewer.restricted,false);
+ blocks.clear();blocks.add('b>a:blocked');
+ r=await get();assert.equal(r.status,200);assert.equal(r.body.viewer.restricted,true);assert.equal(r.body.profile.displayName,'');assert.equal(r.body.listings.length,0,'blocked viewer receives no private profile details');
  console.log('PASS: blocker retains profile, blocked viewer sees restricted shell, mutual block restricted, blocked follow not found and existing follows removed');
 })().catch(e=>{console.error(e);process.exitCode=1});
