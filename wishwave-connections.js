@@ -47,8 +47,8 @@
  function decorate(){stats(document.querySelector('#profileSignedIn .social-profile-stats'),'@me');const username=wishwavePublicSellerData?.seller?.username;if(username)stats(document.querySelector('#wishwavePublicProfileBody .social-profile-stats'),username);repairProfileTabs();}
  const profileRoot=document.getElementById('profile');
  if(profileRoot)new MutationObserver(records=>{
-  if(records.some(record=>record.target.closest?.('.social-profile-tabs')||[...record.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('.social-profile-tabs')||n.querySelector?.('.social-profile-tabs')))))scheduleRepair();
- }).observe(profileRoot,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+  if(records.some(record=>record.target===profileRoot||record.target.matches?.('#profileSignedIn,#profileSignedOut')||record.target.closest?.('.social-profile-tabs')||[...record.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('.social-profile-tabs')||n.querySelector?.('.social-profile-tabs')))))scheduleRepair();
+ }).observe(profileRoot,{childList:true,subtree:true,attributes:true,attributeFilter:['class','hidden']});
 
  const own=window.paintSocialProfileHeader;window.paintSocialProfileHeader=function(){const out=own.apply(this,arguments);decorate();return out;};
  const pub=window.renderWishWavePublicProfile;window.renderWishWavePublicProfile=function(){const out=pub.apply(this,arguments);decorate();return out;};

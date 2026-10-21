@@ -23,6 +23,7 @@
  // Window capture precedes legacy profile click handlers and isolates menu taps
  // from page gestures. Both mouse and keyboard activation produce a click.
  window.addEventListener('click',event=>{
+  if(event.target.closest?.('#wishwavePublicFollowButton')&&document.getElementById('wishwavePublicProfilePage')?.classList.contains('ww-blocked-by-me')){event.preventDefault();event.stopImmediatePropagation();toast('Unblock user to follow them');return;}
   const button=event.target.closest?.('.wishwave-chat-menu,.findai-public-top-more,.findai-public-more');
   if(!button||button.disabled||!button.closest('#appMpInbox,#wishwavePublicProfilePage'))return;
   event.preventDefault();event.stopImmediatePropagation();
@@ -164,7 +165,7 @@
  const followPublic=window.toggleWishWavePublicSellerFollow;
  if(followPublic)window.toggleWishWavePublicSellerFollow=function(){
   const data=wishwavePublicSellerData,access=accessFor(data?.seller?.username)||data?.viewer||{};
-  if(access.blockedByViewer||access.blocked){toast('Unblock user to follow');return;}
+  if(access.blockedByViewer||access.blocked||document.getElementById('wishwavePublicProfilePage')?.classList.contains('ww-blocked-by-me')){toast('Unblock user to follow them');return;}
   return followPublic.apply(this,arguments);
  };
  function syncMessaging(c){
@@ -173,7 +174,7 @@
   const access=c?.messaging;
   composer.inert=access?.canSend===false;composer.classList.toggle('ww-messaging-unavailable',access?.canSend===false);
   let note=inbox.querySelector('.ww-messaging-note');
-  const text=access?.canSend===false?'Messaging is unavailable for this conversation.':access?.blockedByViewer?'You blocked @'+profileKey(c.otherPartyUsername)+'. You can send messages, but won’t receive replies until you unblock.':'';
+  const text=access?.canSend===false?'Messaging is unavailable for this conversation.':access?.blockedByViewer?'You blocked @'+profileKey(c.otherPartyUsername)+'. You can send messages, but won’t receive replies until you unblock them.':'';
   if(!text){note?.remove();return;}
   if(!note){note=document.createElement('p');note.className='ww-messaging-note';note.setAttribute('role','status');composer.before(note);}
   if(note.textContent!==text)note.textContent=text;
