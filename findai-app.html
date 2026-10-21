@@ -16429,6 +16429,24 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
 <script id="findai-v124-people-native-reels-comments-script">
 (function(){
   let peopleRows=[];
+  // Keep the search follow button stable across overlapping live searches.
+  // The backend remains authoritative; this cache only bridges a short UI refresh.
+  const followStateOverrides=new Map();
+  let followStateSession='';
+  function withFollowState(row){
+    if(!row||!row.id)return row;
+    const active=typeof marketplaceSession==='function'?marketplaceSession():'';
+    if(followStateSession!==active){followStateOverrides.clear();followStateSession=active;}
+    const state=followStateOverrides.get(String(row.id));
+    if(state&&state.expires>Date.now()){
+      row.isFollowing=!!state.isFollowing;
+      row.pending=!!state.pending;
+      row._followBusy=!!state.busy;
+      if(state.followerCount!=null)row.followerCount=state.followerCount;
+    }else if(state)followStateOverrides.delete(String(row.id));
+    return row;
+  }
+  window.wishwaveFollowStateForSeller=withFollowState;
   let peopleTimer=null;
   let peopleSeq=0;
   let exploreFeedRestore=null;
@@ -16466,7 +16484,7 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     try{
       const data=await marketplaceFetch('/marketplace/sellers/search?q='+encodeURIComponent(String(query||'').trim())+'&limit=30',{method:'GET'});
       if(seq!==peopleSeq||!peopleMode())return;
-      peopleRows=Array.isArray(data&&data.sellers)?data.sellers:[];window.peopleRows=peopleRows;renderPeople(String(query||'').trim());
+      peopleRows=(Array.isArray(data&&data.sellers)?data.sellers:[]).map(withFollowState);window.peopleRows=peopleRows;renderPeople(String(query||'').trim());
     }catch(error){if(seq!==peopleSeq)return;peopleRows=[];window.peopleRows=peopleRows;if(root)root.innerHTML='<div class="premium-seller-empty"><b>Could not load people</b>'+escapeHTML(error&&error.message||'Try again in a moment.')+'</div>';}
   };
   window.openPremiumSellerFromCollection=async function(collection,index,event){
@@ -16487,20 +16505,52 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     try{wishwavePublicSellerData=await marketplaceFetch('/marketplace/sellers/'+encodeURIComponent(id)+'/profile',{method:'GET'});renderWishWavePublicProfile();}catch(error){if(body)body.innerHTML='<div class="social-profile-empty"><b>Profile unavailable</b>'+escapeHTML(error.message||'Try again')+'</div>';}
   };
   window.togglePremiumSellerFollowCollection=async function(collection,index,button){
-    const rows=collection==='profileMatchRows'?window.profileMatchRows:window.peopleRows,seller=rows&&rows[Number(index)||0];if(!seller||!seller.id||seller.isSelf||seller._followBusy)return;
+    const rows=collection==='profileMatchRows'?window.profileMatchRows:window.peopleRows;
+    const seller=rows&&rows[Number(index)||0];
+    if(!seller||!seller.id||seller.isSelf||seller._followBusy)return;
     if(!marketplaceSession()){openLogin();return;}
-    const session=marketplaceSession(),was=!!seller.isFollowing,wasPending=!!seller.pending,count=Math.max(0,Number(seller.followerCount)||0),removing=was||wasPending;
+    const session=marketplaceSession(),id=String(seller.id);
+    const was=!!seller.isFollowing,wasPending=!!seller.pending,count=Math.max(0,Number(seller.followerCount)||0);
+    const removing=was||wasPending;
+    const paint=()=>{
+      if(!button?.isConnected)return;
+      button.textContent=seller.isFollowing?'Following':seller.pending?'Requested':'Follow';
+      button.classList.toggle('following',!!(seller.isFollowing||seller.pending));
+      button.disabled=!!seller._followBusy;
+      button.setAttribute('aria-busy',String(!!seller._followBusy));
+    };
+    // Immediately show Requested instead of a stuck Follow/Updating label.
     seller._followBusy=true;
-    const paint=()=>{if(button?.isConnected){button.textContent=seller._followBusy?'Updating…':seller.isFollowing?'Following':seller.pending?'Requested':'Follow';button.classList.toggle('following',seller.isFollowing||seller.pending);button.disabled=!!seller._followBusy;button.setAttribute('aria-busy',String(!!seller._followBusy));}};
-    paint();try{if(window.findaiFollowFeedback)window.findaiFollowFeedback(button);else haptic();}catch(_){}
+    seller.isFollowing=false;
+    seller.pending=!removing;
+    followStateOverrides.set(id,{isFollowing:false,pending:seller.pending,busy:true,followerCount:count,expires:Date.now()+20000});
+    paint();
+    try{if(window.findaiFollowFeedback)window.findaiFollowFeedback(button);else haptic();}catch(_){}
     try{
-      const data=await marketplaceFetch('/marketplace/sellers/'+encodeURIComponent(seller.id)+'/follow',{method:removing?'DELETE':'POST'});
+      const data=await marketplaceFetch('/marketplace/sellers/'+encodeURIComponent(id)+'/follow',{method:removing?'DELETE':'POST'});
       if(marketplaceSession()!==session)return;
-      seller.isFollowing=!!data.isFollowing;seller.pending=!!data.pending;
+      seller.isFollowing=!!data.isFollowing;
+      seller.pending=!!data.pending;
       seller.followerCount=data.followerCount==null?Math.max(0,count+Number(seller.isFollowing)-Number(was)):Math.max(0,Number(data.followerCount)||0);
-      [...(window.peopleRows||[]),...(window.profileMatchRows||[])].filter(x=>x.id===seller.id).forEach(x=>Object.assign(x,{isFollowing:seller.isFollowing,pending:seller.pending,followerCount:seller.followerCount}));
-    }catch(error){seller.isFollowing=was;seller.pending=wasPending;seller.followerCount=count;if(marketplaceSession()===session)toast(error.message||'Could not update follow');}
-    finally{seller._followBusy=false;if(marketplaceSession()===session)paint();}
+      followStateOverrides.set(id,{isFollowing:seller.isFollowing,pending:seller.pending,busy:false,followerCount:seller.followerCount,expires:Date.now()+20000});
+      [...(window.peopleRows||[]),...(window.profileMatchRows||[])].filter(x=>String(x.id)===id).forEach(x=>Object.assign(x,{isFollowing:seller.isFollowing,pending:seller.pending,followerCount:seller.followerCount,_followBusy:false}));
+      document.querySelectorAll('.premium-seller-row .premium-seller-action').forEach(el=>{
+        const row=el.closest('.premium-seller-row'),open=row?.querySelector('.premium-seller-open');
+        if(el!==button&&open&&open.getAttribute('onclick')?.includes('('+index+',event)')&&row.closest('.premium-profile-matches,.premium-seller-discovery')===button?.closest('.premium-profile-matches,.premium-seller-discovery')){
+          el.textContent=seller.isFollowing?'Following':seller.pending?'Requested':'Follow';
+          el.classList.toggle('following',!!(seller.isFollowing||seller.pending));
+          el.disabled=false;
+        }
+      });
+    }catch(error){
+      if(marketplaceSession()!==session)return;
+      seller.isFollowing=was;seller.pending=wasPending;seller.followerCount=count;
+      followStateOverrides.delete(id);
+      toast(error?.message||'Could not update follow request');
+    }finally{
+      seller._followBusy=false;
+      if(marketplaceSession()===session)paint();
+    }
   };
 
   /* Search is product-first, but matching people appear above product results. */
@@ -16510,7 +16560,7 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     try{
       const data=await marketplaceFetch('/marketplace/sellers/search?q='+encodeURIComponent(String(query||'').trim())+'&limit=3',{method:'GET'});
       const rows=Array.isArray(data&&data.sellers)?data.sellers:[];if(!rows.length)return;
-      window.profileMatchRows=rows;
+      window.profileMatchRows=rows.map(withFollowState);
       root.innerHTML='<div class="premium-profile-matches"><div class="premium-profile-matches-label">People</div>'+rows.map((s,i)=>sellerRow(s,i,'matches')).join('')+'</div>';
     }catch(_){root.innerHTML='';}
   }
@@ -17645,7 +17695,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
       const data=await marketplaceFetch('/marketplace/sellers/search?q='+encodeURIComponent(clean)+'&limit=3',{method:'GET'});
       if(seq!==profileSearchSeq)return;
       const current=String(document.getElementById('q')?.value||'').trim();if(current!==clean)return;
-      const rows=Array.isArray(data&&data.sellers)?data.sellers:[];window.profileMatchRows=rows;
+      const rows=(Array.isArray(data&&data.sellers)?data.sellers:[]).map(s=>window.wishwaveFollowStateForSeller?window.wishwaveFollowStateForSeller(s):s);window.profileMatchRows=rows;
       root.innerHTML=rows.length?'<div class="premium-profile-matches"><div class="premium-profile-matches-label">People</div>'+rows.map(liveProfileRow).join('')+'</div>':'';
     }catch(_){if(seq===profileSearchSeq)clearLiveProfiles();}
   }
@@ -36256,16 +36306,53 @@ html body .reel-actions-rail .reel-social-action.like .reel-social-icon::after{c
 </style>
 <link rel="stylesheet" href="wishwave-auctions.css?v=333">
 <script src="wishwave-auctions.js?v=333"></script>
-<style id="wishwave-notification-request-v353">
-/* Keep request copy readable at narrow widths and larger text sizes. */
-html body #findaiNotificationPanel .findai-notification-item.ww-follow-request{display:grid!important;grid-template-columns:44px minmax(0,1fr)!important;grid-template-rows:auto auto!important;align-items:start!important;column-gap:12px!important;row-gap:9px!important;min-height:0!important;padding:14px 0!important;}
-html body #findaiNotificationPanel .ww-follow-request .findai-notification-avatar-wrap{grid-column:1!important;grid-row:1!important;width:44px!important;height:44px!important;align-self:start!important;}
-html body #findaiNotificationPanel .ww-follow-request .findai-notification-copy{grid-column:2!important;grid-row:1!important;min-width:0!important;width:auto!important;padding-right:12px!important;}
-html body #findaiNotificationPanel .ww-follow-request .findai-notification-copy b{display:block!important;font-size:14px!important;line-height:1.4!important;white-space:normal!important;overflow-wrap:anywhere!important;}
-html body #findaiNotificationPanel .ww-follow-request .findai-notification-actor-name{display:inline!important;white-space:normal!important;font-size:inherit!important;line-height:inherit!important;font-weight:650!important;}
-html body #findaiNotificationPanel .ww-follow-request .findai-notification-side{grid-column:2!important;grid-row:2!important;display:flex!important;justify-content:flex-start!important;gap:8px!important;padding:0!important;width:100%!important;min-width:0!important;}
-html body #findaiNotificationPanel .ww-follow-request .findai-notification-action{flex:1 1 0!important;min-width:0!important;max-width:140px!important;width:auto!important;height:34px!important;padding:0 12px!important;font-size:12px!important;line-height:1!important;border-radius:8px!important;}
-.ww-follow-request .findai-notification-unread{position:absolute!important;top:6px!important;right:0!important;margin:0!important;}
+<style id="wishwave-notification-request-v354">
+/* Follow requests use a true two-column composition, with actions on their own row.
+   No text is squeezed between avatar and buttons at accessibility font sizes. */
+html body #findaiNotificationPanel .findai-notification-item.ww-follow-request{
+  display:grid!important;grid-template-columns:44px minmax(0,1fr)!important;
+  grid-template-rows:auto auto!important;gap:8px 12px!important;
+  align-items:start!important;min-height:0!important;padding:12px 16px!important;
+  border-bottom:1px solid rgba(255,255,255,.055)!important;
+}
+html body #findaiNotificationPanel .ww-follow-request .findai-notification-avatar-wrap{
+  grid-column:1!important;grid-row:1!important;width:44px!important;height:44px!important;align-self:start!important;
+}
+html body #findaiNotificationPanel .ww-follow-request .findai-notification-copy{
+  grid-column:2!important;grid-row:1!important;min-width:0!important;width:100%!important;
+  padding:0!important;align-self:center!important;
+}
+html body #findaiNotificationPanel .ww-follow-request .findai-notification-copy b{
+  display:block!important;font-size:14px!important;line-height:1.4!important;
+  white-space:normal!important;word-break:normal!important;overflow-wrap:break-word!important;
+  overflow:visible!important;text-overflow:clip!important;font-weight:450!important;
+}
+html body #findaiNotificationPanel .ww-follow-request .findai-notification-actor-name{
+  display:inline!important;white-space:normal!important;font-size:inherit!important;
+  line-height:inherit!important;font-weight:650!important;
+}
+html body #findaiNotificationPanel .ww-follow-request .findai-notification-side{
+  grid-column:1/-1!important;grid-row:2!important;display:flex!important;
+  justify-content:flex-start!important;gap:8px!important;padding:0 0 0 56px!important;
+  width:100%!important;min-width:0!important;box-sizing:border-box!important;
+}
+html body #findaiNotificationPanel .ww-follow-request .findai-notification-action{
+  flex:1 1 0!important;min-width:0!important;max-width:150px!important;
+  width:auto!important;height:34px!important;padding:0 12px!important;
+  font-size:12px!important;line-height:1!important;border-radius:9px!important;
+}
+html body #findaiNotificationPanel .ww-follow-request .findai-notification-meta{
+  display:block!important;margin-top:3px!important;
+}
+html body #findaiNotificationPanel .ww-follow-request .findai-notification-unread{
+  position:relative!important;top:auto!important;right:auto!important;margin-left:5px!important;
+}
+html.findai-light body #findaiNotificationPanel .findai-notification-item.ww-follow-request{
+  border-bottom-color:rgba(0,0,0,.075)!important;
+}
+@media(max-width:350px){
+ html body #findaiNotificationPanel .ww-follow-request .findai-notification-side{padding-left:0!important;}
+}
 </style>
 </body>
 </html>
