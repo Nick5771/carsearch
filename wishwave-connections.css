@@ -49,12 +49,10 @@ html body #wishwavePublicProfilePage .social-profile-stats > button::after{
   display:none!important;
 }
 
-/* Keep the empty Listings call-to-action clear of the fixed bottom nav.
-   The negative top margin moves the entire empty state up without shrinking its
-   tap target; bottom spacing stays in normal document flow so shorter screens
-   can scroll the button fully above the navigation pill. */
+/* Keep the empty Listings panel below its tab captions and underline. Bottom
+   spacing lets the call-to-action scroll above the fixed navigation pill. */
 html body .app #profile #socialProfileContent > .social-profile-empty.wishwave-collection-empty {
-  margin-top:-26px!important;
+  margin-top:0!important;
   margin-bottom:calc(var(--wishwave-nav-total,60px) + 28px)!important;
 }
  
@@ -81,7 +79,7 @@ html body #wishwavePublicProfilePage.ww-restricted-profile .findai-public-top-mo
 }
 
 /* Keep Follow and Message visible for the blocker; actions enforce direction. */
-html body #wishwavePublicProfilePage.ww-blocked-by-me:not(.ww-restricted-profile) .social-profile-actions{display:flex!important;}
+html body #wishwavePublicProfilePage.ww-blocked-by-me:not(.ww-restricted-profile) .social-profile-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;}
 /* Hard guarantee for all three profile captions after swipe DOM reconciliation. */
 html body .app #profile :is(#profileSignedIn,#profileSignedOut) .social-profile-tabs button .wishwave-profile-tab-label{
  display:block!important;visibility:visible!important;opacity:1!important;
@@ -97,3 +95,11 @@ html body .app #profile :is(#profileSignedIn,#profileSignedOut) .social-profile-
  transform:translate3d(calc(var(--profile-tab-index,0) * 100%),0,0)!important;
  transition:transform .23s cubic-bezier(.22,.8,.2,1)!important;
 }
+
+/* Both public actions retain equal-width columns, including the blocked state. */
+html body .app #wishwavePublicProfilePage .social-profile-actions{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important;width:100%!important;box-sizing:border-box!important;}
+html body .app #wishwavePublicProfilePage .social-profile-actions > button{width:100%!important;min-width:0!important;box-sizing:border-box!important;}
+/* Render the selected underline even before the first profile interaction. */
+html body .app #profile :is(#profileSignedIn,#profileSignedOut) .social-profile-tabs{--profile-tab-index:0;display:grid!important;height:65px!important;min-height:65px!important;}
+html body .app #profile :is(#profileSignedIn,#profileSignedOut) .social-profile-tabs::after{content:''!important;position:absolute!important;left:0!important;right:auto!important;background:#f1f2f4!important;pointer-events:none!important;}
+html.findai-light body .app #profile :is(#profileSignedIn,#profileSignedOut) .social-profile-tabs::after{background:#111!important;}
