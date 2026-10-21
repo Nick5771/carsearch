@@ -3,7 +3,7 @@
 <head>
 <script src="wishwave-compare.js?v=305"></script>
 <script src="wishwave-discovery-surfaces.js?v=271"></script>
-<script src="wishwave-discovery-rotation.js?v=271"></script>
+<script src="wishwave-discovery-rotation.js?v=349"></script>
 <script src="wishwave-interaction-preview.js?v=273"></script>
 <script src="wishwave-photo-hygiene.js?v=260"></script>
 <meta name="findai-build" content="v284-compare-reel-close">
@@ -30896,13 +30896,25 @@ body>.nav.findai-five-nav.premium-bottom-nav,
       bar=document.createElement('header');
       bar.className='wishwave-search-reel-topbar';
       bar.setAttribute('aria-label','WishWave reel');
+      view.appendChild(bar);
+    }
+    const owner=view.dataset.reelOwner==='messages'?'messages':'search';
+    if(bar.dataset.owner!==owner){
+      bar.dataset.owner=owner;
       bar.innerHTML='<div class="wishwave-search-reel-brand">WishWave</div><div class="wishwave-search-reel-title">For You</div><button class="wishwave-search-notification-button" type="button" aria-label="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 6.7-2.7 7-3 9h18c-.3-2-3-2.3-3-9"/><path d="M10 21h4"/></svg><span class="wishwave-search-notification-dot" aria-hidden="true"></span></button>';
       const button=bar.querySelector('.wishwave-search-notification-button');
       button.addEventListener('click',event=>{
         event.preventDefault();event.stopPropagation();
         try{if(typeof openHomeNotifications==='function')openHomeNotifications();}catch(_){ }
       });
-      view.appendChild(bar);
+      if(owner==='messages'){
+        bar.innerHTML='<button class="ww-message-reel-back" type="button" aria-label="Back to conversation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button><div class="wishwave-search-reel-brand">WishWave</div><button class="ww-message-reel-inbox" type="button" aria-label="Messages"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-8.5 8.5H4l-2 2V11.5a9.5 9.5 0 0 1 19 0Z"/><path d="m7 13 4-4 3 3 3-3"/></svg></button>';
+        bar.querySelectorAll('button').forEach(control=>control.addEventListener('click',event=>{
+          event.preventDefault();event.stopPropagation();
+          const surface={root:view,kind:'searchReel',open:()=>view.classList.contains('show'),back:()=>window.__wishwaveCloseSearchReelV186?.()};
+          if(window.wishwaveSlidePageBack)window.wishwaveSlidePageBack(surface);else surface.back();
+        }));
+      }
     }
     const homeButton=document.getElementById('homeNotificationButton');
     const button=bar.querySelector('.wishwave-search-notification-button');
@@ -30917,6 +30929,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
       ensureTopbar();
       /* Search remains the logical owner even though its listing card now looks
          exactly like a Home reel card. */
+      if(view.dataset.reelOwner==='messages')return;
       try{if(typeof setMainNavActive==='function')setMainNavActive('search');}catch(_){ }
       document.querySelectorAll('.premium-bottom-nav button[data-tab]').forEach(btn=>{
         btn.classList.toggle('active',String(btn.dataset.tab||'')==='search');
@@ -36206,8 +36219,8 @@ html body #profileSignedOut [data-guest-likes]{display:none!important;}
  window.updateAccountHeader=function(){const out=header.apply(this,arguments);window.wishwaveSyncNavAvatar?.();return out;};
 })();
 </script>
-<link rel="stylesheet" href="wishwave-chat-polish.css?v=347">
-<script src="wishwave-chat-polish.js?v=347"></script>
+<link rel="stylesheet" href="wishwave-chat-polish.css?v=349">
+<script src="wishwave-chat-polish.js?v=349"></script>
 <link rel="stylesheet" href="wishwave-connections.css?v=347">
 <script src="wishwave-connections.js?v=347"></script>
 <script src="wishwave-auth.js?v=316"></script>

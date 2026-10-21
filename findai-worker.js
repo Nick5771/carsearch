@@ -24418,7 +24418,7 @@ export default {
           const viewerEmail=String(await emailFromSession(request,env)||'').toLowerCase();
           const targetEmail=String(row.user_email||'').toLowerCase();
           await findaiSocialControlsEnsureSchema(env);
-          if(viewerEmail&&viewerEmail!==targetEmail&&await findaiEitherBlocked(env,viewerEmail,targetEmail))return jsonResp({ error:'Profile not found' },404,{ 'Cache-Control':'no-store' });
+          // Directional visibility was checked above: the blocker retains access.
           const targetPrefs=await findaiAppPrefsRead(env,targetEmail);
           isPrivate=!!targetPrefs.privateAccount;
           const isSelf=!!viewerEmail&&viewerEmail===targetEmail;

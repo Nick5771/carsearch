@@ -3,6 +3,7 @@ const values=new Map(),storage={getItem:k=>values.get(k),setItem:(k,v)=>values.s
 const options={storage,scope:()=>who,now:()=>at,seed:()=>random};
 const products=Array.from({length:40},(_,i)=>({_treasureTargetId:'FF'+i,itemId:'seller-a-'+i,title:'Product '+i}));
 const first=create(options);first.served(products.slice(0,20));
+first.observe(products[20]);assert(first.rank(products).slice(0,19).every(x=>Number(x._treasureTargetId.slice(2))>20),'current-session impressions immediately rank behind unseen products');
 at+=1000;random=.8;const next=create(options),fresh=next.rank(products.map(x=>({...x,itemId:x.itemId.replace('seller-a','seller-b')})));
 assert(fresh.slice(0,20).every(x=>Number(x._treasureTargetId.slice(2))>=20),'new sellers do not make yesterday\'s products fresh');
 who='another-account';assert(create(options).rank(products).slice(0,20).some(x=>Number(x._treasureTargetId.slice(2))<20),'product history is account isolated');

@@ -12,6 +12,23 @@
   }
  }
 
+ // Draw the glyph vertically rather than rotating the button or a text character.
+ const menuGlyph='<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg>';
+ function styleMenuButtons(root){
+  root?.querySelectorAll('.wishwave-chat-menu,.findai-public-top-more,.findai-public-more').forEach(button=>{
+   if(button.dataset.wwMenuGlyph!=='1'){button.innerHTML=menuGlyph;button.dataset.wwMenuGlyph='1';}
+   button.setAttribute('aria-haspopup','dialog');
+  });
+ }
+ // Window capture precedes legacy profile click handlers and isolates menu taps
+ // from page gestures. Both mouse and keyboard activation produce a click.
+ window.addEventListener('click',event=>{
+  const button=event.target.closest?.('.wishwave-chat-menu,.findai-public-top-more,.findai-public-more');
+  if(!button||button.disabled||!button.closest('#appMpInbox,#wishwavePublicProfilePage'))return;
+  event.preventDefault();event.stopImmediatePropagation();
+  styleMenuButtons(button.parentElement);
+  if(button.matches('.wishwave-chat-menu'))window.wishwaveChatMenu();else window.openFindAIProfileActions();
+ },true);
  const icon=path=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+path+'</svg>';
  const icons={profile:'<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2Z"/>',mute:'<path d="M18 8a6 6 0 0 0-10-4M6 7v4c0 3-2 5-2 6h13M10 21h4M3 3l18 18"/>',block:'<circle cx="12" cy="12" r="9"/><path d="m6 18 12-12"/>',report:'<path d="M5 22V3c5-4 9 4 14 0v11c-5 4-9-4-14 0"/>'};
  function scope(){const next=marketplaceSession();if(next!==owner){owner=next;cache.clear();inflight.clear();profileAccess.clear();menu=null;}return next;}
@@ -66,7 +83,7 @@
   if(root&&saved&&Date.now()-saved.at<300000){const data=saved.data;appMpCurrentConversation=data.conversation||appMpCurrentConversation;root.innerHTML=appMpMessageTimeline(data.messages||[]);root.dataset.loaded='1';appMpRenderMessageHeader(appMpCurrentConversation,data.presence);root.scrollTop=root.scrollHeight;}return result;
  };
  const header=window.appMpRenderMessageHeader;
- window.appMpRenderMessageHeader=function(c,presence){const out=header.apply(this,arguments),root=document.getElementById('appMpInboxTitle'),identity=root?.querySelector('.findai-chat-title-person');
+ window.appMpRenderMessageHeader=function(c,presence){const out=header.apply(this,arguments);styleMenuButtons(document.getElementById('appMpInbox'));const root=document.getElementById('appMpInboxTitle'),identity=root?.querySelector('.findai-chat-title-person');
   if(identity){identity.setAttribute('role','button');identity.tabIndex=0;identity.setAttribute('aria-label','View profile');identity.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();findaiOpenCurrentChatProfileV178();}};}
   const status=root?.querySelector('.wishwave-chat-presence');if(status&&(!presence||/private conversation/i.test(status.textContent)))status.remove();
   return out;
@@ -104,8 +121,8 @@
   marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(context.id)+'/mute',{method:'GET'}).then(data=>{if(menu===context&&context.session===marketplaceSession()&&!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show')){context.muted=!!data.muted;const label=document.querySelector('.ww-chat-action[data-chat-action="mute"] span');if(label)label.textContent=context.muted?'Unmute conversation':'Mute conversation';}}).catch(()=>{});
  };
  window.openFindAIProfileActions=function(){
-  if(!marketplaceSession()){openLogin();return;}const s=wishwavePublicSellerData?.seller;if(!s?.username)return;const context={kind:'profile',username:s.username,name:s.displayName||s.username,muted:false,blocked:!!accessFor(s.username)?.blockedByViewer,blockReady:false,session:scope()};showSheet(context);
-  marketplaceFetch('/social/relationship?username='+encodeURIComponent(s.username),{method:'GET'}).then(data=>{if(menu===context&&context.session===marketplaceSession()&&!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show')){Object.assign(context,{muted:!!data.muted,blocked:!!data.blocked,blockReady:true});showSheet(context);}}).catch(()=>{});
+  if(!marketplaceSession()){openLogin();return;}const s=wishwavePublicSellerData?.seller;if(!s?.username){toast('Profile unavailable');return;}const context={kind:'profile',username:s.username,name:s.displayName||s.username,muted:false,blocked:!!accessFor(s.username)?.blockedByViewer,blockReady:false,session:scope()};showSheet(context);
+  marketplaceFetch('/social/relationship?username='+encodeURIComponent(s.username),{method:'GET'}).then(data=>{if(menu===context&&context.session===marketplaceSession()&&!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show')){Object.assign(context,{muted:!!data.muted,blocked:!!(data.blockedByViewer??data.blocked),blockReady:true});showSheet(context);}}).catch(()=>{});
  };
  window.addEventListener('click',async e=>{
   const button=e.target.closest?.('#appMpSheetBg.ww-chat-action-sheet [data-chat-action]');if(!button)return;e.preventDefault();e.stopPropagation();let action=button.dataset.chatAction;const context=menu;if(action==='cancel'){closeAppMpSheet();return;}if(!context||context.session!==marketplaceSession())return;
@@ -127,12 +144,11 @@
     if(newlyBlocked)window.findaiNotificationState?.removeActor?.(context.username);
    }
    closeAppMpSheet();
-   toast(action==='mute'?(context.muted?'Notifications unmuted':'Notifications muted'):(context.blocked?'Account unblocked':'Account blocked'));
+   toast(action==='mute'?(context.muted?'Notifications unmuted':'Notifications muted'):('@'+profileKey(context.username)+(context.blocked?' unblocked':' blocked')));
   }catch(error){if(context.session===marketplaceSession()){toast(error.message||'Could not update');}}finally{button.disabled=false;}
  },true);
 
- // A blocked relationship retains a minimal profile shell so either user
- // can open its top-right options, but cannot view photos, posts or follow.
+ // Only the blocked viewer gets the restricted shell; the blocker keeps the profile.
  const renderPublic=window.renderWishWavePublicProfile;
  window.renderWishWavePublicProfile=function(){
   const data=wishwavePublicSellerData,username=data?.seller?.username||'';
@@ -141,7 +157,7 @@
   const page=document.getElementById('wishwavePublicProfilePage');
   page?.classList.toggle('ww-restricted-profile',restricted);
   page?.classList.toggle('ww-blocked-by-me',blockedByMe&&!restricted);
-  if(!restricted)return renderPublic.apply(this,arguments);
+  if(!restricted){const result=renderPublic.apply(this,arguments);styleMenuButtons(page);return result;}
   const handle=document.getElementById('wishwavePublicHandle');
   if(handle)handle.textContent=username;
   const root=document.getElementById('wishwavePublicProfileBody');
@@ -191,7 +207,7 @@
   const back=document.querySelector('#appMpInbox .app-mp-header > button[aria-label="Back"]');
   if(back){back.onclick=window.wishwaveInboxBackFromHeader;back.setAttribute('aria-label','Back');}
  }
- syncInboxBack();
+ syncInboxBack();styleMenuButtons(document.getElementById('appMpInbox'));styleMenuButtons(document.getElementById('wishwavePublicProfilePage'));
  // Older chat renderers may reconstruct the header: observe only that header.
  const inboxHeader=document.querySelector('#appMpInbox .app-mp-header');
  if(inboxHeader)new MutationObserver(syncInboxBack).observe(inboxHeader,{childList:true});
