@@ -83,7 +83,7 @@
   if(root&&saved&&Date.now()-saved.at<300000){const data=saved.data;appMpCurrentConversation=data.conversation||appMpCurrentConversation;root.innerHTML=appMpMessageTimeline(data.messages||[]);root.dataset.loaded='1';appMpRenderMessageHeader(appMpCurrentConversation,data.presence);root.scrollTop=root.scrollHeight;}return result;
  };
  const header=window.appMpRenderMessageHeader;
- window.appMpRenderMessageHeader=function(c,presence){const out=header.apply(this,arguments);styleMenuButtons(document.getElementById('appMpInbox'));const root=document.getElementById('appMpInboxTitle'),identity=root?.querySelector('.findai-chat-title-person');
+ window.appMpRenderMessageHeader=function(c,presence){const out=header.apply(this,arguments);syncMessaging(c);styleMenuButtons(document.getElementById('appMpInbox'));const root=document.getElementById('appMpInboxTitle'),identity=root?.querySelector('.findai-chat-title-person');
   if(identity){identity.setAttribute('role','button');identity.tabIndex=0;identity.setAttribute('aria-label','View profile');identity.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();findaiOpenCurrentChatProfileV178();}};}
   const status=root?.querySelector('.wishwave-chat-presence');if(status&&(!presence||/private conversation/i.test(status.textContent)))status.remove();
   return out;
@@ -140,6 +140,10 @@
     const newlyBlocked=!context.blocked,prev=accessFor(context.username)||{};
     profileAccess.set(profileKey(context.username),{...prev,blockedByViewer:newlyBlocked,restricted:!!prev.blockedViewer});
     window.wishwaveBlockedProfileUpdated?.(context.username,newlyBlocked);
+    if(profileKey(appMpCurrentConversation?.otherPartyUsername)===profileKey(context.username)){
+     cache.delete('/marketplace/conversations/'+encodeURIComponent(appMpConversation)+'/messages');
+     if(appMpCurrentConversation.messaging){appMpCurrentConversation.messaging.blockedByViewer=newlyBlocked;syncMessaging(appMpCurrentConversation);}
+    }
     document.dispatchEvent(new Event('wishwave-social-block-changed'));
     if(newlyBlocked)window.findaiNotificationState?.removeActor?.(context.username);
    }
@@ -149,6 +153,31 @@
  },true);
 
  // Only the blocked viewer gets the restricted shell; the blocker keeps the profile.
+ function syncBlockedFollow(){
+  const button=document.getElementById('wishwavePublicFollowButton');
+  const access=accessFor(wishwavePublicSellerData?.seller?.username)||wishwavePublicSellerData?.viewer||{};
+  if(button&&(access.blockedByViewer||access.blocked)){
+   button.textContent='Follow';button.classList.remove('following');button.disabled=false;
+   button.setAttribute('aria-busy','false');
+  }
+ }
+ const followPublic=window.toggleWishWavePublicSellerFollow;
+ if(followPublic)window.toggleWishWavePublicSellerFollow=function(){
+  const data=wishwavePublicSellerData,access=accessFor(data?.seller?.username)||data?.viewer||{};
+  if(access.blockedByViewer||access.blocked){toast('Unblock user to follow');return;}
+  return followPublic.apply(this,arguments);
+ };
+ function syncMessaging(c){
+  const inbox=document.getElementById('appMpInbox'),composer=inbox?.querySelector('.app-mp-compose');
+  if(!composer)return;
+  const access=c?.messaging;
+  composer.inert=access?.canSend===false;composer.classList.toggle('ww-messaging-unavailable',access?.canSend===false);
+  let note=inbox.querySelector('.ww-messaging-note');
+  const text=access?.canSend===false?'Messaging is unavailable for this conversation.':access?.blockedByViewer?'You blocked @'+profileKey(c.otherPartyUsername)+'. You can send messages, but won’t receive replies until you unblock.':'';
+  if(!text){note?.remove();return;}
+  if(!note){note=document.createElement('p');note.className='ww-messaging-note';note.setAttribute('role','status');composer.before(note);}
+  if(note.textContent!==text)note.textContent=text;
+ }
  const renderPublic=window.renderWishWavePublicProfile;
  window.renderWishWavePublicProfile=function(){
   const data=wishwavePublicSellerData,username=data?.seller?.username||'';
@@ -157,7 +186,7 @@
   const page=document.getElementById('wishwavePublicProfilePage');
   page?.classList.toggle('ww-restricted-profile',restricted);
   page?.classList.toggle('ww-blocked-by-me',blockedByMe&&!restricted);
-  if(!restricted){const result=renderPublic.apply(this,arguments);styleMenuButtons(page);return result;}
+  if(!restricted){const result=renderPublic.apply(this,arguments);styleMenuButtons(page);syncBlockedFollow();return result;}
   const handle=document.getElementById('wishwavePublicHandle');
   if(handle)handle.textContent=username;
   const root=document.getElementById('wishwavePublicProfileBody');
@@ -173,7 +202,8 @@
    const count=document.getElementById('wishwavePublicFollowerCount');
    if(count)count.textContent=profileMetricCompact(current.seller.followerCount||0);
    document.getElementById('wishwavePublicProfilePage')?.classList.add('ww-blocked-by-me');
-   // Do not re-render or close the visible profile: that would make it disappear.
+   syncBlockedFollow();
+   // Keep the visible profile and its buttons in place.
    return;
   }
   // A later reciprocal block may still exist; always refresh from the server.

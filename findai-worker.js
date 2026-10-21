@@ -17633,7 +17633,8 @@ async function findaiEitherBlocked(env, a, b) {
 }
 async function findaiMessageAllowed(env, senderEmail, recipientEmail) {
   if (!senderEmail || !recipientEmail) return false;
-  if (await findaiEitherBlocked(env,senderEmail,recipientEmail)) return false;
+  // A sender's own block stops incoming replies, not outgoing messages.
+  if (await findaiControlExists(env,recipientEmail,senderEmail,'blocked')) return false;
   const prefs = await findaiAppPrefsRead(env, recipientEmail);
   if (prefs.messagePermission === 'no_one') return false;
   if (prefs.messagePermission === 'followers') {
@@ -19205,7 +19206,7 @@ async function mpNotifyUser(env, userEmail, notification) {
   const targetUrl = String(notification && notification.url || 'https://findai.ai/findai-app.html').slice(0, 1000);
   const type = mpCleanText(notification && notification.type || 'marketplace', 50) || 'marketplace';
   const actorEmail = String(notification && notification.actorEmail || '').trim().toLowerCase().slice(0,320) || null;
-  if(actorEmail && await findaiEitherBlocked(env,email,actorEmail)) return;
+  if(actorEmail && (type==='message'?await findaiControlExists(env,email,actorEmail,'blocked'):await findaiEitherBlocked(env,email,actorEmail))) return;
   const imageUrl = String(notification && notification.imageUrl || '').trim().slice(0,1200) || null;
   const entityId = String(notification && notification.entityId || '').trim().slice(0,220) || null;
   const dedupeWindowMs = Math.max(0, Number(notification && notification.dedupeWindowMs || 0));
@@ -19239,7 +19240,7 @@ async function mpNotifyUser(env, userEmail, notification) {
   if (notification && notification.actorEmail) {
     const actorEmail = String(notification.actorEmail || '').toLowerCase();
     if (actorEmail && await findaiControlExists(env,email,actorEmail,'muted')) return;
-    if (actorEmail && await findaiEitherBlocked(env,email,actorEmail)) return;
+    if (actorEmail && (type==='message'?await findaiControlExists(env,email,actorEmail,'blocked'):await findaiEitherBlocked(env,email,actorEmail))) return;
   }
   const result = await env.DB.prepare(
     `SELECT endpoint, p256dh, auth_secret FROM marketplace_push_subscriptions
@@ -24713,6 +24714,7 @@ export default {
           const targetEmail=String(target.user_email||'').toLowerCase();
           const myEmail=String(auth.email||'').toLowerCase();
           if(targetEmail===myEmail)return jsonResp({error:'You cannot message yourself'},400,{ 'Cache-Control':'no-store' });
+          if(!await findaiMessageAllowed(env,myEmail,targetEmail))return jsonResp({error:'Messaging is unavailable for this conversation'},403,{'Cache-Control':'no-store'});
 
           /* If either direction already has a conversation, keep one continuous
              chat instead of creating a second reverse-direction thread. */
@@ -24825,6 +24827,7 @@ export default {
           ).bind(listingId).first();
           if (!listing) return jsonResp({ error: 'Listing not found' }, 404);
           if (String(listing.seller_email || '').toLowerCase() === auth.email) return jsonResp({ error: 'Buyers will appear here after they message you' }, 400);
+          if(!await findaiMessageAllowed(env,auth.email,String(listing.seller_email||'').toLowerCase()))return jsonResp({error:'Messaging is unavailable for this conversation'},403,{'Cache-Control':'no-store'});
           let conversation = await env.DB.prepare(
             `SELECT * FROM marketplace_conversations WHERE listing_id=? AND buyer_email=? AND seller_id=? LIMIT 1`
           ).bind(listing.id, auth.email, listing.seller_id).first();
@@ -24936,6 +24939,8 @@ export default {
           const sellerEmail = String(conversation.seller_email || '').toLowerCase();
           const buyerEmail = String(conversation.buyer_email || '').toLowerCase();
           if (auth.email !== sellerEmail && auth.email !== buyerEmail) return jsonResp({ error: 'Not allowed' }, 403);
+          const typingOther=auth.email===sellerEmail?buyerEmail:sellerEmail;
+          if(await findaiControlExists(env,request.method==='POST'?typingOther:auth.email,request.method==='POST'?auth.email:typingOther,'blocked'))return jsonResp({ok:true,typing:false,presence:null},200,{'Cache-Control':'no-store'});
           if (request.method === 'POST') {
             if (await rateLimited(env, request, 'marketplace-typing', 900, 3600)) return tooManyResp(60);
             await mpTouchPresence(env, auth.email);
@@ -24985,6 +24990,7 @@ export default {
           const buyer=String(row.buyer_email||'').toLowerCase();
           const seller=String(row.seller_email||'').toLowerCase();
           if(viewer!==buyer&&viewer!==seller)return jsonResp({error:'Not allowed'},403,{ 'Cache-Control':'no-store' });
+          if(!await findaiMessageAllowed(env,viewer,viewer===buyer?seller:buyer))return jsonResp({error:'Messaging is unavailable for this conversation'},403,{'Cache-Control':'no-store'});
 
           let body={};try{body=await request.json();}catch(_){}
           const emoji=String(body.emoji||'').trim();
@@ -25057,7 +25063,7 @@ export default {
           const sellerEmail = String(conversation.seller_email || '').toLowerCase();
           if (auth.email !== sellerEmail && auth.email !== String(conversation.buyer_email || '').toLowerCase()) return jsonResp({ error: 'Not allowed' }, 403);
           const otherParticipant = auth.email === sellerEmail ? String(conversation.buyer_email||'').toLowerCase() : sellerEmail;
-          if (request.method === 'POST' && await findaiEitherBlocked(env,auth.email,otherParticipant)) return jsonResp({ error:'Messaging is unavailable for this conversation' },403,{ 'Cache-Control':'no-store' });
+          if (request.method === 'POST' && !await findaiMessageAllowed(env,auth.email,otherParticipant)) return jsonResp({ error:'Messaging is unavailable for this conversation' },403,{ 'Cache-Control':'no-store' });
           if (request.method === 'POST') {
             if (await rateLimited(env, request, 'marketplace-messages', 120, 3600)) return tooManyResp(3600);
             await mpTouchPresence(env, auth.email);
@@ -25126,8 +25132,9 @@ export default {
           ).bind(conversation.listing_id, conversation.buyer_email).all();
           const otherEmail = auth.email === sellerEmail ? String(conversation.buyer_email || '').toLowerCase() : sellerEmail;
           const presence = await mpPresenceItem(env, otherEmail);
+          const messaging={...await wishwaveRestrictedProfile(env,auth.email,otherEmail),canSend:await findaiMessageAllowed(env,auth.email,otherEmail)};
           return jsonResp({
-            conversation: mpConversationItem(conversation, auth.email),
+            conversation: {...mpConversationItem(conversation, auth.email),messaging},
             messages: (result.results || []).map(row => mpMessageItem(row, auth.email)),
             offers: (offerResult.results || []).map(row => mpOfferItem(row, auth.email)).filter(Boolean),
             presence
