@@ -19206,7 +19206,7 @@ async function mpNotifyUser(env, userEmail, notification) {
   const email = String(userEmail || '').trim().toLowerCase();
   if (!env || !env.DB || !email) return;
   await mpEnsureSchema(env);
-  await findaiSocialControlsEnsureSchema(env);
+  if(typeof findaiSocialControlsEnsureSchema==='function')await findaiSocialControlsEnsureSchema(env);
   const now = new Date().toISOString();
   const title = mpCleanText(notification && notification.title || 'FindAI', 120) || 'FindAI';
   const body = mpCleanText(notification && notification.body || '', 240);
