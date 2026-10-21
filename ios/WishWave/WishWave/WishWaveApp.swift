@@ -225,7 +225,34 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
     @objc private func openPendingPush() {
         guard didShowPage, let target = WishWavePush.shared.pendingURL else { return }
         WishWavePush.shared.pendingURL = nil
-        var destination = URLComponents(url: target, resolvingAgainstBaseURL: false)!
+
+        // An APNs tap should navigate in the live WKWebView, not reload its
+        // entire page and leave the user on Home after startup completes.
+        let items = URLComponents(url: target, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        let notification = items.first(where: { $0.name == "notifications" })?.value
+        let legacyFollowRequest = items.contains(where: { $0.name == "settings" && $0.value == "follow-requests" })
+        if let requested = notification ?? (legacyFollowRequest ? "social" : nil), trusted(webView.url) {
+            let filter = ["all", "orders", "social"].contains(requested) ? requested : "all"
+            let script = """
+                (function() {
+                  if (typeof window.wishwaveOpenNotificationTab !== 'function') return false;
+                  window.wishwaveOpenNotificationTab();
+                  if (typeof window.wishwaveFilterNotifications === 'function')
+                    window.wishwaveFilterNotifications('\(filter)');
+                  return true;
+                })()
+                """
+            webView.evaluateJavaScript(script) { [weak self] result, error in
+                if error == nil, (result as? Bool) == true { return }
+                self?.loadPushDestination(target)
+            }
+            return
+        }
+        loadPushDestination(target)
+    }
+
+    private func loadPushDestination(_ target: URL) {
+        guard var destination = URLComponents(url: target, resolvingAgainstBaseURL: false) else { return }
         var query = destination.queryItems ?? []
         for item in URLComponents(url: Self.home, resolvingAgainstBaseURL: false)?.queryItems ?? [] {
             if !query.contains(where: { $0.name == item.name }) { query.append(item) }
