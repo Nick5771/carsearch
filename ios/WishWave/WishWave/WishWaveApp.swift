@@ -4,11 +4,111 @@ import SafariServices
 import AuthenticationServices
 import CryptoKit
 import Security
+import UserNotifications
 
 @main
 struct WishWaveApp: App {
+    @UIApplicationDelegateAdaptor(WishWaveAppDelegate.self) private var appDelegate
     var body: some Scene {
         WindowGroup { ShoppingView().ignoresSafeArea(.container) }
+    }
+}
+
+// UIApplication owns APNs registration; the web view supplies the signed-in account
+// only when it registers the returned device token with the authenticated API.
+final class WishWaveAppDelegate: NSObject, UIApplicationDelegate {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        UNUserNotificationCenter.current().delegate = WishWavePush.shared
+        return true
+    }
+    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        WishWavePush.shared.registered(deviceToken)
+    }
+    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+        WishWavePush.shared.failed(error)
+    }
+}
+
+final class WishWavePush: NSObject, UNUserNotificationCenterDelegate {
+    static let shared = WishWavePush()
+    static let opened = Notification.Name("WishWavePushOpened")
+    private var token: String?
+    private var waiting: [([String: String]?, String?) -> Void] = []
+    private var registrationTimeout: DispatchWorkItem?
+    var pendingURL: URL?
+    let installationID: String = {
+        let key = "wishwave.push.installation"
+        if let stored = UserDefaults.standard.string(forKey: key) { return stored }
+        let id = UUID().uuidString
+        UserDefaults.standard.set(id, forKey: key)
+        return id
+    }()
+    // Read the signing profile rather than guessing from Debug/Release: a Release
+    // build installed from Xcode can still use a development provisioning profile.
+    private var environment: String {
+        if let url = Bundle.main.url(forResource: "embedded", withExtension: "mobileprovision"),
+           let bytes = try? Data(contentsOf: url),
+           let text = String(data: bytes, encoding: .isoLatin1),
+           let start = text.range(of: "<?xml"), let end = text.range(of: "</plist>"),
+           let data = String(text[start.lowerBound..<end.upperBound]).data(using: .utf8),
+           let plist = (try? PropertyListSerialization.propertyList(from: data, format: nil)) as? [String: Any],
+           let entitlements = plist["Entitlements"] as? [String: Any],
+           let value = entitlements["aps-environment"] as? String {
+            return value == "development" ? "sandbox" : "production"
+        }
+        // TestFlight / App Store builds do not embed the development profile.
+        return "production"
+    }
+    func status(requestPermission: Bool, reply: @escaping ([String: String]?, String?) -> Void) {
+        let center = UNUserNotificationCenter.current()
+        center.getNotificationSettings { settings in
+            if settings.authorizationStatus == .notDetermined && requestPermission {
+                center.requestAuthorization(options: [.alert, .sound, .badge]) { _, error in
+                    if let error = error { DispatchQueue.main.async { reply(nil, error.localizedDescription) }; return }
+                    self.status(requestPermission: false, reply: reply)
+                }
+                return
+            }
+            DispatchQueue.main.async {
+                let allowed = [.authorized, .provisional, .ephemeral].contains(settings.authorizationStatus)
+                guard allowed else {
+                    reply(["permission": settings.authorizationStatus == .denied ? "denied" : "default", "installationId": self.installationID], nil)
+                    return
+                }
+                self.waiting.append(reply)
+                if let token = self.token { self.finish(token: token); return }
+                guard self.registrationTimeout == nil else { return }
+                UIApplication.shared.registerForRemoteNotifications()
+                let timeout = DispatchWorkItem { self.finish(error: "Apple device registration timed out. Check your connection and try again.") }
+                self.registrationTimeout = timeout
+                DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: timeout)
+            }
+        }
+    }
+    func registered(_ data: Data) {
+        token = data.map { String(format: "%02x", $0) }.joined()
+        finish(token: token)
+    }
+    func failed(_ error: Error) { finish(error: error.localizedDescription) }
+    private func finish(token: String? = nil, error: String? = nil) {
+        registrationTimeout?.cancel(); registrationTimeout = nil
+        let callbacks = waiting; waiting.removeAll()
+        let result = token.map { ["permission": "granted", "token": $0, "environment": environment, "installationId": installationID] }
+        callbacks.forEach { $0(result, error) }
+    }
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound, .list])
+    }
+    func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        if let raw = response.notification.request.content.userInfo["url"] as? String,
+           let url = URL(string: raw), url.scheme == "https", ["findai.ai", "www.findai.ai"].contains(url.host ?? ""),
+           url.path == "/findai-app.html", url.user == nil, url.password == nil {
+            DispatchQueue.main.async {
+                self.pendingURL = url
+                NotificationCenter.default.post(name: Self.opened, object: nil)
+            }
+        }
+        completionHandler()
     }
 }
 
@@ -19,6 +119,7 @@ struct ShoppingView: UIViewControllerRepresentable {
         controller.webView.configuration.userContentController.removeScriptMessageHandler(forName: "findaiHaptic")
         controller.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wishwaveShare", contentWorld: .page)
         controller.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wishwaveAuth", contentWorld: .page)
+        controller.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wishwavePush", contentWorld: .page)
         controller.cancelAuthentication()
         controller.webView.stopLoading()
         controller.cancelRecovery()
@@ -38,7 +139,7 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.userContentController.addUserScript(WKUserScript(
-            source: "window.wishwaveNativeBuild = 316;",
+            source: "window.wishwaveNativeBuild = 352;",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
         // Keep the camera preview beneath WishWave's own shutter controls.
         config.allowsInlineMediaPlayback = true
@@ -48,6 +149,7 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         config.userContentController.add(self, name: "findaiHaptic")
         config.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "wishwaveShare")
         config.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "wishwaveAuth")
+        config.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "wishwavePush")
         config.userContentController.addUserScript(WKUserScript(source: """
         if (location.protocol === 'https:' && ['findai.ai','www.findai.ai'].includes(location.hostname) && !navigator.share) {
           Object.defineProperty(navigator, 'share', {value: async function(data) {
@@ -110,7 +212,26 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         ])
         failure.isHidden = true
         selectionFeedback.prepare()
+        NotificationCenter.default.addObserver(self, selector: #selector(openPendingPush), name: WishWavePush.opened, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(pushApplicationActive), name: UIApplication.didBecomeActiveNotification, object: nil)
         reloadPage()
+    }
+
+    @objc private func pushApplicationActive() {
+        guard trusted(webView.url) else { return }
+        webView.evaluateJavaScript("window.dispatchEvent(new Event('wishwave-push-resume'))", completionHandler: nil)
+    }
+
+    @objc private func openPendingPush() {
+        guard didShowPage, let target = WishWavePush.shared.pendingURL else { return }
+        WishWavePush.shared.pendingURL = nil
+        var destination = URLComponents(url: target, resolvingAgainstBaseURL: false)!
+        var query = destination.queryItems ?? []
+        for item in URLComponents(url: Self.home, resolvingAgainstBaseURL: false)?.queryItems ?? [] {
+            if !query.contains(where: { $0.name == item.name }) { query.append(item) }
+        }
+        destination.queryItems = query
+        if let url = destination.url { webView.load(URLRequest(url: url)) }
     }
 
     @objc private func reloadPage() {
@@ -152,6 +273,7 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         didShowPage = true
         spinner.stopAnimating()
         failure.isHidden = true
+        openPendingPush()
     }
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { showFailure(error) }
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { showFailure(error) }
@@ -286,6 +408,11 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage, replyHandler: @escaping (Any?, String?) -> Void) {
         guard message.frameInfo.isMainFrame, trusted(message.frameInfo.request.url), let data = message.body as? [String: String], presentedViewController == nil else {
             replyHandler(nil, "Share is unavailable"); return
+        }
+        if message.name == "wishwavePush" {
+            guard ["status", "request"].contains(data["action"] ?? "") else { replyHandler(nil, "Unknown notification action"); return }
+            WishWavePush.shared.status(requestPermission: data["action"] == "request") { value, error in replyHandler(value, error) }
+            return
         }
         if message.name == "wishwaveAuth" {
             startAuthentication(provider: data["provider"] ?? "", reply: replyHandler)

@@ -1,4 +1,5 @@
 import './wishwave-auctions-engine.js';
+import './wishwave-native-push.js';
 import './findai-treasure-pilot.js';
 import './wishwave-compare.js';
 // FindAI Cloudflare Worker — api.carsearchapi.workers.dev
@@ -17566,7 +17567,7 @@ async function findaiAppPrefsWrite(env, email, settings) {
 function findaiAppPushAllowed(type, prefs) {
   const t = String(type || '').toLowerCase();
   if (t === 'test') return true;
-  if (t === 'follow') return prefs.notifyFollows !== false;
+  if (['follow','follow_mutual','follow_request','follow_accepted'].includes(t)) return prefs.notifyFollows !== false;
   if (t === 'like') return prefs.notifyLikes !== false;
   if (t === 'comment' || t === 'reply' || t === 'comment_like' || t === 'mention') return prefs.notifyComments !== false;
   if (t === 'message' || t === 'offer' || t === 'purchase' || t === 'sale') return prefs.notifyMessages !== false;
@@ -19241,6 +19242,9 @@ async function mpNotifyUser(env, userEmail, notification) {
     const actorEmail = String(notification.actorEmail || '').toLowerCase();
     if (actorEmail && await findaiControlExists(env,email,actorEmail,'muted')) return;
     if (actorEmail && (type==='message'?await findaiControlExists(env,email,actorEmail,'blocked'):await findaiEitherBlocked(env,email,actorEmail))) return;
+  }
+  if(globalThis.WishWaveNativePush) {
+    try{await globalThis.WishWaveNativePush.notify(env,email,{title,body,url:targetUrl,type});}catch(error){logErr('native push',error);}
   }
   const result = await env.DB.prepare(
     `SELECT endpoint, p256dh, auth_secret FROM marketplace_push_subscriptions
@@ -22171,6 +22175,7 @@ export default {
   async handle(request, env, ctx) {
     try {
       const url = new URL(request.url);
+      if(url.pathname.startsWith('/marketplace/push/native/'))return await globalThis.WishWaveNativePush.route(request,env,{auth:requireUser,json:jsonResp,rate:rateLimited});
       if(url.pathname.startsWith('/auth/native/')){
         try{return await wishwaveNativeAuthRoute(request,env,ctx,url);}
         catch(error){logErr('native auth',error);return jsonResp({error:'App sign-in is temporarily unavailable. Please try again.'},503,{'Cache-Control':'no-store'});}
