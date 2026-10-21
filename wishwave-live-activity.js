@@ -6,7 +6,7 @@
 const PERIOD=6000;
 const DISPLAY_MS=4200;
 const MAX_QUEUE=3;
-let owner='',initialized=false,flight=null,sequence=0,seen=new Set(),messageState=new Map();
+let owner='',initialized=false,flight=null,sequence=0,seen=new Set(),messageState=new Map(),lastNotificationDigest='';
 let queue=[],active=null,hideTimer=0,blurTimer=0,root=null,button=null,disposed=false;
 const native=()=>!!window.webkit?.messageHandlers?.wishwavePush;
 const visible=()=>!document.hidden&&document.visibilityState!=='hidden';
@@ -100,8 +100,21 @@ async function open(item){
    }
  }catch(error){try{window.toast?.(error?.message||'Unable to open notification');}catch(_){}}
 }
+function syncMessageUnread(result){
+ const count=Math.max(0,Number(result?.unreadCount)||0),label=count>99?'99+':String(count);
+ document.querySelectorAll('#navMessagesBadge,#appMpUnreadBadge,#appMpAvatarBadge').forEach(node=>{
+   node.textContent=label;node.classList.toggle('show',count>0);
+ });
+ document.querySelectorAll('#homeMessageButton,.wishwave-header-message').forEach(node=>{
+   node.classList.toggle('has-unread',count>0);
+   node.setAttribute('aria-label',count?'Messages — '+count+' unread':'Messages');
+ });
+ const tab=document.querySelector('.premium-bottom-nav button[data-tab="messages"]');
+ if(tab)tab.setAttribute('aria-label',count?'Messages — '+count+' unread':'Messages');
+ try{localStorage.setItem('wishwave-v175-message-unread',String(count));}catch(_){}
+}
 function reset(newOwner){
- owner=newOwner;initialized=false;sequence++;seen.clear();messageState.clear();queue=[];dismiss(true);
+ owner=newOwner;initialized=false;sequence++;seen.clear();messageState.clear();lastNotificationDigest='';queue=[];dismiss(true);
  if(window.setHomeNotificationState&&!owner)window.setHomeNotificationState(0);
 }
 function freshNotice(n){
@@ -157,9 +170,14 @@ async function refresh(force=false){
      const notifications=Array.isArray(notices?.notifications)?notices.notifications:[];
      const conversations=Array.isArray(chat?.conversations)?chat.conversations:[];
      const first=!initialized;
-     // Keep the existing Notifications screen and its red dot in sync with
-     // the same server snapshot, avoiding competing second fetches.
-     try{await window.findaiNotificationState?.load?.({server:notices,conversations:chat});}catch(_){}
+     // Update message indicators from the same authenticated snapshot.
+     syncMessageUnread(chat);
+     // Skip unnecessary complete list re-renders during the six-second poll.
+     const digest=notifications.map(n=>[n.id,n.notification_type,n.created_at,n.read_at].join(':')).join('|');
+     if(first||digest!==lastNotificationDigest){
+       try{await window.findaiNotificationState?.load?.({server:notices,conversations:chat});}catch(_){}
+       lastNotificationDigest=digest;
+     }
      if(generation!==sequence||session()!==token)return;
      for(const n of notifications){
        const item=freshNotice(n);
