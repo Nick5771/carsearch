@@ -38,7 +38,7 @@ function presentation(notice,actor){
 }
 async function send(env,device,notice,transport=fetch){
  if(!configuration(env).configured)return {accepted:false,reason:'NotConfigured'};
- const payload={aps:{alert:{title:'WishWave',body:String(notice.body||'').slice(0,240)},sound:'default'},url:targetURL(notice.url),type:String(notice.type||'activity')};
+ const payload={aps:{alert:{title:'WishWave',body:String(notice.body||'').slice(0,240)},sound:'default'},url:targetURL(notice.url),type:String(notice.type||'activity'),actor_username:String(notice.actorUsername||'').replace(/^@+/,'').slice(0,40)};
  // The app uses an unread dot, so do not publish a misleading app-icon count.
  const host=device.environment==='sandbox'?'api.sandbox.push.apple.com':'api.push.apple.com';
  let response;
