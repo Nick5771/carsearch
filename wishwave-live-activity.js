@@ -123,8 +123,10 @@ function refreshMessageBaseline(conversations,enableBanners){
    const previous=messageState.get(id);
    // Only genuine *new* unread message events qualify, never an older inbox row
    // becoming visible after a refresh or an offer-only unread-count change.
-   if(enableBanners&&previous&&stamp>previous.stamp&&count>0&&text&&
-      (text!==previous.text||count>previous.count)&&!isChatOpen(id)){
+   const newActivity=previous
+     ? stamp>previous.stamp&&count>0&&!!text&&(text!==previous.text||count>previous.count)
+     : stamp>0&&Date.now()-stamp<90000&&count>0&&!!text;
+   if(enableBanners&&newActivity&&!isChatOpen(id)){
      enqueue({kind:'message',key:'message:'+id+':'+stamp,
        conversation:id,title:(c.otherPartyUsername?'@'+String(c.otherPartyUsername).replace(/^@/,''):safeText(c.otherParty)||'Someone')+' sent you a message',
        body:text.slice(0,170)});
