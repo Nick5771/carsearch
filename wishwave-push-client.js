@@ -6,7 +6,7 @@ const session=()=>typeof marketplaceSession==='function'?marketplaceSession():''
 const headers=token=>({'Content-Type':'application/json',Authorization:'Bearer '+token});
 let registered=null,flight=null,generation=0;
 const statusText=text=>{const el=document.getElementById('appPushState');if(el)el.textContent=text;};
-const tell=text=>{if(typeof showToast==='function')showToast(text);else alert(text);};
+const tell=text=>{if(typeof window.toast==='function')window.toast(text);else if(typeof showToast==='function')showToast(text);else alert(text);};
 async function api(path,body,token=session(),keepalive=false){
  const response=await fetch(WORKER_BASE+path,{method:'POST',headers:headers(token),body:JSON.stringify(body),keepalive});
  let data={};try{data=await response.json();}catch(_){}
@@ -14,7 +14,7 @@ async function api(path,body,token=session(),keepalive=false){
  return data;
 }
 async function nativeSync(prompt=false){
- if(flight)return flight;
+ if(flight){const result=await flight;return prompt&&result?.permission==='default'?nativeSync(true):result;}
  const token=session(),version=generation;if(!token){statusText('Off');return null;}
  flight=(async()=>{
  const device=await window.webkit.messageHandlers.wishwavePush.postMessage({action:prompt?'request':'status'});
