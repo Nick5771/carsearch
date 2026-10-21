@@ -16447,6 +16447,7 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     return row;
   }
   window.wishwaveFollowStateForSeller=withFollowState;
+  window.wishwaveFollowStateOverrides=followStateOverrides;
   let peopleTimer=null;
   let peopleSeq=0;
   let exploreFeedRestore=null;
@@ -16523,7 +16524,7 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     seller._followBusy=true;
     seller.isFollowing=false;
     seller.pending=!removing;
-    followStateOverrides.set(id,{isFollowing:false,pending:seller.pending,busy:true,followerCount:count,expires:Date.now()+20000});
+    window.wishwaveFollowStateOverrides?.set(id,{isFollowing:false,pending:seller.pending,busy:true,followerCount:count,expires:Date.now()+20000});
     paint();
     try{if(window.findaiFollowFeedback)window.findaiFollowFeedback(button);else haptic();}catch(_){}
     try{
@@ -16532,7 +16533,7 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
       seller.isFollowing=!!data.isFollowing;
       seller.pending=!!data.pending;
       seller.followerCount=data.followerCount==null?Math.max(0,count+Number(seller.isFollowing)-Number(was)):Math.max(0,Number(data.followerCount)||0);
-      followStateOverrides.set(id,{isFollowing:seller.isFollowing,pending:seller.pending,busy:false,followerCount:seller.followerCount,expires:Date.now()+20000});
+      window.wishwaveFollowStateOverrides?.set(id,{isFollowing:seller.isFollowing,pending:seller.pending,busy:false,followerCount:seller.followerCount,expires:Date.now()+20000});
       [...(window.peopleRows||[]),...(window.profileMatchRows||[])].filter(x=>String(x.id)===id).forEach(x=>Object.assign(x,{isFollowing:seller.isFollowing,pending:seller.pending,followerCount:seller.followerCount,_followBusy:false}));
       document.querySelectorAll('.premium-seller-row .premium-seller-action').forEach(el=>{
         const row=el.closest('.premium-seller-row'),open=row?.querySelector('.premium-seller-open');
@@ -16545,7 +16546,7 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
     }catch(error){
       if(marketplaceSession()!==session)return;
       seller.isFollowing=was;seller.pending=wasPending;seller.followerCount=count;
-      followStateOverrides.delete(id);
+      window.wishwaveFollowStateOverrides?.delete(id);
       toast(error?.message||'Could not update follow request');
     }finally{
       seller._followBusy=false;
