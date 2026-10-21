@@ -35,7 +35,7 @@ self.addEventListener('push', event => {
     try { data = { body: event.data ? event.data.text() : '' }; } catch (_) {}
   }
 
-  const title = data.title || 'FindAI';
+  const title = data.title || 'WishWave';
   const options = {
     body: data.body || 'You have a new marketplace update.',
     icon: '/findai-icon-192.png?v=12',
@@ -53,6 +53,17 @@ self.addEventListener('push', event => {
         await self.navigator.setAppBadge(Number(data.badgeCount));
       }
     } catch (_) {}
+    // When a WishWave window is visible, deliver a quiet in-app activity event
+    // instead of showing a second system banner over the app.
+    const windows=await self.clients.matchAll({type:'window',includeUncontrolled:true});
+    const active=windows.filter(client=>{
+      try{return client.visibilityState==='visible'&&new URL(client.url).pathname==='/findai-app.html';}
+      catch(_){return false;}
+    });
+    if(active.length){
+      active.forEach(client=>client.postMessage({kind:'wishwave-push-arrived',type:data.type||''}));
+      return;
+    }
     await self.registration.showNotification(title, options);
   })());
 });
