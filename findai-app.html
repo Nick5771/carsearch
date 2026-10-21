@@ -12938,6 +12938,15 @@ window.addEventListener('load', function(){
       try{if(typeof haptic==='function')haptic();}catch(_){}
     }catch(err){
       if(row)row.style.opacity='';
+      if(/follow request not found|profile not found/i.test(String(err&&err.message||''))){
+        // The requester withdrew before the recipient tapped Confirm/Delete.
+        // Remove the obsolete action instead of showing a misleading error.
+        appNotificationCache=appNotificationCache.filter(item=>item!==n);
+        appNotificationUnread=appNotificationCache.reduce((sum,item)=>sum+(!item.read_at?1:0),0);
+        if(typeof setHomeNotificationState==='function')setHomeNotificationState(appNotificationUnread);
+        renderHomeNotifications();
+        return;
+      }
       try{toast(err&&err.message?err.message:'Could not update follow request');}catch(_){}
     }
   };
