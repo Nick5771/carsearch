@@ -5,7 +5,7 @@ const foreground=swift.split('func userNotificationCenter(_ center: UNUserNotifi
 assert(foreground,'native notification delegate handles foreground deliveries');
 assert(foreground.includes('completionHandler([])'),'always suppress iOS banners/sounds in foreground, including inactive transitions');
 assert(foreground.includes('NotificationCenter.default.post(name: Self.arrived'),'foreground delivery refreshes the in-app banner');
-assert(!/applicationState|completionHandler\(\[\s*\.banner|completionHandler\(\[\s*\.sound|completionHandler\(\[\s*\.list/.test(foreground),'no native fallback may present a duplicate iPhone banner in foreground');
+assert(!/applicationState|completionHandler\(\[\s*\.banner|completionHandler\(\[\s*\.sound|completionHandler\(\[\s*\.list/.test(foreground.replace(/\/\/[^\n]*/g,'')),'no native fallback may present a duplicate iPhone banner in foreground');
 
 async function fixture(){
  let token='account-a',permission='granted',action=[],calls=[],toasts=[],failure=false,resolveRegistration;
