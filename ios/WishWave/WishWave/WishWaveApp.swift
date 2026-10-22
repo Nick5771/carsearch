@@ -5,6 +5,42 @@ import AuthenticationServices
 import CryptoKit
 import Security
 import UserNotifications
+import ObjectiveC
+
+
+// WebKit owns the editable responder rather than WKWebView itself. Give only
+// this instance a subclass overriding the public accessory getter; leave the
+// system keyboard, secure entry, AutoFill and input traits under iOS control.
+private enum WishWaveKeyboard {
+    static func removeAccessory(in root: UIView) {
+        for view in root.subviews {
+            if let base = object_getClass(view), NSStringFromClass(base).hasPrefix("WKContent"),
+               !NSStringFromClass(base).hasSuffix("_WishWaveKeyboard") {
+                let name = NSStringFromClass(base) + "_WishWaveKeyboard"
+                let selector = #selector(getter: UIResponder.inputAccessoryView)
+                guard let method = class_getInstanceMethod(base, selector) else { continue }
+                let replacement: AnyClass
+                if let existing = NSClassFromString(name) {
+                    replacement = existing
+                } else {
+                    guard let created = objc_allocateClassPair(base, name, 0) else { continue }
+                    let getter: @convention(block) (AnyObject) -> UIView? = { _ in nil }
+                    guard class_addMethod(created, selector, imp_implementationWithBlock(getter), method_getTypeEncoding(method)) else {
+                        objc_disposeClassPair(created)
+                        continue
+                    }
+                    objc_registerClassPair(created)
+                    replacement = created
+                }
+                object_setClass(view, replacement)
+                view.inputAssistantItem.leadingBarButtonGroups = []
+                view.inputAssistantItem.trailingBarButtonGroups = []
+                if view.isFirstResponder { view.reloadInputViews() }
+            }
+            removeAccessory(in: view)
+        }
+    }
+}
 
 @main
 struct WishWaveApp: App {
@@ -160,7 +196,7 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.userContentController.addUserScript(WKUserScript(
-            source: "window.wishwaveNativeBuild = 353;",
+            source: "window.wishwaveNativeBuild = 356;",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
         // Keep the camera preview beneath WishWave's own shutter controls.
         config.allowsInlineMediaPlayback = true
@@ -184,6 +220,7 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         web.uiDelegate = self
         web.scrollView.contentInsetAdjustmentBehavior = .never
         web.scrollView.bounces = false
+        web.scrollView.keyboardDismissMode = .interactive
         web.isOpaque = false
         web.backgroundColor = .systemBackground
         // WishWave already owns edge-swipe and in-app back gestures.
@@ -236,7 +273,13 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         NotificationCenter.default.addObserver(self, selector: #selector(openPendingPush), name: WishWavePush.opened, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(pushApplicationActive), name: UIApplication.didBecomeActiveNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(pushArrived), name: WishWavePush.arrived, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(prepareKeyboard), name: UIResponder.keyboardWillShowNotification, object: nil)
         reloadPage()
+    }
+
+    @objc private func prepareKeyboard() {
+        guard trusted(webView.url) else { return }
+        WishWaveKeyboard.removeAccessory(in: webView.scrollView)
     }
 
     @objc private func pushApplicationActive() {
@@ -324,6 +367,7 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         didShowPage = true
+        prepareKeyboard()
         spinner.stopAnimating()
         failure.isHidden = true
         openPendingPush()
