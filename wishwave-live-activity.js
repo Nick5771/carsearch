@@ -30,13 +30,17 @@ function install(){
  style.textContent=
   '#wwLiveActivity{position:fixed;top:calc(env(safe-area-inset-top,0px) + 9px);left:50%;width:min(calc(100% - 24px),440px);z-index:2147483000;transform:translate3d(-50%,-140%,0);opacity:0;pointer-events:none;transition:transform .32s cubic-bezier(.2,.8,.2,1),opacity .22s ease;contain:layout style;}' +
   '#wwLiveActivity.show{transform:translate3d(-50%,0,0);opacity:1;pointer-events:auto;}' +
-  '#wwLiveActivityButton{appearance:none;display:flex;align-items:center;width:100%;min-height:68px;gap:11px;border:1px solid rgba(255,255,255,.12);border-radius:17px;padding:12px 14px;color:#f8f8f9;background:rgba(34,35,39,.98);box-shadow:0 12px 36px rgba(0,0,0,.35);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);text-align:left;font:inherit;cursor:pointer;touch-action:pan-y;-webkit-tap-highlight-color:transparent;}' +
-  '#wwLiveActivityButton:active{background:#313238;}' +
-  '.ww-live-icon{width:40px;height:40px;border-radius:50%;background:#45464b;display:grid;place-items:center;flex:none;color:#fff;}' +
-  '.ww-live-icon svg{width:20px;height:20px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;}' +
-  '.ww-live-copy{min-width:0;flex:1;display:block;}.ww-live-heading{display:block;font-size:14px;font-weight:680;line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;}' +
-  '.ww-live-detail{display:block;font-size:12px;line-height:1.4;margin-top:3px;color:#bec0c6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}' +
-  '.ww-live-chevron{flex:none;color:#999ba1;font-size:20px;line-height:1;}' +
+  '#wwLiveActivityButton{appearance:none;display:flex;align-items:center;width:100%;min-height:64px;gap:11px;border:1px solid rgba(255,255,255,.13);border-radius:21px;padding:9px 13px;color:#f8f8f9;background:linear-gradient(135deg,rgba(33,34,38,.98),rgba(44,45,50,.97));box-shadow:0 12px 32px rgba(0,0,0,.29);-webkit-backdrop-filter:blur(18px);backdrop-filter:blur(18px);text-align:left;font:inherit;cursor:pointer;touch-action:pan-y;-webkit-tap-highlight-color:transparent;}' +
+  '#wwLiveActivityButton:active{background:#36383d;}' +
+  '.ww-live-icon{width:43px;height:43px;border-radius:50%;background:#45464b;display:grid;place-items:center;flex:none;color:#f7f7f8;font-size:13px;font-weight:650;letter-spacing:.2px;overflow:hidden;}' +
+  '.ww-live-icon.has-avatar{background:#303136;}' +
+  '.ww-live-icon img{display:block;width:100%;height:100%;object-fit:cover;border-radius:50%;}' +
+  '.ww-live-icon svg{width:21px;height:21px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round;}' +
+  '.ww-live-copy{min-width:0;flex:1;display:block;}.ww-live-heading{display:block;font-size:15px;font-weight:660;line-height:1.27;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;}' +
+  '.ww-live-detail{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font-size:13px;line-height:1.37;margin-top:3px;color:#c3c5cb;overflow-wrap:anywhere;}' +
+  '.ww-live-right{flex:none;align-self:stretch;display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;padding:2px 0;min-width:25px;}' +
+  '.ww-live-time{color:#a6a8af;font-size:11px;font-weight:480;line-height:1.15;}' +
+  '.ww-live-chevron{color:#aaaeb5;font-size:21px;line-height:1;font-weight:400;padding-right:1px;}' +
   '@media(prefers-reduced-motion:reduce){#wwLiveActivity{transition:none!important;}}';
  document.head.appendChild(style);
  root=document.createElement('div');root.id='wwLiveActivity';root.setAttribute('role','status');root.setAttribute('aria-live','polite');
@@ -55,13 +59,28 @@ function icon(kind){
 }
 function draw(item){
  install();button.replaceChildren();
- const mark=document.createElement('span');mark.className='ww-live-icon';mark.innerHTML=icon(item.kind);
+ const mark=document.createElement('span');mark.className='ww-live-icon';mark.setAttribute('aria-hidden','true');
+ if(item.kind==='message'){
+   const name=safeText(item.title).replace(/^@/,'');
+   const initials=name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0].toUpperCase()).join('')||'?';
+   let avatarUrl='';
+   const avatarValue=String(item.avatar||'').trim();
+   if(avatarValue)try{const url=new URL(avatarValue,location.href);if(url.protocol==='https:'||url.protocol==='http:')avatarUrl=url.href;}catch(_){}
+   if(avatarUrl){
+     mark.classList.add('has-avatar');
+     const image=document.createElement('img');image.src=avatarUrl;image.alt='';image.decoding='async';
+     image.addEventListener('error',()=>{if(image.parentNode===mark){mark.classList.remove('has-avatar');mark.textContent=initials;}},{once:true});
+     mark.appendChild(image);
+   }else mark.textContent=initials;
+ }else mark.innerHTML=icon(item.kind);
  const copy=document.createElement('span');copy.className='ww-live-copy';
  const heading=document.createElement('span');heading.className='ww-live-heading';heading.textContent=item.title;
  const detail=document.createElement('span');detail.className='ww-live-detail';detail.textContent=item.body;
+ const right=document.createElement('span');right.className='ww-live-right';right.setAttribute('aria-hidden','true');
+ const time=document.createElement('span');time.className='ww-live-time';time.textContent='now';
  const chevron=document.createElement('span');chevron.className='ww-live-chevron';chevron.textContent='›';
- copy.append(heading,detail);button.append(mark,copy,chevron);
- button.setAttribute('aria-label',item.title+'. '+item.body+'. Open');
+ right.append(time,chevron);copy.append(heading,detail);button.append(mark,copy,right);
+ button.setAttribute('aria-label',(item.kind==='message'?'Open message from ':'Open notification: ')+item.title+'. '+item.body);
  root.classList.add('show');clearTimeout(hideTimer);hideTimer=setTimeout(()=>dismiss(),DISPLAY_MS);
 }
 function dismiss(quiet=false){
@@ -140,9 +159,11 @@ function refreshMessageBaseline(conversations,enableBanners){
      ? stamp>previous.stamp&&count>0&&!!text&&(text!==previous.text||count>previous.count)
      : stamp>0&&Date.now()-stamp<90000&&count>0&&!!text;
    if(enableBanners&&newActivity&&!isChatOpen(id)){
+     const name=safeText(c.otherParty||c.otherPartyDisplayName)||
+       (c.otherPartyUsername?'@'+String(c.otherPartyUsername).replace(/^@/,''):'Someone');
      enqueue({kind:'message',key:'message:'+id+':'+stamp,
-       conversation:id,title:(c.otherPartyUsername?'@'+String(c.otherPartyUsername).replace(/^@/,''):safeText(c.otherParty)||'Someone')+' sent you a message',
-       body:text.slice(0,170)});
+       conversation:id,title:name,body:text.slice(0,170),
+       avatar:safeText(c.otherPartyAvatar||c.otherPartyAvatarUrl||'')});
    }
    messageState.set(id,{stamp,count,text});
  }

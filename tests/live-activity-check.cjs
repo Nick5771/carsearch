@@ -37,15 +37,39 @@ assert(worker.includes('if(!await pendingStillExists())return;'));
   assert.equal(w.document.querySelector('#wwLiveActivity').classList.contains('show'),false,'old notifications do not banner on boot');
 
   const now=Date.now();
-  conversations=[{id:'chat1',otherPartyUsername:'nick1',lastMessage:'Is the item available?',lastMessageAt:new Date(now).toISOString(),unreadCount:1}];
+  conversations=[{id:'chat1',otherParty:'Nicholas Fiani',otherPartyUsername:'nick1',
+    otherPartyAvatar:'https://images.example.com/nick.jpg',lastMessage:"What's the best price?",
+    lastMessageAt:new Date(now).toISOString(),unreadCount:1}];
   await w.wishwaveLiveActivity.refresh();
   const banner=w.document.querySelector('#wwLiveActivity');
   assert(banner.classList.contains('show'),'new message opens in-app banner');
-  assert(banner.textContent.includes('@nick1 sent you a message'));
+  assert.equal(banner.querySelector('.ww-live-heading').textContent,'Nicholas Fiani','display name is the only heading');
+  assert.equal(banner.querySelector('.ww-live-detail').textContent,"What's the best price?",'message preview is shown directly');
+  assert.equal(banner.querySelector('.ww-live-icon img')?.src,'https://images.example.com/nick.jpg','uses the real sender avatar');
+  assert.equal(banner.querySelector('.ww-live-time').textContent,'now','subtle timestamp is displayed');
+  assert(banner.querySelector('.ww-live-chevron'),'navigation chevron remains');
+  assert(!banner.textContent.includes('sent you a message'),'redundant message label is removed');
+  assert(!banner.querySelector('.ww-live-unread'),'no blue dot on profile photo');
+  assert.equal(banner.querySelector('#wwLiveActivityButton').getAttribute('aria-label'),
+    "Open message from Nicholas Fiani. What's the best price?");
   w.document.querySelector('#wwLiveActivityButton').click();
   await new Promise(r=>setTimeout(r,10));
   assert.deepEqual(opened,['chat1'],'tapping message opens specific conversation');
   assert(!banner.classList.contains('show'));
+
+  conversations.push({id:'chat2',otherParty:'Alex Smith',otherPartyUsername:'alex',otherPartyAvatar:'',
+    lastMessage:'Hello',lastMessageAt:new Date(now+2).toISOString(),unreadCount:1});
+  await w.wishwaveLiveActivity.refresh();
+  assert.equal(banner.querySelector('.ww-live-icon').textContent,'AS','missing avatars use initials instead of generic chat icon');
+  const swipeStart=new w.Event('touchstart',{bubbles:true});
+  Object.defineProperty(swipeStart,'touches',{value:[{clientY:150}]});
+  const swipeEnd=new w.Event('touchend',{bubbles:true});
+  Object.defineProperty(swipeEnd,'changedTouches',{value:[{clientY:95}]});
+  banner.querySelector('#wwLiveActivityButton').dispatchEvent(swipeStart);
+  banner.querySelector('#wwLiveActivityButton').dispatchEvent(swipeEnd);
+  assert(!banner.classList.contains('show'),'swiping upward dismisses the in-app banner');
+  banner.querySelector('#wwLiveActivityButton').click();
+  assert.deepEqual(opened,['chat1'],'swipe dismissal does not accidentally open the message');
 
   notifications=[{id:'offer1',notification_type:'offer',title:'New offer received',
      body:'A buyer offered $150 for your listing',created_at:new Date(now+1).toISOString(),
