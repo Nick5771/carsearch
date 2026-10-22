@@ -2,7 +2,7 @@ const {JSDOM}=require('jsdom'),assert=require('node:assert/strict'),fs=require('
 const dom=new JSDOM('<section id="appMpProduct" class="show"><div id="appMpProductContent"></div></section><div id="sheet"></div>',{url:'https://test',runScripts:'outside-only'}),w=dom.window;
 let bought=0,opened=0,session='alice',requests=[],notices=[],a={listingId:'auction',state:'active',currentPriceMinor:1000,bidCount:0,endsAt:Date.now()+3600000,serverTime:Date.now(),revision:1,minimumBidMinor:1000,myMaximumMinor:null,isLeading:false,isSeller:false,testMode:true};
 w.eval("var appMpListing={listingType:'auction',itemId:'auction',price:10,shippingCost:5,currency:'USD'},appMpContext={};");
-w.escapeHTML=x=>String(x||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));w.appMpId=x=>x?.itemId||'';w.marketplaceSession=()=>session;w.appMpRequireLogin=()=>!!session;w.openLogin=()=>{};w.appMpBuy=()=>bought++;w.wishwaveCheckoutOpenItem=()=>bought++;w.openAppMarketplaceListing=()=>opened++;w.renderAppMarketplaceListing=()=>{w.document.getElementById('appMpProductContent').innerHTML='<div class="app-mp-price">$10</div><div class="wishwave-detail-actions"><button class="primary">Buy now</button><button>Save</button></div>';};w.closeAppMarketplaceListing=()=>{};w.signOutAccount=()=>{session='';};w.closeAppMpSheet=()=>w.document.getElementById('sheet').replaceChildren();w.openAppMpSheet=(title,html)=>{w.document.getElementById('sheet').innerHTML=html;};w.toast=x=>notices.push(x);w.setInterval=()=>1;w.clearInterval=()=>{};
+w.escapeHTML=x=>String(x||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));w.appMpId=x=>x?.itemId||'';w.marketplaceSession=()=>session;w.appMpRequireLogin=()=>!!session;w.openLogin=()=>{};w.appMpBuy=()=>bought++;w.wishwaveCheckoutOpenItem=()=>bought++;w.openAppMarketplaceListing=()=>opened++;w.renderAppMarketplaceListing=()=>{w.document.getElementById('appMpProductContent').innerHTML='<div class="app-mp-price">$10</div><div class="wishwave-detail-actions"><button class="primary">Buy now</button><button class="wishwave-detail-save"><svg viewBox="0 0 24 24"></svg><span>Save</span></button></div>';};w.closeAppMarketplaceListing=()=>{};w.signOutAccount=()=>{session='';};w.closeAppMpSheet=()=>w.document.getElementById('sheet').replaceChildren();w.openAppMpSheet=(title,html)=>{w.document.getElementById('sheet').innerHTML=html;};w.toast=x=>notices.push(x);w.setInterval=()=>1;w.clearInterval=()=>{};
 w.marketplaceFetch=async(path,options)=>{requests.push({path,options});if(path==='/marketplace/quote')return{quote:{shippingMinor:500,buyerFeeMinor:100,buyerTotalMinor:2600}};if(path.endsWith('/bids'))return{auction:{...a,isLeading:true}};return{auction:{...a}};};
 w.eval(fs.readFileSync(__dirname+'/../wishwave-auctions.js','utf8'));const flush=()=>new Promise(r=>setImmediate(r));
 (async()=>{
@@ -13,5 +13,24 @@ w.eval(fs.readFileSync(__dirname+'/../wishwave-auctions.js','utf8'));const flush
  await w.wishwaveAuctionConfirm();const sent=requests.find(r=>r.path.endsWith('/bids'));assert.equal(JSON.parse(sent.options.body).maximumMinor,2000);assert.equal(JSON.parse(sent.options.body).confirmed,true);assert(sent.options.headers['Idempotency-Key']);assert(notices.includes('You’re the highest bidder'));
  a={...a,state:'awaiting_payment',canPay:false};await w.wishwaveAuctionPay();assert.equal(bought,0,'nonwinner cannot open payment');
  a={...a,canPay:true,isLeading:true};await w.wishwaveAuctionPay();assert.equal(bought,1);assert.equal(w.eval('appMpListing.status'),'reserved');assert.equal(w.eval('appMpListing.price'),10);
- w.signOutAccount();assert(!w.document.getElementById('wwAuctionDetail').textContent,'private auction state cleared synchronously');w.closeAppMarketplaceListing();dom.window.close();console.log('PASS: auction detail replaces Buy now, test labelling, bid review and fee disclosure, fractional-cent validation, explicit confirmation, idempotency key, winner-only payment UI and logout cleanup');
+ let offerOpens=0;w.openAppMarketplaceOfferInMessages=()=>offerOpens++;
+ w.eval("appMpListing={itemId:'native-one',source:'findai',status:'active',price:100,currency:'USD',listingType:'fixed'};appMpContext={viewer:{isSeller:false}};");
+ w.renderAppMarketplaceListing();
+ let actions=w.document.querySelector('.wishwave-detail-actions');
+ assert(actions.classList.contains('ww-native-offer-buy'),'native fixed-price listing has paired purchase bar');
+ assert.deepEqual([...actions.querySelectorAll('button')].map(b=>b.textContent.trim()),['Make offer','Buy now','Save'],'offer and buy are the prominent actions; Save remains functional');
+ actions.querySelector('.ww-native-make-offer').click();
+ assert.equal(offerOpens,1,'Make offer uses the existing messaging offer composer');
+ assert(w.document.querySelector('#wishwave-native-cta-v355'),'native action styles injected');
+ const previous=bought;w.appMpBuy();assert.equal(bought,previous+1,'Buy now keeps the existing checkout path');
+ w.eval('appMpContext={viewer:{isSeller:true}};');w.renderAppMarketplaceListing();
+ assert(!w.document.querySelector('.ww-native-make-offer'),'seller never sees an offer-to-self button');
+ w.eval('appMpContext={viewer:{isSeller:false}};appMpListing.status="sold";');w.renderAppMarketplaceListing();
+ assert(!w.document.querySelector('.ww-native-make-offer'),'sold items cannot receive offers');
+ w.eval('appMpListing.status="active";appMpListing.source="ebay";');w.renderAppMarketplaceListing();
+ assert(!w.document.querySelector('.ww-native-make-offer'),'external marketplace listings are unchanged');
+ w.eval("appMpListing={listingType:'auction',itemId:'auction',price:10,shippingCost:5,currency:'USD'};appMpContext={};");
+ w.renderAppMarketplaceListing();
+ assert(!w.document.querySelector('.ww-native-make-offer'),'auctions stay in bidding flow');
+ w.signOutAccount();assert(!w.document.getElementById('wwAuctionDetail').textContent,'private auction state cleared synchronously');w.closeAppMarketplaceListing();dom.window.close();console.log('PASS: native fixed-price CTAs retain offers/save/checkout; auction detail replaces Buy now, test labelling, bid review and fee disclosure, fractional-cent validation, explicit confirmation, idempotency key, winner-only payment UI and logout cleanup');
 })().catch(e=>{console.error(e);dom.window.close();process.exitCode=1;});

@@ -11,6 +11,8 @@ const w=dom.window,item={title:'Test camera',itemId:'test-camera',source:'ebay',
  w.wishwaveToggleBookmarkItem(item);assert.equal(w.wishwaveBookmarks().length,1);assert.equal(w.getTracked().length,1);
  await w.toggleGenericLikeItem(item);assert.equal(w.getTracked().length,0);assert.equal(w.wishwaveBookmarks().length,1,'unlike does not unsave');
  assert(w.wishwaveBookmarkMarkup(item,7).includes('wishwaveToggleBookmark(7,event)'));
+ assert(w.wishwaveBookmarkMarkup(item,7).includes('stroke-width="2.45"'),'bookmark rail uses thicker outline');
+ assert(w.document.getElementById('wishwave-thicker-bookmark-v355'),'detail Save icon receives thicker outline');
  const card=w.renderReelCard(item,0,null),rail=new w.DOMParser().parseFromString(card,'text/html');assert.deepEqual([...rail.querySelectorAll('.reel-social-action')].map(x=>x.classList[1]),['like','comment','compare','share','bookmark']);
  signedIn=false;w.wishwaveRenderGuestCollection();w.localStorage.setItem('wishwave_bookmarks_v1:guest',JSON.stringify([item]));w.wishwaveRenderGuestCollection();
  const tabs=w.document.querySelectorAll('#profileSignedOut .social-profile-tabs button');assert.equal(tabs.length,3);tabs[2].click();
@@ -29,5 +31,5 @@ const w=dom.window,item={title:'Test camera',itemId:'test-camera',source:'ebay',
  await w.openHomeNotifications();w.wishwaveFilterNotifications('social');assert.equal(w.document.querySelector('.wishwave-notification-tabs').style.getPropertyValue('--notice-index'),'2');
  let account='a@test.com';w.getAccountProfile=()=>({email:account});w.marketplaceSession=()=>account;const remote=new Map();w.marketplaceFetch=async(path,options={})=>{await new Promise(r=>setTimeout(r,5));if(path.endsWith('/toggle')){const entry=JSON.parse(options.body);if(entry.active)remote.set(entry.key,entry.item);else remote.delete(entry.key);return {ok:true};}return {items:[...remote.values()]};};
  w.wishwaveToggleBookmarkItem(item);await w.wishwaveSyncBookmarks();assert.equal(remote.size,1);w.wishwaveToggleBookmarkItem(item);w.wishwaveToggleBookmarkItem(item);await w.wishwaveSyncBookmarks();assert.equal(remote.size,1,'rapid toggles finish in latest state');assert.equal(w.wishwaveBookmarks().length,1);account='b@test.com';assert.equal(w.wishwaveBookmarks().length,0,'account switch never exposes previous bookmarks');
- console.log('PASS: independent like/save toggles, signed-out tab and Settings locks, stale guest bookmark protection, search focus and notification indicator');dom.window.close();
+ console.log('PASS: heavier bookmark icon and independent like/save toggles, signed-out tab and Settings locks, stale guest bookmark protection, search focus and notification indicator');dom.window.close();
 })().catch(e=>{console.error(e);dom.window.close();process.exitCode=1});
