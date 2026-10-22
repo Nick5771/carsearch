@@ -19,8 +19,38 @@ async function paintAuction(){
  }catch(e){if(version===token)host.innerHTML='<p>'+esc(e.message||'Could not load auction')+'</p><button class="app-mp-action tertiary" onclick="wishwaveRefreshAuction()">Retry</button>';}
 }
 window.wishwaveRefreshAuction=paintAuction;
+// Fixed-price WishWave-native listings use the existing messages/offer composer.
+// External marketplace cards and native auctions keep their established actions.
+const ctaStyle=document.createElement('style');
+ctaStyle.id='wishwave-native-cta-v355';
+ctaStyle.textContent=
+  '#appMpProductContent .wishwave-detail-actions.ww-native-offer-buy{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 44px!important;gap:8px!important;align-items:stretch!important;position:sticky;bottom:0;z-index:5;padding:12px 0 calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,rgba(16,17,19,.97),#101113);border-top:1px solid rgba(255,255,255,.08);}' +
+  '#appMpProductContent .ww-native-offer-buy :is(.ww-native-make-offer,.primary){height:49px!important;min-height:49px!important;margin:0!important;padding:0 9px!important;display:flex!important;align-items:center!important;justify-content:center!important;white-space:nowrap!important;font-size:14px!important;font-weight:680!important;line-height:1.2!important;border-radius:14px!important;}' +
+  '#appMpProductContent .ww-native-offer-buy .ww-native-make-offer{order:0;background:#27282c!important;color:#fff!important;border:1px solid rgba(255,255,255,.13)!important;}' +
+  '#appMpProductContent .ww-native-offer-buy .primary{order:1;background:#f5f5f6!important;color:#111214!important;border:1px solid #f5f5f6!important;}' +
+  '#appMpProductContent .ww-native-offer-buy .wishwave-detail-save{order:2;display:flex!important;align-items:center!important;justify-content:center!important;width:44px!important;min-width:44px!important;height:49px!important;min-height:49px!important;padding:0!important;margin:0!important;border-radius:14px!important;background:#242528!important;color:#fff!important;border:1px solid rgba(255,255,255,.13)!important;}' +
+  '#appMpProductContent .ww-native-offer-buy .wishwave-detail-save svg{width:23px!important;height:23px!important;stroke-width:2.45!important;stroke-linecap:round!important;stroke-linejoin:round!important;}' +
+  '#appMpProductContent .ww-native-offer-buy .wishwave-detail-save span{display:none!important;}' +
+  '@media(max-width:360px){#appMpProductContent .wishwave-detail-actions.ww-native-offer-buy{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 40px!important;gap:6px!important;}#appMpProductContent .ww-native-offer-buy .wishwave-detail-save{width:40px!important;min-width:40px!important;}}';
+document.head.appendChild(ctaStyle);
+function polishNativeBuyActions(){
+ const item=appMpListing,root=document.getElementById('appMpProductContent');
+ if(!item||isAuction(item)||!root)return;
+ const actions=root.querySelector('.wishwave-detail-actions');
+ const buy=actions?.querySelector('.primary');
+ const save=actions?.querySelector('.wishwave-detail-save');
+ const isSeller=!!appMpContext?.viewer?.isSeller||!!window.wishwaveIsOwnMarketplaceListing?.(item);
+ if(!actions||!buy||!save||isSeller||String(item.status||'active')!=='active'||Number(item.price)<=0.01)return;
+ const offer=document.createElement('button');
+ offer.type='button';offer.className='app-mp-action ww-native-make-offer';offer.textContent='Make offer';
+ offer.setAttribute('aria-label','Make an offer on this listing');
+ offer.addEventListener('click',()=>{if(typeof window.openAppMarketplaceOfferInMessages==='function')window.openAppMarketplaceOfferInMessages();});
+ actions.insertBefore(offer,buy);
+ actions.classList.add('ww-native-offer-buy');
+ save.setAttribute('aria-label','Save listing');
+}
 const render=window.renderAppMarketplaceListing;
-window.renderAppMarketplaceListing=function(){const result=render.apply(this,arguments);if(!isAuction(appMpListing))return result;
+window.renderAppMarketplaceListing=function(){const result=render.apply(this,arguments);if(!isAuction(appMpListing)){polishNativeBuyActions();return result;}
  const root=document.getElementById('appMpProductContent');root.querySelector('.wishwave-detail-actions .primary')?.remove();
  root.querySelectorAll('[onclick*="Offer"],[onclick*="offer"]').forEach(b=>b.remove());
  const host=document.createElement('section');host.id='wwAuctionDetail';host.className='ww-auction-detail';host.setAttribute('aria-label','Auction bidding');host.innerHTML='<p>Loading auction…</p>';
