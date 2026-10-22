@@ -1,7 +1,7 @@
 const fs=require('fs'),vm=require('vm'),assert=require('assert'),{DatabaseSync}=require('node:sqlite'),{JSDOM}=require('jsdom');
 const html=fs.readFileSync('findai-app.html','utf8'),source=fs.readFileSync('findai-worker.js','utf8');
 const db=new DatabaseSync(':memory:');
-db.exec(`CREATE TABLE marketplace_notifications(id TEXT PRIMARY KEY,user_email TEXT,notification_type TEXT,actor_email TEXT,created_at TEXT,read_at TEXT);CREATE TABLE findai_user_controls(owner_email TEXT,target_email TEXT,kind TEXT);CREATE TABLE marketplace_sellers(id TEXT,user_email TEXT,created_at TEXT);CREATE TABLE marketplace_follows(seller_id TEXT,follower_email TEXT);`);
+db.exec(`CREATE TABLE marketplace_notifications(id TEXT PRIMARY KEY,user_email TEXT,notification_type TEXT,actor_email TEXT,created_at TEXT,read_at TEXT);CREATE TABLE findai_user_controls(owner_email TEXT,target_email TEXT,kind TEXT);CREATE TABLE marketplace_sellers(id TEXT,user_email TEXT,created_at TEXT);CREATE TABLE marketplace_follows(seller_id TEXT,follower_email TEXT);CREATE TABLE findai_follow_requests(seller_id TEXT,follower_email TEXT);`);
 const context=vm.createContext({});vm.runInContext(source.slice(source.indexOf('function wishwaveVisibleNotificationSQL('),source.indexOf('async function mpNotifyUser(')),context);
 const env={DB:{prepare(sql){let args=[];return{bind(...v){args=v;return this},async first(){return db.prepare(sql).get(...args)},async run(){db.prepare(sql).run(...args);return {}}}}}};
 const add=db.prepare('INSERT INTO marketplace_notifications VALUES(?,?,?,?,?,?)');
@@ -33,6 +33,8 @@ const tick=()=>new Promise(r=>setImmediate(r));
  vm.runInContext(source.slice(source.indexOf('async function mpNotifyUser('),source.indexOf('async function findaiNotificationActor(')),context);
  await Promise.all([context.mpNotifyUser(env,'recipient@test',{type:'follow',actorEmail:'ACTOR@test',title:'Follow one'}),context.mpNotifyUser(env,'recipient@test',{type:'follow',actorEmail:'actor@test',title:'Follow two'})]);
  assert.equal(db.prepare('SELECT COUNT(*) n FROM marketplace_notifications WHERE user_email=?').get('recipient@test').n,1);
+ db.prepare('INSERT INTO marketplace_sellers VALUES(?,?,?)').run('recipient-seller','recipient@test','2026-01-01');
+ db.prepare('INSERT INTO findai_follow_requests VALUES(?,?)').run('recipient-seller','actor@test');
  await context.mpNotifyUser(env,'recipient@test',{type:'follow_request',actorEmail:'actor@test',title:'Requested'});
  assert.equal(db.prepare('SELECT notification_type FROM marketplace_notifications WHERE user_email=?').get('recipient@test').notification_type,'follow_request');
  await context.mpNotifyUser(env,'owner',{type:'followed_seller_listing',actorEmail:'BLOCKED@test',title:'Must not arrive'});assert.equal(db.prepare("SELECT COUNT(*) n FROM marketplace_notifications WHERE title='Must not arrive'").get().n,0,'blocked event is rejected before inbox insert');
