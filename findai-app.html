@@ -17432,10 +17432,18 @@ html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .finda
     const svg=row.type==='profile'?'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg>':'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>';
     return '<span class="findai-recent-thumb '+(row.type==='profile'?'profile':'')+'">'+svg+'</span>';
   }
+  function recentSubtitle(row){
+    const fallback='<span>'+escapeHTML(row.subtitle||'')+'</span>';
+    if(row.type!=='product')return fallback;
+    const key=String(row.item?.source||row.item?.marketplace||row.item?.platform||row.subtitle||'').trim().toLowerCase();
+    const labels={etsy:'Etsy',stockx:'StockX',ebay:'eBay',amazon:'Amazon',aliexpress:'AliExpress',findai:'WishWave'};
+    if(!labels[key])return fallback;
+    return '<span class="ww-recent-marketplace" data-source="'+key+'">'+(key==='ebay'?EBAY_LOGO_SVG:escapeHTML(labels[key]))+'</span>';
+  }
   function renderRecents(){
     const overlay=ensureRecentsOverlay();if(!overlay)return;const rows=recentRows();
     overlay.innerHTML='<div class="findai-recents-head"><b>Recent</b>'+(rows.length?'<button class="findai-recents-clear" type="button" onclick="clearFindAIRecentSearches(event)">Clear all</button>':'')+'</div>'+
-      (rows.length?rows.map((row,index)=>'<div class="findai-recent-row" role="button" tabindex="0" onclick="openFindAIRecent('+index+',event)" onkeydown="if(event.key===\'Enter\'){openFindAIRecent('+index+',event)}">'+recentThumb(row)+'<span class="findai-recent-copy"><b>'+escapeHTML(row.label||'Recent')+'</b><span>'+escapeHTML(row.subtitle||'')+'</span></span><button class="findai-recent-remove" type="button" aria-label="Remove recent" onclick="removeFindAIRecent('+index+',event)">×</button></div>').join(''):'<div class="findai-recents-empty"><b>No recent searches</b>Your searches, profiles and products will appear here.</div>');
+      (rows.length?rows.map((row,index)=>'<div class="findai-recent-row" role="button" tabindex="0" onclick="openFindAIRecent('+index+',event)" onkeydown="if(event.key===\'Enter\'){openFindAIRecent('+index+',event)}">'+recentThumb(row)+'<span class="findai-recent-copy"><b>'+escapeHTML(row.label||'Recent')+'</b>'+recentSubtitle(row)+'</span><button class="findai-recent-remove" type="button" aria-label="Remove recent" onclick="removeFindAIRecent('+index+',event)">×</button></div>').join(''):'<div class="findai-recents-empty"><b>No recent searches</b>Your searches, profiles and products will appear here.</div>');
   }
   function recentsTop(){const search=document.getElementById('search'),header=search&&search.querySelector('.premium-search-home-header'),overlay=ensureRecentsOverlay();if(overlay&&header)overlay.style.top=Math.max(0,header.offsetHeight)+'px';}
   function showRecents(){const search=document.getElementById('search'),q=document.getElementById('q');if(search?.dataset.v201NavReset==='1')return;if(!search||!q||String(q.value||'').trim())return;search.classList.add('search-recents-visible');renderRecents();const overlay=ensureRecentsOverlay();if(overlay)overlay.classList.add('show');requestAnimationFrame(recentsTop);}
@@ -36372,7 +36380,7 @@ html.findai-light body #findaiNotificationPanel .findai-notification-item.ww-fol
 }
 </style>
 <script src="wishwave-live-activity.js?v=355"></script>
-<link rel="stylesheet" href="wishwave-experience.css?v=356">
-<script src="wishwave-experience.js?v=356"></script>
+<link rel="stylesheet" href="wishwave-experience.css?v=357">
+<script src="wishwave-experience.js?v=357"></script>
 </body>
 </html>

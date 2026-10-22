@@ -1,7 +1,7 @@
 /* Shared control geometry; typography uses the app's existing native type scale. */
 :root{--ww-control-radius:12px;--ww-touch-target:44px;--ww-surface-raised:#24262a;--ww-secondary-text:#a4a9b2;}
 html body .app :is(.premium-results-back,.wishwave-chat-back,.wwc-back){min-width:var(--ww-touch-target);min-height:var(--ww-touch-target);touch-action:manipulation;}
-html body .app :is(button,a,input,textarea):focus-visible{outline:2px solid currentColor;outline-offset:3px;}
+html body .app :is(button,a):focus-visible{outline:2px solid currentColor;outline-offset:3px;}
 html body .app :is(#q,#premiumResultQuery){font-size:16px!important;line-height:1.35!important;}
 .ww-search-entry{display:flex;align-items:center;gap:12px;min-width:0;}
 .ww-search-entry .premium-search-bar{flex:1;min-width:0;}
@@ -31,3 +31,20 @@ html.findai-light .ww-search-cancel{color:#15171a;background:#edeef0;border-colo
 html.findai-light body .app #search.ww-search-session .premium-search-bar{background:#edeef0!important;}
 html.findai-light body .app #search .findai-recent-copy span{color:#656b75;}
 @media(prefers-reduced-motion:reduce){html body .app .premium-results-loading .feed-more-spinner{animation:none!important;}}
+
+/* Search inputs already sit inside a visible capsule; never draw an inner box. */
+html body .app :is(#q,#premiumResultQuery):is(:focus,:focus-visible){outline:none!important;outline-offset:0!important;box-shadow:none!important;}
+html body .app #search .findai-recent-copy .ww-recent-marketplace[data-source="etsy"]{color:#f1641e!important;font-family:Georgia,"Times New Roman",serif;font-size:15px!important;}
+html body .app #search .findai-recent-copy .ww-recent-marketplace[data-source="stockx"]{color:#00b67a!important;font-weight:650;}
+html.findai-light body .app #search .findai-recent-copy .ww-recent-marketplace[data-source="stockx"]{color:#006340!important;}
+html body .app #search .findai-recent-copy .ww-recent-marketplace[data-source="aliexpress"]{color:#ff583b!important;}
+html body .app #search .findai-recent-copy .ww-recent-marketplace[data-source="amazon"]{color:#ff9900!important;}
+html body .app #search .ww-recent-marketplace .app-ebay-wordmark{display:inline-flex!important;font-size:15px!important;line-height:1!important;height:auto!important;margin:0!important;letter-spacing:-.7px!important;}
+html body .app #search .ww-recent-marketplace .app-ebay-wordmark>span{display:inline!important;margin:0!important;font-size:inherit!important;line-height:inherit!important;}
+/* Continue the Search canvas beneath iOS's transparent rounded keyboard edges.
+   The backing starts at the visual viewport's bottom and never covers results. */
+#wwSearchKeyboardBacking{position:fixed;left:0;right:0;background:#17181a;pointer-events:none;z-index:2147482999;}
+#wwSearchKeyboardBacking[hidden]{display:none!important;}
+html.ww-search-keyboard-canvas,html.ww-search-keyboard-canvas body,html.ww-search-keyboard-canvas body>.app{background:#17181a!important;}
+html.findai-light #wwSearchKeyboardBacking{background:#fff;}
+html.findai-light.ww-search-keyboard-canvas,html.findai-light.ww-search-keyboard-canvas body,html.findai-light.ww-search-keyboard-canvas body>.app{background:#fff!important;}

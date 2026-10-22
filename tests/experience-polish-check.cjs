@@ -8,14 +8,20 @@ const dom=new JSDOM(source.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,''),{url:
 }});
 const w=dom.window,wait=ms=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
- await wait(650);w.eval(fs.readFileSync('wishwave-experience.js','utf8'));
+ await wait(650);const style=w.document.createElement('style');style.textContent=fs.readFileSync('wishwave-experience.css','utf8');w.document.head.appendChild(style);w.eval(fs.readFileSync('wishwave-experience.js','utf8'));
  const search=w.document.getElementById('search'),q=w.document.getElementById('q'),back=w.document.querySelector('.ww-search-cancel');
  w.document.body.dataset.activeTab='search';search.classList.add('active');
+ w.localStorage.setItem('findai_recent_searches_v130',JSON.stringify(['etsy','stockx','ebay'].map(source=>({id:source,type:'product',label:source+' product',subtitle:source,item:{source}})).concat([{id:'person',type:'profile',label:'An Etsy fan',subtitle:'Profile'}])));
  q.focus();w.closeCreateListing({navigation:true});assert.equal(w.document.activeElement,q,'closing a hidden composer preserves Search focus');assert(search.classList.contains('ww-search-session'));assert.equal(back.getAttribute('aria-label'),'Back to discovery');assert.equal(q.getAttribute('autocapitalize'),'none');assert.equal(q.getAttribute('enterkeyhint'),'search');
+ assert.equal(w.getComputedStyle(q).outline,'none');assert.equal(w.getComputedStyle(q).boxShadow,'none');
+ assert.equal(w.document.querySelector('.ww-recent-marketplace[data-source="etsy"]').textContent,'Etsy');assert.equal(w.getComputedStyle(w.document.querySelector('[data-source="etsy"].ww-recent-marketplace')).color,'rgb(241, 100, 30)');
+ assert.equal(w.getComputedStyle(w.document.querySelector('[data-source="stockx"].ww-recent-marketplace')).color,'rgb(0, 182, 122)');assert.equal(w.document.querySelector('.ww-recent-marketplace[data-source="ebay"]').textContent,'ebay');assert.equal(w.document.querySelectorAll('.ww-recent-marketplace .app-ebay-wordmark>span').length,4);assert.equal(w.document.querySelectorAll('.ww-recent-marketplace').length,3);
+ const backing=w.document.getElementById('wwSearchKeyboardBacking');
  let recent=w.document.getElementById('findaiSearchRecents');if(!recent){recent=w.document.createElement('div');recent.id='findaiSearchRecents';search.appendChild(recent);}recent.getBoundingClientRect=()=>({top:150});
- w.visualViewport.height=400;w.visualViewport.dispatchEvent(new w.Event('resize'));await wait(30);assert(search.classList.contains('ww-search-keyboard'));assert.equal(search.style.getPropertyValue('--ww-recents-height'),'250px');
- q.blur();await wait(30);assert(search.classList.contains('ww-search-keyboard'),'retain coverage during keyboard dismissal');w.visualViewport.height=844;w.visualViewport.dispatchEvent(new w.Event('resize'));await wait(30);assert(!search.classList.contains('ww-search-keyboard'));
+ w.visualViewport.height=400;w.visualViewport.dispatchEvent(new w.Event('resize'));await wait(30);assert(search.classList.contains('ww-search-keyboard'));assert.equal(search.style.getPropertyValue('--ww-recents-height'),'250px');assert(!backing.hidden);assert.equal(backing.style.top,'400px');assert.equal(backing.style.height,'444px');assert.equal(w.getComputedStyle(backing).pointerEvents,'none');assert.equal(w.getComputedStyle(w.document.documentElement).backgroundColor,'rgb(23, 24, 26)');
+ q.blur();await wait(30);assert(search.classList.contains('ww-search-keyboard'),'retain coverage during keyboard dismissal');assert(!backing.hidden,'rounded keyboard corners remain backed while dismissing');w.visualViewport.height=844;w.visualViewport.dispatchEvent(new w.Event('resize'));await wait(30);assert(!search.classList.contains('ww-search-keyboard'));assert(backing.hidden);assert(!w.document.documentElement.classList.contains('ww-search-keyboard-canvas'));
  let restored=0;w.resetPremiumExploreHome=force=>{assert.equal(force,false);restored++;};back.click();assert.equal(restored,1);assert(!search.classList.contains('ww-search-session'));assert.equal(w.document.activeElement,w.document.body);
+ const resultField=w.document.getElementById('premiumResultQuery');w.document.body.dataset.activeTab='searchResults';resultField.focus();w.visualViewport.height=400;w.visualViewport.dispatchEvent(new w.Event('resize'));await wait(30);assert(!backing.hidden,'results search also covers keyboard corners');w.document.body.dataset.activeTab='profile';await wait(30);assert(backing.hidden,'navigation clears the backing');resultField.blur();w.visualViewport.height=844;w.visualViewport.dispatchEvent(new w.Event('resize'));
  // Refresh retains interactive results and restores them on error; a different query cannot inherit them.
  const grid=w.document.getElementById('premiumResultsGrid'),scroll=w.document.querySelector('.premium-results-scroll');
  w.go=()=>{};w.setSearchNavActive=()=>{};w.recordInterest=()=>{};w.setLastSearch=()=>{};
@@ -33,6 +39,6 @@ const w=dom.window,wait=ms=>new Promise(r=>setTimeout(r,ms));
  // Saving/liking cannot pay for a full navigation snapshot.
  w.eval(fs.readFileSync('wishwave-navigation-origins.js','utf8'));const like=w.document.createElement('button');like.className='reel-social-action like';like.setAttribute('onclick','toggleLike(0,event)');w.document.body.appendChild(like);
  const select=w.document.querySelectorAll.bind(w.document);let scans=0;w.document.querySelectorAll=function(selector){if(selector==='.app *')scans++;return select(selector);};w.__wishwaveOriginClick({target:like});assert.equal(scans,0);
- assert.deepEqual(errors,[]);console.log('PASS: Search back/session/viewport dismissal, retained offline refresh, query races, image warming/retry/Data Saver, ordinary action snapshot isolation; all inline scripts parse');
+ assert.deepEqual(errors,[]);console.log('PASS: marketplace colours, borderless Search focus, keyboard corner backing/dismissal/navigation, Search back/session, retained offline refresh, query races, image warming/retry/Data Saver, ordinary action snapshot isolation; all inline scripts parse');
  w.close();
 })().catch(error=>{console.error(error);w.close();process.exitCode=1;});
