@@ -35,5 +35,6 @@ const w=dom.window,item={title:'Test camera',itemId:'test-camera',source:'ebay',
  const actionRoot=w.document.querySelector('#appMpProductContent .wishwave-detail-actions');
  console.log('WISHWAVE_ACTIONS_DEBUG',actionRoot?.outerHTML?.slice(0,3600));
  console.log('WISHWAVE_OFFER_FUNCTIONS_DEBUG',Object.keys(w).filter(k=>/offer/i.test(k)&&typeof w[k]==='function').join(','));
+ for(const key of ['appMpOfferForm','openAppMarketplaceOffers','appMpSubmitOffer','appMpOfferAction','openAppMarketplaceOfferInMessages','appMpOpenMessageOffer','appMpSubmitMessageOffer'])console.log('WISHWAVE_OFFER_SOURCE_DEBUG',key,String(w[key]).slice(0,2600));
  console.log('PASS: independent like/save toggles, signed-out tab and Settings locks, stale guest bookmark protection, search focus and notification indicator');dom.window.close();
 })().catch(e=>{console.error(e);dom.window.close();process.exitCode=1});
