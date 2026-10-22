@@ -22,7 +22,7 @@ async function back(root){touch(root,'touchstart',12);touch(root,'touchmove',310
   await back(reel.querySelector('.product-panel'));assert(page.classList.contains('show'));assert.equal(w.eval('wishwavePublicSellerTab'),kind);assert.equal(w.document.querySelector('#wishwavePublicProfileContent .social-profile-grid'),grid);assert.equal(scroll.scrollTop,214);
  }
  w.setWishWavePublicSellerTab('listings');w.document.querySelectorAll('#wishwavePublicProfileContent .social-profile-tile')[1].click();await wait(70);assert.equal(w.eval('currentFeedItems[activeReelIndex].itemId'),'external-one');await back(w.document.querySelector('#findaiContextualReelV168 .product-panel'));
- const own=w.document.createElement('div');own.innerHTML=w.socialProfileTile(native,0,'listings');assert.equal(own.querySelectorAll('.social-profile-tile-stat').length,2,'own profile keeps likes and views');
+ const own=w.document.createElement('div');own.innerHTML=w.socialProfileTile(native,0,'listings');assert.equal(own.querySelectorAll('.social-profile-tile-stat').length,1,'own profile shows views without likes');
  assert(source.includes('#wishwavePublicProfilePage .social-profile-grid{background:transparent!important;}'),'empty sold columns use the profile background');
- console.log('PASS: actual public tile clicks open native/external/sold reels without checkout or covering profile; back preserves seller/tab/grid/scroll; public views-only and own likes; transparent incomplete grid');w.close();
+ console.log('PASS: actual public tile clicks open native/external/sold reels without checkout or covering profile; back preserves seller/tab/grid/scroll; public and own views-only; transparent incomplete grid');w.close();
 })().catch(e=>{console.error(e);w.close();process.exitCode=1});
