@@ -31,6 +31,8 @@ assert(worker.includes('if(!await pendingStillExists())return;'));
   w.openAppMarketplaceInbox=async id=>opened.push(id);
   w.setHomeNotificationState=()=>{};
   w.eval(js);
+  w.document.dispatchEvent(new w.Event('DOMContentLoaded'));
+  assert(w.wishwaveLiveActivity,'foreground activity booted');
   await w.wishwaveLiveActivity.refresh();
   assert.equal(w.document.querySelector('#wwLiveActivity').classList.contains('show'),false,'old notifications do not banner on boot');
 
