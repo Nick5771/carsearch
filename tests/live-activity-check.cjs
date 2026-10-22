@@ -8,7 +8,7 @@ const worker=fs.readFileSync('findai-worker.js','utf8');
 const html=fs.readFileSync('findai-app.html','utf8');
 new Function(js);
 assert(html.includes('wishwave-live-activity.js?v=355'));
-assert(html.includes('async function loadHomeNotifications(snapshot)'));
+assert(html.includes('const snapshot=arguments[0];'));
 assert(worker.includes('await findaiSocialControlsEnsureSchema(env);'));
 assert(worker.includes('if(!await pendingStillExists())return;'));
 
