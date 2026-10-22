@@ -29,5 +29,11 @@ const w=dom.window,item={title:'Test camera',itemId:'test-camera',source:'ebay',
  await w.openHomeNotifications();w.wishwaveFilterNotifications('social');assert.equal(w.document.querySelector('.wishwave-notification-tabs').style.getPropertyValue('--notice-index'),'2');
  let account='a@test.com';w.getAccountProfile=()=>({email:account});w.marketplaceSession=()=>account;const remote=new Map();w.marketplaceFetch=async(path,options={})=>{await new Promise(r=>setTimeout(r,5));if(path.endsWith('/toggle')){const entry=JSON.parse(options.body);if(entry.active)remote.set(entry.key,entry.item);else remote.delete(entry.key);return {ok:true};}return {items:[...remote.values()]};};
  w.wishwaveToggleBookmarkItem(item);await w.wishwaveSyncBookmarks();assert.equal(remote.size,1);w.wishwaveToggleBookmarkItem(item);w.wishwaveToggleBookmarkItem(item);await w.wishwaveSyncBookmarks();assert.equal(remote.size,1,'rapid toggles finish in latest state');assert.equal(w.wishwaveBookmarks().length,1);account='b@test.com';assert.equal(w.wishwaveBookmarks().length,0,'account switch never exposes previous bookmarks');
+ const sample={itemId:'debug-listing',id:'debug-listing',source:'findai',title:'Test camera',price:200,currency:'USD',status:'active',listingType:'fixed',shippingMode:'free',images:['https://example.com/camera.jpg']};
+ w.eval("appMpListing="+JSON.stringify(sample)+";appMpContext={seller:{displayName:'Seller'},viewer:{signedIn:true,isSeller:false}};");
+ w.renderAppMarketplaceListing();
+ const actionRoot=w.document.querySelector('#appMpProductContent .wishwave-detail-actions');
+ console.log('WISHWAVE_ACTIONS_DEBUG',actionRoot?.outerHTML?.slice(0,3600));
+ console.log('WISHWAVE_OFFER_FUNCTIONS_DEBUG',Object.keys(w).filter(k=>/offer/i.test(k)&&typeof w[k]==='function').join(','));
  console.log('PASS: independent like/save toggles, signed-out tab and Settings locks, stale guest bookmark protection, search focus and notification indicator');dom.window.close();
 })().catch(e=>{console.error(e);dom.window.close();process.exitCode=1});
