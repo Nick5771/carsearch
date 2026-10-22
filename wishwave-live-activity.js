@@ -64,7 +64,8 @@ function draw(item){
    const name=safeText(item.title).replace(/^@/,'');
    const initials=name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0].toUpperCase()).join('')||'?';
    let avatarUrl='';
-   try{const url=new URL(String(item.avatar||''),location.href);if(url.protocol==='https:'||url.protocol==='http:')avatarUrl=url.href;}catch(_){}
+   const avatarValue=String(item.avatar||'').trim();
+   if(avatarValue)try{const url=new URL(avatarValue,location.href);if(url.protocol==='https:'||url.protocol==='http:')avatarUrl=url.href;}catch(_){}
    if(avatarUrl){
      mark.classList.add('has-avatar');
      const image=document.createElement('img');image.src=avatarUrl;image.alt='';image.decoding='async';
