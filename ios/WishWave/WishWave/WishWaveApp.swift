@@ -98,14 +98,13 @@ final class WishWavePush: NSObject, UNUserNotificationCenterDelegate {
         callbacks.forEach { $0(result, error) }
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        // Foreground WishWave owns presentation: refresh the in-app banner and red dot.
-        // When the app is inactive, normal iOS Lock Screen alerts still apply.
-        if UIApplication.shared.applicationState == .active {
-            DispatchQueue.main.async { NotificationCenter.default.post(name: Self.arrived, object: nil) }
-            completionHandler([])
-        } else {
-            completionHandler([.banner, .sound, .list])
-        }
+        // iOS invokes willPresent only while the app is in the foreground, even
+        // if applicationState is momentarily .inactive (e.g. scene transitions).
+        // Never show a second iOS banner on top of WishWave's in-app notification.
+        // When the app is actually backgrounded, iOS presents APNs normally,
+        // without calling this foreground-only delegate method.
+        DispatchQueue.main.async { NotificationCenter.default.post(name: Self.arrived, object: nil) }
+        completionHandler([])
     }
     func pruneDeliveredFollowRequests(activeUsernames: Set<String>, reply: @escaping ([String: String]?, String?) -> Void) {
         let center = UNUserNotificationCenter.current()
