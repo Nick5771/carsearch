@@ -19182,6 +19182,11 @@ function wishwaveVisibleNotificationSQL(alias='n') {
       WHERE blocked.kind='blocked' AND (
         (lower(blocked.owner_email)=lower(${alias}.user_email) AND lower(blocked.target_email)=lower(${alias}.actor_email))
         OR (lower(blocked.target_email)=lower(${alias}.user_email) AND lower(blocked.owner_email)=lower(${alias}.actor_email))))
+    AND (${alias}.notification_type <> 'follow_request' OR COALESCE(${alias}.actor_email,'')='' OR EXISTS (
+      SELECT 1 FROM marketplace_sellers follow_target
+      JOIN findai_follow_requests active_request ON active_request.seller_id=follow_target.id
+      WHERE lower(follow_target.user_email)=lower(${alias}.user_email)
+        AND lower(active_request.follower_email)=lower(${alias}.actor_email)))
     AND (${alias}.notification_type NOT IN ('follow','follow_mutual','follow_request')
     OR COALESCE(${alias}.actor_email,'')=''
     OR NOT EXISTS (SELECT 1 FROM marketplace_notifications newer
@@ -19201,12 +19206,25 @@ async function mpNotifyUser(env, userEmail, notification) {
   const email = String(userEmail || '').trim().toLowerCase();
   if (!env || !env.DB || !email) return;
   await mpEnsureSchema(env);
+  if(typeof findaiSocialControlsEnsureSchema==='function')await findaiSocialControlsEnsureSchema(env);
   const now = new Date().toISOString();
   const title = mpCleanText(notification && notification.title || 'FindAI', 120) || 'FindAI';
   const body = mpCleanText(notification && notification.body || '', 240);
   const targetUrl = String(notification && notification.url || 'https://findai.ai/findai-app.html').slice(0, 1000);
   const type = mpCleanText(notification && notification.type || 'marketplace', 50) || 'marketplace';
   const actorEmail = String(notification && notification.actorEmail || '').trim().toLowerCase().slice(0,320) || null;
+  // A delayed APNs job may execute after the requester has already cancelled.
+  // Do not create an inbox entry or push for a no-longer-existing request.
+  const pendingStillExists=async()=>{
+    if(type!=='follow_request'||!actorEmail)return true;
+    await findaiSocialControlsEnsureSchema(env);
+    const live=await env.DB.prepare(`SELECT 1 AS yes FROM marketplace_sellers target
+       JOIN findai_follow_requests pending ON pending.seller_id=target.id
+       WHERE lower(target.user_email)=lower(?) AND lower(pending.follower_email)=lower(?)
+       LIMIT 1`).bind(email,actorEmail).first();
+    return !!live;
+  };
+  if(!await pendingStillExists())return;
   if(actorEmail && (type==='message'?await findaiControlExists(env,email,actorEmail,'blocked'):await findaiEitherBlocked(env,email,actorEmail))) return;
   const imageUrl = String(notification && notification.imageUrl || '').trim().slice(0,1200) || null;
   const entityId = String(notification && notification.entityId || '').trim().slice(0,220) || null;
@@ -19234,6 +19252,10 @@ async function mpNotifyUser(env, userEmail, notification) {
          entity_id=excluded.entity_id,created_at=excluded.created_at,read_at=NULL`
     ).bind(notificationId, email, type, title, body, targetUrl, actorEmail, imageUrl, entityId, now).run();
   }
+  if(!await pendingStillExists()){
+    await env.DB.prepare("DELETE FROM marketplace_notifications WHERE lower(user_email)=lower(?) AND notification_type='follow_request' AND lower(actor_email)=lower(?)").bind(email,actorEmail).run();
+    return;
+  }
   const notificationPrefs = await findaiNotificationPrefs(env, email);
   if (!findaiNotificationPushAllowed(type, notificationPrefs)) return;
   const appPrefs = await findaiAppPrefsRead(env, email);
@@ -19244,7 +19266,7 @@ async function mpNotifyUser(env, userEmail, notification) {
     if (actorEmail && (type==='message'?await findaiControlExists(env,email,actorEmail,'blocked'):await findaiEitherBlocked(env,email,actorEmail))) return;
   }
   const pushActor=actorEmail&&globalThis.WishWaveNativePush?.presentation?await findaiNotificationActor(env,actorEmail):null;
-  const pushNotice=globalThis.WishWaveNativePush?.presentation?globalThis.WishWaveNativePush.presentation({title,body,url:targetUrl,type},pushActor):{title,body,url:targetUrl,type};
+  const pushNotice=globalThis.WishWaveNativePush?.presentation?globalThis.WishWaveNativePush.presentation({title,body,url:targetUrl,type,actorUsername:String(pushActor?.username||'')},pushActor):{title,body,url:targetUrl,type};
   if(globalThis.WishWaveNativePush) {
     try{await globalThis.WishWaveNativePush.notify(env,email,pushNotice);}catch(error){logErr('native push',error);}
   }
@@ -23417,6 +23439,8 @@ export default {
           } else {
             await env.DB.prepare(`DELETE FROM marketplace_follows WHERE seller_id=? AND lower(follower_email)=lower(?)`).bind(sellerId,String(auth.email||'').toLowerCase()).run();
             await env.DB.prepare(`DELETE FROM findai_follow_requests WHERE seller_id=? AND lower(follower_email)=lower(?)`).bind(sellerId,String(auth.email||'').toLowerCase()).run();
+            await env.DB.prepare("DELETE FROM marketplace_notifications WHERE lower(user_email)=lower(?) AND lower(actor_email)=lower(?) AND notification_type='follow_request'")
+              .bind(sellerEmail,auth.email).run();
           }
           const stats = await env.DB.prepare(`SELECT COUNT(*) AS follower_count FROM marketplace_follows WHERE seller_id=?`).bind(sellerId).first();
           return jsonResp({ok:true,followerCount:Math.max(0,Number(stats&&stats.follower_count||0)),isFollowing:request.method === 'POST',pending:false},200,{ 'Cache-Control':'no-store' });
@@ -23841,6 +23865,8 @@ export default {
           if(request.method==='DELETE'){
             await env.DB.prepare(`DELETE FROM marketplace_follows WHERE seller_id=? AND lower(follower_email)=lower(?)`).bind(sellerId,auth.email).run();
             await env.DB.prepare(`DELETE FROM findai_follow_requests WHERE seller_id=? AND lower(follower_email)=lower(?)`).bind(sellerId,auth.email).run();
+            await env.DB.prepare("DELETE FROM marketplace_notifications WHERE lower(user_email)=lower(?) AND lower(actor_email)=lower(?) AND notification_type='follow_request'")
+              .bind(targetEmail,auth.email).run();
           }else if(!wasFollowing){
             if(prefs.privateAccount){
               await env.DB.prepare(`INSERT OR IGNORE INTO findai_follow_requests(seller_id,follower_email,created_at) VALUES(?,?,?)`)
@@ -24561,7 +24587,7 @@ export default {
           await mpOfferEvent(env, id, auth.email, 'created', amountMinor, message);
           const conversation = await mpEnsureConversationRow(env, listing.id, auth.email, listing.seller_id, now);
           ctx.waitUntil(mpNotifyUser(env, String(listing.seller_email || '').toLowerCase(), {
-            type: 'offer', title: 'New FindAI offer',
+            type: 'offer', title: 'New offer received', actorEmail:auth.email,
             body: 'A buyer offered ' + mpSafeCurrency(listing.currency,'AUD') + ' ' + (amountMinor / 100).toFixed(2) + ' for ' + String(listing.title || 'your listing').slice(0, 90),
             url: 'https://findai.ai/findai-app.html?conversation=' + encodeURIComponent(conversation.id),
             tag: 'offer-' + id, urgency: 'high'
@@ -24687,7 +24713,7 @@ export default {
           const recipientEmail = auth.email === sellerEmail ? buyerEmail : sellerEmail;
           const actionLabels = { counter: 'Counter offer received', accept: 'Offer accepted', decline: 'Offer declined', withdraw: 'Offer withdrawn' };
           ctx.waitUntil(mpNotifyUser(env, recipientEmail, {
-            type: 'offer', title: actionLabels[action] || 'Offer updated',
+            type: 'offer', title: actionLabels[action] || 'Offer updated', actorEmail:auth.email,
             body: String(row.listing_title || 'A FindAI offer') + ' was updated.',
             url: 'https://findai.ai/findai-app.html?conversation=' + encodeURIComponent(conversation.id),
             tag: 'offer-' + id, urgency: action === 'accept' ? 'high' : 'normal'

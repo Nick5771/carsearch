@@ -32,6 +32,7 @@ final class WishWaveAppDelegate: NSObject, UIApplicationDelegate {
 final class WishWavePush: NSObject, UNUserNotificationCenterDelegate {
     static let shared = WishWavePush()
     static let opened = Notification.Name("WishWavePushOpened")
+    static let arrived = Notification.Name("WishWaveForegroundPushArrived")
     private var token: String?
     private var waiting: [([String: String]?, String?) -> Void] = []
     private var registrationTimeout: DispatchWorkItem?
@@ -97,7 +98,28 @@ final class WishWavePush: NSObject, UNUserNotificationCenterDelegate {
         callbacks.forEach { $0(result, error) }
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .sound, .list])
+        // Foreground WishWave owns presentation: refresh the in-app banner and red dot.
+        // When the app is inactive, normal iOS Lock Screen alerts still apply.
+        if UIApplication.shared.applicationState == .active {
+            DispatchQueue.main.async { NotificationCenter.default.post(name: Self.arrived, object: nil) }
+            completionHandler([])
+        } else {
+            completionHandler([.banner, .sound, .list])
+        }
+    }
+    func pruneDeliveredFollowRequests(activeUsernames: Set<String>, reply: @escaping ([String: String]?, String?) -> Void) {
+        let center = UNUserNotificationCenter.current()
+        center.getDeliveredNotifications { delivered in
+            let obsolete = delivered.filter { notice in
+                let info = notice.request.content.userInfo
+                guard info["type"] as? String == "follow_request",
+                      let username = info["actor_username"] as? String,
+                      !username.isEmpty else { return false }
+                return !activeUsernames.contains(username.lowercased())
+            }.map { $0.request.identifier }
+            if !obsolete.isEmpty { center.removeDeliveredNotifications(withIdentifiers: obsolete) }
+            DispatchQueue.main.async { reply(["removed": String(obsolete.count)], nil) }
+        }
     }
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
         if let raw = response.notification.request.content.userInfo["url"] as? String,
@@ -139,7 +161,7 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.userContentController.addUserScript(WKUserScript(
-            source: "window.wishwaveNativeBuild = 352;",
+            source: "window.wishwaveNativeBuild = 353;",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
         // Keep the camera preview beneath WishWave's own shutter controls.
         config.allowsInlineMediaPlayback = true
@@ -214,12 +236,17 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         selectionFeedback.prepare()
         NotificationCenter.default.addObserver(self, selector: #selector(openPendingPush), name: WishWavePush.opened, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(pushApplicationActive), name: UIApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(pushArrived), name: WishWavePush.arrived, object: nil)
         reloadPage()
     }
 
     @objc private func pushApplicationActive() {
         guard trusted(webView.url) else { return }
         webView.evaluateJavaScript("window.dispatchEvent(new Event('wishwave-push-resume'))", completionHandler: nil)
+    }
+    @objc private func pushArrived() {
+        guard didShowPage, trusted(webView.url) else { return }
+        webView.evaluateJavaScript("window.dispatchEvent(new Event('wishwave-push-arrived'))", completionHandler: nil)
     }
 
     @objc private func openPendingPush() {
@@ -437,6 +464,15 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
             replyHandler(nil, "Share is unavailable"); return
         }
         if message.name == "wishwavePush" {
+            if data["action"] == "prune" {
+                let raw = data["activeUsernames"] ?? "[]"
+                guard let bytes = raw.data(using: .utf8),
+                      let usernames = (try? JSONSerialization.jsonObject(with: bytes)) as? [String],
+                      usernames.count <= 250 else { replyHandler(nil, "Invalid notification state"); return }
+                let current = Set(usernames.map { $0.lowercased() })
+                WishWavePush.shared.pruneDeliveredFollowRequests(activeUsernames: current) { value, error in replyHandler(value, error) }
+                return
+            }
             guard ["status", "request"].contains(data["action"] ?? "") else { replyHandler(nil, "Unknown notification action"); return }
             WishWavePush.shared.status(requestPermission: data["action"] == "request") { value, error in replyHandler(value, error) }
             return

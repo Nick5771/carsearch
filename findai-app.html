@@ -12938,15 +12938,27 @@ window.addEventListener('load', function(){
       try{if(typeof haptic==='function')haptic();}catch(_){}
     }catch(err){
       if(row)row.style.opacity='';
+      if(/follow request not found|profile not found/i.test(String(err&&err.message||''))){
+        // The requester withdrew before the recipient tapped Confirm/Delete.
+        // Remove the obsolete action instead of showing a misleading error.
+        appNotificationCache=appNotificationCache.filter(item=>item!==n);
+        appNotificationUnread=appNotificationCache.reduce((sum,item)=>sum+(!item.read_at?1:0),0);
+        if(typeof setHomeNotificationState==='function')setHomeNotificationState(appNotificationUnread);
+        renderHomeNotifications();
+        return;
+      }
       try{toast(err&&err.message?err.message:'Could not update follow request');}catch(_){}
     }
   };
   async function loadHomeNotifications(){
+    const snapshot=arguments[0];
     const owner=marketplaceSession(),followVersion=notificationFollowVersion;
     ensureNotificationUI();
     let server={unreadCount:0,notifications:[]};
     let conversations={unreadCount:0,conversations:[]};
-    if(marketplaceSession()){
+    if(snapshot&&snapshot.server&&snapshot.conversations){
+      server=snapshot.server;conversations=snapshot.conversations;
+    }else if(marketplaceSession()){
       try{server=await marketplaceFetch('/marketplace/notifications/summary',{method:'GET'});}catch(_){}
       try{conversations=await marketplaceFetch('/marketplace/conversations',{method:'GET'});}catch(_){}
     }
@@ -36355,5 +36367,6 @@ html.findai-light body #findaiNotificationPanel .findai-notification-item.ww-fol
  html body #findaiNotificationPanel .ww-follow-request .findai-notification-side{padding-left:0!important;}
 }
 </style>
+<script src="wishwave-live-activity.js?v=355"></script>
 </body>
 </html>
