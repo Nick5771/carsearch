@@ -1,7 +1,11 @@
 /* Likes retain their existing account store. Bookmarks have a separate, owner-scoped store. */
 (function(){
   'use strict';
-  const mark='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4Z"/></svg>';
+  const mark='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.45" stroke-linecap="round" stroke-linejoin="round"><path d="M7.6 3.2h8.8c1 0 1.8.8 1.8 1.8v15.6L12 16.5l-6.2 4.1V5c0-1 .8-1.8 1.8-1.8Z"/></svg>';
+  const bookmarkStyle=document.createElement('style');
+  bookmarkStyle.id='wishwave-thicker-bookmark-v355';
+  bookmarkStyle.textContent='html body .reel-social-action.bookmark svg,html body #appMpProductContent .wishwave-detail-save svg{stroke-width:2.45!important;stroke-linecap:round;stroke-linejoin:round}';
+  document.head.appendChild(bookmarkStyle);
   const owner=()=>String(getAccountProfile()?.email||'guest').trim().toLowerCase();
   const storage=(who=owner())=>'wishwave_bookmarks_v1:'+who;
   const pendingKey=who=>storage(who)+':pending';
