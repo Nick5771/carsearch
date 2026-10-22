@@ -1,5 +1,12 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const source=fs.readFileSync(__dirname+'/../wishwave-push-client.js','utf8');
+const swift=fs.readFileSync(__dirname+'/../ios/WishWave/WishWave/WishWaveApp.swift','utf8');
+const foreground=swift.split('func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {')[1]?.split('func pruneDeliveredFollowRequests(')[0]||'';
+assert(foreground,'native notification delegate handles foreground deliveries');
+assert(foreground.includes('completionHandler([])'),'always suppress iOS banners/sounds in foreground, including inactive transitions');
+assert(foreground.includes('NotificationCenter.default.post(name: Self.arrived'),'foreground delivery refreshes the in-app banner');
+assert(!/applicationState|completionHandler\(\[\s*\.banner|completionHandler\(\[\s*\.sound|completionHandler\(\[\s*\.list/.test(foreground),'no native fallback may present a duplicate iPhone banner in foreground');
+
 async function fixture(){
  let token='account-a',permission='granted',action=[],calls=[],toasts=[],failure=false,resolveRegistration;
  const events={},state={textContent:''};
