@@ -17,6 +17,11 @@ class D1{constructor(){this.db=new DatabaseSync(':memory:');}prepare(sql){let ar
  let result=await(await call('test',{installationId:id})).json();assert(result.accepted);assert.equal(result.requestId,'request-123');
  assert(sent[0].url.startsWith('https://api.sandbox.push.apple.com/3/device/'));
  const opts=sent[0].options,payload=JSON.parse(opts.body);assert.equal(opts.headers['apns-topic'],'com.nickfiani.wishwave');assert.equal(opts.headers['apns-push-type'],'alert');assert.equal(payload.aps.sound,'default');assert.equal(payload.type,'test');assert(!opts.body.includes(token));assert(!opts.body.includes(env.APNS_PRIVATE_KEY));
+ const messageNotice=push.presentation({type:'message',body:'A buyer: Meet at 7:30?',url:'https://findai.ai/findai-app.html?conversation=chat-1'},{name:'Darcy Moffet',username:'darcy'});
+ assert.equal(messageNotice.title,'Darcy Moffet');assert.equal(messageNotice.body,'Meet at 7:30?');
+ await push.send(env,{environment:'sandbox',device_token:token,installation_id:id},messageNotice,d.transport);
+ const messagePayload=JSON.parse(sent.at(-1).options.body);assert.equal(messagePayload.aps.alert.title,'Darcy Moffet');assert.equal(messagePayload.aps.alert.body,'Meet at 7:30?');assert(messagePayload.url.includes('conversation=chat-1'));assert(!messagePayload.aps.alert.body.includes('sent you a message'));
+ assert.equal(push.presentation({type:'message',messagePreview:'Question: is it available?',url:messageNotice.url},{username:'sender'}).body,'Question: is it available?');
  const jwt=opts.headers.authorization.slice(7),parts=jwt.split('.');assert.equal(JSON.parse(Buffer.from(parts[0],'base64url')).alg,'ES256');assert.equal(JSON.parse(Buffer.from(parts[1],'base64url')).iss,'TEAM123456');
  assert(await webcrypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},pair.publicKey,Buffer.from(parts[2],'base64url'),new TextEncoder().encode(parts[0]+'.'+parts[1])));
  assert.equal(await push.authorization(env),jwt,'provider token reused');

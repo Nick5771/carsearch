@@ -32,13 +32,17 @@ function presentation(notice,actor){
  const type=String(notice.type||''),username=String(actor?.username||'').replace(/^@+/,''),name=username?'@'+username:String(actor?.name||'Someone');
  const social={follow_request:name+' requested to follow you',follow:name+' started following you',follow_mutual:'You and '+name+' started following each other',follow_accepted:name+' accepted your follow request',like:name+' liked your listing',comment:name+' commented on your listing',followed_seller_listing:name+' listed something new'};
  let body=social[type]||[notice.title,notice.body].filter(Boolean).join(' — ');
- if(type==='message')body=name+' sent you a message'+(notice.body?' — '+String(notice.body).replace(/^[^:]{1,100}:\s*/, ''):'');
+ if(type==='message'){
+  // Existing message notices carry a single sender-label prefix; strip only that prefix.
+  body=notice.messagePreview!=null?String(notice.messagePreview):String(notice.body||'').replace(/^[^:]{1,100}:\s*/, '');
+ }
  const url=social[type]?'https://findai.ai/findai-app.html?notifications=social':targetURL(notice.url);
- return {...notice,title:'WishWave',body,url};
+ const title=type==='message'?String(actor?.name||username||notice.actorUsername||'Someone').replace(/^@+/,'').replace(/\s+/g,' ').trim().slice(0,120):'WishWave';
+ return {...notice,title,body,url};
 }
 async function send(env,device,notice,transport=fetch){
  if(!configuration(env).configured)return {accepted:false,reason:'NotConfigured'};
- const payload={aps:{alert:{title:'WishWave',body:String(notice.body||'').slice(0,240)},sound:'default'},url:targetURL(notice.url),type:String(notice.type||'activity'),actor_username:String(notice.actorUsername||'').replace(/^@+/,'').slice(0,40)};
+ const payload={aps:{alert:{title:notice.type==='message'?String(notice.title||'Someone').slice(0,120):'WishWave',body:String(notice.body||'').slice(0,240)},sound:'default'},url:targetURL(notice.url),type:String(notice.type||'activity'),actor_username:String(notice.actorUsername||'').replace(/^@+/,'').slice(0,40)};
  // The app uses an unread dot, so do not publish a misleading app-icon count.
  const host=device.environment==='sandbox'?'api.sandbox.push.apple.com':'api.push.apple.com';
  let response;
