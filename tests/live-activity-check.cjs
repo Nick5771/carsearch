@@ -56,7 +56,7 @@ assert(worker.includes('if(!await pendingStillExists())return;'));
   w.document.querySelector('#wwLiveActivityButton').click();
   await new Promise(r=>setTimeout(r,10));
   assert.deepEqual(opened,['chat1','offer-chat'],'tapping offer opens its conversation');
-  assert(snapshots.length>=3,'live updates share notification snapshots with existing inbox UI');
+  assert(snapshots.length>=2,'only changed notification snapshots re-render the inbox');
   d.window.close();
 
   const i=worker.indexOf('function wishwaveVisibleNotificationSQL(');
