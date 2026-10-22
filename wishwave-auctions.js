@@ -36,6 +36,8 @@ document.head.appendChild(ctaStyle);
 function polishNativeBuyActions(){
  const item=appMpListing,root=document.getElementById('appMpProductContent');
  if(!item||isAuction(item)||!root)return;
+ // This button pair belongs to WishWave-native products, not eBay/StockX/Etsy.
+ if(item.source&&!['findai','wishwave','native'].includes(String(item.source).toLowerCase()))return;
  const actions=root.querySelector('.wishwave-detail-actions');
  const buy=actions?.querySelector('.primary');
  const save=actions?.querySelector('.wishwave-detail-save');
