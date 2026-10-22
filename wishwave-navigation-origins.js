@@ -156,7 +156,10 @@
   if(entry&&button&&(/^(?:close\w+|__wishwaveCloseSearchReelV186|wishwaveCloseCheckout)\(\);?$/.test(action)||button.getAttribute('aria-label')==='Back')){
    const surface=window.__wishwaveOriginSurface(event.target);if(surface){window.wishwaveSlidePageBack(surface);return true;}
   }
-  intent={saved:snapshot(),at:Date.now(),epoch};return false;
+  // Only navigation needs the full DOM snapshot. Explicitly skip local actions;
+  // unknown/listener-based controls retain their pre-click parent for Back.
+  const local=event.target.closest?.('.reel-social-action.like,.reel-social-action.bookmark,.premium-card-like,.wishwave-detail-save,input,textarea,[contenteditable="true"],.findai-recent-remove,.findai-recents-clear');
+  intent=local?null:{saved:snapshot(),at:Date.now(),epoch};return false;
  };
  window.__wishwaveOriginNav=function(event){if(event.target.closest?.('.premium-bottom-nav')){stack.length=0;intent=null;pending=null;epoch++;}};
  window.wishwaveNavigationOrigins=()=>stack.map(entry=>({view:entry.root.id,origin:entry.saved.main}));

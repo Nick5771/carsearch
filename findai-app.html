@@ -3221,7 +3221,7 @@ html body .source-chip .findai-exact-brand[data-brand="etsy"] img{
     <header class="premium-search-home-header">
       <form class="premium-search-bar" onsubmit="return handlePremiumExploreSubmit(event)">
         <svg class="premium-search-glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>
-        <input id="q" type="search" placeholder="Search WishWave" enterkeyhint="search" autocomplete="off" autocapitalize="sentences" oninput="handlePremiumExploreInput(this.value)" onsearch="wishwaveSearchFieldAction(event)">
+        <input id="q" type="search" placeholder="Search WishWave" enterkeyhint="search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" oninput="handlePremiumExploreInput(this.value)" onsearch="wishwaveSearchFieldAction(event)">
         <button class="premium-search-scan" type="button" onclick="go('scan')" aria-label="Search with camera">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6 9.5 3.8h5L16 6h3.2A2.3 2.3 0 0 1 21.5 8.3v10A2.3 2.3 0 0 1 19.2 20.6H4.8a2.3 2.3 0 0 1-2.3-2.3v-10A2.3 2.3 0 0 1 4.8 6Z"/><circle cx="12" cy="13" r="4"/></svg>
         </button>
@@ -3257,7 +3257,7 @@ html body .source-chip .findai-exact-brand[data-brand="etsy"] img{
       </button>
       <form class="premium-results-search" onsubmit="return submitPremiumSearchOrSeller(event,'results')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>
-        <input id="premiumResultQuery" type="search" placeholder="Search WishWave" enterkeyhint="search" autocomplete="off">
+        <input id="premiumResultQuery" type="search" placeholder="Search WishWave" enterkeyhint="search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false">
       <button class="premium-results-scan" type="button" onclick="go('scan')" aria-label="Search with camera"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6 9.5 3.8h5L16 6h3.2A2.3 2.3 0 0 1 21.5 8.3v10A2.3 2.3 0 0 1 19.2 20.6H4.8a2.3 2.3 0 0 1-2.3-2.3v-10A2.3 2.3 0 0 1 4.8 6Z"/><circle cx="12" cy="13" r="4"/></svg></button>
       </form>
 
@@ -4328,8 +4328,9 @@ function openCreateListing({preserveDraft=false,focus=false}={}){
 }
 function closeCreateListing(){
   const screen=$('#createListingScreen');if(screen)screen.classList.remove('show');
-  document.body.classList.remove('creating-listing','keyboard-open');
-  try{document.activeElement&&document.activeElement.blur&&document.activeElement.blur();}catch(_){}
+  document.body.classList.remove('creating-listing');
+  // Background cleanup of a hidden composer must not dismiss Search or Messages.
+  if(screen?.contains(document.activeElement)){try{document.activeElement?.blur?.();}catch(_){}}
   findaiSyncVisualViewport();
 }
 function selectListingCondition(value){
@@ -5708,10 +5709,10 @@ function openSearchHome(focus=true){
 const personalisedImageWarmSet=new Set();
 function preloadPersonalisedImages(start=0,count=3){
   if(feedState&&feedState.source!=='personalised')return;
-  const from=Math.max(0,Number(start)||0),to=Math.min(currentFeedItems.length,from+Math.min(3,Math.max(1,Number(count)||3)));
+  const from=Math.max(0,Number(start)||0),to=Math.min(currentFeedItems.length,from+Math.min(navigator.connection?.saveData?2:6,Math.max(1,Number(count)||3)));
   const work=()=>{
     for(let i=from;i<to;i++){
-      try{const plan=appImagePlan(currentFeedItems[i],i,currentFeedData);const src=plan&&plan.src;if(!src||personalisedImageWarmSet.has(src))continue;personalisedImageWarmSet.add(src);if(personalisedImageWarmSet.size>120)personalisedImageWarmSet.delete(personalisedImageWarmSet.values().next().value);const img=new Image();img.decoding='async';img.referrerPolicy='no-referrer';img.src=src;}catch(_){}
+      try{const plan=appImagePlan(currentFeedItems[i],i,currentFeedData);const src=plan&&plan.src;if(!src||personalisedImageWarmSet.has(src))continue;personalisedImageWarmSet.add(src);if(personalisedImageWarmSet.size>120)personalisedImageWarmSet.delete(personalisedImageWarmSet.values().next().value);const img=new Image();img.decoding='async';img.referrerPolicy='no-referrer';img.onerror=()=>personalisedImageWarmSet.delete(src);img.onload=()=>{img.decode?.().catch(()=>{});};img.src=src;}catch(_){}
     }
   };
   if('requestIdleCallback' in window)requestIdleCallback(work,{timeout:350});else setTimeout(work,0);
@@ -9496,6 +9497,7 @@ function submitPremiumSearch(event,origin){
 async function launchPremiumSearch(query,options={}){
   const compare=options.source==='compare'?(options.compareContext||WishWaveCompare.context(query,options.compareItem||{})):null;
   const q=String(compare?.query||query||'').trim();if(!q)return;
+  const retained=!compare&&!premiumCompareContext&&premiumResultQuery===q&&premiumResultItems.length?{items:premiumResultItems,data:premiumResultData,page:premiumResultPage,cursor:premiumResultCursor,more:premiumResultHasMore,scroll:document.querySelector('.premium-results-scroll')?.scrollTop||0}:null;
   if(compare){compare.fallbacks=WishWaveCompare.fallbackPlan(compare);compare.enabledTiers=[];compare.candidates=[];}
   premiumCompareContext=compare;
   if(!compare)premiumCompareReturn=null;
@@ -9503,7 +9505,7 @@ async function launchPremiumSearch(query,options={}){
   const searchSource=String(options&&options.source||'search');
   if(premiumSearchController)premiumSearchController.abort();
   premiumSearchController=new AbortController();premiumResultLoadJob=null;const controller=premiumSearchController;
-  premiumResultQuery=q;premiumResultPage=1;premiumResultCursor=null;premiumResultHasMore=false;premiumResultItems=[];premiumResultData=null;
+  premiumResultQuery=q;premiumResultPage=1;premiumResultCursor=null;premiumResultHasMore=false;premiumResultItems=retained?.items||[];premiumResultData=retained?.data||null;
   setLastSearch(q);recordInterest(q,searchSource==='compare'?'compare':'search');
   const home=$('#q');if(home)home.value=q;
   const resultInput=$('#premiumResultQuery');if(resultInput)resultInput.value=q;
@@ -9512,7 +9514,8 @@ async function launchPremiumSearch(query,options={}){
   if(home)home.value=q;if(resultInput)resultInput.value=q;
   const meta=$('#premiumResultsMeta'),grid=$('#premiumResultsGrid'),more=$('#premiumLoadMore');
   if(meta){meta.closest('.premium-results-meta')?.classList.remove('ww-compare-meta');meta.textContent='';}
-  if(grid)grid.innerHTML='<div class="premium-results-loading"><div class="feed-more-spinner"></div>Finding the best current listings…</div>';
+  if(grid){grid.setAttribute('aria-busy','true');if(!retained)grid.innerHTML='<div class="premium-results-loading"><div class="feed-more-spinner"></div>Finding current listings…</div>';}
+  if(retained&&meta)meta.textContent='Refreshing listings…';
   if(more)more.hidden=true;
   try{
     // Retrieve by relevance like normal Search; rank verified matches by total price locally.
@@ -9522,6 +9525,7 @@ async function launchPremiumSearch(query,options={}){
     premiumResultItems=(Array.isArray(premiumResultData.listings)?premiumResultData.listings:[]).filter(item=>Number(item.price)>0);
     premiumResultCursor=result.nextCursor||null;premiumResultHasMore=!!result.hasMore;
     paintPremiumResults(false);
+    if(retained){const scroll=document.querySelector('.premium-results-scroll');if(scroll)scroll.scrollTop=retained.scroll;}
     for(let batch=0;compare&&premiumResultItems.filter(x=>!x._compareOtherCondition&&!x._compareTier).length<4&&premiumResultHasMore&&batch<2&&controller===premiumSearchController;batch++)await loadMorePremiumResults();
     // Retrieval may broaden; the source identity acceptance rules stay fixed.
     for(const alternate of (compare?.queries||[]).slice(1)){
@@ -9555,9 +9559,9 @@ async function launchPremiumSearch(query,options={}){
     }
   }catch(error){
     if(controller.signal.aborted||controller!==premiumSearchController||error&&error.name==='AbortError')return;
-    if(meta)meta.textContent='Search unavailable';
-    if(grid)grid.innerHTML='<div class="premium-results-empty">FindAI could not load these listings right now. Try the search again in a moment.</div>';
-  }
+    if(retained){premiumResultItems=retained.items;premiumResultData=retained.data;premiumResultPage=retained.page;premiumResultCursor=retained.cursor;premiumResultHasMore=retained.more;if(meta)meta.textContent='Could not refresh. Showing your previous results.';if(more)more.hidden=!retained.more;}
+    else{if(meta)meta.textContent='Search unavailable';if(grid)grid.innerHTML='<div class="premium-results-empty">Could not load these listings. Try searching again.</div>';}
+  }finally{if(controller===premiumSearchController)grid?.setAttribute('aria-busy','false');}
 }
 function renderPremiumCompareSummary(){
   const stats=WishWaveCompare.summary(premiumResultItems.filter(item=>!item._compareOtherCondition&&!item._compareTier),premiumCompareContext.currency);
@@ -17113,7 +17117,7 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
       }else attention.ratio=bestRatio;
       const preloadDistance=feedState&&feedState.source==='personalised'?12:3;
       if(index>=currentFeedItems.length-preloadDistance&&Math.abs(feed.scrollTop-initialScroll)>4)loadMoreListings();
-      if(feedState&&feedState.source==='personalised')preloadPersonalisedImages(index+1,3);
+      if(feedState&&feedState.source==='personalised')preloadPersonalisedImages(index+1,6);
     },{root:feed,threshold:[0,.35,.52,.68,.78,.88,.96,1]});
     reelObserver=observer;
     $$('.reel-card',feed).forEach(card=>reelObserver.observe(card));
@@ -36186,7 +36190,7 @@ html body.keyboard-open[data-active-tab="search"] .app #searchResults .premium-r
 <script src="wishwave-comments-motion.js?v=293"></script>
 <link rel="stylesheet" href="wishwave-create.css?v=313">
 <script src="wishwave-create.js?v=333"></script>
-<script src="wishwave-navigation-origins.js?v=348"></script>
+<script src="wishwave-navigation-origins.js?v=356"></script>
 <style id="wishwave-notification-dot-v316">
 html body #wishwaveMainNav #navNotificationsBadge{
  top:calc(50% - 16px)!important;left:calc(50% + 8px)!important;right:auto!important;
@@ -36368,5 +36372,7 @@ html.findai-light body #findaiNotificationPanel .findai-notification-item.ww-fol
 }
 </style>
 <script src="wishwave-live-activity.js?v=355"></script>
+<link rel="stylesheet" href="wishwave-experience.css?v=356">
+<script src="wishwave-experience.js?v=356"></script>
 </body>
 </html>
