@@ -74,4 +74,5 @@ assert(worker.includes('if(!await pendingStillExists())return;'));
   db.prepare('DELETE FROM findai_follow_requests WHERE seller_id=? AND follower_email=?').run('target','sender@test');
   assert.equal(db.prepare(sql).all().length,0,'withdrawn request disappears from notification queries and unread counts');
   console.log('PASS: live banner deep links, initial quiet baseline and withdrawn follow filtering');
-})().catch(e=>{console.error(e);process.exitCode=1;});
+  process.exit(0);
+})().catch(e=>{console.error(e);process.exit(1);});
