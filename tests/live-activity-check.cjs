@@ -8,6 +8,8 @@ const worker=fs.readFileSync('findai-worker.js','utf8');
 const html=fs.readFileSync('findai-app.html','utf8');
 new Function(js);
 assert(html.includes('wishwave-live-activity.js?v=355'));
+assert(js.includes('background:linear-gradient(145deg,rgba(20,21,23,.985),rgba(13,14,16,.99))'), 'in-app notification matches selected near-black color');
+assert(js.includes('rgba(255,255,255,.09)'), 'near-black banner retains a subtle edge rather than bright outline');
 assert(html.includes('const snapshot=arguments[0];'));
 assert(worker.includes('await findaiSocialControlsEnsureSchema(env);'));
 assert(worker.includes('if(!await pendingStillExists())return;'));
