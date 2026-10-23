@@ -24,10 +24,10 @@
  // deterministically after a restore; never overwrite fractional drag progress.
  const captions={listings:'Listings',sold:'Sold',saved:'Saved'};
  function repairProfileTabs(){
-  for(const tabs of document.querySelectorAll('#profileSignedIn .social-profile-tabs,#profileSignedOut .social-profile-tabs')){
+  for(const tabs of document.querySelectorAll('#profileSignedIn .social-profile-tabs,#profileSignedOut .social-profile-tabs,#wishwavePublicProfilePage .social-profile-tabs')){
    const buttons=[...tabs.querySelectorAll(':scope > button')];
    buttons.forEach((button,index)=>{
-    const key=String(button.dataset.profileTab||['listings','sold','saved'][index]||'').toLowerCase();
+    const key=String(button.dataset.profileTab||button.dataset.publicProfileTab||['listings','sold','saved'][index]||'').toLowerCase();
     if(!captions[key])return;
     let label=button.querySelector('.wishwave-profile-tab-label');
     if(!label){label=document.createElement('span');label.className='wishwave-profile-tab-label';button.append(label);}
