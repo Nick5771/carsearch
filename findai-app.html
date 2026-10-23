@@ -17441,7 +17441,7 @@ html.findai-light .findai-search-recents{background:#f8f8f8}.findai-light .finda
   function renderRecents(){
     const overlay=ensureRecentsOverlay();if(!overlay)return;const rows=recentRows();
     overlay.innerHTML='<div class="findai-recents-head"><b>Recent</b>'+(rows.length?'<button class="findai-recents-clear" type="button" onclick="clearFindAIRecentSearches(event)">Clear all</button>':'')+'</div>'+
-      (rows.length?rows.map((row,index)=>'<div class="findai-recent-row" role="button" tabindex="0" onclick="openFindAIRecent('+index+',event)" onkeydown="if(event.key===\'Enter\'){openFindAIRecent('+index+',event)}">'+recentThumb(row)+'<span class="findai-recent-copy"><b>'+escapeHTML(row.label||'Recent')+'</b>'+recentSubtitle(row)+'</span><button class="findai-recent-remove" type="button" aria-label="Remove recent" onclick="removeFindAIRecent('+index+',event)">×</button></div>').join(''):'<div class="findai-recents-empty"><b>No recent searches</b>Your searches, profiles and products will appear here.</div>');
+      (rows.length?rows.map((row,index)=>'<div class="findai-recent-row" role="button" tabindex="0" onclick="openFindAIRecent('+index+',event)" onkeydown="if(event.key===\'Enter\'){openFindAIRecent('+index+',event)}">'+recentThumb(row)+'<span class="findai-recent-copy"><b>'+escapeHTML(row.label||'Recent')+'</b>'+recentSubtitle(row)+'</span>'+(window.wishwaveRecentProfileAction?.(row)||'')+'<button class="findai-recent-remove" type="button" aria-label="Remove recent" onclick="removeFindAIRecent('+index+',event)">×</button></div>').join(''):'<div class="findai-recents-empty"><b>No recent searches</b>Your searches, profiles and products will appear here.</div>');
   }
   function recentsTop(){const search=document.getElementById('search'),header=search&&search.querySelector('.premium-search-home-header'),overlay=ensureRecentsOverlay();if(overlay&&header)overlay.style.top=Math.max(0,header.offsetHeight)+'px';}
   function showRecents(){const search=document.getElementById('search'),q=document.getElementById('q');if(search?.dataset.v201NavReset==='1')return;if(!search||!q||String(q.value||'').trim())return;search.classList.add('search-recents-visible');renderRecents();const overlay=ensureRecentsOverlay();if(overlay)overlay.classList.add('show');requestAnimationFrame(recentsTop);}
@@ -36425,6 +36425,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 </style>
 <link rel="stylesheet" href="wishwave-reel-commerce.css?v=360">
 <script src="wishwave-reel-commerce.js?v=360"></script>
-<link rel="stylesheet" href="wishwave-coral-theme.css?v=363">
+<link rel="stylesheet" href="wishwave-coral-theme.css?v=364">
+<script src="wishwave-search-follow.js?v=364"></script>
 </body>
 </html>
