@@ -1,0 +1,64 @@
+/* Focused purchase screens: compact item, simple rows, persistent action. */
+html body .app #wwCheckout#wwCheckout,html body .app #wwOffer#wwOffer{position:absolute!important;inset:0!important;z-index:22000!important;box-sizing:border-box!important;padding:var(--safe-top,0px) 0 0!important;background:var(--bg,#0b0c0e)!important;color:var(--ink,#f5f5f7)!important;overflow:hidden!important;gap:0!important;}
+html body .app #wwOffer{display:none;}
+html body .app #wwOffer.show{display:flex;flex-direction:column;}
+html body .app:has(:is(#wwCheckout,#wwOffer).show)>#wishwaveMainNav#wishwaveMainNav{visibility:hidden!important;pointer-events:none!important;}
+html body .app #wwCheckout .wwc-head,html body .app #wwOffer .wwo-head{display:grid;grid-template-columns:40px 1fr 40px;align-items:center;min-height:54px;padding:0 12px;flex:none;}
+html body .app #wwCheckout .wwc-head h1,html body .app #wwOffer h1{margin:0;font-size:20px;font-weight:600;line-height:26px;text-align:center;}
+html body .app #wwOffer .wwo-back{height:40px;width:40px;padding:8px;color:inherit;border:0;background:none;}
+html body .app #wwOffer svg{height:22px;width:22px;flex:none;vertical-align:middle;}
+html body .app #wwCheckout .wwc-scroll,html body .app #wwOffer .wwo-scroll{min-height:0;flex:1;overflow-y:auto;overscroll-behavior:contain;padding:8px 18px 16px;scroll-padding:16px;}
+html body .app #wwCheckout .wwc-item,html body .app #wwOffer .wwo-item{display:flex;align-items:center;gap:14px;padding:10px 0 20px;border-bottom:1px solid var(--line,#303238);}
+html body .app #wwCheckout .wwc-item img,html body .app #wwOffer .wwo-item img{width:86px;height:86px;flex:none;object-fit:contain;border-radius:10px;background:#fff;}
+html body .app #wwCheckout .wwc-copy,html body .app #wwOffer .wwo-copy{min-width:0;}
+html body .app #wwCheckout .wwc-copy h2,html body .app #wwOffer .wwo-copy h2{font-size:16px!important;font-weight:600!important;line-height:21px!important;margin:0 0 5px;}
+html body .app #wwCheckout .wwc-muted,html body .app #wwOffer .wwo-muted{display:block;font-size:13px;line-height:1.4;color:var(--muted,#969ba5);}
+html body .app #wwCheckout .wwc-item-price,html body .app #wwOffer .wwo-price{font-size:22px;line-height:28px;font-weight:600;margin:8px 0 0;}
+html body .app #wwCheckout .wwc-section{padding:20px 0;border-bottom:1px solid var(--line,#303238);flex:none;}
+html body .app #wwCheckout .wwc-section>h2{font-size:18px;font-weight:600;margin:0 0 16px;}
+html body .app #wwCheckout .wwc-delivery{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:12px;font:inherit;font-size:15px;line-height:1.4;}
+html body .app #wwCheckout :is(.wwc-address,.wwc-payment-open){width:100%;padding:0;text-align:left;color:inherit;border:0;background:none;}
+html body .app #wwCheckout .wwc-delivery b{display:block;font-weight:500;}
+html body .app #wwCheckout .wwc-delivery .wwc-muted{margin-top:3px;}
+html body .app #wwCheckout .wwc-address>svg:last-child,html body .app #wwCheckout .wwc-payment-open>svg:last-child{width:16px;color:var(--muted);}
+html body .app #wwCheckout .wwc-shipping{margin-top:18px;padding-top:18px;}
+html body .app #wwCheckout .wwc-total-row,html body .app #wwOffer .wwo-total-row{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin:0 0 11px;font-size:14px;line-height:20px;color:var(--muted);}
+html body .app #wwCheckout .wwc-total-row strong,html body .app #wwOffer .wwo-total-row strong{color:var(--ink);font-weight:500;white-space:nowrap;}
+html body .app #wwCheckout .wwc-terms{width:100%;padding:17px 0;border-top:0;border-bottom:1px solid var(--line);font-size:14px;}
+html body .app #wwCheckout .wwc-footer,html body .app #wwOffer .wwo-footer{flex:none;padding:14px 18px calc(14px + var(--safe-bottom,env(safe-area-inset-bottom,0px)));border-top:1px solid var(--line);background:var(--bg);}
+html body .app #wwCheckout .wwc-grand-total{border:0;padding:0;margin:0 0 12px;font-size:18px;color:var(--ink);}
+html body .app #wwCheckout .wwc-grand-total strong{font-size:22px;font-weight:600;}
+html body .app #wwCheckout .wwc-pay,html body .app #wwOffer .wwo-submit{display:block;width:100%;height:48px;min-height:48px;padding:0 14px;border:0;border-radius:12px;background:var(--ww-brand-accent,#e5224b);color:#fff;font:500 16px/1 system-ui,sans-serif;}
+html body .app #wwCheckout .wwc-pay:disabled,html body .app #wwOffer .wwo-submit:disabled{opacity:.5;}
+html body .app #wwCheckout .wwc-error:empty{display:none;}
+html body .app #wwCheckout .wwc-error{margin-top:12px;}
+html body .app #wwOffer form{display:flex;flex-direction:column;min-height:0;flex:1;margin:0;}
+html body .app #wwOffer .wwo-amount-label{display:block;margin:22px 0 8px;color:var(--muted);font-size:14px;}
+html body .app #wwOffer .wwo-amount{display:flex;align-items:center;border-bottom:1px solid var(--line-strong,#545963);margin-bottom:8px;}
+html body .app #wwOffer .wwo-currency{font-size:36px;font-weight:600;}
+html body .app #wwOffer #appMpMessageOfferAmount{min-width:0;width:100%;border:0;border-radius:0;background:none;color:inherit;caret-color:var(--ww-brand-accent,#e5224b);font:600 44px/1.25 system-ui,sans-serif;padding:6px 0;outline:none;box-shadow:none;appearance:textfield;}
+html body .app #wwOffer input::-webkit-inner-spin-button{appearance:none;}
+html body .app #wwOffer .wwo-note-label{display:block;margin:22px 0 9px;font-size:14px;color:var(--muted);}
+html body .app #wwOffer .wwo-note-wrap{border:1px solid var(--line);border-radius:12px;background:var(--surface,#18191d);padding:10px 12px;}
+html body .app #wwOffer #appMpMessageOfferNote{width:100%;height:70px;box-sizing:border-box;resize:vertical;border:0;background:none;color:inherit;font:400 16px/1.4 system-ui;padding:0;outline:none;}
+html body .app #wwOffer .wwo-count{display:block;text-align:right;font-size:11px;color:var(--muted);}
+html body .app #wwOffer .wwo-shipping{display:flex;gap:10px;align-items:center;margin:20px 0;font-size:14px;}
+html body .app #wwOffer .wwo-free{color:#32c774;}
+html body .app #wwOffer .wwo-total{border-top:1px solid var(--line);padding-top:13px;margin-top:14px;color:var(--ink);font-weight:600;}
+html body .app #wwOffer .wwo-info{display:flex;align-items:flex-start;gap:10px;margin:20px 0 0;font-size:12px;line-height:1.5;color:var(--muted);}
+html body .app #wwOffer .wwo-footer p{text-align:center;font-size:12px;color:var(--muted);margin:10px 0 0;}
+html body .app #wwOffer #appMpMessageOfferError{font-size:13px;line-height:1.4;color:#f28b82;margin:12px 0 0;}
+html body .app #wwOffer #appMpMessageOfferError:empty{display:none;}
+html body .app:has(#wwCheckout.show)>#appMpSheetBg#appMpSheetBg.show{z-index:24000!important;}
+html:not(.findai-light) body .app :is(#wwCheckout#wwCheckout,#wwOffer#wwOffer){--bg:#0b0c0e;--surface:#18191d;--ink:#f5f5f7;--muted:#969ba5;--line:#303238;}
+@media(max-height:850px){
+ html body .app #wwOffer .wwo-head{min-height:50px;}
+ html body .app #wwOffer .wwo-item img{width:80px;height:80px;}
+ html body .app #wwOffer .wwo-item{padding-bottom:16px;}
+ html body .app #wwOffer .wwo-amount-label{margin-top:18px;}
+ html body .app #wwOffer .wwo-note-label{margin-top:18px;}
+ html body .app #wwOffer #appMpMessageOfferNote{height:58px;}
+ html body .app #wwOffer .wwo-shipping{margin:16px 0;}
+ html body .app #wwOffer .wwo-total-row{margin-bottom:8px;}
+ html body .app #wwOffer .wwo-info{margin-top:16px;}
+}
