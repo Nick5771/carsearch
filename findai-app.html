@@ -34428,14 +34428,16 @@ html body .app:has(#wwCheckout.show) #wishwaveMainNav{visibility:visible!importa
  const cash=minor=>appMpMoney(Number(minor)/100,state.listing.currency);
  function render(){
   if(!state)return;cleanElements();const l=state.listing,q=state.quote,title=escapeHTML(l.title||'WishWave listing'),image=(l.images||[])[0]||l.image||'',shipping=state.shippingMinor,known=Number.isFinite(shipping),free=known&&shipping===0;
-  root.innerHTML='<header class="wwc-head"><button class="wwc-back" onclick="wishwaveCloseCheckout()" aria-label="Back to listing">'+icon('back')+'</button><h1>Checkout</h1><span></span></header>'+
-   '<section class="wwc-card wwc-item">'+(image?'<img src="'+escapeAttr(image)+'" alt="'+escapeAttr(l.title||'Listing image')+'">':'')+'<div class="wwc-copy"><h2>'+title+'</h2><div class="wwc-muted">'+escapeHTML(l.condition||'')+'</div><div class="wwc-item-price">'+cash(Math.round(Number(l.price)*100))+'</div><div class="wwc-muted">Qty: 1</div></div></section>'+
-   '<section class="wwc-card"><div class="wwc-delivery">'+icon('pin')+'<div><b>Delivery address</b><div class="wwc-muted">'+(state.postal?escapeHTML(state.postal+' · '+countryName(state.country)):countryName(state.country)+' · Add delivery address')+'</div></div><button class="wwc-change" onclick="wishwaveCheckoutLocation()">'+(state.postal?'Change':'Add location')+'</button></div>'+
-   '<div class="wwc-delivery wwc-shipping">'+icon('truck')+'<div><b>Shipping</b><div class="wwc-muted">'+escapeHTML([state.shippingCarrier,state.shippingService].filter(Boolean).join(' · ')||(known?'Seller shipping':'Enter a postal code for a quote'))+'<div class="wwc-muted">'+escapeHTML(state.deliveryEstimate||'Delivery estimate not provided by seller')+'</div>'+'</div></div><b class="'+(free?'wwc-free':'')+'">'+(free?'Free':known?cash(shipping):'Calculated')+'</b></div><div id="wwCheckoutLocation"></div></section>'+
-   '<section class="wwc-card"><div class="wwc-total-row"><span>Item</span><strong>'+cash(Math.round(Number(l.price)*100))+'</strong></div><div class="wwc-total-row"><span>Shipping</span><strong class="'+(free?'wwc-free':'')+'">'+(free?'Free':known?cash(shipping):'To calculate')+'</strong></div><div class="wwc-total-row"><span>Buyer fee</span><strong>'+(q?cash(q.buyerFeeMinor):'—')+'</strong></div><div class="wwc-total-row wwc-grand-total"><span>Total</span><strong>'+(q?cash(q.buyerTotalMinor):'—')+'</strong></div></section>'+
-   '<section class="wwc-card" id="wwCheckoutPayment"><h2 class="wwc-method-title">Payment method <span class="wwc-muted">· Test mode</span></h2><div class="wwc-muted">'+(state.config?.stripeTestPublishableKey?'Apple Pay and card controls load securely with Stripe.':'Stripe test payments are not configured yet.')+'</div></section>'+
-   (state.error?'<div class="wwc-error" role="alert">'+escapeHTML(state.error)+'</div>':'')+
-   '<button class="wwc-pay" onclick="wishwaveCheckoutContinue()" '+(!q||state.busy||!/^pk_test_/.test(state.config?.stripeTestPublishableKey||'')?'disabled':'')+'>'+(state.busy?'Opening secure checkout…':'Load test payment')+'</button><div class="wwc-secure">'+icon('lock')+' Secure checkout with Stripe</div><button class="wwc-terms" onclick="wishwaveCheckoutTerms()"><span>View checkout terms</span>'+icon('arrow')+'</button>';
+  const ready=!!state.config?.stripeTestMode&&/^pk_test_/.test(state.config?.stripeTestPublishableKey||'');
+  root.innerHTML='<header class="wwc-head"><button class="wwc-back" onclick="wishwaveCloseCheckout()" aria-label="Back to listing">'+icon('back')+'</button><h1>Checkout</h1><span></span></header><div class="wwc-scroll">'+
+   '<section class="wwc-item">'+(image?'<img src="'+escapeAttr(image)+'" alt="'+escapeAttr(l.title||'Listing image')+'">':'')+'<div class="wwc-copy"><h2>'+title+'</h2><div class="wwc-muted">'+escapeHTML(l.condition||'')+' · Qty: 1</div><div class="wwc-item-price">'+cash(Math.round(Number(l.price)*100))+'</div></div></section>'+
+   '<section class="wwc-section"><h2>Delivery</h2><button class="wwc-delivery wwc-address" onclick="wishwaveCheckoutLocation()">'+icon('pin')+'<span><b>Delivery address</b><span class="wwc-muted">'+(state.postal?escapeHTML(state.postal+' · '+countryName(state.country)):'Add your address · '+escapeHTML(countryName(state.country)))+'</span></span>'+icon('arrow')+'</button><div id="wwCheckoutLocation"></div>'+
+   '<div class="wwc-delivery wwc-shipping">'+icon('truck')+'<div><b>Shipping</b><div class="wwc-muted">'+escapeHTML([state.shippingCarrier,state.shippingService].filter(Boolean).join(' · ')||(known?'Seller delivery':'Enter a postal code for a quote'))+(state.deliveryEstimate?'<div>'+escapeHTML(state.deliveryEstimate)+'</div>':'')+'</div></div><b class="'+(free?'wwc-free':'')+'">'+(free?'Free':known?cash(shipping):'Calculated')+'</b></div></section>'+
+   '<section class="wwc-section" id="wwCheckoutPayment"><h2>Payment</h2><button class="wwc-delivery wwc-payment-open" onclick="wishwaveCheckoutContinue()" '+(!q||!ready||state.busy?'disabled':'')+'>'+icon('card')+'<span><b>Add payment method</b><span class="wwc-muted">'+(ready?'Choose securely in the next step · Test mode':'Payments are not available yet')+'</span></span>'+icon('arrow')+'</button></section>'+
+   '<section class="wwc-section wwc-summary"><h2>Order summary</h2><div class="wwc-total-row"><span>Item</span><strong>'+cash(Math.round(Number(l.price)*100))+'</strong></div><div class="wwc-total-row"><span>Shipping</span><strong class="'+(free?'wwc-free':'')+'">'+(free?'Free':known?cash(shipping):'To calculate')+'</strong></div><div class="wwc-total-row"><span>Buyer fee</span><strong>'+(q?cash(q.buyerFeeMinor):'—')+'</strong></div></section>'+
+   '<button class="wwc-terms" onclick="wishwaveCheckoutTerms()"><span>Checkout terms</span>'+icon('arrow')+'</button><div class="wwc-error" role="alert">'+escapeHTML(state.error||'')+'</div></div>'+
+   '<footer class="wwc-footer"><div class="wwc-total-row wwc-grand-total"><span>Total</span><strong>'+(q?cash(q.buyerTotalMinor):'—')+'</strong></div><button class="wwc-pay" onclick="wishwaveCheckoutContinue()" '+(!q||state.busy||!ready?'disabled':'')+'>'+(state.busy?'Opening secure checkout…':'Continue to payment')+'</button></footer>';
+
  }
  async function quote(){const request=++version;if(!state)return;state.error='';state.quote=null;render();try{
   if(state.listing.shippingMode==='calculated'&&!state.postal){render();return;}
@@ -36196,7 +36198,7 @@ html body.keyboard-open[data-active-tab="search"] .app #searchResults .premium-r
 <script src="wishwave-comments-motion.js?v=293"></script>
 <link rel="stylesheet" href="wishwave-create.css?v=313">
 <script src="wishwave-create.js?v=333"></script>
-<script src="wishwave-navigation-origins.js?v=356"></script>
+<script src="wishwave-navigation-origins.js?v=365"></script>
 <style id="wishwave-notification-dot-v316">
 html body #wishwaveMainNav #navNotificationsBadge{
  top:calc(50% - 16px)!important;left:calc(50% + 8px)!important;right:auto!important;
@@ -36427,5 +36429,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-reel-commerce.js?v=360"></script>
 <link rel="stylesheet" href="wishwave-coral-theme.css?v=364">
 <script src="wishwave-search-follow.js?v=364"></script>
+<link rel="stylesheet" href="wishwave-purchase-ui.css?v=365">
+<script src="wishwave-offer.js?v=365"></script>
 </body>
 </html>

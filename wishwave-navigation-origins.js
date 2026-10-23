@@ -4,7 +4,7 @@
  const routes={
   searchResults:'backToPremiumSearch',findaiContextualReelV168:null,searchDetailOverlay:'__wishwaveCloseSearchReelV186',
   wishwavePublicProfilePage:'closeWishWavePublicProfile',appMpProduct:'closeAppMarketplaceListing',
-  wishwaveConnectionsPage:'wishwaveCloseConnections',appMpSheetBg:'closeAppMpSheet',wwCheckout:'wishwaveCloseCheckout',
+  wishwaveConnectionsPage:'wishwaveCloseConnections',appMpSheetBg:'closeAppMpSheet',wwCheckout:'wishwaveCloseCheckout',wwOffer:'appMpCloseMessageOffer',
   appThemeOverlay:'closeAppSettings',findaiOwnFollowersPage:'closeOwnFollowersList',
   myListingsScreen:'closeMyListings',purchasesScreen:'closePurchases',
   loginOverlay:'closeLogin',appMpInbox:'appMpInboxBack',wwDashboard:'closeWishWaveDashboard',
