@@ -34430,9 +34430,9 @@ html body .app:has(#wwCheckout.show) #wishwaveMainNav{visibility:visible!importa
   if(!state)return;cleanElements();const l=state.listing,q=state.quote,title=escapeHTML(l.title||'WishWave listing'),image=(l.images||[])[0]||l.image||'',shipping=state.shippingMinor,known=Number.isFinite(shipping),free=known&&shipping===0;
   const ready=!!state.config?.stripeTestMode&&/^pk_test_/.test(state.config?.stripeTestPublishableKey||'');
   root.innerHTML='<header class="wwc-head"><button class="wwc-back" onclick="wishwaveCloseCheckout()" aria-label="Back to listing">'+icon('back')+'</button><h1>Checkout</h1><span></span></header><div class="wwc-scroll">'+
-   '<section class="wwc-item">'+(image?'<img src="'+escapeAttr(image)+'" alt="'+escapeAttr(l.title||'Listing image')+'">':'')+'<div class="wwc-copy"><h2>'+title+'</h2><div class="wwc-muted">'+escapeHTML(l.condition||'')+' · Qty: 1</div><div class="wwc-item-price">'+cash(Math.round(Number(l.price)*100))+'</div></div></section>'+
+   '<section class="wwc-item">'+(image?'<img src="'+escapeAttr(image)+'" alt="'+escapeAttr(l.title||'Listing image')+'">':'')+'<div class="wwc-copy"><h2>'+title+'</h2><div class="wwc-muted">'+escapeHTML(l.condition||'')+' · Qty: 1</div></div><div class="wwc-item-price">'+cash(Math.round(Number(l.price)*100))+'</div></section>'+
    '<section class="wwc-section"><h2>Delivery</h2><button class="wwc-delivery wwc-address" onclick="wishwaveCheckoutLocation()">'+icon('pin')+'<span><b>Delivery address</b><span class="wwc-muted">'+(state.postal?escapeHTML(state.postal+' · '+countryName(state.country)):'Add your address · '+escapeHTML(countryName(state.country)))+'</span></span>'+icon('arrow')+'</button><div id="wwCheckoutLocation"></div>'+
-   '<div class="wwc-delivery wwc-shipping">'+icon('truck')+'<div><b>Shipping</b><div class="wwc-muted">'+escapeHTML([state.shippingCarrier,state.shippingService].filter(Boolean).join(' · ')||(known?'Seller delivery':'Enter a postal code for a quote'))+(state.deliveryEstimate?'<div>'+escapeHTML(state.deliveryEstimate)+'</div>':'')+'</div></div><b class="'+(free?'wwc-free':'')+'">'+(free?'Free':known?cash(shipping):'Calculated')+'</b></div></section>'+
+   '<div class="wwc-delivery wwc-shipping">'+icon('truck')+'<div><b>Shipping</b>'+(!free||state.deliveryEstimate?'<div class="wwc-muted">'+escapeHTML(state.deliveryEstimate||[state.shippingCarrier,state.shippingService].filter(Boolean).join(' · ')||(known?'Seller delivery':'Enter a postal code for a quote'))+'</div>':'')+'</div><b class="'+(free?'wwc-free':'')+'">'+(free?'Free':known?cash(shipping):'Calculated')+'</b></div></section>'+
    '<section class="wwc-section" id="wwCheckoutPayment"><h2>Payment</h2><button class="wwc-delivery wwc-payment-open" onclick="wishwaveCheckoutContinue()" '+(!q||!ready||state.busy?'disabled':'')+'>'+icon('card')+'<span><b>Add payment method</b><span class="wwc-muted">'+(ready?'Choose securely in the next step · Test mode':'Payments are not available yet')+'</span></span>'+icon('arrow')+'</button></section>'+
    '<section class="wwc-section wwc-summary"><h2>Order summary</h2><div class="wwc-total-row"><span>Item</span><strong>'+cash(Math.round(Number(l.price)*100))+'</strong></div><div class="wwc-total-row"><span>Shipping</span><strong class="'+(free?'wwc-free':'')+'">'+(free?'Free':known?cash(shipping):'To calculate')+'</strong></div><div class="wwc-total-row"><span>Buyer fee</span><strong>'+(q?cash(q.buyerFeeMinor):'—')+'</strong></div></section>'+
    '<button class="wwc-terms" onclick="wishwaveCheckoutTerms()"><span>Checkout terms</span>'+icon('arrow')+'</button><div class="wwc-error" role="alert">'+escapeHTML(state.error||'')+'</div></div>'+
@@ -36429,7 +36429,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-reel-commerce.js?v=360"></script>
 <link rel="stylesheet" href="wishwave-coral-theme.css?v=364">
 <script src="wishwave-search-follow.js?v=364"></script>
-<link rel="stylesheet" href="wishwave-purchase-ui.css?v=365">
-<script src="wishwave-offer.js?v=365"></script>
+<link rel="stylesheet" href="wishwave-purchase-ui.css?v=366">
+<script src="wishwave-offer.js?v=366"></script>
 </body>
 </html>
