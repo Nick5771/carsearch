@@ -21,6 +21,7 @@ const context=vm.createContext({URL,Date,Promise,JSON,Number,String,
  mpConversationItem:()=>({id:'c'}),mpMessageItem:row=>row,mpOfferItem:row=>row,
  ctx:{waitUntil:p=>tasks.push(p)}
 });
+vm.runInContext(source.slice(source.indexOf('function mpConversationThreadSQL()'),source.indexOf('function mpConversationItem(')),context);
 let start=source.indexOf('async function findaiMessageAllowed('),end=source.indexOf('// ── FindAI social profiles',start);
 vm.runInContext(source.slice(start,end),context);
 start=source.indexOf('async function wishwaveRestrictedProfile(');end=source.indexOf('async function findaiSafetyBlockByEmail(',start);
