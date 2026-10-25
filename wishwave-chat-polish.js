@@ -81,7 +81,7 @@
   }return out;};
  const render=window.renderAppMpChat;
  window.renderAppMpChat=function(id){scope();const result=render.apply(this,arguments),saved=cache.get('/marketplace/conversations/'+encodeURIComponent(id)+'/messages'),root=document.getElementById('appMpMessages');
-  if(root&&saved&&Date.now()-saved.at<300000){const data=saved.data;appMpCurrentConversation=data.conversation||appMpCurrentConversation;root.innerHTML=appMpMessageTimeline(data.messages||[]);root.dataset.loaded='1';appMpRenderMessageHeader(appMpCurrentConversation,data.presence);root.scrollTop=root.scrollHeight;}return result;
+  if(root&&saved&&Date.now()-saved.at<300000){const data=saved.data;appMpCurrentOffers=Array.isArray(data.offers)?data.offers:[];appMpCurrentConversation=data.conversation||appMpCurrentConversation;root.innerHTML=appMpMessageTimeline(data.messages||[]);root.dataset.loaded='1';appMpRenderMessageHeader(appMpCurrentConversation,data.presence);root.scrollTop=root.scrollHeight;}return result;
  };
  const header=window.appMpRenderMessageHeader;
  window.appMpRenderMessageHeader=function(c,presence){const out=header.apply(this,arguments);syncMessaging(c);styleMenuButtons(document.getElementById('appMpInbox'));const root=document.getElementById('appMpInboxTitle'),identity=root?.querySelector('.findai-chat-title-person');

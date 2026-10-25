@@ -18328,10 +18328,11 @@ async function wishwaveConversationMember(env,id,email){
   if(!row)throw Object.assign(new Error('Conversation not found'),{status:404});
   const viewer=String(email||'').toLowerCase(),buyer=String(row.buyer_email||'').toLowerCase(),seller=String(row.seller_email||'').toLowerCase();
   if(viewer!==buyer&&viewer!==seller)throw Object.assign(new Error('Not allowed'),{status:403});
-  return {id:String(row.id),otherEmail:viewer===seller?buyer:seller};
+  return {id:String(row.id),otherEmail:viewer===seller?buyer:seller,buyer_email:buyer,seller_email:seller};
 }
 async function wishwaveConversationMuted(env,id,email){
- return !!await env.DB.prepare(`SELECT 1 AS yes FROM marketplace_conversation_mutes WHERE conversation_id=? AND user_email=? LIMIT 1`).bind(String(id),String(email||'').toLowerCase()).first();
+ const member=await wishwaveConversationMember(env,id,email);
+ return !!await env.DB.prepare(`SELECT 1 AS yes FROM marketplace_conversation_mutes WHERE conversation_id IN (${mpConversationThreadSQL()}) AND user_email=? LIMIT 1`).bind(...mpConversationThreadArgs(member),String(email||'').toLowerCase()).first();
 }
 
 async function findaiSafetyTarget(env,reporterEmail,targetType,targetId,contextId) {
@@ -18508,8 +18509,30 @@ function mpOfferItem(row, viewerEmail) {
     lastActorRole: lastActor === sellerEmail ? 'seller' : 'buyer',
     canRespond: status === 'pending' && !!viewer && lastActor !== viewer,
     canWithdraw: status === 'pending' && !!viewer && lastActor === viewer,
-    listingTitle: String(row.listing_title || ''), listingPrice: Math.max(0, Number(row.listing_price_minor || 0) / 100)
+    listingTitle: String(row.listing_title || ''), listingImage: String(mpImageArray(row.listing_images||'[]')[0]||''), listingPrice: Math.max(0, Number(row.listing_price_minor || 0) / 100)
   };
+}
+// Keep listing records for commerce, but present one continuous chat per account pair.
+function mpConversationThreadSQL() {
+  return `SELECT c.id FROM marketplace_conversations c
+    JOIN marketplace_sellers s ON s.id=c.seller_id
+    WHERE (lower(c.buyer_email)=? AND lower(s.user_email)=?)
+       OR (lower(c.buyer_email)=? AND lower(s.user_email)=?)`;
+}
+function mpConversationThreadArgs(conversation) {
+  const buyer=String(conversation.buyer_email||'').toLowerCase(),seller=String(conversation.seller_email||'').toLowerCase();
+  return [buyer,seller,seller,buyer];
+}
+function mpConversationInboxItems(rows, viewerEmail) {
+  const viewer=String(viewerEmail||'').toLowerCase(),people=new Map();
+  for(const row of rows){
+    const other=String(String(row.seller_email||'').toLowerCase()===viewer?row.buyer_email:row.seller_email).toLowerCase();
+    const item=mpConversationItem(row,viewer);
+    const existing=people.get(other);
+    if(existing)existing.unreadCount+=item.unreadCount;
+    else people.set(other,item);
+  }
+  return [...people.values()];
 }
 function mpConversationItem(row, viewerEmail) {
   if (!row) return null;
@@ -24942,10 +24965,10 @@ export default {
                FROM marketplace_conversations c JOIN marketplace_listings l ON l.id=c.listing_id
                JOIN marketplace_sellers s ON s.id=c.seller_id
                WHERE c.buyer_email=? OR LOWER(s.user_email)=?
-               ORDER BY COALESCE(c.last_message_at,c.created_at) DESC LIMIT 200`
+               ORDER BY COALESCE(c.last_message_at,c.created_at) DESC`
             ).bind(auth.email, auth.email, auth.email, auth.email).all();
           }
-          const conversations = (result.results || []).map(row => mpConversationItem(row, auth.email)).filter(Boolean);
+          const conversations = mpConversationInboxItems(result.results || [], auth.email);
           return jsonResp({ conversations, isSeller, unreadCount: conversations.reduce((sum, row) => sum + Number(row.unreadCount || 0), 0) }, 200, { 'Cache-Control': 'no-store' });
         } catch (e) { return jsonResp({ error: String(e && e.message || e) }, 500, { 'Cache-Control': 'no-store' }); }
       }
@@ -24983,8 +25006,8 @@ export default {
             let body = {}; try { body = await request.json(); } catch (_) {}
             const active = body.active !== false;
             if (!active) {
-              await env.DB.prepare('DELETE FROM marketplace_typing WHERE conversation_id=? AND user_email=?')
-                .bind(conversationId, auth.email).run();
+              await env.DB.prepare(`DELETE FROM marketplace_typing WHERE conversation_id IN (${mpConversationThreadSQL()}) AND user_email=?`)
+                .bind(...mpConversationThreadArgs(conversation), auth.email).run();
               return jsonResp({ ok: true, typing: false }, 200, { 'Cache-Control': 'no-store' });
             }
             const now = new Date(), expires = new Date(now.getTime() + 7000).toISOString(), nowIso = now.toISOString();
@@ -24997,8 +25020,8 @@ export default {
           }
           const row = await env.DB.prepare(
             `SELECT user_email, expires_at FROM marketplace_typing
-             WHERE conversation_id=? AND user_email<>? AND expires_at>? ORDER BY updated_at DESC LIMIT 1`
-          ).bind(conversationId, auth.email, new Date().toISOString()).first();
+             WHERE conversation_id IN (${mpConversationThreadSQL()}) AND user_email<>? AND expires_at>? ORDER BY updated_at DESC LIMIT 1`
+          ).bind(...mpConversationThreadArgs(conversation), auth.email, new Date().toISOString()).first();
           const item = mpConversationItem(conversation, auth.email);
           const otherEmail = auth.email === sellerEmail ? buyerEmail : sellerEmail;
           const presence = await mpPresenceItem(env, otherEmail);
@@ -25067,9 +25090,9 @@ export default {
         if(!env.DB)return jsonResp({error:'Messaging unavailable'},503);
         try{
           await mpEnsureSchema(env);const id=decodeURIComponent(conversationMuteMatch[1]);
-          await wishwaveConversationMember(env,id,auth.email);
+          const member=await wishwaveConversationMember(env,id,auth.email);
           if(request.method==='POST')await env.DB.prepare(`INSERT OR IGNORE INTO marketplace_conversation_mutes(conversation_id,user_email,created_at) VALUES(?,?,?)`).bind(id,String(auth.email).toLowerCase(),new Date().toISOString()).run();
-          if(request.method==='DELETE')await env.DB.prepare(`DELETE FROM marketplace_conversation_mutes WHERE conversation_id=? AND user_email=?`).bind(id,String(auth.email).toLowerCase()).run();
+          if(request.method==='DELETE')await env.DB.prepare(`DELETE FROM marketplace_conversation_mutes WHERE conversation_id IN (${mpConversationThreadSQL()}) AND user_email=?`).bind(...mpConversationThreadArgs(member),String(auth.email).toLowerCase()).run();
           return jsonResp({ok:true,muted:await wishwaveConversationMuted(env,id,auth.email)},200,{'Cache-Control':'no-store'});
         }catch(e){return jsonResp({error:String(e.message||e)},Number(e.status)||500,{'Cache-Control':'no-store'});}
       }
@@ -25147,10 +25170,11 @@ export default {
           }
           await mpTouchPresence(env, auth.email);
           const readNow = new Date().toISOString();
-          if(url.searchParams.get('markRead')!=='0')await env.DB.prepare('UPDATE marketplace_messages SET read_at=? WHERE conversation_id=? AND sender_email<>? AND read_at IS NULL')
-            .bind(readNow, conversationId, auth.email).run();
-          await env.DB.prepare("UPDATE marketplace_notifications SET read_at=? WHERE user_email=? AND read_at IS NULL AND notification_type='offer' AND instr(COALESCE(target_url,''),?)>0")
-            .bind(readNow, auth.email, conversationId).run();
+          const threadSQL=mpConversationThreadSQL(),threadArgs=mpConversationThreadArgs(conversation);
+          if(url.searchParams.get('markRead')!=='0')await env.DB.prepare(`UPDATE marketplace_messages SET read_at=? WHERE conversation_id IN (${threadSQL}) AND lower(sender_email)<>? AND read_at IS NULL`)
+            .bind(readNow, ...threadArgs, auth.email).run();
+          await env.DB.prepare(`UPDATE marketplace_notifications SET read_at=? WHERE user_email=? AND read_at IS NULL AND notification_type='offer' AND EXISTS (SELECT 1 FROM (${threadSQL}) thread WHERE instr(COALESCE(target_url,''),thread.id)>0)`)
+            .bind(readNow, auth.email, ...threadArgs).run();
           const result = await env.DB.prepare(
             `SELECT m.id, m.sender_email, m.body, m.image_url, m.shared_item_json, m.read_at, m.created_at,
                     (SELECT emoji FROM marketplace_message_reactions r
@@ -25158,21 +25182,21 @@ export default {
                     (SELECT COUNT(*) FROM marketplace_message_reactions r2
                      WHERE r2.message_id=m.id AND r2.emoji='❤️') AS heart_count
              FROM marketplace_messages m
-             WHERE m.conversation_id=? ORDER BY m.created_at ASC LIMIT 300`
-          ).bind(auth.email, conversationId).all();
+             WHERE m.conversation_id IN (${threadSQL}) ORDER BY m.created_at DESC,m.id DESC LIMIT 300`
+          ).bind(auth.email, ...threadArgs).all();
           const offerResult = await env.DB.prepare(
-            `SELECT o.*, l.title AS listing_title, l.item_price_minor AS listing_price_minor, s.user_email AS seller_email
+            `SELECT o.*, l.title AS listing_title, l.image_urls_json AS listing_images, l.item_price_minor AS listing_price_minor, s.user_email AS seller_email
              FROM marketplace_offers o JOIN marketplace_listings l ON l.id=o.listing_id
              JOIN marketplace_sellers s ON s.id=o.seller_id
-             WHERE o.listing_id=? AND o.buyer_email=? ORDER BY o.updated_at ASC LIMIT 100`
-          ).bind(conversation.listing_id, conversation.buyer_email).all();
+             WHERE (lower(o.buyer_email)=? AND lower(s.user_email)=?) OR (lower(o.buyer_email)=? AND lower(s.user_email)=?) ORDER BY o.updated_at DESC,o.id DESC LIMIT 100`
+          ).bind(...threadArgs).all();
           const otherEmail = auth.email === sellerEmail ? String(conversation.buyer_email || '').toLowerCase() : sellerEmail;
           const presence = await mpPresenceItem(env, otherEmail);
           const messaging={...await wishwaveRestrictedProfile(env,auth.email,otherEmail),canSend:await findaiMessageAllowed(env,auth.email,otherEmail)};
           return jsonResp({
             conversation: {...mpConversationItem(conversation, auth.email),messaging},
-            messages: (result.results || []).map(row => mpMessageItem(row, auth.email)),
-            offers: (offerResult.results || []).map(row => mpOfferItem(row, auth.email)).filter(Boolean),
+            messages: (result.results || []).reverse().map(row => mpMessageItem(row, auth.email)),
+            offers: (offerResult.results || []).reverse().map(row => mpOfferItem(row, auth.email)).filter(Boolean),
             presence
           }, 200, { 'Cache-Control': 'no-store' });
         } catch (e) { return jsonResp({ error: String(e && e.message || e),code:e&&e.code||'' }, Number(e&&e.status)||500, { 'Cache-Control': 'no-store' }); }
