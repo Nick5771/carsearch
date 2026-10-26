@@ -220,6 +220,11 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         web.uiDelegate = self
         web.scrollView.contentInsetAdjustmentBehavior = .never
         web.scrollView.bounces = false
+        // The app draws its own headers and safe-area colours in both themes.
+        // Prevent iOS from adding a second fade over the status-bar area.
+        if #available(iOS 26.0, *) {
+            web.scrollView.topEdgeEffect.isHidden = true
+        }
         web.scrollView.keyboardDismissMode = .interactive
         web.isOpaque = false
         web.backgroundColor = .systemBackground
