@@ -19334,7 +19334,7 @@ html.findai-light .findai-settings-search-result{color:#111;border-bottom-color:
     return previousPane(name);
   };
 
-  /* A tiny tactile pulse/ring on Settings interactions. */
+  /* Pressed appearance only: Settings scrolling must not trigger a haptic. */
   document.addEventListener('pointerdown',function(e){
     const overlay=document.getElementById('appThemeOverlay');
     if(!overlay||!overlay.classList.contains('show')||!overlay.contains(e.target))return;
@@ -19344,7 +19344,6 @@ html.findai-light .findai-settings-search-result{color:#111;border-bottom-color:
     void target.offsetWidth;
     target.classList.add('findai-v138-tap');
     setTimeout(()=>target.classList.remove('findai-v138-tap'),280);
-    try{if(typeof haptic==='function')haptic();}catch(_){}
   },{passive:true});
 
   /* If Settings is already open when this patch boots, refresh to the clean home. */
@@ -33104,6 +33103,9 @@ html.findai-light #wishwaveKeyboardBackdrop{background:#f7f7f8!important;}
     // A pinch changes the visual viewport too; it is not a keyboard opening.
     if((vv.scale||1)>1.05){mask.hidden=true;return;}
     const full=layoutBottom();
+    // Purchase forms dismiss their own keyboard before iOS restores visualViewport.
+    const purchase=document.querySelector('#wwOffer.show,#wwCheckout.show');
+    if(!focused&&purchase){mask.hidden=true;mask.style.removeProperty('top');mask.style.removeProperty('height');active=false;editing=false;searchSession=false;baseline=full;return;}
     if(!active&&!editing&&!focused)baseline=full;
     baseline=Math.max(baseline,full,height+top);
     const occluded=Math.max(0,baseline-height-top);
@@ -36429,11 +36431,11 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 </style>
 <link rel="stylesheet" href="wishwave-reel-commerce.css?v=360">
 <script src="wishwave-reel-commerce.js?v=360"></script>
-<link rel="stylesheet" href="wishwave-coral-theme.css?v=370">
+<link rel="stylesheet" href="wishwave-coral-theme.css?v=371">
 <script src="wishwave-search-follow.js?v=364"></script>
-<link rel="stylesheet" href="wishwave-purchase-ui.css?v=370">
-<script src="wishwave-offer.js?v=370"></script>
-<link rel="stylesheet" href="wishwave-chat-offers.css?v=369">
-<script src="wishwave-chat-offers.js?v=369"></script>
+<link rel="stylesheet" href="wishwave-purchase-ui.css?v=371">
+<script src="wishwave-offer.js?v=371"></script>
+<link rel="stylesheet" href="wishwave-chat-offers.css?v=371">
+<script src="wishwave-chat-offers.js?v=371"></script>
 </body>
 </html>
