@@ -1,3 +1,10 @@
+/* Shared compact confirmation keeps all unfollow entry points consistent. */
+window.wishwaveUnfollowMarkup=function(label,avatar,options={}){
+ const attr=escapeAttr,esc=escapeHTML;
+ const confirm=options.confirmId?' id="'+attr(options.confirmId)+'"':' onclick="'+attr(options.confirmFunction)+'()"';
+ const cancel=options.cancelId?' id="'+attr(options.cancelId)+'"':' onclick="closeAppMpSheet()"';
+ return '<div class="findai-unfollow-confirm ww-unfollow-confirm" aria-labelledby="wwUnfollowTitle" aria-describedby="wwUnfollowDescription"><span class="ww-unfollow-handle" aria-hidden="true"></span><span class="ww-unfollow-avatar">'+(avatar?'<img src="'+attr(avatar)+'" alt="" onerror="findaiAvatarLoadError(this)">':findaiDefaultAvatarSvg())+'</span><h2 id="wwUnfollowTitle">Unfollow '+esc(label)+'?</h2><p id="wwUnfollowDescription">Their posts and listings will no longer be prioritised in your feed.</p><div class="findai-unfollow-confirm-actions"><button type="button" class="danger"'+confirm+'>Unfollow</button><button type="button"'+cancel+'>Cancel</button></div></div>';
+};
 /* Recent profile actions share the server relationship state with live search. */
 (function(){
  'use strict';
@@ -40,7 +47,8 @@
   if(!marketplaceSession()){openLogin();return;}
   if(!state||state.busy||state.self||state.blocked)return;
   if(state.following&&!confirmed){
-   openAppMpSheet('Unfollow?','<div class="app-mp-actions"><button type="button" class="app-mp-action tertiary danger" id="wwSearchUnfollow">Unfollow @'+escapeHTML(username)+'</button><button type="button" class="app-mp-action tertiary" id="wwSearchUnfollowCancel">Cancel</button></div>');
+   const avatar=button.closest('.findai-recent-row')?.querySelector('.findai-recent-thumb img')?.getAttribute('src')||'';
+   openAppMpSheet('Unfollow?',wishwaveUnfollowMarkup('@'+username,avatar,{confirmId:'wwSearchUnfollow',cancelId:'wwSearchUnfollowCancel'}));
    document.getElementById('wwSearchUnfollow').onclick=()=>{closeAppMpSheet();if(owner()===session&&button.isConnected)toggle(button,true);};
    document.getElementById('wwSearchUnfollowCancel').onclick=()=>closeAppMpSheet();return;
   }
@@ -65,3 +73,4 @@
  document.addEventListener('wishwave-recommendation-account-change',()=>{states.clear();schedule();});
  document.addEventListener('wishwave-social-block-changed',()=>{states.clear();schedule();});
 })();
+

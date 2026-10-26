@@ -81,7 +81,7 @@
    current.people=more?[...current.people,...data.people]:data.people;current.offset=data.nextOffset;current.hasMore=!!data.hasMore;paint();status.textContent=current.people.length?'':q?'No matching people':current.kind==='following'?'No accounts followed yet':'No followers yet';
   }catch(e){if(state===current&&request===generation)status.textContent=e.message||'Could not load people';}finally{if(state===current&&request===generation)page.querySelector('.ww-connections-more').disabled=false;}
  }
- async function toggle(username,button,confirmed=false){const current=state,p=current?.people.find(p=>p.username===username);if(!p||p.busy)return;const was=!!p.isFollowing,requested=!!p.pending;if(was&&!confirmed){openAppMpSheet('Unfollow?','<div class="app-mp-actions"><button type="button" class="app-mp-action tertiary danger" id="wwConnectionUnfollow">Unfollow @'+esc(username)+'</button><button type="button" class="app-mp-action tertiary" id="wwConnectionCancel">Cancel</button></div>');document.getElementById('wwConnectionUnfollow').onclick=()=>{closeAppMpSheet();if(state===current)toggle(username,button,true);};document.getElementById('wwConnectionCancel').onclick=()=>closeAppMpSheet();return;}
+ async function toggle(username,button,confirmed=false){const current=state,p=current?.people.find(p=>p.username===username);if(!p||p.busy)return;const was=!!p.isFollowing,requested=!!p.pending;if(was&&!confirmed){openAppMpSheet('Unfollow?',wishwaveUnfollowMarkup('@'+username,p.avatarUrl||'',{confirmId:'wwConnectionUnfollow',cancelId:'wwConnectionCancel'}));document.getElementById('wwConnectionUnfollow').onclick=()=>{closeAppMpSheet();if(state===current)toggle(username,button,true);};document.getElementById('wwConnectionCancel').onclick=()=>closeAppMpSheet();return;}
   const session=account();p.busy=true;p.isFollowing=!was&&!requested;p.pending=false;paint();try{haptic();}catch(_){}
   try{const data=await marketplaceFetch('/social/follow-user/'+encodeURIComponent(username),{method:was||requested?'DELETE':'POST'});if(account()!==session)return;p.isFollowing=!!data.isFollowing;p.pending=!!data.pending;decorate();}
   catch(e){if(account()===session){p.isFollowing=was;p.pending=requested;toast(e.message||'Could not update follow');}}finally{p.busy=false;if(state===current&&account()===session)paint();}
@@ -97,4 +97,5 @@
  document.addEventListener('wishwave-social-block-changed',()=>{countEpoch++;counts.clear();pending.clear();decorate();});
  decorate();
 })();
+
 

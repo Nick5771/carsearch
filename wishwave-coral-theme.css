@@ -172,7 +172,12 @@ html body .app #profile#profile .wishwave-collection-empty .social-profile-creat
 html body #wishwavePublicProfilePage#wishwavePublicProfilePage .social-profile-grid{gap:4px!important;padding:4px!important;}
 html body #wishwavePublicProfilePage#wishwavePublicProfilePage .social-profile-tile{aspect-ratio:3/4!important;border-radius:8px!important;}
 /* Recent profiles retain their separate remove control alongside Follow. */
-html body .app #findaiSearchRecents .findai-recent-row:has(.ww-recent-follow){grid-template-columns:44px minmax(0,1fr) auto 26px!important;gap:9px!important;}
+html body .app #findaiSearchRecents .findai-recent-row{grid-template-columns:44px minmax(0,1fr) 88px 44px!important;gap:9px!important;}
+html body .app #findaiSearchRecents .findai-recent-thumb{grid-column:1!important;grid-row:1!important;}
+html body .app #findaiSearchRecents .findai-recent-copy{grid-column:2 / 4!important;grid-row:1!important;}
+html body .app #findaiSearchRecents .findai-recent-row:has(.ww-recent-follow) .findai-recent-copy{grid-column:2!important;}
+html body .app #findaiSearchRecents .ww-recent-follow{grid-column:3!important;grid-row:1!important;width:88px!important;min-width:0!important;max-width:88px!important;}
+html body .app #findaiSearchRecents .findai-recent-remove{grid-column:4!important;grid-row:1!important;justify-self:center!important;width:44px!important;height:44px!important;}
 html body .app #findaiSearchRecents .ww-recent-follow{min-width:78px!important;height:32px!important;padding:0 10px!important;border-radius:999px!important;font-size:12px!important;font-weight:600!important;}
 html body .app #findaiSearchRecents .ww-recent-follow:disabled{opacity:.65!important;}
 html body .app #findaiSearchRecents .findai-recent-copy{min-width:0!important;}
@@ -205,3 +210,21 @@ html.findai-light body .app :is(#appMpInbox#appMpInbox#appMpInbox,.wishwave-inbo
 /* Full-screen Settings has no popup shadow across its status-bar padding. */
 html body #appThemeOverlay#appThemeOverlay.findai-settings-full{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;}
 html body #appThemeOverlay#appThemeOverlay.findai-settings-full .app-theme-sheet{box-shadow:none!important;}
+
+
+/* Compact, content-sized unfollow sheet shared by profiles, search and connections. */
+html body #appMpSheetBg:has(.ww-unfollow-confirm) .app-mp-sheet{height:auto!important;min-height:0!important;max-height:calc(100dvh - 24px)!important;border-radius:26px 26px 0 0!important;}
+html body #appMpSheetBg:has(.ww-unfollow-confirm) .app-mp-sheet-head{display:none!important;}
+html body #appMpSheetBg:has(.ww-unfollow-confirm) .app-mp-sheet-body{min-height:0!important;padding:0 18px calc(16px + env(safe-area-inset-bottom,0px))!important;}
+html body #appMpSheetBg .ww-unfollow-confirm{padding:10px 0 0!important;text-align:center!important;}
+html body #appMpSheetBg .ww-unfollow-handle{display:block;width:36px;height:4px;background:#686d76;border-radius:8px;margin:0 auto 20px;}
+html body #appMpSheetBg .ww-unfollow-avatar{display:grid;place-items:center;width:68px;height:68px;border-radius:50%;overflow:hidden;margin:0 auto 16px;background:#22252b;color:#aab0b9;}
+html body #appMpSheetBg .ww-unfollow-avatar img{width:100%;height:100%;object-fit:cover;}
+html body #appMpSheetBg .ww-unfollow-avatar svg{width:32px;height:32px;}
+html body #appMpSheetBg .ww-unfollow-confirm h2{font:650 21px/27px -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:-.4px;margin:0 0 10px;overflow-wrap:anywhere;}
+html body #appMpSheetBg .ww-unfollow-confirm p{font-size:14px!important;line-height:20px!important;margin:0 auto 22px!important;max-width:330px;color:#989da7!important;}
+html body #appMpSheetBg .ww-unfollow-confirm .findai-unfollow-confirm-actions{display:grid!important;gap:9px!important;}
+html body #appMpSheetBg .ww-unfollow-confirm button{width:100%!important;height:48px!important;min-height:48px!important;padding:0 16px!important;border:0!important;border-radius:15px!important;background:#22252b!important;color:#f5f6f7!important;font:650 16px/20px -apple-system,BlinkMacSystemFont,sans-serif!important;}
+html body #appMpSheetBg .ww-unfollow-confirm button.danger{background:#301b1e!important;color:#ff5a66!important;}
+html.findai-light body #appMpSheetBg .ww-unfollow-confirm button:not(.danger){background:#eceef1!important;color:#17191c!important;}
+html.findai-light body #appMpSheetBg .ww-unfollow-confirm button.danger{background:#fff0f1!important;color:#d92d40!important;}
