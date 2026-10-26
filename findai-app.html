@@ -32944,16 +32944,18 @@ html body .app .findai-v132-swipe-surface{filter:none!important;backdrop-filter:
   window.handlePremiumExploreSubmit=function(event){
     event?.preventDefault?.();
     const query=String(input?.value||'').trim(),now=performance.now();
-    input?.blur();
     const search=document.getElementById('search');
+    // Empty Return dismisses the keyboard without leaving or rebuilding Recents.
+    if(!query){input?.blur();search?.classList.remove('ww-search-session');return false;}
+    search?.classList.add('ww-search-submitted');
+    input?.blur();
     search?.classList.remove('search-recents-visible');document.getElementById('findaiSearchRecents')?.classList.remove('show');
     if(query===lastQuery&&now-lastSubmit<250)return false;
     lastQuery=query;lastSubmit=now;
     return submit.call(this,event);
   };
   window.wishwaveSearchFieldAction=function(event){
-    if(String(input?.value||'').trim())return window.handlePremiumExploreSubmit(event);
-    return window.handlePremiumExploreInput('');
+    return window.handlePremiumExploreSubmit(event);
   };
   input?.addEventListener('keydown',event=>{
     if(event.key!=='Enter'||event.isComposing||event.keyCode===229)return;
@@ -36403,8 +36405,8 @@ html.findai-light body #findaiNotificationPanel .findai-notification-item.ww-fol
 }
 </style>
 <script src="wishwave-live-activity.js?v=355"></script>
-<link rel="stylesheet" href="wishwave-experience.css?v=367">
-<script src="wishwave-experience.js?v=358"></script>
+<link rel="stylesheet" href="wishwave-experience.css?v=379">
+<script src="wishwave-experience.js?v=379"></script>
 
 <style id="wishwave-profile-grid-v359">
 /* Approved profile grid: quiet square photos, price left and views right. */
