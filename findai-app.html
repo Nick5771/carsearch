@@ -3630,8 +3630,8 @@ html body .source-chip .findai-exact-brand[data-brand="etsy"] img{
           <button class="social-profile-avatar" id="profileAvatar" onclick="document.getElementById('accountAvatarInput').click()" aria-label="Change profile photo"><img alt=""><span><svg class="guest-profile-person-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg></span></button>
           <div class="social-profile-stats">
             <button type="button" onclick="setProfileTab('listings')"><b id="socialListingsCount">0</b><span>Listings</span></button>
-            <button type="button" onclick="setProfileTab('sold')"><b id="socialSoldCount">0</b><span>Sold</span></button>
-            <button type="button" onclick="openOwnFollowersList()" aria-label="View your followers"><b id="socialFollowersValue">0</b><span>Followers</span></button>
+            <button type="button" data-connection-kind="followers" onclick="openOwnFollowersList()" aria-label="View your followers"><b id="socialFollowersValue">0</b><span>Followers</span></button>
+            <button type="button" data-connection-kind="following" onclick="window.wishwaveOpenConnections?.('@me','following')" aria-label="View following"><b id="socialFollowingValue">0</b><span>Following</span></button>
           </div>
         </div>
 
@@ -3907,6 +3907,15 @@ function getAccountProfile(){
     const profile=JSON.parse(localStorage.getItem(ACCOUNT_PROFILE_KEY)||'null');
     return profile&&profile.email?profile:null;
   }catch(_){ return null; }
+}
+// Hydrate the first profile render before the optional connections script loads.
+function readOwnConnectionCounts(){
+  const email=String(getAccountProfile()?.email||'').trim().toLowerCase();if(!email)return null;
+  try{
+    const pair=JSON.parse(localStorage.getItem('wishwave-connection-counts-v375:'+encodeURIComponent(email))||'null');
+    if(pair&&['followers','following'].every(key=>pair[key]!=null&&Number.isSafeInteger(Number(pair[key]))&&Number(pair[key])>=0))return pair;
+  }catch(_){}
+  return null;
 }
 function readAccountProfileArchive(){
   try{
@@ -9701,7 +9710,9 @@ function paintSocialProfileHeader(){
   const sold=Math.max(socialProfileSeller.soldCount||0,socialProfileListings.filter(x=>String(x.status||'').toLowerCase()==='sold').length);
   const listingCount=$('#socialListingsCount');if(listingCount)listingCount.textContent=String(listings.length);
   const soldCount=$('#socialSoldCount');if(soldCount)soldCount.textContent=String(sold);
-  const followers=$('#socialFollowersValue');if(followers)followers.textContent=profileMetricCompact(Math.max(0,Number(socialProfileSeller.followerCount)||0));
+  const connectionCounts=readOwnConnectionCounts();
+  const followers=$('#socialFollowersValue');if(followers)followers.textContent=profileMetricCompact(connectionCounts?Number(connectionCounts.followers):Math.max(0,Number(socialProfileSeller.followerCount)||0));
+  const following=$('#socialFollowingValue');if(following&&connectionCounts)following.textContent=profileMetricCompact(Number(connectionCounts.following));
   const tracked=$('#profileTrackedCount');if(tracked)tracked.textContent=String(getTracked().length);
   const tabs=$('#profileSignedIn .social-profile-tabs');if(tabs){const order=['listings','sold','saved'];tabs.style.setProperty('--profile-tab-index',String(Math.max(0,order.indexOf(socialProfileTab))));}
 }
@@ -22626,6 +22637,7 @@ html.findai-light .nav-messages-badge{border-color:#f7f7f8!important}
     return 'findai-v160-follower-count:'+encodeURIComponent(followerIdentity()||'guest');
   }
   function cachedFollowerCount(){
+    const pair=readOwnConnectionCounts();if(pair)return Number(pair.followers);
     try{
       const raw=JSON.parse(localStorage.getItem(followerCacheKey())||'null');
       if(raw&&Number.isFinite(Number(raw.count)))return Math.max(0,Number(raw.count));
@@ -36326,7 +36338,7 @@ html body #profileSignedOut [data-guest-likes]{display:none!important;}
 <link rel="stylesheet" href="wishwave-chat-polish.css?v=374">
 <script src="wishwave-chat-polish.js?v=376"></script>
 <link rel="stylesheet" href="wishwave-connections.css?v=351">
-<script src="wishwave-connections.js?v=375"></script>
+<script src="wishwave-connections.js?v=377"></script>
 <script src="wishwave-auth.js?v=316"></script>
 
 <style id="wishwave-reel-heart-polish-v332">

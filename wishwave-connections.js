@@ -5,7 +5,7 @@
  const esc=s=>escapeHTML(String(s||''));
  const ownCacheKey=()=>{const email=String(getAccountProfile()?.email||'').trim().toLowerCase();return email?'wishwave-connection-counts-v375:'+encodeURIComponent(email):'';};
  const validCounts=data=>data&&['followers','following'].every(k=>data[k]!=null&&Number.isSafeInteger(Number(data[k]))&&Number(data[k])>=0);
- function cachedOwn(){try{const key=ownCacheKey(),data=key?JSON.parse(localStorage.getItem(key)||'null'):null;return validCounts(data)?data:null;}catch(_){return null;}}
+ function cachedOwn(){const early=window.readOwnConnectionCounts?.();if(validCounts(early))return early;try{const key=ownCacheKey(),data=key?JSON.parse(localStorage.getItem(key)||'null'):null;return validCounts(data)?data:null;}catch(_){return null;}}
  function saveCounts(key,data,owner){
   if(!validCounts(data)||owner!==account())return;
   counts.set(owner+'|'+key,{data,at:Date.now()});lastFollowing.set(owner+'|'+key,Number(data.following));
@@ -32,7 +32,7 @@
   root.append(followers,following);
   [followers,following].forEach(button=>{button.removeAttribute('onclick');button.onclick=()=>window.wishwaveOpenConnections(key,button.dataset.connectionKind);button.setAttribute('aria-label',button.dataset.connectionKind==='followers'?'View followers':'View following');});
   function paint(data){if(!validCounts(data)||epoch!==countEpoch||owner!==account()||!root.isConnected||root.dataset.connectionsOwner!==key)return;for(const kind of ['followers','following']){const button=root.querySelector('[data-connection-kind="'+kind+'"]');if(button){const value=button.querySelector('b');value.textContent=profileMetricCompact(Number(data[kind]));value.classList.remove('findai-followers-pending');value.removeAttribute('aria-label');button.dataset.connectionsReady='1';}}}
-  const saved=counts.get(cacheKey);if(saved)paint(saved.data);else if(key==='@me'){const pair=cachedOwn();if(pair)paint(pair);else for(const button of [followers,following]){const value=button.querySelector('b');value.textContent=marketplaceSession()?'…':'0';value.classList.remove('findai-followers-pending');}}
+  const saved=counts.get(cacheKey);if(saved)paint(saved.data);else if(key==='@me'){const pair=cachedOwn();if(pair)paint(pair);else {let legacy=null;try{const email=String(getAccountProfile()?.email||'').trim().toLowerCase(),raw=JSON.parse(localStorage.getItem('findai-v160-follower-count:'+encodeURIComponent(email))||'null');if(raw?.count!=null&&Number.isSafeInteger(Number(raw.count))&&Number(raw.count)>=0)legacy=Number(raw.count);}catch(_){}for(const button of [followers,following]){const value=button.querySelector('b');if(button===followers&&legacy!=null)value.textContent=profileMetricCompact(legacy);else if(!button.dataset.connectionsReady)value.textContent=marketplaceSession()?'…':'0';value.classList.remove('findai-followers-pending');}}}
   if(marketplaceSession())fetchCounts(key).then(paint).catch(()=>{/* Preserve the saved pair during a temporary failure. */});
  }
 
