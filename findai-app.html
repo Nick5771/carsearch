@@ -21549,7 +21549,8 @@ html.findai-light .findai-public-top-more:active{background:rgba(0,0,0,.07)!impo
 
     const button=[...document.querySelectorAll('#wishwavePublicProfileBody .social-profile-actions button')]
       .find(node=>String(node.textContent||'').trim()==='Message');
-    if(button){button.disabled=true;button.textContent='Opening…';}
+    if(button?.disabled)return;
+    if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
 
     try{
       const data=await marketplaceFetch('/social/message-user/'+encodeURIComponent(username),{
@@ -21564,7 +21565,7 @@ html.findai-light .findai-public-top-more:active{background:rgba(0,0,0,.07)!impo
     }catch(error){
       toast(error&&error.message||'Could not open messages');
     }finally{
-      if(button&&button.isConnected){button.disabled=false;button.textContent='Message';}
+      if(button&&button.isConnected){button.disabled=false;button.removeAttribute('aria-busy');}
     }
   };
 
@@ -36460,7 +36461,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 </style>
 <link rel="stylesheet" href="wishwave-reel-commerce.css?v=360">
 <script src="wishwave-reel-commerce.js?v=360"></script>
-<link rel="stylesheet" href="wishwave-coral-theme.css?v=383">
+<link rel="stylesheet" href="wishwave-coral-theme.css?v=384">
 <script src="wishwave-search-follow.js?v=378"></script>
 <link rel="stylesheet" href="wishwave-purchase-ui.css?v=372">
 <script src="wishwave-offer.js?v=372"></script>
