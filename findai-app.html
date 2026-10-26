@@ -18961,17 +18961,31 @@ html.findai-light .findai-settings-delete-box input{background:#fff;color:#111;b
   async function renderSocialControlPane(kind,sheet){
     const title=kind==='blocked'?'Blocked accounts':kind==='muted'?'Muted accounts':'Follow requests';
     sheet.innerHTML='<div class="findai-settings-detail">'+settingsHead137(title)+'<div id="findaiControlList"><div class="findai-settings-list-empty">Loading…</div></div></div>';
+    const root=sheet.querySelector('#findaiControlList');
     try{
       const data=kind==='follow-requests'
         ?await marketplaceFetch('/social/follow-requests',{method:'GET'})
         :await marketplaceFetch('/social/controls?kind='+encodeURIComponent(kind),{method:'GET'});
       const rows=kind==='follow-requests'?(data.requests||[]):(data.accounts||[]);
-      const root=document.getElementById('findaiControlList');if(!root)return;
+      if(!root?.isConnected)return;
       if(!rows.length){root.innerHTML='<div class="findai-settings-list-empty">No '+(kind==='follow-requests'?'follow requests':kind+' accounts')+'.</div>';return;}
       root.innerHTML=rows.map(row=>'<div class="findai-settings-person"><div class="findai-settings-person-avatar">'+(row.avatarUrl?'<img src="'+escapeAttr(row.avatarUrl)+'" alt="">':findaiDefaultAvatarSvg())+'</div><div class="findai-settings-person-copy"><b>'+escapeHTML(row.username)+'</b><span>'+escapeHTML(row.displayName||'')+'</span></div>'+(kind==='follow-requests'?'<span><button class="primary" onclick="findaiFollowRequestAction(\''+escapeAttr(row.username)+'\',\'approve\')">Approve</button> <button onclick="findaiFollowRequestAction(\''+escapeAttr(row.username)+'\',\'decline\')">Delete</button></span>':'<button onclick="findaiRemoveControl(\''+kind+'\',\''+escapeAttr(row.username)+'\')">'+(kind==='blocked'?'Unblock':'Unmute')+'</button>')+'</div>').join('');
-    }catch(e){const root=document.getElementById('findaiControlList');if(root)root.innerHTML='<div class="findai-settings-list-empty">'+escapeHTML(e.message||'Could not load this list')+'</div>';}
+    }catch(e){if(root?.isConnected)root.innerHTML='<div class="findai-settings-list-empty">'+escapeHTML(e.message||'Could not load this list')+'</div>';}
   }
-  window.findaiRemoveControl=async function(kind,username){await marketplaceFetch('/social/controls',{method:'DELETE',body:JSON.stringify({kind,username})});findaiOpenSettingsPane(kind);};
+  window.findaiRemoveControl=async function(kind,username){
+    const root=document.getElementById('findaiControlList'),sheet=root?.closest('.app-theme-sheet'),session=marketplaceSession();
+    if(!root||root.dataset.removingControl==='true')return;
+    if(kind==='blocked'&&!confirm('Are you sure you want to unblock @'+username+'?\nThey will be able to follow and message you again.'))return;
+    root.dataset.removingControl='true';root.querySelectorAll('button').forEach(button=>button.disabled=true);
+    try{
+      await marketplaceFetch('/social/controls',{method:'DELETE',body:JSON.stringify({kind,username})});
+      if(session!==marketplaceSession())return;
+      if(kind==='blocked')document.dispatchEvent(new Event('wishwave-social-block-changed'));
+      // Refresh this list in place; opening it again adds itself to Back history.
+      if(root.isConnected&&document.getElementById('appThemeOverlay')?.classList.contains('show'))await renderSocialControlPane(kind,sheet);
+    }catch(e){if(session===marketplaceSession())toast(e.message||'Could not update this account');}
+    finally{delete root.dataset.removingControl;root.querySelectorAll('button').forEach(button=>button.disabled=false);}
+  };
   window.findaiFollowRequestAction=async function(username,action){await marketplaceFetch('/social/follow-requests/'+encodeURIComponent(username),{method:'PATCH',body:JSON.stringify({action})});findaiOpenSettingsPane('follow-requests');};
 
 
@@ -36439,3 +36453,4 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-chat-offers.js?v=372"></script>
 </body>
 </html>
+
