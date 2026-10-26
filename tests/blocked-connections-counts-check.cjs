@@ -4,7 +4,8 @@ const access=source.slice(source.indexOf('async function wishwaveRestrictedProfi
 const route=source.slice(source.indexOf('      const connectionsMatch=url.pathname.match('),source.indexOf('      // Header count does not need follower profiles'));
 let viewerBlockedTarget=false,targetBlockedViewer=false,privateAccount=false;
 const context=vm.createContext({URL,requireUser:async()=>({email:'viewer@test'}),mpEnsureSchema:async()=>{},findaiProfileEnsureSchema:async()=>{},findaiSocialControlsEnsureSchema:async()=>{},findaiUsernameNormalize:s=>s,findaiEmailForUsername:async(_env,name)=>name==='missing'?null:'target@test',findaiControlExists:async(_env,owner,target)=>owner==='viewer@test'&&target==='target@test'?viewerBlockedTarget:targetBlockedViewer,findaiAppPrefsRead:async()=>({privateAccount}),jsonResp:(body,status=200)=>({body,status})});
-vm.runInContext(access+'\nasync function handle(request,env){const url=new URL(request.url);'+route+'}',context);
+const identity=source.slice(source.indexOf('async function findaiEmailForSocialIdentity('),source.indexOf('async function findaiUsernameForEmail('));
+vm.runInContext(identity+access+'\nasync function handle(request,env){const url=new URL(request.url);'+route+'}',context);
 const env={DB:{prepare(sql){return {bind(){return this},async first(){return sql.includes('AS followers')?{followers:1,following:4}:null},async all(){return {results:[]}}};}}};
 const get=(path='nick?counts=1')=>context.handle({method:'GET',url:'https://test/social/connections/'+path},env);
 (async()=>{

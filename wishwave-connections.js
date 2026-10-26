@@ -3,22 +3,37 @@
  let state=null,generation=0,countEpoch=0,searchTimer;const counts=new Map(),lastFollowing=new Map(),pending=new Map(),rootOwners=new WeakMap();
  const account=()=>String(getAccountProfile()?.email||'').toLowerCase()+'|'+marketplaceSession();
  const esc=s=>escapeHTML(String(s||''));
+ const ownCacheKey=()=>{const email=String(getAccountProfile()?.email||'').trim().toLowerCase();return email?'wishwave-connection-counts-v375:'+encodeURIComponent(email):'';};
+ const validCounts=data=>data&&['followers','following'].every(k=>data[k]!=null&&Number.isSafeInteger(Number(data[k]))&&Number(data[k])>=0);
+ function cachedOwn(){try{const key=ownCacheKey(),data=key?JSON.parse(localStorage.getItem(key)||'null'):null;return validCounts(data)?data:null;}catch(_){return null;}}
+ function saveCounts(key,data,owner){
+  if(!validCounts(data)||owner!==account())return;
+  counts.set(owner+'|'+key,{data,at:Date.now()});lastFollowing.set(owner+'|'+key,Number(data.following));
+  if(key==='@me'){const storage=ownCacheKey();if(storage)try{localStorage.setItem(storage,JSON.stringify({followers:Number(data.followers),following:Number(data.following)}));}catch(_){}window.wishwaveApplyOwnFollowerCount?.(data.followers);}
+ }
+ function fetchCounts(key,force=false){
+  const owner=account(),epoch=countEpoch,cacheKey=owner+'|'+key,saved=counts.get(cacheKey);
+  if(!marketplaceSession())return Promise.reject(Error('Sign in to view connections'));
+  if(!force&&saved&&Date.now()-saved.at<15000)return Promise.resolve(saved.data);
+  if(pending.has(cacheKey))return pending.get(cacheKey);
+  const request=Promise.resolve(marketplaceFetch('/social/connections/'+encodeURIComponent(key)+'?counts=1',{method:'GET'})).then(data=>{if(epoch!==countEpoch||owner!==account())throw Error('The account or connections changed');if(!validCounts(data))throw Error('Could not load connection counts');saveCounts(key,data,owner);return data;}).finally(()=>{if(pending.get(cacheKey)===request)pending.delete(cacheKey);});
+  pending.set(cacheKey,request);return request;
+ }
+ window.wishwaveOwnConnectionCounts=force=>fetchCounts('@me',!!force);
  function stats(root,key){
   if(!root)return;root.dataset.connectionsOwner=key;const buttons=[...root.querySelectorAll(':scope > button')];if(buttons.length!==3)return;
-  let followers=buttons.find(b=>b.dataset.connectionKind==='followers'||b.querySelector('#socialFollowersValue,#wishwavePublicFollowerCount'))||buttons.find(b=>b.textContent.includes('Followers'));
-  let following=buttons.find(b=>b.dataset.connectionKind==='following')||buttons.find(b=>b.textContent.includes('Sold'));
+  const followers=buttons.find(b=>b.dataset.connectionKind==='followers'||b.querySelector('#socialFollowersValue,#wishwavePublicFollowerCount'))||buttons.find(b=>b.textContent.includes('Followers'));
+  const following=buttons.find(b=>b.dataset.connectionKind==='following')||buttons.find(b=>b.textContent.includes('Sold'));
   if(!followers||!following)return;
   followers.dataset.connectionKind='followers';following.dataset.connectionKind='following';
   if(rootOwners.get(root)!==account()){rootOwners.set(root,account());delete following.dataset.connectionsReady;}
-  const cacheKey=account()+'|'+key;
+  const owner=account(),epoch=countEpoch,cacheKey=owner+'|'+key;
   const label=following.querySelector('span');if(label)label.textContent='Following';const number=following.querySelector('b');if(number){if(number.id==='socialSoldCount')number.id='socialFollowingValue';if(!following.dataset.connectionsReady)number.textContent=lastFollowing.has(cacheKey)?profileMetricCompact(lastFollowing.get(cacheKey)):marketplaceSession()?'…':'0';}
   root.append(followers,following);
-  [followers,following].forEach(b=>{b.removeAttribute('onclick');b.onclick=()=>window.wishwaveOpenConnections(key,b.dataset.connectionKind);b.setAttribute('aria-label',b.dataset.connectionKind==='followers'?'View followers':'View following');});
-  if(!marketplaceSession())return;const owner=account(),epoch=countEpoch,saved=counts.get(cacheKey);
-  function paint(data){if(epoch!==countEpoch||owner!==account()||!root.isConnected||root.dataset.connectionsOwner!==key)return;for(const kind of ['followers','following']){const button=root.querySelector('[data-connection-kind="'+kind+'"]');if(button){button.querySelector('b').textContent=profileMetricCompact(Math.max(0,Number(data[kind])||0));button.dataset.connectionsReady='1';}}}
-  if(saved){paint(saved.data);if(Date.now()-saved.at<15000)return;}
-  if(!pending.has(cacheKey))pending.set(cacheKey,marketplaceFetch('/social/connections/'+encodeURIComponent(key)+'?counts=1',{method:'GET'}).then(data=>{if(epoch===countEpoch&&owner===account()){counts.set(cacheKey,{data,at:Date.now()});lastFollowing.set(cacheKey,Math.max(0,Number(data.following)||0));}return data;}).finally(()=>pending.delete(cacheKey)));
-  pending.get(cacheKey).then(paint).catch(()=>{/* Keep the last known count while a retry is unavailable. */});
+  [followers,following].forEach(button=>{button.removeAttribute('onclick');button.onclick=()=>window.wishwaveOpenConnections(key,button.dataset.connectionKind);button.setAttribute('aria-label',button.dataset.connectionKind==='followers'?'View followers':'View following');});
+  function paint(data){if(!validCounts(data)||epoch!==countEpoch||owner!==account()||!root.isConnected||root.dataset.connectionsOwner!==key)return;for(const kind of ['followers','following']){const button=root.querySelector('[data-connection-kind="'+kind+'"]');if(button){const value=button.querySelector('b');value.textContent=profileMetricCompact(Number(data[kind]));value.classList.remove('findai-followers-pending');value.removeAttribute('aria-label');button.dataset.connectionsReady='1';}}}
+  const saved=counts.get(cacheKey);if(saved)paint(saved.data);else if(key==='@me'){const pair=cachedOwn();if(pair)paint(pair);else for(const button of [followers,following]){const value=button.querySelector('b');value.textContent=marketplaceSession()?'…':'0';value.classList.remove('findai-followers-pending');}}
+  if(marketplaceSession())fetchCounts(key).then(paint).catch(()=>{/* Preserve the saved pair during a temporary failure. */});
  }
 
  // Legacy profile swipe snapshots can reattach older tab nodes. Repair labels
@@ -45,7 +60,7 @@
   if(repairQueued)return;repairQueued=true;
   (window.requestAnimationFrame||window.setTimeout)(()=>{repairQueued=false;repairProfileTabs();},0);
  }
- function decorate(){stats(document.querySelector('#profileSignedIn .social-profile-stats'),'@me');const username=wishwavePublicSellerData?.seller?.username;if(username)stats(document.querySelector('#wishwavePublicProfileBody .social-profile-stats'),username);repairProfileTabs();}
+ function decorate(){stats(document.querySelector('#profileSignedIn .social-profile-stats'),'@me');const seller=wishwavePublicSellerData?.seller,key=seller?.username||(seller?.id?'seller:'+seller.id:'');if(key)stats(document.querySelector('#wishwavePublicProfileBody .social-profile-stats'),key);repairProfileTabs();}
  const profileRoot=document.getElementById('profile');
  if(profileRoot)new MutationObserver(records=>{
   if(records.some(record=>record.target===profileRoot||record.target.matches?.('#profileSignedIn,#profileSignedOut')||record.target.closest?.('.social-profile-tabs')||[...record.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('.social-profile-tabs')||n.querySelector?.('.social-profile-tabs')))))scheduleRepair();

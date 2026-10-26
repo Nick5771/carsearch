@@ -17608,6 +17608,15 @@ async function findaiEmailForUsername(env, username) {
   const row = await env.DB.prepare(`SELECT user_email FROM findai_profiles WHERE lower(username)=lower(?) LIMIT 1`).bind(u).first();
   return String(row && row.user_email || '').trim().toLowerCase();
 }
+// Seller IDs remain usable for accounts created before usernames were required.
+async function findaiEmailForSocialIdentity(env, value) {
+  const key=String(value||'').trim();
+  if(!key.startsWith('seller:'))return findaiEmailForUsername(env,key);
+  const id=key.slice(7);if(!id||!env.DB)return '';
+  await mpEnsureSchema(env);
+  const row=await env.DB.prepare(`SELECT user_email FROM marketplace_sellers WHERE id=? LIMIT 1`).bind(id).first();
+  return String(row?.user_email||'').trim().toLowerCase();
+}
 async function findaiUsernameForEmail(env, email) {
   await findaiProfileEnsureSchema(env);
   const row = await env.DB.prepare(`SELECT username,display_name,avatar_url FROM findai_profiles WHERE lower(user_email)=lower(?) LIMIT 1`)
@@ -18351,10 +18360,11 @@ async function findaiSafetyTarget(env,reporterEmail,targetType,targetId,contextI
   }
 
   if(type==='user'){
-    const username=findaiUsernameNormalize(id.replace(/^@+/,''));
-    const row=await env.DB.prepare(`SELECT user_email,username,display_name,bio FROM findai_profiles WHERE lower(username)=lower(?) LIMIT 1`).bind(username).first();
-    if(!row)throw Object.assign(new Error('Profile not found'),{status:404});
-    return {type,id:username,context:'',ownerEmail:String(row.user_email||'').toLowerCase(),username:String(row.username||''),excerpt:mpCleanText((row.display_name||'')+' '+(row.bio||''),500)};
+    const username=String(id||'').replace(/^@+/,'').trim();
+    const email=await findaiEmailForSocialIdentity(env,username);
+    if(!email)throw Object.assign(new Error('Profile not found'),{status:404});
+    const row=await env.DB.prepare(`SELECT username,display_name,bio FROM findai_profiles WHERE lower(user_email)=lower(?) LIMIT 1`).bind(email).first()||{};
+    return {type,id:username,context:'',ownerEmail:email,username:String(row.username||''),excerpt:mpCleanText((row.display_name||'')+' '+(row.bio||''),500)};
   }
 
   if(type==='listing'){
@@ -23806,26 +23816,28 @@ export default {
       // ── FindAI privacy controls / blocks / mutes ───────────────────────
       if (url.pathname === '/social/controls' && request.method === 'GET') {
         const auth = await requireUser(request, env); if (auth.fail) return auth.fail;
-        await findaiSocialControlsEnsureSchema(env); await findaiProfileEnsureSchema(env);
+        await findaiSocialControlsEnsureSchema(env); await findaiProfileEnsureSchema(env); await mpEnsureSchema(env);
         const kind = String(url.searchParams.get('kind')||'blocked').toLowerCase();
         if (!['blocked','muted'].includes(kind)) return jsonResp({ error:'Invalid control type' },400,{ 'Cache-Control':'no-store' });
-        const rows = await env.DB.prepare(`SELECT c.target_email,p.username,p.display_name,p.avatar_url,c.created_at
+        const rows = await env.DB.prepare(`SELECT c.target_email,p.username,p.display_name,p.avatar_url,c.created_at,
+            (SELECT id FROM marketplace_sellers s WHERE lower(s.user_email)=lower(c.target_email) LIMIT 1) AS seller_id,
+            (SELECT display_name FROM marketplace_sellers s WHERE lower(s.user_email)=lower(c.target_email) LIMIT 1) AS seller_name
           FROM findai_user_controls c
           LEFT JOIN findai_profiles p ON lower(p.user_email)=lower(c.target_email)
           WHERE lower(c.owner_email)=lower(?) AND c.kind=? ORDER BY c.created_at DESC LIMIT 500`)
           .bind(auth.email,kind).all();
         return jsonResp({ kind, accounts:(rows.results||[]).map(r=>({
-          username:String(r.username||''),displayName:String(r.display_name||r.username||'FindAI user'),
+          username:String(r.username||''),controlKey:String(r.username||(r.seller_id?'seller:'+r.seller_id:'')),displayName:String(r.display_name||r.seller_name||r.username||'WishWave user'),
           avatarUrl:String(r.avatar_url||''),createdAt:String(r.created_at||'')
-        })).filter(x=>x.username) },200,{ 'Cache-Control':'no-store' });
+        })).filter(x=>x.controlKey) },200,{ 'Cache-Control':'no-store' });
       }
       if (url.pathname === '/social/controls' && (request.method === 'POST' || request.method === 'DELETE')) {
         const auth = await requireUser(request, env); if (auth.fail) return auth.fail;
         await findaiSocialControlsEnsureSchema(env); await findaiProfileEnsureSchema(env); await mpEnsureSchema(env);
         let body={}; try{body=await request.json();}catch(_){}
-        const kind=String(body.kind||'').toLowerCase(),username=findaiUsernameNormalize(body.username||'');
+        const kind=String(body.kind||'').toLowerCase(),username=String(body.username||'').trim();
         if(!['blocked','muted'].includes(kind)||!username)return jsonResp({ error:'Invalid request' },400,{ 'Cache-Control':'no-store' });
-        const targetEmail=await findaiEmailForUsername(env,username);
+        const targetEmail=await findaiEmailForSocialIdentity(env,username);
         if(!targetEmail)return jsonResp({ error:'Profile not found' },404,{ 'Cache-Control':'no-store' });
         if(targetEmail===auth.email)return jsonResp({ error:'You cannot '+kind+' yourself' },400,{ 'Cache-Control':'no-store' });
         if(request.method==='POST'){
@@ -23847,7 +23859,7 @@ export default {
       }
       if (url.pathname === '/social/relationship' && request.method === 'GET') {
         const auth = await requireUser(request, env); if (auth.fail) return auth.fail;
-        const targetEmail=await findaiEmailForUsername(env,url.searchParams.get('username')||'');
+        const targetEmail=await findaiEmailForSocialIdentity(env,url.searchParams.get('username')||'');
         if(!targetEmail)return jsonResp({ error:'Profile not found' },404,{ 'Cache-Control':'no-store' });
         return jsonResp({
           blocked:await findaiControlExists(env,auth.email,targetEmail,'blocked'),
@@ -23866,15 +23878,15 @@ export default {
         if(!env.DB)return jsonResp({error:'Database unavailable'},503,{ 'Cache-Control':'no-store' });
         try{
           await mpEnsureSchema(env);await findaiProfileEnsureSchema(env);await findaiSocialControlsEnsureSchema(env);
-          const username=findaiUsernameNormalize(decodeURIComponent(findaiFollowUserMatch[1]||''));
-          const targetEmail=await findaiEmailForUsername(env,username);
+          const username=decodeURIComponent(findaiFollowUserMatch[1]||'').trim();
+          const targetEmail=await findaiEmailForSocialIdentity(env,username);
           if(!targetEmail)return jsonResp({error:'Profile not found'},404,{ 'Cache-Control':'no-store' });
           if(targetEmail===String(auth.email||'').toLowerCase())return jsonResp({error:'You cannot follow yourself'},400,{ 'Cache-Control':'no-store' });
           if(await findaiEitherBlocked(env,auth.email,targetEmail))return jsonResp({error:'Profile not found'},404,{ 'Cache-Control':'no-store' });
 
           const targetProfile=await findaiUsernameForEmail(env,targetEmail);
           const prefs=await findaiAppPrefsRead(env,targetEmail);
-          const seller=await mpEnsureSeller(env,targetEmail,String(targetProfile&&targetProfile.display_name||username||'FindAI user'),String(prefs.region||'AU'));
+          const seller=username.startsWith('seller:')?await env.DB.prepare(`SELECT id FROM marketplace_sellers WHERE id=? AND lower(user_email)=lower(?) LIMIT 1`).bind(username.slice(7),targetEmail).first():await mpEnsureSeller(env,targetEmail,String(targetProfile&&targetProfile.display_name||username||'FindAI user'),String(prefs.region||'AU'));
           const sellerId=String(seller&&seller.id||'');
           if(!sellerId)return jsonResp({error:'Profile unavailable'},404,{ 'Cache-Control':'no-store' });
 
@@ -24058,7 +24070,7 @@ export default {
         try{
           await Promise.all([mpEnsureSchema(env),findaiProfileEnsureSchema(env),findaiSocialControlsEnsureSchema(env)]);
           const name=decodeURIComponent(connectionsMatch[1]);
-          const target=name==='@me'?String(auth.email).toLowerCase():await findaiEmailForUsername(env,findaiUsernameNormalize(name));
+          const target=name==='@me'?String(auth.email).toLowerCase():await findaiEmailForSocialIdentity(env,name);
           if(!target)return jsonResp({error:'Profile unavailable'},404,{'Cache-Control':'no-store'});
           const access=await wishwaveRestrictedProfile(env,auth.email,target);
           if(access.restricted)return jsonResp({error:'Profile unavailable'},404,{'Cache-Control':'no-store'});

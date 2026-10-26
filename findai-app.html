@@ -18969,15 +18969,15 @@ html.findai-light .findai-settings-delete-box input{background:#fff;color:#111;b
       const rows=kind==='follow-requests'?(data.requests||[]):(data.accounts||[]);
       if(!root?.isConnected)return;
       if(!rows.length){root.innerHTML='<div class="findai-settings-list-empty">No '+(kind==='follow-requests'?'follow requests':kind+' accounts')+'.</div>';return;}
-      root.innerHTML=rows.map(row=>'<div class="findai-settings-person"><div class="findai-settings-person-avatar">'+(row.avatarUrl?'<img src="'+escapeAttr(row.avatarUrl)+'" alt="">':findaiDefaultAvatarSvg())+'</div><div class="findai-settings-person-copy"><b>'+escapeHTML(row.username)+'</b><span>'+escapeHTML(row.displayName||'')+'</span></div>'+(kind==='follow-requests'?'<span><button class="primary" onclick="findaiFollowRequestAction(\''+escapeAttr(row.username)+'\',\'approve\')">Approve</button> <button onclick="findaiFollowRequestAction(\''+escapeAttr(row.username)+'\',\'decline\')">Delete</button></span>':'<button onclick="findaiRemoveControl(\''+kind+'\',\''+escapeAttr(row.username)+'\')">'+(kind==='blocked'?'Unblock':'Unmute')+'</button>')+'</div>').join('');
+      root.innerHTML=rows.map(row=>'<div class="findai-settings-person"><div class="findai-settings-person-avatar">'+(row.avatarUrl?'<img src="'+escapeAttr(row.avatarUrl)+'" alt="">':findaiDefaultAvatarSvg())+'</div><div class="findai-settings-person-copy"><b>'+escapeHTML(row.username||row.displayName||'WishWave user')+'</b><span>'+escapeHTML(row.username?(row.displayName||''):'')+'</span></div>'+(kind==='follow-requests'?'<span><button class="primary" onclick="findaiFollowRequestAction(\''+escapeAttr(row.username)+'\',\'approve\')">Approve</button> <button onclick="findaiFollowRequestAction(\''+escapeAttr(row.username)+'\',\'decline\')">Delete</button></span>':'<button data-control-key="'+escapeAttr(row.controlKey||row.username)+'" data-control-name="'+escapeAttr(row.displayName||row.username||'this account')+'" onclick="findaiRemoveControl(\''+kind+'\',this.dataset.controlKey,this.dataset.controlName)">'+(kind==='blocked'?'Unblock':'Unmute')+'</button>')+'</div>').join('');
     }catch(e){if(root?.isConnected)root.innerHTML='<div class="findai-settings-list-empty">'+escapeHTML(e.message||'Could not load this list')+'</div>';}
   }
-  window.findaiRemoveControl=async function(kind,username){
+  window.findaiRemoveControl=async function(kind,username,displayName){
     const root=document.getElementById('findaiControlList'),sheet=root?.closest('.app-theme-sheet'),session=marketplaceSession();
     if(!root||root.dataset.removingControl==='true'||root.dataset.confirmingControl==='true')return;
     if(kind==='blocked'){
       root.dataset.confirmingControl='true';let confirmed=false;
-      try{confirmed=await window.wishwaveConfirmUnblock(username);}finally{delete root.dataset.confirmingControl;}
+      try{confirmed=await window.wishwaveConfirmUnblock(username,username.startsWith('seller:')?displayName:undefined);}finally{delete root.dataset.confirmingControl;}
       if(!confirmed)return;
     }
     if(session!==marketplaceSession()||!root.isConnected)return;
@@ -19071,7 +19071,7 @@ html.findai-light .findai-settings-delete-box input{background:#fff;color:#111;b
     const profile=wishwavePublicSellerData;if(!profile)return;
     const seller=profile.seller||{},viewer=profile.viewer||{};
     if(viewer.isSeller||viewer._followBusy)return;if(!viewer.signedIn){openLogin();return;}
-    const username=String(seller.username||'').replace(/^@+/,'').trim();if(!username)return;
+    const username=String(seller.username||(seller.id?'seller:'+seller.id:'')).replace(/^@+/,'').trim();if(!username){toast('Could not identify this account. Please reopen the profile.');return;}
     const button=document.getElementById('wishwavePublicFollowButton');
     const wasFollowing=!!viewer.isFollowing,wasPending=!!viewer.pending,countBefore=Math.max(0,Number(seller.followerCount)||0);
     const removing=wasFollowing||wasPending;
@@ -22663,9 +22663,9 @@ html.findai-light .nav-messages-badge{border-color:#f7f7f8!important}
     if(!force&&followerReadyOwner===owner&&followerReady&&Date.now()-followerCountAt<15000)return;
     const promise=(async()=>{
       try{
-        const data=await marketplaceFetch('/social/followers/count',{method:'GET'});
-        if(session!==marketplaceSession()||owner!==followerIdentity()||data?.count==null||!Number.isFinite(Number(data.count)))return;
-        window.wishwaveApplyOwnFollowerCount(data.count);
+        const data=await (window.wishwaveOwnConnectionCounts?window.wishwaveOwnConnectionCounts(force):marketplaceFetch('/social/connections/%40me?counts=1',{method:'GET'}));
+        if(session!==marketplaceSession()||owner!==followerIdentity()||data?.followers==null||!Number.isFinite(Number(data.followers)))return;
+        window.wishwaveApplyOwnFollowerCount(data.followers);
       }catch(_){}
     })();
     const request={owner,session,promise};followerCountRequest=request;
@@ -36322,9 +36322,9 @@ html body #profileSignedOut [data-guest-likes]{display:none!important;}
 })();
 </script>
 <link rel="stylesheet" href="wishwave-chat-polish.css?v=374">
-<script src="wishwave-chat-polish.js?v=374"></script>
+<script src="wishwave-chat-polish.js?v=375"></script>
 <link rel="stylesheet" href="wishwave-connections.css?v=351">
-<script src="wishwave-connections.js?v=374"></script>
+<script src="wishwave-connections.js?v=375"></script>
 <script src="wishwave-auth.js?v=316"></script>
 
 <style id="wishwave-reel-heart-polish-v332">

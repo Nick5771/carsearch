@@ -3,9 +3,10 @@
  'use strict';
  const cache=new Map(),inflight=new Map(),profileAccess=new Map();let owner=marketplaceSession(),menu=null;
  const profileKey=u=>String(u||'').replace(/^@+/,'').toLowerCase().trim();
+ const identity=s=>String(s?.username||(s?.id?'seller:'+s.id:''));
  function accessFor(u){return profileAccess.get(profileKey(u));}
  function rememberAccess(data){
-  const username=profileKey(data?.seller?.username||data?.profile?.username);
+  const username=profileKey(identity(data?.seller)||data?.profile?.username);
   if(username&&data?.viewer){
    const v=data.viewer;
    profileAccess.set(username,{restricted:!!v.restricted,blockedByViewer:!!(v.blockedByViewer??v.blocked),blockedViewer:!!v.blockedViewer});
@@ -94,14 +95,14 @@
  function showSheet(context){
   menu=context;context.confirmingBlock=false;const avatar=context.avatar?'<img src="'+escapeAttr(context.avatar)+'" alt="">':findaiDefaultAvatarSvg();
   const rows=context.kind==='chat'?row('profile','View profile')+row('mute',context.muted?'Unmute conversation':'Mute conversation')+row('block',!context.blockReady?'Checking block status…':context.blocked?'Unblock user':'Block user',true,!context.blockReady)+row('report','Report conversation',true):row('mute',context.muted?'Unmute':'Mute')+row('block',!context.blockReady?'Checking block status…':context.blocked?'Unblock':'Block',true,!context.blockReady)+row('report','Report account',true);
-  openAppMpSheet(context.kind==='chat'?'Conversation':'Profile options','<div class="ww-chat-sheet-handle"></div><div class="ww-chat-sheet-identity">'+(context.kind==='chat'?'<span class="ww-chat-sheet-avatar">'+avatar+'</span>':'')+'<div><b>'+escapeHTML(context.kind==='chat'?context.name:'Profile options')+'</b><span>'+escapeHTML(context.kind==='chat'?'Conversation':'@'+context.username)+'</span></div></div><div class="ww-chat-action-group">'+rows+'</div><button type="button" class="ww-chat-cancel" data-chat-action="cancel">Cancel</button>');
+  openAppMpSheet(context.kind==='chat'?'Conversation':'Profile options','<div class="ww-chat-sheet-handle"></div><div class="ww-chat-sheet-identity">'+(context.kind==='chat'?'<span class="ww-chat-sheet-avatar">'+avatar+'</span>':'')+'<div><b>'+escapeHTML(context.kind==='chat'?context.name:'Profile options')+'</b><span>'+escapeHTML(context.kind==='chat'?'Conversation':(context.username.startsWith('seller:')?context.name:'@'+context.username))+'</span></div></div><div class="ww-chat-action-group">'+rows+'</div><button type="button" class="ww-chat-cancel" data-chat-action="cancel">Cancel</button>');
   document.getElementById('appMpSheetBg')?.classList.add('ww-chat-action-sheet');
  }
  // Use an app dialog so unblock confirmation works in every installed iOS shell.
- window.wishwaveConfirmUnblock=function(username){
+ window.wishwaveConfirmUnblock=function(username,displayName){
   return new Promise(resolve=>{
    const dialog=document.createElement('dialog');dialog.className='ww-unblock-dialog';dialog.setAttribute('role','alertdialog');dialog.setAttribute('aria-labelledby','wwUnblockTitle');
-   dialog.innerHTML='<div class="ww-chat-block-confirm"><h2 id="wwUnblockTitle">Unblock @'+escapeHTML(String(username))+'?</h2><p>Are you sure you want to unblock this account? They will be able to follow and message you again.</p><div class="ww-chat-confirm-actions"><button type="button" data-cancel>Cancel</button><button type="button" data-confirm>Unblock</button></div></div>';
+   dialog.innerHTML='<div class="ww-chat-block-confirm"><h2 id="wwUnblockTitle">Unblock '+escapeHTML(displayName||('@'+String(username)))+'?</h2><p>Are you sure you want to unblock this account? They will be able to follow and message you again.</p><div class="ww-chat-confirm-actions"><button type="button" data-cancel>Cancel</button><button type="button" data-confirm>Unblock</button></div></div>';
    let done=false;const finish=value=>{if(done)return;done=true;dialog.close();dialog.remove();resolve(value);};
    dialog.querySelector('[data-cancel]').onclick=()=>finish(false);dialog.querySelector('[data-confirm]').onclick=()=>finish(true);
    dialog.oncancel=event=>{event.preventDefault();finish(false);};dialog.onclose=()=>{if(!done)finish(false);};
@@ -133,8 +134,8 @@
   marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(context.id)+'/mute',{method:'GET'}).then(data=>{if(menu===context&&context.session===marketplaceSession()&&!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show')){context.muted=!!data.muted;const label=document.querySelector('.ww-chat-action[data-chat-action="mute"] span');if(label)label.textContent=context.muted?'Unmute conversation':'Mute conversation';}}).catch(()=>{});
  };
  window.openFindAIProfileActions=function(){
-  if(!marketplaceSession()){openLogin();return;}const s=wishwavePublicSellerData?.seller;if(!s?.username){toast('Profile unavailable');return;}const context={kind:'profile',username:s.username,name:s.displayName||s.username,muted:false,blocked:!!accessFor(s.username)?.blockedByViewer,blockReady:false,session:scope()};showSheet(context);
-  marketplaceFetch('/social/relationship?username='+encodeURIComponent(s.username),{method:'GET'}).then(data=>{if(menu===context&&context.session===marketplaceSession()&&!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show')){Object.assign(context,{muted:!!data.muted,blocked:!!(data.blockedByViewer??data.blocked),blockReady:true});showSheet(context);}}).catch(()=>{});
+  if(!marketplaceSession()){openLogin();return;}const s=wishwavePublicSellerData?.seller,key=identity(s);if(!key){toast('Could not identify this account. Please reopen the profile.');return;}const context={kind:'profile',username:key,name:s.displayName||s.username||'this account',muted:false,blocked:!!accessFor(key)?.blockedByViewer,blockReady:false,session:scope()};showSheet(context);
+  marketplaceFetch('/social/relationship?username='+encodeURIComponent(key),{method:'GET'}).then(data=>{if(menu===context&&context.session===marketplaceSession()&&!context.confirmingBlock&&document.getElementById('appMpSheetBg')?.classList.contains('show')){Object.assign(context,{muted:!!data.muted,blocked:!!(data.blockedByViewer??data.blocked),blockReady:true});showSheet(context);}}).catch(()=>{});
  };
  window.addEventListener('click',async e=>{
   const button=e.target.closest?.('#appMpSheetBg.ww-chat-action-sheet [data-chat-action]');if(!button)return;e.preventDefault();e.stopPropagation();let action=button.dataset.chatAction;const context=menu;if(action==='cancel'){closeAppMpSheet();return;}if(!context||context.session!==marketplaceSession())return;
@@ -144,7 +145,7 @@
   if(action==='block'){
    if(!context.blockReady||context.confirmingBlock)return;
    if(!context.blocked){showBlockConfirmation(context);return;}
-   context.confirmingBlock=true;const confirmed=await window.wishwaveConfirmUnblock(context.username||context.name);context.confirmingBlock=false;
+   context.confirmingBlock=true;const confirmed=await window.wishwaveConfirmUnblock(context.username,context.name);context.confirmingBlock=false;
    if(!confirmed||menu!==context||context.session!==marketplaceSession())return;
   }
   if(action==='confirm-block'){if(!context.confirmingBlock)return;action='block';}
@@ -165,14 +166,14 @@
     if(newlyBlocked)window.findaiNotificationState?.removeActor?.(context.username);
    }
    closeAppMpSheet();
-   toast(action==='mute'?(context.muted?'Notifications unmuted':'Notifications muted'):('@'+profileKey(context.username)+(context.blocked?' unblocked':' blocked')));
+   toast(action==='mute'?(context.muted?'Notifications unmuted':'Notifications muted'):((context.username.startsWith('seller:')?context.name:'@'+profileKey(context.username))+(context.blocked?' unblocked':' blocked')));
   }catch(error){if(context.session===marketplaceSession()){toast(error.message||'Could not update');}}finally{button.disabled=false;}
  },true);
 
  // Only the blocked viewer gets the restricted shell; the blocker keeps the profile.
  function syncBlockedFollow(){
   const button=document.getElementById('wishwavePublicFollowButton');
-  const access=accessFor(wishwavePublicSellerData?.seller?.username)||wishwavePublicSellerData?.viewer||{};
+  const access=accessFor(identity(wishwavePublicSellerData?.seller))||wishwavePublicSellerData?.viewer||{};
   if(button&&(access.blockedByViewer||access.blocked)){
    button.textContent='Follow';button.classList.remove('following');button.disabled=false;
    button.setAttribute('aria-busy','false');
@@ -180,7 +181,7 @@
  }
  const followPublic=window.toggleWishWavePublicSellerFollow;
  if(followPublic)window.toggleWishWavePublicSellerFollow=function(){
-  const data=wishwavePublicSellerData,access=accessFor(data?.seller?.username)||data?.viewer||{};
+  const data=wishwavePublicSellerData,access=accessFor(identity(data?.seller))||data?.viewer||{};
   if(access.blockedByViewer||access.blocked||document.getElementById('wishwavePublicProfilePage')?.classList.contains('ww-blocked-by-me')){toast('Unblock user to follow them');return;}
   return followPublic.apply(this,arguments);
  };
@@ -197,7 +198,7 @@
  }
  const renderPublic=window.renderWishWavePublicProfile;
  window.renderWishWavePublicProfile=function(){
-  const data=wishwavePublicSellerData,username=data?.seller?.username||'';
+  const data=wishwavePublicSellerData,username=identity(data?.seller);
   const access=accessFor(username)||data?.viewer||{};
   const restricted=!!access.restricted,blockedByMe=!!access.blockedByViewer;
   const page=document.getElementById('wishwavePublicProfilePage');
@@ -205,13 +206,13 @@
   page?.classList.toggle('ww-blocked-by-me',blockedByMe&&!restricted);
   if(!restricted){const result=renderPublic.apply(this,arguments);styleMenuButtons(page);syncBlockedFollow();return result;}
   const handle=document.getElementById('wishwavePublicHandle');
-  if(handle)handle.textContent=username;
+  if(handle)handle.textContent=data?.seller?.username||data?.seller?.displayName||'Profile';
   const root=document.getElementById('wishwavePublicProfileBody');
   if(root)root.innerHTML='<div class="ww-restricted-profile-message" role="status">Profile not found</div>';
  };
  window.wishwaveBlockedProfileUpdated=async function(username,blocked){
   const current=wishwavePublicSellerData;
-  if(!current||profileKey(current.seller?.username)!==profileKey(username))return;
+  if(!current||profileKey(identity(current.seller))!==profileKey(username))return;
   if(blocked){
    const viewer=current.viewer||(current.viewer={}),wasFollowing=!!viewer.isFollowing;
    viewer.blockedByViewer=true;viewer.blocked=true;viewer.isFollowing=false;viewer.pending=false;
@@ -226,8 +227,9 @@
   // A later reciprocal block may still exist; always refresh from the server.
   const session=marketplaceSession(),key=profileKey(username);
   try{
-   const response=await marketplaceFetch('/profile/public/'+encodeURIComponent(username),{method:'GET'});
+   const response=await marketplaceFetch(username.startsWith('seller:')?'/marketplace/sellers/'+encodeURIComponent(username.slice(7))+'/profile':'/profile/public/'+encodeURIComponent(username),{method:'GET'});
    if(session!==marketplaceSession()||wishwavePublicSellerData!==current)return;
+   if(response.seller){current.seller={...current.seller,...response.seller};current.listings=Array.isArray(response.listings)?response.listings:[];current.viewer={...current.viewer,...response.viewer};window.renderWishWavePublicProfile();return;}
    const profile=response.profile||{},v=response.viewer||{};
    current.seller={...current.seller,id:String(response.sellerId||current.seller.id||''),displayName:String(profile.displayName||username),avatarUrl:String(profile.avatarUrl||''),bio:String(profile.bio||''),location:String(profile.location||''),activeCount:Number(response.activeCount||0),soldCount:Number(response.soldCount||0),followerCount:Number(response.followerCount||0)};
    current.listings=Array.isArray(response.listings)?response.listings:[];
