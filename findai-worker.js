@@ -24059,11 +24059,14 @@ export default {
           await Promise.all([mpEnsureSchema(env),findaiProfileEnsureSchema(env),findaiSocialControlsEnsureSchema(env)]);
           const name=decodeURIComponent(connectionsMatch[1]);
           const target=name==='@me'?String(auth.email).toLowerCase():await findaiEmailForUsername(env,findaiUsernameNormalize(name));
-          if(!target||await findaiEitherBlocked(env,auth.email,target))return jsonResp({error:'Profile unavailable'},404,{'Cache-Control':'no-store'});
+          if(!target)return jsonResp({error:'Profile unavailable'},404,{'Cache-Control':'no-store'});
+          const access=await wishwaveRestrictedProfile(env,auth.email,target);
+          if(access.restricted)return jsonResp({error:'Profile unavailable'},404,{'Cache-Control':'no-store'});
           const counts=await env.DB.prepare(`SELECT
             (SELECT COUNT(*) FROM marketplace_follows f JOIN marketplace_sellers s ON s.id=f.seller_id WHERE lower(s.user_email)=lower(?)) AS followers,
             (SELECT COUNT(*) FROM marketplace_follows WHERE lower(follower_email)=lower(?)) AS following`).bind(target,target).first();
           if(url.searchParams.get('counts')==='1')return jsonResp({followers:Number(counts?.followers||0),following:Number(counts?.following||0)},200,{'Cache-Control':'no-store'});
+          if(access.blockedByViewer)return jsonResp({error:'Unblock this account to view its connections'},403,{'Cache-Control':'no-store'});
           const prefs=await findaiAppPrefsRead(env,target);
           if(String(auth.email).toLowerCase()!==target&&prefs.privateAccount){
             const allowed=await env.DB.prepare(`SELECT 1 AS yes FROM marketplace_follows f JOIN marketplace_sellers s ON s.id=f.seller_id WHERE lower(s.user_email)=lower(?) AND lower(f.follower_email)=lower(?) LIMIT 1`).bind(target,auth.email).first();
@@ -30807,3 +30810,4 @@ export default {
     }
   },
 };
+

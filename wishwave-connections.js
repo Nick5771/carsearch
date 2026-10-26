@@ -1,6 +1,6 @@
 (function(){
  'use strict';
- let state=null,generation=0,countEpoch=0,searchTimer;const counts=new Map(),pending=new Map(),rootOwners=new WeakMap();
+ let state=null,generation=0,countEpoch=0,searchTimer;const counts=new Map(),lastFollowing=new Map(),pending=new Map(),rootOwners=new WeakMap();
  const account=()=>String(getAccountProfile()?.email||'').toLowerCase()+'|'+marketplaceSession();
  const esc=s=>escapeHTML(String(s||''));
  function stats(root,key){
@@ -10,14 +10,15 @@
   if(!followers||!following)return;
   followers.dataset.connectionKind='followers';following.dataset.connectionKind='following';
   if(rootOwners.get(root)!==account()){rootOwners.set(root,account());delete following.dataset.connectionsReady;}
-  const label=following.querySelector('span');if(label)label.textContent='Following';const number=following.querySelector('b');if(number){if(number.id==='socialSoldCount')number.id='socialFollowingValue';if(!following.dataset.connectionsReady)number.textContent=marketplaceSession()?'…':'0';}
+  const cacheKey=account()+'|'+key;
+  const label=following.querySelector('span');if(label)label.textContent='Following';const number=following.querySelector('b');if(number){if(number.id==='socialSoldCount')number.id='socialFollowingValue';if(!following.dataset.connectionsReady)number.textContent=lastFollowing.has(cacheKey)?profileMetricCompact(lastFollowing.get(cacheKey)):marketplaceSession()?'…':'0';}
   root.append(followers,following);
   [followers,following].forEach(b=>{b.removeAttribute('onclick');b.onclick=()=>window.wishwaveOpenConnections(key,b.dataset.connectionKind);b.setAttribute('aria-label',b.dataset.connectionKind==='followers'?'View followers':'View following');});
-  if(!marketplaceSession())return;const owner=account(),epoch=countEpoch,cacheKey=owner+'|'+key,saved=counts.get(cacheKey);
+  if(!marketplaceSession())return;const owner=account(),epoch=countEpoch,saved=counts.get(cacheKey);
   function paint(data){if(epoch!==countEpoch||owner!==account()||!root.isConnected||root.dataset.connectionsOwner!==key)return;for(const kind of ['followers','following']){const button=root.querySelector('[data-connection-kind="'+kind+'"]');if(button){button.querySelector('b').textContent=profileMetricCompact(Math.max(0,Number(data[kind])||0));button.dataset.connectionsReady='1';}}}
   if(saved){paint(saved.data);if(Date.now()-saved.at<15000)return;}
-  if(!pending.has(cacheKey))pending.set(cacheKey,marketplaceFetch('/social/connections/'+encodeURIComponent(key)+'?counts=1',{method:'GET'}).then(data=>{if(epoch===countEpoch&&owner===account())counts.set(cacheKey,{data,at:Date.now()});return data;}).finally(()=>pending.delete(cacheKey)));
-  pending.get(cacheKey).then(paint).catch(()=>{if(root.dataset.connectionsOwner===key&&owner===account())following.querySelector('b').textContent='—';});
+  if(!pending.has(cacheKey))pending.set(cacheKey,marketplaceFetch('/social/connections/'+encodeURIComponent(key)+'?counts=1',{method:'GET'}).then(data=>{if(epoch===countEpoch&&owner===account()){counts.set(cacheKey,{data,at:Date.now()});lastFollowing.set(cacheKey,Math.max(0,Number(data.following)||0));}return data;}).finally(()=>pending.delete(cacheKey)));
+  pending.get(cacheKey).then(paint).catch(()=>{/* Keep the last known count while a retry is unavailable. */});
  }
 
  // Legacy profile swipe snapshots can reattach older tab nodes. Repair labels
@@ -74,10 +75,11 @@
  window.wishwaveCloseConnections=function(){generation++;state=null;clearTimeout(searchTimer);document.getElementById('wishwaveConnectionsPage')?.classList.remove('show');};
  const fetchBefore=window.marketplaceFetch;
  window.marketplaceFetch=function(path,options){const session=account(),request=fetchBefore.apply(this,arguments);if(/\/(?:follow-user\/[^/]+|sellers\/[^/]+\/follow)$/.test(path)&&['POST','DELETE'].includes(options?.method))return Promise.resolve(request).then(data=>{if(account()===session){countEpoch++;counts.clear();pending.clear();decorate();}return data;});return request;};
- const logout=window.signOutAccount;window.signOutAccount=function(){window.wishwaveCloseConnections();countEpoch++;counts.clear();pending.clear();return logout.apply(this,arguments);};
+ const logout=window.signOutAccount;window.signOutAccount=function(){window.wishwaveCloseConnections();countEpoch++;counts.clear();lastFollowing.clear();pending.clear();return logout.apply(this,arguments);};
  // Settings opens at the top, while its header remains below the system status bar.
  const settings=window.findaiOpenSettingsHome;window.findaiOpenSettingsHome=function(){const out=settings.apply(this,arguments);const scroll=document.querySelector('#appThemeOverlay .app-theme-sheet');if(scroll)scroll.scrollTop=0;return out;};
  document.querySelectorAll('#profileSignedOut .social-profile-stats button').forEach((button,i)=>{const label=button.querySelector('span');if(label)label.textContent=['Listings','Followers','Following'][i];});
  document.addEventListener('wishwave-social-block-changed',()=>{countEpoch++;counts.clear();pending.clear();decorate();});
  decorate();
 })();
+

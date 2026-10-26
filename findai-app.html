@@ -18974,8 +18974,13 @@ html.findai-light .findai-settings-delete-box input{background:#fff;color:#111;b
   }
   window.findaiRemoveControl=async function(kind,username){
     const root=document.getElementById('findaiControlList'),sheet=root?.closest('.app-theme-sheet'),session=marketplaceSession();
-    if(!root||root.dataset.removingControl==='true')return;
-    if(kind==='blocked'&&!confirm('Are you sure you want to unblock @'+username+'?\nThey will be able to follow and message you again.'))return;
+    if(!root||root.dataset.removingControl==='true'||root.dataset.confirmingControl==='true')return;
+    if(kind==='blocked'){
+      root.dataset.confirmingControl='true';let confirmed=false;
+      try{confirmed=await window.wishwaveConfirmUnblock(username);}finally{delete root.dataset.confirmingControl;}
+      if(!confirmed)return;
+    }
+    if(session!==marketplaceSession()||!root.isConnected)return;
     root.dataset.removingControl='true';root.querySelectorAll('button').forEach(button=>button.disabled=true);
     try{
       await marketplaceFetch('/social/controls',{method:'DELETE',body:JSON.stringify({kind,username})});
@@ -36216,7 +36221,7 @@ html body.keyboard-open[data-active-tab="search"] .app #searchResults .premium-r
 <script src="wishwave-comments-motion.js?v=293"></script>
 <link rel="stylesheet" href="wishwave-create.css?v=313">
 <script src="wishwave-create.js?v=333"></script>
-<script src="wishwave-navigation-origins.js?v=365"></script>
+<script src="wishwave-navigation-origins.js?v=374"></script>
 <style id="wishwave-notification-dot-v316">
 html body #wishwaveMainNav #navNotificationsBadge{
  top:calc(50% - 16px)!important;left:calc(50% + 8px)!important;right:auto!important;
@@ -36316,10 +36321,10 @@ html body #profileSignedOut [data-guest-likes]{display:none!important;}
  window.updateAccountHeader=function(){const out=header.apply(this,arguments);window.wishwaveSyncNavAvatar?.();return out;};
 })();
 </script>
-<link rel="stylesheet" href="wishwave-chat-polish.css?v=351">
-<script src="wishwave-chat-polish.js?v=368"></script>
+<link rel="stylesheet" href="wishwave-chat-polish.css?v=374">
+<script src="wishwave-chat-polish.js?v=374"></script>
 <link rel="stylesheet" href="wishwave-connections.css?v=351">
-<script src="wishwave-connections.js?v=362"></script>
+<script src="wishwave-connections.js?v=374"></script>
 <script src="wishwave-auth.js?v=316"></script>
 
 <style id="wishwave-reel-heart-polish-v332">

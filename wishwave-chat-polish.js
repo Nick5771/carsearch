@@ -97,8 +97,19 @@
   openAppMpSheet(context.kind==='chat'?'Conversation':'Profile options','<div class="ww-chat-sheet-handle"></div><div class="ww-chat-sheet-identity">'+(context.kind==='chat'?'<span class="ww-chat-sheet-avatar">'+avatar+'</span>':'')+'<div><b>'+escapeHTML(context.kind==='chat'?context.name:'Profile options')+'</b><span>'+escapeHTML(context.kind==='chat'?'Conversation':'@'+context.username)+'</span></div></div><div class="ww-chat-action-group">'+rows+'</div><button type="button" class="ww-chat-cancel" data-chat-action="cancel">Cancel</button>');
   document.getElementById('appMpSheetBg')?.classList.add('ww-chat-action-sheet');
  }
+ // Use an app dialog so unblock confirmation works in every installed iOS shell.
+ window.wishwaveConfirmUnblock=function(username){
+  return new Promise(resolve=>{
+   const dialog=document.createElement('dialog');dialog.className='ww-unblock-dialog';dialog.setAttribute('role','alertdialog');dialog.setAttribute('aria-labelledby','wwUnblockTitle');
+   dialog.innerHTML='<div class="ww-chat-block-confirm"><h2 id="wwUnblockTitle">Unblock @'+escapeHTML(String(username))+'?</h2><p>Are you sure you want to unblock this account? They will be able to follow and message you again.</p><div class="ww-chat-confirm-actions"><button type="button" data-cancel>Cancel</button><button type="button" data-confirm>Unblock</button></div></div>';
+   let done=false;const finish=value=>{if(done)return;done=true;dialog.close();dialog.remove();resolve(value);};
+   dialog.querySelector('[data-cancel]').onclick=()=>finish(false);dialog.querySelector('[data-confirm]').onclick=()=>finish(true);
+   dialog.oncancel=event=>{event.preventDefault();finish(false);};dialog.onclose=()=>{if(!done)finish(false);};
+   document.body.append(dialog);dialog.showModal();dialog.querySelector('[data-cancel]').focus();
+  });
+ };
  function showBlockConfirmation(context){
-  openAppMpSheet('Confirm block','<div class="ww-chat-block-confirm" role="alertdialog" aria-modal="true" aria-labelledby="wwBlockTitle" aria-describedby="wwBlockDescription"><h2 id="wwBlockTitle">'+(context.blocked?'Unblock ':'Block ')+escapeHTML(context.name||context.username)+'?</h2><p id="wwBlockDescription">'+(context.blocked?'They will be able to follow and message you again.':'Are you sure you want to block this user? They won’t be able to follow or message you.')+'</p><div class="ww-chat-confirm-actions"><button type="button" data-chat-action="cancel-block">Cancel</button><button type="button" class="danger" data-chat-action="confirm-block">'+(context.blocked?'Unblock':'Block')+'</button></div></div>');
+  openAppMpSheet('Confirm block','<div class="ww-chat-block-confirm" role="alertdialog" aria-modal="true" aria-labelledby="wwBlockTitle" aria-describedby="wwBlockDescription"><h2 id="wwBlockTitle">'+(context.blocked?'Unblock ':'Block ')+escapeHTML(context.name||context.username)+'?</h2><p id="wwBlockDescription">'+(context.blocked?'Are you sure you want to unblock this user? They will be able to follow and message you again.':'Are you sure you want to block this user? They won’t be able to follow or message you.')+'</p><div class="ww-chat-confirm-actions"><button type="button" data-chat-action="cancel-block">Cancel</button><button type="button" class="danger" data-chat-action="confirm-block">'+(context.blocked?'Unblock':'Block')+'</button></div></div>');
   context.confirmingBlock=true;document.getElementById('appMpSheetBg')?.classList.add('ww-chat-action-sheet','ww-chat-confirm-sheet');
   document.querySelector('[data-chat-action="cancel-block"]')?.focus();
  }
@@ -130,7 +141,12 @@
   if(action==='profile'){closeAppMpSheet();findaiOpenCurrentChatProfileV178();return;}
   if(action==='report'){closeAppMpSheet();openWishWaveSafetyReport(context.kind==='chat'?'conversation':'user',{id:context.kind==='chat'?context.id:context.username});return;}
   if(action==='cancel-block'){showSheet(context);return;}
-  if(action==='block'){if(!context.blockReady)return;showBlockConfirmation(context);return;}
+  if(action==='block'){
+   if(!context.blockReady||context.confirmingBlock)return;
+   if(!context.blocked){showBlockConfirmation(context);return;}
+   context.confirmingBlock=true;const confirmed=await window.wishwaveConfirmUnblock(context.username||context.name);context.confirmingBlock=false;
+   if(!confirmed||menu!==context||context.session!==marketplaceSession())return;
+  }
   if(action==='confirm-block'){if(!context.confirmingBlock)return;action='block';}
   if(button.disabled)return;button.disabled=true;
   try{
@@ -282,3 +298,4 @@
  const signout=window.signOutAccount;window.signOutAccount=function(){const result=signout.apply(this,arguments);cache.clear();inflight.clear();syncAuth();return result;};
  window.addEventListener('storage',e=>{if(e.key==='fa_account_profile_v1'||e.key==='findai_user')syncAuth();});syncAuth();
 })();
+
