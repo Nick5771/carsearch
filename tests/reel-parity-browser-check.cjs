@@ -1,0 +1,25 @@
+const fs=require('fs'),path=require('path'),http=require('http'),assert=require('assert'),{chromium}=require('playwright');
+const root=path.resolve(__dirname,'..');
+(async()=>{
+ const server=http.createServer((req,res)=>{const file=path.join(root,new URL(req.url,'http://test').pathname);if(!file.startsWith(root)||!fs.existsSync(file)||fs.statSync(file).isDirectory()){res.writeHead(404);res.end();return;}res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':file.endsWith('.html')?'text/html':'application/octet-stream');res.end(fs.readFileSync(file));});await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
+ try{
+  browser=await chromium.launch({executablePath:process.env.CHROMIUM_EXECUTABLE_PATH||undefined,args:['--no-sandbox','--disable-dev-shm-usage'],headless:true});const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true,deviceScaleFactor:2});
+  const pixel=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==','base64');
+  await page.route('**/*',r=>r.request().url().startsWith('http://127.0.0.1:')?r.continue():r.request().resourceType()==='image'?r.fulfill({status:200,contentType:'image/png',body:pixel}):r.fulfill({status:200,contentType:r.request().resourceType()==='script'?'text/javascript':'application/json',body:r.request().resourceType()==='script'?'':'{"items":[],"people":[],"conversations":[],"profile":{}}'}));
+  await page.goto('http://127.0.0.1:'+server.address().port+'/findai-app.html');await page.waitForFunction(()=>document.querySelector('.ww-search-cancel'));await page.waitForTimeout(1100);
+  await page.evaluate(()=>{window.findaiEnsureUsernameOnboarding=async()=>{};document.getElementById('findaiUsernameOnboarding').style.setProperty('display','none','important');document.documentElement.style.setProperty('--safe-top','49px');document.documentElement.style.setProperty('--safe-bottom','34px');window.wishwaveWarmReelDiscovery=async()=>[];});
+  const measure=async selector=>page.locator(selector).first().evaluate(card=>{let out={};for(let sel of ['&','.hero-stage','.hero-image','.product-panel','.source-chip','.title','.price','.listing-meta','.reel-actions-rail','.price-action-row','.reel-social-action.like','.reel-social-action.comment','.reel-social-action.compare','.reel-social-action.share','.reel-social-action.more','.ww-native-reel-actions','.reel-seller-row']){let e=sel==='&'?card:card.querySelector(sel);if(!e)continue;let r=e.getBoundingClientRect(),s=getComputedStyle(e);out[sel]={x:r.x,y:r.y,w:r.width,h:r.height,bg:s.background,pad:s.padding,font:s.fontSize,line:s.lineHeight,gap:s.gap};}return out;});
+  for(const width of [320,390,430])for(const theme of ['dark','light'])for(const source of ['ebay','findai']){
+   await page.setViewportSize({width,height:width===320?667:844});
+   await page.evaluate(({source,theme})=>{window.__wishwaveCloseSearchReelV186();applyAppTheme(theme);go('discover');window.fixture={itemId:'fixture',id:'fixture',title:'Lego SpongeBob 3826 complete set',price:250,currency:'AUD',url:'https://www.ebay.com/itm/123456789',source,seller:'Nick',sellerId:'other-seller',condition:'Used',image:'https://fixtures.test/listing.png',images:['https://fixtures.test/listing.png','https://fixtures.test/listing2.png'],status:'active'};currentFeedItems=[fixture];currentFeedData={personalised:true};feedState={source:'personalised',loading:false,hasMore:false};document.getElementById('personalFeed').innerHTML=renderReelCard(fixture,0,currentFeedData);},{source,theme});
+   await page.waitForTimeout(450);const home=await measure('#personalFeed .reel-card');assert(home['.hero-image'],'fixture includes media');if(source==='findai')assert(home['.ww-native-reel-actions'],'native purchase controls present');
+   await page.evaluate(()=>go('searchResults'));await page.waitForTimeout(450);
+   await page.evaluate(()=>{document.getElementById('premiumResultQuery').value='lego';premiumResultItems=[fixture];premiumResultData={personalised:true};openPremiumResultItem(0);});await page.waitForTimeout(450);
+   const search=await measure('#searchDetailOverlay .reel-card');assert.deepStrictEqual(search,home,`${width} ${theme} ${source}: Search and Home geometry and backgrounds`);
+   if(process.env.WISHWAVE_SCREENSHOT_DIR&&width===390&&theme==='dark'&&source==='ebay')await page.screenshot({path:path.join(process.env.WISHWAVE_SCREENSHOT_DIR,'search-listing-parity.png')});
+   assert.equal(await page.evaluate(()=>document.body.dataset.activeTab),'searchResults');
+   await page.evaluate(()=>window.__wishwaveCloseSearchReelV186());assert.equal(await page.locator('#premiumResultQuery').inputValue(),'lego','Back preserves the search');
+  }
+  console.log('PASS: Home/Search listing media, caption, action rail and purchase controls match at 320/390/430px in dark/light mode; Back preserves Search');
+ }finally{await browser?.close();await new Promise(r=>server.close(r));}
+})().catch(e=>{console.error(e);process.exitCode=1});
