@@ -6,9 +6,8 @@
  const confirmation=document.createElement('div');confirmation.id='wwOfferSent';confirmation.setAttribute('role','status');confirmation.setAttribute('aria-live','polite');(document.querySelector('.app')||document.body).append(confirmation);
  function hideConfirmation(){clearTimeout(confirmationTimer);confirmation.classList.remove('show');}
  function sent(s,amount){
-  const profile=getAccountProfile()||{},avatar=String(profile.avatar||profile.avatarUrl||profile.avatar_url||''),safe=/^(https?:|data:image\/|blob:)/i.test(avatar);
-  confirmation.innerHTML='<span class="wwo-sent-avatar"><svg class="wwo-avatar-placeholder" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/></svg>'+(safe?'<img src="'+escapeAttr(avatar)+'" alt="" onerror="this.hidden=true">':'')+'<span class="wwo-sent-tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></span></span><span class="wwo-sent-copy"><b>'+esc(s.counter?'Counteroffer sent':'Offer sent')+'</b><small>'+esc(money(amount,s)+' · '+s.title)+'</small></span>';
-  confirmation.style.removeProperty('bottom');confirmation.classList.add('show');confirmationTimer=setTimeout(hideConfirmation,4500);
+  confirmation.innerHTML='<span class="wwo-sent-tick"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></span><span class="wwo-sent-copy"><b>'+esc(s.counter?'Counteroffer sent':'Offer sent')+' · '+esc(money(amount,s))+'</b><small>Awaiting the seller’s response</small></span>';
+  clearTimeout(confirmationTimer);confirmation.style.removeProperty('bottom');confirmation.classList.add('show');confirmationTimer=setTimeout(hideConfirmation,4500);
  }
 
  const esc=value=>escapeHTML(String(value??''));
@@ -102,3 +101,4 @@
  window.openAppMarketplaceOfferInMessages=function(){if(!appMpListing||appMpContext?.viewer?.isSeller)return;return window.appMpOpenMessageOffer(undefined,undefined,undefined,{listing:{...appMpListing},context:appMpContext});};
  document.addEventListener('wishwave-recommendation-account-change',()=>{hideConfirmation();if(state)window.appMpCloseMessageOffer();});
 })();
+

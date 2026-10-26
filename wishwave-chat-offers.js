@@ -19,8 +19,8 @@
   const outgoing=authorRole===o.viewerRole;
   const label=status==='pending'?(Number(o.revision)>1?(outgoing?'Counteroffer sent':'Counteroffer received'):(outgoing?'Offer sent':'Offer received')):({accepted:'Offer accepted',declined:'Offer declined',expired:'Offer expired',withdrawn:'Offer withdrawn'}[status]);
   const title=String(o.listingTitle||'WishWave listing'),image=imageFor(o),expiry=['pending','accepted'].includes(status)?timeLeft(o.expiresAt):'',statusIcon=icons[status]?icon(status):'';
-  const profile=typeof getAccountProfile==='function'?getAccountProfile()||{}:{},c=typeof appMpCurrentConversation==='undefined'?{}:appMpCurrentConversation||{};
-  const avatar=String(outgoing?(profile.avatar||profile.avatarUrl||profile.avatar_url||''):(c.otherPartyAvatar||'')),safeAvatar=/^(https?:|data:image\/|blob:)/i.test(avatar),name=String(outgoing?(profile.name||profile.displayName||profile.username||'You'):(c.otherParty||'WishWave member'));
+  const c=typeof appMpCurrentConversation==='undefined'?{}:appMpCurrentConversation||{};
+  const avatar=String(c.otherPartyAvatar||''),safeAvatar=/^(https?:|data:image\/|blob:)/i.test(avatar),name=String(c.otherParty||'WishWave member');
   const avatarMarkup='<span class="wwoc-avatar" role="img" aria-label="'+escapeAttr(name)+'"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/></svg>'+(safeAvatar?'<img src="'+escapeAttr(avatar)+'" alt="" onerror="this.hidden=true">':'')+'</span>';
   const button=(action,label,primary)=>'<button type="button" class="wwoc-action'+(primary?' wwoc-primary':'')+'" data-offer-action="'+action+'">'+label+'</button>';
   let actions='';
@@ -31,7 +31,7 @@
    '<div class="wwoc-hero'+(image?'':' wwoc-missing-image')+'"><span class="wwoc-image-placeholder">'+icon('image')+'</span>'+(image?'<img src="'+escapeAttr(image)+'" alt="'+escapeAttr(title)+'" loading="lazy" decoding="async" onerror="this.hidden=true;this.parentElement.classList.add(\'wwoc-missing-image\')">':'')+'<div class="wwoc-title">'+esc(title)+'</div></div>'+
    '<div class="wwoc-info"><div class="wwoc-price-copy"><strong class="wwoc-amount">'+esc(appMpMoney(Number(o.amount)||0,o.currency||'AUD').replace(/[.,]00(?=\D*$)/,''))+'</strong><span class="wwoc-status">'+statusIcon+esc(label)+'</span></div>'+(expiry?'<div class="wwoc-expiry">'+icon('clock')+'<span>'+esc(expiry)+'</span></div>':'')+'</div>'+
    (o.message?'<p class="wwoc-note">'+esc(o.message)+'</p>':'')+actions+'</article>';
-  return '<div class="wwoc-row '+(outgoing?'wwoc-row-outgoing':'wwoc-row-incoming')+'">'+(outgoing?card+avatarMarkup:avatarMarkup+card)+'</div>';
+  return '<div class="wwoc-row '+(outgoing?'wwoc-row-outgoing':'wwoc-row-incoming')+'">'+(outgoing?card:avatarMarkup+card)+'</div>';
  };
  // The timeline may be cached between polls, so keep the visible countdown current.
  setInterval(()=>{
@@ -52,3 +52,4 @@
   finally{card.dataset.busy='false';buttons.forEach(b=>b.disabled=false);}
  });
 })();
+
