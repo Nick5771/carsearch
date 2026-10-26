@@ -1,0 +1,20 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert'),{DatabaseSync}=require('node:sqlite');
+const source=fs.readFileSync('findai-worker.js','utf8'),db=new DatabaseSync(':memory:');
+db.exec(`CREATE TABLE marketplace_sellers(id TEXT,user_email TEXT);
+CREATE TABLE marketplace_listings(id TEXT,seller_id TEXT,title TEXT,status TEXT,quantity INTEGER,listing_type TEXT,offers_enabled INTEGER,item_price_minor INTEGER,minimum_offer_minor INTEGER,currency TEXT);
+CREATE TABLE marketplace_offers(id TEXT,listing_id TEXT,buyer_email TEXT,seller_id TEXT,currency TEXT,amount_minor INTEGER,status TEXT,message TEXT,last_actor_email TEXT,revision INTEGER,expires_at TEXT,created_at TEXT,updated_at TEXT);
+INSERT INTO marketplace_sellers VALUES('seller','seller@test');
+INSERT INTO marketplace_listings VALUES('monitor','seller','Monitor','active',1,'fixed',1,24900,NULL,'AUD');`);
+let seq=0;const env={DB:{prepare(sql){const stmt=db.prepare(sql);let args=[];return{bind(...v){args=v;return this},async first(){return stmt.get(...args)||null},async run(){return stmt.run(...args)}}}}};
+const ctx=vm.createContext({URL,Date,String,Number,requireUser:async()=>({email:'buyer@test'}),jsonResp:(body,status=200)=>({body,status}),rateLimited:async()=>false,mpEnsureSchema:async()=>{},mpReadMinor:(body,minor,major,fallback)=>body[minor]??(body[major]!=null?Math.round(Number(body[major])*100):fallback),mpId:()=> 'new-'+(++seq),mpCleanText:s=>String(s||''),mpSafeCurrency:s=>s,mpOfferEvent:async()=>{},mpEnsureConversationRow:async()=>({id:'chat-1'}),mpNotifyUser:async()=>{},mpOfferItem:row=>({id:row.id,amount:row.amount_minor/100}),ctx:{waitUntil:()=>{}}});
+const start=source.indexOf("      if (url.pathname === '/marketplace/offers' && request.method === 'POST')"),end=source.indexOf("      if (url.pathname === '/marketplace/offers' && request.method === 'GET')",start);
+vm.runInContext('async function submit(request,env,url){'+source.slice(start,end)+'}',ctx);
+const post=()=>ctx.submit({method:'POST',json:async()=>({listingId:'monitor',amount:75,message:'My offer'})},env,new URL('https://test/marketplace/offers'));
+(async()=>{
+ const insert=db.prepare('INSERT INTO marketplace_offers VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)');
+ insert.run('expired-pending','monitor','buyer@test','seller','AUD',5000,'pending','','buyer@test',1,'2026-01-01T00:00:00.000Z','2025-12-30','2025-12-30');
+ let r=await post();assert.equal(r.status,201,JSON.stringify(r));assert.equal(r.body.conversationId,'chat-1');assert(r.body.offer.id);assert.equal(r.body.offer.amount,75);
+ r=await post();assert.equal(r.status,409,'a current offer still prevents duplicates');assert.equal(db.prepare('SELECT COUNT(*) n FROM marketplace_offers').get().n,2);
+ db.prepare("UPDATE marketplace_offers SET expires_at='2026-01-01T00:00:00.000Z',status='accepted' WHERE id LIKE 'new-%'").run();r=await post();assert.equal(r.status,201,'expired accepted row on an active listing cannot block forever');
+ db.close();console.log('PASS: expired offers allow resubmission, current offers retain duplicate protection, and success returns offer plus conversation identity');
+})().catch(e=>{console.error(e);process.exitCode=1});

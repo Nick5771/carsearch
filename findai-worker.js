@@ -24595,8 +24595,9 @@ export default {
           if (amountMinor < 1 || amountMinor >= Number(listing.item_price_minor || 0)) return jsonResp({ error: 'Offer must be below the Buy Now price' }, 400);
           if (listing.minimum_offer_minor != null && amountMinor < Number(listing.minimum_offer_minor || 0)) return jsonResp({ error: 'Offer is below the seller’s minimum' }, 400);
           const existing = await env.DB.prepare(
-            `SELECT id FROM marketplace_offers WHERE listing_id=? AND buyer_email=? AND status IN ('pending','accepted') ORDER BY created_at DESC LIMIT 1`
-          ).bind(listing.id, auth.email).first();
+            `SELECT id FROM marketplace_offers WHERE listing_id=? AND buyer_email=? AND status IN ('pending','accepted')
+             AND (expires_at IS NULL OR expires_at='' OR expires_at>?) ORDER BY created_at DESC LIMIT 1`
+          ).bind(listing.id, auth.email, new Date().toISOString()).first();
           if (existing) return jsonResp({ error: 'You already have an active offer on this item', offerId: existing.id }, 409);
           const id = mpId('off'), now = new Date().toISOString(), expiresAt = new Date(Date.now() + 48 * 3600e3).toISOString();
           const message = mpCleanText(body.message, 500);
@@ -24620,7 +24621,7 @@ export default {
              FROM marketplace_offers o JOIN marketplace_listings l ON l.id=o.listing_id
              JOIN marketplace_sellers s ON s.id=o.seller_id WHERE o.id=?`
           ).bind(id).first();
-          return jsonResp({ ok: true, offer: mpOfferItem(row, auth.email) }, 201, { 'Cache-Control': 'no-store' });
+          return jsonResp({ ok: true, offer: mpOfferItem(row, auth.email), conversationId:String(conversation.id||'') }, 201, { 'Cache-Control': 'no-store' });
         } catch (e) { return jsonResp({ error: String(e && e.message || e) }, Number(e && e.status) || 500, { 'Cache-Control': 'no-store' }); }
       }
 
