@@ -93,10 +93,10 @@
    const recent=prior.concat(output),last=recent.at(-1),window=recent.slice(-Math.max(1,Math.min(20,repeatWindow))),ten=recent.slice(-Math.max(1,Math.min(9,categoryWindow)));
    const brandAllowed=item=>item._treasureCategory!=='lego'||recent.slice(-19).filter(x=>x._treasureCategory==='lego').length<maxLegoPer20;
    let candidates=remaining.map((item,index)=>({item,index})).filter(({item})=>brandAllowed(item)&&(!window.some(x=>x._treasureTargetId===item._treasureTargetId)&&ten.filter(x=>x._treasureCategory===item._treasureCategory).length<2));
-   // Sparse stock must not become artificial exhaustion. Prefer the least recently
-   // shown product while keeping adjacent products distinct whenever possible.
+   // Thin stock may relax category spacing, never repeat a product every second card.
+   // Keep those offers deferred while other targets are fetched.
    if(!candidates.length&&allowSparse){
-    const alternatives=remaining.map((item,index)=>({item,index})).filter(({item})=>brandAllowed(item)&&item._treasureTargetId!==last?._treasureTargetId);
+    const alternatives=remaining.map((item,index)=>({item,index})).filter(({item})=>brandAllowed(item)&&!recent.slice(-20).some(x=>x._treasureTargetId===item._treasureTargetId));
     const distance=item=>{for(let i=recent.length-1;i>=0;i--)if(recent[i]._treasureTargetId===item._treasureTargetId)return recent.length-i;return Infinity;};
     alternatives.sort((a,b)=>distance(b.item)-distance(a.item)||a.index-b.index);
     if(alternatives.length)candidates=alternatives.filter(x=>distance(x.item)===distance(alternatives[0].item));
@@ -109,7 +109,7 @@
   }
   deferred.push(...remaining);return {items:output,deferred};
  }
- const api=Object.freeze({version:'discovery-catalogue-v271',targets:Object.freeze(targets),previewTargets,groups,match,annotate,forQuery,identify,varied,categoryFor});
+ const api=Object.freeze({version:'discovery-catalogue-v380',targets:Object.freeze(targets),previewTargets,groups,match,annotate,forQuery,identify,varied,categoryFor});
  root.FindAITreasureHunt=api;if(typeof module!=='undefined'&&module.exports)module.exports=api;
  // Retire only stale pilot feed caches; saved products and account preferences persist.
  if(root.document)try{
@@ -119,3 +119,4 @@
   }
  }catch(_){}
 })(globalThis);
+

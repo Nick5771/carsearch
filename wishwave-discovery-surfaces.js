@@ -27,20 +27,22 @@
     function save(){prune();try{storage?.setItem(scopeKey,JSON.stringify({seed,visit,claims:[...claims.values()]}));}catch(_){} }
     function allowed(item,surface){prune();const key=productKey(item),owner=claims.get(key)?.owner;return !!key&&(!owner||owner===surface);}
     function filter(items,surface){return (items||[]).filter(item=>allowed(item,surface));}
-    function claim(items,surface){const accepted=filter(items,surface);for(const item of accepted){const key=productKey(item);claims.set(key,{key,owner:surface,category:categoryKey(item),at:now()});}save();return accepted;}
+    function claim(items,surface){const accepted=partition(items,surface);for(const item of accepted){const key=productKey(item);claims.set(key,{key,owner:surface,category:categoryKey(item),at:now()});}save();return accepted;}
     function partition(items,surface){
       prune();const unique=new Map();for(const item of items||[]){const key=productKey(item);if(key&&!unique.has(key))unique.set(key,item);}
       const counts={home:0,search:0},categories={home:new Map(),search:new Map()};
       const category=categoryKey;
       function count(owner,item){counts[owner]++;const cat=category(item);categories[owner].set(cat,(categories[owner].get(cat)||0)+1);}
-      for(const[key,item]of unique){const owner=claims.get(key)?.owner;if(owner)count(owner,item);}
+      // Balance the whole visit, including one-product provider responses. A fast
+      // Search warm-up must not reserve every newly arriving product for itself.
+      for(const c of claims.values()){counts[c.owner]++;categories[c.owner].set(c.category,(categories[c.owner].get(c.category)||0)+1);}
       for(const[key,item]of unique){if(claims.has(key))continue;const cat=category(item),home=categories.home.get(cat)||0,search=categories.search.get(cat)||0;
-        const owner=unique.size===1?surface:home!==search?(home<search?'home':'search'):counts.home!==counts.search?(counts.home<counts.search?'home':'search'):(hash(seed+key)%2?'home':'search');
+        const owner=unique.size===1&&!counts.home&&!counts.search?surface:home!==search?(home<search?'home':'search'):counts.home!==counts.search?(counts.home<counts.search?'home':'search'):(hash(seed+key)%2?'home':'search');
         claims.set(key,{key,owner,category:category(item),at:now()});count(owner,item);
       }
       save();return filter(items,surface);
     }
-    function repeatWindow(surface){prune();const count=[...claims.values()].filter(x=>x.owner===surface&&x.key.startsWith('target:')).length;return count?Math.min(20,Math.max(1,count-1)):20;}
+    function repeatWindow(surface){return 20;}
     function categoryWindow(surface){prune();const categories=new Set([...claims.values()].filter(x=>x.owner===surface&&x.key.startsWith('target:')).map(x=>x.category||'other'));return categories.size?Math.min(9,Math.max(1,categories.size*2-1)):9;}
     return {allowed,filter,claim,partition,repeatWindow,categoryWindow,key:productKey,invalidate(){scopeKey='';},version:VERSION};
   }
@@ -52,3 +54,4 @@
     root.document.addEventListener('wishwave-recommendation-account-change',()=>root.wishwaveDiscoverySurfaces.invalidate());
   }
 })(typeof globalThis!=='undefined'?globalThis:this);
+

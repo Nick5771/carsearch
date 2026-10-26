@@ -3,7 +3,7 @@
 <head>
 <script src="wishwave-push-client.js?v=352"></script>
 <script src="wishwave-compare.js?v=305"></script>
-<script src="wishwave-discovery-surfaces.js?v=271"></script>
+<script src="wishwave-discovery-surfaces.js?v=380"></script>
 <script src="wishwave-discovery-rotation.js?v=349"></script>
 <script src="wishwave-interaction-preview.js?v=273"></script>
 <script src="wishwave-photo-hygiene.js?v=260"></script>
@@ -3790,7 +3790,7 @@ html body .source-chip .findai-exact-brand[data-brand="etsy"] img{
   <div class="toast" id="toast"></div>
 </div>
 
-<script src="/findai-treasure-pilot.js?v=271"></script>
+<script src="/findai-treasure-pilot.js?v=380"></script>
 <script>
 const FIND_AI_BUILD='v41-findai-pro';
 const WORKER = 'https://api.carsearchapi.workers.dev';
@@ -5697,7 +5697,7 @@ function appActiveScreenForFeed(){
   return feedState&&feedState.source==='personalised' ? $('#discover') : $('#search');
 }
 function openSearchHome(focus=true){
-  if(feedRequestController && feedState && feedState.source==='personalised'){try{feedRequestController.abort();}catch(_){}}
+  // Search browse has its own controller; keep Home's in-flight buffer alive.
   finaliseReelTracking();
   go('search');
   const search=$('#search'),feed=$('#feed');
@@ -5959,7 +5959,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false,recovery
       if(ready.length){
         renderPersonalisedFeed(ready);feedState.loading=false;
         ready.completion?.then(items=>{if(stillOwnsFeed()){appendFeedItems(items.filter(item=>!currentFeedItems.some(old=>listingKey(old)===listingKey(item))),currentFeedData);writePersonalisedCache();}}).catch(()=>{});
-        setTimeout(()=>{if(currentFeedItems.length<24&&starter.some(item=>!currentFeedItems.some(old=>listingKey(old)===listingKey(item))))loadMorePersonalisedListings();else backgroundRefreshPersonalisedFeed();},250);return;
+        setTimeout(()=>{if(!stillOwnsFeed())return;if(currentFeedItems.length<24)loadMorePersonalisedListings();else backgroundRefreshPersonalisedFeed();},250);return;
       }
     }
     // The request pool owns the opening lanes until each has completed. Pagination
@@ -6097,11 +6097,15 @@ function refreshPersonalisedPresentationOnForeground(){
 function loadMorePersonalisedListings(){
   const state=feedState;
   if(state.morePool?.promise)return state.morePool.promise;
-  if(state.source!=='personalised'||state.loading||state.initialPool?.pending>0||!$('#discover').classList.contains('active'))return Promise.resolve();
+  if(state.source!=='personalised'||state.loading||!$('#discover').classList.contains('active'))return Promise.resolve();
   // Share automatic prefetch with scroll/user requests. The pool object also
   // survives the existing shallow Home snapshots when switching tabs.
   const pool={promise:null};state.morePool=pool;
-  pool.promise=performLoadMorePersonalisedListings().finally(()=>{pool.promise=null;});
+  const before=currentFeedItems.length;
+  pool.promise=performLoadMorePersonalisedListings().finally(()=>{
+    pool.promise=null;
+    if(feedState===state&&currentFeedItems.length>before&&currentFeedItems.length-activeReelIndex<12&&(state.bufferTopups||0)<8){state.bufferTopups=(state.bufferTopups||0)+1;setTimeout(()=>{if(feedState===state)loadMorePersonalisedListings();},120);}
+  });
   return pool.promise;
 }
 async function performLoadMorePersonalisedListings(){
@@ -6118,12 +6122,12 @@ async function performLoadMorePersonalisedListings(){
       }
     }
     const waiting=window.wishwaveAdmitRecommendations?.(state.backlog||[],currentFeedItems,36);
-    if(waiting?.items.length&&(!window.wishwaveInterestFocus?.()?.strong||waiting.items.some(x=>window.WishWaveInterestCore.classify(x).tags.some(t=>t.key===window.wishwaveInterestFocus().key)))){state.backlog=waiting.deferred;appendFeedItems(waiting.items,currentFeedData);writePersonalisedCache();return;}
+    if(waiting?.items.length&&(!window.wishwaveInterestFocus?.()?.strong||waiting.items.some(x=>window.WishWaveInterestCore.classify(x).tags.some(t=>t.key===window.wishwaveInterestFocus().key)))){const before=currentFeedItems.length;state.backlog=waiting.deferred;appendFeedItems(waiting.items,currentFeedData);writePersonalisedCache();if(currentFeedItems.length>before)return;}
     for(let attempt=0;attempt<3;attempt++){
       if(feedState!==state||state.source!=='personalised')return;
       let lanes=Array.isArray(state.interests)?state.interests:[];
       if(window.wishwaveInterestFocus?.()?.strong){const known=new Set(lanes.map(x=>x.cluster));for(const fresh of scoredInterests().map(newPersonalisedLane))if(!known.has(fresh.cluster)){lanes.push(fresh);known.add(fresh.cluster);}}
-      const usable=lanes.filter(wishwaveLaneCanAdvance);
+      const usable=lanes.filter(lane=>{const target=lane._treasureTargetId||window.FindAITreasureHunt?.forQuery(lane.originalQuery||lane.query)?.id;return wishwaveLaneCanAdvance(lane)&&!wishwaveLaneRequests.has(lane)&&(!target||!window.wishwaveDiscoverySurfaces||window.wishwaveDiscoverySurfaces.allowed({_treasureTargetId:target},'home'));});
       const candidates=usable.slice(state.laneCursor||0).concat(usable.slice(0,state.laneCursor||0));
       const chosen=[],categories=new Set();
       const lastCategory=wishwaveProductCategory(currentFeedItems.at(-1)||{});
@@ -6148,8 +6152,8 @@ async function performLoadMorePersonalisedListings(){
       const admission=window.wishwaveAdmitRecommendations?wishwaveAdmitRecommendations(incoming,currentFeedItems,36):{items:sequencePersonalisedBatch(incoming,currentFeedItems,36),deferred:[]};
       state.backlog=admission.deferred.slice(0,480);const fresh=admission.items;
       if(fresh.length){
-        document.getElementById('wishwaveHomeMoreRetry')?.remove();
-        appendFeedItems(fresh,currentFeedData);writePersonalisedCache();return;
+        const before=currentFeedItems.length;document.getElementById('wishwaveHomeMoreRetry')?.remove();
+        appendFeedItems(fresh,currentFeedData);writePersonalisedCache();if(currentFeedItems.length>before)return;
       }
     }
     if(feedState===state&&!document.getElementById('wishwaveHomeMoreRetry'))$('#personalFeed')?.insertAdjacentHTML('beforeend','<div id="wishwaveHomeMoreRetry" class="feed-status"><button class="retry-btn" onclick="this.parentElement.remove();loadMorePersonalisedListings()">Find more products</button></div>');
@@ -8906,7 +8910,7 @@ function appChatTryFocus(){
   appChatFocusInput();
 }
 function openSearchHome(focus=true){
-  if(feedRequestController&&feedState&&feedState.source==='personalised'){try{feedRequestController.abort();}catch(_){} }
+  // Search uses a separate browse controller; Home can keep filling its queue.
   finaliseReelTracking();go('search');
   if(focus){requestAnimationFrame(appChatTryFocus);setTimeout(appChatTryFocus,80);setTimeout(appChatTryFocus,260);}
 }
@@ -15864,9 +15868,9 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
   let exploreLoadedFilter='';
   let exploreLoadedTaste='';
   function exploreTasteSignature(){
-    if(exploreFilter!=='for-you')return 'browse-variety-v246';
+    if(exploreFilter!=='for-you')return 'browse-variety-v380';
     const catalogue=window.wishwaveTreasureStatus?.().active?'|curated-starter-v243':'';
-    try{return 'browse-variety-v246'+catalogue+'|'+scoredInterests(10).filter(x=>x&&!x.featured).slice(0,4).map(x=>normaliseQueryText(x.query)).join('|');}catch(_){return 'browse-variety-v246'+catalogue;}
+    try{return 'browse-variety-v380'+catalogue+'|'+scoredInterests(10).filter(x=>x&&!x.featured).slice(0,4).map(x=>normaliseQueryText(x.query)).join('|');}catch(_){return 'browse-variety-v380'+catalogue;}
   }
   window.wishwaveExploreTasteSignature=exploreTasteSignature;
   let exploreInitialPromise=null;
@@ -15886,6 +15890,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     renderExploreGrid({replace:true});cacheExploreBrowseState();return true;
   };
   function exploreFamilyKey(item){
+    const target=window.FindAITreasureHunt?.identify(item);if(target)return 'target:'+target.id;
     if(window.wishwaveProductIdentity)return window.wishwaveProductIdentity(item).family;
     const text=String(item&&item.title||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
     if(!text)return 'misc';
@@ -16036,6 +16041,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
   async function loadExploreMore(initial=false){
     if(exploreLoading||exploreLiveSearchQuery||!premiumDiscoverySections[0])return;
     const accountOwner=window.wishwaveRecommendationAccount?.(),sectionOwner=premiumDiscoverySections[0];
+    const startLength=sectionOwner.items.length;
     if(!initial&&exploreLoadedTaste!==exploreTasteSignature()){exploreQueue=exploreConfigs(exploreFilter);exploreLoadedTaste=exploreTasteSignature();}
     if(!exploreQueue.length&&exploreEmptyBatches<3){
       exploreVisitSalt++;
@@ -16057,7 +16063,6 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     const batch=exploreQueue.splice(0,Math.min(curated?(initial?12:8):initial?10:5,exploreQueue.length));
     // Share a reservoir across completed categories. Paint the first product
     // promptly, but hold same-category followers while other lanes are pending.
-    const groups=[];
     const batchFamilies=new Map(),reservoir=[];let outstanding=batch.length;
     const owns=()=>generation===exploreGeneration&&!exploreLiveSearchQuery&&accountOwner===window.wishwaveRecommendationAccount?.()&&sectionOwner===premiumDiscoverySections[0];
     function drain(){
@@ -16076,7 +16081,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
       renderExploreGrid({replace:false});cacheExploreBrowseState();
     }
     await Promise.all(batch.map(async config=>{
-      const group=await loadExploreConfig(config,pool,generation);groups.push(group);outstanding--;
+      const group=await loadExploreConfig(config,pool,generation);outstanding--;
       if(window.__wishwavePageMotion)await window.wishwaveWaitForMotion?.();
       if(generation!==exploreGeneration||exploreLiveSearchQuery||accountOwner!==window.wishwaveRecommendationAccount?.()||sectionOwner!==premiumDiscoverySections[0])return;
       const fresh=[];
@@ -16093,12 +16098,12 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     /* If the user started typing while this browse batch was in flight, the
        batch is stale. Never append browse products into live-search results. */
     if(generation!==exploreGeneration||exploreLiveSearchQuery||accountOwner!==window.wishwaveRecommendationAccount?.()||sectionOwner!==premiumDiscoverySections[0])return;
-    const incoming=groups.flat().filter(item=>seenExplore.has(exploreItemKey(item)));
     drain();
+    const added=sectionOwner.items.length-startLength;
     batch.filter(config=>config._more!==false).forEach(config=>{config._forceLive=true;exploreQueue.push(config);});
-    exploreEmptyBatches=incoming.length?0:exploreEmptyBatches+1;
+    exploreEmptyBatches=added?0:exploreEmptyBatches+1;
     const target=sectionOwner.items;exploreLoading=false;cacheExploreBrowseState();
-    if(exploreQueue.length&&(exploreEmptyBatches<3||curated&&exploreQueue.some(config=>!config._attempts))&&((!incoming.length)||(target.length<24||document.querySelector('#search .premium-search-home-scroll')?.scrollHeight-document.querySelector('#search .premium-search-home-scroll')?.scrollTop<document.querySelector('#search .premium-search-home-scroll')?.clientHeight*3.4)&&exploreTopups++<8))setTimeout(()=>{if(generation===exploreGeneration&&!exploreLiveSearchQuery&&document.body.dataset.activeTab==='search')loadExploreMore(false);},100);
+    if(exploreQueue.length&&(exploreEmptyBatches<3||curated&&exploreQueue.some(config=>!config._attempts))&&((!added)||(target.length<24||document.querySelector('#search .premium-search-home-scroll')?.scrollHeight-document.querySelector('#search .premium-search-home-scroll')?.scrollTop<document.querySelector('#search .premium-search-home-scroll')?.clientHeight*3.4)&&exploreTopups++<8))setTimeout(()=>{if(generation===exploreGeneration&&!exploreLiveSearchQuery&&document.body.dataset.activeTab==='search')loadExploreMore(false);},100);
     }finally{if(generation===exploreGeneration)exploreLoading=false;}
   }
   function bindExploreScroll(){
@@ -17875,6 +17880,8 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     if(event.target.closest&&event.target.closest('.premium-bottom-nav button'))cancelSwipe();
   },true);
   window.addEventListener('pagehide',cancelSwipe);
+  // WKWebView can suspend a drag without sending touchend or pagehide.
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelSwipe();});
   window.addEventListener('resize',()=>{const state=swipe||settling;if(state&&Math.abs(state.width-(document.querySelector('.app')?.clientWidth||innerWidth))>1)cancelSwipe();},{passive:true});
   function tabStart(event,bridge){
     if(event.touches.length!==1){cancelSwipe();return;}
@@ -25790,6 +25797,7 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
       attachReelObserver();
       beginReelTracking(activeReelIndex);
       schedulePersonalisedLaneRebalance('revisit');
+      if(currentFeedItems.length-activeReelIndex<12)loadMorePersonalisedListings();
     });
   }
 
