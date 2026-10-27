@@ -196,7 +196,7 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.userContentController.addUserScript(WKUserScript(
-            source: "window.wishwaveNativeBuild = 356;",
+            source: "window.wishwaveNativeBuild = 357;",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
         // Keep the camera preview beneath WishWave's own shutter controls.
         config.allowsInlineMediaPlayback = true
@@ -280,6 +280,20 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         NotificationCenter.default.addObserver(self, selector: #selector(pushArrived), name: WishWavePush.arrived, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(prepareKeyboard), name: UIResponder.keyboardWillShowNotification, object: nil)
         reloadPage()
+    }
+
+    override func viewDidLayoutSubviews() {
+        super.viewDidLayoutSubviews()
+        hideTopScrollEdgeEffects(in: webView)
+    }
+
+    private func hideTopScrollEdgeEffects(in root: UIView) {
+        // WebKit creates nested scroll views for the feed after page load.
+        // Apply the same policy to those views, including after relayout.
+        if #available(iOS 26.0, *), let scrollView = root as? UIScrollView {
+            scrollView.topEdgeEffect.isHidden = true
+        }
+        for child in root.subviews { hideTopScrollEdgeEffects(in: child) }
     }
 
     @objc private func prepareKeyboard() {
@@ -372,6 +386,7 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         didShowPage = true
+        hideTopScrollEdgeEffects(in: webView)
         prepareKeyboard()
         spinner.stopAnimating()
         failure.isHidden = true
