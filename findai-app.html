@@ -3219,9 +3219,10 @@ html body .source-chip .findai-exact-brand[data-brand="etsy"] img{
   <!-- Search: clean premium discovery surface -->
   <section id="search" class="screen premium-search-home" aria-label="Search">
     <header class="premium-search-home-header">
+      <h1 class="wishwave-discover-title">Discover</h1>
       <form class="premium-search-bar" onsubmit="return handlePremiumExploreSubmit(event)">
         <svg class="premium-search-glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>
-        <input id="q" type="search" placeholder="Search WishWave" enterkeyhint="search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" oninput="handlePremiumExploreInput(this.value)" onsearch="wishwaveSearchFieldAction(event)">
+        <input id="q" type="search" placeholder="Find your next favourite" enterkeyhint="search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" oninput="handlePremiumExploreInput(this.value)" onsearch="wishwaveSearchFieldAction(event)">
         <button class="premium-search-scan" type="button" onclick="go('scan')" aria-label="Search with camera">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6 9.5 3.8h5L16 6h3.2A2.3 2.3 0 0 1 21.5 8.3v10A2.3 2.3 0 0 1 19.2 20.6H4.8a2.3 2.3 0 0 1-2.3-2.3v-10A2.3 2.3 0 0 1 4.8 6Z"/><circle cx="12" cy="13" r="4"/></svg>
         </button>
@@ -3229,12 +3230,13 @@ html body .source-chip .findai-exact-brand[data-brand="etsy"] img{
       <div class="wishwave-search-status" id="wishwaveSearchStatus" role="status" aria-live="polite" aria-atomic="true"><span class="wishwave-search-status-spinner" aria-hidden="true"></span><span id="wishwaveSearchStatusText"></span></div>
       <div class="premium-explore-chips" id="premiumExploreChips" role="tablist" aria-label="FindAI discovery">
         <button type="button" class="active" data-explore-filter="for-you">For You</button>
-        <button type="button" data-explore-filter="people">People</button>
+        <button type="button" data-explore-filter="collectibles">Collectibles</button>
         <button type="button" data-explore-filter="fashion">Fashion</button>
+        <button type="button" data-explore-filter="gaming">Gaming</button>
+        <button type="button" data-explore-filter="people">People</button>
         <button type="button" data-explore-filter="watches">Watches</button>
         <button type="button" data-explore-filter="sneakers">Sneakers</button>
         <button type="button" data-explore-filter="tech">Tech</button>
-        <button type="button" data-explore-filter="collectibles">Collectibles</button>
       </div>
     </header>
 
@@ -15765,6 +15767,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
   const FILTERS={
     'for-you':['lego','ps5','gucci','pokemon','watches','sneakers','apple','streetwear','gaming','cameras','handbags','collectibles','audio','tech'],
     fashion:['gucci','handbags','streetwear','luxury','sneakers'],
+    gaming:['gaming','retro','nintendo','ps5','lego'],
     watches:['watches','luxury'],
     sneakers:['sneakers','streetwear','gucci'],
     tech:['tech','apple','gaming','audio','cameras'],
@@ -15855,12 +15858,19 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
   }
   function exploreTile(item,index){
     const candidates=imageCandidateUrls(item),img=candidates[0]||premiumProductImage(item);if(!img)return '';
-    const featured=index>0&&index%9===6;
-    return '<article class="premium-explore-tile'+(featured?' featured':'')+'" role="button" tabindex="0" onclick="openPremiumDiscoveryItem(\'explore\','+index+')" onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault();openPremiumDiscoveryItem(\'explore\','+index+')}">'+
+    const saved=!!window.wishwaveIsBookmarked?.(item);
+    return '<article class="premium-explore-tile" role="button" tabindex="0" onclick="openPremiumDiscoveryItem(\'explore\','+index+')" onkeydown="if(event.target===this&&(event.key===\'Enter\'||event.key===\' \')){event.preventDefault();openPremiumDiscoveryItem(\'explore\','+index+')}">'+
+      '<div class="ww-explore-media">'+
       '<img src="'+escapeAttr(img)+'" data-source="'+escapeAttr(getSource(item))+'" data-image-alts="'+appImageAltAttr(candidates.slice(1,8))+'" alt="'+escapeAttr(item.title||'Product')+'" loading="'+(index<9?'eager':'lazy')+'" decoding="async" fetchpriority="'+(index<3?'high':'auto')+'" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,this.dataset.source,\'\',\'premium-explore-image-placeholder\')">'+
-      exploreSource(item)+
-      '<div class="premium-explore-price">'+escapeHTML(exploreCompactPrice(item))+'</div></article>';
+      '<button type="button" class="ww-explore-save'+(saved?' active':'')+'" data-bookmark-key="'+escapeAttr(trackedKey(item))+'" aria-pressed="'+saved+'" aria-label="'+(saved?'Remove from saved products':'Save product')+'" onclick="wishwaveToggleExploreBookmark('+index+',event)" onkeydown="event.stopPropagation()"><svg viewBox="0 0 24 24" fill="'+(saved?'currentColor':'none')+'" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4Z"/></svg></button></div>'+
+      '<div class="ww-explore-info"><div class="ww-explore-price-row">'+exploreSource(item)+
+      '<span class="premium-explore-price">'+escapeHTML(exploreCompactPrice(item))+'</span></div><div class="ww-explore-title">'+escapeHTML(item.title||'Product')+'</div></div></article>';
   }
+  window.wishwaveToggleExploreBookmark=function(index,event){
+    event?.preventDefault();event?.stopPropagation();
+    const item=premiumDiscoverySections.find(section=>section.config.id==='explore')?.items[index];
+    if(item)window.wishwaveToggleBookmarkItem?.(item);
+  };
   /* v128: Explore is now snapshot-stable. Once a set of tiles is painted we
      never reshuffle or replace it merely because another background request
      finishes. New browse inventory is appended only when the user reaches the
@@ -16126,7 +16136,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     }
     if(!FILTERS[filter])filter='for-you';
     const changed=exploreFilter!==filter;exploreFilter=filter;
-    const screen=document.getElementById('search'),input=document.getElementById('q');if(screen)screen.classList.remove('people-search-mode');if(input){input.placeholder='Search WishWave';input.value='';}
+    const screen=document.getElementById('search'),input=document.getElementById('q');if(screen)screen.classList.remove('people-search-mode');if(input){input.placeholder='Find your next favourite';input.value='';}
     document.querySelectorAll('#premiumExploreChips [data-explore-filter]').forEach(btn=>btn.classList.toggle('active',btn.dataset.exploreFilter===filter));
     const scroll=document.querySelector('#search .premium-search-home-scroll');if(scroll)scroll.scrollTop=0;
     renderPremiumDiscoverySections(changed);
@@ -36470,7 +36480,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 </style>
 <link rel="stylesheet" href="wishwave-reel-commerce.css?v=360">
 <script src="wishwave-reel-commerce.js?v=360"></script>
-<link rel="stylesheet" href="wishwave-coral-theme.css?v=390">
+<link rel="stylesheet" href="wishwave-coral-theme.css?v=391">
 <script src="wishwave-search-follow.js?v=378"></script>
 <link rel="stylesheet" href="wishwave-purchase-ui.css?v=372">
 <script src="wishwave-offer.js?v=372"></script>
