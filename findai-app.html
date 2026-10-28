@@ -16007,7 +16007,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
   }
   function exploreTile(item,index){
     const candidates=imageCandidateUrls(item),img=candidates[0]||premiumProductImage(item);if(!img)return '';
-    return '<article class="premium-explore-tile" role="button" tabindex="0" aria-label="'+escapeAttr(item.title||'Product')+'" onclick="openPremiumDiscoveryItem(\'explore\','+index+')" onkeydown="if(event.target===this&&(event.key===\'Enter\'||event.key===\' \')){event.preventDefault();openPremiumDiscoveryItem(\'explore\','+index+')}">'+
+    return '<article class="premium-explore-tile" role="button" tabindex="0" aria-label="'+escapeAttr(item.title||'Product')+'" onclick="openPremiumDiscoveryItem(\'explore\','+index+',this)" onkeydown="if(event.target===this&&(event.key===\'Enter\'||event.key===\' \')){event.preventDefault();openPremiumDiscoveryItem(\'explore\','+index+',this)}">'+
       '<img src="'+escapeAttr(img)+'" data-source="'+escapeAttr(getSource(item))+'" data-image-alts="'+appImageAltAttr(candidates.slice(1,8))+'" alt="'+escapeAttr(item.title||'Product')+'" loading="'+(index<9?'eager':'lazy')+'" decoding="async" fetchpriority="'+(index<3?'high':'auto')+'" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,this.dataset.source,\'\',\'premium-explore-image-placeholder\')">'+
       exploreSource(item)+
       '<div class="premium-explore-price">'+escapeHTML(exploreCompactPrice(item))+'</div></article>';
@@ -16161,7 +16161,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     items.forEach((item,index)=>{
       const key=exploreItemKey(item)||('explore-'+index);if(existing.has(key))return;
       const template=document.createElement('template');template.innerHTML=exploreTile(item,index).trim();
-      const node=template.content.firstElementChild;if(!node)return;node.dataset.exploreKey=key;grid.appendChild(node);existing.add(key);if(!exploreLiveSearchQuery){exploreExposureItems.set(node,item);exploreExposureObserver.observe(node);}
+      const node=template.content.firstElementChild;if(!node)return;node.dataset.exploreKey=key;node.__wishwaveExploreItem={...item};grid.appendChild(node);existing.add(key);if(!exploreLiveSearchQuery){exploreExposureItems.set(node,item);exploreExposureObserver.observe(node);}
     });
     let marker=root.querySelector('#premiumExploreLoadMarker');
     if(!marker){marker=document.createElement('div');marker.className='premium-explore-load-marker';marker.id='premiumExploreLoadMarker';root.appendChild(marker);}
@@ -30857,7 +30857,16 @@ body>.nav.findai-five-nav.premium-bottom-nav,
   window.__wishwaveRestoreComparedSearchReel=function(saved){return openList(saved.items,saved.index,saved.data,null,saved.owner==='messages'?'messages':'search');};
 
   /* Final global listing openers. Inline onclick calls now terminate here. */
-  window.openPremiumDiscoveryItem=function(sectionId,index){
+  function paintedExploreSelection(host){
+    const selected=host?.__wishwaveExploreItem;
+    if(!selected)return null;
+    const list=sectionById('explore')?.items||[],key=keyOf(selected);
+    // A mounted tile owns the item it painted, even during a background refresh.
+    return {list:[selected,...list.filter(item=>keyOf(item)!==key)],index:0,data:{personalised:true}};
+  }
+  window.openPremiumDiscoveryItem=function(sectionId,index,host){
+    const painted=paintedExploreSelection(host);
+    if(painted)return openList(painted.list,painted.index,painted.data,host);
     const list=(sectionById(sectionId)?.items||[]);
     return openList(list,index,{personalised:true});
   };
@@ -30900,18 +30909,19 @@ body>.nav.findai-five-nav.premium-bottom-nav,
   }
   function resolveHost(host){
     if(!host)return null;
+    const painted=paintedExploreSelection(host);if(painted)return painted;
     let m=String(host.getAttribute('onclick')||'').match(/openPremiumDiscoveryItem\(['\"]([^'\"]+)['\"],\s*(\d+)\)/);
-    if(m){const list=(sectionById(m[1])?.items||[]),i=Number(m[2]);if(list[i])return {list,index:i,data:{personalised:true}};}
+    if(m){const list=(sectionById(m[1])?.items||[]),i=Number(m[2]);if(list[i])return {list:list.slice(),index:i,data:{personalised:true}};}
     m=String(host.getAttribute('onclick')||'').match(/openPremiumResultItem\((\d+)\)/);
-    if(m){const list=(typeof premiumResultItems!=='undefined'?premiumResultItems:[]),i=Number(m[1]);if(list[i])return {list,index:i,data:(typeof premiumResultData!=='undefined'&&premiumResultData)||{personalised:true}};}
+    if(m){const list=(typeof premiumResultItems!=='undefined'?premiumResultItems:[]),i=Number(m[1]);if(list[i])return {list:list.slice(),index:i,data:(typeof premiumResultData!=='undefined'&&premiumResultData)||{personalised:true}};}
     m=String(host.getAttribute('onclick')||'').match(/openPremiumEbayItem\((\d+)\)/);
-    if(m){const list=(typeof premiumEbayItems!=='undefined'?premiumEbayItems:[]),i=Number(m[1]);if(list[i])return {list,index:i,data:{personalised:true}};}
+    if(m){const list=(typeof premiumEbayItems!=='undefined'?premiumEbayItems:[]),i=Number(m[1]);if(list[i])return {list:list.slice(),index:i,data:{personalised:true}};}
     m=String(host.getAttribute('onclick')||'').match(/openSearchResultDetail\((\d+)\)/);
-    if(m){const list=(Array.isArray(currentFeedItems)?currentFeedItems:[]),i=Number(m[1]);if(list[i])return {list,index:i,data:currentFeedData||{personalised:true}};}
+    if(m){const list=(Array.isArray(currentFeedItems)?currentFeedItems:[]),i=Number(m[1]);if(list[i])return {list:list.slice(),index:i,data:currentFeedData||{personalised:true}};}
     const i=Number(host.dataset.gridIndex);
     if(Number.isFinite(i)){
       const list=(Array.isArray(currentFeedItems)?currentFeedItems:[]);
-      if(list[i])return {list,index:i,data:currentFeedData||{personalised:true}};
+      if(list[i])return {list:list.slice(),index:i,data:currentFeedData||{personalised:true}};
     }
     return null;
   }
@@ -36664,7 +36674,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 </style>
 <link rel="stylesheet" href="wishwave-reel-commerce.css?v=360">
 <script src="wishwave-reel-commerce.js?v=360"></script>
-<link rel="stylesheet" href="wishwave-coral-theme.css?v=393">
+<link rel="stylesheet" href="wishwave-coral-theme.css?v=397">
 <script src="wishwave-search-follow.js?v=394"></script>
 <link rel="stylesheet" href="wishwave-purchase-ui.css?v=372">
 <script src="wishwave-offer.js?v=372"></script>
