@@ -42,7 +42,7 @@
   const full=Math.max(innerHeight,document.documentElement.clientHeight,document.querySelector('.app')?.getBoundingClientRect().bottom||0);
   if(!focused&&!search.classList.contains('ww-search-keyboard'))baseline=full;
   baseline=Math.max(baseline,full,bottom);
-  const open=['search','searchResults'].includes(document.body.dataset.activeTab)&&baseline-bottom>120&&(focused||search.classList.contains('ww-search-keyboard'));
+  const open=window.wishwaveNativeKeyboardVisible!==false&&['search','searchResults'].includes(document.body.dataset.activeTab)&&baseline-bottom>120&&(focused||search.classList.contains('ww-search-keyboard'));
   search.classList.toggle('ww-search-keyboard',open);
   if(open){backing.style.top=Math.floor(bottom)+'px';backing.style.height=Math.ceil(baseline-bottom)+'px';backing.hidden=false;document.documentElement.classList.add('ww-search-keyboard-canvas');}
   else clearBacking();
@@ -53,6 +53,15 @@
  function schedule(){if(!frame)frame=requestAnimationFrame(sync);}
  window.visualViewport?.addEventListener('resize',schedule,{passive:true});
  window.visualViewport?.addEventListener('scroll',schedule,{passive:true});
+ function recoverViewport(){
+  if(window.wishwaveNativeKeyboardVisible===false){search.classList.remove('ww-search-keyboard');search.style.removeProperty('--ww-recents-height');clearBacking();}
+  window.findaiSyncVisualViewport?.();schedule();
+  setTimeout(schedule,120);setTimeout(schedule,350);
+ }
+ window.addEventListener('wishwave-native-keyboard',recoverViewport);
+ window.addEventListener('wishwave-screenshot',recoverViewport);
+ window.addEventListener('pageshow',recoverViewport);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)recoverViewport();});
  window.addEventListener('resize',schedule,{passive:true});
  window.addEventListener('orientationchange',()=>{baseline=0;schedule();},{passive:true});
  document.addEventListener('focusin',event=>{if(event.target.matches?.('#q,#premiumResultQuery'))schedule();});

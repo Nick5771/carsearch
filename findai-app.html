@@ -3229,6 +3229,7 @@ html body .source-chip .findai-exact-brand[data-brand="etsy"] img{
       <div class="wishwave-search-status" id="wishwaveSearchStatus" role="status" aria-live="polite" aria-atomic="true"><span class="wishwave-search-status-spinner" aria-hidden="true"></span><span id="wishwaveSearchStatusText"></span></div>
       <div class="premium-explore-chips" id="premiumExploreChips" role="tablist" aria-label="Browse categories">
         <button type="button" class="active" data-explore-filter="for-you">For You</button>
+        <button type="button" data-explore-filter="trending">Trending</button>
         <button type="button" data-explore-filter="people">People</button>
         <button type="button" data-explore-filter="trading-cards">Trading Cards</button>
         <button type="button" data-explore-filter="gaming">Gaming</button>
@@ -8812,7 +8813,7 @@ function findaiSyncVisualViewport(){
   const visualTop=Math.max(0,Math.round(vv?vv.offsetTop:0));
   const layoutH=Math.max(visualH,Math.round(window.innerHeight||visualH),document.documentElement.clientHeight||0);
   const editing=!!document.activeElement?.matches?.('input,textarea,[contenteditable="true"]')||document.body.classList.contains('keyboard-open');
-  const keyboard=!!(vv&&(vv.scale||1)<1.05&&editing&&Math.max(layoutH,findaiStableViewportHeight)-visualH-visualTop>120);
+  const keyboard=!!(window.wishwaveNativeKeyboardVisible!==false&&vv&&(vv.scale||1)<1.05&&editing&&Math.max(layoutH,findaiStableViewportHeight)-visualH-visualTop>120);
   if(!keyboard)findaiStableViewportHeight=layoutH;
   document.documentElement.style.setProperty('--findai-visual-vh',visualH+'px');
   document.documentElement.style.setProperty('--findai-visual-top',visualTop+'px');
@@ -15916,6 +15917,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     ]
 };
   const FILTERS={
+    trending:[],
     'for-you':['lego','ps5','gucci','pokemon','watches','sneakers','apple','streetwear','gaming','cameras','handbags','collectibles','audio','tech'],
     ...Object.fromEntries(Object.keys(EXPLORE_CATEGORY_QUERIES).map(id=>[id,[id]]))
   };
@@ -16290,6 +16292,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     const scroll=document.querySelector('#search .premium-search-home-scroll');if(!scroll)return;
     scroll.addEventListener('scroll',()=>{
       if(exploreFilter==='people')return;
+      if(exploreFilter==='trending'&&!exploreLiveSearchQuery){if(scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<scroll.clientHeight*2.4)loadExploreTrending(false);return;}
       if(scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight<scroll.clientHeight*2.4){if(exploreLiveSearchQuery)loadExploreLiveMore();else loadExploreMore(false);}
     },{passive:true});
   }
@@ -16310,7 +16313,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     const scroll=document.querySelector('#search .premium-search-home-scroll');if(scroll)scroll.scrollTop=0;
     renderPremiumDiscoverySections(changed);
   }
-  document.addEventListener('click',event=>{const button=event.target.closest&&event.target.closest('#premiumExploreChips [data-explore-filter]');if(button)setExploreFilter(button.dataset.exploreFilter);});
+  document.addEventListener('click',event=>{const button=event.target.closest&&event.target.closest('#premiumExploreChips [data-explore-filter]');if(button){if(button.dataset.exploreFilter!==exploreFilter)try{haptic();}catch(_){}setExploreFilter(button.dataset.exploreFilter);}});
 
   let exploreLiveSearchTimer=null;
   let exploreLiveSearchSeq=0;
@@ -16446,10 +16449,32 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     if(clean){setExploreInterpreting(true);runExploreLiveSearch(clean,true);}else runExploreLiveSearch('',true);return false;
   };
 
+  let trendingOffset=0,trendingHasMore=true;
+  async function loadExploreTrending(force=false){
+    const root=document.getElementById('premiumDiscoverySections');if(!root)return;
+    if(force||exploreLoadedFilter!=='trending'){
+      exploreBrowseController?.abort();exploreBrowseController=new AbortController();exploreGeneration++;exploreLoading=false;trendingOffset=0;trendingHasMore=true;exploreQueue=[];
+      premiumDiscoverySections=[{config:{id:'explore',title:'Trending'},items:[]}];
+      root.innerHTML='<div class="premium-explore-skeleton-grid" role="status" aria-label="Loading trending listings">'+Array.from({length:12},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
+      exploreLoadedFilter='trending';bindExploreScroll();
+    }
+    if(exploreLoading||!trendingHasMore)return;
+    exploreLoading=true;const generation=exploreGeneration,section=premiumDiscoverySections[0];
+    try{
+      const data=await appFetchJsonTimed(WORKER_BASE+'/recommendations/trending?country='+encodeURIComponent(appShoppingRegion())+'&limit=30&offset='+trendingOffset,{headers:marketplaceHeaders(),signal:exploreBrowseController?.signal,cache:'no-store'},9000);
+      if(generation!==exploreGeneration||exploreFilter!=='trending'||exploreLiveSearchQuery)return;
+      const seen=new Set(section.items.map(exploreItemKey));for(const item of data.items||[]){const key=exploreItemKey(item);if(!seen.has(key)&&exploreCategoryCandidate(item)){seen.add(key);section.items.push(item);}}
+      trendingOffset=Number(data.nextOffset)||trendingOffset+(data.items||[]).length;trendingHasMore=!!data.hasMore;
+      if(section.items.length){renderExploreGrid({replace:false});cacheExploreBrowseState();}
+      else root.innerHTML='<div class="premium-explore-empty" role="status"><b>No trending listings yet</b>Listings will appear as views and activity build.<button type="button" class="ww-category-retry" onclick="renderPremiumDiscoverySections(true)">Try again</button></div>';
+    }catch(error){if(generation===exploreGeneration&&!section.items.length)root.innerHTML='<div class="premium-explore-empty" role="status"><b>Could not load Trending</b><button type="button" class="ww-category-retry" onclick="renderPremiumDiscoverySections(true)">Try again</button></div>';}
+    finally{if(generation===exploreGeneration)exploreLoading=false;}
+  }
   renderPremiumDiscoverySections=async function(force=false){
     const root=document.getElementById('premiumDiscoverySections');if(!root)return;
     if(exploreFilter==='people'&&window.loadPremiumPeopleDiscovery)return window.loadPremiumPeopleDiscovery(document.getElementById('q')&&document.getElementById('q').value||'');
     const typed=String(document.getElementById('q')&&document.getElementById('q').value||'').trim();if(typed){runExploreLiveSearch(typed,true);return;}
+    if(exploreFilter==='trending')return loadExploreTrending(force);
     const taste=exploreTasteSignature();
     if(!force&&exploreInitialPromise&&exploreInitialPromiseFilter===exploreFilter&&exploreInitialPromiseGeneration===exploreGeneration&&exploreInitialPromiseTaste===taste)return exploreInitialPromise;
     // v242: taste updates affect future inventory, never replace a painted grid.
@@ -36592,8 +36617,8 @@ html.findai-light body #findaiNotificationPanel .findai-notification-item.ww-fol
 }
 </style>
 <script src="wishwave-live-activity.js?v=355"></script>
-<link rel="stylesheet" href="wishwave-experience.css?v=379">
-<script src="wishwave-experience.js?v=379"></script>
+<link rel="stylesheet" href="wishwave-experience.css?v=395">
+<script src="wishwave-experience.js?v=395"></script>
 
 <style id="wishwave-profile-grid-v359">
 /* Approved profile grid: quiet square photos, price left and views right. */

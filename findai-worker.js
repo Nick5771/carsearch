@@ -21470,6 +21470,53 @@ async function intelligencePublishTopics(env,viewer,state){
  await intelligenceEnsure(env);const now=Date.now();const topics=Object.values(state.profile||{}).map(x=>RecommendationInterestCore.stats(x,now)).filter(x=>intelligencePublicTopic(x.key)&&x.query&&x.positiveProducts>=2&&x.confidence>=.2&&x.lift>.01).slice(0,16);
  await env.DB.batch([env.DB.prepare('DELETE FROM recommendation_topic_signals WHERE viewer_key=?').bind(viewer),...topics.map(x=>env.DB.prepare('INSERT INTO recommendation_topic_signals(viewer_key,topic,query,value,at) VALUES(?,?,?,?,?)').bind(viewer,x.key,x.query.slice(0,160),Math.min(1,x.lift),now))]);
 }
+
+// Trending uses recorded activity; zero-activity catalogue rows are never fillers.
+async function wishwaveTrending(request,env){
+ if(!env.DB)return jsonResp({items:[],hasMore:false,nextOffset:0},200,{'Cache-Control':'no-store'});
+ if(await rateLimited(env,request,'trending',60,60))return tooManyResp(60);
+ const url=new URL(request.url),country=catalogueCountry(url.searchParams.get('country')||detectCountry(request));
+ const limit=Math.max(1,Math.min(60,Number(url.searchParams.get('limit'))||30)),offset=Math.max(0,Math.min(500,Number(url.searchParams.get('offset'))||0));
+ try{
+  await shoppingEnsureSchema(env);await catalogueEnsure(env);
+  const since=Date.now()-7*86400000;
+  const activity=await env.DB.prepare(`SELECT listing_key,
+    COUNT(DISTINCT CASE WHEN event='click' OR (event='attention' AND dwell_ms>=2000) THEN viewer_key END) AS viewers,
+    COUNT(DISTINCT CASE WHEN event IN ('like','track','share','comment','compare') THEN viewer_key END) AS engaged,
+    MAX(occurred_at) AS last_activity
+    FROM recommendation_trials WHERE created_at>=? AND occurred_at>=? GROUP BY listing_key
+    HAVING viewers>0 OR engaged>0 ORDER BY viewers+4*engaged DESC LIMIT 2000`).bind(since,since).all();
+  const metrics=new Map((activity.results||[]).map(row=>[String(row.listing_key).toLowerCase(),row]));
+  const rows=await env.DB.prepare(`SELECT item_key,item,observed_at FROM recommendation_catalogue
+    WHERE country=? AND available=1 AND observed_at>=? ORDER BY observed_at DESC LIMIT 2000`).bind(country,Date.now()-6*3600000).all();
+  const candidates=[];
+  for(const row of rows.results||[]){const stat=metrics.get(String(row.item_key).toLowerCase());if(!stat)continue;let item;try{item=JSON.parse(row.item);}catch(_){continue;}
+   if(!item||Number(item.price)<=0||item.available===false||item.inStock===false||item.sold||item.soldOut||!['ebay','etsy','stockx','aliexpress','ali'].includes(String(item.source||'').toLowerCase())||!catalogueGalleryImages(item).length)continue;
+   candidates.push({item,key:String(row.item_key).toLowerCase(),views:Number(stat.viewers)||0,engaged:Number(stat.engaged)||0,last:Number(stat.last_activity)||0});
+  }
+  if(mpPublicMarketplaceEnabled(env)){
+   await mpEnsureSchema(env);await findaiProfileEnsureSchema(env);await findaiAppPrefsEnsureSchema(env);await findaiSocialControlsEnsureSchema(env);
+   const viewer=String(await emailFromSession(request,env)||'').toLowerCase();
+   const owned=await env.DB.prepare(`SELECT l.*,s.display_name,s.country AS seller_country,p.username AS seller_username,p.avatar_url AS seller_avatar_url,p.display_name AS profile_display_name
+    FROM marketplace_listings l JOIN marketplace_sellers s ON s.id=l.seller_id
+    LEFT JOIN findai_profiles p ON lower(p.user_email)=lower(s.user_email)
+    LEFT JOIN findai_app_preferences prefs ON lower(prefs.email)=lower(s.user_email)
+    WHERE l.status='active' AND l.quantity>0 AND s.status='active' AND s.country=?
+      AND CASE WHEN prefs.email IS NULL THEN 0 WHEN json_valid(prefs.settings_json) THEN COALESCE(json_extract(prefs.settings_json,'$.privateAccount'),0) ELSE 1 END=0
+      AND NOT EXISTS(SELECT 1 FROM findai_user_controls c WHERE c.kind='blocked' AND ((lower(c.owner_email)=? AND lower(c.target_email)=lower(s.user_email)) OR (lower(c.target_email)=? AND lower(c.owner_email)=lower(s.user_email))))
+    ORDER BY COALESCE(l.view_count,0)+4*COALESCE(l.like_count,0) DESC LIMIT 500`).bind(country,viewer,viewer).all();
+   for(const row of owned.results||[]){const item=mpListingItem(row);if(!item||!catalogueGalleryImages(item).length)continue;const key='findai:'+row.id,stat=metrics.get(key)||{};
+    const views=Math.max(Number(item.viewCount)||0,Number(stat.viewers)||0),engaged=Math.max(Number(item.likeCount)||0,Number(stat.engaged)||0);if(!views&&!engaged)continue;
+    candidates.push({item,key,views,engaged,last:Number(stat.last_activity)||Date.parse(item.publishedAt||item.createdAt||'')||0});
+   }
+  }
+  candidates.sort((a,b)=>(b.views+4*b.engaged)-(a.views+4*a.engaged)||b.views-a.views||b.last-a.last||a.key.localeCompare(b.key));
+  const unique=[...new Map(candidates.map(row=>[row.key,row])).values()];
+  const items=unique.slice(offset,offset+limit).map(row=>({...row.item,_trendingViews:row.views,_trendingEngaged:row.engaged,_trendingScore:row.views+4*row.engaged}));
+  return jsonResp({items,hasMore:offset+items.length<unique.length,nextOffset:offset+items.length,activityWindowDays:7,nativeViews:'all-time'},200,{'Cache-Control':'no-store'});
+ }catch(error){return jsonResp({error:'Trending is temporarily unavailable'},503,{'Cache-Control':'no-store'});}
+}
+
 async function intelligenceCommunity(request,env){
  const who=await shoppingViewer(request,env,'',true);if(who.fail)return who.fail;await intelligenceEnsure(env);
  const rows=await env.DB.prepare(`WITH anchors AS (SELECT topic FROM recommendation_topic_signals WHERE viewer_key=? AND at>? ORDER BY value DESC LIMIT 12),
@@ -22253,6 +22300,7 @@ export default {
       const treasureResponse=await treasureRoute(request,env);if(treasureResponse)return treasureResponse;
       if(url.pathname==='/recommendations/catalogue-status'&&request.method==='GET')return await catalogueStatus(request,env);
       if(url.pathname==='/recommendations/understand'&&request.method==='POST')return await intelligenceUnderstand(request,env);
+      if(url.pathname==='/recommendations/trending'&&request.method==='GET')return await wishwaveTrending(request,env);
       if(url.pathname==='/recommendations/community'&&request.method==='GET')return await intelligenceCommunity(request,env);
       if(url.pathname==='/recommendations/visit'&&request.method==='POST')return await intelligenceVisit(request,env);
       if(url.pathname==='/recommendations/model'&&request.method==='GET')return await intelligenceModel(request,env,url);

@@ -196,7 +196,7 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         let config = WKWebViewConfiguration()
         config.websiteDataStore = .default()
         config.userContentController.addUserScript(WKUserScript(
-            source: "window.wishwaveNativeBuild = 357;",
+            source: "window.wishwaveNativeBuild = 358; window.wishwaveNativeKeyboardVisible = false;",
             injectionTime: .atDocumentStart, forMainFrameOnly: true))
         // Keep the camera preview beneath WishWave's own shutter controls.
         config.allowsInlineMediaPlayback = true
@@ -279,6 +279,9 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
         NotificationCenter.default.addObserver(self, selector: #selector(pushApplicationActive), name: UIApplication.didBecomeActiveNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(pushArrived), name: WishWavePush.arrived, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(prepareKeyboard), name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardShowing), name: UIResponder.keyboardWillShowNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(keyboardHiding), name: UIResponder.keyboardWillHideNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(screenshotTaken), name: UIApplication.userDidTakeScreenshotNotification, object: nil)
         reloadPage()
     }
 
@@ -294,6 +297,29 @@ final class ShoppingController: UIViewController, WKNavigationDelegate, WKUIDele
             scrollView.topEdgeEffect.isHidden = true
         }
         for child in root.subviews { hideTopScrollEdgeEffects(in: child) }
+    }
+
+    private func sendKeyboardVisibility(_ visible: Bool) {
+        guard trusted(webView.url) else { return }
+        let value = visible ? "true" : "false"
+        webView.evaluateJavaScript("window.wishwaveNativeKeyboardVisible = \(value); window.dispatchEvent(new Event('wishwave-native-keyboard'));")
+    }
+
+    @objc private func keyboardShowing() { sendKeyboardVisibility(true) }
+    @objc private func keyboardHiding() { sendKeyboardVisibility(false) }
+
+    @objc private func screenshotTaken() {
+        guard trusted(webView.url) else { return }
+        // A capture can interrupt the keyboard's viewport/compositing transition.
+        view.setNeedsLayout()
+        webView.setNeedsLayout()
+        webView.scrollView.layer.setNeedsDisplay()
+        webView.evaluateJavaScript("window.dispatchEvent(new Event('wishwave-screenshot'));")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            guard let self = self, self.trusted(self.webView.url) else { return }
+            self.view.layoutIfNeeded()
+            self.webView.evaluateJavaScript("window.dispatchEvent(new Event('wishwave-screenshot'));")
+        }
     }
 
     @objc private func prepareKeyboard() {
