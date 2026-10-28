@@ -51,15 +51,21 @@ html.findai-light.ww-search-keyboard-canvas,html.findai-light.ww-search-keyboard
 
 /* Search keeps its normal magnifier. Empty searches load in the results area. */
 html body .app #search .wishwave-search-status{display:none!important;}
-#wwSearchLoading{position:absolute;left:50%;transform:translate(-50%,-50%);z-index:36;width:24px;height:24px;pointer-events:none;}
+/* Three-column placeholders occupy the same photo area as incoming listings. */
+#wwSearchLoading{position:absolute;left:0;right:0;z-index:36;overflow:hidden;pointer-events:none;background:var(--ww-loading-canvas,#0b0c0d);}
 #wwSearchLoading[hidden]{display:none!important;}
-.ww-search-spinner{display:block;box-sizing:border-box;width:24px;height:24px;border:2px solid #777d854d;border-top-color:#bfc3ca;border-right-color:#8d939c;border-radius:50%;animation:wwSearchSpin .8s linear infinite;}
-@keyframes wwSearchSpin{to{transform:rotate(360deg)}}
+html body .app #search{--ww-loading-canvas:#0b0c0d;--ww-loading-tile:#202225;--ww-loading-bar:#3b3e42;--ww-loading-glint:rgba(255,255,255,.075);}
+html.findai-light body .app #search{--ww-loading-canvas:#fff;--ww-loading-tile:#eeeff1;--ww-loading-bar:#d9dce0;--ww-loading-glint:rgba(255,255,255,.65);}
+html body .app #search :is(.ww-search-shimmer-grid,.premium-explore-skeleton-grid){display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;padding:3px 0 0;background:transparent;}
+html body .app #search :is(.ww-search-shimmer-tile,.premium-explore-skeleton,.premium-explore-grid>.wishwave-search-placeholder){position:relative;isolation:isolate;overflow:hidden;min-width:0;aspect-ratio:3/4;border-radius:5px;background:var(--ww-loading-tile)!important;animation:none;}
+html body .app #search :is(.ww-search-shimmer-tile,.premium-explore-skeleton,.premium-explore-grid>.wishwave-search-placeholder)::before{content:"";position:absolute;left:9px;right:24%;bottom:10px;height:16px;border-radius:3px;background:linear-gradient(var(--ww-loading-bar),var(--ww-loading-bar)) left top/100% 6px no-repeat,linear-gradient(var(--ww-loading-bar),var(--ww-loading-bar)) left bottom/65% 4px no-repeat;}
+html body .app #search :is(.ww-search-shimmer-tile,.premium-explore-skeleton,.premium-explore-grid>.wishwave-search-placeholder)::after{content:"";position:absolute;inset:0;background:linear-gradient(110deg,transparent 25%,var(--ww-loading-glint) 48%,transparent 70%);transform:translateX(-150%);animation:wwSearchShimmer 1.65s ease-in-out infinite;}
+@keyframes wwSearchShimmer{to{transform:translateX(150%)}}
 html body .app #search.ww-search-loading-empty :is(.premium-explore-skeleton-grid,.premium-seller-loading,.premium-explore-empty,.premium-seller-empty){visibility:hidden!important;}
 html:not(.findai-light) body .app :is(#findaiLiveProfileMatches,.premium-seller-discovery,.premium-profile-matches,#premiumProfileMatches){background:#17181a!important;}
 html body .app #search .premium-profile-matches-label{color:#949ba6;}
 html body .app #search.search-recents-visible .premium-search-home-scroll{visibility:hidden;}
-@media(prefers-reduced-motion:reduce){.ww-search-spinner{animation:none;}}
+@media(prefers-reduced-motion:reduce){html body .app #search :is(.ww-search-shimmer-tile,.premium-explore-skeleton,.premium-explore-grid>.wishwave-search-placeholder)::after{animation:none;transform:none;background:none;}}
 /* Native search decorations must not reserve an invisible clear-button slot. */
 html body .app :is(#q,#premiumResultQuery){-webkit-appearance:none!important;appearance:none!important;box-sizing:border-box!important;flex:1 1 0%!important;width:0!important;min-width:0!important;max-width:none!important;padding:0!important;text-overflow:clip!important;}
 html body .app :is(#q,#premiumResultQuery)::-webkit-search-decoration,

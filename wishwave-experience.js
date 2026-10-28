@@ -9,7 +9,7 @@
  row.append(back,form);
  const backing=document.createElement('div');backing.id='wwSearchKeyboardBacking';backing.hidden=true;backing.setAttribute('aria-hidden','true');document.body.appendChild(backing);
  function clearBacking(){backing.hidden=true;backing.style.removeProperty('top');backing.style.removeProperty('height');document.documentElement.classList.remove('ww-search-keyboard-canvas');}
- const loader=document.createElement('div');loader.id='wwSearchLoading';loader.hidden=true;loader.setAttribute('role','status');loader.setAttribute('aria-label','Searching');loader.innerHTML='<span class="ww-search-spinner" aria-hidden="true"></span>';search.appendChild(loader);
+ const loader=document.createElement('div');loader.id='wwSearchLoading';loader.hidden=true;loader.setAttribute('role','status');loader.setAttribute('aria-label','Searching');loader.innerHTML='<div class="ww-search-shimmer-grid" aria-hidden="true">'+Array.from({length:12},()=>'<div class="ww-search-shimmer-tile"></div>').join('')+'</div>';search.appendChild(loader);
  let frame=0,baseline=0;
  function syncLoading(){
   const visible=document.body.dataset.activeTab==='search'&&search.classList.contains('active');
@@ -17,11 +17,13 @@
   const busy=visible&&!!field.value.trim()&&search.classList.contains('live-search-interpreting')&&!hasResults;
   loader.hidden=!busy;if(search.classList.contains('ww-search-loading-empty')!==busy)search.classList.toggle('ww-search-loading-empty',busy);
   if(!busy)return;
-  const rect=search.getBoundingClientRect(),header=search.querySelector('.premium-search-home-header').getBoundingClientRect();
+  const rect=search.getBoundingClientRect(),header=search.querySelector('.premium-search-home-header')?.getBoundingClientRect();
+  if(!header){loader.hidden=true;return;}
   let bottom=Math.min(rect.bottom||innerHeight,window.visualViewport?window.visualViewport.height+window.visualViewport.offsetTop:innerHeight);
   const nav=document.getElementById('wishwaveMainNav'),navBox=nav?.getBoundingClientRect();
   if(navBox?.height&&getComputedStyle(nav).visibility!=='hidden'&&getComputedStyle(nav).display!=='none')bottom=Math.min(bottom,navBox.top);
-  loader.style.top=Math.max(0,header.bottom-rect.top+(Math.max(0,bottom-header.bottom)/2))+'px';
+  loader.style.top=Math.max(0,header.bottom-rect.top)+'px';
+  loader.style.height=Math.max(0,bottom-header.bottom)+'px';
  }
  function close(){
   field.blur();search.dataset.v201NavReset='1';search.classList.remove('ww-search-session','ww-search-submitted','search-recents-visible');
