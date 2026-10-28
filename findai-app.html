@@ -3219,24 +3219,34 @@ html body .source-chip .findai-exact-brand[data-brand="etsy"] img{
   <!-- Search: clean premium discovery surface -->
   <section id="search" class="screen premium-search-home" aria-label="Search">
     <header class="premium-search-home-header">
-      <h1 class="wishwave-discover-title">Discover</h1>
       <form class="premium-search-bar" onsubmit="return handlePremiumExploreSubmit(event)">
         <svg class="premium-search-glass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="10.8" cy="10.8" r="7.1"/><path d="m16.1 16.1 4.2 4.2"/></svg>
-        <input id="q" type="search" placeholder="Find your next favourite" enterkeyhint="search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" oninput="handlePremiumExploreInput(this.value)" onsearch="wishwaveSearchFieldAction(event)">
+        <input id="q" type="search" placeholder="Search WishWave" enterkeyhint="search" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" oninput="handlePremiumExploreInput(this.value)" onsearch="wishwaveSearchFieldAction(event)">
         <button class="premium-search-scan" type="button" onclick="go('scan')" aria-label="Search with camera">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6 9.5 3.8h5L16 6h3.2A2.3 2.3 0 0 1 21.5 8.3v10A2.3 2.3 0 0 1 19.2 20.6H4.8a2.3 2.3 0 0 1-2.3-2.3v-10A2.3 2.3 0 0 1 4.8 6Z"/><circle cx="12" cy="13" r="4"/></svg>
         </button>
       </form>
       <div class="wishwave-search-status" id="wishwaveSearchStatus" role="status" aria-live="polite" aria-atomic="true"><span class="wishwave-search-status-spinner" aria-hidden="true"></span><span id="wishwaveSearchStatusText"></span></div>
-      <div class="premium-explore-chips" id="premiumExploreChips" role="tablist" aria-label="FindAI discovery">
+      <div class="premium-explore-chips" id="premiumExploreChips" role="tablist" aria-label="Browse categories">
         <button type="button" class="active" data-explore-filter="for-you">For You</button>
-        <button type="button" data-explore-filter="collectibles">Collectibles</button>
-        <button type="button" data-explore-filter="fashion">Fashion</button>
-        <button type="button" data-explore-filter="gaming">Gaming</button>
         <button type="button" data-explore-filter="people">People</button>
-        <button type="button" data-explore-filter="watches">Watches</button>
+        <button type="button" data-explore-filter="trading-cards">Trading Cards</button>
+        <button type="button" data-explore-filter="gaming">Gaming</button>
+        <button type="button" data-explore-filter="fashion">Fashion</button>
         <button type="button" data-explore-filter="sneakers">Sneakers</button>
+        <button type="button" data-explore-filter="watches">Watches</button>
+        <button type="button" data-explore-filter="toys">Toys</button>
+        <button type="button" data-explore-filter="comics">Comics</button>
+        <button type="button" data-explore-filter="music">Music</button>
+        <button type="button" data-explore-filter="sports">Sports</button>
+        <button type="button" data-explore-filter="cameras">Cameras</button>
         <button type="button" data-explore-filter="tech">Tech</button>
+        <button type="button" data-explore-filter="jewellery">Jewellery</button>
+        <button type="button" data-explore-filter="bags">Bags</button>
+        <button type="button" data-explore-filter="art">Art</button>
+        <button type="button" data-explore-filter="books">Books</button>
+        <button type="button" data-explore-filter="home">Home</button>
+        <button type="button" data-explore-filter="antiques">Antiques</button>
       </div>
     </header>
 
@@ -15764,14 +15774,98 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
 </style>
 <script id="findai-v121-explore-comments-script">
 (function(){
+  // Keep navigation stable; vary the listings within each category.
+  const EXPLORE_CATEGORY_QUERIES={
+    "trading-cards": [
+        "pokemon trading cards",
+        "sports trading cards",
+        "yu gi oh cards"
+    ],
+    "gaming": [
+        "retro video game console",
+        "nintendo games",
+        "playstation games"
+    ],
+    "fashion": [
+        "vintage clothing",
+        "streetwear clothing",
+        "vintage jackets"
+    ],
+    "sneakers": [
+        "air jordan sneakers",
+        "new balance sneakers",
+        "adidas sneakers"
+    ],
+    "watches": [
+        "seiko watch",
+        "tissot watch",
+        "vintage wristwatch"
+    ],
+    "toys": [
+        "collectible action figures",
+        "bratz dolls",
+        "diecast model cars",
+        "lego sets"
+    ],
+    "comics": [
+        "vintage comic books",
+        "marvel comics",
+        "manga volumes"
+    ],
+    "music": [
+        "vinyl records",
+        "music cds",
+        "musical instruments"
+    ],
+    "sports": [
+        "sports memorabilia",
+        "football jerseys",
+        "tennis racquets"
+    ],
+    "cameras": [
+        "film cameras",
+        "digital cameras",
+        "camera lenses"
+    ],
+    "tech": [
+        "portable audio player",
+        "headphones",
+        "tablets"
+    ],
+    "jewellery": [
+        "vintage jewellery",
+        "silver rings",
+        "gold necklaces"
+    ],
+    "bags": [
+        "designer handbags",
+        "leather bags",
+        "vintage shoulder bags"
+    ],
+    "art": [
+        "original paintings",
+        "art prints",
+        "sculptures"
+    ],
+    "books": [
+        "rare books",
+        "vintage books",
+        "hardcover novels"
+    ],
+    "home": [
+        "vintage home decor",
+        "table lamps",
+        "decorative ceramics"
+    ],
+    "antiques": [
+        "antique clocks",
+        "antique silver",
+        "antique porcelain"
+    ]
+};
   const FILTERS={
     'for-you':['lego','ps5','gucci','pokemon','watches','sneakers','apple','streetwear','gaming','cameras','handbags','collectibles','audio','tech'],
-    fashion:['gucci','handbags','streetwear','luxury','sneakers'],
-    gaming:['gaming','retro','nintendo','ps5','lego'],
-    watches:['watches','luxury'],
-    sneakers:['sneakers','streetwear','gucci'],
-    tech:['tech','apple','gaming','audio','cameras'],
-    collectibles:['collectibles','cards','pokemon','lego','retro']
+    ...Object.fromEntries(Object.keys(EXPLORE_CATEGORY_QUERIES).map(id=>[id,[id]]))
   };
   let exploreFilter='for-you';
   let exploreGeneration=0;
@@ -15823,7 +15917,8 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
       }));
     }
     const ids=(FILTERS[filter]||FILTERS['for-you']).slice();
-    const categoryConfigs=ids.map(configById).filter(Boolean);
+    const categoryConfigs=filter==='for-you'?ids.map(configById).filter(Boolean):
+      (EXPLORE_CATEGORY_QUERIES[filter]||[]).map((query,index)=>({id:'browse_'+filter+'_'+index,title:query,queries:[query],_forceLive:true,_categoryBrowse:true}));
     if(filter!=='for-you')return premiumRotateArray(categoryConfigs,premiumDiscoveryHash()+(filter.length*97)+exploreVisitSalt*31);
     const taste=exploreTasteConfigs();
     const discovery=premiumRotateArray(
@@ -15858,19 +15953,11 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
   }
   function exploreTile(item,index){
     const candidates=imageCandidateUrls(item),img=candidates[0]||premiumProductImage(item);if(!img)return '';
-    const saved=!!window.wishwaveIsBookmarked?.(item);
-    return '<article class="premium-explore-tile" role="button" tabindex="0" onclick="openPremiumDiscoveryItem(\'explore\','+index+')" onkeydown="if(event.target===this&&(event.key===\'Enter\'||event.key===\' \')){event.preventDefault();openPremiumDiscoveryItem(\'explore\','+index+')}">'+
-      '<div class="ww-explore-media">'+
+    return '<article class="premium-explore-tile" role="button" tabindex="0" aria-label="'+escapeAttr(item.title||'Product')+'" onclick="openPremiumDiscoveryItem(\'explore\','+index+')" onkeydown="if(event.target===this&&(event.key===\'Enter\'||event.key===\' \')){event.preventDefault();openPremiumDiscoveryItem(\'explore\','+index+')}">'+
       '<img src="'+escapeAttr(img)+'" data-source="'+escapeAttr(getSource(item))+'" data-image-alts="'+appImageAltAttr(candidates.slice(1,8))+'" alt="'+escapeAttr(item.title||'Product')+'" loading="'+(index<9?'eager':'lazy')+'" decoding="async" fetchpriority="'+(index<3?'high':'auto')+'" referrerpolicy="no-referrer" onerror="appRetailerImgError(this,this.dataset.source,\'\',\'premium-explore-image-placeholder\')">'+
-      '<button type="button" class="ww-explore-save'+(saved?' active':'')+'" data-bookmark-key="'+escapeAttr(trackedKey(item))+'" aria-pressed="'+saved+'" aria-label="'+(saved?'Remove from saved products':'Save product')+'" onclick="wishwaveToggleExploreBookmark('+index+',event)" onkeydown="event.stopPropagation()"><svg viewBox="0 0 24 24" fill="'+(saved?'currentColor':'none')+'" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4Z"/></svg></button></div>'+
-      '<div class="ww-explore-info"><div class="ww-explore-price-row">'+exploreSource(item)+
-      '<span class="premium-explore-price">'+escapeHTML(exploreCompactPrice(item))+'</span></div><div class="ww-explore-title">'+escapeHTML(item.title||'Product')+'</div></div></article>';
+      exploreSource(item)+
+      '<div class="premium-explore-price">'+escapeHTML(exploreCompactPrice(item))+'</div></article>';
   }
-  window.wishwaveToggleExploreBookmark=function(index,event){
-    event?.preventDefault();event?.stopPropagation();
-    const item=premiumDiscoverySections.find(section=>section.config.id==='explore')?.items[index];
-    if(item)window.wishwaveToggleBookmarkItem?.(item);
-  };
   /* v128: Explore is now snapshot-stable. Once a set of tiles is painted we
      never reshuffle or replace it merely because another background request
      finishes. New browse inventory is appended only when the user reaches the
@@ -16029,7 +16116,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
   }
   async function loadExploreConfig(config,pool,generation){
     const queryUsed=(config._findaiTaste?(config.queries||[])[0]:premiumRotateArray(config.queries||[config.title||'products'],premiumDiscoveryHash()+String(config.id||'x').length+exploreVisitSalt*19)[0])||config.title||'products';
-    let items=config._page?[]:v116PreviewItemsForConfig(config,pool);
+    let items=config._page||config._categoryBrowse?[]:v116PreviewItemsForConfig(config,pool);
     const exactIntent=!!config._findaiInterest?._prioritySearch;
     if((config._forceLive||config._page||exactIntent||items.length<6)&&queryUsed){
       config._attempts=(config._attempts||0)+1;
@@ -16053,7 +16140,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     const accountOwner=window.wishwaveRecommendationAccount?.(),sectionOwner=premiumDiscoverySections[0];
     const startLength=sectionOwner.items.length;
     if(!initial&&exploreLoadedTaste!==exploreTasteSignature()){exploreQueue=exploreConfigs(exploreFilter);exploreLoadedTaste=exploreTasteSignature();}
-    if(!exploreQueue.length&&exploreEmptyBatches<3){
+    if(!exploreQueue.length&&exploreEmptyBatches<3&&exploreFilter==='for-you'){
       exploreVisitSalt++;
       exploreQueue=featuredColdStart(.7,'explore-next-'+exploreVisitSalt).map(lane=>({id:'next_'+lane.cluster,queries:[lane.query],_forceLive:true}));
     }
@@ -16069,7 +16156,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
       if(fresh.length){renderExploreGrid({replace:false});cacheExploreBrowseState();}
       if(fresh.length&&sectionOwner.items.length>=24){exploreLoading=false;return;}
     }
-    const pool=curated?[]:await v116GetPreviewPool(false);
+    const pool=curated||exploreFilter!=='for-you'?[]:await v116GetPreviewPool(false);
     const batch=exploreQueue.splice(0,Math.min(curated?(initial?12:8):initial?10:5,exploreQueue.length));
     // Share a reservoir across completed categories. Paint the first product
     // promptly, but hold same-category followers while other lanes are pending.
@@ -16136,7 +16223,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     }
     if(!FILTERS[filter])filter='for-you';
     const changed=exploreFilter!==filter;exploreFilter=filter;
-    const screen=document.getElementById('search'),input=document.getElementById('q');if(screen)screen.classList.remove('people-search-mode');if(input){input.placeholder='Find your next favourite';input.value='';}
+    const screen=document.getElementById('search'),input=document.getElementById('q');if(screen)screen.classList.remove('people-search-mode');if(input){input.placeholder='Search WishWave';input.value='';}
     document.querySelectorAll('#premiumExploreChips [data-explore-filter]').forEach(btn=>btn.classList.toggle('active',btn.dataset.exploreFilter===filter));
     const scroll=document.querySelector('#search .premium-search-home-scroll');if(scroll)scroll.scrollTop=0;
     renderPremiumDiscoverySections(changed);
@@ -16293,11 +16380,11 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     if(exploreInitialPromise&&exploreInitialPromiseFilter===exploreFilter&&exploreInitialPromiseGeneration===exploreGeneration&&!force)return exploreInitialPromise;
     exploreInitialPromiseFilter=exploreFilter;exploreInitialPromiseTaste=taste;
     exploreInitialPromise=(async()=>{
-      const previous=force&&root.querySelector('.premium-explore-grid')?premiumDiscoverySections: null;
+      const previous=force&&exploreLoadedFilter===exploreFilter&&root.querySelector('.premium-explore-grid')?premiumDiscoverySections: null;
       exploreBrowseController?.abort();exploreBrowseController=new AbortController();exploreTopups=0;
       const generation=++exploreGeneration;exploreInitialPromiseGeneration=generation;if(force||!exploreLoadedFilter)exploreVisitSalt++;
       exploreLoading=false;exploreEmptyBatches=0;seenExplore.clear();premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:[]}];exploreQueue=exploreConfigs(exploreFilter);
-      if(force&&root.querySelector('.premium-explore-grid'))root.dataset.refreshPending='1';
+      if(previous)root.dataset.refreshPending='1';
       else {delete root.dataset.refreshPending;
       root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
       }
@@ -36480,7 +36567,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 </style>
 <link rel="stylesheet" href="wishwave-reel-commerce.css?v=360">
 <script src="wishwave-reel-commerce.js?v=360"></script>
-<link rel="stylesheet" href="wishwave-coral-theme.css?v=391">
+<link rel="stylesheet" href="wishwave-coral-theme.css?v=392">
 <script src="wishwave-search-follow.js?v=378"></script>
 <link rel="stylesheet" href="wishwave-purchase-ui.css?v=372">
 <script src="wishwave-offer.js?v=372"></script>
