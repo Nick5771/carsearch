@@ -20,6 +20,9 @@ const root=path.resolve(__dirname,'..');
   await page.evaluate(()=>openFindAIProfileByUsername('nick'));await page.waitForTimeout(500);
 
   assert.equal(await page.locator('#wishwavePublicProfileContent .social-profile-tile').count(),6);
+  if(!await page.locator('#wishwavePublicProfileContent .social-profile-tile').first().isVisible()){
+   console.log('PROFILE LAYOUT',await page.locator('#wishwavePublicProfileContent .social-profile-tile').first().evaluate(tile=>{const out=[];for(let e=tile;e;e=e.parentElement){const r=e.getBoundingClientRect(),s=getComputedStyle(e);out.push({tag:e.tagName,id:e.id,cls:e.className,width:r.width,height:r.height,x:r.x,y:r.y,display:s.display,visibility:s.visibility,opacity:s.opacity,transform:s.transform,position:s.position,grid:s.gridTemplateColumns,rows:s.gridTemplateRows,overflow:s.overflow,ratio:s.aspectRatio});}return out;}));
+  }
   assert.equal(await page.locator('#wishwavePublicProfileContent .social-profile-tile').first().isVisible(),true);
   // The grid remains sized with every image out of flow and no aspect-ratio support.
   await page.addStyleTag({content:'html body #wishwavePublicProfilePage#wishwavePublicProfilePage#wishwavePublicProfilePage .social-profile-tile{aspect-ratio:auto!important}'});
