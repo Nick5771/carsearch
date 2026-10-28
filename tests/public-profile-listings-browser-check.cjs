@@ -17,7 +17,7 @@ const root=path.resolve(__dirname,'..');
     return {items:[],listings:[],followers:2,following:3,viewer:{isFollowing:true},profile:user};
    };
   });
-  await page.waitForTimeout(700);
+  await page.evaluate(()=>go('search'));await page.waitForTimeout(700);
   await page.evaluate(()=>openFindAIProfileByUsername('nick'));await page.waitForTimeout(500);
 
   assert.equal(await page.locator('#wishwavePublicProfileContent .social-profile-tile').count(),6);
