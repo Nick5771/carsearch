@@ -53,7 +53,7 @@ window.wishwaveUnfollowMarkup=function(label,avatar,options={}){
    document.getElementById('wwSearchUnfollowCancel').onclick=()=>closeAppMpSheet();return;
   }
   const before={...state},removing=state.following||state.pending;
-  Object.assign(state,{busy:true,following:false,pending:!removing,at:Date.now()});paintAll(username,state);try{haptic();}catch(_){}
+  Object.assign(state,{busy:true,at:Date.now()});paintAll(username,state);try{haptic();}catch(_){}
   try{
    const data=await marketplaceFetch('/social/follow-user/'+encodeURIComponent(username),{method:removing?'DELETE':'POST'});
    if(owner()!==session)return;

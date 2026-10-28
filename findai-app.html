@@ -15777,90 +15777,142 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
   // Keep navigation stable; vary the listings within each category.
   const EXPLORE_CATEGORY_QUERIES={
     "trading-cards": [
-        "pokemon trading cards",
-        "sports trading cards",
-        "yu gi oh cards"
+        "pokemon booster box",
+        "pokemon PSA graded cards",
+        "one piece trading cards",
+        "magic the gathering commander deck",
+        "yu gi oh blue eyes cards",
+        "panini prizm basketball cards"
     ],
     "gaming": [
-        "retro video game console",
-        "nintendo games",
-        "playstation games"
+        "Sony PlayStation 5 console",
+        "Nintendo Switch OLED console",
+        "Xbox Series X console",
+        "Nintendo Game Boy Advance SP",
+        "Nintendo 3DS XL console",
+        "Sony PS Vita console",
+        "Nintendo 64 console",
+        "Zelda Breath of the Wild Switch game"
     ],
     "fashion": [
-        "vintage clothing",
-        "streetwear clothing",
-        "vintage jackets"
+        "Carhartt Detroit jacket",
+        "Levis 501 jeans",
+        "Dickies Eisenhower jacket",
+        "Ralph Lauren polo shirt",
+        "Nike vintage sweatshirt",
+        "Adidas track jacket"
     ],
     "sneakers": [
-        "air jordan sneakers",
-        "new balance sneakers",
-        "adidas sneakers"
+        "Air Jordan 4 sneakers",
+        "Nike Dunk Low sneakers",
+        "New Balance 2002R sneakers",
+        "Adidas Samba sneakers",
+        "Asics Gel Kayano sneakers",
+        "Converse Chuck Taylor sneakers"
     ],
     "watches": [
-        "seiko watch",
-        "tissot watch",
-        "vintage wristwatch"
+        "Seiko 5 watch",
+        "Casio G Shock watch",
+        "Tissot PRX watch",
+        "Citizen Eco Drive watch",
+        "Omega Seamaster watch",
+        "Hamilton Khaki watch"
     ],
     "toys": [
-        "collectible action figures",
-        "bratz dolls",
-        "diecast model cars",
-        "lego sets"
+        "LEGO Star Wars set",
+        "Hot Wheels premium cars",
+        "Bratz dolls",
+        "Jellycat plush",
+        "Bandai Gundam model kit",
+        "Disney collectible pins"
     ],
     "comics": [
-        "vintage comic books",
-        "marvel comics",
-        "manga volumes"
+        "Amazing Spider Man comic",
+        "Batman comic books",
+        "X Men comics",
+        "One Piece manga volume",
+        "Berserk manga volume",
+        "Dragon Ball manga volume"
     ],
     "music": [
-        "vinyl records",
-        "music cds",
-        "musical instruments"
+        "Pink Floyd Dark Side of the Moon vinyl",
+        "Beatles Abbey Road vinyl",
+        "Nirvana Nevermind vinyl",
+        "Taylor Swift vinyl",
+        "Sony Walkman cassette player",
+        "Fender Stratocaster guitar"
     ],
     "sports": [
-        "sports memorabilia",
-        "football jerseys",
-        "tennis racquets"
+        "Michael Jordan basketball jersey",
+        "Ronaldinho Barcelona jersey",
+        "Manchester United football jersey",
+        "signed baseball",
+        "Wilson tennis racquet",
+        "NBA basketball cards"
     ],
     "cameras": [
-        "film cameras",
-        "digital cameras",
-        "camera lenses"
+        "Canon AE 1 camera",
+        "Pentax K1000 camera",
+        "Olympus Mju camera",
+        "Fujifilm X100 camera",
+        "Sony Alpha camera",
+        "Polaroid SX 70 camera"
     ],
     "tech": [
-        "portable audio player",
-        "headphones",
-        "tablets"
+        "Apple iPod classic",
+        "Sony WH 1000XM5 headphones",
+        "Apple AirPods Pro",
+        "Apple iPad tablet",
+        "Apple MacBook Air",
+        "Bose QuietComfort headphones"
     ],
     "jewellery": [
-        "vintage jewellery",
-        "silver rings",
-        "gold necklaces"
+        "Tiffany silver necklace",
+        "Pandora charm bracelet",
+        "Swarovski earrings",
+        "vintage silver ring",
+        "Georg Jensen brooch",
+        "gold chain necklace"
     ],
     "bags": [
-        "designer handbags",
-        "leather bags",
-        "vintage shoulder bags"
+        "Coach shoulder bag",
+        "Longchamp Le Pliage bag",
+        "Louis Vuitton Speedy bag",
+        "Prada nylon bag",
+        "Fjallraven Kanken backpack",
+        "vintage leather handbag"
     ],
     "art": [
-        "original paintings",
-        "art prints",
-        "sculptures"
+        "original watercolor painting",
+        "Japanese woodblock print",
+        "vintage travel poster",
+        "limited edition screen print",
+        "studio pottery vase",
+        "bronze sculpture"
     ],
     "books": [
-        "rare books",
-        "vintage books",
-        "hardcover novels"
+        "Harry Potter hardcover books",
+        "Lord of the Rings illustrated book",
+        "Dune hardcover book",
+        "Penguin classics books",
+        "Taschen art book",
+        "Stephen King first edition book"
     ],
     "home": [
-        "vintage home decor",
-        "table lamps",
-        "decorative ceramics"
+        "Le Creuset casserole",
+        "vintage Pyrex mixing bowl",
+        "Herman Miller chair",
+        "Kartell lamp",
+        "Alessi kettle",
+        "Denby dinner set"
     ],
     "antiques": [
-        "antique clocks",
-        "antique silver",
-        "antique porcelain"
+        "antique carriage clock",
+        "Royal Doulton figurine",
+        "Wedgwood jasperware vase",
+        "antique silver locket",
+        "antique brass candlestick",
+        "antique Singer sewing machine"
     ]
 };
   const FILTERS={
@@ -15919,7 +15971,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     const ids=(FILTERS[filter]||FILTERS['for-you']).slice();
     const categoryConfigs=filter==='for-you'?ids.map(configById).filter(Boolean):
       (EXPLORE_CATEGORY_QUERIES[filter]||[]).map((query,index)=>({id:'browse_'+filter+'_'+index,title:query,queries:[query],_forceLive:true,_categoryBrowse:true}));
-    if(filter!=='for-you')return premiumRotateArray(categoryConfigs,premiumDiscoveryHash()+(filter.length*97)+exploreVisitSalt*31);
+    if(filter!=='for-you')return categoryConfigs;
     const taste=exploreTasteConfigs();
     const discovery=premiumRotateArray(
       [...premiumDiscoveryConfig(),...categoryConfigs],
@@ -16011,6 +16063,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     return text.split(/\s+/).filter(w=>w.length>2&&!stop.has(w)).slice(0,5).join('-')||text.slice(0,36);
   }
   function exploreDiversityKey(item){
+    if(item._browseLane)return item._browseLane;
     const tagged=String(item&&item._interestCluster||'').trim();
     if(tagged&&!tagged.startsWith('live-'))return wishwaveProductCategory(item);
     const category=String(item&&item._interestCategory||'').trim();
@@ -16114,15 +16167,29 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     root.classList.remove('premium-explore-refreshing');
     paintExploreSearchPending(exploreLiveSearchQuery&&exploreSearchPending);
   }
-  function exploreCategoryCandidate(item){
+  function exploreCategoryCandidate(item,query=''){
     if(!wishwaveAllowedListing(item)||!Number.isFinite(Number(item.price))||Number(item.price)<=0||!String(item.title||'').trim()||!premiumProductImage(item))return false;
-    return !item.sold&&!item.soldOut&&item.available!==false&&item.inStock!==false&&
-      !/^(?:sold|sold_out|deleted|ended|inactive|unavailable)$/i.test(String(item.status||''));
+    if(item.sold||item.soldOut||item.available===false||item.inStock===false||/^(?:sold|sold_out|deleted|ended|inactive|unavailable)$/i.test(String(item.status||'')))return false;
+    if(!query)return true;
+    const normal=value=>normaliseQueryText(value).replace(/\bps5\b/g,'playstation 5').replace(/\bgba\b/g,'game boy advance').replace(/\bn64\b/g,'nintendo 64').replace(/\b3dsxl\b/g,'3ds xl').replace(/\bps\s*vita\b/g,'playstation vita').replace(/\bgameboy\b/g,'game boy').replace(/\blevi\s*s\b/g,'levis').replace(/\bpsa\s*(\d+)/g,'psa $1');
+    const title=normal(item.title),wanted=normal(query);
+    const accessory=/\b(?:case for|cover for|skin for|replacement shell|screen protector|charging cable|stand for|box only|empty box|parts only|for parts|not working|replacement parts)\b/;
+    if(accessory.test(title)&&!accessory.test(wanted))return false;
+    const stop=new Set(['sony','nintendo','the','and','for','console','game','games','set','books','book','cards','card','vintage','original','collectible','edition','complete','graded']);
+    const terms=[...new Set(wanted.split(/\s+/).filter(t=>(t.length>1||/^[0-9xs]$/.test(t))&&!stop.has(t)))];
+    const tokens=new Set(title.split(/\s+/));
+    return !terms.length||terms.filter(t=>tokens.has(t)).length>=Math.max(1,Math.ceil(terms.length*.75));
+  }
+  function exploreCategoryRank(item){
+    const source=String(getSource(item)||'').toLowerCase();
+    const retailer=/ebay|stockx/.test(source)?12:/etsy|findai|wishwave/.test(source)?8:0;
+    const demand=Math.max(0,Number(item.soldQuantity)||0,Number(item.watchCount)||0);
+    return retailer+Math.min(4,Math.log2(1+demand));
   }
   async function loadExploreConfig(config,pool,generation){
     const queryUsed=(config._findaiTaste?(config.queries||[])[0]:premiumRotateArray(config.queries||[config.title||'products'],premiumDiscoveryHash()+String(config.id||'x').length+exploreVisitSalt*19)[0])||config.title||'products';
     let items=config._page||config._categoryBrowse?[]:v116PreviewItemsForConfig(config,pool);
-    const accepts=item=>config._categoryBrowse?exploreCategoryCandidate(item):wishwaveRecommendationCandidate(item,queryUsed);
+    const accepts=item=>config._categoryBrowse?exploreCategoryCandidate(item,queryUsed):wishwaveRecommendationCandidate(item,queryUsed);
     const exactIntent=!!config._findaiInterest?._prioritySearch;
     if((config._forceLive||config._page||exactIntent||items.length<6)&&queryUsed){
       config._attempts=(config._attempts||0)+1;
@@ -16140,7 +16207,8 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     if(exactIntent){const tokens=queryTokens(queryUsed);items=items.filter(item=>tokens.length&&tokens.filter(t=>normaliseQueryText(item.title||'').includes(t)).length/tokens.length>=.5);}
     items=items.filter(accepts).map(item=>({...item,_interestQuery:item._interestQuery||queryUsed,_interestCategory:item._interestCategory||interestCategory(queryUsed),_interestCluster:item._interestCluster||interestClusterKey(queryUsed)}));
     if(exploreFilter==='for-you'&&typeof personalisedItemScore==='function')items.sort((a,b)=>personalisedItemScore(b,b._interestQuery||queryUsed,'search-explore')-personalisedItemScore(a,a._interestQuery||queryUsed,'search-explore'));
-    return capExploreFamilies(items,exploreFilter==='for-you'?1:2).slice(0,8);
+    if(config._categoryBrowse)items=items.sort((a,b)=>exploreCategoryRank(b)-exploreCategoryRank(a)).map(item=>({...item,_browseLane:config.id}));
+    return capExploreFamilies(items,exploreFilter==='for-you'?1:2).slice(0,config._categoryBrowse?3:8);
   }
   async function loadExploreMore(initial=false){
     if(exploreLoading||exploreLiveSearchQuery||!premiumDiscoverySections[0])return;
@@ -16164,7 +16232,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
       if(fresh.length&&sectionOwner.items.length>=24){exploreLoading=false;return;}
     }
     const pool=curated||exploreFilter!=='for-you'?[]:await v116GetPreviewPool(false);
-    const batch=exploreQueue.splice(0,Math.min(curated?(initial?12:8):initial?10:5,exploreQueue.length));
+    const batch=exploreQueue.splice(0,Math.min(curated?(initial?12:8):exploreFilter!=='for-you'?(initial?6:3):initial?10:5,exploreQueue.length));
     // Share a reservoir across completed categories. Paint the first product
     // promptly, but hold same-category followers while other lanes are pending.
     const batchFamilies=new Map(),reservoir=[];let outstanding=batch.length;
@@ -16176,15 +16244,21 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
         const previous=target.length?exploreDiversityKey(target.at(-1)):'';
         const counts=new Map();target.slice(-8).forEach(item=>{const key=exploreDiversityKey(item);counts.set(key,(counts.get(key)||0)+1);});
         let choices=reservoir.map((item,index)=>({item,index,key:exploreDiversityKey(item)}));
+        if(exploreFilter!=='for-you'&&outstanding>0){
+          const unseen=choices.filter(x=>!target.some(old=>exploreDiversityKey(old)===x.key));
+          if(!unseen.length)break;
+          choices=unseen;
+        }
         const different=choices.filter(x=>x.key!==previous);
         if(different.length)choices=different;
-        else if(outstanding>0&&exploreFilter==='for-you'&&previous)break;
+        else if(outstanding>0&&previous)break;
         choices.sort((a,b)=>(counts.get(a.key)||0)-(counts.get(b.key)||0)||a.index-b.index);
         target.push(reservoir.splice(choices[0].index,1)[0]);
       }
       renderExploreGrid({replace:false});cacheExploreBrowseState();
     }
-    await Promise.all(batch.map(async config=>{
+    let nextBatchIndex=0;
+    const runConfig=async config=>{
       const group=await loadExploreConfig(config,pool,generation);outstanding--;
       if(window.__wishwavePageMotion)await window.wishwaveWaitForMotion?.();
       if(generation!==exploreGeneration||exploreLiveSearchQuery||accountOwner!==window.wishwaveRecommendationAccount?.()||sectionOwner!==premiumDiscoverySections[0])return;
@@ -16197,7 +16271,8 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
         seenExplore.add(key);batchFamilies.set(family,(batchFamilies.get(family)||0)+1);fresh.push(item);
       }
       reservoir.push(...fresh);drain();
-    }));
+    };
+    await Promise.all(Array.from({length:Math.min(exploreFilter==='for-you'?batch.length:3,batch.length)},async()=>{while(nextBatchIndex<batch.length&&owns())await runConfig(batch[nextBatchIndex++]);}));
     if(window.__wishwavePageMotion)await window.wishwaveWaitForMotion?.();
     /* If the user started typing while this browse batch was in flight, the
        batch is stale. Never append browse products into live-search results. */
@@ -16647,11 +16722,9 @@ html.findai-light .wishwave-comment-swipe-body{background:#fff}.findai-light .wi
       button.disabled=!!seller._followBusy;
       button.setAttribute('aria-busy',String(!!seller._followBusy));
     };
-    // Immediately show Requested instead of a stuck Follow/Updating label.
+    // Do not guess public/private follow state before the server confirms it.
     seller._followBusy=true;
-    seller.isFollowing=false;
-    seller.pending=!removing;
-    window.wishwaveFollowStateOverrides?.set(id,{isFollowing:false,pending:seller.pending,busy:true,followerCount:count,expires:Date.now()+20000});
+    window.wishwaveFollowStateOverrides?.set(id,{isFollowing:was,pending:wasPending,busy:true,followerCount:count,expires:Date.now()+20000});
     paint();
     try{if(window.findaiFollowFeedback)window.findaiFollowFeedback(button);else haptic();}catch(_){}
     try{
@@ -19190,8 +19263,7 @@ html.findai-light .findai-settings-delete-box input{background:#fff;color:#111;b
     const button=document.getElementById('wishwavePublicFollowButton');
     const wasFollowing=!!viewer.isFollowing,wasPending=!!viewer.pending,countBefore=Math.max(0,Number(seller.followerCount)||0);
     const removing=wasFollowing||wasPending;
-    viewer._followBusy=true;viewer.isFollowing=!removing&&!viewer.isPrivate;viewer.pending=!removing&&!!viewer.isPrivate;
-    seller.followerCount=Math.max(0,countBefore+Number(viewer.isFollowing)-Number(wasFollowing));
+    viewer._followBusy=true;
     function paint(){
       if(wishwavePublicSellerData!==profile)return;
       const count=document.getElementById('wishwavePublicFollowerCount');if(count)count.textContent=profileMetricCompact(seller.followerCount);
@@ -20111,14 +20183,7 @@ html.findai-light .findai-followers-empty b{color:#0c0d0f}
     button.disabled=true;
     const old=button.textContent;
 
-    if(cancelling){
-      button.textContent='Follow';
-      button.classList.remove('following');
-      if(row)row.pending=false;
-    }else{
-      button.textContent='Following';
-      button.classList.add('following');
-    }
+    button.setAttribute('aria-busy','true');
 
     try{
       const data=await marketplaceFetch('/social/follow-user/'+encodeURIComponent(clean),{
@@ -20135,7 +20200,7 @@ html.findai-light .findai-followers-empty b{color:#0c0d0f}
       button.textContent=old;
       button.classList.toggle('following',wasFollowing||wasPending);
       try{toast(error&&error.message||'Could not update follow request');}catch(_){}
-    }finally{button.disabled=false;}
+    }finally{button.disabled=false;button.removeAttribute('aria-busy');}
   };
 
   window.openOwnFollowerProfile=function(username,event){
@@ -36448,7 +36513,7 @@ html body #profileSignedOut [data-guest-likes]{display:none!important;}
 <link rel="stylesheet" href="wishwave-chat-polish.css?v=374">
 <script src="wishwave-chat-polish.js?v=376"></script>
 <link rel="stylesheet" href="wishwave-connections.css?v=351">
-<script src="wishwave-connections.js?v=378"></script>
+<script src="wishwave-connections.js?v=394"></script>
 <script src="wishwave-auth.js?v=316"></script>
 
 <style id="wishwave-reel-heart-polish-v332">
@@ -36575,7 +36640,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <link rel="stylesheet" href="wishwave-reel-commerce.css?v=360">
 <script src="wishwave-reel-commerce.js?v=360"></script>
 <link rel="stylesheet" href="wishwave-coral-theme.css?v=393">
-<script src="wishwave-search-follow.js?v=378"></script>
+<script src="wishwave-search-follow.js?v=394"></script>
 <link rel="stylesheet" href="wishwave-purchase-ui.css?v=372">
 <script src="wishwave-offer.js?v=372"></script>
 <link rel="stylesheet" href="wishwave-chat-offers.css?v=371">

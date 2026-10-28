@@ -25,18 +25,34 @@ const root=path.resolve(__dirname,'..');
 
   // Warm native Search must show loading, and explicit categories bypass passive recommendation rejection.
   await page.evaluate(()=>{
-   window.gamingRequests=[];window.gamingResolvers=[];window.passiveCalls=0;
+   window.gamingRequests=[];window.gamingResolvers=[];window.gamingReleased=false;window.passiveCalls=0;
    document.getElementById('search').classList.add('findai-v133-warm');
    window.wishwaveFetchRecommendationResults=async()=>{passiveCalls++;return {data:{listings:[]},hasMore:false};};
    window.wishwaveRecommendationCandidate=()=>false;window.wishwaveRecommendationRejected=()=>true;
    window.wishwaveDiscoverySurfaces={allowed:()=>false,claim:()=>[]};window.wishwaveDiscoveryRotation={allowed:()=>false};
-   window.fetchProductResults=(query,options)=>new Promise(resolve=>{gamingRequests.push({query,passive:options.passive});gamingResolvers.push(()=>resolve({data:{listings:[{itemId:'gaming-'+query,title:query+' complete product',price:99,currency:'USD',source:'ebay',url:'https://www.ebay.com/itm/'+(123456700+gamingRequests.length),image:'https://fixtures.test/gaming.png',images:['https://fixtures.test/gaming.png'],status:'active'}]},hasMore:false,nextCursor:null}));});
+   window.fetchProductResults=(query,options)=>new Promise(resolve=>{gamingRequests.push({query,passive:options.passive});const deliver=()=>resolve({data:{listings:[{itemId:'gaming-'+query,title:query+' complete product',price:99,currency:'USD',source:'ebay',url:'https://www.ebay.com/itm/'+(123456700+gamingRequests.length),image:'https://fixtures.test/gaming.png',images:['https://fixtures.test/gaming.png'],status:'active'}]},hasMore:false,nextCursor:null});if(gamingReleased)deliver();else gamingResolvers.push(deliver);});
   });
   await page.locator('[data-explore-filter="gaming"]').scrollIntoViewIfNeeded();await page.locator('[data-explore-filter="gaming"]').click();
   await page.waitForTimeout(100);assert.equal(await page.locator('.premium-explore-skeleton-grid').isVisible(),true,'warm category visibly loads');
   assert.equal(await page.evaluate(()=>gamingRequests.length),3);assert.equal(await page.evaluate(()=>gamingRequests.every(r=>r.passive===false)),true,'category gets foreground search budget');
-  await page.evaluate(()=>gamingResolvers.forEach(resolve=>resolve()));await page.waitForTimeout(350);
+  await page.evaluate(()=>{gamingReleased=true;gamingResolvers.forEach(resolve=>resolve());});await page.waitForTimeout(350);
   assert((await page.locator('.premium-explore-tile').count())>=3,'valid Gaming products survive passive Home filters');assert.equal(await page.evaluate(()=>passiveCalls),0,'category does not use recommendation retrieval');
+
+  // Generic emulator spam and accessory matches cannot fill recognised product lanes.
+  await page.evaluate(()=>{
+   window.productRequests=[];window.runningProducts=0;window.maxRunningProducts=0;
+   window.fetchProductResults=async query=>{
+    productRequests.push(query);maxRunningProducts=Math.max(maxRunningProducts,++runningProducts);await new Promise(r=>setTimeout(r,30));runningProducts--;
+    const make=(title,source,suffix)=>({itemId:query+suffix,title,price:99,currency:'USD',source,url:source==='ebay'?'https://www.ebay.com/itm/'+encodeURIComponent(query+suffix):'https://www.aliexpress.com/item/'+encodeURIComponent(query+suffix),image:'https://fixtures.test/product.png',status:'active'});
+    const title=query.replace('Sony PlayStation 5 console','Sony PS5 console');
+    return {data:{listings:[make('500 in 1 retro handheld emulator console','aliexpress','spam'),make('Protective case for '+title,'ebay','case'),make(title+' genuine product','aliexpress','ali'),make(title+' genuine product','ebay','ebay')]},hasMore:false,nextCursor:null};
+   };
+  });
+  await page.locator('[data-explore-filter="fashion"]').scrollIntoViewIfNeeded();await page.locator('[data-explore-filter="fashion"]').click();await page.waitForTimeout(400);
+  await page.locator('[data-explore-filter="gaming"]').scrollIntoViewIfNeeded();await page.locator('[data-explore-filter="gaming"]').click();await page.waitForTimeout(800);
+  const opening=await page.evaluate(()=>premiumDiscoverySections[0].items);
+  assert(opening.length>=6,'recognisable Gaming families fill the category');assert(opening.every(item=>!/500 in 1|Protective case/.test(item.title)),'generic and accessory listings rejected');
+  assert(new Set(opening.slice(0,6).map(x=>x._browseLane)).size>=4,'opening grid varies product families');assert(opening.slice(0,6).every(x=>x.source==='ebay'),'higher quality marketplace matches lead each family');assert((await page.evaluate(()=>maxRunningProducts))<=3,'provider concurrency stays bounded');
   // Every product chip must request its own inventory and never retain an unrelated grid.
   await page.evaluate(()=>{window.categoryRequests=[];window.peopleRequests=[];window.loadPremiumPeopleDiscovery=q=>peopleRequests.push(q);window.fetchProductResults=async query=>{categoryRequests.push(query);return {data:{listings:[]},hasMore:false,nextCursor:null};};});
   for(const label of categoryNames.slice(2)){
@@ -46,9 +62,9 @@ const root=path.resolve(__dirname,'..');
    assert.equal(await chip.evaluate(e=>e.classList.contains('active')),true,label+' stays selected');
    const requests=await page.evaluate(()=>categoryRequests);assert(requests.length>=3,label+' has specific inventory lanes');assert.equal(new Set(requests).size,requests.length,label+' does not refill with generic lanes after exhaustion');assert(!requests.includes('products'));
    assert.equal(await page.locator('#premiumDiscoverySections .premium-explore-tile').count(),0,label+' does not show previous category after no results');
-   if(label==='Trading Cards')assert(requests.every(q=>/cards/.test(q)));
+   if(label==='Trading Cards')assert(requests.every(q=>/cards|deck|booster/.test(q)));
    if(label==='Comics')assert(requests.every(q=>/comic|manga/.test(q)));
-   if(label==='Antiques')assert(requests.every(q=>/antique/.test(q)));
+   if(label==='Antiques')assert(requests.some(q=>/antique/.test(q)));
    assert.deepEqual(await page.locator('#premiumExploreChips button').allTextContents(),categoryNames,'category taps never reorder navigation');
   }
 
