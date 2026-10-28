@@ -16086,13 +16086,13 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     const root=document.getElementById('premiumDiscoverySections');if(!root)return;
     const section=premiumDiscoverySections[0];
     const originalLength=section?.items?.length||0;
-    if(section){const unique=new Set();section.items=(section.items||[]).filter(item=>{const key=exploreItemKey(item);if(unique.has(key))return false;unique.add(key);return true;}).filter(item=>wishwaveAllowedListing(item)&&(exploreLiveSearchQuery||!window.wishwaveRecommendationRejected?.(item)));if(!exploreLiveSearchQuery)section.items=window.wishwaveDiscoverySurfaces?.claim(section.items,'search')||section.items;}
+    if(section){const unique=new Set();section.items=(section.items||[]).filter(item=>{const key=exploreItemKey(item);if(unique.has(key))return false;unique.add(key);return true;}).filter(item=>wishwaveAllowedListing(item)&&(exploreLiveSearchQuery||exploreFilter!=='for-you'||!window.wishwaveRecommendationRejected?.(item)));if(!exploreLiveSearchQuery&&exploreFilter==='for-you')section.items=window.wishwaveDiscoverySurfaces?.claim(section.items,'search')||section.items;}
     const items=section&&section.items||[];
     const replace=!!options.replace||root.dataset.refreshPending==='1'||items.length!==originalLength;
     if(!items.length){
       if(exploreLiveSearchQuery&&exploreSearchPending){root.innerHTML='<div class="premium-explore-skeleton-grid" aria-label="Finding more matches">'+Array.from({length:6},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';return;}
       if(replace&&(exploreLiveSearchQuery||!root.querySelector('.premium-explore-grid')))root.innerHTML='<div class="premium-explore-empty"><b>No products found</b>Try another search.</div>';
-      else if(!root.querySelector('.premium-explore-grid'))root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
+      else if(!root.querySelector('.premium-explore-grid'))root.innerHTML='<div class="premium-explore-skeleton-grid" role="status" aria-label="Loading products">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
       return;
     }
     delete root.dataset.refreshPending;
@@ -16114,24 +16114,31 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     root.classList.remove('premium-explore-refreshing');
     paintExploreSearchPending(exploreLiveSearchQuery&&exploreSearchPending);
   }
+  function exploreCategoryCandidate(item){
+    if(!wishwaveAllowedListing(item)||!Number.isFinite(Number(item.price))||Number(item.price)<=0||!String(item.title||'').trim()||!premiumProductImage(item))return false;
+    return !item.sold&&!item.soldOut&&item.available!==false&&item.inStock!==false&&
+      !/^(?:sold|sold_out|deleted|ended|inactive|unavailable)$/i.test(String(item.status||''));
+  }
   async function loadExploreConfig(config,pool,generation){
     const queryUsed=(config._findaiTaste?(config.queries||[])[0]:premiumRotateArray(config.queries||[config.title||'products'],premiumDiscoveryHash()+String(config.id||'x').length+exploreVisitSalt*19)[0])||config.title||'products';
     let items=config._page||config._categoryBrowse?[]:v116PreviewItemsForConfig(config,pool);
+    const accepts=item=>config._categoryBrowse?exploreCategoryCandidate(item):wishwaveRecommendationCandidate(item,queryUsed);
     const exactIntent=!!config._findaiInterest?._prioritySearch;
     if((config._forceLive||config._page||exactIntent||items.length<6)&&queryUsed){
       config._attempts=(config._attempts||0)+1;
       try{
-        const result=await (window.wishwaveFetchRecommendationResults||fetchProductResults)(queryUsed,{page:(config._page||0)+1,cursor:config._cursor||null,limit:16,preserveExact:true,skipResolve:true,passive:true,signal:exploreBrowseController?.signal});
+        const retrieve=config._categoryBrowse?fetchProductResults:(window.wishwaveFetchRecommendationResults||fetchProductResults);
+        const result=await retrieve(queryUsed,{page:(config._page||0)+1,cursor:config._cursor||null,limit:16,preserveExact:true,skipResolve:true,passive:!config._categoryBrowse,signal:exploreBrowseController?.signal});
         if(generation!==exploreGeneration)return [];
         config._page=(config._page||0)+1;config._cursor=result.nextCursor;config._more=result.hasMore;
         const live=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings:[];
-        const useful=live.filter(x=>wishwaveRecommendationCandidate(x,queryUsed)&&premiumProductImage(x));
+        const useful=live.filter(x=>accepts(x)&&premiumProductImage(x));
         items=exactIntent?useful.concat(items):items.concat(useful);
       }catch(_){}
     }
     if(generation!==exploreGeneration)return [];
     if(exactIntent){const tokens=queryTokens(queryUsed);items=items.filter(item=>tokens.length&&tokens.filter(t=>normaliseQueryText(item.title||'').includes(t)).length/tokens.length>=.5);}
-    items=items.filter(item=>wishwaveRecommendationCandidate(item,queryUsed)).map(item=>({...item,_interestQuery:item._interestQuery||queryUsed,_interestCategory:item._interestCategory||interestCategory(queryUsed),_interestCluster:item._interestCluster||interestClusterKey(queryUsed)}));
+    items=items.filter(accepts).map(item=>({...item,_interestQuery:item._interestQuery||queryUsed,_interestCategory:item._interestCategory||interestCategory(queryUsed),_interestCluster:item._interestCluster||interestClusterKey(queryUsed)}));
     if(exploreFilter==='for-you'&&typeof personalisedItemScore==='function')items.sort((a,b)=>personalisedItemScore(b,b._interestQuery||queryUsed,'search-explore')-personalisedItemScore(a,a._interestQuery||queryUsed,'search-explore'));
     return capExploreFamilies(items,exploreFilter==='for-you'?1:2).slice(0,8);
   }
@@ -16185,8 +16192,8 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
       for(const item of group||[]){
         const key=exploreItemKey(item),family=curated?window.FindAITreasureHunt.identify(item)?.id||exploreFamilyKey(item):exploreFamilyKey(item);
         const repeated=exploreFilter==='for-you'&&sectionOwner.items.slice(-(curated?(window.wishwaveDiscoverySurfaces?.repeatWindow('search')||20):20)).some(old=>(curated?window.FindAITreasureHunt.identify(old)?.id||exploreFamilyKey(old):exploreFamilyKey(old))===family);
-        if(window.wishwaveDiscoveryRotation&&!window.wishwaveDiscoveryRotation.allowed(item,sectionOwner.items.concat(reservoir)))continue;
-        if(!key||seenExplore.has(key)||!premiumProductImage(item)||Number(item.price)<=0||repeated||(batchFamilies.get(family)||0)>=(exploreFilter==='for-you'?1:2)||window.wishwaveDiscoverySurfaces&&!window.wishwaveDiscoverySurfaces.allowed(item,'search'))continue;
+        if(exploreFilter==='for-you'&&window.wishwaveDiscoveryRotation&&!window.wishwaveDiscoveryRotation.allowed(item,sectionOwner.items.concat(reservoir)))continue;
+        if(!key||seenExplore.has(key)||!premiumProductImage(item)||Number(item.price)<=0||repeated||(batchFamilies.get(family)||0)>=(exploreFilter==='for-you'?1:2)||exploreFilter==='for-you'&&window.wishwaveDiscoverySurfaces&&!window.wishwaveDiscoverySurfaces.allowed(item,'search'))continue;
         seenExplore.add(key);batchFamilies.set(family,(batchFamilies.get(family)||0)+1);fresh.push(item);
       }
       reservoir.push(...fresh);drain();
@@ -16386,12 +16393,12 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
       exploreLoading=false;exploreEmptyBatches=0;seenExplore.clear();premiumDiscoverySections=[{config:{id:'explore',title:'Explore'},items:[]}];exploreQueue=exploreConfigs(exploreFilter);
       if(previous)root.dataset.refreshPending='1';
       else {delete root.dataset.refreshPending;
-      root.innerHTML='<div class="premium-explore-skeleton-grid">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
+      root.innerHTML='<div class="premium-explore-skeleton-grid" role="status" aria-label="Loading products">'+Array.from({length:15},()=>'<div class="premium-explore-skeleton"></div>').join('')+'</div>';
       }
       bindExploreScroll();await loadExploreMore(true);if(generation!==exploreGeneration)return;
       const restoredPrevious=!premiumDiscoverySections[0].items.length&&previous;
       if(restoredPrevious){premiumDiscoverySections=previous;delete root.dataset.refreshPending;if(document.body.dataset.activeTab==='search'&&!String(document.getElementById('q')?.value||'').trim())toast('Could not refresh. Your listings are still here.');}
-      if(!restoredPrevious)exploreLoadedTaste=taste;cacheExploreBrowseState();exploreLoadedFilter=exploreFilter;if(!premiumDiscoverySections[0].items.length)root.innerHTML='<div class="premium-explore-empty"><b>Products are refreshing</b>Try again in a moment.</div>';
+      if(!restoredPrevious)exploreLoadedTaste=taste;cacheExploreBrowseState();exploreLoadedFilter=exploreFilter;if(!premiumDiscoverySections[0].items.length)root.innerHTML='<div class="premium-explore-empty" role="status"><b>No listings loaded</b>Try again or choose another category.<button type="button" class="ww-category-retry" onclick="renderPremiumDiscoverySections(true)">Try again</button></div>';
     })();
     const pending=exploreInitialPromise;try{return await pending;}finally{if(exploreInitialPromise===pending){exploreInitialPromise=null;exploreInitialPromiseFilter='';}}
   };
@@ -18107,7 +18114,7 @@ html.findai-light .premium-bottom-nav .findai-v133-nav-indicator{background:rgba
 .search-detail-overlay.explore-reel-mode.findai-v133-context-reel .search-detail-header button{pointer-events:auto!important}
 
 /* Cached content is intentionally stable; no skeleton flash when a warm surface already exists. */
-#search.findai-v133-warm .premium-explore-skeleton-grid{display:none!important}
+/* Category switches must keep their loading skeleton visible, even after a warm grid. */
 #profile.findai-v133-warm .social-profile-grid:empty:before{content:"";display:block;min-height:1px}
 </style>
 <script id="findai-v133-navigation-performance-script">
@@ -36567,7 +36574,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 </style>
 <link rel="stylesheet" href="wishwave-reel-commerce.css?v=360">
 <script src="wishwave-reel-commerce.js?v=360"></script>
-<link rel="stylesheet" href="wishwave-coral-theme.css?v=392">
+<link rel="stylesheet" href="wishwave-coral-theme.css?v=393">
 <script src="wishwave-search-follow.js?v=378"></script>
 <link rel="stylesheet" href="wishwave-purchase-ui.css?v=372">
 <script src="wishwave-offer.js?v=372"></script>

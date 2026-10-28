@@ -22,8 +22,23 @@ const root=path.resolve(__dirname,'..');
    await page.locator('.premium-explore-tile>img').first().tap();await page.waitForTimeout(300);assert.equal(await page.locator('#searchDetailOverlay .reel-card .title').first().textContent(),await page.evaluate(()=>cardFixtures[0].title),'tile opens its correct reel');await page.evaluate(()=>window.__wishwaveCloseSearchReelV186());
    if(width===390)await page.screenshot({path:'/tmp/discover-grid-'+theme+'.png'});
   }
+
+  // Warm native Search must show loading, and explicit categories bypass passive recommendation rejection.
+  await page.evaluate(()=>{
+   window.gamingRequests=[];window.gamingResolvers=[];window.passiveCalls=0;
+   document.getElementById('search').classList.add('findai-v133-warm');
+   window.wishwaveFetchRecommendationResults=async()=>{passiveCalls++;return {data:{listings:[]},hasMore:false};};
+   window.wishwaveRecommendationCandidate=()=>false;window.wishwaveRecommendationRejected=()=>true;
+   window.wishwaveDiscoverySurfaces={allowed:()=>false,claim:()=>[]};window.wishwaveDiscoveryRotation={allowed:()=>false};
+   window.fetchProductResults=(query,options)=>new Promise(resolve=>{gamingRequests.push({query,passive:options.passive});gamingResolvers.push(()=>resolve({data:{listings:[{itemId:'gaming-'+query,title:query+' complete product',price:99,currency:'USD',source:'ebay',url:'https://www.ebay.com/itm/'+(123456700+gamingRequests.length),image:'https://fixtures.test/gaming.png',images:['https://fixtures.test/gaming.png'],status:'active'}]},hasMore:false,nextCursor:null}));});
+  });
+  await page.locator('[data-explore-filter="gaming"]').scrollIntoViewIfNeeded();await page.locator('[data-explore-filter="gaming"]').click();
+  await page.waitForTimeout(100);assert.equal(await page.locator('.premium-explore-skeleton-grid').isVisible(),true,'warm category visibly loads');
+  assert.equal(await page.evaluate(()=>gamingRequests.length),3);assert.equal(await page.evaluate(()=>gamingRequests.every(r=>r.passive===false)),true,'category gets foreground search budget');
+  await page.evaluate(()=>gamingResolvers.forEach(resolve=>resolve()));await page.waitForTimeout(350);
+  assert((await page.locator('.premium-explore-tile').count())>=3,'valid Gaming products survive passive Home filters');assert.equal(await page.evaluate(()=>passiveCalls),0,'category does not use recommendation retrieval');
   // Every product chip must request its own inventory and never retain an unrelated grid.
-  await page.evaluate(()=>{window.categoryRequests=[];window.peopleRequests=[];window.loadPremiumPeopleDiscovery=q=>peopleRequests.push(q);window.wishwaveFetchRecommendationResults=async query=>{categoryRequests.push(query);return {data:{listings:[]},hasMore:false,nextCursor:null};};});
+  await page.evaluate(()=>{window.categoryRequests=[];window.peopleRequests=[];window.loadPremiumPeopleDiscovery=q=>peopleRequests.push(q);window.fetchProductResults=async query=>{categoryRequests.push(query);return {data:{listings:[]},hasMore:false,nextCursor:null};};});
   for(const label of categoryNames.slice(2)){
    await page.evaluate(()=>{categoryRequests=[];});
    const chip=page.locator('#premiumExploreChips button').filter({hasText:new RegExp('^'+label+'$')});await chip.scrollIntoViewIfNeeded();await chip.click();
@@ -36,7 +51,11 @@ const root=path.resolve(__dirname,'..');
    if(label==='Antiques')assert(requests.every(q=>/antique/.test(q)));
    assert.deepEqual(await page.locator('#premiumExploreChips button').allTextContents(),categoryNames,'category taps never reorder navigation');
   }
+
+  assert.equal(await page.locator('.ww-category-retry').isVisible(),true,'empty category offers a visible retry');
+  await page.evaluate(()=>{window.fetchProductResults=async query=>({data:{listings:[{itemId:'retry-'+query,title:query+' collectible',price:50,currency:'USD',source:'ebay',url:'https://www.ebay.com/itm/123456789',image:'https://fixtures.test/retry.png',status:'active'}]},hasMore:false,nextCursor:null});});
+  await page.locator('.ww-category-retry').click();await page.waitForTimeout(350);assert((await page.locator('.premium-explore-tile').count())>0,'retry recovers the selected category');assert.equal(await page.locator('[data-explore-filter="antiques"]').evaluate(e=>e.classList.contains('active')),true,'retry preserves category');
   await page.locator('[data-explore-filter="people"]').scrollIntoViewIfNeeded();await page.locator('[data-explore-filter="people"]').click();assert.equal(await page.evaluate(()=>peopleRequests.length),1,'People retains its existing discovery');assert.equal(await page.locator('#q').getAttribute('placeholder'),'Search people');
-  console.log('PASS: image-led 3-column layout, both themes at 320/390/430px, contrast, correct reel opening, fixed 19-chip order, all category inventories, no unrelated fallback, People preserved');
+  console.log('PASS: warm loading, foreground category retrieval despite passive rejection, image-led 3-column layout, both themes at 320/390/430px, contrast, correct reel opening, fixed 19-chip order, all category inventories, no unrelated fallback, People preserved');
  }finally{await browser?.close();await new Promise(r=>server.close(r));}
 })().catch(e=>{console.error(e);process.exitCode=1});
