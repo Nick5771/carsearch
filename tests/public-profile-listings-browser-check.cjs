@@ -17,9 +17,11 @@ const root=path.resolve(__dirname,'..');
     return {items:[],listings:[],followers:2,following:3,viewer:{isFollowing:true},profile:user};
    };
   });
+  await page.waitForTimeout(700);
   await page.evaluate(()=>openFindAIProfileByUsername('nick'));await page.waitForTimeout(500);
 
   assert.equal(await page.locator('#wishwavePublicProfileContent .social-profile-tile').count(),6);
+  const frame=await page.locator('#wishwavePublicProfileContent .social-profile-tile').first().boundingBox();assert(frame&&frame.width>100&&frame.height>100,'WebKit gives absolute-image tiles their full grid track width');
   if(!await page.locator('#wishwavePublicProfileContent .social-profile-tile').first().isVisible()){
    console.log('PROFILE LAYOUT',await page.locator('#wishwavePublicProfileContent .social-profile-tile').first().evaluate(tile=>{const out=[];for(let e=tile;e;e=e.parentElement){const r=e.getBoundingClientRect(),s=getComputedStyle(e);out.push({tag:e.tagName,id:e.id,cls:e.className,width:r.width,height:r.height,x:r.x,y:r.y,display:s.display,visibility:s.visibility,opacity:s.opacity,transform:s.transform,position:s.position,grid:s.gridTemplateColumns,rows:s.gridTemplateRows,overflow:s.overflow,ratio:s.aspectRatio});}return out;}));
   }
