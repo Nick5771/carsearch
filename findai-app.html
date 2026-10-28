@@ -14602,10 +14602,34 @@ function wishwavePublicProfileTile(item,index,kind){
     '</span>'+
   '</article>';
 }
+function wishwavePublicListingsNotice(title,detail,retry=false){
+  return '<div class="social-profile-empty wishwave-public-listings-notice" role="status"><b>'+escapeHTML(title)+'</b><p>'+escapeHTML(detail)+'</p>'+(retry?'<button type="button" class="wishwave-public-listings-retry" onclick="wishwaveRetryPublicListings()">Try again</button>':'')+'</div>';
+}
+async function wishwaveRetryPublicListings(){
+  const previous=wishwavePublicSellerData,id=previous?.seller?.id;
+  if(!previous||!id||previous._listingsRecovery==='loading'||previous.viewer?.canViewListings===false)return;
+  previous._listingsRecovery='loading';renderWishWavePublicProfileContent();
+  let timer;
+  try{
+    const fresh=await Promise.race([
+      marketplaceFetch('/marketplace/sellers/'+encodeURIComponent(id)+'/profile',{method:'GET'}),
+      new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Listings request timed out')),10000);})
+    ]);
+    if(wishwavePublicSellerData!==previous)return;
+    if(!fresh?.seller||String(fresh.seller.id)!==String(id)||!Array.isArray(fresh.listings))throw new Error('Invalid listings response');
+    previous.listings=fresh.listings;previous.seller={...previous.seller,...fresh.seller};previous.viewer={...previous.viewer,...fresh.viewer};
+    previous._listingsRecovery='done';
+    const tab=wishwavePublicSellerTab;renderWishWavePublicProfile();setWishWavePublicSellerTab(tab);
+  }catch(_){
+    if(wishwavePublicSellerData===previous){previous._listingsRecovery='error';renderWishWavePublicProfileContent();}
+  }finally{clearTimeout(timer);}
+}
 function renderWishWavePublicProfileContent(root=document.getElementById('wishwavePublicProfileContent'),tab=wishwavePublicSellerTab){
   const data=wishwavePublicSellerData;
-  if(!root||!data)return;
-  const listings=Array.isArray(data.listings)?data.listings:[];
+  if(!root)return;
+  if(!data){root.innerHTML=wishwavePublicListingsNotice('Couldn’t load listings','Please reopen this profile to try again.');return;}
+  const listings=Array.isArray(data.listings)?data.listings.filter(item=>item&&typeof item==='object'):[];
+  if(data.viewer?.canViewListings===false){root.innerHTML=wishwavePublicListingsNotice('This account is private','Follow this user to see their listings.');return;}
   if(tab==='sold'){
     const items=listings.filter(x=>String(x.status||'').toLowerCase()==='sold');
     root.innerHTML=items.length
@@ -14624,9 +14648,17 @@ function renderWishWavePublicProfileContent(root=document.getElementById('wishwa
     return;
   }
   const items=listings.filter(x=>String(x.status||'active').toLowerCase()!=='sold');
+  if(!items.length&&Number(data.seller?.activeCount)>0){
+    const state=data._listingsRecovery;
+    if(!state){if(!data.seller?.id){root.innerHTML=wishwavePublicListingsNotice('Couldn’t load listings','Please reopen this profile to try again.');return;}root.innerHTML=wishwavePublicListingsNotice('Loading listings…','Fetching this user’s listings.');if(root.id==='wishwavePublicProfileContent')wishwaveRetryPublicListings();return;}
+    root.innerHTML=state==='loading'
+      ?wishwavePublicListingsNotice('Loading listings…','Fetching this user’s listings.')
+      :wishwavePublicListingsNotice('Couldn’t load listings','Please try again.',true);
+    return;
+  }
   root.innerHTML=items.length
     ?'<div class="social-profile-grid">'+items.map((item,i)=>wishwavePublicProfileTile(item,i,'listings')).join('')+'</div>'
-    :'<div class="social-profile-empty"><b>No active listings</b>This seller has no live listings right now.</div>';
+    :wishwavePublicListingsNotice('No listings yet','This user doesn’t have any listings yet.');
 }
 function setWishWavePublicSellerTab(tab){
   const allowed=['listings','sold'];
@@ -36674,7 +36706,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 </style>
 <link rel="stylesheet" href="wishwave-reel-commerce.css?v=360">
 <script src="wishwave-reel-commerce.js?v=360"></script>
-<link rel="stylesheet" href="wishwave-coral-theme.css?v=397">
+<link rel="stylesheet" href="wishwave-coral-theme.css?v=398">
 <script src="wishwave-search-follow.js?v=394"></script>
 <link rel="stylesheet" href="wishwave-purchase-ui.css?v=372">
 <script src="wishwave-offer.js?v=372"></script>
