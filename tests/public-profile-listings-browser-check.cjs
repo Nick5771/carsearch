@@ -11,7 +11,7 @@ const root=path.resolve(__dirname,'..');
 
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.evaluate(()=>{
-   const user={email:'viewer@test',username:'viewer'};window.getAccountProfile=()=>user;window.marketplaceSession=()=>'viewer-session';window.findaiLoadRemoteProfile=async()=>user;saveAccountProfile(user);
+   const user={email:'viewer@test',username:'viewer'};window.getAccountProfile=()=>user;window.marketplaceSession=()=>'viewer-session';window.findaiLoadRemoteProfile=async()=>user;
    window.marketplaceFetch=async path=>{
     if(path==='/profile/public/nick')return {profile:{username:'nick',displayName:'Nick',bio:'I like to sell',location:'Syd'},sellerId:'nick-seller',activeCount:6,listings:Array.from({length:6},(_,i)=>({id:'real-route-'+i,title:'Monitor '+i,price:249,currency:'AUD',images:['https://fixtures.test/item.png'],status:'active',viewCount:234})),viewer:{signedIn:true,isFollowing:true,canViewListings:true}};
     return {items:[],listings:[],followers:2,following:3,viewer:{isFollowing:true},profile:user};
