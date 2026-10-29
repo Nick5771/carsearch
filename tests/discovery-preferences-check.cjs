@@ -22,3 +22,7 @@ assert.equal(C.topicLabel('Ty Princess Diana Memorial Bear Beanie Baby Purple Pr
 assert.equal(C.topicLabel('adidas Yeezy Boost 350 V2 Zebra adult'),'Yeezy');
 assert(C.match('Beanie Babies',{title:'Ty Princess Diana Beanie Baby'}));
 assert(C.preferenceScore({...C.blank(),entries:[{topic:'Fragrances',preference:'less'}]},{title:'Chanel perfume'})<0);
+
+assert.equal(C.topicLabel('LEGO Ideas Polaroid OneStep SX-70 Camera'),'LEGO Ideas');
+assert.equal(C.topicLabel('Apple AirPods Pro 3 USB-C charging case'),'AirPods Pro');
+assert.equal(C.topicLabel('nike dunk low'),'Nike Dunk');
