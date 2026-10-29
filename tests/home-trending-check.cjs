@@ -1,0 +1,21 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const html=fs.readFileSync('findai-app.html','utf8');
+const start=html.indexOf(' // Separate Following from discovery;'),end=html.indexOf(' setFeedSelection();setHomeNotificationState',start);
+const buttons=['following','for-you','trending'].map(mode=>({dataset:{homeFeed:mode},setAttribute(key,value){this[key]=value;}}));
+const feed={innerHTML:'',scrollTop:123,scrollHeight:4000,clientHeight:800,querySelector(){return null;},insertAdjacentHTML(where,s){this.innerHTML+=s;},addEventListener(){}};
+const home={dataset:{}};const requests=[];
+const ctx={AbortController,console,document:{getElementById:id=>id==='discover'?home:feed,querySelectorAll:()=>buttons},currentFeedItems:[{itemId:'original',title:'Original'}],currentFeedData:{personalised:true},feedState:{source:'personalised'},activeReelIndex:0,feedRequestController:null,wishwaveCancelStartupRecovery:null,WORKER_BASE:'https://fixture.test',appShoppingRegion:()=> 'AU',marketplaceHeaders:()=>({}),appFetchJsonTimed:(url,opts)=>new Promise((resolve,reject)=>requests.push({url,opts,resolve,reject})),wishwaveAllowedListing:()=>true,listingKey:i=>i.itemId,renderReelCard:(item,index)=>'<article data-index="'+index+'">'+item.itemId+'</article>',attachReelObserver(){},beginReelTracking(){},preloadPersonalisedImages(){},escapeHTML:x=>x,go(){},appMpRequireLogin:()=>true,loadMoreListings(){},appendFeedItems(){throw Error('Personalised append leaked into Trending');},openForYou(){},loadPersonalisedFeed(){},renderPersonalisedFeed(items){ctx.currentFeedItems=items;feed.innerHTML=items.map(x=>x.itemId).join(',');}};
+ctx.window=ctx;vm.createContext(ctx);vm.runInContext('(function(){'+html.slice(start,end)+'})();',ctx);
+(async()=>{
+ const pending=ctx.wishwaveSetHomeFeed('trending');assert.equal(requests.length,1);assert.match(requests[0].url,/recommendations\/trending\?country=AU&limit=30&offset=0/);assert.equal(home.dataset.homeFeed,'trending');
+ requests.shift().resolve({items:[{itemId:'popular-1'},{itemId:'popular-2'}],nextOffset:30,hasMore:true});await pending;
+ assert.deepEqual(Array.from(ctx.currentFeedItems,x=>x.itemId),['popular-1','popular-2']);assert.equal(buttons[2]['aria-selected'],'true');assert.equal(ctx.feedState.source,'home-trending');
+ const more=ctx.loadMoreListings();assert.match(requests[0].url,/offset=30/);requests.shift().resolve({items:[{itemId:'popular-2'},{itemId:'popular-3'}],hasMore:false});await more;assert.deepEqual(Array.from(ctx.currentFeedItems,x=>x.itemId),['popular-1','popular-2','popular-3']);
+ await ctx.wishwaveSetHomeFeed('for-you');assert.equal(ctx.currentFeedItems[0].itemId,'original');assert.equal(feed.scrollTop,123);
+ const stale=ctx.wishwaveSetHomeFeed('trending');const old=requests.shift();await ctx.wishwaveSetHomeFeed('for-you');old.resolve({items:[{itemId:'stale'}]});await stale;assert.equal(ctx.currentFeedItems[0].itemId,'original');assert(old.opts.signal.aborted);
+ const empty=ctx.wishwaveSetHomeFeed('trending');requests.shift().resolve({items:[],hasMore:false});await empty;assert.match(feed.innerHTML,/No trending listings yet/);
+ const error=ctx.wishwaveSetHomeFeed('trending',true);requests.shift().reject(Error('Offline'));await error;assert.match(feed.innerHTML,/Try again/);
+ const retry=ctx.wishwaveLoadHomeTrendingMore();requests.shift().resolve({items:[{itemId:'recovered'}],hasMore:false});await retry;assert.equal(ctx.currentFeedItems[0].itemId,'recovered');
+ const protectedItems=ctx.currentFeedItems;ctx.appendFeedItems([{itemId:'leaked'}]);assert.equal(ctx.currentFeedItems,protectedItems);
+ console.log('PASS: Home Trending selection, popularity order, paging/deduplication, For You restoration, stale-response cancellation, empty state and retry');
+})().catch(e=>{console.error(e);process.exitCode=1;});

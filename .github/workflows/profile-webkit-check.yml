@@ -8,6 +8,7 @@ on:
       - wishwave-home-controls.css
       - wishwave-home-controls.js
       - tests/home-controls-browser-check.cjs
+      - tests/home-trending-check.cjs
       - tests/public-profile-listings-browser-check.cjs
       - tests/profile-grid-option-a-browser-check.cjs
       - .github/workflows/profile-webkit-check.yml
@@ -32,6 +33,8 @@ jobs:
         if: always()
         env:
           BROWSER_ENGINE: webkit
+      - run: node tests/home-trending-check.cjs
+        if: always()
       - run: node tests/home-controls-browser-check.cjs
         if: always()
       - uses: actions/upload-artifact@v4
