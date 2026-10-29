@@ -5329,7 +5329,7 @@ function newPersonalisedLane(interest){
   const cluster=interest.cluster||interestClusterKey(interest.query);
   const variantIndex=0;
   return {
-    id:interest.id||interest.cluster,_topicKey:interest._topicKey||'',
+    id:interest.id||interest.cluster,_topicKey:interest._topicKey||'',_wwExplicitTopic:!!interest._wwExplicitTopic,
     originalQuery:interest.query,
     query:variants[variantIndex]||interest.query,
     variants,
@@ -5476,7 +5476,7 @@ function preparePersonalisedLaneItems(raw,lane){
     if(familyCount>=(window.wishwaveShoppingTreatment?.()?1:2)) continue;
     batchKeys.add(key);
     batchFamilies.set(family,familyCount+1);
-    fresh.push({...original,_wwTrialArm:window.wishwaveShoppingExperiment?.().arm||'unassigned',_interestQuery:lane.originalQuery,_interestCluster:lane.cluster,_interestCategory:lane.category,_interestFeatured:!!lane.featured,_recommendationFamily:family});
+    fresh.push({...original,_wwTrialArm:window.wishwaveShoppingExperiment?.().arm||'unassigned',_interestQuery:lane.originalQuery,_interestCluster:lane.cluster,_interestCategory:lane.category,_interestFeatured:!!lane.featured,_wwDiscoveryTopic:lane._wwExplicitTopic?lane.originalQuery:'',_recommendationFamily:family});
   }
   return fresh;
 }
@@ -35969,7 +35969,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  window.wishwaveConstrainFocusLane=function(lane){const focus=window.wishwaveInterestFocus?.();if(!active()||!focus||!T.classify({title:lane.originalQuery||lane.query}).tags.some(t=>t.key===focus.key))return;const current=lane.query;lane.variants=lane.variants.filter(query=>T.classify({title:query}).tags.some(t=>t.key===focus.key));if(!lane.variants.length)lane.variants=[lane.originalQuery||current];lane.variantIndex=Math.max(0,lane.variants.indexOf(current));if(!lane.variants.includes(current)){lane.query=lane.variants[0];lane.page=0;lane.cursor=null;lane.hasMore=true;lane.noNewPages=0;}};
  const candidate=window.wishwaveRecommendationCandidate;
  window.wishwaveRecommendationCandidate=function(item,query){
-  if(new URLSearchParams(location.search).get('treasure-test')==='1'&&appShoppingRegion()==='US'&&window.FindAITreasureHunt){const target=window.FindAITreasureHunt.identify(item);if(!target)return false;item=window.FindAITreasureHunt.annotate(target,item);}
+  if(new URLSearchParams(location.search).get('treasure-test')==='1'&&appShoppingRegion()==='US'&&window.FindAITreasureHunt&&!window.wishwaveDiscoveryUsesTopic?.(item,query)){const target=window.FindAITreasureHunt.identify(item);if(!target)return false;item=window.FindAITreasureHunt.annotate(target,item);}
   if(active()&&T.classify(item).type==='pet_supplies'){
    const petIntent=window.wishwaveInterestPlan?.().some(p=>(p.supported||p.source==='search'||p.source==='mixed')&&p.types.includes('pet_supplies'))||getTracked().some(x=>T.classify(x).type==='pet_supplies');
    if(!petIntent)return false;
@@ -36100,7 +36100,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   return images.get(src).promise;
  }
  window.fetchPersonalisedLanePage=async function(lane){
-  if(!active())return page.apply(this,arguments);
+  if(!active()||lane._wwExplicitTopic)return page.apply(this,arguments);
   if(running>=4)await new Promise(resolve=>waiting.push(resolve));running++;
   try{const requestState=feedState;const result=await page.apply(this,arguments);if(feedState!==requestState)return {...result,items:[],stale:true};const target=window.FindAITreasureHunt.forQuery(lane.originalQuery||lane.query),candidates=[...(result.items||[]),...(result.data?.listings||[])].filter(item=>window.FindAITreasureHunt.match(target,item)),accepted=[],checked=new Set();const unique=candidates.filter(item=>{const src=appImagePlan(item,0,{personalised:true})?.src;if(!src||checked.has(src))return false;checked.add(src);return true;}).slice(0,8);for(let offset=0;offset<unique.length;offset+=4){try{const item=await Promise.any(unique.slice(offset,offset+4).map(async item=>{if(await imageReady(item))return item;throw new Error('Image unavailable');}));accepted.push(item);}catch(_){}}if(feedState!==requestState)return {...result,items:[],stale:true};const acceptedKeys=new Set(accepted.map(listingKey));
    Promise.all(unique.map(async item=>await imageReady(item)?item:null)).then(verified=>{if(feedState!==requestState)return;const rest=preparePersonalisedLaneItems(verified.filter(item=>item&&!acceptedKeys.has(listingKey(item))),lane);requestState.backlog=[...(requestState.backlog||[]),...rest].slice(-480);}).catch(()=>{});
@@ -36117,18 +36117,18 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  window.v116RenderPersonalisedPreviewFallback=function(){return active()?Promise.resolve(false):fallback.apply(this,arguments);};
  const prepare=window.preparePersonalisedLaneItems;
  window.preparePersonalisedLaneItems=function(raw,lane){
-  if(!active())return prepare.apply(this,arguments);
+  if(!active()||lane._wwExplicitTopic)return prepare.apply(this,arguments);
   const target=window.FindAITreasureHunt.forQuery(lane.originalQuery||lane.query);if(!target)return [];
   const candidates=(raw||[]).filter(item=>window.FindAITreasureHunt.match(target,item)).map(item=>window.FindAITreasureHunt.annotate(target,item));
   return prepare.call(this,candidates,lane);
  };
  const admit=window.wishwaveAdmitRecommendations,sequence=window.sequencePersonalisedBatch;
  window.wishwaveAdmitRecommendations=function(items,history=[],max=36){
-  if(!active())return admit.apply(this,arguments);
+  if(!active()||(items||[]).some(item=>item._wwDiscoveryTopic))return admit.apply(this,arguments);
   return window.FindAITreasureHunt.varied((items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||'')),history,max,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9,maxLegoPer20:2,openingCategories:6,allowSparse:!feedState.initialPool?.opening});
  };
  window.sequencePersonalisedBatch=function(items,history=[],max=60){
-  if(!active())return sequence.apply(this,arguments);
+  if(!active()||(items||[]).some(item=>item._wwDiscoveryTopic))return sequence.apply(this,arguments);
   return window.FindAITreasureHunt.varied((items||[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery||'')),history,max,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9,maxLegoPer20:2,openingCategories:6,allowSparse:!feedState.initialPool?.opening}).items;
  };
  window.wishwaveTreasureStatus=()=>({version:window.FindAITreasureHunt?.version,active:active(),targets:window.FindAITreasureHunt?.previewTargets.map(x=>x.id)||[],categories:window.FindAITreasureHunt?.groups.map(x=>x.category)||[]});
@@ -36745,7 +36745,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-chat-offers.js?v=372"></script>
 <link rel="stylesheet" href="wishwave-home-controls.css?v=402">
 <link rel="stylesheet" href="wishwave-discovery-preferences.css?v=404">
-<script src="wishwave-discovery-preferences.js?v=404"></script>
+<script src="wishwave-discovery-preferences.js?v=405"></script>
 <script src="wishwave-home-controls.js?v=404"></script>
 </body>
 </html>
