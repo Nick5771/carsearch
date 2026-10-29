@@ -5,6 +5,9 @@ on:
     paths:
       - findai-app.html
       - wishwave-coral-theme.css
+      - wishwave-home-controls.css
+      - wishwave-home-controls.js
+      - tests/home-controls-browser-check.cjs
       - tests/public-profile-listings-browser-check.cjs
       - tests/profile-grid-option-a-browser-check.cjs
       - .github/workflows/profile-webkit-check.yml
@@ -29,9 +32,13 @@ jobs:
         if: always()
         env:
           BROWSER_ENGINE: webkit
+      - run: node tests/home-controls-browser-check.cjs
+        if: always()
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: profile-webkit-screenshots
-          path: /tmp/profile-option-a-*.png
+          path: |
+            /tmp/profile-option-a-*.png
+            /tmp/home-controls-*.png
           if-no-files-found: ignore
