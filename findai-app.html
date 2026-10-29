@@ -5988,8 +5988,9 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false,recovery
     const takeNext=async function(timeoutMs){
       if(!pending.size)return null;
       const racers=Array.from(pending).map(index=>lanePromises[index]);
-      if(timeoutMs>0)racers.push(new Promise(resolve=>setTimeout(()=>resolve({timeout:true}),timeoutMs)));
-      const next=await Promise.race(racers);
+      let timer;
+      if(timeoutMs>0)racers.push(new Promise(resolve=>{timer=setTimeout(()=>resolve({timeout:true}),timeoutMs);}));
+      let next;try{next=await Promise.race(racers);}finally{clearTimeout(timer);}
       if(next&&next.timeout)return next;
       if(next&&Number.isInteger(next.index))pending.delete(next.index);
       return next;
@@ -6001,21 +6002,9 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false,recovery
       if(next?.timeout){loadingController.abort();break;}
       if(next&&next.value&&next.value.items&&next.value.items.length)early.push(next.value);
     }
-    // Once something useful is ready, allow only a brief grace for a second category.
-    // This cuts cold-start latency while still preserving some opening-feed variety.
-    const focus=window.wishwaveInterestFocus?.(),focusedResult=result=>!!focus&&window.WishWaveInterestCore.classify({title:result.lane?.query||''}).tags.some(t=>t.key===focus.key);
-    if(focus?.strong||focus?.plan?.some(x=>['search','mixed'].includes(x.source))){
-      const relevant=openingLanes.map((lane,index)=>({lane,index})).filter(x=>(focusedResult({lane:x.lane})||x.lane._sessionIntent)&&pending.has(x.index));
-      const results=await Promise.all(relevant.map(x=>lanePromises[x.index]));
-      for(const next of results){pending.delete(next.index);if(next.value?.items?.length)early.push(next.value);}
-    }
-    const graceEnds=Date.now()+(focus?.strong?600:window.wishwaveTreasureStatus?.().active?3500:1500);
-    const openingReady=()=>sequencePersonalisedBatch(interleavePersonalised(early,48),[],24).length>=8&&new Set(early.map(result=>result.lane?.category)).size>=3;
-    while(pending.size&&(!openingReady()||(focus?.strong&&!early.some(focusedResult)))&&Date.now()<graceEnds){
-      const next=await takeNext(Math.max(1,graceEnds-Date.now()));
-      if(next&&next.timeout)break;
-      if(next&&next.value&&next.value.items&&next.value.items.length)early.push(next.value);
-    }
+    // Paint the first eligible lane immediately. Remaining interest/category
+    // requests join the existing background pool instead of gating first paint.
+    loadingState.initialPool.opening=false;
     if(feedState!==loadingState)return;
     if(!early.length){
       if(keepRetained())return;
@@ -36069,9 +36058,13 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
    return [...owned].sort((a,b)=>(personalisedSeenInfo(a).count-personalisedSeenInfo(b).count)||seededUnit(personalisedSessionSeed,listingKey(a))-seededUnit(personalisedSessionSeed,listingKey(b)));
   };
   if(starterCache&&Date.now()-starterCache.at<(starterCache.failed?5000:60000))return select(starterCache.items);
-  if(starterFlight)return select(await starterFlight);
+
   const valid=items=>(Array.isArray(items)?items:[]).filter(item=>wishwaveRecommendationCandidate(item,item._interestQuery)&&Number(item._catalogueObservedAt||item._ebayFetchedAt)>Date.now()-6*3600000);
   const saved=()=>{try{const row=JSON.parse(localStorage.getItem('ww_starter_reservoir_v280_US')||'null');return row&&Date.now()-Number(row.at)>=0&&Date.now()-Number(row.at)<10*60000?valid(row.items):[];}catch(_){return [];}};
+  // Reopen from recent, validated inventory while the reservoir refreshes.
+  // Only use cached rows that still pass the current quality/age checks.
+  const retained=saved();
+  if(starterFlight)return retained.length?select(retained):select(await starterFlight);
   const flight=(async()=>{
     for(let attempt=0;attempt<2;attempt++){
       try{
@@ -36084,14 +36077,18 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
     }
     starterCache={at:Date.now(),items:[],failed:true};return [];
   })();
-  starterFlight=flight;try{return select(await flight);}finally{if(starterFlight===flight)starterFlight=null;}
+  starterFlight=flight;
+  const finish=()=>{if(starterFlight===flight)starterFlight=null;};
+  flight.then(finish,finish);
+  if(retained.length)return select(retained);
+  return select(await flight);
  };
  window.wishwaveReadyStarter=function(items){
   const list=window.FindAITreasureHunt.varied(items||[],[],36,{repeatWindow:window.wishwaveDiscoverySurfaces?.repeatWindow('home')||20,categoryWindow:window.wishwaveDiscoverySurfaces?.categoryWindow('home')||9,maxLegoPer20:2,openingCategories:6,allowSparse:true}).items,verified=new Map();let cursor=0,published=false,resolveOpening;
   const opening=new Promise(resolve=>resolveOpening=resolve);
   const snapshot=()=>[...verified.entries()].sort((a,b)=>a[0]-b[0]).map(x=>x[1]);
   function publish(){if(published)return;published=true;const ready=snapshot();Object.defineProperty(ready,'completion',{value:completion});resolveOpening(ready);}
-  const workers=Array.from({length:Math.min(4,list.length)},async()=>{while(cursor<list.length){const index=cursor++;if(await imageReady(list[index]))verified.set(index,list[index]);if(verified.size>=12)publish();}});
+  const workers=Array.from({length:Math.min(4,list.length)},async()=>{while(cursor<list.length){const index=cursor++;if(await imageReady(list[index]))verified.set(index,list[index]);if(verified.size>=1)publish();}});
   const completion=Promise.all(workers).then(()=>{publish();return snapshot();});
   return opening;
  };
