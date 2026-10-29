@@ -1,7 +1,7 @@
 const fs=require('fs'),path=require('path'),http=require('http'),assert=require('assert'),{webkit}=require('playwright');
 const root=path.resolve(__dirname,'..');
 (async()=>{
- const server=http.createServer((req,res)=>{const file=path.join(root,new URL(req.url,'http://test').pathname);if(!file.startsWith(root)||!fs.existsSync(file)||fs.statSync(file).isDirectory()){res.writeHead(404).end();return;}res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));});await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
+ const server=http.createServer((req,res)=>{if(req.url==='/home-controls-fixture'){res.setHeader('Content-Type','text/html');res.end('<html><head><link rel="stylesheet" href="/wishwave-home-controls.css"></head><body><div class="app"><section id="discover"><header class="discover-social-topbar"><div class="wishwave-home-feed-tabs"><button data-home-feed="for-you" aria-selected="true">For you</button><button>Following</button></div><button id="homeMessageButton">Messages</button></header><div id="personalFeed"></div></section></div><script>var currentFeedItems=[];function conditionText(i){return i.condition||"";}function go(tab){document.body.dataset.testNavigation=tab;}</script><script src="/wishwave-home-controls.js"></script></body></html>');return;}const file=path.join(root,new URL(req.url,'http://test').pathname);if(!file.startsWith(root)||!fs.existsSync(file)||fs.statSync(file).isDirectory()){res.writeHead(404).end();return;}res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');res.end(fs.readFileSync(file));});await new Promise(r=>server.listen(0,'127.0.0.1',r));let browser;
  try{
   browser=await webkit.launch({headless:true});const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   await page.route('**/*',r=>r.request().url().startsWith('http://127.0.0.1:')?r.continue():r.fulfill({status:200,contentType:'application/json',body:'{"items":[],"people":[],"conversations":[],"profile":{}}'}));
@@ -15,6 +15,8 @@ const root=path.resolve(__dirname,'..');
    const dialog=await page.locator('#wwHomeFilters').boundingBox();assert(dialog.width<=width&&dialog.x>=0);
    await page.locator('#wwHomeFilters [data-close]').click();
   }
+  await page.goto('http://127.0.0.1:'+server.address().port+'/home-controls-fixture');
+  await page.evaluate(()=>{currentFeedItems=[{id:'a',price:50,condition:'New',listingType:'fixed'},{id:'b',price:200,condition:'Pre-owned - Good',listingType:'auction'},{id:'c',price:80,condition:'Like new'}];document.getElementById('personalFeed').innerHTML=currentFeedItems.map((x,i)=>'<article class="reel-card" data-index="'+i+'" data-item="'+x.id+'"></article>').join('');});
   const visible=()=>page.locator('#personalFeed .reel-card:not(.ww-home-filtered)').evaluateAll(cards=>cards.map(c=>c.dataset.item));
   await page.evaluate(()=>wishwaveOpenHomeFilters());await page.locator('input[name=max]').fill('100');await page.locator('#wwHomeFilters button[type=submit]').click();assert.deepEqual(await visible(),['a','c']);
   assert(await page.locator('.ww-home-filter').evaluate(b=>b.classList.contains('has-filters')));
