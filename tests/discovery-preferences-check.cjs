@@ -10,3 +10,10 @@ assert(C.match('Pokémon','Pokemon Charizard PSA 10'));assert(C.match('Gaming','
 assert.equal(C.valid({entries:[{topic:'same',preference:'more'},{topic:'Same',preference:'hidden'}]}).entries.length,1);assert.equal(C.plan(C.blank(),base,[],1).length,1);
 const personalised=Array.from({length:6},(_,i)=>({query:'Topic '+i,featured:false})),discovery=Array.from({length:8},(_,i)=>({query:'Explore '+i,featured:true}));const f=C.plan({...C.blank(),variety:'focused'},[...personalised,...discovery],[],9),a=C.plan({...C.blank(),variety:'adventurous'},[...personalised,...discovery],[],9);assert(a.filter(x=>x.featured).length>f.filter(x=>x.featured).length);
 console.log('PASS: explicit retrieval, exploration balance, hidden exclusions, Less versus Hide, removal, reset cutoff, Unicode and bounded controls');
+
+assert.equal(C.topicLabel('LEGO 75356 Star Wars Executor Super Star Destroyer'),'LEGO Star Wars');
+assert.equal(C.topicLabel('LEGO Botanicals Orchid Complete set'),'LEGO Botanicals');
+assert.equal(C.topicLabel('Nintendo Game Boy Camera'),'Retro Nintendo');
+assert.equal(C.topicLabel('New Balance'),'New Balance');
+assert(C.match('Retro Nintendo',{title:'Nintendo Game Boy Camera'}));
+assert(!C.match('Retro Nintendo',{title:'Nintendo Switch OLED'}));
