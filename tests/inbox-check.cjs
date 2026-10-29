@@ -1,0 +1,14 @@
+const assert=require('assert'),fs=require('fs');
+const {destination}=require('../wishwave-inbox.js');
+assert.equal(destination(2,5,'activity'),'messages');
+assert.equal(destination(0,5,'messages'),'activity');
+assert.equal(destination(0,0,'activity'),'activity');
+assert.equal(destination(0,0,'messages'),'messages');
+assert.equal(destination(0,0,null),'messages');
+const js=fs.readFileSync('wishwave-inbox.js','utf8');
+assert(js.includes('window.openAppMarketplaceInbox=function(){restore();fromInbox=false;return baseOpen.apply(this,arguments);}'));
+assert(js.includes('window.appMpOpenConversation=function(){restore();return baseConversation.apply(this,arguments);}'));
+assert(!js.includes('markAllHomeNotificationsRead('),'Opening Inbox must not mark activity read');
+assert(js.includes('account===owner()'),'Ignore late unread refresh across accounts');
+assert(js.includes("if(b){entry++;"),'Manual tab selection supersedes automatic refresh');
+console.log('PASS: unread priority, last section/default, deep-link delegation, read-state preservation and refresh guards');
