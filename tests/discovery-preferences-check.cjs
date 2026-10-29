@@ -17,3 +17,8 @@ assert.equal(C.topicLabel('Nintendo Game Boy Camera'),'Retro Nintendo');
 assert.equal(C.topicLabel('New Balance'),'New Balance');
 assert(C.match('Retro Nintendo',{title:'Nintendo Game Boy Camera'}));
 assert(!C.match('Retro Nintendo',{title:'Nintendo Switch OLED'}));
+
+assert.equal(C.topicLabel('Ty Princess Diana Memorial Bear Beanie Baby Purple Princess Bear'),'Beanie Babies');
+assert.equal(C.topicLabel('adidas Yeezy Boost 350 V2 Zebra adult'),'Yeezy');
+assert(C.match('Beanie Babies',{title:'Ty Princess Diana Beanie Baby'}));
+assert(C.preferenceScore({...C.blank(),entries:[{topic:'Fragrances',preference:'less'}]},{title:'Chanel perfume'})<0);
