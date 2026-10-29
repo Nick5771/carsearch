@@ -11,7 +11,7 @@ const root=path.resolve(__dirname,'..');
    await page.setViewportSize({width,height:844});await page.evaluate(theme=>applyAppTheme(theme),theme);await page.waitForTimeout(200);
    const layout=await page.evaluate(()=>{const a=document.querySelector('#discover .wishwave-home-feed-tabs').getBoundingClientRect(),b=document.querySelector('.ww-home-filter').getBoundingClientRect(),s=getComputedStyle(document.querySelector('#discover [data-home-feed="for-you"]'),'::after');return {tabsRight:a.right,filterLeft:b.left,width:b.width,height:b.height,underline:s.backgroundColor};});
    assert(layout.tabsRight<=layout.filterLeft+1);assert.equal(layout.width,44);assert.equal(layout.height,44);assert.equal(layout.underline,'rgb(229, 34, 75)');
-   await page.locator('#discover .ww-home-filter').click();assert(await page.locator('#wwHomeFilters').evaluate(d=>d.open));
+   await page.locator('#discover .ww-home-filter').click();if(await page.locator('#wwDiscoveryPreferences[open]').count())await page.locator('#wwDiscoveryPreferences [data-shopping]').click();assert(await page.locator('#wwHomeFilters').evaluate(d=>d.open));
    const dialog=await page.locator('#wwHomeFilters').boundingBox();assert(dialog.width<=width&&dialog.x>=0);
    await page.locator('#wwHomeFilters [data-close]').click();
   }

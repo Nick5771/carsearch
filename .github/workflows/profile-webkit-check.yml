@@ -7,6 +7,10 @@ on:
       - wishwave-coral-theme.css
       - wishwave-home-controls.css
       - wishwave-home-controls.js
+      - wishwave-discovery-preferences.js
+      - wishwave-discovery-preferences.css
+      - tests/discovery-preferences-check.cjs
+      - tests/discovery-preferences-browser-check.cjs
       - tests/home-controls-browser-check.cjs
       - tests/home-trending-check.cjs
       - tests/public-profile-listings-browser-check.cjs
@@ -33,6 +37,10 @@ jobs:
         if: always()
         env:
           BROWSER_ENGINE: webkit
+      - run: node tests/discovery-preferences-check.cjs
+        if: always()
+      - run: node tests/discovery-preferences-browser-check.cjs
+        if: always()
       - run: node tests/home-trending-check.cjs
         if: always()
       - run: node tests/home-controls-browser-check.cjs
@@ -44,4 +52,5 @@ jobs:
           path: |
             /tmp/profile-option-a-*.png
             /tmp/home-controls-*.png
+            /tmp/discovery-preferences-*.png
           if-no-files-found: ignore

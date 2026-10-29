@@ -5,7 +5,7 @@
  if(!home||!feed)return;
  const icon='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 6.5h4m4 0h12M2 17.5h12m4 0h4"/><rect x="6" y="2.5" width="4" height="8" rx="2"/><rect x="14" y="13.5" width="4" height="8" rx="2"/></svg>';
  const tabs=home.querySelector('.wishwave-home-feed-tabs');
- const control=document.createElement('button');control.type='button';control.className='ww-home-filter';control.setAttribute('aria-label','Filter your feed');control.setAttribute('aria-haspopup','dialog');control.setAttribute('aria-expanded','false');control.innerHTML=icon;tabs.after(control);
+ const control=document.createElement('button');control.type='button';control.className='ww-home-filter';control.setAttribute('aria-label','Your discovery');control.setAttribute('aria-haspopup','dialog');control.setAttribute('aria-expanded','false');control.innerHTML=icon;tabs.after(control);
  // Search owns its own ID; unread message updates must never change this button.
  const search=home.querySelector('#homeMessageButton');
  if(search){search.id='homeSearchButton';search.setAttribute('aria-label','Search WishWave');search.onclick=()=>{go('search');};search.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5"/></svg>';}
@@ -30,16 +30,17 @@
  }
  function apply(){
   const on=active();control.classList.toggle('has-filters',on);
-  control.setAttribute('aria-label',on?'Filter your feed, filters active':'Filter your feed');
+  control.setAttribute('aria-label',on?'Your discovery, shopping filters active':'Your discovery');
   let shown=0,total=0;
   for(const card of feed.querySelectorAll('.reel-card')){
-   const item=currentFeedItems[Number(card.dataset.index)],hide=on&&!matches(item);
+   const item=currentFeedItems[Number(card.dataset.index)],hide=(on&&!matches(item))||(!['following','trending'].includes(home.dataset.homeFeed)&&window.wishwaveDiscoveryItemAllowed?.(item)===false);
    card.classList.toggle('ww-home-filtered',hide);total++;if(!hide)shown++;
   }
   let notice=feed.querySelector('.ww-home-filter-empty');
-  if(on&&total&&!shown){
-   if(!notice){notice=document.createElement('div');notice.className='ww-home-filter-empty feed-status';notice.setAttribute('role','status');notice.innerHTML='<div><b>No matching listings in this feed</b><p>Try a wider price range or reset your filters.</p><button type="button" class="retry-btn">Reset filters</button></div>';notice.querySelector('button').onclick=reset;feed.append(notice);}
+  if(total&&!shown){
+   if(!notice){notice=document.createElement('div');notice.className='ww-home-filter-empty feed-status';notice.setAttribute('role','status');notice.innerHTML='<div><b>No matching listings in this feed</b><p>Try a wider price range or reset your filters.</p><button type="button" class="retry-btn">Reset filters</button></div>';notice.querySelector('button').onclick=()=>active()?reset():window.wishwaveOpenDiscoveryPreferences?.();feed.append(notice);}
   }else notice?.remove();
+  if(notice&&notice.isConnected){notice.querySelector('p').textContent=on?'Try a wider price range or reset your filters.':'Try restoring an interest in Your discovery.';notice.querySelector('button').textContent=on?'Reset filters':'Adjust discovery';}
  }
  function reset(){filters=defaults();apply();feed.scrollTop=0;}
  const sheet=document.createElement('dialog');sheet.id='wwHomeFilters';sheet.setAttribute('aria-labelledby','wwHomeFiltersTitle');
@@ -48,7 +49,7 @@
  const form=sheet.querySelector('form'),error=sheet.querySelector('.ww-filter-error');
  function fill(){form.elements.min.value=filters.min;form.elements.max.value=filters.max;form.elements.condition.value=filters.condition;form.elements.type.value=filters.type;error.textContent='';}
  function open(){previousFocus=document.activeElement;fill();control.setAttribute('aria-expanded','true');sheet.showModal();sheet.querySelector('[data-close]').focus();}
- control.onclick=open;
+ control.onclick=()=>window.wishwaveOpenDiscoveryPreferences?window.wishwaveOpenDiscoveryPreferences():open();
  sheet.querySelector('[data-close]').onclick=()=>sheet.close();
  sheet.querySelector('[data-reset]').onclick=()=>{reset();fill();};
  sheet.addEventListener('click',event=>{if(event.target===sheet){const r=sheet.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)sheet.close();}});
@@ -61,5 +62,7 @@
  });
  // Keep identity/index intact when more cards arrive or a different feed is painted.
  new MutationObserver(records=>{if(records.some(r=>[...r.addedNodes].some(n=>n.nodeType===1&&(n.matches('.reel-card')||n.querySelector('.reel-card')))))apply();}).observe(feed,{childList:true,subtree:false});
+ document.addEventListener('wishwave-discovery-choices-change',apply);
  window.wishwaveOpenHomeFilters=open;
+ apply();
 })();
