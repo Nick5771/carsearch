@@ -8,7 +8,15 @@
  const control=document.createElement('button');control.type='button';control.className='ww-home-filter';control.setAttribute('aria-label','Your discovery');control.setAttribute('aria-haspopup','dialog');control.setAttribute('aria-expanded','false');control.innerHTML=icon;tabs.after(control);
  // Search owns its own ID; unread message updates must never change this button.
  const search=home.querySelector('#homeMessageButton');
- if(search){search.id='homeSearchButton';search.setAttribute('aria-label','Search WishWave');search.onclick=()=>{go('search');};search.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5"/></svg>';}
+ if(search){search.id='homeSearchButton';search.setAttribute('aria-label','Search WishWave');search.onclick=()=>{
+   go('search');
+   // Keep focus in the tap handler so iOS permits the keyboard to appear.
+   // Bottom-tab navigation still opens Search in browsing mode.
+   const field=document.getElementById('q');
+   const screen=document.getElementById('search');
+   if(screen)delete screen.dataset.v201NavReset;
+   field?.focus({preventScroll:true});
+  };search.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5"/></svg>';}
  const defaults=()=>({min:'',max:'',condition:'any',type:'all'});
  let filters=defaults(),previousFocus=null;
  const active=()=>filters.min!==''||filters.max!==''||filters.condition!=='any'||filters.type!=='all';

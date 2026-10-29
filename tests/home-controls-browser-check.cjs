@@ -6,6 +6,11 @@ const root=path.resolve(__dirname,'..');
   browser=await webkit.launch({headless:true});const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   await page.route('**/*',r=>r.request().url().startsWith('http://127.0.0.1:')?r.continue():r.fulfill({status:200,contentType:'application/json',body:'{"items":[],"people":[],"conversations":[],"profile":{}}'}));
   await page.goto('http://127.0.0.1:'+server.address().port+'/findai-app.html?country=US&catalogue-test=1&treasure-test=1');await page.waitForFunction(()=>window.wishwaveOpenHomeFilters);await page.waitForTimeout(900);
+  // Home's magnifier is a typing shortcut; focus must survive navigation's
+  // delayed reset callbacks. Exercise the real navigation before stubbing it.
+  await page.locator('#homeSearchButton').click();await page.waitForFunction(()=>document.body.dataset.activeTab==='search'&&document.activeElement?.id==='q');await page.waitForTimeout(400);assert.equal(await page.evaluate(()=>document.activeElement?.id),'q');
+  await page.evaluate(()=>go('discover'));await page.waitForTimeout(400);
+
   await page.evaluate(()=>{window.findaiEnsureUsernameOnboarding=async()=>{};document.getElementById('findaiUsernameOnboarding')?.style.setProperty('display','none','important');window.go=tab=>{document.body.dataset.testNavigation=tab;};currentFeedItems=[{id:'a',price:50,condition:'New',listingType:'fixed'},{id:'b',price:200,condition:'Pre-owned - Good',listingType:'auction'},{id:'c',price:80,condition:'Like new'}];document.getElementById('personalFeed').innerHTML=currentFeedItems.map((x,i)=>'<article class="reel-card" data-index="'+i+'" data-item="'+x.id+'"></article>').join('');});
   for(const theme of ['light','dark'])for(const width of [320,390,430]){
    await page.setViewportSize({width,height:844});await page.evaluate(theme=>applyAppTheme(theme),theme);await page.waitForTimeout(200);
