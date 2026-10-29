@@ -1279,6 +1279,7 @@ async function searchEbayUncached(keywords, country, maxPrice, env, agOnly = fal
           // MISSING brand as unknown (allowed) and only reject an explicit
           // non-LEGO brand such as "Unbranded".
           brand: (item.brand || (item.additionalProductIdentities && item.additionalProductIdentities.brand) || ''),
+          itemCreationDate: item.itemCreationDate || '',
           itemLocationCountry: (item.itemLocation && item.itemLocation.country) || '',
           listingType: item.buyingOptions?.[0] || '',
           buyingOptions: Array.isArray(item.buyingOptions) ? item.buyingOptions : [],
@@ -15522,6 +15523,21 @@ const COUNTRY_CCY = {
 };
 const CCY_SYM = { USD: '$', EUR: '\u20AC', JPY: '\u00A5', GBP: '\u00A3', CNY: 'CN\u00A5', AUD: 'A$', CAD: 'C$', CHF: 'CHF ', HKD: 'HK$', SGD: 'S$' };
 // Static fallback so a failed rate fetch never breaks pricing (approx, USD base).
+function wishwaveFilterSearchWindow(items,filters={},rates={}){
+  const sort=['price_asc','price_desc','newest'].includes(filters.sort)?filters.sort:'best';
+  const bound=v=>v!==''&&v!=null&&Number.isFinite(Number(v))&&Number(v)>=0?Number(v):null;
+  const min=bound(filters.min),max=bound(filters.max),priced=sort.startsWith('price_')||min!==null||max!==null;
+  const rows=(items||[]).map((item,index)=>{
+    const country=String(item.itemLocationCountry||item.itemLocation?.country||item.location?.country||item.sellerCountry||item.country||'').trim().toUpperCase();
+    const currency=String(item.currency||'').toUpperCase(),rate=Number(rates[currency]),aud=Number(rates.AUD);
+    const amount=Number(item.price),price=currency==='AUD'?amount:rate>0&&aud>0?amount/rate*aud:null;
+    const date=Date.parse(item.itemCreationDate||item.listedAt||item.publishedAt||item.createdAt||'')||0;
+    return {item,index,country,price,date};
+  }).filter(r=>(filters.location!=='AU'||['AU','AUS','AUSTRALIA'].includes(r.country))&&(!priced||r.price!==null&&Number.isFinite(r.price))&&(min===null||r.price>=min)&&(max===null||r.price<=max));
+  rows.sort((a,b)=>sort==='price_asc'?a.price-b.price||a.index-b.index:sort==='price_desc'?b.price-a.price||a.index-b.index:sort==='newest'?b.date-a.date||a.index-b.index:a.index-b.index);
+  return rows.map(r=>r.item);
+}
+
 const FX_FALLBACK = { USD: 1, EUR: 0.92, JPY: 157, GBP: 0.79, CNY: 7.2, AUD: 1.51, CAD: 1.37, CHF: 0.88, HKD: 7.8, SGD: 1.34 };
 
 async function getFxRates(env) {
@@ -20778,7 +20794,7 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
   };
 
   const intent=parseSearchIntent(raw);
-  if(opts.sort==='price_asc')intent.sort='price_asc';
+  if(['price_asc','price_desc','newest'].includes(opts.sort))intent.sort=opts.sort;
   const effective=String(intent&&intent.keywords||raw).trim();
   const explicitSource=String(intent&&intent.source||'').toLowerCase();
   const category=String(webDiscoveryQueryCategory(effective)||'').toLowerCase();
@@ -20816,7 +20832,7 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
 
   if(should('ebay')){
     addJob('ebay','eBay',findAISourceIconEbayHost(c),'marketplace',passive?1700:4400,
-      ()=>searchEbay(effective,c,maxPrice,env,false,opts.sort==='price_asc'?'price':intent&&intent.sort==='newest'?'newlyListed':'',sourceOffset));
+      ()=>searchEbay(effective,c,maxPrice,env,false,opts.sort==='price_asc'?'price':opts.sort==='price_desc'?'-price':intent&&intent.sort==='newest'?'newlyListed':'',sourceOffset));
   }
 
   const aliEligible=explicitSource==='ali'||(!explicitSource&&!webDiscoveryQueryBrand(effective)&&!findAIExplicitResaleQuery(effective));
@@ -27675,12 +27691,18 @@ export default {
         const windowOffset=offsetCursor?Math.min(400,Number(offsetCursor[2])):offset-sourceOffset;
         const explicit=String(body&&body.country||'').trim().toUpperCase();
         const country=explicit||requestedCountry(request,url);
-        const full=await wishwaveSharedShoppingWindow(query,country,env,ctx,{limit:400,sourceOffset,passive:!!body.passive,maxPrice:body&&body.maxPrice,sort:body.sort==='price_asc'?'price_asc':'',compareCurrency:body.sort==='price_asc'&&/^[A-Z]{3}$/.test(String(body.compareCurrency||''))?String(body.compareCurrency):''});
-        const listings=full.items.slice(windowOffset,windowOffset+limit);
-        const moreInWindow=windowOffset+listings.length<full.items.length;
+        const filters=body.searchFilters&&typeof body.searchFilters==='object'?body.searchFilters:null;
+        const selectedSort=filters&&['price_asc','price_desc','newest'].includes(filters.sort)?filters.sort:body.sort==='price_asc'?'price_asc':'';
+        const full=await wishwaveSharedShoppingWindow(query,country,env,ctx,{limit:400,sourceOffset,passive:!!body.passive,maxPrice:body&&body.maxPrice,sort:selectedSort,compareCurrency:!filters&&body.sort==='price_asc'&&/^[A-Z]{3}$/.test(String(body.compareCurrency||''))?String(body.compareCurrency):''});
+        // Filter the complete retrieved window before slicing pages. Never mutate
+        // the shared cache, whose inventory is reused by unfiltered shoppers.
+        const needsFx=filters&&(selectedSort.startsWith('price_')||filters.min!==''||filters.max!=='');
+        const filtered=filters?wishwaveFilterSearchWindow(full.items,filters,needsFx?await promiseWithin(getFxRates(env),900,FX_FALLBACK):{}):full.items;
+        const listings=filtered.slice(windowOffset,windowOffset+limit);
+        const moreInWindow=windowOffset+listings.length<filtered.length;
         const hasMore=moreInWindow||!!full.ebayHasMore;
         const nextCursor=moreInWindow?'window:'+sourceOffset+':'+(windowOffset+listings.length):'window:'+(sourceOffset+200)+':0';
-        return jsonResp({query,listings,total:full.items.length,marketplaceMatchCount:full.marketplaceMatchCount,page,limit,hasMore,nextCursor:hasMore?nextCursor:null,country:full.country,searchNarrative:full.searchNarrative,sourceActivity:Array.isArray(full.sourceActivity)?full.sourceActivity:[],meta:{ebayCount:full.ebayCount,wishwaveCount:full.wishwaveCount,aliCount:full.aliCount,sourceActivity:Array.isArray(full.sourceActivity)?full.sourceActivity:[],sourceHealth:full.sourceHealth,searchMode:full.searchMode,shoppingEngineVersion:full.shoppingEngineVersion,amazon:full.amazon,dedupe:full.dedupe,serverElapsedMs:full.serverElapsedMs}},200,{'Cache-Control':full.items.length?'public, max-age=30, s-maxage=45':'no-store'});
+        return jsonResp({query,listings,total:filtered.length,marketplaceMatchCount:full.marketplaceMatchCount,page,limit,hasMore,nextCursor:hasMore?nextCursor:null,country:full.country,searchNarrative:full.searchNarrative,sourceActivity:Array.isArray(full.sourceActivity)?full.sourceActivity:[],meta:{ebayCount:full.ebayCount,wishwaveCount:full.wishwaveCount,aliCount:full.aliCount,sourceActivity:Array.isArray(full.sourceActivity)?full.sourceActivity:[],sourceHealth:full.sourceHealth,searchMode:full.searchMode,shoppingEngineVersion:full.shoppingEngineVersion,amazon:full.amazon,dedupe:full.dedupe,serverElapsedMs:full.serverElapsedMs}},200,{'Cache-Control':full.items.length?'public, max-age=30, s-maxage=45':'no-store'});
       }
 
       // ── Market Watch: look up an item ─ POST /tracker/search ────────────────

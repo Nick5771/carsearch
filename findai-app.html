@@ -6610,7 +6610,7 @@ function extractPagination(data,rawCount,limit){
 }
 
 async function fetchProductResults(query,{
-  page=1,cursor=null,limit=FEED_BATCH_SIZE,preserveExact=false,skipResolve=false,signal=null,useTracker=false,passive=false,sort='',compareCurrency=''
+  page=1,cursor=null,limit=FEED_BATCH_SIZE,preserveExact=false,skipResolve=false,signal=null,useTracker=false,passive=false,sort='',compareCurrency='',searchFilters=null
 }={}){
   limit=Math.max(4,Math.min(40,Number(limit)||FEED_BATCH_SIZE));
   let resolvedQuery=String(query || '').trim();
@@ -6632,6 +6632,7 @@ async function fetchProductResults(query,{
 
   const payload={query:resolvedQuery,page,limit,offset:Math.max(0,(page-1)*limit)};
   if(!useTracker)payload.country=appShoppingRegion();
+  if(searchFilters&&!useTracker)payload.searchFilters=searchFilters;
   if(cursor)payload.cursor=cursor;
   if(passive)payload.passive=true;
   if(sort==='price_asc'){payload.sort='price_asc';if(compareCurrency)payload.compareCurrency=compareCurrency;}
@@ -6641,7 +6642,7 @@ async function fetchProductResults(query,{
     data=await appFetchJsonTimed(WORKER+endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),signal},passive?15000:10000);
   }catch(error){
     if(signal&&signal.aborted)throw error;
-    if(useTracker)throw error;
+    if(useTracker||searchFilters)throw error;
     const market=appShoppingRegion();
     const owned=await appFetchJsonTimed(WORKER+'/api/owned-search?q='+encodeURIComponent(resolvedQuery)+'&country='+encodeURIComponent(market)+'&limit='+encodeURIComponent(limit),{signal,cache:'no-store'},2200).catch(()=>({items:[]}));
     if(!Array.isArray(owned?.items)||!owned.items.length)throw error;
@@ -16403,7 +16404,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     if(exploreLiveController){try{exploreLiveController.abort();}catch(_){}}
     exploreLiveController=new AbortController();const requestController=exploreLiveController;
     try{
-      const result=await fetchProductResults(clean,{page:1,limit:60,preserveExact:true,skipResolve:true,passive:false,signal:requestController.signal});
+      const result=await fetchProductResults(clean,{page:1,limit:60,preserveExact:true,skipResolve:true,passive:false,signal:requestController.signal,searchFilters:window.wishwaveSearchFilterState?.()});
       if(seq!==exploreLiveSearchSeq||exploreFilter==='people')return;
       const current=String(document.getElementById('q')&&document.getElementById('q').value||'').trim();if(current!==clean)return;
       let items=Array.isArray(result&&result.data&&result.data.listings)?result.data.listings.slice():[];
@@ -16433,7 +16434,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
       // Completed searches never run the old unconditional ten-second refresh.
       if(recovering)setTimeout(()=>{if(seq===exploreLiveSearchSeq&&exploreLiveSearchQuery===clean&&!(exploreLivePage?.page>1)&&document.getElementById('search')?.classList.contains('active'))runExploreLiveSearch(clean,true,true,recoveryAttempt+1);},5500);
       if(seq===exploreLiveSearchSeq){setExploreInterpreting(exploreSearchPending);if(exploreSearchPending){const text=document.getElementById('wishwaveSearchStatusText');if(text)text.textContent='Finding more matches…';}}
-    }catch(error){if(seq===exploreLiveSearchSeq){paintExploreSearchPending(false);setExploreInterpreting(false);}if(error&&error.name==='AbortError')return;}
+    }catch(error){if(seq===exploreLiveSearchSeq){paintExploreSearchPending(false);setExploreInterpreting(false);}if(error&&error.name==='AbortError')return;if(seq===exploreLiveSearchSeq&&window.wishwaveSearchFilterState){const root=document.getElementById('premiumDiscoverySections');if(root)root.innerHTML='<div class="premium-explore-empty"><b>Could not load results</b><button type="button" onclick="wishwaveRefreshFilteredSearch()">Try again</button></div>';}}
   }
   async function loadExploreLiveMore(){
     const state=exploreLivePage,seq=exploreLiveSearchSeq;
@@ -16441,7 +16442,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     state.loading=true;
     try{
       for(let attempt=0;attempt<3&&state.hasMore;attempt++){
-        const result=await fetchProductResults(state.query,{page:state.page+1,cursor:state.cursor,limit:60,preserveExact:true,skipResolve:true,signal:exploreLiveController?.signal});
+        const result=await fetchProductResults(state.query,{page:state.page+1,cursor:state.cursor,limit:60,preserveExact:true,skipResolve:true,signal:exploreLiveController?.signal,searchFilters:window.wishwaveSearchFilterState?.()});
         if(seq!==exploreLiveSearchSeq||state.query!==exploreLiveSearchQuery||String(document.getElementById('q')?.value||'').trim()!==state.query)return;
         state.page++;state.cursor=result.nextCursor;state.hasMore=result.hasMore;
         const fresh=(result.data?.listings||[]).filter(item=>wishwaveAllowedListing(item)&&Number(item.price)>0&&premiumProductImage(item)&&!seenExplore.has(exploreItemKey(item)));
@@ -16452,6 +16453,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     }catch(_){/* Keep the cursor retryable after a network failure. */}
     finally{state.loading=false;if(seq===exploreLiveSearchSeq){paintExploreSearchPending(false);setExploreInterpreting(false);}}
   }
+  window.wishwaveRefreshFilteredSearch=function(){const q=String(document.getElementById('q')?.value||'').trim();if(!q||exploreFilter==='people')return;exploreLivePage=null;if(premiumDiscoverySections[0])premiumDiscoverySections[0].items=[];return runExploreLiveSearch(q,true,false);};
   window.wishwaveLoadMoreExplore=function(){return exploreLiveSearchQuery?loadExploreLiveMore():loadExploreMore(false);};
   window.runPremiumLiveSearch=runExploreLiveSearch;
   window.handlePremiumExploreInput=function(value){
@@ -36752,6 +36754,8 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-home-controls.js?v=410"></script>
 <link rel="stylesheet" href="wishwave-inbox.css?v=411">
 <script src="wishwave-inbox.js?v=411"></script>
+<link rel="stylesheet" href="wishwave-search-filters.css?v=412">
+<script src="wishwave-search-filters.js?v=412"></script>
 </body>
 </html>
 
