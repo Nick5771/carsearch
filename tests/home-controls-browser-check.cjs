@@ -14,6 +14,16 @@ const root=path.resolve(__dirname,'..');
    await page.locator('#discover .ww-home-filter').click();if(await page.locator('#wwDiscoveryPreferences[open]').count()){await page.locator('#wwDiscoveryPreferences .ww-discovery-advanced>summary').click();await page.locator('#wwDiscoveryPreferences .ww-discovery-shopping summary').click();await page.locator('#wwDiscoveryPreferences [data-shopping]').click();}assert(await page.locator('#wwHomeFilters').evaluate(d=>d.open));
    const dialog=await page.locator('#wwHomeFilters').boundingBox();assert(dialog.width<=width&&dialog.x>=0);
    await page.locator('#wwHomeFilters [data-close]').click();
+   // Exercise the production header clone, which used to turn the new Home
+   // discovery button into a full-width browser-default button on Search reels.
+   await page.evaluate(()=>{const view=document.getElementById('searchDetailOverlay');view.dataset.reelOwner='search';view.classList.add('search-owned-v186','show');});
+   await page.locator('#searchDetailOverlay .wishwave-reel-search-button').waitFor({state:'visible'});
+   assert.equal(await page.locator('#searchDetailOverlay .ww-home-filter').count(),0,'Home-only discovery control is not cloned into Search');
+   const searchBox=await page.locator('#searchDetailOverlay .wishwave-reel-search-button').boundingBox();assert.equal(searchBox.width,44);assert.equal(searchBox.height,44);
+   assert.equal(await page.locator('#searchDetailOverlay .wishwave-reel-search-button').getAttribute('aria-label'),'Back to search results');
+   const searchTabs=await page.locator('#searchDetailOverlay .wishwave-home-feed-tabs').boundingBox();assert(searchTabs.x>=0&&searchTabs.x+searchTabs.width<=width+1);
+   assert.equal(await page.locator('#searchDetailOverlay [data-home-feed="for-you"]').evaluate(e=>getComputedStyle(e,'::after').backgroundColor),'rgb(229, 34, 75)');
+   await page.locator('#searchDetailOverlay .wishwave-reel-search-button').click();await page.waitForFunction(()=>!document.getElementById('searchDetailOverlay').classList.contains('show'));assert.equal(await page.evaluate(()=>document.body.dataset.testNavigation),'search');
   }
   await page.goto('http://127.0.0.1:'+server.address().port+'/home-controls-fixture');
   await page.evaluate(()=>{currentFeedItems=[{id:'a',price:50,condition:'New',listingType:'fixed'},{id:'b',price:200,condition:'Pre-owned - Good',listingType:'auction'},{id:'c',price:80,condition:'Like new'}];document.getElementById('personalFeed').innerHTML=currentFeedItems.map((x,i)=>'<article class="reel-card" data-index="'+i+'" data-item="'+x.id+'"></article>').join('');});

@@ -31249,9 +31249,15 @@ body>.nav.findai-five-nav.premium-bottom-nav,
         bar.setAttribute('aria-label','Listing feed');
         bar.replaceChildren(...[...home.children].map(node=>node.cloneNode(true)));
         bar.querySelectorAll('[id]').forEach(node=>node.removeAttribute('id'));
-        const message=bar.querySelector('.discover-notification-button');
-        message.classList.add('wishwave-reel-message-button');
-        message.onclick=event=>{event.preventDefault();event.stopPropagation();openMessagesTab();};
+        // Discovery preferences belong to Home. Never clone an inert, unstyled
+        // settings button into a Search-owned listing header.
+        bar.querySelectorAll('.ww-home-filter').forEach(control=>control.remove());
+        const search=bar.querySelector('.discover-notification-button');
+        if(search){
+          search.classList.add('wishwave-reel-search-button');
+          search.setAttribute('aria-label','Back to search results');
+          search.onclick=event=>{event.preventDefault();event.stopPropagation();window.__wishwaveCloseSearchReelV186?.();go('search');};
+        }
         bar.querySelectorAll('[data-home-feed]').forEach(button=>{
           button.setAttribute('aria-selected',String(button.dataset.homeFeed==='for-you'));
           button.onclick=event=>{event.preventDefault();event.stopPropagation();window.__wishwaveCloseSearchReelV186?.();go('discover');wishwaveSetHomeFeed(button.dataset.homeFeed);};
@@ -36743,7 +36749,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-offer.js?v=372"></script>
 <link rel="stylesheet" href="wishwave-chat-offers.css?v=371">
 <script src="wishwave-chat-offers.js?v=372"></script>
-<link rel="stylesheet" href="wishwave-home-controls.css?v=402">
+<link rel="stylesheet" href="wishwave-home-controls.css?v=408">
 <link rel="stylesheet" href="wishwave-discovery-preferences.css?v=406">
 <script src="wishwave-discovery-preferences.js?v=407"></script>
 <script src="wishwave-home-controls.js?v=404"></script>
