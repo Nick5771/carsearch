@@ -47,7 +47,7 @@
  const retrieve=root.wishwaveFetchRecommendationResults;
  if(retrieve&&root.fetchProductResults)root.wishwaveFetchRecommendationResults=function(query,options){return usesQuery(query)?root.fetchProductResults(query,{...options,passive:false}):retrieve.apply(this,arguments);};
  const shoppingPreferences=root.wishwaveShoppingPreferences;if(shoppingPreferences)root.wishwaveShoppingPreferences=function(){return read().resetAt?{}:shoppingPreferences.apply(this,arguments);};
- const blendedPriority=root.wishwaveBlendedPriority;if(blendedPriority)root.wishwaveBlendedPriority=function(item){return (read().resetAt?0:blendedPriority.apply(this,arguments))+preferenceScore(read(),item);};
+ const blendedPriority=root.wishwaveBlendedPriority;if(blendedPriority)root.wishwaveBlendedPriority=function(item){const s=read(),adjustment=preferenceScore(s,item),base=s.resetAt?0:blendedPriority.apply(this,arguments);return base==null&&!adjustment?base:(Number.isFinite(base)?base:0)+adjustment;};
  const interestPlan=root.wishwaveInterestPlan;if(interestPlan)root.wishwaveInterestPlan=function(){const s=read();return s.resetAt||s.entries.length?[]:interestPlan.apply(this,arguments);};
  const candidate=root.wishwaveRecommendationCandidate;if(candidate)root.wishwaveRecommendationCandidate=function(item,query){return allow(read(),item)&&candidate.apply(this,arguments);};
  const score=root.personalisedItemScore;if(score)root.personalisedItemScore=function(item){const s=read();let base=s.resetAt?0:score.apply(this,arguments);if(s.entries.some(e=>['neutral','less'].includes(e.preference)&&match(e.topic,item)))base=Math.min(0,base);return base+preferenceScore(s,item);};
