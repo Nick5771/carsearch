@@ -48,7 +48,6 @@ if(typeof module==='object'&&module.exports)module.exports={destination:wishwave
  window.appMpInboxBack=function(){if(fromInbox){inbox.classList.remove('show','chat-open');appMpConversation='';clearInterval(appMpMessageTimer);clearInterval(appMpTypingTimer);return wishwaveOpenNotificationTab().then(()=>wishwaveInboxSection('messages'));}return baseBack.apply(this,arguments);};
  const badge=window.appRefreshMarketplaceBadge;if(badge)window.appRefreshMarketplaceBadge=async function(){try{return await badge.apply(this,arguments);}finally{sync();}};
  const notice=window.setHomeNotificationState;window.setHomeNotificationState=function(){const out=notice?.apply(this,arguments);sync();return out;};
- const button=document.querySelector('#wishwaveMainNav [data-tab="notifications"] svg');if(button)button.innerHTML='<path d="M21 11a8 8 0 0 1-8 8H9l-6 3 1.5-5A8 8 0 1 1 21 11Z"/>';
  document.addEventListener('wishwave-recommendation-account-change',()=>{entry++;fromInbox=false;restore();inbox.classList.remove('show','chat-open');selection='messages';sync();});
  sync();
 })();
