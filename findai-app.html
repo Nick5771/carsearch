@@ -6632,7 +6632,7 @@ async function fetchProductResults(query,{
 
   const payload={query:resolvedQuery,page,limit,offset:Math.max(0,(page-1)*limit)};
   if(!useTracker)payload.country=appShoppingRegion();
-  if(searchFilters&&!useTracker)payload.searchFilters=searchFilters;
+  if(searchFilters&&!useTracker){payload.searchFilters=searchFilters;if(searchFilters.location==='AU')payload.country='AU';}
   if(cursor)payload.cursor=cursor;
   if(passive)payload.passive=true;
   if(sort==='price_asc'){payload.sort='price_asc';if(compareCurrency)payload.compareCurrency=compareCurrency;}
