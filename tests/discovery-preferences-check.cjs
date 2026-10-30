@@ -26,3 +26,12 @@ assert(C.preferenceScore({...C.blank(),entries:[{topic:'Fragrances',preference:'
 assert.equal(C.topicLabel('LEGO Ideas Polaroid OneStep SX-70 Camera'),'LEGO Ideas');
 assert.equal(C.topicLabel('Apple AirPods Pro 3 USB-C charging case'),'AirPods Pro');
 assert.equal(C.topicLabel('nike dunk low'),'Nike Dunk');
+assert.deepEqual(C.valid({}).feed,{location:'worldwide',min:'',max:''});
+const bounds=C.valid({feed:{location:'AU',min:'20',max:'100'}});
+assert(C.feedAllowed(bounds,{price:50,currency:'AUD',itemLocationCountry:'AU'}));
+assert(!C.feedAllowed(bounds,{price:50,currency:'AUD',itemLocationCountry:'US'}));
+assert(!C.feedAllowed(bounds,{price:50,currency:'AUD'}));
+assert(!C.feedAllowed(bounds,{price:150,currency:'AUD',itemLocationCountry:'AU'}));
+assert(C.feedAllowed(bounds,{price:40,currency:'USD',itemLocationCountry:'AU'}));
+assert.equal(C.topicLabel('Black Sony PlayStation Vita PCH- OLED Handheld Console'),'PlayStation Vita');
+console.log('PASS: feed preference migration, AU location, AUD price bounds and compact labels');

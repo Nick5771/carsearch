@@ -3,8 +3,13 @@
  'use strict';
  const normal=s=>String(s||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
  const clean=s=>String(s||'').replace(/[\u0000-\u001f\u007f]/g,'').trim().replace(/\s+/g,' ').slice(0,64);
- const blank=()=>({version:1,entries:[],variety:'balanced',resetAt:0,observations:[]});
- const valid=value=>{const s=blank();if(!value||typeof value!=='object')return s;s.variety=['focused','balanced','adventurous'].includes(value.variety)?value.variety:'balanced';s.resetAt=Math.max(0,Number(value.resetAt)||0);const seen=new Set();s.entries=(Array.isArray(value.entries)?value.entries:[]).filter(e=>e&&clean(e.topic)&&['more','less','neutral','hidden'].includes(e.preference)).map(e=>({topic:clean(e.topic),preference:e.preference})).filter(e=>{const key=normal(e.topic);if(seen.has(key))return false;seen.add(key);return true;}).slice(0,48);s.observations=(Array.isArray(value.observations)?value.observations:[]).filter(e=>e&&clean(e.topic)&&Number(e.at)>s.resetAt).map(e=>({topic:clean(e.topic),at:Number(e.at),strength:Math.min(5,Math.max(1,Number(e.strength)||1))})).slice(-120);return s;};
+ const blank=()=>({version:1,entries:[],variety:'balanced',resetAt:0,observations:[],feed:{location:'worldwide',min:'',max:''}});
+ const valid=value=>{const s=blank();if(!value||typeof value!=='object')return s;s.feed=feedFilters(value.feed);s.variety=['focused','balanced','adventurous'].includes(value.variety)?value.variety:'balanced';s.resetAt=Math.max(0,Number(value.resetAt)||0);const seen=new Set();s.entries=(Array.isArray(value.entries)?value.entries:[]).filter(e=>e&&clean(e.topic)&&['more','less','neutral','hidden'].includes(e.preference)).map(e=>({topic:clean(e.topic),preference:e.preference})).filter(e=>{const key=normal(e.topic);if(seen.has(key))return false;seen.add(key);return true;}).slice(0,48);s.observations=(Array.isArray(value.observations)?value.observations:[]).filter(e=>e&&clean(e.topic)&&Number(e.at)>s.resetAt).map(e=>({topic:clean(e.topic),at:Number(e.at),strength:Math.min(5,Math.max(1,Number(e.strength)||1))})).slice(-120);return s;};
+ // Same conservative fallback rates as the shopping worker, used only for
+ // estimating AUD bounds on already cached cards. Live retrieval uses server FX.
+ const feedRates={USD:1,EUR:.92,JPY:157,GBP:.79,CNY:7.2,AUD:1.51,CAD:1.37,CHF:.88,HKD:7.8,SGD:1.34};
+ function feedFilters(value={}){const bound=v=>v!==''&&v!=null&&Number.isFinite(Number(v))&&Number(v)>=0?String(v):'';const out={location:value?.location==='AU'?'AU':'worldwide',min:bound(value?.min),max:bound(value?.max)};if(out.min!==''&&out.max!==''&&Number(out.min)>Number(out.max)){out.min='';out.max='';}return out;}
+ function feedAllowed(state,item){const f=feedFilters(state.feed);if(f.location==='AU'){const country=String(item?.itemLocationCountry||item?.itemLocation?.country||item?.location?.country||item?.sellerCountry||item?.country||'').trim().toUpperCase();if(!['AU','AUS','AUSTRALIA'].includes(country))return false;}if(f.min===''&&f.max==='')return true;const rate=feedRates[String(item?.currency||'').toUpperCase()],raw=item?.price,price=raw!=null&&raw!==''&&rate?Number(raw)/rate*feedRates.AUD:NaN;return Number.isFinite(price)&&(f.min===''||price>=Number(f.min))&&(f.max===''||price<=Number(f.max));}
  const categories={'beanie babies':/\bbeanie bab(?:y|ies)\b/,'bratz dolls':/\bbratz\b/,'pokemon cards':/\bpokemon\b.*\b(card|cards|booster|psa|tcg)\b/,fragrances:/\b(fragrance|fragrances|perfume|cologne|eau de)\b/,'vintage cameras':/\b(vintage|retro|film|analog|analogue|polaroid)\b.*\bcamera\b|\bcamera\b.*\b(vintage|retro|film|analog|analogue)\b/,'diecast cars':/\b(diecast|die cast|hot wheels|matchbox)\b/,'retro nintendo':/\b(game boy|gameboy|snes|nes|n64|nintendo 64|gamecube|nintendo ds)\b/,'lego botanicals':/\blego\b.*\b(botanical|botanicals|orchid|bonsai|bouquet|flowers)\b/,'lego star wars':/\blego\b.*\b(star wars|executor|millennium falcon|death star|destroyer)\b/,gaming:/\b(nintendo|playstation|xbox|game boy|gameboy|resident evil|zelda|pokemon|sega|gaming|video game|ps[1-5]|snes)\b/,sneakers:/\b(jordan|sneaker|yeezy|dunk|air max|vomero|cortez)\b/,'trading cards':/\b(pokemon|yugioh|yu gi oh|trading card|panini|magic the gathering|psa|bgs)\b/,fashion:/\b(carhartt|clothing|jacket|shirt|dress|hoodie|lululemon|skims|jeans|fashion)\b/,watches:/\b(watch|rolex|seiko|omega|casio|tudor)\b/,toys:/\b(lego|toy|doll|bratz|figure|plush|jellycat|hot wheels|gundam)\b/,comics:/\b(comic|marvel|dc comics|batman|spider man|manga)\b/,music:/\b(vinyl|record|guitar|turntable|cassette|album|music)\b/,cameras:/\b(camera|polaroid|nikon|canon|fujifilm|leica|lens)\b/};
  function match(topic,item){const q=normal(topic),text=normal(typeof item==='string'?item:[item?.title,item?.brand,item?.category,item?._interestQuery].filter(Boolean).join(' '));if(!q)return false;if((' '+text+' ').includes(' '+q+' '))return true;return !!categories[q]?.test(text);}
  const allow=(state,item)=>!state.entries.some(e=>e.preference==='hidden'&&match(e.topic,item));
@@ -21,6 +26,9 @@
  }
  // Only inferred listing titles are grouped; explicitly added interests retain their wording.
  function topicLabel(value){const t=clean(value),q=normal(value);
+  if(/\blego\b.*\barchitecture\b/.test(q))return 'LEGO Architecture';
+  if(/\b(playstation vita|ps vita)\b/.test(q))return 'PlayStation Vita';
+  if(/\bapple watch\b/.test(q))return 'Apple Watch';
   if(/\blego\b/.test(q)&&/\b(star wars|executor|millennium falcon|death star|destroyer)\b/.test(q))return 'LEGO Star Wars';
   if(/\blego\b/.test(q)&&/\b(botanical|botanicals|orchid|bonsai|bouquet)\b/.test(q))return 'LEGO Botanicals';
   if(/\b(game boy|gameboy|snes|nintendo 64|nes console|retro nintendo)\b/.test(q))return 'Retro Nintendo';
@@ -29,7 +37,7 @@
   // Strip sales copy and set numbers from unrecognised listing titles, without inventing a new topic.
   return clean(t.replace(/\b(sealed|complete set|free shipping|pre owned|with box)\b/gi,'').replace(/\b\d{4,}\b/g,'').replace(/\s+/g,' '))||t;
  }
- const Core={normal,clean,blank,valid,match,allow,preferenceScore,topics,plan,topicLabel};if(typeof module==='object'&&module.exports)module.exports=Core;
+ const Core={feedFilters,feedAllowed,normal,clean,blank,valid,match,allow,preferenceScore,topics,plan,topicLabel};if(typeof module==='object'&&module.exports)module.exports=Core;
  if(!root.document)return;
  const owner=()=>String(root.wishwaveRecommendationAccount?.()||root.getAccountProfile?.()?.email||'guest').trim().toLowerCase();
  const key=()=> 'ww_discovery_choices_v1:'+encodeURIComponent(owner());let cacheRaw=null,cacheOwner='',state=blank();
@@ -55,7 +63,7 @@
  const usesQuery=query=>topics(read(),inferred()).some(t=>t.preference!=='less'&&match(t.topic,query));
  root.wishwaveDiscoveryUsesTopic=(item,query)=>allow(read(),item)&&topics(read(),inferred()).some(t=>t.preference!=='less'&&(!query||match(t.topic,query))&&match(t.topic,item));
  const retrieve=root.wishwaveFetchRecommendationResults;
- if(retrieve&&root.fetchProductResults)root.wishwaveFetchRecommendationResults=function(query,options){return usesQuery(query)?root.fetchProductResults(query,{...options,passive:false}):retrieve.apply(this,arguments);};
+ if(retrieve&&root.fetchProductResults)root.wishwaveFetchRecommendationResults=function(query,options){const f=read().feed;if(f.location!=='worldwide'||f.min!==''||f.max!=='')return root.fetchProductResults(query,{...options,passive:false,searchFilters:{...f,sort:'best',currency:'AUD'}});return usesQuery(query)?root.fetchProductResults(query,{...options,passive:false}):retrieve.apply(this,arguments);};
  const shoppingPreferences=root.wishwaveShoppingPreferences;if(shoppingPreferences)root.wishwaveShoppingPreferences=function(){return read().resetAt?{}:shoppingPreferences.apply(this,arguments);};
  const blendedPriority=root.wishwaveBlendedPriority;if(blendedPriority)root.wishwaveBlendedPriority=function(item){const s=read(),adjustment=preferenceScore(s,item),base=s.resetAt?0:blendedPriority.apply(this,arguments);return base==null&&!adjustment?base:(Number.isFinite(base)?base:0)+adjustment;};
  const interestPlan=root.wishwaveInterestPlan;if(interestPlan)root.wishwaveInterestPlan=function(){const s=read();return s.resetAt||s.entries.length?[]:interestPlan.apply(this,arguments);};
@@ -64,14 +72,16 @@
  const focus=root.wishwaveInterestFocus;if(focus)root.wishwaveInterestFocus=function(){const s=read();return s.resetAt||s.entries.length?null:focus.apply(this,arguments);};
  const starter=root.wishwaveStarterItems;if(starter)root.wishwaveStarterItems=function(surface){const s=read();if(surface==='home'&&topics(s,inferred()).some(t=>t.preference!=='less'))return Promise.resolve([]);return starter.apply(this,arguments);};
  const sequence=root.sequencePersonalisedBatch;if(sequence)root.sequencePersonalisedBatch=function(items,history,max){const s=read();return sequence.call(this,(items||[]).filter(i=>allow(s,i)).sort((a,b)=>preferenceScore(s,b)-preferenceScore(s,a)),history,max);};
- root.wishwaveDiscoveryItemAllowed=item=>allow(read(),item);
+ root.wishwaveDiscoveryItemAllowed=item=>allow(read(),item)&&feedAllowed(read(),item);
+ root.wishwaveDiscoveryFeedFilters=()=>({...read().feed});
  root.wishwaveDiscoveryChoices=()=>({state:valid(read()),topics:topics(read(),inferred())});
  function changed(){document.dispatchEvent(new CustomEvent('wishwave-discovery-choices-change'));}
  function refresh(){if(read().entries.length||read().resetAt){try{sessionStorage.removeItem('ww_shopping_intents_v228');localStorage.removeItem('findai_priority_search_v130');}catch(_){}}changed();if(document.getElementById('discover')?.dataset.homeFeed==='for-you'||!document.getElementById('discover')?.dataset.homeFeed){root.wishwaveSetHomeFeed?.('for-you',true);}}
  const suggestions=['Trading Cards','Gaming','Fashion','Sneakers','Watches','Toys','Comics','Music','Sports','Cameras','Tech','Jewellery','Bags','Art','Books','Home','Antiques','Resident Evil','Pokémon','Retro Nintendo','LEGO Star Wars','Vintage cameras','Vinyl records'];
  const dialog=document.createElement('dialog');dialog.id='wwDiscoveryPreferences';dialog.setAttribute('aria-labelledby','wwDiscoveryTitle');
- dialog.innerHTML=`<div class="ww-discovery-handle"></div><header><div><p class="ww-discovery-eyebrow">WishWave</p><h2 id="wwDiscoveryTitle" tabindex="-1">Your discovery</h2></div><button type="button" data-close aria-label="Close Your discovery">×</button></header>
+ dialog.innerHTML=`<div class="ww-discovery-handle"></div><header><div><h2 id="wwDiscoveryTitle" tabindex="-1">Your discovery</h2></div><button type="button" data-close aria-label="Close Your discovery">×</button></header>
  <p class="ww-discovery-summary" data-summary></p>
+ <section class="ww-discovery-feed"><h3>Feed preferences</h3><p class="ww-discovery-hint">Applies to your For You feed.</p><div class="ww-discovery-location" role="group" aria-label="Item location"><button type="button" data-location="worldwide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg>Worldwide</button><button type="button" data-location="AU"><span aria-hidden="true">🇦🇺</span>Australia only</button></div><p class="ww-discovery-price-title">Price range · AUD</p><div class="ww-discovery-price"><label><span>A$</span><input data-feed-min type="number" min="0" step="0.01" inputmode="decimal" placeholder="Min" aria-label="Minimum feed price in AUD"></label><label><span>A$</span><input data-feed-max type="number" min="0" step="0.01" inputmode="decimal" placeholder="Max" aria-label="Maximum feed price in AUD"></label></div><p class="ww-discovery-hint">Leave blank for any price. AUD estimates, shipping excluded.</p><p data-feed-error role="alert"></p></section>
  <section class="ww-discovery-group"><h3>More of this</h3><p class="ww-discovery-hint">Tap a topic to adjust it.</p><div class="ww-discovery-chips" data-more></div></section>
  <section class="ww-discovery-group"><h3>Less of this</h3><div class="ww-discovery-chips" data-less></div></section>
  <section class="ww-discovery-editor" data-editor hidden><h3 data-editor-title></h3><div data-actions></div></section>
@@ -102,8 +112,9 @@
   for(const [value,text] of [['more','More of this'],['less','Less of this'],['hidden','Hide from feed'],['neutral','Remove interest']])area.append(button(text,()=>{if(choose(row.topic,value)){el('[data-editor]').hidden=true;el('[data-more] button')?.focus();}},text+' '+row.topic));
   area.append(button('Cancel',()=>{el('[data-editor]').hidden=true;trigger.focus();}));area.querySelector('button').focus();
  }
- function addForm(preference){addPreference=preference;el('[data-editor]').hidden=true;el('[data-add-form]').hidden=false;el('[data-add-form] label').textContent=preference==='less'?'See less of an interest':'Add an interest';el('[data-add-feedback]').textContent='';el('input').value='';el('input').focus();}
+ function addForm(preference){addPreference=preference;el('[data-editor]').hidden=true;el('[data-add-form]').hidden=false;el('[data-add-form] label').textContent=preference==='less'?'See less of an interest':'Add an interest';el('[data-add-feedback]').textContent='';el('#wwDiscoveryTopic').value='';el('#wwDiscoveryTopic').focus();}
  function paintTopics(){
+  for(const b of dialog.querySelectorAll('[data-location]'))b.setAttribute('aria-pressed',String(b.dataset.location===draft.feed.location));
   const grouped=new Map();for(const row of topics(draft,inferred())){const topic=topicLabel(row.topic),k=normal(topic),old=grouped.get(k);if(!old||row.preference!=='auto')grouped.set(k,{...row,topic});}
   const rows=[...grouped.values()];for(const pref of ['more','less']){
    const list=el('[data-'+pref+']'),group=rows.filter(r=>pref==='less'?r.preference==='less':r.preference!=='less');list.replaceChildren();
@@ -121,12 +132,20 @@
   const managed=draft.entries.filter(e=>['hidden','neutral'].includes(e.preference));el('[data-managed]').hidden=!managed.length;const managedArea=el('[data-managed-list]');managedArea.replaceChildren();for(const row of managed){const line=document.createElement('div');line.className='ww-discovery-managed-row';const text=document.createElement('span');text.textContent=topicLabel(row.topic)+' · '+(row.preference==='hidden'?'Hidden':'Removed');line.append(text,button('Restore',()=>choose(topicLabel(row.topic),'more'),'Restore '+topicLabel(row.topic)));managedArea.append(line);}
   const variety=el('.ww-discovery-variety>div');variety.replaceChildren();for(const [value,text] of [['focused','Familiar'],['balanced','Balanced'],['adventurous','Explore more']]){const b=button(text,()=>commit({...valid(read()),variety:value}));b.setAttribute('aria-pressed',String(draft.variety===value));variety.append(b);}
  }
- function open(){draft=valid(read());draftOwner=owner();dirty=false;undoState=null;expanded={more:false,less:false};focusBefore=document.activeElement;el('[data-save-error]').textContent='';el('.ww-discovery-status').hidden=true;el('[data-confirm]').hidden=true;el('[data-reset]').hidden=false;el('[data-editor]').hidden=true;el('[data-add-form]').hidden=true;for(const d of dialog.querySelectorAll('details'))d.open=false;paintTopics();document.querySelector('#discover .ww-home-filter')?.setAttribute('aria-expanded','true');if(!dialog.open)dialog.showModal();el('#wwDiscoveryTitle').focus();}
+ function open(){draft=valid(read());draftOwner=owner();dirty=false;undoState=null;expanded={more:false,less:false};focusBefore=document.activeElement;el('[data-save-error]').textContent='';el('.ww-discovery-status').hidden=true;el('[data-confirm]').hidden=true;el('[data-reset]').hidden=false;el('[data-editor]').hidden=true;el('[data-add-form]').hidden=true;for(const d of dialog.querySelectorAll('details'))d.open=false;el('[data-feed-min]').value=draft.feed.min;el('[data-feed-max]').value=draft.feed.max;el('[data-feed-error]').textContent='';paintTopics();document.querySelector('#discover .ww-home-filter')?.setAttribute('aria-expanded','true');if(!dialog.open)dialog.showModal();el('#wwDiscoveryTitle').focus();}
+ function saveFeed(){
+  const min=el('[data-feed-min]').value,max=el('[data-feed-max]').value;
+  const inputs=[el('[data-feed-min]'),el('[data-feed-max]')];
+  if(inputs.some(i=>i.validity.badInput)||(min!==''&&(!Number.isFinite(Number(min))||Number(min)<0))||(max!==''&&(!Number.isFinite(Number(max))||Number(max)<0))||(min!==''&&max!==''&&Number(min)>Number(max))){el('[data-feed-error]').textContent='Enter a valid range. Maximum must be at least the minimum.';return;}
+  el('[data-feed-error]').textContent='';const next=valid(read());next.feed={...next.feed,min,max};commit(next);
+ }
+ for(const b of dialog.querySelectorAll('[data-location]'))b.onclick=()=>{const next=valid(read());next.feed.location=b.dataset.location;commit(next);};
+ for(const input of dialog.querySelectorAll('[data-feed-min],[data-feed-max]'))input.addEventListener('change',saveFeed);
  el('[data-close]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{document.querySelector('#discover .ww-home-filter')?.setAttribute('aria-expanded',String(!!document.getElementById('wwHomeFilters')?.open));if(dirty&&owner()===draftOwner){dirty=false;refresh();}focusBefore?.focus();});
  dialog.addEventListener('click',event=>{if(event.target!==dialog)return;const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();});
- function add(){const topic=clean(el('input').value);if(topic.length<2){el('[data-add-feedback]').textContent='Enter at least two characters.';return;}if(choose(topic,addPreference)){el('[data-add-form]').hidden=true;el('[data-'+addPreference+'] button')?.focus();}}
- el('[data-add]').onclick=add;el('[data-cancel-add]').onclick=()=>{el('[data-add-form]').hidden=true;el('[data-'+addPreference+'] button')?.focus();};el('input').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();add();}});
- el('[data-undo]').onclick=()=>{if(undoState){const previous=undoState;if(commit({...previous,observations:read().observations},'Change undone')){undoState=null;el('.ww-discovery-status').hidden=true;el('[data-more] button')?.focus();}}};
+ function add(){const topic=clean(el('#wwDiscoveryTopic').value);if(topic.length<2){el('[data-add-feedback]').textContent='Enter at least two characters.';return;}if(choose(topic,addPreference)){el('[data-add-form]').hidden=true;el('[data-'+addPreference+'] button')?.focus();}}
+ el('[data-add]').onclick=add;el('[data-cancel-add]').onclick=()=>{el('[data-add-form]').hidden=true;el('[data-'+addPreference+'] button')?.focus();};el('#wwDiscoveryTopic').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();add();}});
+ el('[data-undo]').onclick=()=>{if(undoState){const previous=undoState;if(commit({...previous,observations:read().observations},'Change undone')){undoState=null;el('.ww-discovery-status').hidden=true;el('[data-feed-min]').value=draft.feed.min;el('[data-feed-max]').value=draft.feed.max;el('[data-more] button')?.focus();}}};
  el('[data-shopping]').onclick=()=>{dialog.close();root.wishwaveOpenHomeFilters?.();};
  el('[data-reset]').onclick=()=>{el('[data-confirm]').hidden=false;el('[data-reset]').hidden=true;el('[data-confirm-reset]').focus();};
  el('[data-cancel-reset]').onclick=()=>{el('[data-confirm]').hidden=true;el('[data-reset]').hidden=false;el('[data-reset]').focus();};

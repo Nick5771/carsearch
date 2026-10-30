@@ -13,15 +13,15 @@ if(typeof module==='object'&&module.exports)module.exports={destination:wishwave
  const unreadActivity=()=>Number(window.findaiNotificationState?.getUnread()||0);
  function sync(){
   const m=unreadMessages(),a=unreadActivity();
-  document.querySelectorAll('[data-inbox-section]').forEach(b=>{const section=b.dataset.inboxSection,count=section==='messages'?m:a;b.setAttribute('aria-selected',String(section===selection));b.querySelector('span').textContent=count?String(Math.min(99,count)):'';});
+  document.querySelectorAll('[data-inbox-section]').forEach(b=>{const section=b.dataset.inboxSection,count=section==='messages'?m:a;b.setAttribute('aria-selected',String(section===selection));b.querySelector('.ww-inbox-count').textContent=count?String(Math.min(99,count)):'';});
   const button=document.querySelector('#wishwaveMainNav [data-tab="notifications"]'),dot=el('navNotificationsBadge');
   button?.setAttribute('aria-label','Inbox'+(m+a?' — '+(m+a)+' unread':''));button?.classList.toggle('has-unread',m+a>0);if(dot){dot.classList.toggle('show',m+a>0);dot.style.display=m+a?'block':'none';}
  }
  function restore(){if(inbox.parentNode!==home)home.appendChild(inbox);inbox.classList.remove('ww-inbox-docked');}
  function ensure(){
   window.findaiNotificationState?.ensureUI();const panel=el('findaiNotificationPanel');if(!panel)return;
-  panel.classList.add('ww-unified-inbox');panel.setAttribute('aria-label','Inbox');const title=panel.querySelector('.findai-notification-panel-head b');if(title)title.textContent='Inbox';
-  if(!el('wwInboxTabs')){const tabs=document.createElement('div');tabs.id='wwInboxTabs';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Inbox sections');tabs.innerHTML=['messages','activity'].map(s=>'<button type="button" role="tab" data-inbox-section="'+s+'">'+(s==='messages'?'Messages':'Activity')+' <span></span></button>').join('');tabs.onclick=e=>{const b=e.target.closest('[data-inbox-section]');if(b){entry++;window.wishwaveInboxSection(b.dataset.inboxSection);}};panel.querySelector('.findai-notification-panel-head').after(tabs);const host=document.createElement('div');host.id='wwInboxMessages';panel.appendChild(host);}
+  panel.classList.add('ww-unified-inbox');panel.setAttribute('aria-label','Inbox');const title=panel.querySelector('.findai-notification-panel-head b');if(title)title.textContent='Inbox';panel.querySelector('.wishwave-notification-back')?.remove();
+  if(!el('wwInboxTabs')){const tabs=document.createElement('div');tabs.id='wwInboxTabs';tabs.setAttribute('role','tablist');tabs.setAttribute('aria-label','Inbox sections');tabs.innerHTML=['messages','activity'].map(s=>'<button type="button" role="tab" data-inbox-section="'+s+'">'+'<span class="ww-inbox-label">'+(s==='messages'?'Messages':'Activity')+'</span><span class="ww-inbox-count"></span></button>').join('');tabs.onclick=e=>{const b=e.target.closest('[data-inbox-section]');if(b){entry++;window.wishwaveInboxSection(b.dataset.inboxSection);}};panel.querySelector('.findai-notification-panel-head').after(tabs);const host=document.createElement('div');host.id='wwInboxMessages';panel.appendChild(host);}
   return panel;
  }
  window.wishwaveInboxSection=async function(section){

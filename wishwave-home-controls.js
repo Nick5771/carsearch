@@ -37,18 +37,18 @@
   return true;
  }
  function apply(){
-  const on=active();control.classList.toggle('has-filters',on);
-  control.setAttribute('aria-label',on?'Your discovery, shopping filters active':'Your discovery');
+  const forYou=!['following','trending'].includes(home.dataset.homeFeed),discovery=window.wishwaveDiscoveryFeedFilters?.(),on=active(),discoveryOn=forYou&&discovery&&(discovery.location!=='worldwide'||discovery.min!==''||discovery.max!=='');control.classList.toggle('has-filters',on||discoveryOn);
+  control.setAttribute('aria-label',on||discoveryOn?'Your discovery, shopping filters active':'Your discovery');
   let shown=0,total=0;
   for(const card of feed.querySelectorAll('.reel-card')){
-   const item=currentFeedItems[Number(card.dataset.index)],hide=(on&&!matches(item))||(!['following','trending'].includes(home.dataset.homeFeed)&&window.wishwaveDiscoveryItemAllowed?.(item)===false);
+   const item=currentFeedItems[Number(card.dataset.index)],hide=(on&&!matches(item))||(forYou&&window.wishwaveDiscoveryItemAllowed?.(item)===false);
    card.classList.toggle('ww-home-filtered',hide);total++;if(!hide)shown++;
   }
   let notice=feed.querySelector('.ww-home-filter-empty');
   if(total&&!shown){
    if(!notice){notice=document.createElement('div');notice.className='ww-home-filter-empty feed-status';notice.setAttribute('role','status');notice.innerHTML='<div><b>No matching listings in this feed</b><p>Try a wider price range or reset your filters.</p><button type="button" class="retry-btn">Reset filters</button></div>';notice.querySelector('button').onclick=()=>active()?reset():window.wishwaveOpenDiscoveryPreferences?.();feed.append(notice);}
   }else notice?.remove();
-  if(notice&&notice.isConnected){notice.querySelector('p').textContent=on?'Try a wider price range or reset your filters.':'Try restoring an interest in Your discovery.';notice.querySelector('button').textContent=on?'Reset filters':'Adjust discovery';}
+  if(notice&&notice.isConnected){notice.querySelector('p').textContent=on||discoveryOn?'Try a wider price range or location in Your discovery.':'Try restoring an interest in Your discovery.';notice.querySelector('button').textContent=on?'Reset filters':'Adjust discovery';}
  }
  function reset(){filters=defaults();apply();feed.scrollTop=0;}
  const sheet=document.createElement('dialog');sheet.id='wwHomeFilters';sheet.setAttribute('aria-labelledby','wwHomeFiltersTitle');
