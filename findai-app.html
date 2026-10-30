@@ -16424,8 +16424,10 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
       premiumDiscoverySections=[{config:{id:'explore',title:'Search'},items:displayed}];exploreQueue=[];exploreLoading=false;seenExplore.clear();displayed.forEach(item=>{const key=exploreItemKey(item);if(key)seenExplore.add(key);});
       const sourceHealth=result?.data?.meta?.sourceHealth||{};
       const incomplete=!!result?.data?._ownedFallback||Object.values(sourceHealth).some(row=>['timeout','failed','refresh_pending','quota_deferred'].includes(row?.status));
-      const recovering=displayed.length<12&&incomplete&&recoveryAttempt<2;
-      const paging=displayed.length<12&&exploreLivePage.hasMore;
+      const selectedFilters=window.wishwaveSearchFilterState?.();
+      const constrained=selectedFilters&&(selectedFilters.location==='AU'||selectedFilters.min!==''||selectedFilters.max!=='');
+      const recovering=!constrained&&displayed.length<12&&incomplete&&recoveryAttempt<2;
+      const paging=(!constrained||displayed.length>0)&&displayed.length<12&&exploreLivePage.hasMore;
       exploreSearchPending=recovering||paging;
       renderExploreGrid({replace:!prior.length});
       window.wishwaveAcceptSearchResults?.(clean,displayed);
@@ -36754,7 +36756,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-home-controls.js?v=410"></script>
 <link rel="stylesheet" href="wishwave-inbox.css?v=411">
 <script src="wishwave-inbox.js?v=413"></script>
-<link rel="stylesheet" href="wishwave-search-filters.css?v=416">
+<link rel="stylesheet" href="wishwave-search-filters.css?v=417">
 <script src="wishwave-search-filters.js?v=414"></script>
 </body>
 </html>

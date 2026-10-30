@@ -1144,7 +1144,7 @@ function isCleanNewLegoListing(item, product, marketFloor){
   return true;
 }
 
-async function searchEbay(keywords, country, maxPrice, env, agOnly = false, sortOverride = '', sourceOffset = 0) {
+async function searchEbay(keywords, country, maxPrice, env, agOnly = false, sortOverride = '', sourceOffset = 0, locationCountry = '') {
   keywords=String(keywords||'').replace(/\s+/g,' ').trim().toLowerCase();
   country=String(country||'US').toUpperCase();if(country==='GB')country='UK';
   sourceOffset=Math.max(0,Math.floor(Number(sourceOffset)||0));
@@ -1154,13 +1154,13 @@ async function searchEbay(keywords, country, maxPrice, env, agOnly = false, sort
   // returned 429 "Too many requests" — emptying every grid regardless of our
   // filtering. Results are shared per query/window; on a 429 we serve the last good
   // cached response within the six-hour listing freshness window.
-  const ck = 'ebaysearch:v235:' + country + ':' + (maxPrice || '') + ':' + (agOnly ? 'ag' : '') + ':' + (sortOverride || '') + ':' + String(keywords).toLowerCase().trim();
+  const ck = 'ebaysearch:v235:' + country + ':' + (maxPrice || '') + ':' + (agOnly ? 'ag' : '') + ':' + (sortOverride || '') + ':' + String(keywords).toLowerCase().trim() + (locationCountry ? ':located:' + locationCountry : '');
   const pageKey=sourceOffset?ck+':offset:'+sourceOffset:ck;
   const staleKey = pageKey + ':stale';
   if (env && env.CACHE) {
     try { const hit = await env.CACHE.get(pageKey, 'json'); if (hit && Array.isArray(hit.items) && Number(hit.ebayFetchedAt)>Date.now()-21300000) return hit; } catch (_) {}
   }
-  const result = await searchEbayUncached(keywords, country, maxPrice, env, agOnly, sortOverride, sourceOffset);
+  const result = await searchEbayUncached(keywords, country, maxPrice, env, agOnly, sortOverride, sourceOffset, locationCountry);
   if (env && env.CACHE) {
     try {
       if (!result.error && Array.isArray(result.items)) {
@@ -1188,7 +1188,7 @@ const EBAY_MARKET_CURRENCY = {
   HK:'HKD', MY:'MYR', PH:'PHP', TH:'THB', TW:'TWD', VN:'VND'
 };
 
-async function searchEbayUncached(keywords, country, maxPrice, env, agOnly = false, sortOverride = '', sourceOffset = 0) {
+async function searchEbayUncached(keywords, country, maxPrice, env, agOnly = false, sortOverride = '', sourceOffset = 0, locationCountry = '') {
   try {
     const token = await getEbayToken(env);
     const marketplace = EBAY_MARKETPLACES[country] || 'EBAY_US';
@@ -1205,6 +1205,7 @@ async function searchEbayUncached(keywords, country, maxPrice, env, agOnly = fal
       filters.push(`price:[..${maxPrice}]`);
       filters.push(`priceCurrency:${EBAY_MARKET_CURRENCY[country] || 'USD'}`);
     }
+    if (locationCountry === 'AU') filters.push('itemLocationCountry:AU');
     if (agOnly)   filters.push('qualifiedPrograms:{AUTHENTICITY_GUARANTEE}');
     const filterParam = filters.length ? `&filter=${encodeURIComponent(filters.join(','))}` : '';
     const validSorts = new Set(['price','-price','distance','newlyListed','endingSoonest']);
@@ -20832,7 +20833,7 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
 
   if(should('ebay')){
     addJob('ebay','eBay',findAISourceIconEbayHost(c),'marketplace',passive?1700:4400,
-      ()=>searchEbay(effective,c,maxPrice,env,false,opts.sort==='price_asc'?'price':opts.sort==='price_desc'?'-price':intent&&intent.sort==='newest'?'newlyListed':'',sourceOffset));
+      ()=>searchEbay(effective,c,maxPrice,env,false,opts.sort==='price_asc'?'price':opts.sort==='price_desc'?'-price':intent&&intent.sort==='newest'?'newlyListed':'',sourceOffset,opts.locationCountry||''));
   }
 
   const aliEligible=explicitSource==='ali'||(!explicitSource&&!webDiscoveryQueryBrand(effective)&&!findAIExplicitResaleQuery(effective));
@@ -20998,7 +20999,7 @@ async function wishwaveShoppingEngineSearch(query,country,env,ctx,opts={}){
 // likes, private listings or per-user recommendations.
 async function wishwaveSharedShoppingWindow(query,country,env,ctx,opts={}){
   if(!env||!env.CACHE||typeof crypto==='undefined'){const result=await wishwaveShoppingEngineSearch(query,country,env,ctx,opts);catalogueQueue(result.items||[],country,env,ctx);return result;}
-  const identity=JSON.stringify([ENGINE_VERSION,String(query).replace(/\s+/g,' ').trim().toLowerCase(),String(country).toUpperCase(),String(opts.maxPrice||''),Number(opts.sourceOffset)||0,!!opts.passive,Number(opts.limit)||400,String(opts.sort||''),String(opts.compareCurrency||'')]);
+  const identity=JSON.stringify([ENGINE_VERSION,String(query).replace(/\s+/g,' ').trim().toLowerCase(),String(country).toUpperCase(),String(opts.maxPrice||''),Number(opts.sourceOffset)||0,!!opts.passive,Number(opts.limit)||400,String(opts.sort||''),String(opts.compareCurrency||''),String(opts.locationCountry||'')]);
   const digest=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(identity))),x=>x.toString(16).padStart(2,'0')).join('');
   const key='wishwave:shopping:window:v1:'+digest,state=ebayGatewayState(env),now=Date.now();
   const cached=await ebayGatewayCacheRead(env,state,key,now);
@@ -27690,10 +27691,10 @@ export default {
         const sourceOffset=offsetCursor?Math.min(9800,Number(offsetCursor[1])):Math.floor(offset/200)*200;
         const windowOffset=offsetCursor?Math.min(400,Number(offsetCursor[2])):offset-sourceOffset;
         const explicit=String(body&&body.country||'').trim().toUpperCase();
-        const country=explicit||requestedCountry(request,url);
         const filters=body.searchFilters&&typeof body.searchFilters==='object'?body.searchFilters:null;
+        const country=filters?.location==='AU'?'AU':explicit||requestedCountry(request,url);
         const selectedSort=filters&&['price_asc','price_desc','newest'].includes(filters.sort)?filters.sort:body.sort==='price_asc'?'price_asc':'';
-        const full=await wishwaveSharedShoppingWindow(query,country,env,ctx,{limit:400,sourceOffset,passive:!!body.passive,maxPrice:body&&body.maxPrice,sort:selectedSort,compareCurrency:!filters&&body.sort==='price_asc'&&/^[A-Z]{3}$/.test(String(body.compareCurrency||''))?String(body.compareCurrency):''});
+        const full=await wishwaveSharedShoppingWindow(query,country,env,ctx,{limit:400,sourceOffset,passive:!!body.passive,maxPrice:body&&body.maxPrice,sort:selectedSort,locationCountry:filters?.location==='AU'?'AU':'',compareCurrency:!filters&&body.sort==='price_asc'&&/^[A-Z]{3}$/.test(String(body.compareCurrency||''))?String(body.compareCurrency):''});
         // Filter the complete retrieved window before slicing pages. Never mutate
         // the shared cache, whose inventory is reused by unfiltered shoppers.
         const needsFx=filters&&(selectedSort.startsWith('price_')||filters.min!==''||filters.max!=='');
