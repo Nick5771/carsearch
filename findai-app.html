@@ -12564,7 +12564,8 @@ window.addEventListener('load', function(){
   let appNotificationUnread=0;
   let notificationFilter='all';
   window.wishwaveFilterNotifications=function(filter){
-    notificationFilter=['all','orders','social'].includes(filter)?filter:'all';
+    // Activity is one chronological list; keep old deep links compatible.
+    notificationFilter='all';
     renderHomeNotifications();
   };
 
@@ -12602,7 +12603,6 @@ window.addEventListener('load', function(){
       '<div class="findai-notification-backdrop" id="findaiNotificationBackdrop" onclick="closeHomeNotifications()"></div>'+
       '<section class="findai-notification-panel" id="findaiNotificationPanel" aria-label="Notifications">'+
         '<div class="findai-notification-panel-head"><button type="button" class="wishwave-notification-back" onclick="closeHomeNotifications()" aria-label="Back from notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m15 18-6-6 6-6"/></svg></button><b>Notifications</b></div>'+
-        '<div class="wishwave-notification-tabs" role="tablist" aria-label="Notification filters"><button type="button" role="tab" data-notice-filter="all" onclick="wishwaveFilterNotifications(\'all\')">All</button><button type="button" role="tab" data-notice-filter="orders" onclick="wishwaveFilterNotifications(\'orders\')">Orders</button><button type="button" role="tab" data-notice-filter="social" onclick="wishwaveFilterNotifications(\'social\')">Social</button></div>'+
         '<div class="findai-notification-list" id="findaiNotificationList"></div>'+
       '</section>'
     );
@@ -16190,6 +16190,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     marker.textContent='';marker.setAttribute('aria-hidden','true');
     root.classList.remove('premium-explore-refreshing');
     paintExploreSearchPending(exploreLiveSearchQuery&&exploreSearchPending);
+    if(exploreLiveSearchQuery)window.wishwaveSearchFiltersResultsReady?.(exploreLiveSearchQuery,items.length);
   }
   function exploreCategoryCandidate(item,query=''){
     if(!wishwaveAllowedListing(item)||!Number.isFinite(Number(item.price))||Number(item.price)<=0||!String(item.title||'').trim()||!premiumProductImage(item))return false;
@@ -36757,7 +36758,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <link rel="stylesheet" href="wishwave-inbox.css?v=411">
 <script src="wishwave-inbox.js?v=413"></script>
 <link rel="stylesheet" href="wishwave-search-filters.css?v=417">
-<script src="wishwave-search-filters.js?v=414"></script>
+<script src="wishwave-search-filters.js?v=418"></script>
 </body>
 </html>
 

@@ -8,3 +8,35 @@ assert(worker.includes("filters.push('itemLocationCountry:AU')"));
 assert(worker.includes("sourceOffset,opts.locationCountry||''"));
 assert(html.includes("const recovering=!constrained&&"));
 console.log('PASS: AU catalogue selection and provider-side location constraint; no automatic empty filtered retry loop');
+// Exercise result readiness without a browser: typing alone, stale responses,
+// editing, empty filtered results, People, and clearing back to browsing.
+{
+ const listeners={},span={textContent:''},classes=new Set();
+ let button;
+ const chips={querySelector:()=>people?{}:null,parentNode:{classList:{toggle:(name,on)=>on?classes.add(name):classes.delete(name)}}};
+ let people=false;
+ const query={value:''};
+ const document={getElementById:id=>id==='q'?query:id==='premiumExploreChips'?chips:id==='wwSearchFilterButton'?button:null,
+  createElement:tag=>tag==='button'?(button={setAttribute(){},querySelector:()=>span}):{classList:chips.parentNode.classList,append(){},},
+  addEventListener:(event,fn)=>listeners[event]=fn,querySelector:()=>({})};
+ chips.before=()=>{};
+ const context={window:{},document,MutationObserver:class{observe(){}},setTimeout:fn=>fn()};
+ vm.runInNewContext(fs.readFileSync('wishwave-search-filters.js','utf8'),context);
+ const input=value=>{query.value=value;listeners.input({target:{id:'q'}});};
+ assert.equal(button.hidden,true);
+ input('g');assert.equal(button.hidden,true);
+ context.window.wishwaveSearchFiltersResultsReady('old query',4);assert.equal(button.hidden,true);
+ context.window.wishwaveSearchFiltersResultsReady('g',0);assert.equal(button.hidden,true);
+ context.window.wishwaveSearchFiltersResultsReady('g',4);assert.equal(button.hidden,false);
+ input('gaming');assert.equal(button.hidden,false);
+ context.window.wishwaveSearchFiltersResultsReady('gaming',0);assert.equal(button.hidden,false);
+ people=true;listeners.click({target:{closest:()=>true}});assert.equal(button.hidden,true);
+ people=false;listeners.click({target:{closest:()=>true}});assert.equal(button.hidden,false);
+ input('');assert.equal(button.hidden,true);
+ input('lego');assert.equal(button.hidden,true);
+ const html=fs.readFileSync('findai-app.html','utf8');
+ assert(!html.includes('<div class="wishwave-notification-tabs" role="tablist"'));
+ assert(html.includes("notificationFilter='all';"));
+ assert(html.includes('window.wishwaveSearchFiltersResultsReady?.(exploreLiveSearchQuery,items.length)'));
+ console.log('PASS: result-gated filter, stale responses, editing/zero-results retention, People/clear reset and unified Activity');
+}
