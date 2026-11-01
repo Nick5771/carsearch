@@ -11,6 +11,10 @@ on:
       - findai-worker.js
       - tests/search-filters-check.cjs
       - tests/search-filters-browser-check.cjs
+      - wishwave-create.js
+      - wishwave-create.css
+      - tests/create-form-check.cjs
+      - tests/create-form-browser-check.cjs
       - wishwave-tab-motion.css
       - tests/tab-layout-browser-check.cjs
       - wishwave-tab-motion.js
@@ -42,10 +46,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - run: node tests/create-form-check.cjs
       - run: node tests/tab-motion-check.cjs
       - run: npm install --no-save --package-lock=false playwright@1.62.1
       - run: npx playwright install --with-deps webkit
       - run: node tests/tab-layout-browser-check.cjs
+      - run: node tests/create-form-browser-check.cjs
       - run: node tests/public-profile-listings-browser-check.cjs
         env:
           BROWSER_ENGINE: webkit
