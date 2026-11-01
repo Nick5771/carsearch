@@ -68,5 +68,8 @@ const delivery=window.wishwaveSyncCreateDelivery;window.wishwaveSyncCreateDelive
 form.addEventListener('change',()=>{window.wishwaveSyncCreatePreview();window.wishwaveSyncCreateDelivery();});
 // Main form swipes between tabs; only full preview uses the child-page Back path.
 const child=window.__wishwaveChildSurface;window.__wishwaveChildSurface=function(target){const surface=child?.(target);if(surface?.root===root&&!root.classList.contains('preview-mode'))return null;return surface;};
+// Replace legacy empty slots with three consistently sized upload targets.
+const renderPhotos=window.renderListingImagePreviews;window.renderListingImagePreviews=function(){const out=renderPhotos.apply(this,arguments);const grid=el('listingImageGrid');if(!pendingListingImages.length&&grid){grid.querySelectorAll('.wishwave-listing-photo-slot').forEach(node=>node.remove());for(let i=0;i<3;i++){const slot=document.createElement('button');slot.type='button';slot.className='ww-create-empty-photo';slot.setAttribute('aria-label','Add listing photo');slot.textContent='+';slot.onclick=()=>el('listingImageInput').click();grid.appendChild(slot);}}return out;};
+window.renderListingImagePreviews();
 stage('form');window.wishwaveSyncCreatePreview();
 })();
