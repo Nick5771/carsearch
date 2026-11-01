@@ -11,6 +11,9 @@ on:
       - findai-worker.js
       - tests/search-filters-check.cjs
       - tests/search-filters-browser-check.cjs
+      - wishwave-profile-badges.js
+      - wishwave-profile-badges.css
+      - tests/profile-badges-browser-check.cjs
       - wishwave-create.js
       - wishwave-create.css
       - tests/create-form-check.cjs
@@ -52,6 +55,8 @@ jobs:
       - run: npx playwright install --with-deps webkit
       - run: node tests/tab-layout-browser-check.cjs
       - run: node tests/create-form-browser-check.cjs
+      - run: node tests/profile-badges-browser-check.cjs
+        if: always()
       - run: node tests/public-profile-listings-browser-check.cjs
         env:
           BROWSER_ENGINE: webkit
