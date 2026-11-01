@@ -13,7 +13,7 @@ window.wishwaveUnfollowMarkup=function(label,avatar,options={}){
  const clean=value=>String(value||'').replace(/^@+/,'').trim();
  const key=username=>owner()+'|'+clean(username).toLowerCase();
  const cachePrefix=()=> 'ww_recent_relationship_v1:'+encodeURIComponent(String(getAccountProfile()?.email||getAccountProfile()?.id||'guest').toLowerCase())+':';
- function cached(username){try{const value=JSON.parse(localStorage.getItem(cachePrefix()+clean(username).toLowerCase())||'null');return value&&Date.now()-value.at>=0&&Date.now()-value.at<10*60000?value:null;}catch(_){return null;}}
+ function cached(username){try{const value=JSON.parse(localStorage.getItem(cachePrefix()+clean(username).toLowerCase())||'null');return value&&Date.now()-value.at>=0&&Date.now()-value.at<24*60*60000?value:null;}catch(_){return null;}}
  function saveState(username,state){states.set(key(username),state);try{localStorage.setItem(cachePrefix()+clean(username).toLowerCase(),JSON.stringify({following:!!state.following,pending:!!state.pending,self:!!state.self,blocked:!!state.blocked,at:state.at}));}catch(_){}}
  function known(username){return states.get(key(username))||cached(username);}
  function invalidate(){for(const state of states.values())if(!state.busy)state.at=0;try{const prefix=cachePrefix();Object.keys(localStorage).filter(k=>k.startsWith(prefix)).forEach(k=>localStorage.removeItem(k));}catch(_){}schedule();}
@@ -23,11 +23,11 @@ window.wishwaveUnfollowMarkup=function(label,avatar,options={}){
   if(row.type!=='profile'||!username||row.isSelf||username.toLowerCase()===self)return '';
   const state=known(username);if(state?.self)return '';
   const label=state?(state.following?'Following':state.pending?'Requested':'Follow'):'';
-  return '<button type="button" class="premium-seller-action ww-recent-follow'+(state&&(state.following||state.pending)?' following':'')+'" data-follow-username="'+escapeAttr(username)+'"'+(!state||state.busy||state.blocked?' disabled':'')+(!state?' style="visibility:hidden"':'')+' aria-label="'+escapeAttr(label?label+' @'+username:'Loading follow status for '+username)+'">'+label+'</button>';
+  return '<button type="button" class="premium-seller-action ww-recent-follow'+(state&&(state.following||state.pending)?' following':'')+(!state?' ww-follow-checking':'')+'" data-follow-username="'+escapeAttr(username)+'"'+(!state||state.busy||state.blocked?' disabled':'')+' aria-busy="'+String(!state||!!state.busy)+'"'+' aria-label="'+escapeAttr(label?label+' @'+username:'Loading follow status for '+username)+'">'+label+'</button>';
  };
  function paint(button,state){
   if(!button.isConnected)return;
-  if(!state.error)button.style.removeProperty('visibility');
+  button.classList.remove('ww-follow-checking');delete button.dataset.followRetry;
   const signature=JSON.stringify([state.following,state.pending,state.busy,state.blocked,state.error,state.self]);if(painted.get(button)===signature)return;painted.set(button,signature);
   if(state.self){button.remove();return;}
   const label=state.following?'Following':state.pending?'Requested':'Follow';
@@ -46,7 +46,7 @@ window.wishwaveUnfollowMarkup=function(label,avatar,options={}){
   const promise=marketplaceFetch('/profile/public/'+encodeURIComponent(username),{method:'GET'}).then(data=>{
    if(owner()!==session)return;
    const v=data.viewer||{},state={following:!!v.isFollowing,pending:!!v.pending,self:!!v.isSelf,blocked:!!(v.blockedByViewer||v.blockedViewer||v.blockedByTarget||v.blockedByUser),at:Date.now()};saveState(username,state);paintAll(username,state);
-  }).catch(()=>{if(owner()===session){if(saved)paintAll(username,saved);else document.querySelectorAll('.ww-recent-follow').forEach(button=>{if(clean(button.dataset.followUsername).toLowerCase()===clean(username).toLowerCase())button.style.visibility='hidden';});}}).finally(()=>loads.delete(id));loads.set(id,promise);
+  }).catch(()=>{if(owner()===session){if(saved)paintAll(username,saved);else document.querySelectorAll('.ww-recent-follow').forEach(button=>{if(clean(button.dataset.followUsername).toLowerCase()===clean(username).toLowerCase()){button.classList.remove('ww-follow-checking');button.textContent='Retry';button.disabled=false;button.dataset.followRetry='1';button.setAttribute('aria-busy','false');button.setAttribute('aria-label','Retry loading follow status');}});}}).finally(()=>loads.delete(id));loads.set(id,promise);
  }
  function decorate(){document.querySelectorAll('#findaiSearchRecents.show .ww-recent-follow').forEach(button=>load(button.dataset.followUsername));}
  let queued=false;
@@ -71,11 +71,12 @@ window.wishwaveUnfollowMarkup=function(label,avatar,options={}){
   }catch(error){if(owner()===session){Object.assign(state,before);toast(error.message||'Could not update follow');}}
   finally{state.busy=false;if(owner()===session){saveState(username,state);paintAll(username,state);}}
  }
- document.addEventListener('click',event=>{const button=event.target.closest?.('.ww-recent-follow');if(!button)return;event.preventDefault();event.stopImmediatePropagation();if(!button.disabled)toggle(button);},true);
+ document.addEventListener('click',event=>{const button=event.target.closest?.('.ww-recent-follow');if(!button)return;event.preventDefault();event.stopImmediatePropagation();if(!button.disabled){if(button.dataset.followRetry){delete button.dataset.followRetry;button.textContent='';button.disabled=true;button.classList.add('ww-follow-checking');button.setAttribute('aria-busy','true');load(button.dataset.followUsername);}else toggle(button);}},true);
  document.addEventListener('keydown',event=>{if(event.target.closest?.('.ww-recent-follow'))event.stopPropagation();},true);
  const fetchBefore=window.marketplaceFetch;
  window.marketplaceFetch=function(path,options){
   const session=owner(),out=fetchBefore.apply(this,arguments);
+  if(/^\/profile\/public\/[^/?]+$/.test(path)&&(!options?.method||options.method==='GET'))return Promise.resolve(out).then(data=>{if(owner()===session&&data.viewer){const v=data.viewer,username=decodeURIComponent(path.split('/').pop());saveState(username,{following:!!v.isFollowing,pending:!!v.pending,self:!!v.isSelf,blocked:!!(v.blockedByViewer||v.blockedViewer||v.blockedByTarget||v.blockedByUser),at:Date.now()});}return data;});
   if(/\/(?:follow-user\/[^/]+|sellers\/[^/]+\/follow)$/.test(path)&&['POST','DELETE'].includes(options?.method))return Promise.resolve(out).then(data=>{
    if(owner()===session)invalidate();return data;
   });return out;
