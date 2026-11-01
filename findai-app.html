@@ -18035,7 +18035,10 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     if(tab==='profile')return openProfile();
   }
   function blockedTarget(target,y){
-    if(target.closest('input,textarea,select,button:not(.app-mp-conversation-card),a,[contenteditable],.premium-bottom-nav,.premium-explore-chips,.wishwave-home-feed-tabs,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,[data-horizontal-scroll]:not(.reel-gallery-stage)'))return true;
+    const blocked=target.closest('input,textarea,select,button:not(.app-mp-conversation-card),a,[contenteditable],.premium-bottom-nav,.premium-explore-chips,.wishwave-home-feed-tabs,.social-profile-tabs,.wishwave-public-profile-tabs,.app-mp-chat,.wishwave-comments-list,.app-mp-sheet-bg.show,.findai-comment-hold-overlay.show,[data-horizontal-scroll]:not(.reel-gallery-stage)');
+    // Notification rows are interactive across their full width. A horizontal
+    // drag owns the gesture; an unmoved touch retains the normal click action.
+    if(blocked&&!(target.closest('.findai-notification-item')&&blocked.matches('button,a')))return true;
     const card=target.closest('.reel-card'),stage=card?.querySelector('.reel-gallery-stage');
     if(stage&&JSON.parse(stage.dataset.galleryImages||'[]').length>1){const detail=card.querySelector('.product-panel .title,.product-panel .price');const top=detail?.getBoundingClientRect().top;return top>0?y<top:!target.closest('.product-panel');}
     return false;
@@ -36783,6 +36786,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-chat-offers.js?v=372"></script>
 <link rel="stylesheet" href="wishwave-home-controls.css?v=425">
 <script src="wishwave-tab-motion.js?v=426"></script>
+<link rel="stylesheet" href="wishwave-tab-motion.css?v=427">
 <link rel="stylesheet" href="wishwave-discovery-preferences.css?v=421">
 <script src="wishwave-discovery-preferences.js?v=421"></script>
 <script src="wishwave-home-controls.js?v=424"></script>

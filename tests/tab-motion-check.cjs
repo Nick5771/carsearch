@@ -7,3 +7,12 @@ ctx.__wishwavePageMotion=true;ctx.appendFeedItems(['private']);account='two';ctx
 ctx.__wishwavePageMotion=true;ctx.renderPersonalisedFeed(['obsolete']);ctx.renderPersonalisedFeed(['latest']);ctx.__wishwavePageMotion=false;ctx.__wishwaveFlushHomeRender();assert.deepEqual(painted.at(-1),['render',['latest']]);
 ctx.__wishwavePageMotion=true;ctx.__wishwaveNavigationHandoff=true;ctx.renderPersonalisedFeed(['handoff']);assert.deepEqual(painted.at(-1),['render',['handoff']]);
 console.log('PASS: renders deferred during drag, ordered flush, supersession, stale feed/account guards and navigation handoff');
+const html=fs.readFileSync('findai-app.html','utf8');
+const begin=html.indexOf('  function blockedTarget(target,y){'),end=html.indexOf('  function overlayOpen()',begin);
+const gestures={};vm.createContext(gestures);vm.runInContext(html.slice(begin,end),gestures);
+const button={matches:selector=>selector==='button,a'};
+const notification={closest:selector=>selector==='.findai-notification-item'?{}:selector==='.reel-card'?null:button};
+assert.equal(gestures.blockedTarget(notification,100),false,'Avatar and notification buttons allow horizontal gesture');
+const ordinary={closest:selector=>selector==='.findai-notification-item'?null:button};assert.equal(gestures.blockedTarget(ordinary,100),true,'Unrelated buttons remain protected');
+const input={closest:selector=>selector==='.findai-notification-item'?{}:{matches:()=>false}};assert.equal(gestures.blockedTarget(input,100),true,'Inputs remain protected inside notifications');
+console.log('PASS: notification row controls allow paging; unrelated controls and inputs retain ownership');
