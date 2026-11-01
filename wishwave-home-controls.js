@@ -37,7 +37,7 @@
   return true;
  }
  function apply(){
-  const forYou=!['following','trending'].includes(home.dataset.homeFeed),discovery=window.wishwaveDiscoveryFeedFilters?.(),on=active(),discoveryOn=forYou&&discovery&&(discovery.location!=='worldwide'||discovery.min!==''||discovery.max!=='');control.classList.toggle('has-filters',on||discoveryOn);
+  const forYou=(!home.dataset.homeFeed||home.dataset.homeFeed==='for-you'),discovery=window.wishwaveDiscoveryFeedFilters?.(),on=active(),discoveryOn=forYou&&discovery&&(discovery.location!=='worldwide'||discovery.min!==''||discovery.max!=='');control.classList.toggle('has-filters',on||discoveryOn);
   control.setAttribute('aria-label',on||discoveryOn?'Your discovery, shopping filters active':'Your discovery');
   let shown=0,total=0;
   for(const card of feed.querySelectorAll('.reel-card')){

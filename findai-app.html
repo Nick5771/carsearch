@@ -3305,7 +3305,7 @@ html body .source-chip .findai-exact-brand[data-brand="etsy"] img{
   <section id="discover" class="screen active">
     <header class="discover-social-topbar" aria-label="FindAI home">
       <div class="discover-social-brand">WishWave</div>
-      <div class="wishwave-home-feed-tabs" role="tablist" aria-label="Home feed"><button type="button" role="tab" aria-selected="false" data-home-feed="following" onclick="wishwaveSetHomeFeed('following')">Following</button><button type="button" role="tab" aria-selected="true" data-home-feed="for-you" onclick="wishwaveSetHomeFeed('for-you')">For You</button><button type="button" role="tab" aria-selected="false" data-home-feed="trending" onclick="wishwaveSetHomeFeed('trending')">Trending</button></div>
+      <div class="wishwave-home-feed-tabs" role="tablist" aria-label="Home feed"><button type="button" role="tab" aria-selected="false" data-home-feed="following" onclick="wishwaveSetHomeFeed('following')">Following</button><button type="button" role="tab" aria-selected="true" data-home-feed="for-you" onclick="wishwaveSetHomeFeed('for-you')">For You</button><button type="button" role="tab" aria-selected="false" data-home-feed="trending" onclick="wishwaveSetHomeFeed('trending')">Trending</button><button type="button" role="tab" aria-selected="false" data-home-feed="deals" onclick="wishwaveSetHomeFeed('deals')">Deals</button><button type="button" role="tab" aria-selected="false" data-home-feed="auctions" onclick="wishwaveSetHomeFeed('auctions')">Auctions</button><button type="button" role="tab" aria-selected="false" data-home-feed="collectibles" onclick="wishwaveSetHomeFeed('collectibles')">Collectibles</button></div>
       <button class="discover-notification-button" id="homeMessageButton" type="button" onclick="openMessagesTab()" aria-label="Messages">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M10 4h4a7 7 0 0 1 7 7c0 2.4-1.2 4.6-3.1 5.9L19 21l-5-3h-4a7 7 0 0 1 0-14Z"/>
@@ -5940,7 +5940,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false,recovery
 
   // A new curated visit must draw fresh inventory and rank unseen offers first.
   // In-memory tab snapshots still preserve the active reel during this visit.
-  const cached=forceNetwork||window.wishwaveTreasureStatus?.().active?null:readPersonalisedCache(cacheSignature);
+  const cached=forceNetwork?null:readPersonalisedCache(cacheSignature);
   if(marketplaceSession()) setTimeout(()=>appTasteSyncFromServer(false).catch(()=>{}),0);
   if(cached){
     restorePersonalisedLaneState(lanes,cached.lanes);
@@ -5965,7 +5965,8 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false,recovery
   try{
     markPersonalisedRefreshNow();
     if(window.wishwaveTreasureStatus?.().active && window.wishwaveStarterItems){
-      const starter=await window.wishwaveStarterItems('home');
+      // A cold reservoir must not hold the entire opening feed behind retries.
+      const starter=await Promise.race([window.wishwaveStarterItems('home'),new Promise(resolve=>setTimeout(()=>resolve([]),1500))]);
       if(!stillOwnsFeed())return;
       const ready=await window.wishwaveReadyStarter?.(starter)||[];
       if(!stillOwnsFeed())return;
@@ -5977,7 +5978,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false,recovery
     }
     // The request pool owns the opening lanes until each has completed. Pagination
     // must not race that pool and consume the same lane before its first result.
-    const openingLanes=[...lanes].sort((a,b)=>Number(!!window.FindAITreasureHunt?.forQuery(a.originalQuery||a.query)?.catalogueCandidate)-Number(!!window.FindAITreasureHunt?.forQuery(b.originalQuery||b.query)?.catalogueCandidate)).slice(0,32);
+    const openingLanes=[...lanes].sort((a,b)=>Number(!!window.FindAITreasureHunt?.forQuery(a.originalQuery||a.query)?.catalogueCandidate)-Number(!!window.FindAITreasureHunt?.forQuery(b.originalQuery||b.query)?.catalogueCandidate)).slice(0,12);
     loadingState.initialPool={pending:openingLanes.length,opening:true};
     const lanePromises=openingLanes.map((lane,index)=>fetchPersonalisedLane(lane)
       .then(value=>({index,value}))
@@ -5996,7 +5997,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false,recovery
       return next;
     };
     // Wait only until we have the first real recommendation. Errors are skipped.
-    const openingDeadline=Date.now()+20000;
+    const openingDeadline=Date.now()+9000;
     while(pending.size&&!early.length){
       const next=await takeNext(Math.max(1,openingDeadline-Date.now()));
       if(next?.timeout){loadingController.abort();break;}
@@ -34883,6 +34884,8 @@ html.findai-light body #appThemeOverlay .wishwave-reference-settings .wishwave-s
  const timeline=window.appMpMessageTimeline;
  window.appMpMessageTimeline=function(messages){const t=document.createElement('template');t.innerHTML=timeline.apply(this,arguments);const map=new Map((messages||[]).filter(Boolean).map(m=>[String(m.id||''),m]));t.content.querySelectorAll('.findai-v173-message-row').forEach(row=>{const bubble=row.querySelector('[data-message-id]'),m=map.get(bubble?.dataset.messageId);if(!m?.createdAt)return;const time=document.createElement('time');time.className='wishwave-chat-timestamp';time.dateTime=m.createdAt;time.textContent=appMpMessageTime(m.createdAt);row.appendChild(time);});return t.innerHTML;};
  // Separate Following from discovery; guard against background discovery refreshes.
+ const streamModes=['trending','deals','auctions','collectibles'];
+ const streamLabel=()=>({trending:'Trending',deals:'Deals',auctions:'Auctions',collectibles:'Collectibles'}[feedMode]||'feed');
  let feedMode='for-you',request=0,homeSnapshot=null,followingItems=null,trendingState=null;
  const personalRender=window.renderPersonalisedFeed;
  window.renderPersonalisedFeed=function(items,options){if(feedMode!=='for-you')return;return personalRender.apply(this,arguments);};
@@ -34890,39 +34893,48 @@ html.findai-light body #appThemeOverlay .wishwave-reference-settings .wishwave-s
  function paintHomeTrending(state){
   const feed=document.getElementById('personalFeed'),top=state.scroll||0;
   currentFeedItems=state.items;currentFeedData={trending:true};feedState.source='home-trending';
-  feed.innerHTML=state.items.length?state.items.map((item,index)=>renderReelCard(item,index,currentFeedData)).join(''):'<div class="feed-status" role="status"><div><b>No trending listings yet</b>Popular listings will appear as views and activity build.</div></div>';
+  feed.innerHTML=state.items.length?state.items.map((item,index)=>renderReelCard(item,index,currentFeedData)).join(''):'<div class="feed-status" role="status"><div><b>No '+streamLabel().toLowerCase()+' listings available yet</b>Try again shortly.</div></div>';
   feed.scrollTop=top;activeReelIndex=0;attachReelObserver();if(state.items.length){beginReelTracking(0);preloadPersonalisedImages(0,8);}
  }
  window.wishwaveLoadHomeTrendingMore=async function(){
-  const state=trendingState;if(feedMode!=='trending'||!state||state.loading||!state.hasMore)return;
-  state.loading=true;const feed=document.getElementById('personalFeed');feed.querySelector('.ww-home-trending-retry')?.remove();
+  const state=trendingState;if(!streamModes.includes(feedMode)||!state||state.loading||!state.hasMore)return;
+  state.loading=true;let succeeded=false;const feed=document.getElementById('personalFeed');feed.querySelector('.ww-home-trending-retry')?.remove();
   try{
-   const data=await appFetchJsonTimed(WORKER_BASE+'/recommendations/trending?country='+encodeURIComponent(appShoppingRegion())+'&limit=30&offset='+state.offset,{headers:marketplaceHeaders(),signal:state.controller.signal,cache:'no-store'},9000);
-   if(feedMode!=='trending'||trendingState!==state)return;
-   if(!Array.isArray(data.items))throw new Error('Invalid Trending response');
+   let data;
+   if(feedMode==='deals')data=await appFetchJsonTimed(WORKER_BASE+'/?bestdeals=1&cacheonly=1&country='+encodeURIComponent(appShoppingRegion()),{signal:state.controller.signal},7000);
+   else if(feedMode==='auctions'||feedMode==='collectibles'){
+    const queries=feedMode==='auctions'?['LEGO auctions only','Pokemon cards auctions only','retro Nintendo auctions only','vintage watches auctions only']:['LEGO retired sets','Pokemon trading cards','retro Nintendo games','vintage diecast collectibles'];
+    const index=Math.floor(state.offset/30),query=queries[index%queries.length],page=1+Math.floor(index/queries.length);
+    const result=await fetchProductResults(query,{page,limit:30,skipResolve:true,signal:state.controller.signal});
+    let items=result.data?.listings||[];
+    if(feedMode==='auctions')items=items.filter(x=>(x.buyingOptions||[]).includes('AUCTION')||x.listingType==='auction');
+    data={items,nextOffset:state.offset+30,hasMore:index<11};
+   }else data=await appFetchJsonTimed(WORKER_BASE+'/recommendations/trending?country='+encodeURIComponent(appShoppingRegion())+'&limit=30&offset='+state.offset,{headers:marketplaceHeaders(),signal:state.controller.signal,cache:'no-store'},9000);
+   if(!streamModes.includes(feedMode)||trendingState!==state)return;
+   if(!Array.isArray(data.items))throw new Error('Invalid feed response');succeeded=true;
    const seen=new Set(state.items.map(listingKey));
    const incoming=data.items.filter(item=>{if(!item||!wishwaveAllowedListing(item))return false;const key=listingKey(item);if(!key||seen.has(key))return false;seen.add(key);return true;});
-   state.offset=Number(data.nextOffset)||state.offset+data.items.length;state.hasMore=!!data.hasMore&&data.items.length>0;
+   state.offset=Number(data.nextOffset)||state.offset+data.items.length;state.hasMore=!!data.hasMore;
    if(!state.items.length){state.items.push(...incoming);paintHomeTrending(state);}
    else if(incoming.length){const start=state.items.length;state.items.push(...incoming);currentFeedItems=state.items;feed.insertAdjacentHTML('beforeend',incoming.map((item,index)=>renderReelCard(item,start+index,currentFeedData)).join(''));attachReelObserver();preloadPersonalisedImages(start,8);}
   }catch(error){
-   if(feedMode!=='trending'||trendingState!==state||state.controller.signal.aborted)return;
-   const retry='<div class="ww-home-trending-retry feed-status" role="status"><div><b>Could not load Trending</b><button type="button" class="retry-btn" onclick="wishwaveLoadHomeTrendingMore()">Try again</button></div></div>';
+   if(!streamModes.includes(feedMode)||trendingState!==state||state.controller.signal.aborted)return;
+   const retry='<div class="ww-home-trending-retry feed-status" role="status"><div><b>Could not load '+streamLabel()+'</b><button type="button" class="retry-btn" onclick="wishwaveLoadHomeTrendingMore()">Try again</button></div></div>';
    if(state.items.length)feed.insertAdjacentHTML('beforeend',retry);else feed.innerHTML=retry;
-  }finally{state.loading=false;}
+  }finally{state.loading=false;if(succeeded&&trendingState===state&&streamModes.includes(feedMode)&&state.hasMore&&state.items.length<6&&!state.controller.signal.aborted)setTimeout(()=>wishwaveLoadHomeTrendingMore(),250);}
  };
  const more=window.loadMoreListings;
- window.loadMoreListings=function(){if(feedMode==='trending')return wishwaveLoadHomeTrendingMore();return more.apply(this,arguments);};
+ window.loadMoreListings=function(){if(streamModes.includes(feedMode))return wishwaveLoadHomeTrendingMore();return more.apply(this,arguments);};
  const append=window.appendFeedItems;
- window.appendFeedItems=function(){if(feedMode==='trending')return;return append.apply(this,arguments);};
- document.getElementById('personalFeed').addEventListener('scroll',()=>{if(feedMode!=='trending'||!trendingState)return;const feed=document.getElementById('personalFeed');trendingState.scroll=feed.scrollTop;if(feed.scrollHeight-feed.scrollTop-feed.clientHeight<feed.clientHeight*2)wishwaveLoadHomeTrendingMore();},{passive:true});
+ window.appendFeedItems=function(){if(streamModes.includes(feedMode))return;return append.apply(this,arguments);};
+ document.getElementById('personalFeed').addEventListener('scroll',()=>{if(!streamModes.includes(feedMode)||!trendingState)return;const feed=document.getElementById('personalFeed');trendingState.scroll=feed.scrollTop;if(feed.scrollHeight-feed.scrollTop-feed.clientHeight<feed.clientHeight*2)wishwaveLoadHomeTrendingMore();},{passive:true});
  document.addEventListener('wishwave-discovery-choices-change',()=>{homeSnapshot=null;});
- function setFeedSelection(){document.getElementById('discover').dataset.homeFeed=feedMode;document.querySelectorAll('[data-home-feed]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.homeFeed===feedMode)));}
- window.wishwaveSetHomeFeed=async function(mode,refresh=false){mode=['following','trending'].includes(mode)?mode:'for-you';if(mode==='following'&&!appMpRequireLogin())return;if(mode===feedMode&&!refresh)return;if(mode!=='for-you'&&feedMode==='for-you'){homeSnapshot={items:[...currentFeedItems],data:currentFeedData,state:{...feedState},scroll:document.getElementById('personalFeed').scrollTop};}if(mode!==feedMode){trendingState?.controller.abort();if(mode!=='for-you'){wishwaveCancelStartupRecovery?.();feedRequestController?.abort();}}feedMode=mode;const id=++request;setFeedSelection();go('discover');const feed=document.getElementById('personalFeed');if(mode==='for-you'){if(refresh)homeSnapshot=null;if(homeSnapshot?.items.length){Object.assign(feedState,homeSnapshot.state);feedState.source='personalised';personalRender(homeSnapshot.items,{writeCache:false});feed.scrollTop=homeSnapshot.scroll;}else{feedState.source='personalised';loadPersonalisedFeed({forceNetwork:refresh});}return;}if(mode==='trending'){trendingState?.controller.abort();trendingState={items:[],offset:0,hasMore:true,loading:false,scroll:0,controller:new AbortController()};feedState.source='home-trending';currentFeedItems=[];currentFeedData={trending:true};feed.innerHTML='<div class="feed-status" role="status"><div><b>Loading Trending…</b></div></div>';return wishwaveLoadHomeTrendingMore();}feedState.source='following';feed.innerHTML='<div class="app-mp-loading"><div><div class="app-mp-spinner"></div>Loading followed listings</div></div>';try{const data=await marketplaceFetch('/marketplace/following/feed?limit=60',{method:'GET'});if(id!==request||feedMode!=='following')return;const items=(Array.isArray(data.items)?data.items:[]).filter(wishwaveAllowedListing);followingItems=items;currentFeedItems=items;currentFeedData={following:true};feedState.source='following';activeReelIndex=0;if(!items.length){feed.innerHTML='<div class="feed-status"><div><b>No listings from people you follow yet</b>Follow sellers to see their new listings here.</div></div>';return;}feed.innerHTML=items.map((item,index)=>renderReelCard(item,index,currentFeedData)).join('');feed.scrollTop=0;attachReelObserver();beginReelTracking(0);preloadPersonalisedImages(0,8);}catch(e){if(id!==request)return;feed.innerHTML='<div class="feed-status"><div><b>Could not load followed listings</b>'+escapeHTML(e.message||'Try again in a moment.')+'</div></div>';}};
+ function setFeedSelection(){document.getElementById('discover').dataset.homeFeed=feedMode;document.querySelectorAll('[data-home-feed]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.homeFeed===feedMode)));document.querySelector('[data-home-feed="'+feedMode+'"]')?.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'});}
+ window.wishwaveSetHomeFeed=async function(mode,refresh=false){mode=['following',...streamModes].includes(mode)?mode:'for-you';if(mode==='following'&&!appMpRequireLogin())return;if(mode===feedMode&&!refresh)return;if(mode!=='for-you'&&feedMode==='for-you'){homeSnapshot={items:[...currentFeedItems],data:currentFeedData,state:{...feedState},scroll:document.getElementById('personalFeed').scrollTop};}if(mode!==feedMode){trendingState?.controller.abort();if(mode!=='for-you'){wishwaveCancelStartupRecovery?.();feedRequestController?.abort();}}feedMode=mode;const id=++request;setFeedSelection();go('discover');const feed=document.getElementById('personalFeed');if(mode==='for-you'){if(refresh)homeSnapshot=null;if(homeSnapshot?.items.length){Object.assign(feedState,homeSnapshot.state);feedState.source='personalised';personalRender(homeSnapshot.items,{writeCache:false});feed.scrollTop=homeSnapshot.scroll;}else{feedState.source='personalised';loadPersonalisedFeed({forceNetwork:refresh});}return;}if(streamModes.includes(mode)){trendingState?.controller.abort();trendingState={items:[],offset:0,hasMore:true,loading:false,scroll:0,controller:new AbortController()};feedState.source='home-trending';currentFeedItems=[];currentFeedData={trending:true};feed.innerHTML='<div class="feed-status" role="status"><div><b>Loading '+streamLabel()+'…</b></div></div>';return wishwaveLoadHomeTrendingMore();}feedState.source='following';feed.innerHTML='<div class="app-mp-loading"><div><div class="app-mp-spinner"></div>Loading followed listings</div></div>';try{const data=await marketplaceFetch('/marketplace/following/feed?limit=60',{method:'GET'});if(id!==request||feedMode!=='following')return;const items=(Array.isArray(data.items)?data.items:[]).filter(wishwaveAllowedListing);followingItems=items;currentFeedItems=items;currentFeedData={following:true};feedState.source='following';activeReelIndex=0;if(!items.length){feed.innerHTML='<div class="feed-status"><div><b>No listings from people you follow yet</b>Follow sellers to see their new listings here.</div></div>';return;}feed.innerHTML=items.map((item,index)=>renderReelCard(item,index,currentFeedData)).join('');feed.scrollTop=0;attachReelObserver();beginReelTracking(0);preloadPersonalisedImages(0,8);}catch(e){if(id!==request)return;feed.innerHTML='<div class="feed-status"><div><b>Could not load followed listings</b>'+escapeHTML(e.message||'Try again in a moment.')+'</div></div>';}};
  const recentIntent=window.wishwaveApplyRecentSearchToHome;if(recentIntent)window.wishwaveApplyRecentSearchToHome=function(){if(feedMode!=='for-you')return;return recentIntent.apply(this,arguments);};
 
  const homeOpen=window.openForYou;
- window.openForYou=function(){if(feedMode==='trending'){go('discover');if(trendingState?.items.length)paintHomeTrending(trendingState);else return wishwaveSetHomeFeed('trending',true);return;}if(feedMode!=='following')return homeOpen.apply(this,arguments);go('discover');if(followingItems){currentFeedItems=followingItems;currentFeedData={following:true};feedState.source='following';const feed=document.getElementById('personalFeed');feed.innerHTML=followingItems.length?followingItems.map((item,index)=>renderReelCard(item,index,currentFeedData)).join(''):'<div class="feed-status"><div><b>No listings from people you follow yet</b>Follow sellers to see their new listings here.</div></div>';activeReelIndex=0;attachReelObserver();if(followingItems.length)beginReelTracking(0);}return;};
+ window.openForYou=function(){if(streamModes.includes(feedMode)){go('discover');if(trendingState?.items.length)paintHomeTrending(trendingState);else return wishwaveSetHomeFeed(feedMode,true);return;}if(feedMode!=='following')return homeOpen.apply(this,arguments);go('discover');if(followingItems){currentFeedItems=followingItems;currentFeedData={following:true};feedState.source='following';const feed=document.getElementById('personalFeed');feed.innerHTML=followingItems.length?followingItems.map((item,index)=>renderReelCard(item,index,currentFeedData)).join(''):'<div class="feed-status"><div><b>No listings from people you follow yet</b>Follow sellers to see their new listings here.</div></div>';activeReelIndex=0;attachReelObserver();if(followingItems.length)beginReelTracking(0);}return;};
  const refreshPage=window.wishwaveRefreshVisiblePage;
  if(refreshPage)window.wishwaveRefreshVisiblePage=function(key){if((key==='discover'||!key&&document.body.dataset.activeTab==='discover')&&feedMode!=='for-you')return wishwaveSetHomeFeed(feedMode,true);return refreshPage.apply(this,arguments);};
  setFeedSelection();setHomeNotificationState(typeof appNotificationUnread==='number'?appNotificationUnread:0);
@@ -36110,7 +36122,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
  window.fetchPersonalisedLanePage=async function(lane){
   if(!active()||lane._wwExplicitTopic)return page.apply(this,arguments);
   if(running>=4)await new Promise(resolve=>waiting.push(resolve));running++;
-  try{const requestState=feedState;const result=await page.apply(this,arguments);if(feedState!==requestState)return {...result,items:[],stale:true};const target=window.FindAITreasureHunt.forQuery(lane.originalQuery||lane.query),candidates=[...(result.items||[]),...(result.data?.listings||[])].filter(item=>window.FindAITreasureHunt.match(target,item)),accepted=[],checked=new Set();const unique=candidates.filter(item=>{const src=appImagePlan(item,0,{personalised:true})?.src;if(!src||checked.has(src))return false;checked.add(src);return true;}).slice(0,8);for(let offset=0;offset<unique.length;offset+=4){try{const item=await Promise.any(unique.slice(offset,offset+4).map(async item=>{if(await imageReady(item))return item;throw new Error('Image unavailable');}));accepted.push(item);}catch(_){}}if(feedState!==requestState)return {...result,items:[],stale:true};const acceptedKeys=new Set(accepted.map(listingKey));
+  try{const requestState=feedState;const result=await page.apply(this,arguments);if(feedState!==requestState)return {...result,items:[],stale:true};const target=window.FindAITreasureHunt.forQuery(lane.originalQuery||lane.query),candidates=[...(result.items||[]),...(result.data?.listings||[])].filter(item=>window.FindAITreasureHunt.match(target,item)),accepted=[],checked=new Set();const unique=candidates.filter(item=>{const src=appImagePlan(item,0,{personalised:true})?.src;if(!src||checked.has(src))return false;checked.add(src);return true;}).slice(0,8);try{const item=await Promise.any(unique.map(async item=>{if(await imageReady(item))return item;throw new Error('Image unavailable');}));accepted.push(item);}catch(_){}if(feedState!==requestState)return {...result,items:[],stale:true};const acceptedKeys=new Set(accepted.map(listingKey));
    Promise.all(unique.map(async item=>await imageReady(item)?item:null)).then(verified=>{if(feedState!==requestState)return;const rest=preparePersonalisedLaneItems(verified.filter(item=>item&&!acceptedKeys.has(listingKey(item))),lane);requestState.backlog=[...(requestState.backlog||[]),...rest].slice(-480);}).catch(()=>{});
    return {...result,items:preparePersonalisedLaneItems(accepted,lane)};}
   finally{running--;waiting.shift()?.();}
@@ -36751,10 +36763,10 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-offer.js?v=372"></script>
 <link rel="stylesheet" href="wishwave-chat-offers.css?v=371">
 <script src="wishwave-chat-offers.js?v=372"></script>
-<link rel="stylesheet" href="wishwave-home-controls.css?v=408">
+<link rel="stylesheet" href="wishwave-home-controls.css?v=424">
 <link rel="stylesheet" href="wishwave-discovery-preferences.css?v=421">
 <script src="wishwave-discovery-preferences.js?v=421"></script>
-<script src="wishwave-home-controls.js?v=420"></script>
+<script src="wishwave-home-controls.js?v=424"></script>
 <link rel="stylesheet" href="wishwave-inbox.css?v=423">
 <script src="wishwave-inbox.js?v=423"></script>
 <link rel="stylesheet" href="wishwave-search-filters.css?v=422">
