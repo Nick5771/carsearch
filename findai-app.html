@@ -30871,7 +30871,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     if(feed)feed.onscroll=null;moreReels=null;
     // Hide the offscreen surface first; dismantle its cards after Search has painted.
     requestAnimationFrame(()=>requestAnimationFrame(()=>{if(feed&&!isOpen())feed.replaceChildren();}));
-    view.classList.remove('wishwave-reel-preparing','wishwave-reel-expanding','show','explore-reel-mode','search-owned-v186','findai-v133-context-reel','findai-v133-dragging');
+    view.classList.remove('ww-search-reel-opening','wishwave-reel-preparing','wishwave-reel-expanding','show','explore-reel-mode','search-owned-v186','findai-v133-context-reel','findai-v133-dragging');
     view.style.removeProperty('transform');
     if(returnState){
       currentFeedItems=returnState.items.slice();
@@ -30947,6 +30947,9 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     view.dataset.reelOwner=owner;
     selectSearchReelTab('for-you');
     const headerTabs=view.querySelector('.ww-search-feed-tabs');if(headerTabs)headerTabs.scrollLeft=0;
+    if(owner==='search'&&!matchMedia('(prefers-reduced-motion:reduce)').matches){
+      view.classList.add('ww-search-reel-opening');window.__wishwavePageMotion=true;
+    }
     view.classList.add('explore-reel-mode','search-owned-v186','show');
     window.__wishwaveDidOpenView?.(originToken);
     if(owner!=='search'&&tile?.width>0){view.classList.add('wishwave-reel-preparing');window.__wishwavePageMotion=true;}
@@ -30965,7 +30968,16 @@ body>.nav.findai-five-nav.premium-bottom-nav,
         function fill(){if(session!==reelSession||!isOpen()||currentFeedItems[chosen]!==selected)return;for(let n=0;n<2&&order.length;n++){const i=order.shift(),slot=feed.querySelector('.wishwave-reel-placeholder[data-index="'+i+'"]');if(slot)slot.outerHTML=renderReelCard(list[i],i,currentFeedData);}if(order.length)requestAnimationFrame(fill);}
         requestAnimationFrame(fill);
       };
-      if(owner!=='search'&&tile&&tile.width>0&&typeof window.__wishwaveExpandSearchReel==='function')window.__wishwaveExpandSearchReel(view,tile,finishOpening);else finishOpening();
+      if(owner==='search'&&view.classList.contains('ww-search-reel-opening')){
+        let timer;
+        const complete=()=>{
+          clearTimeout(timer);feed.removeEventListener('animationend',ended);
+          if(session!==reelSession||!isOpen())return;
+          view.classList.remove('ww-search-reel-opening');finishOpening();
+        };
+        const ended=e=>{if(e.target===feed&&e.animationName==='wwSearchReelOpen')complete();};
+        feed.addEventListener('animationend',ended);timer=setTimeout(complete,280);
+      }else if(owner!=='search'&&tile&&tile.width>0&&typeof window.__wishwaveExpandSearchReel==='function')window.__wishwaveExpandSearchReel(view,tile,finishOpening);else finishOpening();
     }));
     if(owner==='messages'){moreReels=null;lastOpenedAt=Date.now();return true;}
     const sessionItems=currentFeedItems;
@@ -30987,7 +30999,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
         }
       }finally{loadingMore=false;}
     };
-    new Promise(resolve=>setTimeout(resolve,180)).then(()=>{
+    new Promise(resolve=>setTimeout(resolve,320)).then(()=>{
       if(session!==reelSession||!isOpen()||currentFeedItems!==sessionItems)return [];
       return wishwaveWarmReelDiscovery(selected);
     }).then(pool=>{
@@ -36911,7 +36923,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-offer.js?v=372"></script>
 <link rel="stylesheet" href="wishwave-chat-offers.css?v=371">
 <script src="wishwave-chat-offers.js?v=372"></script>
-<link rel="stylesheet" href="wishwave-home-controls.css?v=450">
+<link rel="stylesheet" href="wishwave-home-controls.css?v=451">
 <script src="wishwave-tab-motion.js?v=426"></script>
 <link rel="stylesheet" href="wishwave-tab-motion.css?v=433">
 <link rel="stylesheet" href="wishwave-discovery-preferences.css?v=421">

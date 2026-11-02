@@ -136,3 +136,20 @@ html body .app #searchDetailOverlay#searchDetailOverlay .ww-search-feed-tabs>but
 html body .app #searchDetailOverlay#searchDetailOverlay .ww-search-feed-tabs>button[aria-selected="true"]>span::after{
  bottom:2px;
 }
+
+/* Search reveals the ready listing smoothly; extra cards wait until this finishes. */
+html body .app #searchDetailOverlay#searchDetailOverlay.ww-search-reel-opening[data-reel-owner="search"] #searchDetailFeed{
+ animation:wwSearchReelOpen 240ms cubic-bezier(.22,.8,.22,1) both!important;
+ transform-origin:50% 55%;will-change:transform,opacity;
+}
+html body .app #searchDetailOverlay#searchDetailOverlay.ww-search-reel-opening[data-reel-owner="search"] .ww-search-listing-topbar{
+ animation:wwSearchHeaderOpen 200ms ease-out both!important;
+}
+@keyframes wwSearchReelOpen{
+ from{opacity:0;transform:translate3d(0,12px,0) scale(.985)}
+ to{opacity:1;transform:translate3d(0,0,0) scale(1)}
+}
+@keyframes wwSearchHeaderOpen{from{opacity:0}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){
+ html body .app #searchDetailOverlay#searchDetailOverlay.ww-search-reel-opening :is(#searchDetailFeed,.ww-search-listing-topbar){animation:none!important}
+}
