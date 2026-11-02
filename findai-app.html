@@ -30907,6 +30907,8 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     window.__wishwaveCancelReelOpen?.();
     host=host||document.activeElement?.closest('#search .premium-explore-tile,#searchResults .premium-result-card');
     const tile=host?.getBoundingClientRect();
+    const tileImage=host?.querySelector('img');
+    const previewSrc=tileImage?.complete&&tileImage.naturalWidth>0?(tileImage.currentSrc||tileImage.src):'';
     const requested=Array.isArray(items)?items[Number(index)||0]:null;
     const sourceList=cleanList(items);
     if(!sourceList.length)return false;
@@ -30943,6 +30945,10 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     try{if(reelObserver)reelObserver.disconnect();}catch(_){ }
 
     feed.innerHTML=list.map((item,i)=>i===chosen?renderReelCard(item,i,currentFeedData):'<article class="reel-card wishwave-reel-placeholder" data-index="'+i+'"></article>').join('');
+    // Reuse the already visible tile photo while its larger source loads.
+    const hero=feed.querySelector('.reel-card[data-index="0"] .hero-image');
+    const fullPhoto=hero?.getAttribute('src');
+    if(owner==='search'&&previewSrc&&hero&&fullPhoto&&previewSrc!==fullPhoto)hero.src=previewSrc;
     feed.onscroll=()=>{if(!scrollRaf)scrollRaf=requestAnimationFrame(syncIndex);};
     view.dataset.reelOwner=owner;
     selectSearchReelTab('for-you');
@@ -30964,6 +30970,13 @@ body>.nav.findai-five-nav.premium-bottom-nav,
       const finishOpening=()=>{
         if(session!==reelSession||!isOpen())return;
         view.classList.remove('wishwave-reel-preparing');window.__wishwavePageMotion=false;opening=false;
+        if(owner==='search'&&previewSrc&&hero&&fullPhoto&&previewSrc!==fullPhoto){
+          const highRes=new Image();
+          highRes.onload=()=>{
+            if(session===reelSession&&isOpen()&&hero.isConnected&&hero.getAttribute('src')===previewSrc)hero.src=fullPhoto;
+          };
+          highRes.src=fullPhoto;
+        }
         const order=[];for(let step=1;step<=2;step++){if(chosen+step<list.length)order.push(chosen+step);if(chosen-step>=0)order.push(chosen-step);}
         function fill(){if(session!==reelSession||!isOpen()||currentFeedItems[chosen]!==selected)return;for(let n=0;n<2&&order.length;n++){const i=order.shift(),slot=feed.querySelector('.wishwave-reel-placeholder[data-index="'+i+'"]');if(slot)slot.outerHTML=renderReelCard(list[i],i,currentFeedData);}if(order.length)requestAnimationFrame(fill);}
         requestAnimationFrame(fill);
@@ -30976,7 +30989,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
           view.classList.remove('ww-search-reel-opening');finishOpening();
         };
         const ended=e=>{if(e.target===feed&&e.animationName==='wwSearchReelOpen')complete();};
-        feed.addEventListener('animationend',ended);timer=setTimeout(complete,280);
+        feed.addEventListener('animationend',ended);timer=setTimeout(complete,340);
       }else if(owner!=='search'&&tile&&tile.width>0&&typeof window.__wishwaveExpandSearchReel==='function')window.__wishwaveExpandSearchReel(view,tile,finishOpening);else finishOpening();
     }));
     if(owner==='messages'){moreReels=null;lastOpenedAt=Date.now();return true;}
@@ -30999,7 +31012,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
         }
       }finally{loadingMore=false;}
     };
-    new Promise(resolve=>setTimeout(resolve,320)).then(()=>{
+    new Promise(resolve=>setTimeout(resolve,400)).then(()=>{
       if(session!==reelSession||!isOpen()||currentFeedItems!==sessionItems)return [];
       return wishwaveWarmReelDiscovery(selected);
     }).then(pool=>{
@@ -36923,7 +36936,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-offer.js?v=372"></script>
 <link rel="stylesheet" href="wishwave-chat-offers.css?v=371">
 <script src="wishwave-chat-offers.js?v=372"></script>
-<link rel="stylesheet" href="wishwave-home-controls.css?v=452">
+<link rel="stylesheet" href="wishwave-home-controls.css?v=453">
 <script src="wishwave-tab-motion.js?v=426"></script>
 <link rel="stylesheet" href="wishwave-tab-motion.css?v=433">
 <link rel="stylesheet" href="wishwave-discovery-preferences.css?v=421">

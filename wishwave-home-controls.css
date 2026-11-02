@@ -139,17 +139,29 @@ html body .app #searchDetailOverlay#searchDetailOverlay .ww-search-feed-tabs>but
 
 /* Search reveals the ready listing smoothly; extra cards wait until this finishes. */
 html body .app #searchDetailOverlay#searchDetailOverlay.ww-search-reel-opening[data-reel-owner="search"] #searchDetailFeed{
- animation:wwSearchReelOpen 240ms cubic-bezier(.22,.8,.22,1) both!important;
+ animation:wwSearchReelOpen 300ms cubic-bezier(.16,1,.3,1) both!important;
  transform-origin:50% 55%;will-change:transform,opacity;
 }
 html body .app #searchDetailOverlay#searchDetailOverlay.ww-search-reel-opening[data-reel-owner="search"] .ww-search-listing-topbar{
  animation:wwSearchHeaderOpen 200ms ease-out both!important;
 }
 @keyframes wwSearchReelOpen{
- from{opacity:0;transform:translate3d(0,12px,0) scale(.985)}
+ from{opacity:0;transform:translate3d(0,6px,0) scale(.99)}
  to{opacity:1;transform:translate3d(0,0,0) scale(1)}
 }
 @keyframes wwSearchHeaderOpen{from{opacity:0}to{opacity:1}}
 @media(prefers-reduced-motion:reduce){
  html body .app #searchDetailOverlay#searchDetailOverlay.ww-search-reel-opening :is(#searchDetailFeed,.ww-search-listing-topbar){animation:none!important}
+}
+
+/* Refined Search spacing: four complete tabs per viewport, with no partial next label. */
+html body .app #searchDetailOverlay#searchDetailOverlay[data-reel-owner="search"] .ww-search-feed-tabs{
+ width:calc(100% - 32px)!important;margin-inline:16px!important;padding-inline:0!important;
+ gap:14px!important;scroll-padding-inline:0!important;
+}
+html body .app #searchDetailOverlay#searchDetailOverlay[data-reel-owner="search"] .ww-search-feed-tabs>button{
+ flex:0 0 calc((100% - 42px)/4)!important;
+}
+html body .app #searchDetailOverlay#searchDetailOverlay.search-owned-v186[data-reel-owner="search"] .reel-card.wishwave-quality-reel.wishwave-quality-reel .product-panel{
+ padding-bottom:calc(var(--wishwave-nav-total,60px) + 4px)!important;
 }
