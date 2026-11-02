@@ -6,7 +6,7 @@ const controls={};
 const field={value:'lego spongebob',focus(){focused++;}};
 const view={dataset:{reelOwner:'search'},classList:{contains:()=>true},querySelector:()=>bar,appendChild:node=>bar=node};
 const document={body:{dataset:{activeTab:'search'}},getElementById:id=>['q','premiumResultQuery'].includes(id)?field:null,createElement:tag=>tag==='nav'?{setAttribute(){},set innerHTML(value){this.markup=value;feedButtons=[...value.matchAll(/data-reel-feed="([^"]+)" aria-selected="([^"]+)"/g)].map(m=>({dataset:{reelFeed:m[1]},selected:m[2]}));},querySelectorAll:()=>feedButtons}:{dataset:{},setAttribute(){},appendChild(node){this.feedTabs=node;},set innerHTML(value){this.markup=value;for(const name of ['.ww-search-listing-back','.ww-search-listing-query'])controls[name]={setAttribute(k,v){this[k]=v;},querySelector:()=>controls.span};controls.span={};},querySelector:selector=>controls[selector]||null}};
-const window={__wishwaveCloseSearchReelV186(){closed++;},wishwaveSlidePageBack(surface){slid++;surface.back();}};
+const window={__wishwaveCloseSearchReelV186(){closed++;},wishwaveSetSearchReelFeed:feed=>selectedFeed=feed,wishwaveSlidePageBack(surface){slid++;surface.back();}};
 const ctx={view,document,window,go:tab=>destination=tab,wishwaveSetHomeFeed:feed=>selectedFeed=feed};vm.createContext(ctx);vm.runInContext(html.slice(start,end),ctx);
 ctx.ensureTopbar();
 assert.equal(bar.className,'wishwave-search-reel-topbar ww-search-listing-topbar');
@@ -20,6 +20,6 @@ controls['.ww-search-listing-back'].onclick(event);assert.equal(closed,1);assert
 controls['.ww-search-listing-query'].onclick(event);assert.equal(closed,2);assert.equal(focused,1);
 field.value='glow recipe';ctx.ensureTopbar();assert.equal(controls.span.textContent,'glow recipe','Reused viewer updates its query');
 field.value='';ctx.ensureTopbar();assert.equal(controls.span.textContent,'Search WishWave');
-feedButtons[3].onclick(event);assert.equal(destination,'discover');assert.equal(selectedFeed,'deals');assert.equal(closed,3);
+feedButtons[3].onclick(event);assert.equal(destination,'');assert.equal(selectedFeed,'deals');assert.equal(closed,2,'feed tab keeps the Search viewer open');
 assert(html.includes("<div class=\"discover-social-brand\">WishWave</div>")||html.includes('discover-social-brand'),'Home header remains in source');
 console.log('PASS: Search header without wordmark, all six feed shortcuts, actual feed navigation, preserved back navigation and fresh query on reopen');

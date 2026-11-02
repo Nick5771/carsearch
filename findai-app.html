@@ -30707,6 +30707,72 @@ body>.nav.findai-five-nav.premium-bottom-nav,
   const reelFeed=()=>document.getElementById('searchDetailFeed');
   const countNode=()=>document.getElementById('searchDetailCount');
 
+  // Search owns these feed selections; changing one never activates Home.
+  let searchFeedMode='for-you',searchFeedModes=new Map(),searchFeedController=null,searchFeedRequest=0;
+  function selectSearchReelTab(mode){
+    searchFeedMode=mode;
+    overlay()?.querySelectorAll('[data-reel-feed]').forEach(button=>button.setAttribute('aria-selected',String(button.dataset.reelFeed===mode)));
+  }
+  function paintSearchFeedMode(state){
+    const feed=reelFeed();if(!feed)return;
+    currentFeedItems=state.items;currentFeedData=state.data||{personalised:true};
+    feedState={...feedState,source:'search-reel-v186',loading:false,hasMore:false};activeReelIndex=state.active||0;
+    feed.innerHTML=state.items.length?state.items.map((item,index)=>renderReelCard(item,index,currentFeedData)).join(''):'<div class="feed-status" role="status"><div><b>No listings available in this feed yet</b></div></div>';
+    feed.scrollTop=state.scroll||0;attachReelObserver();
+    if(state.items.length){beginReelTracking(activeReelIndex);preloadPersonalisedImages(activeReelIndex,3);}
+    const count=countNode();if(count)count.textContent=state.items.length?(activeReelIndex+1)+' / '+state.items.length:'';
+  }
+  async function loadSearchFeedMode(state){
+    if(state.loading||!state.hasMore||!isOpen())return;
+    state.loading=true;const session=reelSession,request=searchFeedRequest,controller=searchFeedController,mode=searchFeedMode;state.request=request;
+    const valid=()=>session===reelSession&&request===searchFeedRequest&&isOpen()&&!controller.signal.aborted;
+    const feed=reelFeed();feed.querySelector('.ww-search-feed-retry')?.remove();
+    try{
+      let data;
+      if(mode==='following'){
+        if(!marketplaceSession()){
+          state.hasMore=false;feed.innerHTML='<div class="feed-status" role="status"><div><b>Follow sellers to see their listings</b><button type="button" class="retry-btn" onclick="openLogin()">Sign in</button></div></div>';return;
+        }
+        data=await marketplaceFetch('/marketplace/following/feed?limit=60',{method:'GET',signal:controller.signal});data={items:data.items||[],hasMore:false};
+      }else if(mode==='deals')data=await appFetchJsonTimed(WORKER_BASE+'/?bestdeals=1&cacheonly=1&country='+encodeURIComponent(appShoppingRegion()),{signal:controller.signal},7000);
+      else if(mode==='auctions'||mode==='collectibles'){
+        const queries=mode==='auctions'?['LEGO auctions only','Pokemon cards auctions only','retro Nintendo auctions only','vintage watches auctions only']:['LEGO retired sets','Pokemon trading cards','retro Nintendo games','vintage diecast collectibles'];
+        const batch=Math.floor(state.offset/30),result=await fetchProductResults(queries[batch%queries.length],{page:1+Math.floor(batch/queries.length),limit:30,skipResolve:true,signal:controller.signal});
+        let items=result.data?.listings||[];if(mode==='auctions')items=items.filter(x=>(x.buyingOptions||[]).includes('AUCTION')||x.listingType==='auction');
+        data={items,nextOffset:state.offset+30,hasMore:batch<11};
+      }else data=await appFetchJsonTimed(WORKER_BASE+'/recommendations/trending?country='+encodeURIComponent(appShoppingRegion())+'&limit=30&offset='+state.offset,{headers:marketplaceHeaders(),signal:controller.signal,cache:'no-store'},9000);
+      if(!valid())return;
+      if(!Array.isArray(data.items))throw Error('Invalid feed response');
+      const seen=new Set(state.items.map(keyOf));const fresh=cleanList(data.items).filter(item=>{const key=keyOf(item);if(seen.has(key)||!wishwaveAllowedListing(item))return false;seen.add(key);return true;});
+      const start=state.items.length;state.offset=Number(data.nextOffset)||state.offset+data.items.length;state.emptyBatches=fresh.length?0:(state.emptyBatches||0)+1;state.hasMore=!!data.hasMore&&state.emptyBatches<3;state.items.push(...fresh);
+      if(!start)paintSearchFeedMode(state);
+      else if(fresh.length){feed.insertAdjacentHTML('beforeend',fresh.map((item,index)=>renderReelCard(item,start+index,currentFeedData)).join(''));attachReelObserver();}
+      state.failed=false;
+    }catch(error){
+      if(!valid())return;state.failed=true;
+      const retry='<div class="ww-search-feed-retry feed-status" role="status"><div><b>Could not load this feed</b><button type="button" class="retry-btn" onclick="wishwaveSetSearchReelFeed(\''+mode+'\',true)">Try again</button></div></div>';
+      if(state.items.length)feed.insertAdjacentHTML('beforeend',retry);else feed.innerHTML=retry;
+    }finally{
+      if(state.request===request)state.loading=false;
+      if(valid()&&!state.failed&&state.hasMore&&state.items.length<6)setTimeout(()=>{if(valid())loadSearchFeedMode(state);},250);
+    }
+  }
+  window.wishwaveSetSearchReelFeed=async function(mode,retry=false){
+    if(!['for-you','following','trending','deals','auctions','collectibles'].includes(mode)||!isOpen()||overlay()?.dataset.reelOwner!=='search')return;
+    if(mode===searchFeedMode&&!retry)return;
+    const previous=searchFeedModes.get(searchFeedMode);if(previous){previous.scroll=reelFeed().scrollTop;previous.active=activeReelIndex;}
+    searchFeedController?.abort();searchFeedController=new AbortController();searchFeedRequest++;
+    try{finaliseReelTracking();}catch(_){}
+    selectSearchReelTab(mode);
+    let state=searchFeedModes.get(mode);
+    if(!state){state={items:[],data:{personalised:true},offset:0,hasMore:true,loading:false,scroll:0,active:0};searchFeedModes.set(mode,state);}
+    state.loading=false;if(mode==='following'&&!marketplaceSession())state.hasMore=true;
+    moreReels=mode==='for-you'?state.more:()=>loadSearchFeedMode(state);
+    if(mode==='for-you'||state.items.length){paintSearchFeedMode(state);if(retry&&mode!=='for-you')return loadSearchFeedMode(state);return;}
+    reelFeed().innerHTML='<div class="feed-status" role="status"><div><b>Loading '+({following:'Following',trending:'Trending',deals:'Deals',auctions:'Auctions',collectibles:'Collectibles'}[mode])+'…</b></div></div>';
+    return loadSearchFeedMode(state);
+  };
+
   function cloneFeedState(value){
     if(!value)return {};
     const out={...value};
@@ -30791,6 +30857,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     if(best>=cards.length-5)moreReels?.();
   }
   function closeOwnedReel(){
+    searchFeedController?.abort();searchFeedRequest++;searchFeedModes.clear();
     ++reelSession;
     window.__wishwaveCancelReelOpen?.();
     const view=overlay(),feed=reelFeed();
@@ -30845,6 +30912,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     const selected=list[chosen];
     if(!selected)return false;
 
+    searchFeedController?.abort();searchFeedRequest++;searchFeedModes=new Map();searchFeedMode='for-you';
     opening=true;
     if(owner==='messages')window.__wishwaveStopChatAutoPin?.();
     captureReturn();
@@ -30871,6 +30939,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     feed.innerHTML=list.map((item,i)=>i===chosen?renderReelCard(item,i,currentFeedData):'<article class="reel-card wishwave-reel-placeholder" data-index="'+i+'"></article>').join('');
     feed.onscroll=()=>{if(!scrollRaf)scrollRaf=requestAnimationFrame(syncIndex);};
     view.dataset.reelOwner=owner;
+    selectSearchReelTab('for-you');
     view.classList.add('explore-reel-mode','search-owned-v186','show');
     window.__wishwaveDidOpenView?.(originToken);
     if(tile?.width>0){view.classList.add('wishwave-reel-preparing');window.__wishwavePageMotion=true;}
@@ -30926,6 +30995,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
       feed.appendChild(template.content);feed.scrollTop=scroll;
       if(c)c.textContent=(activeReelIndex+1)+' / '+list.length;
     }).catch(()=>{});
+    searchFeedModes.set('for-you',{items:sessionItems,data:currentFeedData,scroll:0,active:0,more:moreReels});
     lastOpenedAt=Date.now();
     return true;
   }
@@ -31305,8 +31375,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
         feedTabs.querySelectorAll('[data-reel-feed]').forEach(button=>{
           button.onclick=event=>{
             event.preventDefault();event.stopPropagation();
-            window.__wishwaveCloseSearchReelV186?.();
-            go('discover');wishwaveSetHomeFeed(button.dataset.reelFeed);
+            window.wishwaveSetSearchReelFeed?.(button.dataset.reelFeed);
           };
         });
         bar.appendChild(feedTabs);
@@ -36832,7 +36901,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-offer.js?v=372"></script>
 <link rel="stylesheet" href="wishwave-chat-offers.css?v=371">
 <script src="wishwave-chat-offers.js?v=372"></script>
-<link rel="stylesheet" href="wishwave-home-controls.css?v=441">
+<link rel="stylesheet" href="wishwave-home-controls.css?v=442">
 <script src="wishwave-tab-motion.js?v=426"></script>
 <link rel="stylesheet" href="wishwave-tab-motion.css?v=433">
 <link rel="stylesheet" href="wishwave-discovery-preferences.css?v=421">
