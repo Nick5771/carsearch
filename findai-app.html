@@ -30847,6 +30847,11 @@ body>.nav.findai-five-nav.premium-bottom-nav,
       const d=Math.abs((Number(card.offsetTop)||0)-y);
       if(d<dist){dist=d;best=i;}
     });
+    // Materialise only the current card and its immediate neighbours.
+    for(let i=Math.max(0,best-1);i<=Math.min(currentFeedItems.length-1,best+2);i++){
+      const slot=feed.querySelector('.wishwave-reel-placeholder[data-index="'+i+'"]');
+      if(slot)slot.outerHTML=renderReelCard(currentFeedItems[i],i,currentFeedData);
+    }
     if(best!==activeReelIndex){
       try{if(typeof finaliseReelTracking==='function')finaliseReelTracking();}catch(_){ }
       activeReelIndex=best;
@@ -30907,7 +30912,8 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     if(!sourceList.length)return false;
     const matched=requested?sourceList.findIndex(item=>keyOf(item)===keyOf(requested)):-1;
     const sourceIndex=matched>=0?matched:Math.max(0,Math.min(sourceList.length-1,Number(index)||0));
-    const list=owner==='messages'?[sourceList[sourceIndex]]:wishwaveMixedSearchReel(sourceList,sourceIndex);
+    // Paint the tapped listing before recommendation ranking or background fetching.
+    const list=owner==='messages'?[sourceList[sourceIndex]]:[sourceList[sourceIndex],...sourceList.slice(sourceIndex+1),...sourceList.slice(0,sourceIndex)].slice(0,24);
     const chosen=0;
     const selected=list[chosen];
     if(!selected)return false;
@@ -30943,7 +30949,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     const headerTabs=view.querySelector('.ww-search-feed-tabs');if(headerTabs)headerTabs.scrollLeft=0;
     view.classList.add('explore-reel-mode','search-owned-v186','show');
     window.__wishwaveDidOpenView?.(originToken);
-    if(tile?.width>0){view.classList.add('wishwave-reel-preparing');window.__wishwavePageMotion=true;}
+    if(owner!=='search'&&tile?.width>0){view.classList.add('wishwave-reel-preparing');window.__wishwavePageMotion=true;}
     const c=countNode();if(c)c.textContent=(chosen+1)+' / '+list.length;
 
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
@@ -30955,11 +30961,11 @@ body>.nav.findai-five-nav.premium-bottom-nav,
       const finishOpening=()=>{
         if(session!==reelSession||!isOpen())return;
         view.classList.remove('wishwave-reel-preparing');window.__wishwavePageMotion=false;opening=false;
-        const order=[];for(let step=1;step<list.length;step++){if(chosen+step<list.length)order.push(chosen+step);if(chosen-step>=0)order.push(chosen-step);}
+        const order=[];for(let step=1;step<=2;step++){if(chosen+step<list.length)order.push(chosen+step);if(chosen-step>=0)order.push(chosen-step);}
         function fill(){if(session!==reelSession||!isOpen()||currentFeedItems[chosen]!==selected)return;for(let n=0;n<2&&order.length;n++){const i=order.shift(),slot=feed.querySelector('.wishwave-reel-placeholder[data-index="'+i+'"]');if(slot)slot.outerHTML=renderReelCard(list[i],i,currentFeedData);}if(order.length)requestAnimationFrame(fill);}
         requestAnimationFrame(fill);
       };
-      if(tile&&tile.width>0&&typeof window.__wishwaveExpandSearchReel==='function')window.__wishwaveExpandSearchReel(view,tile,finishOpening);else finishOpening();
+      if(owner!=='search'&&tile&&tile.width>0&&typeof window.__wishwaveExpandSearchReel==='function')window.__wishwaveExpandSearchReel(view,tile,finishOpening);else finishOpening();
     }));
     if(owner==='messages'){moreReels=null;lastOpenedAt=Date.now();return true;}
     const sessionItems=currentFeedItems;
@@ -30976,12 +30982,15 @@ body>.nav.findai-five-nav.premium-bottom-nav,
           if(!fresh.length){emptyMore++;continue;}
           emptyMore=0;const start=list.length;
           list.push(...fresh);sessionItems.push(...fresh);
-          feed.insertAdjacentHTML('beforeend',fresh.map((item,i)=>renderReelCard(item,start+i,currentFeedData)).join(''));
+          feed.insertAdjacentHTML('beforeend',fresh.map((item,i)=>'<article class="reel-card wishwave-reel-placeholder" data-index="'+(start+i)+'"></article>').join(''));
           if(c)c.textContent=(activeReelIndex+1)+' / '+list.length;return;
         }
       }finally{loadingMore=false;}
     };
-    wishwaveWarmReelDiscovery(selected).then(pool=>{
+    new Promise(resolve=>setTimeout(resolve,180)).then(()=>{
+      if(session!==reelSession||!isOpen()||currentFeedItems!==sessionItems)return [];
+      return wishwaveWarmReelDiscovery(selected);
+    }).then(pool=>{
       if(!pool.length||!isOpen()||currentFeedItems!==sessionItems)return;
       // Protect the visible item and the next two cards, including gallery state.
       const start=Math.min(list.length,activeReelIndex+3),head=list.slice(0,start);
@@ -30992,7 +31001,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
       list.splice(0,list.length,...next);sessionItems.splice(0,sessionItems.length,...next);
       Array.from(feed.children).forEach(node=>{if(Number(node.dataset.index)>=start)node.remove();});
       const template=document.createElement('template');
-      template.innerHTML=mixed.map((item,i)=>renderReelCard(item,start+i,currentFeedData)).join('');
+      template.innerHTML=mixed.map((item,i)=>'<article class="reel-card wishwave-reel-placeholder" data-index="'+(start+i)+'"></article>').join('');
       feed.appendChild(template.content);feed.scrollTop=scroll;
       if(c)c.textContent=(activeReelIndex+1)+' / '+list.length;
     }).catch(()=>{});
@@ -36902,7 +36911,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-offer.js?v=372"></script>
 <link rel="stylesheet" href="wishwave-chat-offers.css?v=371">
 <script src="wishwave-chat-offers.js?v=372"></script>
-<link rel="stylesheet" href="wishwave-home-controls.css?v=443">
+<link rel="stylesheet" href="wishwave-home-controls.css?v=450">
 <script src="wishwave-tab-motion.js?v=426"></script>
 <link rel="stylesheet" href="wishwave-tab-motion.css?v=433">
 <link rel="stylesheet" href="wishwave-discovery-preferences.css?v=421">
