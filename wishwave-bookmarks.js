@@ -52,9 +52,10 @@
   window.renderSocialProfileContent=function(root=document.getElementById('socialProfileContent'),tab=socialProfileTab){if(!getAccountProfile()||!marketplaceSession()){if(root)root.replaceChildren();return;}if(tab!=='saved')return render.call(this,root,tab);const items=wishwaveBookmarks();if(root)root.innerHTML=items.length?'<div class="social-profile-grid">'+items.map((x,i)=>socialProfileTile(x,i,'saved')).join('')+'</div>':'<div class="social-profile-empty"><b>No saved products yet</b>Bookmark products to keep them here.</div>';};
   window.wishwaveRenderGuestCollection=function(){
     const root=document.querySelector('#profileSignedOut .guest-profile-posts'),tabs=document.querySelector('#profileSignedOut .social-profile-tabs');if(!root||!tabs||getAccountProfile()&&marketplaceSession())return;
+    const avatar=document.querySelector('#profileSignedOut .guest-profile-avatar>span');if(avatar)avatar.innerHTML=findaiDefaultAvatarSvg();
     tabs.classList.add('guest-profile-tabs');tabs.setAttribute('aria-hidden','false');tabs.style.setProperty('--profile-tab-index','0');
     [...tabs.querySelectorAll('button')].forEach((button,i)=>{const tab=['listings','sold','saved'][i];button.disabled=i!==0;button.tabIndex=i===0?0:-1;button.classList.toggle('active',i===0);button.setAttribute('aria-selected',String(i===0));button.setAttribute('aria-disabled',String(i!==0));button.setAttribute('aria-label',tab==='saved'?'Saved products':tab==='sold'?'Sold':'Listings');button.onclick=null;});
-    root.innerHTML='<div class="guest-profile-signin"><b>Sign in to your profile</b><span>Sign in for your listings, messages and account activity.</span><button type="button" onclick="openLogin()">Sign in</button></div>';
+    root.innerHTML='<div class="guest-profile-signin ww-guest-profile-a"><img class="ww-guest-collection-art" src="assets/wishwave-collection-v256.png" width="160" height="80" alt=""><b>Your collection starts here</b><span>Sign in to save finds, follow sellers and start selling.</span><button type="button" onclick="openLogin()">Sign in</button></div>';
   };
   document.querySelector('#profileSignedOut .social-profile-handle').textContent='Profile';
   document.querySelectorAll('#profileSignedIn .social-profile-tabs,#profileSignedOut .social-profile-tabs').forEach(tabs=>{const button=document.createElement('button');button.type='button';button.dataset.profileTab='saved';if(tabs.closest('#profileSignedOut')){button.disabled=true;button.tabIndex=-1;button.setAttribute('aria-disabled','true');}button.setAttribute('aria-label','Saved products');button.innerHTML=mark+'<span class="wishwave-profile-tab-label">Saved</span>';button.onclick=()=>setProfileTab('saved');tabs.append(button);});
@@ -68,3 +69,4 @@
   document.querySelectorAll('.reel-card[data-index]').forEach(card=>{const rail=card.querySelector('.reel-actions-rail'),index=Number(card.dataset.index),item=currentFeedItems[index];if(rail&&item&&!rail.querySelector('.bookmark'))rail.insertAdjacentHTML('beforeend',wishwaveBookmarkMarkup(item,index));});
   paint();wishwaveRenderGuestCollection();wishwaveSyncBookmarks();
 })();
+

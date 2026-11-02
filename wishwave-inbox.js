@@ -59,8 +59,11 @@ if(typeof module==='object'&&module.exports)module.exports={destination:wishwave
  window.wishwaveInboxSection=async function(section){
   selection=section==='activity'?'activity':'messages';try{localStorage.setItem(key(),selection);}catch(_){}
   const panel=ensure();if(!panel)return;panel.dataset.inboxSection=selection;sync();
+  const guest=!marketplaceSession();panel.classList.toggle('ww-inbox-guest',guest);
+  if(guest){
+   el('wwInboxMessages').innerHTML='<div class="ww-guest-inbox-a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M10 21h4"/></svg><b>'+(selection==='activity'?'Your activity':'Your messages')+'</b><p>'+(selection==='activity'?'Sign in to see your account activity.':'Sign in to see your conversations.')+'</p><button type="button" onclick="openLogin()">Sign in</button></div>';return;
+  }
   if(selection==='messages'){
-   if(!marketplaceSession()){el('wwInboxMessages').innerHTML='<div class="findai-notification-empty"><b>Your messages</b><button type="button" onclick="openLogin()">Sign in to see your conversations</button></div>';return;}
    fromInbox=true;inbox.classList.remove('chat-open');el('wwInboxMessages').appendChild(inbox);inbox.classList.add('ww-inbox-docked');await baseOpen.call(window);sync();
   }else{inbox.classList.remove('show');await window.findaiNotificationState?.load();sync();}
  };
