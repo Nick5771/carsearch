@@ -40,3 +40,35 @@ console.log('PASS: AU catalogue selection and provider-side location constraint;
  assert(html.includes('window.wishwaveSearchFiltersResultsReady?.(exploreLiveSearchQuery,items.length)'));
  console.log('PASS: result-gated filter, stale responses, editing/zero-results retention, People/clear reset and unified Activity');
 }
+// Run the production filtered-request lifecycle against controlled slow requests.
+(async()=>{
+ const status={hidden:true,dataset:{},querySelector:s=>s==='button'?retry:label},retry={},label={},grid={setAttribute(){},innerHTML:'previous grid'};
+ const nodes={wwFilteredSearchStatus:status,premiumDiscoverySections:grid,q:{value:'lego'}};
+ const pending=[],timers=new Map();let timerId=0,paintCount=0;
+ const context={console,AbortController,Set,Number,String,Array,Object,
+  document:{getElementById:id=>nodes[id]},window:{wishwaveSearchFilterState:()=>({location:'AU',min:'',max:''})},
+  setTimeout:(fn,ms)=>{timers.set(++timerId,{fn,ms});return timerId;},clearTimeout:id=>timers.delete(id),
+  exploreFilter:'for-you',exploreGeneration:0,exploreBrowseController:null,exploreLoading:false,exploreLiveSearchQuery:'lego',exploreLiveSearchSeq:0,exploreLiveController:null,
+  premiumDiscoverySections:[{config:{title:'Search'},items:[{id:'old'}]}],exploreQueue:[],seenExplore:new Set(),exploreLivePage:null,
+  setExploreInterpreting(){},snapshotBrowseIfNeeded(){},paintExploreSearchPending(){},getSource:()=>'',premiumProductImage:()=>true,exploreItemKey:item=>item.id,
+  renderExploreGrid(){paintCount++;},fetchProductResults:(q,opts)=>new Promise((resolve,reject)=>{pending.push({resolve,reject,opts});opts.signal.addEventListener('abort',()=>reject(Object.assign(new Error('abort'),{name:'AbortError'})));})
+ };
+ vm.createContext(context);
+ const start=html.indexOf('  let filteredSearchSlowTimer=0;'),end=html.indexOf('  let exploreLiveSearchTimer=null;',start);
+ vm.runInContext(html.slice(start,end),context);
+ const a=html.indexOf('  async function runExploreLiveSearch('),b=html.indexOf('  async function loadExploreLiveMore()',a);
+ vm.runInContext(html.slice(a,b),context);
+ const result={data:{listings:[]},hasMore:false};
+ const first=context.runExploreLiveSearch('lego',true,false,0,true);
+ assert.equal(status.hidden,false);assert.equal(label.textContent,'Updating results…');assert.equal(grid.innerHTML,'previous grid');
+ const second=context.runExploreLiveSearch('lego',true,false,0,true);
+ await first;assert.equal(status.hidden,false,'Aborted older request must not clear current progress');
+ pending[1].resolve(result);await second;assert.equal(status.hidden,true);assert.equal(paintCount,1);
+ const failed=context.runExploreLiveSearch('lego',true,false,0,true);pending[2].reject(new Error('offline'));await failed;
+ assert.equal(status.dataset.state,'error');assert.equal(retry.hidden,false);assert.equal(grid.innerHTML,'previous grid');
+ const timed=context.runExploreLiveSearch('lego',true,false,0,true);
+ [...timers.values()].find(t=>t.ms===8000).fn();assert.equal(label.textContent,'Still searching with your filters…');
+ [...timers.values()].find(t=>t.ms===30000).fn();await timed;assert.equal(status.dataset.state,'error');
+ assert.equal(paintCount,1,'Failed and timed-out filters must preserve displayed results');
+ console.log('PASS: immediate filter progress, stale abort protection, success, preserved grid on failure, slow hint and timeout retry');
+})().catch(error=>{console.error(error);process.exitCode=1;});

@@ -3227,6 +3227,7 @@ html body .source-chip .findai-exact-brand[data-brand="etsy"] img{
         </button>
       </form>
       <div class="wishwave-search-status" id="wishwaveSearchStatus" role="status" aria-live="polite" aria-atomic="true"><span class="wishwave-search-status-spinner" aria-hidden="true"></span><span id="wishwaveSearchStatusText"></span></div>
+      <div id="wwFilteredSearchStatus" hidden role="status" aria-live="polite" aria-atomic="true"><span class="ww-filter-progress" aria-hidden="true"></span><span class="ww-filter-progress-text"></span><button type="button" hidden onclick="wishwaveRefreshFilteredSearch()">Try again</button></div>
       <div class="premium-explore-chips" id="premiumExploreChips" role="tablist" aria-label="Browse categories">
         <button type="button" class="active" data-explore-filter="for-you">For You</button>
         <button type="button" data-explore-filter="trending">Trending</button>
@@ -16324,6 +16325,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     },{passive:true});
   }
   function setExploreFilter(filter){
+    setFilteredSearchStatus(null);
     clearTimeout(exploreLiveSearchTimer);exploreLiveSearchSeq++;exploreLiveSearchQuery='';exploreBrowseSnapshot=null;
     if(exploreLiveController){try{exploreLiveController.abort();}catch(_){}exploreLiveController=null;}
     if(filter==='people'){
@@ -16342,11 +16344,23 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
   }
   document.addEventListener('click',event=>{const button=event.target.closest&&event.target.closest('#premiumExploreChips [data-explore-filter]');if(button){if(button.dataset.exploreFilter!==exploreFilter)try{haptic();}catch(_){}setExploreFilter(button.dataset.exploreFilter);}});
 
+  let filteredSearchSlowTimer=0;
+  function setFilteredSearchStatus(state){
+    clearTimeout(filteredSearchSlowTimer);
+    const status=document.getElementById('wwFilteredSearchStatus');if(!status)return;
+    status.hidden=!state;status.dataset.state=state||'';
+    const text=status.querySelector('.ww-filter-progress-text'),retry=status.querySelector('button');
+    retry.hidden=state!=='error';
+    text.textContent=state==='error'?'Could not update results. Your previous results are still shown.':state==='loading'?'Updating results…':'';
+    document.getElementById('premiumDiscoverySections')?.setAttribute('aria-busy',state==='loading'?'true':'false');
+    if(state==='loading')filteredSearchSlowTimer=setTimeout(()=>{text.textContent='Still searching with your filters…';},8000);
+  }
   let exploreLiveSearchTimer=null;
   let exploreLiveSearchSeq=0;
   let exploreLiveSearchQuery='';
-  window.wishwavePauseSearchRequests=function(){paintExploreSearchPending(false);clearTimeout(exploreLiveSearchTimer);exploreLiveSearchSeq++;exploreGeneration++;exploreLiveController?.abort();exploreBrowseController?.abort();exploreLoading=false;if(exploreLivePage)exploreLivePage.loading=false;setExploreInterpreting(false);clearTimeout(interpretingTimer);document.getElementById('search')?.classList.remove('live-search-interpreting');document.getElementById('search')?.setAttribute('aria-busy','false');};
+  window.wishwavePauseSearchRequests=function(){setFilteredSearchStatus(null);paintExploreSearchPending(false);clearTimeout(exploreLiveSearchTimer);exploreLiveSearchSeq++;exploreGeneration++;exploreLiveController?.abort();exploreBrowseController?.abort();exploreLoading=false;if(exploreLivePage)exploreLivePage.loading=false;setExploreInterpreting(false);clearTimeout(interpretingTimer);document.getElementById('search')?.classList.remove('live-search-interpreting');document.getElementById('search')?.setAttribute('aria-busy','false');};
   window.resetPremiumExploreHome=function(force=false){
+    setFilteredSearchStatus(null);
     // Re-entering browse must reuse its painted or pending session.
     if(!force&&!exploreLiveSearchQuery&&exploreFilter==='for-you')return renderPremiumDiscoverySections(false);
     clearTimeout(exploreLiveSearchTimer);exploreLiveSearchSeq++;exploreGeneration++;exploreLiveSearchQuery='';
@@ -16390,8 +16404,9 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     exploreQueue=(cached.queue||[]).slice();seenExplore.clear();(cached.seen||[]).forEach(k=>seenExplore.add(k));
     exploreLoadedTaste=cached.taste;renderExploreGrid({replace:true});exploreBrowseSnapshot=null;
   }
-  async function runExploreLiveSearch(query,immediate=false,refresh=false,recoveryAttempt=0){
+  async function runExploreLiveSearch(query,immediate=false,refresh=false,recoveryAttempt=0,filteredUpdate=false){
     const clean=String(query||'').trim();
+    setFilteredSearchStatus(filteredUpdate?'loading':null);
     if(exploreFilter==='people'){if(window.loadPremiumPeopleDiscovery)window.loadPremiumPeopleDiscovery(clean);return;}
     if(!clean){exploreLiveSearchSeq++;if(exploreLiveController){try{exploreLiveController.abort();}catch(_){}}restoreBrowseSnapshot();return;}
     /* Invalidate any browse/discovery batch that began before this typed query.
@@ -16400,7 +16415,7 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     exploreGeneration++;exploreBrowseController?.abort();
     exploreLoading=false;
     if(!refresh)setExploreInterpreting(true);snapshotBrowseIfNeeded();
-    const previousStockx=exploreLiveSearchQuery===clean?(premiumDiscoverySections[0]?.items||[]).filter(item=>getSource(item)==='stockx'):[];
+    const previousStockx=!filteredUpdate&&exploreLiveSearchQuery===clean?(premiumDiscoverySections[0]?.items||[]).filter(item=>getSource(item)==='stockx'):[];
     const changing=exploreLiveSearchQuery!==clean;
     const seq=++exploreLiveSearchSeq;exploreLiveSearchQuery=clean;
     paintExploreSearchPending(true);
@@ -16408,6 +16423,8 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
 
     if(exploreLiveController){try{exploreLiveController.abort();}catch(_){}}
     exploreLiveController=new AbortController();const requestController=exploreLiveController;
+    let filterTimedOut=false;
+    const filterTimeout=filteredUpdate?setTimeout(()=>{filterTimedOut=true;requestController.abort();},30000):0;
     try{
       const result=await fetchProductResults(clean,{page:1,limit:60,preserveExact:true,skipResolve:true,passive:false,signal:requestController.signal,searchFilters:window.wishwaveSearchFilterState?.()});
       if(seq!==exploreLiveSearchSeq||exploreFilter==='people')return;
@@ -16435,13 +16452,21 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
       const paging=(!constrained||displayed.length>0)&&displayed.length<12&&exploreLivePage.hasMore;
       exploreSearchPending=recovering||paging;
       renderExploreGrid({replace:!prior.length});
+      if(filteredUpdate)setFilteredSearchStatus(null);
       window.wishwaveAcceptSearchResults?.(clean,displayed);
       if(paging)loadExploreLiveMore();
       // Retry only incomplete batches after their five-second shared-cache expiry.
       // Completed searches never run the old unconditional ten-second refresh.
       if(recovering)setTimeout(()=>{if(seq===exploreLiveSearchSeq&&exploreLiveSearchQuery===clean&&!(exploreLivePage?.page>1)&&document.getElementById('search')?.classList.contains('active'))runExploreLiveSearch(clean,true,true,recoveryAttempt+1);},5500);
       if(seq===exploreLiveSearchSeq){setExploreInterpreting(exploreSearchPending);if(exploreSearchPending){const text=document.getElementById('wishwaveSearchStatusText');if(text)text.textContent='Finding more matches…';}}
-    }catch(error){if(seq===exploreLiveSearchSeq){paintExploreSearchPending(false);setExploreInterpreting(false);}if(error&&error.name==='AbortError')return;if(seq===exploreLiveSearchSeq&&window.wishwaveSearchFilterState){const root=document.getElementById('premiumDiscoverySections');if(root)root.innerHTML='<div class="premium-explore-empty"><b>Could not load results</b><button type="button" onclick="wishwaveRefreshFilteredSearch()">Try again</button></div>';}}
+    }catch(error){
+      if(seq!==exploreLiveSearchSeq)return;
+      paintExploreSearchPending(false);setExploreInterpreting(false);
+      if(filteredUpdate){setFilteredSearchStatus(error?.name==='AbortError'&&!filterTimedOut?null:'error');return;}
+      if(error?.name==='AbortError')return;
+      const root=document.getElementById('premiumDiscoverySections');if(root)root.innerHTML='<div class="premium-explore-empty"><b>Could not load results</b><button type="button" onclick="wishwaveRefreshFilteredSearch()">Try again</button></div>';
+    }finally{clearTimeout(filterTimeout);}
+
   }
   async function loadExploreLiveMore(){
     const state=exploreLivePage,seq=exploreLiveSearchSeq;
@@ -16460,12 +16485,12 @@ html body .wishwave-profile-bar-drag::after,html body .wishwave-profile-bar-drag
     }catch(_){/* Keep the cursor retryable after a network failure. */}
     finally{state.loading=false;if(seq===exploreLiveSearchSeq){paintExploreSearchPending(false);setExploreInterpreting(false);}}
   }
-  window.wishwaveRefreshFilteredSearch=function(){const q=String(document.getElementById('q')?.value||'').trim();if(!q||exploreFilter==='people')return;exploreLivePage=null;if(premiumDiscoverySections[0])premiumDiscoverySections[0].items=[];return runExploreLiveSearch(q,true,false);};
+  window.wishwaveRefreshFilteredSearch=function(){const q=String(document.getElementById('q')?.value||'').trim();if(!q||exploreFilter==='people')return;clearTimeout(exploreLiveSearchTimer);exploreLivePage=null;return runExploreLiveSearch(q,true,false,0,true);};
   window.wishwaveLoadMoreExplore=function(){return exploreLiveSearchQuery?loadExploreLiveMore():loadExploreMore(false);};
   window.runPremiumLiveSearch=runExploreLiveSearch;
   window.handlePremiumExploreInput=function(value){
     clearTimeout(exploreLiveSearchTimer);const clean=String(value||'').trim();
-    if(clean!==exploreLiveSearchQuery){exploreLiveSearchSeq++;exploreLiveController?.abort();if(clean){exploreGeneration++;exploreBrowseController?.abort();exploreLoading=false;}}
+    if(clean!==exploreLiveSearchQuery){setFilteredSearchStatus(null);exploreLiveSearchSeq++;exploreLiveController?.abort();if(clean){exploreGeneration++;exploreBrowseController?.abort();exploreLoading=false;}}
     if(exploreFilter==='people'){setExploreInterpreting(!!clean);exploreLiveSearchTimer=setTimeout(async()=>{try{if(window.loadPremiumPeopleDiscovery)await window.loadPremiumPeopleDiscovery(clean);}finally{setExploreInterpreting(false);}},70);return;}
     if(!clean){setExploreInterpreting(false);runExploreLiveSearch('',true);return;}
     setExploreInterpreting(true);
@@ -36796,7 +36821,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-home-controls.js?v=424"></script>
 <link rel="stylesheet" href="wishwave-inbox.css?v=423">
 <script src="wishwave-inbox.js?v=423"></script>
-<link rel="stylesheet" href="wishwave-search-filters.css?v=422">
+<link rel="stylesheet" href="wishwave-search-filters.css?v=434">
 <script src="wishwave-search-filters.js?v=421"></script>
 <link rel="stylesheet" href="wishwave-profile-badges.css?v=430">
 <script src="wishwave-profile-badges.js?v=430"></script>
