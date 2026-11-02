@@ -22,7 +22,14 @@
   panel.style.setProperty('height',rect.height+'px','important');
   panel.style.setProperty('box-sizing','border-box','important');
   panel.style.setProperty('overflow','visible','important');
-  title.style.setProperty('max-height',room+'px','important');
   button.setAttribute('aria-expanded','true');panel.classList.add('ww-title-expanded');
+  // Only the text scrolls; the collapse control always stays outside its viewport.
+  // Snap the viewport to complete line boxes, with breathing room for descenders.
+  const lineHeight=parseFloat(getComputedStyle(button).lineHeight)||18.2;
+  const lines=Math.max(1,Math.floor((room-22)/lineHeight));
+  title.style.setProperty('--ww-title-text-height',(lines*lineHeight)+'px');
+  title.style.setProperty('height','auto','important');
+  title.style.setProperty('min-height','0','important');
+  title.style.setProperty('max-height','none','important');
  };
 })();
