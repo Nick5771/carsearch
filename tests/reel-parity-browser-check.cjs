@@ -25,6 +25,9 @@ const root=path.resolve(__dirname,'..');
    assert.equal(await page.locator('#searchDetailOverlay .discover-social-brand').count(),0,'Search has no Home wordmark');
    assert.equal(await page.locator('#searchDetailOverlay [data-reel-feed]').count(),6,'Search retains all swipeable feed shortcuts');
    assert.equal(await page.locator('#searchDetailOverlay .ww-search-listing-query span').textContent(),'lego');
+   const topGeometry=await page.locator('#searchDetailOverlay .ww-search-listing-topbar').evaluate(bar=>{const r=bar.getBoundingClientRect(),q=bar.querySelector('.ww-search-listing-query').getBoundingClientRect(),b=bar.querySelector('.ww-search-listing-back').getBoundingClientRect(),style=getComputedStyle(bar);return {background:style.backgroundColor,image:style.backgroundImage,width:r.width,queryWidth:q.width,right:r.right-q.right,backLeft:b.left-r.left};});
+   assert.equal(topGeometry.background,'rgba(0, 0, 0, 0)','header lets full-canvas photos show through');assert.equal(topGeometry.image,'none');
+   assert(topGeometry.queryWidth/topGeometry.width>.79,'query occupies most of the row');assert(topGeometry.right<=13,'query extends to right inset');assert(topGeometry.backLeft<=5,'back arrow sits toward left edge');
    const headerHeight=await page.locator('#searchDetailOverlay .ww-search-listing-topbar').evaluate(e=>e.getBoundingClientRect().height);assert(headerHeight<=160,'two tidy rows including top safe area');
 
    if(process.env.WISHWAVE_SCREENSHOT_DIR&&width===390&&theme==='light'&&source==='ebay'){await page.evaluate(()=>document.elementFromPoint(350,70));await page.screenshot({path:path.join(process.env.WISHWAVE_SCREENSHOT_DIR,'search-listing-parity.png')});}
