@@ -31301,24 +31301,18 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     if(bar.dataset.owner!==owner){
       bar.dataset.owner=owner;
       if(owner==='search'){
-        const home=document.querySelector('#discover .discover-social-topbar');
-        bar.className='wishwave-home-reel-topbar discover-social-topbar';
-        bar.setAttribute('aria-label','Listing feed');
-        bar.replaceChildren(...[...home.children].map(node=>node.cloneNode(true)));
-        bar.querySelectorAll('[id]').forEach(node=>node.removeAttribute('id'));
-        // Discovery preferences belong to Home. Never clone an inert, unstyled
-        // settings button into a Search-owned listing header.
-        bar.querySelectorAll('.ww-home-filter').forEach(control=>control.remove());
-        const search=bar.querySelector('.discover-notification-button');
-        if(search){
-          search.classList.add('wishwave-reel-search-button');
-          search.setAttribute('aria-label','Back to search results');
-          search.onclick=event=>{event.preventDefault();event.stopPropagation();window.__wishwaveCloseSearchReelV186?.();go('search');};
-        }
-        bar.querySelectorAll('[data-home-feed]').forEach(button=>{
-          button.setAttribute('aria-selected',String(button.dataset.homeFeed==='for-you'));
-          button.onclick=event=>{event.preventDefault();event.stopPropagation();window.__wishwaveCloseSearchReelV186?.();go('discover');wishwaveSetHomeFeed(button.dataset.homeFeed);};
-        });
+        bar.className='wishwave-search-reel-topbar ww-search-listing-topbar';
+        bar.setAttribute('aria-label','Search listing navigation');
+        bar.innerHTML='<button class="ww-search-listing-back" type="button" aria-label="Back to search results"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 5-7 7 7 7"/></svg></button><button class="ww-search-listing-query" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="7"/><path d="m16 16 5 5"/></svg><span></span></button>';
+        const returnToSearch=edit=>{
+          const field=document.getElementById(document.body.dataset.activeTab==='searchResults'?'premiumResultQuery':'q');
+          const back=()=>{window.__wishwaveCloseSearchReelV186?.();};
+          if(edit){back();field?.focus({preventScroll:true});}
+          else if(window.wishwaveSlidePageBack)window.wishwaveSlidePageBack({root:view,kind:'searchReel',open:()=>view.classList.contains('show'),back});
+          else back();
+        };
+        bar.querySelector('.ww-search-listing-back').onclick=event=>{event.preventDefault();event.stopPropagation();returnToSearch(false);};
+        bar.querySelector('.ww-search-listing-query').onclick=event=>{event.preventDefault();event.stopPropagation();returnToSearch(true);};
       }
       if(owner==='messages'){
         bar.className='wishwave-search-reel-topbar';
@@ -31329,6 +31323,13 @@ body>.nav.findai-five-nav.premium-bottom-nav,
           if(window.wishwaveSlidePageBack)window.wishwaveSlidePageBack(surface);else surface.back();
         }));
       }
+    }
+    if(owner==='search'){
+      const field=document.getElementById(document.body.dataset.activeTab==='searchResults'?'premiumResultQuery':'q');
+      const query=String(field?.value||'').trim();
+      const control=bar.querySelector('.ww-search-listing-query');
+      control.querySelector('span').textContent=query||'Search WishWave';
+      control.setAttribute('aria-label',query?'Edit search: '+query:'Search WishWave');
     }
     const homeButton=document.getElementById('homeNotificationButton');
     const button=bar.querySelector('.wishwave-search-notification-button');
@@ -34464,9 +34465,9 @@ html.findai-light body .app #createListingScreen:not(.preview-mode) .wishwave-qu
 <script id="wishwave-light-reel-fit-script">
 (function(){
  const panels=new Set();let frame=0;
- function measure(panel){const card=panel.closest('.reel-card');if(!card)return;const height=Math.ceil(panel.getBoundingClientRect().height);if(height>0&&card.style.getPropertyValue('--wishwave-light-caption-height')!==height+'px')card.style.setProperty('--wishwave-light-caption-height',height+'px');const surface=card.closest('#searchDetailOverlay')||card.closest('#discover');const header=surface?.querySelector('.discover-social-topbar')||surface?.querySelector('.search-detail-header');if(header){const top=Math.max(0,Math.ceil(header.getBoundingClientRect().bottom-surface.getBoundingClientRect().top));if(card.style.getPropertyValue('--wishwave-light-header-height')!==top+'px')card.style.setProperty('--wishwave-light-header-height',top+'px');}}
+ function measure(panel){const card=panel.closest('.reel-card');if(!card)return;const height=Math.ceil(panel.getBoundingClientRect().height);if(height>0&&card.style.getPropertyValue('--wishwave-light-caption-height')!==height+'px')card.style.setProperty('--wishwave-light-caption-height',height+'px');const surface=card.closest('#searchDetailOverlay')||card.closest('#discover');const header=surface?.querySelector('.ww-search-listing-topbar,.discover-social-topbar')||surface?.querySelector('.search-detail-header');if(header){const top=Math.max(0,Math.ceil(header.getBoundingClientRect().bottom-surface.getBoundingClientRect().top));if(card.style.getPropertyValue('--wishwave-light-header-height')!==top+'px')card.style.setProperty('--wishwave-light-header-height',top+'px');}}
  const resize=typeof ResizeObserver==='function'?new ResizeObserver(entries=>entries.forEach(e=>e.target.matches('.product-panel')?measure(e.target):schedule())):null;
- function bind(){frame=0;document.querySelectorAll(':is(#discover,#searchDetailOverlay) .discover-social-topbar,#searchDetailOverlay .search-detail-header').forEach(header=>resize?.observe(header));for(const panel of panels)if(!panel.isConnected){resize?.unobserve?.(panel);panels.delete(panel);}document.querySelectorAll('#discover .reel-card .product-panel,#searchDetailOverlay .reel-card .product-panel,#createListingScreen.preview-mode .reel-card .product-panel').forEach(panel=>{if(!panels.has(panel)){panels.add(panel);resize?.observe(panel);}measure(panel);});}
+ function bind(){frame=0;document.querySelectorAll(':is(#discover,#searchDetailOverlay) .discover-social-topbar,#searchDetailOverlay .ww-search-listing-topbar,#searchDetailOverlay .search-detail-header').forEach(header=>resize?.observe(header));for(const panel of panels)if(!panel.isConnected){resize?.unobserve?.(panel);panels.delete(panel);}document.querySelectorAll('#discover .reel-card .product-panel,#searchDetailOverlay .reel-card .product-panel,#createListingScreen.preview-mode .reel-card .product-panel').forEach(panel=>{if(!panels.has(panel)){panels.add(panel);resize?.observe(panel);}measure(panel);});}
  function schedule(){if(!frame)frame=requestAnimationFrame(bind);}
  new MutationObserver(records=>{if(records.some(r=>r.type==='characterData'||r.target.closest?.('.product-panel')||[...r.addedNodes].some(n=>n.nodeType===1&&(n.matches?.('.reel-card,.product-panel')||n.querySelector?.('.reel-card,.product-panel')))))schedule();}).observe(document.body,{childList:true,subtree:true,characterData:true});
  new MutationObserver(schedule).observe(document.documentElement,{attributes:true,attributeFilter:['class']});
@@ -36825,7 +36826,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-offer.js?v=372"></script>
 <link rel="stylesheet" href="wishwave-chat-offers.css?v=371">
 <script src="wishwave-chat-offers.js?v=372"></script>
-<link rel="stylesheet" href="wishwave-home-controls.css?v=435">
+<link rel="stylesheet" href="wishwave-home-controls.css?v=436">
 <script src="wishwave-tab-motion.js?v=426"></script>
 <link rel="stylesheet" href="wishwave-tab-motion.css?v=433">
 <link rel="stylesheet" href="wishwave-discovery-preferences.css?v=421">
