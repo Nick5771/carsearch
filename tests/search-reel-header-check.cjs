@@ -5,13 +5,14 @@ let bar=null,closed=0,focused=0,slid=0,feedButtons=[],destination='',selectedFee
 const controls={};
 const field={value:'lego spongebob',focus(){focused++;}};
 const view={dataset:{reelOwner:'search'},classList:{contains:()=>true},querySelector:()=>bar,appendChild:node=>bar=node};
-const document={body:{dataset:{activeTab:'search'}},getElementById:id=>['q','premiumResultQuery'].includes(id)?field:null,createElement:tag=>tag==='nav'?{setAttribute(){},set innerHTML(value){this.markup=value;feedButtons=[...value.matchAll(/data-reel-feed="([^"]+)"/g)].map(m=>({dataset:{reelFeed:m[1]}}));},querySelectorAll:()=>feedButtons}:{dataset:{},setAttribute(){},appendChild(node){this.feedTabs=node;},set innerHTML(value){this.markup=value;for(const name of ['.ww-search-listing-back','.ww-search-listing-query'])controls[name]={setAttribute(k,v){this[k]=v;},querySelector:()=>controls.span};controls.span={};},querySelector:selector=>controls[selector]||null}};
+const document={body:{dataset:{activeTab:'search'}},getElementById:id=>['q','premiumResultQuery'].includes(id)?field:null,createElement:tag=>tag==='nav'?{setAttribute(){},set innerHTML(value){this.markup=value;feedButtons=[...value.matchAll(/data-reel-feed="([^"]+)" aria-selected="([^"]+)"/g)].map(m=>({dataset:{reelFeed:m[1]},selected:m[2]}));},querySelectorAll:()=>feedButtons}:{dataset:{},setAttribute(){},appendChild(node){this.feedTabs=node;},set innerHTML(value){this.markup=value;for(const name of ['.ww-search-listing-back','.ww-search-listing-query'])controls[name]={setAttribute(k,v){this[k]=v;},querySelector:()=>controls.span};controls.span={};},querySelector:selector=>controls[selector]||null}};
 const window={__wishwaveCloseSearchReelV186(){closed++;},wishwaveSlidePageBack(surface){slid++;surface.back();}};
 const ctx={view,document,window,go:tab=>destination=tab,wishwaveSetHomeFeed:feed=>selectedFeed=feed};vm.createContext(ctx);vm.runInContext(html.slice(start,end),ctx);
 ctx.ensureTopbar();
 assert.equal(bar.className,'wishwave-search-reel-topbar ww-search-listing-topbar');
 assert(!/discover-social-brand|WishWave/.test(bar.markup),'Search does not clone the Home wordmark');
 assert.deepEqual(feedButtons.map(b=>b.dataset.reelFeed),['following','for-you','trending','deals','auctions','collectibles']);
+assert.deepEqual(feedButtons.filter(b=>b.selected==='true').map(b=>b.dataset.reelFeed),['for-you']);
 assert.equal(controls.span.textContent,'lego spongebob');
 assert.equal(controls['.ww-search-listing-query']['aria-label'],'Edit search: lego spongebob');
 const event={preventDefault(){},stopPropagation(){}};
