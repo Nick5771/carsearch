@@ -22,9 +22,10 @@ const root=path.resolve(__dirname,'..');
    const baseline=await page.locator('#searchDetailOverlay').evaluate(view=>({view:view.getBoundingClientRect().bottom,app:view.closest('.app').getBoundingClientRect().bottom}));
    assert(Math.abs(baseline.view-baseline.app)<1,'Search reel fills the same app canvas as Home');
    const search=await measure('#searchDetailOverlay .reel-card');for(const part of ['.product-panel','.title','.price','.listing-meta','.reel-actions-rail','.ww-native-reel-actions'])assert.deepStrictEqual(search[part],home[part],`${width} ${theme} ${source}: shared caption and actions ${part}`);
-   assert.equal(await page.locator('#searchDetailOverlay .discover-social-brand,#searchDetailOverlay [data-home-feed]').count(),0,'Search has no Home wordmark or categories');
+   assert.equal(await page.locator('#searchDetailOverlay .discover-social-brand').count(),0,'Search has no Home wordmark');
+   assert.equal(await page.locator('#searchDetailOverlay [data-reel-feed]').count(),6,'Search retains all swipeable feed shortcuts');
    assert.equal(await page.locator('#searchDetailOverlay .ww-search-listing-query span').textContent(),'lego');
-   const headerHeight=await page.locator('#searchDetailOverlay .ww-search-listing-topbar').evaluate(e=>e.getBoundingClientRect().height);assert(headerHeight<=110,'one compact row including top safe area');
+   const headerHeight=await page.locator('#searchDetailOverlay .ww-search-listing-topbar').evaluate(e=>e.getBoundingClientRect().height);assert(headerHeight<=160,'two tidy rows including top safe area');
 
    if(process.env.WISHWAVE_SCREENSHOT_DIR&&width===390&&theme==='light'&&source==='ebay'){await page.evaluate(()=>document.elementFromPoint(350,70));await page.screenshot({path:path.join(process.env.WISHWAVE_SCREENSHOT_DIR,'search-listing-parity.png')});}
    assert.equal(await page.evaluate(()=>document.body.dataset.activeTab),'searchResults');
