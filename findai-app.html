@@ -6019,6 +6019,8 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false,recovery
     const deferredEarly=earlyMixed.slice(firstPaint.length);
     renderPersonalisedFeed(firstPaint);
     feedState.loading=false;
+    // Do not wait for the slowest opening lane before filling a one-card feed.
+    setTimeout(()=>{if(stillOwnsFeed()&&currentFeedItems.length-activeReelIndex<6)loadMorePersonalisedListings();},120);
 
     // Finish the remaining requests quietly. This intentionally isn't awaited, so
     // the first reel is already interactive while slower marketplaces finish.
@@ -6114,8 +6116,10 @@ function loadMorePersonalisedListings(){
 async function performLoadMorePersonalisedListings(){
   const state=feedState;state.loading=true;
   try{
+    const waiting=window.wishwaveAdmitRecommendations?.(state.backlog||[],currentFeedItems,36);
+    if(waiting?.items.length&&(!window.wishwaveInterestFocus?.()?.strong||waiting.items.some(x=>window.WishWaveInterestCore.classify(x).tags.some(t=>t.key===window.wishwaveInterestFocus().key)))){const before=currentFeedItems.length;state.backlog=waiting.deferred;appendFeedItems(waiting.items,currentFeedData);writePersonalisedCache();if(currentFeedItems.length>before)return;}
     if(window.wishwaveTreasureStatus?.().active&&window.wishwaveStarterItems){
-      const items=(await window.wishwaveStarterItems('home')).filter(item=>!currentFeedItems.some(old=>listingKey(old)===listingKey(item)));
+      const items=(await Promise.race([window.wishwaveStarterItems('home'),new Promise(resolve=>setTimeout(()=>resolve([]),1500))])).filter(item=>!currentFeedItems.some(old=>listingKey(old)===listingKey(item)));
       if(feedState!==state)return;
       if(items.length){
         const ready=await window.wishwaveReadyStarter(items);if(feedState!==state)return;
@@ -6124,8 +6128,7 @@ async function performLoadMorePersonalisedListings(){
         if(currentFeedItems.length-activeReelIndex>=12)return;
       }
     }
-    const waiting=window.wishwaveAdmitRecommendations?.(state.backlog||[],currentFeedItems,36);
-    if(waiting?.items.length&&(!window.wishwaveInterestFocus?.()?.strong||waiting.items.some(x=>window.WishWaveInterestCore.classify(x).tags.some(t=>t.key===window.wishwaveInterestFocus().key)))){const before=currentFeedItems.length;state.backlog=waiting.deferred;appendFeedItems(waiting.items,currentFeedData);writePersonalisedCache();if(currentFeedItems.length>before)return;}
+
     for(let attempt=0;attempt<3;attempt++){
       if(feedState!==state||state.source!=='personalised')return;
       let lanes=Array.isArray(state.interests)?state.interests:[];
@@ -18140,7 +18143,7 @@ html.findai-light .findai-swipe-preview{background:#f8f8f8!important}
     if(swipe.verticalResume)return;
     if(swipe.regrabPending){
       if(Math.abs(travel)<8&&Math.abs(dy)<8)return;
-      if(Math.abs(dy)>Math.abs(travel)*.78){swipe.verticalResume=true;settle(swipe.commit);return;}
+      if(Math.abs(dy)>Math.abs(travel)*.78){const state=swipe;cleanup(state,state.commit,true);window.__wishwaveRefreshTouch?.('touchcancel',event);return;}
       swipe.regrabPending=false;
     }
     if(swipe.active&&!swipe.bridge&&activeTab()!==swipe.tab){cancelSwipe();return;}
@@ -20869,7 +20872,8 @@ html body :is(#discover,#searchDetailOverlay,#findaiContextualReelV168) .reel-ga
   }
 
   function begin(e){
-    if(e.touches.length!==1){if(gesture)finish(e,true);return;}
+    if(gesture)finish(null,true);
+    if(e.touches.length!==1)return;
     if(shouldIgnore(e.target))return;
 
     const card=e.target&&e.target.closest&&e.target.closest('.reel-card[data-has-gallery="1"]');
@@ -36144,7 +36148,7 @@ html body .reel-social-action.comment .reel-social-icon svg{transform:none!impor
   if(!active()||lane._wwExplicitTopic)return page.apply(this,arguments);
   if(running>=4)await new Promise(resolve=>waiting.push(resolve));running++;
   try{const requestState=feedState;const result=await page.apply(this,arguments);if(feedState!==requestState)return {...result,items:[],stale:true};const target=window.FindAITreasureHunt.forQuery(lane.originalQuery||lane.query),candidates=[...(result.items||[]),...(result.data?.listings||[])].filter(item=>window.FindAITreasureHunt.match(target,item)),accepted=[],checked=new Set();const unique=candidates.filter(item=>{const src=appImagePlan(item,0,{personalised:true})?.src;if(!src||checked.has(src))return false;checked.add(src);return true;}).slice(0,8);try{const item=await Promise.any(unique.map(async item=>{if(await imageReady(item))return item;throw new Error('Image unavailable');}));accepted.push(item);}catch(_){}if(feedState!==requestState)return {...result,items:[],stale:true};const acceptedKeys=new Set(accepted.map(listingKey));
-   Promise.all(unique.map(async item=>await imageReady(item)?item:null)).then(verified=>{if(feedState!==requestState)return;const rest=preparePersonalisedLaneItems(verified.filter(item=>item&&!acceptedKeys.has(listingKey(item))),lane);requestState.backlog=[...(requestState.backlog||[]),...rest].slice(-480);}).catch(()=>{});
+   Promise.all(unique.map(async item=>await imageReady(item)?item:null)).then(verified=>{if(feedState!==requestState)return;const rest=preparePersonalisedLaneItems(verified.filter(item=>item&&!acceptedKeys.has(listingKey(item))),lane);requestState.backlog=[...(requestState.backlog||[]),...rest].slice(-480);if(rest.length&&currentFeedItems.length-activeReelIndex<6)setTimeout(()=>{if(feedState===requestState)loadMorePersonalisedListings();},0);}).catch(()=>{});
    return {...result,items:preparePersonalisedLaneItems(accepted,lane)};}
   finally{running--;waiting.shift()?.();}
  };
@@ -36786,7 +36790,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-chat-offers.js?v=372"></script>
 <link rel="stylesheet" href="wishwave-home-controls.css?v=425">
 <script src="wishwave-tab-motion.js?v=426"></script>
-<link rel="stylesheet" href="wishwave-tab-motion.css?v=427">
+<link rel="stylesheet" href="wishwave-tab-motion.css?v=433">
 <link rel="stylesheet" href="wishwave-discovery-preferences.css?v=421">
 <script src="wishwave-discovery-preferences.js?v=421"></script>
 <script src="wishwave-home-controls.js?v=424"></script>
