@@ -30712,6 +30712,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
   function selectSearchReelTab(mode){
     searchFeedMode=mode;
     overlay()?.querySelectorAll('[data-reel-feed]').forEach(button=>button.setAttribute('aria-selected',String(button.dataset.reelFeed===mode)));
+    window.wishwaveSyncSearchTabs?.(mode);
   }
   function paintSearchFeedMode(state){
     const feed=reelFeed();if(!feed)return;
@@ -30720,6 +30721,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     feed.innerHTML=state.items.length?state.items.map((item,index)=>renderReelCard(item,index,currentFeedData)).join(''):'<div class="feed-status" role="status"><div><b>No listings available in this feed yet</b></div></div>';
     feed.scrollTop=state.scroll||0;attachReelObserver();
     if(state.items.length){beginReelTracking(activeReelIndex);preloadPersonalisedImages(activeReelIndex,3);}
+    window.wishwaveAnimateSearchFeed?.();
     const count=countNode();if(count)count.textContent=state.items.length?(activeReelIndex+1)+' / '+state.items.length:'';
   }
   async function loadSearchFeedMode(state){
@@ -31414,6 +31416,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
           };
         });
         bar.appendChild(feedTabs);
+        window.wishwaveSyncSearchTabs?.('for-you',false);
         const returnToSearch=edit=>{
           const field=document.getElementById(document.body.dataset.activeTab==='searchResults'?'premiumResultQuery':'q');
           const back=()=>{window.__wishwaveCloseSearchReelV186?.();};
@@ -36936,7 +36939,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-offer.js?v=372"></script>
 <link rel="stylesheet" href="wishwave-chat-offers.css?v=371">
 <script src="wishwave-chat-offers.js?v=372"></script>
-<link rel="stylesheet" href="wishwave-home-controls.css?v=453">
+<link rel="stylesheet" href="wishwave-home-controls.css?v=454">
 <script src="wishwave-tab-motion.js?v=426"></script>
 <link rel="stylesheet" href="wishwave-tab-motion.css?v=433">
 <link rel="stylesheet" href="wishwave-discovery-preferences.css?v=421">
@@ -36950,6 +36953,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-profile-badges.js?v=430"></script>
 <link rel="stylesheet" href="wishwave-reel-title.css?v=449">
 <script src="wishwave-reel-title.js?v=449"></script>
+<script src="wishwave-search-tabs.js?v=454"></script>
 </body>
 </html>
 
