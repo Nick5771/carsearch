@@ -30823,6 +30823,17 @@ body>.nav.findai-five-nav.premium-bottom-nav,
   }
   window.__wishwaveCloseSearchReelV186=closeOwnedReel;
 
+  function dismissSearchEditingForReel(){
+    const field=document.activeElement;
+    if(field?.closest?.('#search,#searchResults'))field.blur();
+    document.body.classList.remove('wishwave-search-editing');
+    const search=document.getElementById('search');
+    search?.classList.remove('ww-search-keyboard','ww-search-session');
+    search?.style.removeProperty('--ww-recents-height');
+    document.documentElement.classList.remove('ww-search-keyboard-canvas');
+    const backing=document.getElementById('wwSearchKeyboardBacking');if(backing)backing.hidden=true;
+    window.wishwaveSyncKeyboardBackdrop?.();
+  }
   function openList(items,index,data,host,owner='search'){
     const originToken=window.__wishwaveWillOpenView?.('searchDetailOverlay');
     const session=++reelSession;
@@ -30843,6 +30854,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     if(owner==='messages')window.__wishwaveStopChatAutoPin?.();
     captureReturn();
     returnState.owner=owner;
+    if(owner==='search')dismissSearchEditingForReel();
     hideLegacyContext();
     try{if(typeof findaiRememberRecentProduct==='function')findaiRememberRecentProduct(selected);}catch(_){ }
 
@@ -36761,7 +36773,7 @@ html.findai-light body #findaiNotificationPanel .findai-notification-item.ww-fol
 </style>
 <script src="wishwave-live-activity.js?v=355"></script>
 <link rel="stylesheet" href="wishwave-experience.css?v=396">
-<script src="wishwave-experience.js?v=396"></script>
+<script src="wishwave-experience.js?v=435"></script>
 
 <style id="wishwave-profile-grid-v359">
 /* Approved profile grid: quiet square photos, price left and views right. */
@@ -36813,7 +36825,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-offer.js?v=372"></script>
 <link rel="stylesheet" href="wishwave-chat-offers.css?v=371">
 <script src="wishwave-chat-offers.js?v=372"></script>
-<link rel="stylesheet" href="wishwave-home-controls.css?v=425">
+<link rel="stylesheet" href="wishwave-home-controls.css?v=435">
 <script src="wishwave-tab-motion.js?v=426"></script>
 <link rel="stylesheet" href="wishwave-tab-motion.css?v=433">
 <link rel="stylesheet" href="wishwave-discovery-preferences.css?v=421">

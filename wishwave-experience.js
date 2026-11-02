@@ -44,7 +44,7 @@
   const full=Math.max(innerHeight,document.documentElement.clientHeight,document.querySelector('.app')?.getBoundingClientRect().bottom||0);
   if(!focused&&!search.classList.contains('ww-search-keyboard'))baseline=full;
   baseline=Math.max(baseline,full,bottom);
-  const open=window.wishwaveNativeKeyboardVisible!==false&&['search','searchResults'].includes(document.body.dataset.activeTab)&&baseline-bottom>120&&(focused||search.classList.contains('ww-search-keyboard'));
+  const open=!document.querySelector('#searchDetailOverlay.search-owned-v186.show')&&window.wishwaveNativeKeyboardVisible!==false&&['search','searchResults'].includes(document.body.dataset.activeTab)&&baseline-bottom>120&&(focused||search.classList.contains('ww-search-keyboard'));
   search.classList.toggle('ww-search-keyboard',open);
   if(open){backing.style.top=Math.floor(bottom)+'px';backing.style.height=Math.ceil(baseline-bottom)+'px';backing.hidden=false;document.documentElement.classList.add('ww-search-keyboard-canvas');}
   else clearBacking();
