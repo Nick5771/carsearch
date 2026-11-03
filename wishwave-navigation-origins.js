@@ -14,11 +14,13 @@
  const node=id=>document.getElementById(id);
  const shown=el=>!!el&&(el.id==='searchResults'?el.classList.contains('active'):el.id==='wwDashboard'?!el.hidden:el.classList.contains('show'));
  function visible(){return Object.keys(routes).map(node).filter(shown);}
- function snapshot(){
+ function snapshot(target){
   const layers=visible(),main=String(document.body.dataset.activeTab||'discover');
+  const candidates=layers.filter(el=>target&&el.contains(target));
+  const front=candidates.sort((a,b)=>a.contains(b)?1:b.contains(a)?-1:0)[0]||layers.reduce((top,el)=>!top||(parseInt(getComputedStyle(el).zIndex,10)||0)>=(parseInt(getComputedStyle(top).zIndex,10)||0)?el:top,null);
   const screens=Array.from(document.querySelectorAll('.screen')).map(el=>[el,el.classList.contains('active')]);
   const scroll=Array.from(document.querySelectorAll('.app *')).filter(el=>el.scrollTop||el.scrollLeft).map(el=>[el,el.scrollTop,el.scrollLeft]);
-  return {main,screens,scroll,collections:['socialProfileContent','premiumDiscoverySections','premiumResultsGrid'].map(id=>node(id)).filter(Boolean).map(el=>({el,children:Array.from(el.childNodes)})),layers:layers.map(el=>({el,classes:el.className,hidden:el.hidden,children:Array.from(el.childNodes),markup:el.innerHTML,tree:[el,...el.querySelectorAll('*')].map(part=>({el:part,children:Array.from(part.childNodes),attrs:Array.from(part.attributes).map(a=>[a.name,a.value])})),dataset:{...el.dataset}})),
+  return {main,front,screens,scroll,collections:['socialProfileContent','premiumDiscoverySections','premiumResultsGrid'].map(id=>node(id)).filter(Boolean).map(el=>({el,children:Array.from(el.childNodes)})),layers:layers.map(el=>({el,classes:el.className,hidden:el.hidden,children:Array.from(el.childNodes),markup:el.innerHTML,tree:[el,...el.querySelectorAll('*')].map(part=>({el:part,children:Array.from(part.childNodes),attrs:Array.from(part.attributes).map(a=>[a.name,a.value])})),dataset:{...el.dataset}})),
    profileTab:typeof socialProfileTab==='undefined'?null:socialProfileTab,
    feed:{items:currentFeedItems,data:currentFeedData,state:feedState,index:activeReelIndex},
    results:{items:premiumResultItems,data:premiumResultData,query:premiumResultQuery,page:premiumResultPage,cursor:premiumResultCursor,more:premiumResultHasMore,compare:premiumCompareContext},
@@ -51,12 +53,13 @@
    wishwaveCommentsItem=saved.comments.item;wishwaveCommentsData=saved.comments.data;
    appMpConversation=saved.chat.id;appMpCurrentConversation=saved.chat.conversation;appMpCurrentOffers=saved.chat.offers;appMpInboxMode=saved.chat.mode;
    setMainNavActive(saved.main==='searchResults'?'search':saved.main);
+   document.dispatchEvent(new CustomEvent('wishwave-origin-restored'));
    const scroll=()=>saved.scroll.forEach(([el,y,x])=>{if(el.isConnected){el.scrollTop=y;el.scrollLeft=x;}});scroll();requestAnimationFrame(scroll);
    if(saved.feed.items.length)try{attachReelObserver();beginReelTracking(saved.feed.index);}catch(_){}
   }finally{restoring=false;queueMicrotask(()=>{window.__wishwaveRestoringOrigin=false;});}
  }
  function origin(){
-  const current=snapshot();
+  const current=snapshot(intent?.epoch===epoch?intent.target:null);
   // Some inline handlers close their sheet before calling the next opener.
   // The capture-phase click still owns the original, visible parent.
   const earlier=intent?.epoch===epoch&&Date.now()-intent.at<10000?intent.saved:pending?.epoch===epoch?pending.saved:null;
@@ -74,6 +77,17 @@
   stack.push({root,saved:token.saved,epoch});if(stack.length>24)stack.shift();
  }
  window.__wishwaveWillOpenView=willOpen;window.__wishwaveDidOpenView=didOpen;
+ // An async navigation request keeps its original parent and creates one child,
+ // without letting intermediate inbox renders add extra history levels.
+ window.__wishwaveViewRequestCurrent=token=>!!token&&token.epoch===epoch;
+ window.__wishwaveOpenChildView=function(token,open){
+  if(!token||token.epoch!==epoch)return;
+  const previous=pending;pending=token;depth++;
+  let result;try{result=open();}finally{depth--;pending=previous;}
+  didOpen(token);return result;
+ };
+ document.addEventListener('wishwave-recommendation-account-change',()=>{stack.length=0;intent=null;pending=null;requests.clear();epoch++;});
+
  function wrap(name,ids){
   const before=window[name];if(typeof before!=='function')return;
   window[name]=function(...args){
@@ -126,7 +140,7 @@
   let moved=null,under=null,underActive=false,underShown=false,underScreen=null,screenActive=false,z=null,preview=null;
   return {root,kind:isReel?'searchReel':root.id,originBound:true,open:()=>shown(root),back:()=>back(entry),
    prepareUnder(){
-    under=entry.saved.layers.at(-1)?.el||node(entry.saved.main==='messages'?'appMpInbox':entry.saved.main);
+    under=entry.saved.front||entry.saved.layers.at(-1)?.el||node(entry.saved.main==='messages'?'appMpInbox':entry.saved.main);
     if(under===root){preview=savedPreview(entry.saved.layers.find(x=>x.el===root),entry.saved);under=preview;}
     if(under&&under!==root){
      underActive=under.classList.contains('active');underShown=shown(under);
@@ -159,7 +173,7 @@
   // Only navigation needs the full DOM snapshot. Explicitly skip local actions;
   // unknown/listener-based controls retain their pre-click parent for Back.
   const local=event.target.closest?.('.reel-social-action.like,.reel-social-action.bookmark,.premium-card-like,.wishwave-detail-save,input,textarea,[contenteditable="true"],.findai-recent-remove,.findai-recents-clear');
-  intent=local?null:{saved:snapshot(),at:Date.now(),epoch};return false;
+  intent=local?null:{saved:snapshot(event.target),target:event.target,at:Date.now(),epoch};return false;
  };
  window.__wishwaveOriginNav=function(event){if(event.target.closest?.('.premium-bottom-nav')){stack.length=0;intent=null;pending=null;epoch++;}};
  window.wishwaveNavigationOrigins=()=>stack.map(entry=>({view:entry.root.id,origin:entry.saved.main}));

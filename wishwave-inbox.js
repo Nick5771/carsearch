@@ -61,8 +61,10 @@ if(typeof module==='object'&&module.exports)module.exports={destination:wishwave
   const panel=ensure();if(!panel)return;panel.dataset.inboxSection=selection;sync();
   const guest=!marketplaceSession();panel.classList.toggle('ww-inbox-guest',guest);
   if(guest){
+   restore();inbox.classList.remove('show','chat-open');
    el('wwInboxMessages').innerHTML='<div class="ww-guest-inbox-a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M10 21h4"/></svg><b>'+(selection==='activity'?'Your activity':'Your messages')+'</b><p>'+(selection==='activity'?'Sign in to see your account activity.':'Sign in to see your conversations.')+'</p><button type="button" onclick="openLogin()">Sign in</button></div>';return;
   }
+  el('wwInboxMessages')?.querySelectorAll('.ww-guest-inbox-a').forEach(node=>node.remove());
   if(selection==='messages'){
    fromInbox=true;inbox.classList.remove('chat-open');el('wwInboxMessages').appendChild(inbox);inbox.classList.add('ww-inbox-docked');await baseOpen.call(window);sync();
   }else{inbox.classList.remove('show');await window.findaiNotificationState?.load();sync();}
@@ -81,8 +83,58 @@ if(typeof module==='object'&&module.exports)module.exports={destination:wishwave
  window.openAppMarketplaceInbox=function(){restore();fromInbox=false;return baseOpen.apply(this,arguments);};
  window.appMpOpenConversation=function(){restore();return baseConversation.apply(this,arguments);};
  window.appMpInboxBack=function(){if(fromInbox){inbox.classList.remove('show','chat-open');appMpConversation='';clearInterval(appMpMessageTimer);clearInterval(appMpTypingTimer);return wishwaveOpenNotificationTab().then(()=>wishwaveInboxSection('messages'));}return baseBack.apply(this,arguments);};
+ // A profile Message tap is one child conversation, never an intermediate
+ // Messages root tab. Keep the profile until the chat has painted synchronously.
+ let profileMessageRequest=0;
+ window.messageWishWavePublicSeller=async function(){
+  const profile=wishwavePublicSellerData,page=el('wishwavePublicProfilePage');if(!profile)return;
+  if(!marketplaceSession()){openLogin();return;}
+  if(profile.viewer?.isSeller)return window.openMessagesTab();
+  const seller=profile.seller||{},username=String(seller.username||'').replace(/^@+/,'').trim();
+  if(!username){toast('This profile cannot be messaged yet');return;}
+  const button=el('wishwavePublicMessageButton');if(button?.disabled)return;
+  const attempt=++profileMessageRequest,account=owner(),token=window.__wishwaveWillOpenView?.('appMpInbox');
+  if(button){button.disabled=true;button.setAttribute('aria-busy','true');}
+  try{
+   const data=await marketplaceFetch('/social/message-user/'+encodeURIComponent(username),{method:'POST'});
+   if(attempt!==profileMessageRequest||account!==owner()||wishwavePublicSellerData!==profile||!page?.classList.contains('show')||(token&&window.__wishwaveViewRequestCurrent&&!window.__wishwaveViewRequestCurrent(token)))return;
+   const id=String(data?.conversationId||'');if(!id)throw Error('Could not open conversation');
+   const open=()=>{
+    entry++;fromInbox=false;restore();window.__wishwaveInboxRequest=(window.__wishwaveInboxRequest||0)+1;
+    clearInterval(appMpMessageTimer);clearInterval(appMpTypingTimer);
+    appMpInboxMode='global';appMpCurrentOffers=[];
+    appMpCurrentConversation=(appMpConversationList||[]).find(c=>String(c.id)===id)||{id,otherParty:seller.displayName||username,otherPartyUsername:username,otherPartyAvatarUrl:seller.avatarUrl||''};
+    inbox.classList.add('show');
+    const result=window.appMpOpenConversation(id);
+    page.classList.remove('show');return result;
+   };
+   if(token&&window.__wishwaveOpenChildView)await window.__wishwaveOpenChildView(token,open);else await open();
+  }catch(error){if(account===owner()&&attempt===profileMessageRequest)toast(error.message||'Could not open messages');}
+  finally{if(button?.isConnected){button.disabled=false;button.removeAttribute('aria-busy');}}
+ };
+
+ // Session changes and history restoration must reconcile the guest UI with
+ // the live session, rather than leave a captured sign-in card on screen.
+ let sessionOwner=owner(),authQueued=false;
+ function reconcileSession(){
+  authQueued=false;const next=owner(),changed=next!==sessionOwner;sessionOwner=next;
+  const panel=el('findaiNotificationPanel'),host=el('wwInboxMessages');
+  const stale=!!marketplaceSession()&&!!(panel?.classList.contains('ww-inbox-guest')||host?.querySelector('.ww-guest-inbox-a'));
+  if(changed){profileMessageRequest++;entry++;fromInbox=false;restore();inbox.classList.remove('show','chat-open');}
+  if(changed||stale){
+   if(marketplaceSession()){host?.querySelectorAll('.ww-guest-inbox-a').forEach(node=>node.remove());panel?.classList.remove('ww-inbox-guest');}
+   if(el('notifications')?.classList.contains('active')&&panel?.classList.contains('show'))window.wishwaveInboxSection(selection).catch(()=>{});
+  }
+  sync();
+ }
+ function queueSessionSync(){if(!authQueued){authQueued=true;queueMicrotask(reconcileSession);}}
+ for(const name of ['applyFindaiUser','signOutAccount','updateAccountHeader']){
+  const before=window[name];if(typeof before==='function')window[name]=function(){try{return before.apply(this,arguments);}finally{queueSessionSync();}};
+ }
+ document.addEventListener('wishwave-origin-restored',queueSessionSync);
+ window.addEventListener('storage',event=>{if(event.key==='findai_user'||event.key==='fa_account_profile_v1')queueSessionSync();});
  const badge=window.appRefreshMarketplaceBadge;if(badge)window.appRefreshMarketplaceBadge=async function(){try{return await badge.apply(this,arguments);}finally{sync();}};
  const notice=window.setHomeNotificationState;window.setHomeNotificationState=function(){const out=notice?.apply(this,arguments);sync();return out;};
- document.addEventListener('wishwave-recommendation-account-change',()=>{closeCompose();entry++;fromInbox=false;restore();inbox.classList.remove('show','chat-open');selection='messages';sync();});
+ document.addEventListener('wishwave-recommendation-account-change',()=>{closeCompose();entry++;fromInbox=false;restore();inbox.classList.remove('show','chat-open');selection='messages';queueSessionSync();});
  sync();
 })();

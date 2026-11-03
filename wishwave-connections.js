@@ -23,7 +23,7 @@
  function stats(root,key){
   if(!root)return;root.dataset.connectionsOwner=key;const buttons=[...root.querySelectorAll(':scope > button')];if(buttons.length!==3)return;
   const followers=buttons.find(b=>b.dataset.connectionKind==='followers'||b.querySelector('#socialFollowersValue,#wishwavePublicFollowerCount'))||buttons.find(b=>b.textContent.includes('Followers'));
-  const following=buttons.find(b=>b.dataset.connectionKind==='following')||buttons.find(b=>b.textContent.includes('Sold'));
+  const following=buttons.find(b=>b.dataset.connectionKind==='following')||buttons.find(b=>b.textContent.includes('Following')||b.textContent.includes('Sold'));
   if(!followers||!following)return;
   followers.dataset.connectionKind='followers';following.dataset.connectionKind='following';
   if(rootOwners.get(root)!==account()){rootOwners.set(root,account());delete following.dataset.connectionsReady;}
@@ -86,8 +86,18 @@
   try{const data=await marketplaceFetch('/social/follow-user/'+encodeURIComponent(username),{method:was||requested?'DELETE':'POST'});if(account()!==session)return;p.isFollowing=!!data.isFollowing;p.pending=!!data.pending;decorate();}
   catch(e){if(account()===session){p.isFollowing=was;p.pending=requested;toast(e.message||'Could not update follow');}}finally{p.busy=false;if(state===current&&account()===session)paint();}
  }
- window.wishwaveOpenConnections=function(key,kind){if(!marketplaceSession()){openLogin();return;}const token=window.__wishwaveWillOpenView?.('wishwaveConnectionsPage'),page=ensure();state={key,kind:kind==='following'?'following':'followers',people:[],offset:0,hasMore:false};page.querySelector('h2').textContent=state.kind==='following'?'Following':'Followers';page.querySelector('input').value='';page.querySelector('.ww-connections-rows').replaceChildren();page.classList.add('show');window.__wishwaveDidOpenView?.(token);load(false);};
- window.wishwaveCloseConnections=function(){generation++;state=null;clearTimeout(searchTimer);document.getElementById('wishwaveConnectionsPage')?.classList.remove('show');};
+ window.wishwaveOpenConnections=function(key,kind){if(!marketplaceSession()){openLogin();return;}const token=window.__wishwaveWillOpenView?.('wishwaveConnectionsPage'),page=ensure();state={key,kind:kind==='following'?'following':'followers',people:[],offset:0,hasMore:false};page.querySelector('h2').textContent=state.kind==='following'?'Following':'Followers';page.querySelector('input').value='';page.querySelector('.ww-connections-rows').replaceChildren();const profile=document.getElementById('wishwavePublicProfilePage');if(profile?.classList.contains('show')){state.parentProfile=profile;profile.classList.remove('show');}page.classList.add('show');window.__wishwaveDidOpenView?.(token);load(false);};
+ window.wishwaveCloseConnections=function(){generation++;if(state?.parentProfile&&wishwavePublicSellerData)state.parentProfile.classList.add('show');state=null;clearTimeout(searchTimer);document.getElementById('wishwaveConnectionsPage')?.classList.remove('show');};
+ // Delegate counters so restored or rebuilt profile nodes stay interactive.
+ document.addEventListener('click',event=>{
+  const button=event.target.closest?.('.social-profile-stats > button');if(!button)return;
+  const publicRoot=button.closest('#wishwavePublicProfileBody'),ownRoot=button.closest('#profileSignedIn');if(!publicRoot&&!ownRoot)return;
+  const label=button.querySelector('span')?.textContent.trim().toLowerCase();
+  const kind=button.dataset.connectionKind||(['followers','following'].includes(label)?label:'');if(!kind)return;
+  const seller=wishwavePublicSellerData?.seller,key=ownRoot?'@me':seller?.username||(seller?.id?'seller:'+seller.id:'');if(!key)return;
+  event.preventDefault();event.stopImmediatePropagation();window.wishwaveOpenConnections(key,kind);
+ },true);
+ document.addEventListener('wishwave-origin-restored',decorate);
  const fetchBefore=window.marketplaceFetch;
  window.marketplaceFetch=function(path,options){const session=account(),request=fetchBefore.apply(this,arguments);if(/\/(?:follow-user\/[^/]+|sellers\/[^/]+\/follow)$/.test(path)&&['POST','DELETE'].includes(options?.method))return Promise.resolve(request).then(data=>{if(account()===session){countEpoch++;counts.clear();pending.clear();decorate();}return data;});return request;};
  const logout=window.signOutAccount;window.signOutAccount=function(){window.wishwaveCloseConnections();countEpoch++;counts.clear();lastFollowing.clear();pending.clear();return logout.apply(this,arguments);};

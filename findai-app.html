@@ -20397,6 +20397,7 @@ html.findai-light .findai-follower-view.following{
 (function(){
   'use strict';
 
+  let profileRequest=0;
   async function showFindAIUserProfileDirect(username){
     const clean=String(username||'').replace(/^@+/,'').trim();
     if(!clean)return;
@@ -20409,20 +20410,20 @@ html.findai-light .findai-follower-view.following{
       return;
     }
 
-    try{closeOwnFollowersList();}catch(_){}
-    try{closeHomeNotifications();}catch(_){}
-    try{closeAppMpSheet();}catch(_){}
+    const request=++profileRequest,session=marketplaceSession();
 
     const page=ensureWishWavePublicProfilePage();
     const appRoot=document.querySelector('.app')||document.body;
     if(page.parentElement!==appRoot)appRoot.appendChild(page);
     const body=document.getElementById('wishwavePublicProfileBody');
     if(body)body.innerHTML='<div class="social-profile-loading"><div class="feed-more-spinner"></div><br>Loading profile…</div>';
-    page.classList.remove('show');
-    requestAnimationFrame(()=>requestAnimationFrame(()=>page.classList.add('show')));
+    wishwavePublicSellerData=null;
+    page.classList.add('show');
+    try{closeAppMpSheet();}catch(_){}
 
     try{
       const data=await marketplaceFetch('/profile/public/'+encodeURIComponent(clean),{method:'GET'});
+      if(request!==profileRequest||session!==marketplaceSession()||!page.classList.contains('show'))return;
       if(data&&data.viewer&&data.viewer.isSelf){
         page.classList.remove('show');
         openProfile();
@@ -20463,6 +20464,7 @@ html.findai-light .findai-follower-view.following{
       /* v142 requested no third-dot action on other profiles. */
       document.querySelectorAll('#wishwavePublicProfileBody .findai-public-more').forEach(node=>node.remove());
     }catch(error){
+      if(request!==profileRequest||session!==marketplaceSession()||!page.classList.contains('show'))return;
       if(body)body.innerHTML='<div class="social-profile-empty"><b>Profile unavailable</b>'+escapeHTML(error&&error.message||'Try again')+'</div>';
     }
   }
@@ -28963,12 +28965,15 @@ html.findai-light .premium-bottom-nav button[data-tab="messages"] .nav-messages-
     }
 
     /* Fallback for older conversations that pre-date stored usernames. */
+    const session=marketplaceSession(),conversation=appMpCurrentConversation;
     const display=String(c.otherParty||'').trim();
     if(!display)return;
     try{
       const data=await marketplaceFetch('/marketplace/sellers/search?q='+encodeURIComponent(display)+'&limit=8',{method:'GET'});
+      if(session!==marketplaceSession()||conversation!==appMpCurrentConversation)return;
       const rows=Array.isArray(data&&data.sellers)?data.sellers:[];
-      const seller=rows.find(row=>String(row.displayName||'').trim().toLowerCase()===display.toLowerCase())||rows[0];
+      const exact=rows.filter(row=>String(row.displayName||'').trim().toLowerCase()===display.toLowerCase());
+      const seller=exact.length===1?exact[0]:null;
       if(seller&&seller.id&&typeof window.openPremiumSellerProfileById==='function'){
         return window.openPremiumSellerProfileById(seller.id);
       }
@@ -36704,7 +36709,7 @@ html body.keyboard-open[data-active-tab="search"] .app #searchResults .premium-r
 <script src="wishwave-comments-motion.js?v=293"></script>
 <link rel="stylesheet" href="wishwave-create.css?v=429">
 <script src="wishwave-create.js?v=429"></script>
-<script src="wishwave-navigation-origins.js?v=374"></script>
+<script src="wishwave-navigation-origins.js?v=455"></script>
 <style id="wishwave-notification-dot-v316">
 html body #wishwaveMainNav #navNotificationsBadge{
  top:calc(50% - 16px)!important;left:calc(50% + 8px)!important;right:auto!important;
@@ -36807,7 +36812,7 @@ html body #profileSignedOut [data-guest-likes]{display:none!important;}
 <link rel="stylesheet" href="wishwave-chat-polish.css?v=374">
 <script src="wishwave-chat-polish.js?v=376"></script>
 <link rel="stylesheet" href="wishwave-connections.css?v=351">
-<script src="wishwave-connections.js?v=394"></script>
+<script src="wishwave-connections.js?v=455"></script>
 <script src="wishwave-auth.js?v=316"></script>
 
 <style id="wishwave-reel-heart-polish-v332">
@@ -36946,7 +36951,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-discovery-preferences.js?v=421"></script>
 <script src="wishwave-home-controls.js?v=424"></script>
 <link rel="stylesheet" href="wishwave-inbox.css?v=441">
-<script src="wishwave-inbox.js?v=440"></script>
+<script src="wishwave-inbox.js?v=455"></script>
 <link rel="stylesheet" href="wishwave-search-filters.css?v=434">
 <script src="wishwave-search-filters.js?v=421"></script>
 <link rel="stylesheet" href="wishwave-profile-badges.css?v=430">
