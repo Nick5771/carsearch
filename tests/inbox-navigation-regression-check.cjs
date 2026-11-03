@@ -8,9 +8,9 @@ async function swipe(target,right=false){touch(target,'touchstart',right?30:350)
 (async()=>{
  await tick();Object.defineProperty(w.document.querySelector('.app'),'clientWidth',{value:390});
  w.getAccountProfile=()=>({email:'me@test',username:'me'});w.marketplaceSession=()=>'signed-in';
- const rows=[{id:'nick-chat',otherParty:'Nick',otherPartyUsername:'nick',lastMessage:'',lastMessageAt:'2026-11-03'}];let reads=0;
+ const rows=[{id:'nick-chat',otherParty:'Nick',otherPartyUsername:'nick',lastMessage:'',lastMessageAt:'2026-11-03'}];let reads=0,listMode='slow',listRequests=0,pendingLists=[];
  w.marketplaceFetch=async path=>{
-  if(path==='/marketplace/conversations')return {conversations:rows.map(c=>({...c}))};
+  if(path==='/marketplace/conversations'){listRequests++;if(listMode==='slow')return new Promise((resolve,reject)=>pendingLists.push({resolve,reject}));if(listMode==='malformed')return {};if(listMode==='empty')return {conversations:[]};return {conversations:rows.map(c=>({...c}))};}
   if(path.includes('/messages')){if(path.includes('markRead=0'))reads++;return {messages:[{id:'m1',body:'Hi',createdAt:'2026-11-02',mine:false}],conversation:rows[0],offers:[]};}
   if(path.startsWith('/social/send-suggestions'))return {people:[{username:'nick',displayName:'Nick',conversationId:'nick-chat'}]};
   return {items:[],listings:[],notifications:[],comments:[],people:[]};
@@ -19,7 +19,7 @@ async function swipe(target,right=false){touch(target,'touchstart',right?30:350)
  for(const file of ['wishwave-navigation-origins.js','wishwave-chat-polish.js','wishwave-connections.js','wishwave-inbox.js'])w.eval(fs.readFileSync(file,'utf8'));
  const inbox=w.document.getElementById('appMpInbox'),panel=()=>w.document.getElementById('findaiNotificationPanel');
  const assertList=()=>{assert.equal(w.document.body.dataset.activeTab,'notifications');assert.equal(inbox.parentNode.id,'wwInboxMessages');assert(inbox.classList.contains('ww-inbox-docked'));assert(inbox.classList.contains('show'));assert(!inbox.classList.contains('chat-open'));assert(w.document.querySelector('.app-mp-conversation-card'));assert(panel().classList.contains('show'));};
- await w.openMessagesTab();await tick();assertList();assert.equal(w.document.querySelector('.app-mp-conversation-preview').textContent,'Hi');assert.equal(reads,1,'preview lookup does not mark messages read');
+ const opening=w.openMessagesTab();await tick();assert(w.document.querySelector('.ww-inbox-loading'),'cold load has placeholders');assert(!w.document.querySelector('.app-mp-instagram-empty'),'pending request is not an empty Inbox');assert.equal(listRequests,1,'Messages entry starts one list request');listMode='normal';pendingLists.shift().resolve({conversations:rows.map(c=>({...c}))});await opening;await tick();assertList();assert.equal(w.document.querySelector('.app-mp-conversation-preview').textContent,'Hi');assert.equal(reads,1,'preview lookup does not mark messages read');
  assert.equal(w.wishwaveNavigationOrigins().filter(x=>x.view==='appMpInbox').length,0,'root list does not create child history');
  for(let i=0;i<3;i++){
   w.document.querySelector('.app-mp-conversation-card').click();await tick();assert(inbox.classList.contains('chat-open'));assert.equal(w.document.body.dataset.activeTab,'notifications');assert.equal(w.eval('appMpConversation'),'nick-chat');w.document.getElementById('appMpMessages').click();assert.equal(w.document.body.dataset.activeTab,'notifications','chat taps must not trigger legacy notification outside-dismiss');
@@ -35,6 +35,15 @@ async function swipe(target,right=false){touch(target,'touchstart',right?30:350)
  await new Promise(r=>setTimeout(r,500));await w.openMessagesTab();await tick();w.document.getElementById('wwInboxCompose').click();await tick();const dialog=w.document.getElementById('wwComposeDialog');assert(dialog.open);assert(w.document.querySelector('#wwComposeTitle'));assert(w.document.querySelector('#wwComposeSearch'));
  w.visualViewport.height=340;w.visualViewport.offsetTop=25;w.visualViewport.dispatchEvent(new w.Event('resize'));assert.equal(dialog.style.getPropertyValue('--compose-height'),'316px');assert.equal(dialog.style.getPropertyValue('--compose-top'),'37px');
  w.document.querySelector('.ww-compose-person').click();await tick();assert(!dialog.open);assert(inbox.classList.contains('chat-open'));assert.equal(w.document.body.dataset.activeTab,'notifications');w.appMpInboxBack();await tick();assertList();
+
+ // Refresh preserves actual rows through slow and failed responses.
+ listMode='slow';let refresh=w.wishwaveInboxSection('messages');await tick();assertList();assert(!w.document.querySelector('.ww-inbox-loading'));pendingLists.shift().reject(Error('Offline'));await refresh;assertList();assert(w.document.querySelector('.ww-inbox-load-error'));
+ listMode='normal';w.document.querySelector('.ww-inbox-load-error button').click();await tick();assertList();assert(!w.document.querySelector('.ww-inbox-load-error'));
+ listMode='malformed';await w.wishwaveInboxSection('messages');assertList();assert(w.document.querySelector('.ww-inbox-load-error'),'invalid response never means no conversations');
+ listMode='empty';await w.wishwaveInboxSection('messages');assert(w.document.querySelector('.app-mp-instagram-empty'),'successful empty response can show empty state');
+ // A different account cannot inherit the previous account list, and a late response cannot repaint a chat.
+ listMode='normal';await w.wishwaveInboxSection('messages');assertList();listMode='slow';w.marketplaceSession=()=>'other-account';const other=w.wishwaveInboxSection('messages');await tick();assert(w.document.querySelector('.ww-inbox-loading'));assert(!w.document.querySelector('.app-mp-conversation-card'));pendingLists.shift().resolve({conversations:[]});await other;
+ w.marketplaceSession=()=>'signed-in';listMode='normal';await w.wishwaveInboxSection('messages');listMode='slow';refresh=w.wishwaveInboxSection('messages');await tick();w.document.querySelector('.app-mp-conversation-card').click();await tick();assert(inbox.classList.contains('chat-open'));pendingLists.shift().resolve({conversations:[]});await refresh;assert(inbox.classList.contains('chat-open'),'late list response cannot replace the open chat');
  assert.equal(errors.length,0,JSON.stringify(errors));
- console.log('PASS: actual Inbox list/chat renderers; repeated header Back; legacy entry; non-reading Hi preview; Messages/Activity swipes; Profile swipe; vertical scroll; visual viewport keyboard resize; compose recipient/chat return');w.close();
+ console.log('PASS: cold and cached loading; offline retry; confirmed-empty handling; account isolation; late list responses; actual Inbox list/chat renderers; repeated header Back; legacy entry; non-reading Hi preview; Messages/Activity swipes; Profile swipe; vertical scroll; visual viewport keyboard resize; compose recipient/chat return');w.close();
 })().catch(e=>{console.error(e);w.close();process.exitCode=1});

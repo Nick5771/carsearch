@@ -5,8 +5,21 @@ if(typeof module==='object'&&module.exports)module.exports={destination:wishwave
  if(typeof document==='undefined')return;
  const el=id=>document.getElementById(id),inbox=el('appMpInbox'),home=inbox?.parentNode;
  if(!inbox)return;
- const baseOpen=window.openAppMarketplaceInbox,baseConversation=window.appMpOpenConversation,baseBack=window.appMpInboxBack;
+ const baseConversation=window.appMpOpenConversation,baseBack=window.appMpInboxBack;
  let sectionGeneration=0;
+ let listAccount='',listConfirmed=false,listSnapshot=[];
+ function listScope(){const account=owner();if(account!==listAccount){listAccount=account;listConfirmed=false;listSnapshot=[];}return account;}
+ function paintInboxLoading(){el('appMpInboxBody').innerHTML='<div class="ww-inbox-loading" role="status" aria-label="Loading messages">'+Array.from({length:3},()=>'<div class="ww-inbox-placeholder" aria-hidden="true"><i></i><span><b></b><small></small></span></div>').join('')+'</div>';}
+ function paintInboxError(cached){const body=el('appMpInboxBody');if(!cached)body.replaceChildren();body.querySelector('.ww-inbox-load-error')?.remove();const error=document.createElement('div');error.className='ww-inbox-load-error';error.setAttribute('role','status');const text=document.createElement('span');text.textContent=cached?'Could not refresh messages.':'Could not load messages.';const retry=document.createElement('button');retry.type='button';retry.textContent='Retry';retry.onclick=()=>window.wishwaveInboxSection('messages');error.append(text,retry);body.appendChild(error);}
+ async function loadInboxList(){
+  const account=listScope(),request=(window.__wishwaveInboxRequest||0)+1;window.__wishwaveInboxRequest=request;
+  clearInterval(appMpMessageTimer);clearInterval(appMpTypingTimer);appMpInboxMode='global';appMpConversation='';appMpCurrentConversation=null;inbox.classList.add('show');
+  const rows=listSnapshot;
+  if(rows.length||listConfirmed)window.renderAppMpConversationList({conversations:rows},false,'');else paintInboxLoading();sync();
+  const current=()=>account===owner()&&request===window.__wishwaveInboxRequest&&selection==='messages'&&inbox.classList.contains('show')&&!inbox.classList.contains('chat-open');
+  try{const data=await marketplaceFetch('/marketplace/conversations',{method:'GET'});if(!current())return;if(!Array.isArray(data?.conversations))throw Error('Missing conversations');listConfirmed=true;listSnapshot=data.conversations.map(c=>({...c}));window.renderAppMpConversationList(data,false,'');sync();}
+  catch(error){if(current())paintInboxError(rows.length>0);}
+ }
  let selection='messages',entry=0,fromInbox=false,composeToken=0,composeTimer,composeReturn;
  function closeCompose(){composeToken++;clearTimeout(composeTimer);el('wwComposeSearch')?.blur();el('wwComposeDialog')?.close();composeReturn?.focus({preventScroll:true});}
  function composeViewport(){const dialog=el('wwComposeDialog');if(!dialog?.open)return;const v=window.visualViewport;dialog.style.setProperty('--compose-top',Math.max(12,(v?.offsetTop||0)+12)+'px');dialog.style.setProperty('--compose-height',Math.max(120,(v?.height||innerHeight)-24)+'px');}
@@ -69,20 +82,20 @@ if(typeof module==='object'&&module.exports)module.exports={destination:wishwave
   }
   el('wwInboxMessages')?.querySelectorAll('.ww-guest-inbox-a').forEach(node=>node.remove());
   if(selection==='messages'){
-   fromInbox=true;inbox.classList.remove('chat-open');el('wwInboxMessages').appendChild(inbox);inbox.classList.add('ww-inbox-docked');window.__wishwaveOpeningInboxRoot=true;let loading;try{loading=baseOpen.call(window);}finally{window.__wishwaveOpeningInboxRoot=false;}await loading;if(sectionRequest!==sectionGeneration||account!==owner())return;sync();
+   fromInbox=true;inbox.classList.remove('chat-open');el('wwInboxMessages').appendChild(inbox);inbox.classList.add('ww-inbox-docked');await loadInboxList();if(sectionRequest!==sectionGeneration||account!==owner())return;sync();
   }else{inbox.classList.remove('show');await window.findaiNotificationState?.load();sync();}
  };
- window.wishwaveOpenNotificationTab=window.openHomeNotifications=async function(){
+ window.wishwaveOpenNotificationTab=window.openHomeNotifications=async function(preferred){
   const token=++entry,account=owner();restore();inbox.classList.remove('show','chat-open');go('notifications');document.body.dataset.activeTab='notifications';setMainNavActive('notifications');const panel=ensure();panel?.classList.add('show');
   let last='messages';try{last=localStorage.getItem(key())||last;}catch(_){}
-  const choose=()=>wishwaveInboxDestination(unreadMessages(),unreadActivity(),last);
+  const choose=()=>preferred==='messages'?'messages':wishwaveInboxDestination(unreadMessages(),unreadActivity(),last);
   await window.wishwaveInboxSection(choose());
   // Refresh both unread sources; never move tabs after the user interacts.
   if(token===entry&&account===owner()){await Promise.allSettled([window.appRefreshMarketplaceBadge?.(),window.findaiNotificationState?.load()]);if(token===entry&&account===owner()&&el('notifications')?.classList.contains('active')){const next=choose();if(next!==selection)await window.wishwaveInboxSection(next);sync();}}
  };
  const chat=window.renderAppMpChat;window.renderAppMpChat=function(){restore();return chat.apply(this,arguments);};
  // Keep notification deep links and profile Message buttons on their existing paths.
- window.openMessagesTab=function(){return wishwaveOpenNotificationTab().then(()=>wishwaveInboxSection('messages'));};
+ window.openMessagesTab=function(){return wishwaveOpenNotificationTab('messages');};
  window.openAppMarketplaceInbox=function(preselect){if(preselect)return window.openMessagesTab().then(()=>window.appMpOpenConversation(String(preselect)));return window.openMessagesTab();};
  window.appMpOpenConversation=function(){
   const docked=inbox.classList.contains('ww-inbox-docked'),args=arguments;
@@ -90,7 +103,7 @@ if(typeof module==='object'&&module.exports)module.exports={destination:wishwave
   const open=()=>{if(docked)fromInbox=true;sectionGeneration++;entry++;window.__wishwaveInboxRequest=(window.__wishwaveInboxRequest||0)+1;restore();inbox.classList.add('show');return baseConversation.apply(window,args);};
   return token&&window.__wishwaveOpenChildView?window.__wishwaveOpenChildView(token,open):open();
  };
- window.appMpInboxBack=function(){if(fromInbox){inbox.classList.remove('show','chat-open');appMpConversation='';clearInterval(appMpMessageTimer);clearInterval(appMpTypingTimer);return wishwaveOpenNotificationTab().then(()=>wishwaveInboxSection('messages'));}return baseBack.apply(this,arguments);};
+ window.appMpInboxBack=function(){if(fromInbox){inbox.classList.remove('show','chat-open');appMpConversation='';clearInterval(appMpMessageTimer);clearInterval(appMpTypingTimer);return wishwaveOpenNotificationTab('messages');}return baseBack.apply(this,arguments);};
  // A profile Message tap is one child conversation, never an intermediate
  // Messages root tab. Keep the profile until the chat has painted synchronously.
  let profileMessageRequest=0;
@@ -150,12 +163,14 @@ if(typeof module==='object'&&module.exports)module.exports={destination:wishwave
   const account=owner(),rows=Array.isArray(data?.conversations)?data.conversations:[];
   const prepared=rows.map(c=>{const saved=previewCache.get(account+'|'+c.id);return !String(c.lastMessage||'').trim()&&saved?{...c,...saved}:c;});
   const out=listRender.call(this,{...data,conversations:prepared},...args);
+  listScope();if(prepared.length||listConfirmed)listSnapshot=prepared.map(c=>({...c}));sync();
   prepared.filter(c=>!String(c.lastMessage||'').trim()).slice(0,12).forEach(c=>{
    const key=account+'|'+c.id;if(previewPending.has(key)||previewCache.has(key))return;previewPending.add(key);
    marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(c.id)+'/messages?markRead=0',{method:'GET'}).then(result=>{
     if(account!==owner())return;const message=[...(result.messages||[])].reverse().find(m=>previewOf(m));
     const saved={lastMessage:message?previewOf(message):'Start a conversation',lastMessageAt:message?.createdAt||c.lastMessageAt};previewCache.set(key,saved);
     const current=(appMpConversationList||[]).find(row=>String(row.id)===String(c.id));if(current&&!String(current.lastMessage||'').trim())Object.assign(current,saved);
+    const snapshot=listSnapshot.find(row=>String(row.id)===String(c.id));if(snapshot&&!String(snapshot.lastMessage||'').trim())Object.assign(snapshot,saved);
     if(inbox.classList.contains('show')&&!inbox.classList.contains('chat-open'))listRender.call(window,{conversations:appMpConversationList},false,'');
    }).catch(()=>{}).finally(()=>previewPending.delete(key));
   });return out;

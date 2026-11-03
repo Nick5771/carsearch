@@ -30914,6 +30914,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     window.__wishwaveCancelReelOpen?.();
     host=host||document.activeElement?.closest('#search .premium-explore-tile,#searchResults .premium-result-card');
     const tile=host?.getBoundingClientRect();
+    const expandFromTile=tile?.width>0&&tile?.height>0&&typeof window.__wishwaveExpandSearchReel==='function'&&!matchMedia('(prefers-reduced-motion:reduce)').matches;
     const tileImage=host?.querySelector('img');
     const previewSrc=tileImage?.complete&&tileImage.naturalWidth>0?(tileImage.currentSrc||tileImage.src):'';
     const requested=Array.isArray(items)?items[Number(index)||0]:null;
@@ -30960,12 +30961,12 @@ body>.nav.findai-five-nav.premium-bottom-nav,
     view.dataset.reelOwner=owner;
     selectSearchReelTab('for-you');
     const headerTabs=view.querySelector('.ww-search-feed-tabs');if(headerTabs)headerTabs.scrollLeft=0;
-    if(owner==='search'&&!matchMedia('(prefers-reduced-motion:reduce)').matches){
+    if(owner==='search'&&!expandFromTile&&!matchMedia('(prefers-reduced-motion:reduce)').matches){
       view.classList.add('ww-search-reel-opening');window.__wishwavePageMotion=true;
     }
     view.classList.add('explore-reel-mode','search-owned-v186','show');
     window.__wishwaveDidOpenView?.(originToken);
-    if(owner!=='search'&&tile?.width>0){view.classList.add('wishwave-reel-preparing');window.__wishwavePageMotion=true;}
+    if(expandFromTile){view.classList.add('wishwave-reel-preparing');window.__wishwavePageMotion=true;}
     const c=countNode();if(c)c.textContent=(chosen+1)+' / '+list.length;
 
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
@@ -30997,7 +30998,7 @@ body>.nav.findai-five-nav.premium-bottom-nav,
         };
         const ended=e=>{if(e.target===feed&&e.animationName==='wwSearchReelOpen')complete();};
         feed.addEventListener('animationend',ended);timer=setTimeout(complete,340);
-      }else if(owner!=='search'&&tile&&tile.width>0&&typeof window.__wishwaveExpandSearchReel==='function')window.__wishwaveExpandSearchReel(view,tile,finishOpening);else finishOpening();
+      }else if(expandFromTile)window.__wishwaveExpandSearchReel(view,tile,finishOpening);else finishOpening();
     }));
     if(owner==='messages'){moreReels=null;lastOpenedAt=Date.now();return true;}
     const sessionItems=currentFeedItems;
@@ -32266,16 +32267,15 @@ html body #searchDetailOverlay.wishwave-reel-expanding .wishwave-search-reel-top
     const base=getComputedStyle(view).transform,original=base&&base!=='none'?base:'';
     const g={view,styles,done,frame:0,timer:0};current=g;window.__wishwavePageMotion=true;
     view.classList.add('wishwave-reel-expanding');
-    // CSS left:50% is the fixed anchor; subtract it before applying the scaled panel.
-    const anchor=rect.left+rect.width/2;
+    // Translate from the final visible bounds; Search is anchored at the app's left edge.
     view.style.setProperty('transition','none','important');
-    view.style.setProperty('transform','translate3d('+(tile.left-anchor)+'px,'+(tile.top-rect.top)+'px,0) scale('+scale+')','important');
+    view.style.setProperty('transform',original+' translate3d('+(tile.left-rect.left)+'px,'+(tile.top-rect.top)+'px,0) scale('+scale+')','important');
     const bottom=Math.max(0,rect.height-tile.height/scale);
     view.style.setProperty('clip-path','inset(0 0 '+bottom+'px 0 round 28px)','important');view.classList.remove('wishwave-reel-preparing');void view.offsetWidth;
     g.end=e=>{if(e.target===view&&e.propertyName==='transform')cancel();};view.addEventListener('transitionend',g.end);
     g.frame=requestAnimationFrame(()=>{
-      if(current!==g)return;view.style.setProperty('transition','transform 320ms cubic-bezier(.2,.7,.25,1),clip-path 320ms cubic-bezier(.2,.7,.25,1)','important');
-      view.style.setProperty('transform',original||'none','important');view.style.setProperty('clip-path','inset(0 0 0 0 round 0px)','important');g.timer=setTimeout(cancel,360);
+      if(current!==g)return;view.style.setProperty('transition','transform 380ms cubic-bezier(.22,.8,.22,1),clip-path 380ms cubic-bezier(.22,.8,.22,1)','important');
+      view.style.setProperty('transform',original||'none','important');view.style.setProperty('clip-path','inset(0 0 0 0 round 0px)','important');g.timer=setTimeout(cancel,430);
     });
   };
 })();
@@ -36944,21 +36944,21 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-offer.js?v=372"></script>
 <link rel="stylesheet" href="wishwave-chat-offers.css?v=371">
 <script src="wishwave-chat-offers.js?v=372"></script>
-<link rel="stylesheet" href="wishwave-home-controls.css?v=454">
+<link rel="stylesheet" href="wishwave-home-controls.css?v=458">
 <script src="wishwave-tab-motion.js?v=426"></script>
 <link rel="stylesheet" href="wishwave-tab-motion.css?v=433">
 <link rel="stylesheet" href="wishwave-discovery-preferences.css?v=421">
 <script src="wishwave-discovery-preferences.js?v=421"></script>
 <script src="wishwave-home-controls.js?v=424"></script>
-<link rel="stylesheet" href="wishwave-inbox.css?v=456">
-<script src="wishwave-inbox.js?v=456"></script>
+<link rel="stylesheet" href="wishwave-inbox.css?v=457">
+<script src="wishwave-inbox.js?v=457"></script>
 <link rel="stylesheet" href="wishwave-search-filters.css?v=434">
 <script src="wishwave-search-filters.js?v=421"></script>
 <link rel="stylesheet" href="wishwave-profile-badges.css?v=430">
 <script src="wishwave-profile-badges.js?v=430"></script>
 <link rel="stylesheet" href="wishwave-reel-title.css?v=449">
 <script src="wishwave-reel-title.js?v=449"></script>
-<script src="wishwave-search-tabs.js?v=454"></script>
+<script src="wishwave-search-tabs.js?v=458"></script>
 </body>
 </html>
 

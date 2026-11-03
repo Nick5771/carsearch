@@ -1,0 +1,10 @@
+const fs=require('node:fs'),assert=require('node:assert/strict'),{JSDOM}=require('jsdom');
+const dom=new JSDOM('<section id="searchDetailOverlay" data-reel-owner="search"><nav class="ww-search-feed-tabs"><button data-reel-feed="following" aria-selected="false"><span>Following</span></button><button data-reel-feed="for-you" aria-selected="true"><span>For You</span></button></nav></section>',{runScripts:'outside-only',pretendToBeVisual:true}),w=dom.window;
+w.matchMedia=()=>({matches:false});const view=w.document.querySelector('section'),tabs=w.document.querySelector('nav');tabs.scrollTo=()=>{};Object.defineProperty(tabs,'clientHeight',{value:44});
+tabs.getBoundingClientRect=()=>({left:0,top:100,width:view.classList.contains('show')?390:0});
+[...tabs.querySelectorAll('span')].forEach((span,i)=>span.getBoundingClientRect=()=>({left:20+i*140,bottom:132,width:view.classList.contains('show')?60:0}));
+w.eval(fs.readFileSync('wishwave-search-tabs.js','utf8'));
+const tick=()=>new Promise(r=>setTimeout(r,40));
+(async()=>{w.wishwaveSyncSearchTabs('for-you',false);assert(!tabs.classList.contains('ww-search-tabs-ready'),'hidden measurement keeps CSS fallback');view.classList.add('show');await tick();const line=tabs.querySelector('.ww-search-tab-indicator');assert.equal(line.style.width,'60px');assert(line.style.transform.includes('160px'));assert(tabs.classList.contains('ww-search-tabs-ready'));
+const buttons=tabs.querySelectorAll('button');buttons[0].setAttribute('aria-selected','true');buttons[1].setAttribute('aria-selected','false');w.wishwaveSyncSearchTabs('following');assert(line.style.transform.includes('20px'));assert(line.style.transition.includes('240ms'));
+view.classList.remove('show');line.style.width='0px';view.classList.add('show');await tick();assert.equal(line.style.width,'60px','reopening measures the now-visible labels again');console.log('PASS: hidden-to-visible tab measurement, visible red indicator geometry, animated selection and reopen repair');w.close();})().catch(e=>{console.error(e);w.close();process.exitCode=1});

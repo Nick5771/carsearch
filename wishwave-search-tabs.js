@@ -18,16 +18,24 @@
   if(fresh){indicator=document.createElement('i');indicator.className='ww-search-tab-indicator';indicator.setAttribute('aria-hidden','true');tabs.appendChild(indicator);}
   const before=buttons.findIndex(b=>b.dataset.reelFeed===tabs.dataset.selectedFeed),after=buttons.indexOf(button);
   const rect=tabs.getBoundingClientRect(),text=label.getBoundingClientRect();
+  if(!text.width||!rect.width)return;
+  tabs.classList.add('ww-search-tabs-ready');
   indicator.style.transition=animate&&!fresh&&!reduced()?'transform 240ms cubic-bezier(.22,.8,.22,1),width 240ms cubic-bezier(.22,.8,.22,1)':'none';
   indicator.style.width=text.width+'px';
-  indicator.style.transform='translate3d('+(text.left-rect.left+tabs.scrollLeft)+'px,'+(text.bottom-rect.top-3)+'px,0)';
+  indicator.style.transform='translate3d('+(text.left-rect.left+tabs.scrollLeft)+'px,'+Math.min(tabs.clientHeight-4,text.bottom-rect.top-3)+'px,0)';
   const left=Math.max(0,Math.min(tabs.scrollWidth-tabs.clientWidth,button.offsetLeft+button.offsetWidth/2-tabs.clientWidth/2));
   tabs.scrollTo({left,behavior:animate&&!reduced()?'smooth':'instant'});
   tabs.dataset.selectedFeed=button.dataset.reelFeed;
   if(animate&&before>=0&&before!==after)window.wishwaveAnimateSearchFeed(after>before?1:-1);
  };
- window.addEventListener('resize',()=>{
-  const tabs=document.querySelector('#searchDetailOverlay .ww-search-feed-tabs');
-  if(tabs)window.wishwaveSyncSearchTabs(tabs.dataset.selectedFeed,false);
- });
+ let frame=0,observedTabs=null;
+ const sizes=typeof ResizeObserver==='function'?new ResizeObserver(()=>schedule()):null;
+ function schedule(){cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{
+  const view=document.getElementById('searchDetailOverlay'),tabs=view?.querySelector('.ww-search-feed-tabs');
+  if(!view?.classList.contains('show')||!tabs)return;
+  if(observedTabs!==tabs){if(observedTabs)sizes?.unobserve?.(observedTabs);observedTabs=tabs;sizes?.observe(tabs);}
+  const selected=tabs.querySelector('[aria-selected="true"]');window.wishwaveSyncSearchTabs(selected?.dataset.reelFeed||'for-you',false);
+ });}
+ const view=document.getElementById('searchDetailOverlay');if(view)new MutationObserver(schedule).observe(view,{attributes:true,attributeFilter:['class','data-reel-owner']});
+ window.addEventListener('resize',schedule);document.fonts?.ready.then(schedule);schedule();
 })();
