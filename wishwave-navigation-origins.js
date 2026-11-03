@@ -69,7 +69,7 @@
  function willOpen(id){return restoring?null:{id,saved:origin(),epoch};}
  function didOpen(token){
   if(!token||token.epoch!==epoch||restoring)return;
-  const root=node(token.id);if(!shown(root))return;
+  const root=node(token.id);if(!shown(root)||root.id==='appMpInbox'&&root.classList.contains('ww-inbox-docked')&&!root.classList.contains('chat-open'))return;
   const same=token.saved.layers.find(x=>x.el===root);
   // An existing surface being updated is not another level of navigation.
   if(same&&same.markup===root.innerHTML)return;
@@ -91,7 +91,7 @@
  function wrap(name,ids){
   const before=window[name];if(typeof before!=='function')return;
   window[name]=function(...args){
-   if(restoring||depth)return before.apply(this,args);
+   if(restoring||depth||window.__wishwaveOpeningInboxRoot)return before.apply(this,args);
    const saved=origin(),token={saved,epoch};ids.forEach(id=>requests.set(id,token));const previous=pending;pending=token;depth++;
    let result;try{result=before.apply(this,args);}catch(error){pending=previous;throw error;}finally{depth--;}
    const complete=()=>{for(const id of ids){if(requests.get(id)!==token)continue;const root=node(id);if(token.epoch!==epoch){if(root)root.classList.remove('show');continue;}if(shown(root))didOpen({id,saved,epoch:token.epoch});}};
@@ -111,6 +111,7 @@
  for(const [name,id] of [['openAppSettings','appThemeOverlay'],['openOwnFollowersList','findaiOwnFollowersPage'],['openMyListings','myListingsScreen'],['openPurchases','purchasesScreen'],['openLogin','loginOverlay'],['openWishWaveDashboard','wwDashboard'],['openHomeNotifications','findaiNotificationPanel']])wrap(name,[id]);
  for(const name of ['openAppMarketplaceInbox','openAppMarketplaceMessages','appMpOpenConversation','openMessagesTab'])wrap(name,['appMpInbox']);
  function entryFor(target){
+  if(target?.closest?.('#appMpInbox.ww-inbox-docked:not(.chat-open)'))return null;
   for(let i=stack.length-1;i>=0;i--){const entry=stack[i];if(shown(entry.root)&&entry.root.contains(target))return entry;}
   return null;
  }

@@ -32,7 +32,7 @@
     document.documentElement.classList.toggle('wishwave-installed',navigator.standalone===true||!!(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches));
     // Route Search nav before older capture listeners can reopen Recents.
     ['touchstart','touchmove','touchend','touchcancel'].forEach(type=>window.addEventListener(type,e=>{
-      const handled=window.__wishwaveCommentsTouch?.(type,e)||window.__wishwaveBackRegrabTouch?.(type,e)||window.__wishwaveChatRegrabTouch?.(type,e)||window.__wishwaveSearchListingTouch?.(type,e)||window.__wishwaveZoomTouch?.(type,e)||window.__wishwaveProfileSectionTouch?.(type,e)||window.__wishwavePageTouch?.(type,e)||window.__wishwaveBackTouch?.(type,e)||window.__wishwaveTabTouch?.(type,e)||window.__wishwaveRefreshTouch?.(type,e);
+      const handled=window.__wishwaveCommentsTouch?.(type,e)||window.__wishwaveInboxTouch?.(type,e)||window.__wishwaveBackRegrabTouch?.(type,e)||window.__wishwaveChatRegrabTouch?.(type,e)||window.__wishwaveSearchListingTouch?.(type,e)||window.__wishwaveZoomTouch?.(type,e)||window.__wishwaveProfileSectionTouch?.(type,e)||window.__wishwavePageTouch?.(type,e)||window.__wishwaveBackTouch?.(type,e)||window.__wishwaveTabTouch?.(type,e)||window.__wishwaveRefreshTouch?.(type,e);
       if(handled)e.stopImmediatePropagation();
     },{capture:true,passive:false}));
     window.addEventListener('click',function(e){
@@ -11691,7 +11691,7 @@ window.addEventListener('load', function(){
     document.getElementById('appMpInboxBody').innerHTML=search+'<div class="app-mp-conversation-list">'+appMpConversationList.map(function(c){
       var avatar=String(c.otherPartyAvatar||c.avatar||'').trim();
       var image=avatar?'<img src="'+escapeAttr(avatar)+'" alt="">':findaiDefaultAvatarSvg();
-      return '<button class="app-mp-conversation-card" type="button" onclick="appMpOpenConversation(\''+escapeAttr(c.id)+'\')"><span class="app-mp-conversation-avatar">'+image+'</span><span class="app-mp-conversation-copy"><b>'+escapeHTML(c.otherParty||'WishWave member')+'</b><span class="app-mp-conversation-preview">'+escapeHTML(c.lastMessage||'Message')+'</span></span><span class="app-mp-conversation-side"><span class="app-mp-conversation-time">'+escapeHTML(appMpConversationTime(c.lastMessageAt))+'</span>'+(Number(c.unreadCount)>0?'<span class="app-mp-unread">'+(Number(c.unreadCount)>99?'99+':Number(c.unreadCount))+'</span>':'')+'</span></button>';
+      return '<button class="app-mp-conversation-card" type="button" onclick="appMpOpenConversation(\''+escapeAttr(c.id)+'\')"><span class="app-mp-conversation-avatar">'+image+'</span><span class="app-mp-conversation-copy"><b>'+escapeHTML(c.otherParty||'WishWave member')+'</b><span class="app-mp-conversation-preview">'+escapeHTML(c.lastMessage||'Start a conversation')+'</span></span><span class="app-mp-conversation-side"><span class="app-mp-conversation-time">'+escapeHTML(appMpConversationTime(c.lastMessageAt))+'</span>'+(Number(c.unreadCount)>0?'<span class="app-mp-unread">'+(Number(c.unreadCount)>99?'99+':Number(c.unreadCount))+'</span>':'')+'</span></button>';
     }).join('')+'</div>';
     if(preselect)appMpOpenConversation(preselect);
   };
@@ -13102,7 +13102,7 @@ window.addEventListener('load', function(){
   document.addEventListener('click',event=>{
     const panel=document.getElementById('findaiNotificationPanel');
     const bell=document.getElementById('homeNotificationButton');
-    if(panel&&panel.classList.contains('show')&&!panel.contains(event.target)&&!(bell&&bell.contains(event.target)))closeHomeNotifications();
+    if(panel&&panel.classList.contains('show')&&!panel.classList.contains('ww-unified-inbox')&&!panel.contains(event.target)&&!(bell&&bell.contains(event.target)))closeHomeNotifications();
   },true);
 
   setTimeout(()=>{loadHomeNotifications().catch(()=>{});},650);
@@ -36709,7 +36709,7 @@ html body.keyboard-open[data-active-tab="search"] .app #searchResults .premium-r
 <script src="wishwave-comments-motion.js?v=293"></script>
 <link rel="stylesheet" href="wishwave-create.css?v=429">
 <script src="wishwave-create.js?v=429"></script>
-<script src="wishwave-navigation-origins.js?v=455"></script>
+<script src="wishwave-navigation-origins.js?v=456"></script>
 <style id="wishwave-notification-dot-v316">
 html body #wishwaveMainNav #navNotificationsBadge{
  top:calc(50% - 16px)!important;left:calc(50% + 8px)!important;right:auto!important;
@@ -36950,8 +36950,8 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <link rel="stylesheet" href="wishwave-discovery-preferences.css?v=421">
 <script src="wishwave-discovery-preferences.js?v=421"></script>
 <script src="wishwave-home-controls.js?v=424"></script>
-<link rel="stylesheet" href="wishwave-inbox.css?v=441">
-<script src="wishwave-inbox.js?v=455"></script>
+<link rel="stylesheet" href="wishwave-inbox.css?v=456">
+<script src="wishwave-inbox.js?v=456"></script>
 <link rel="stylesheet" href="wishwave-search-filters.css?v=434">
 <script src="wishwave-search-filters.js?v=421"></script>
 <link rel="stylesheet" href="wishwave-profile-badges.css?v=430">

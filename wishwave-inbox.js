@@ -6,8 +6,11 @@ if(typeof module==='object'&&module.exports)module.exports={destination:wishwave
  const el=id=>document.getElementById(id),inbox=el('appMpInbox'),home=inbox?.parentNode;
  if(!inbox)return;
  const baseOpen=window.openAppMarketplaceInbox,baseConversation=window.appMpOpenConversation,baseBack=window.appMpInboxBack;
+ let sectionGeneration=0;
  let selection='messages',entry=0,fromInbox=false,composeToken=0,composeTimer,composeReturn;
- function closeCompose(){composeToken++;clearTimeout(composeTimer);el('wwComposeDialog')?.close();composeReturn?.focus();}
+ function closeCompose(){composeToken++;clearTimeout(composeTimer);el('wwComposeSearch')?.blur();el('wwComposeDialog')?.close();composeReturn?.focus({preventScroll:true});}
+ function composeViewport(){const dialog=el('wwComposeDialog');if(!dialog?.open)return;const v=window.visualViewport;dialog.style.setProperty('--compose-top',Math.max(12,(v?.offsetTop||0)+12)+'px');dialog.style.setProperty('--compose-height',Math.max(120,(v?.height||innerHeight)-24)+'px');}
+ window.visualViewport?.addEventListener('resize',composeViewport);window.visualViewport?.addEventListener('scroll',composeViewport);
  async function loadPeople(query){
   const token=++composeToken,account=owner(),root=el('wwComposePeople');root.textContent='Loading people…';
   try{const data=await marketplaceFetch('/social/send-suggestions'+(query?'?q='+encodeURIComponent(query):''),{method:'GET'});
@@ -22,7 +25,7 @@ if(typeof module==='object'&&module.exports)module.exports={destination:wishwave
     button.onclick=async()=>{const attempt=++composeToken;root.querySelectorAll('button').forEach(b=>b.disabled=true);el('wwComposeStatus').textContent='Opening conversation…';
      try{const result=person.conversationId?person:await marketplaceFetch('/social/message-user/'+encodeURIComponent(username),{method:'POST'});
       if(attempt!==composeToken||account!==owner()||!el('wwComposeDialog').open)return;
-      if(!result?.conversationId)throw Error('Could not start conversation');closeCompose();entry++;fromInbox=true;restore();inbox.classList.add('show');await window.appMpOpenConversation(String(result.conversationId));
+      if(!result?.conversationId)throw Error('Could not start conversation');closeCompose();entry++;fromInbox=true;appMpCurrentConversation=(appMpConversationList||[]).find(c=>String(c.id)===String(result.conversationId))||{id:String(result.conversationId),otherParty:person.displayName||username,otherPartyUsername:username,otherPartyAvatar:person.avatarUrl||''};await window.appMpOpenConversation(String(result.conversationId));
      }catch(error){if(attempt!==composeToken||account!==owner())return;el('wwComposeStatus').textContent='Could not open conversation. Please try again.';root.querySelectorAll('button').forEach(b=>b.disabled=false);}
     };root.appendChild(button);
    });
@@ -35,7 +38,7 @@ if(typeof module==='object'&&module.exports)module.exports={destination:wishwave
    document.body.appendChild(dialog);dialog.querySelector('header button').onclick=closeCompose;dialog.addEventListener('cancel',e=>{e.preventDefault();closeCompose();});dialog.addEventListener('click',e=>{if(e.target===dialog){const r=dialog.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeCompose();}});
    el('wwComposeSearch').oninput=e=>{composeToken++;clearTimeout(composeTimer);const q=e.target.value.trim();composeTimer=setTimeout(()=>loadPeople(q),200);};
   }
-  el('wwComposeSearch').value='';el('wwComposeStatus').textContent='';dialog.showModal();el('wwComposeSearch').focus();loadPeople('');
+  el('wwComposeSearch').value='';el('wwComposeStatus').textContent='';dialog.showModal();composeViewport();el('wwComposeSearch').focus({preventScroll:true});loadPeople('');
  }
  const owner=()=>String(marketplaceSession()||'guest');
  const key=()=> 'ww_inbox_section_v1:'+owner();
@@ -58,7 +61,7 @@ if(typeof module==='object'&&module.exports)module.exports={destination:wishwave
  }
  window.wishwaveInboxSection=async function(section){
   selection=section==='activity'?'activity':'messages';try{localStorage.setItem(key(),selection);}catch(_){}
-  const panel=ensure();if(!panel)return;panel.dataset.inboxSection=selection;sync();
+  const sectionRequest=++sectionGeneration,account=owner();const panel=ensure();if(!panel)return;panel.dataset.inboxSection=selection;sync();
   const guest=!marketplaceSession();panel.classList.toggle('ww-inbox-guest',guest);
   if(guest){
    restore();inbox.classList.remove('show','chat-open');
@@ -66,7 +69,7 @@ if(typeof module==='object'&&module.exports)module.exports={destination:wishwave
   }
   el('wwInboxMessages')?.querySelectorAll('.ww-guest-inbox-a').forEach(node=>node.remove());
   if(selection==='messages'){
-   fromInbox=true;inbox.classList.remove('chat-open');el('wwInboxMessages').appendChild(inbox);inbox.classList.add('ww-inbox-docked');await baseOpen.call(window);sync();
+   fromInbox=true;inbox.classList.remove('chat-open');el('wwInboxMessages').appendChild(inbox);inbox.classList.add('ww-inbox-docked');window.__wishwaveOpeningInboxRoot=true;let loading;try{loading=baseOpen.call(window);}finally{window.__wishwaveOpeningInboxRoot=false;}await loading;if(sectionRequest!==sectionGeneration||account!==owner())return;sync();
   }else{inbox.classList.remove('show');await window.findaiNotificationState?.load();sync();}
  };
  window.wishwaveOpenNotificationTab=window.openHomeNotifications=async function(){
@@ -80,8 +83,13 @@ if(typeof module==='object'&&module.exports)module.exports={destination:wishwave
  const chat=window.renderAppMpChat;window.renderAppMpChat=function(){restore();return chat.apply(this,arguments);};
  // Keep notification deep links and profile Message buttons on their existing paths.
  window.openMessagesTab=function(){return wishwaveOpenNotificationTab().then(()=>wishwaveInboxSection('messages'));};
- window.openAppMarketplaceInbox=function(){restore();fromInbox=false;return baseOpen.apply(this,arguments);};
- window.appMpOpenConversation=function(){restore();return baseConversation.apply(this,arguments);};
+ window.openAppMarketplaceInbox=function(preselect){if(preselect)return window.openMessagesTab().then(()=>window.appMpOpenConversation(String(preselect)));return window.openMessagesTab();};
+ window.appMpOpenConversation=function(){
+  const docked=inbox.classList.contains('ww-inbox-docked'),args=arguments;
+  const token=docked?window.__wishwaveWillOpenView?.('appMpInbox'):null;
+  const open=()=>{if(docked)fromInbox=true;sectionGeneration++;entry++;window.__wishwaveInboxRequest=(window.__wishwaveInboxRequest||0)+1;restore();inbox.classList.add('show');return baseConversation.apply(window,args);};
+  return token&&window.__wishwaveOpenChildView?window.__wishwaveOpenChildView(token,open):open();
+ };
  window.appMpInboxBack=function(){if(fromInbox){inbox.classList.remove('show','chat-open');appMpConversation='';clearInterval(appMpMessageTimer);clearInterval(appMpTypingTimer);return wishwaveOpenNotificationTab().then(()=>wishwaveInboxSection('messages'));}return baseBack.apply(this,arguments);};
  // A profile Message tap is one child conversation, never an intermediate
  // Messages root tab. Keep the profile until the chat has painted synchronously.
@@ -120,8 +128,9 @@ if(typeof module==='object'&&module.exports)module.exports={destination:wishwave
   authQueued=false;const next=owner(),changed=next!==sessionOwner;sessionOwner=next;
   const panel=el('findaiNotificationPanel'),host=el('wwInboxMessages');
   const stale=!!marketplaceSession()&&!!(panel?.classList.contains('ww-inbox-guest')||host?.querySelector('.ww-guest-inbox-a'));
+  const missing=panel?.classList.contains('show')&&panel.dataset.inboxSection==='messages'&&!inbox.classList.contains('chat-open')&&inbox.parentNode!==host;
   if(changed){profileMessageRequest++;entry++;fromInbox=false;restore();inbox.classList.remove('show','chat-open');}
-  if(changed||stale){
+  if(changed||stale||missing){
    if(marketplaceSession()){host?.querySelectorAll('.ww-guest-inbox-a').forEach(node=>node.remove());panel?.classList.remove('ww-inbox-guest');}
    if(el('notifications')?.classList.contains('active')&&panel?.classList.contains('show'))window.wishwaveInboxSection(selection).catch(()=>{});
   }
@@ -133,6 +142,49 @@ if(typeof module==='object'&&module.exports)module.exports={destination:wishwave
  }
  document.addEventListener('wishwave-origin-restored',queueSessionSync);
  window.addEventListener('storage',event=>{if(event.key==='findai_user'||event.key==='fa_account_profile_v1')queueSessionSync();});
+
+ const previewCache=new Map(),previewPending=new Set();
+ function previewOf(message){return String(message?.body||'').trim()||(message?.sharedItem?'Shared a listing':message?.imageUrl?'Photo':message?.attachments?.length?'Attachment':'');}
+ const listRender=window.renderAppMpConversationList;
+ window.renderAppMpConversationList=function(data,...args){
+  const account=owner(),rows=Array.isArray(data?.conversations)?data.conversations:[];
+  const prepared=rows.map(c=>{const saved=previewCache.get(account+'|'+c.id);return !String(c.lastMessage||'').trim()&&saved?{...c,...saved}:c;});
+  const out=listRender.call(this,{...data,conversations:prepared},...args);
+  prepared.filter(c=>!String(c.lastMessage||'').trim()).slice(0,12).forEach(c=>{
+   const key=account+'|'+c.id;if(previewPending.has(key)||previewCache.has(key))return;previewPending.add(key);
+   marketplaceFetch('/marketplace/conversations/'+encodeURIComponent(c.id)+'/messages?markRead=0',{method:'GET'}).then(result=>{
+    if(account!==owner())return;const message=[...(result.messages||[])].reverse().find(m=>previewOf(m));
+    const saved={lastMessage:message?previewOf(message):'Start a conversation',lastMessageAt:message?.createdAt||c.lastMessageAt};previewCache.set(key,saved);
+    const current=(appMpConversationList||[]).find(row=>String(row.id)===String(c.id));if(current&&!String(current.lastMessage||'').trim())Object.assign(current,saved);
+    if(inbox.classList.contains('show')&&!inbox.classList.contains('chat-open'))listRender.call(window,{conversations:appMpConversationList},false,'');
+   }).catch(()=>{}).finally(()=>previewPending.delete(key));
+  });return out;
+ };
+ // Root Inbox gestures take priority over child-page return handlers.
+ let gesture=null;
+ window.__wishwaveInboxTouch=function(type,event){
+  const panel=el('findaiNotificationPanel');
+  if(type==='touchstart'){
+   gesture=null;if(!panel?.classList.contains('show')||document.body.dataset.activeTab!=='notifications'||inbox.classList.contains('chat-open')||!panel.contains(event.target)||event.touches.length!==1||event.target.closest('input,textarea,select,[contenteditable],button:not(.app-mp-conversation-card):not([data-inbox-section])'))return false;
+   const p=event.touches[0];gesture={x:p.clientX,y:p.clientY,start:event,section:selection,axis:''};return true;
+  }
+  const g=gesture;if(!g)return false;
+  if(type==='touchmove'){
+   const p=event.touches[0];if(!p){gesture=null;return true;}const dx=p.clientX-g.x,dy=p.clientY-g.y;
+   if(!g.axis){if(Math.max(Math.abs(dx),Math.abs(dy))<8)return true;if(Math.abs(dy)>Math.abs(dx)*.8){gesture=null;return false;}
+    g.internal=g.section==='messages'&&dx<0||g.section==='activity'&&dx>0;g.axis='horizontal';
+    if(!g.internal)window.__wishwaveTabTouch?.('touchstart',g.start);
+   }
+   g.dx=dx;if(!g.internal)window.__wishwaveTabTouch?.(type,event);if(event.cancelable)event.preventDefault();return true;
+  }
+  if(type==='touchend'||type==='touchcancel'){
+   gesture=null;if(g.axis==='horizontal'){
+    if(g.internal){if(type==='touchend'&&Math.abs(g.dx)>55){entry++;window.wishwaveInboxSection(g.section==='messages'?'activity':'messages');try{haptic();}catch(_){}}}
+    else window.__wishwaveTabTouch?.(type,event);
+   }return true;
+  }return false;
+ };
+
  const badge=window.appRefreshMarketplaceBadge;if(badge)window.appRefreshMarketplaceBadge=async function(){try{return await badge.apply(this,arguments);}finally{sync();}};
  const notice=window.setHomeNotificationState;window.setHomeNotificationState=function(){const out=notice?.apply(this,arguments);sync();return out;};
  document.addEventListener('wishwave-recommendation-account-change',()=>{closeCompose();entry++;fromInbox=false;restore();inbox.classList.remove('show','chat-open');selection='messages';queueSessionSync();});

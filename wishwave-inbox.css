@@ -63,3 +63,9 @@ html body .app #profile #profileSignedOut .guest-profile-signin>b{font-size:21px
 html body .app #profile #profileSignedOut .guest-profile-signin>span{max-width:300px!important;margin:14px 0 24px!important;font-size:14px!important;line-height:1.5!important;color:#989da6!important}
 html.findai-light body .app #wwInboxMessages .ww-guest-inbox-a{color:#111214}
 @media(max-height:700px){html body .app #wwInboxMessages .ww-guest-inbox-a{padding-top:24px}html body .app #profile #profileSignedOut .guest-profile-signin{min-height:290px!important;padding-top:20px!important}.ww-guest-inbox-a>svg{margin-bottom:16px}}
+
+/* Keep the recipient picker inside the visual viewport when iOS opens a keyboard. */
+html body #wwComposeDialog{position:fixed!important;inset:auto!important;top:max(var(--compose-top,12px),calc(env(safe-area-inset-top,0px) + 12px))!important;left:50%!important;transform:translateX(-50%)!important;margin:0!important;width:min(420px,calc(100% - 24px))!important;height:min(560px,calc(var(--compose-height,calc(100dvh - 24px)) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)))!important;max-height:var(--compose-height,calc(100dvh - 24px))!important;overflow:hidden!important;padding:16px!important;}
+html body #wwComposeDialog[open]{display:flex!important;flex-direction:column!important;}
+#wwComposeDialog header,#wwComposeSearch,#wwComposeStatus{flex-shrink:0;}
+#wwComposePeople{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;}
