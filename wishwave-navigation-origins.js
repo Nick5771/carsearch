@@ -18,9 +18,13 @@
   const layers=visible(),main=String(document.body.dataset.activeTab||'discover');
   const candidates=layers.filter(el=>target&&el.contains(target));
   const front=candidates.sort((a,b)=>a.contains(b)?1:b.contains(a)?-1:0)[0]||layers.reduce((top,el)=>!top||(parseInt(getComputedStyle(el).zIndex,10)||0)>=(parseInt(getComputedStyle(top).zIndex,10)||0)?el:top,null);
+  const inboxRoot=node('appMpInbox'),previewPanel=node('findaiNotificationPanel');
+  const previewInbox=!!inboxRoot?.classList.contains('ww-inbox-docked')&&!inboxRoot.classList.contains('chat-open')&&(front===inboxRoot||front===previewPanel);
+  const presentation=new Map(),paintKeys=['display','width','height','min-width','min-height','max-width','padding','margin','gap','font','font-size','font-weight','line-height','letter-spacing','color','background','border','border-radius','box-shadow','box-sizing','align-items','justify-content','opacity','visibility'];
+  function previewPaint(part){if(!previewInbox||!previewPanel?.contains(part))return null;if(!presentation.has(part)){const style=getComputedStyle(part);presentation.set(part,paintKeys.map(key=>[key,style.getPropertyValue(key)]));}return presentation.get(part);}
   const screens=Array.from(document.querySelectorAll('.screen')).map(el=>[el,el.classList.contains('active')]);
-  const scroll=Array.from(document.querySelectorAll('.app *')).filter(el=>el.scrollTop||el.scrollLeft).map(el=>[el,el.scrollTop,el.scrollLeft]);
-  return {main,front,screens,scroll,collections:['socialProfileContent','premiumDiscoverySections','premiumResultsGrid'].map(id=>node(id)).filter(Boolean).map(el=>({el,children:Array.from(el.childNodes)})),layers:layers.map(el=>({el,classes:el.className,hidden:el.hidden,children:Array.from(el.childNodes),markup:el.innerHTML,tree:[el,...el.querySelectorAll('*')].map(part=>({el:part,children:Array.from(part.childNodes),attrs:Array.from(part.attributes).map(a=>[a.name,a.value])})),dataset:{...el.dataset}})),
+  const scroll=Array.from(document.querySelectorAll('.app :is(.screen,[class*="scroll"],.reel-feed,.app-mp-messages,.app-mp-inbox-body,.app-mp-conversation-list,.findai-notification-list,.app-theme-sheet,.app-mp-sheet-body,.ww-connections-rows,.ww-search-feed-tabs)')).filter(el=>el.scrollTop||el.scrollLeft).map(el=>[el,el.scrollTop,el.scrollLeft]);
+  return {main,front,screens,scroll,collections:['socialProfileContent','premiumDiscoverySections','premiumResultsGrid'].map(id=>node(id)).filter(Boolean).map(el=>({el,children:Array.from(el.childNodes)})),layers:layers.map(el=>({el,classes:el.className,hidden:el.hidden,children:Array.from(el.childNodes),markup:el.innerHTML,tree:[el,...el.querySelectorAll('*')].map(part=>({el:part,children:Array.from(part.childNodes),attrs:Array.from(part.attributes).map(a=>[a.name,a.value]),presentation:previewPaint(part)})),dataset:{...el.dataset}})),
    profileTab:typeof socialProfileTab==='undefined'?null:socialProfileTab,
    feed:{items:currentFeedItems,data:currentFeedData,state:feedState,index:activeReelIndex},
    results:{items:premiumResultItems,data:premiumResultData,query:premiumResultQuery,page:premiumResultPage,cursor:premiumResultCursor,more:premiumResultHasMore,compare:premiumCompareContext},
@@ -59,6 +63,8 @@
   }finally{restoring=false;queueMicrotask(()=>{window.__wishwaveRestoringOrigin=false;});}
  }
  function origin(){
+  const captured=intent?.epoch===epoch&&Date.now()-intent.at<1000?intent.saved:null;
+  if(captured&&captured.main===String(document.body.dataset.activeTab||'discover')&&visible().every(el=>captured.layers.some(layer=>layer.el===el)))return captured;
   const current=snapshot(intent?.epoch===epoch?intent.target:null);
   // Some inline handlers close their sheet before calling the next opener.
   // The capture-phase click still owns the original, visible parent.
@@ -126,9 +132,9 @@
   // Reused containers (inbox/chat) need a visual of the saved parent while the
   // live container moves. Build from its saved tree, not the current chat DOM.
   const copies=new Map();
-  for(const part of layer.tree){const copy=part.el.cloneNode(false);for(const attr of Array.from(copy.attributes))copy.removeAttribute(attr.name);for(const [name,value] of part.attrs)if(name==='id')copy.dataset.inboxPreviewId=value;else if(!/^on/i.test(name))copy.setAttribute(name,value);copies.set(part.el,copy);}
+  for(const part of layer.tree){const copy=part.el.cloneNode(false);for(const attr of Array.from(copy.attributes))copy.removeAttribute(attr.name);for(const [name,value] of part.attrs)if(name==='id')copy.dataset.inboxPreviewId=value;else if(!/^on/i.test(name))copy.setAttribute(name,value);for(const [key,value] of part.presentation||[])if(value)copy.style.setProperty(key,value,'important');copies.set(part.el,copy);}
   for(const part of layer.tree)copies.get(part.el).replaceChildren(...part.children.map(child=>copies.get(child)||child.cloneNode(true)));
-  const preview=copies.get(layer.el);if(layer.el.id==='appMpInbox'){preview.removeAttribute('id');preview.classList.remove('chat-open','direct-message-chat');preview.classList.add('show','wishwave-inbox-preview','wishwave-inbox-clone');}else {preview.id=layer.el.id;preview.classList.add('show');}preview.dataset.originPreview='1';preview.setAttribute('aria-hidden','true');preview.inert=true;
+  const preview=copies.get(layer.el);if(layer.el.id==='appMpInbox'){preview.removeAttribute('id');preview.classList.remove('chat-open','direct-message-chat');preview.classList.add('show','wishwave-inbox-preview','wishwave-inbox-clone');}else if(layer.el.id==='findaiNotificationPanel'){preview.classList.add('show','ww-inbox-return-preview');}else {preview.id=layer.el.id;preview.classList.add('show');}preview.dataset.originPreview='1';preview.setAttribute('aria-hidden','true');preview.inert=true;
   preview.style.setProperty('z-index','999999','important');preview.style.setProperty('pointer-events','none','important');preview.style.setProperty('background',getComputedStyle(layer.el).backgroundColor||'#0c0d0f','important');preview.style.setProperty('color',getComputedStyle(layer.el).color||'#fff','important');
   document.querySelector('.app').appendChild(preview);
   for(const [el,y,x] of saved.scroll){const copy=copies.get(el);if(copy){copy.scrollTop=y;copy.scrollLeft=x;}}
@@ -142,6 +148,9 @@
   return {root,kind:isReel?'searchReel':root.id,originBound:true,open:()=>shown(root),back:()=>back(entry),
    prepareUnder(){
     under=entry.saved.front||entry.saved.layers.at(-1)?.el||node(entry.saved.main==='messages'?'appMpInbox':entry.saved.main);
+    const docked=root.id==='appMpInbox'&&entry.saved.layers.find(layer=>layer.el===root)?.classes.includes('ww-inbox-docked');
+    const inboxParent=docked&&entry.saved.layers.find(layer=>layer.el.id==='findaiNotificationPanel'&&(entry.saved.front===root||entry.saved.front===layer.el));
+    if(inboxParent){preview=savedPreview(inboxParent,entry.saved);under=preview;}
     if(under===root){preview=savedPreview(entry.saved.layers.find(x=>x.el===root),entry.saved);under=preview;}
     if(under&&under!==root){
      underActive=under.classList.contains('active');underShown=shown(under);
@@ -166,6 +175,7 @@
   };
  };
  window.__wishwaveOriginClick=function(event){
+  if(window.__wishwaveInboxBlockClick?.(event))return true;
   if(event.target.closest?.('.premium-bottom-nav')){stack.length=0;intent=null;pending=null;epoch++;return false;}
   const entry=entryFor(event.target),button=event.target.closest?.('button'),action=button?.getAttribute('onclick')?.trim()||'';
   if(entry&&button&&(/^(?:close\w+|__wishwaveCloseSearchReelV186|wishwaveCloseCheckout)\(\);?$/.test(action)||button.getAttribute('aria-label')==='Back')){
@@ -173,7 +183,7 @@
   }
   // Only navigation needs the full DOM snapshot. Explicitly skip local actions;
   // unknown/listener-based controls retain their pre-click parent for Back.
-  const local=event.target.closest?.('.reel-social-action.like,.reel-social-action.bookmark,.premium-card-like,.wishwave-detail-save,input,textarea,[contenteditable="true"],.findai-recent-remove,.findai-recents-clear');
+  const local=event.target.closest?.('.reel-social-action.like,.reel-social-action.bookmark,.premium-card-like,.wishwave-detail-save,input,textarea,[contenteditable="true"],.findai-recent-remove,.findai-recents-clear,#wwInboxTabs,#wwInboxCompose,.social-profile-tabs,.wishwave-public-profile-tabs');
   intent=local?null:{saved:snapshot(event.target),target:event.target,at:Date.now(),epoch};return false;
  };
  window.__wishwaveOriginNav=function(event){if(event.target.closest?.('.premium-bottom-nav')){stack.length=0;intent=null;pending=null;epoch++;}};
