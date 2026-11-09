@@ -5856,16 +5856,21 @@ function renderPersonalisedFeed(items,{writeCache=true}={}){
   items=window.wishwaveDiscoverySurfaces?.partition(items,'home')||items;
   if(window.wishwaveAdmitRecommendations){const admission=wishwaveAdmitRecommendations(items,[],60);feedState.backlog=admission.deferred.slice(0,480);items=admission.items;}
   items=window.wishwaveDiscoverySurfaces?.claim(items,'home')||items;
+  const feed=appActiveFeedElement();
+  // An empty filtered batch does not establish a loading failure. Other opening
+  // lanes and background replenishment may still deliver the first listing.
+  if(!items.length){
+    if(!feed.querySelector('.reel-card')){
+      currentFeedItems=[];currentFeedData={personalised:true};activeReelIndex=0;
+      renderLoading();
+    }
+    return;
+  }
   currentFeedItems=items;wishwaveMarkDelivered(items);window.wishwaveDiscoveryRotation?.served(items.slice(0,20));
   currentFeedData={personalised:true};
   activeReelIndex=0;
-  const feed=appActiveFeedElement();
   clearAppSearchLoading();
   feed.classList.remove('search-grid-mode');
-  if(!items.length){
-    feed.innerHTML='<div class="feed-status"><div><b>Couldn\'t load the feed</b>Check your connection and try again.<br><button class="retry-btn" onclick="loadPersonalisedFeed({showToast:true,forceNetwork:true})">Try again</button></div></div>';
-    return;
-  }
   feed.innerHTML=items.map((item,index)=>renderReelCard(item,index,currentFeedData)).join('');
   feed.scrollTop=0;
   feedHeaderLastScrollTop=0;
@@ -5899,7 +5904,10 @@ let wishwaveCancelStartupRecovery=null;
 function recoverPersonalisedStartup(state,controller,attempt=0){
   wishwaveCancelStartupRecovery?.();
   const root=$('#personalFeed'),retry=attempt<2;
-  if(root)root.innerHTML='<div class="feed-status" role="status"><div><b>'+(!navigator.onLine?'You’re offline':retry?'Loading fresh finds…':'Fresh listings are temporarily unavailable')+'</b>'+(!navigator.onLine?'Reconnect to load your feed.':retry?'Trying again automatically.':'Try again in a moment.')+'<br><button class="retry-btn" onclick="loadPersonalisedFeed({forceNetwork:true})">Try again</button></div></div>';
+  if(root){
+    if(navigator.onLine&&retry)root.innerHTML='<div class="reel-loading-splash plain-feed-loading" role="status" aria-label="Loading products"><div class="feed-more-spinner"></div></div>';
+    else root.innerHTML='<div class="feed-status" role="status"><div><b>'+(!navigator.onLine?'You’re offline':'Fresh listings are temporarily unavailable')+'</b>'+(!navigator.onLine?'Reconnect to load your feed.':'Try again in a moment.')+'<br><button class="retry-btn" onclick="loadPersonalisedFeed({forceNetwork:true})">Try again</button></div></div>';
+  }
   let timer=null,done=false;
   const cancel=()=>{done=true;clearTimeout(timer);window.removeEventListener('online',resume);document.removeEventListener('visibilitychange',resume);if(wishwaveCancelStartupRecovery===cancel)wishwaveCancelStartupRecovery=null;};
   const resume=()=>{
@@ -5931,7 +5939,7 @@ async function loadPersonalisedFeed({showToast=false,forceNetwork=false,recovery
   feedState={
     query:'for-you',resolvedQuery:'for-you',source:'personalised',preserveExact:false,strictHybrid:false,scanRequiredTokens:[],
     page:1,cursor:null,loading:true,hasMore:true,noNewPages:0,fallbackIndex:0,fallbackQueries:[],seen:new Set(),
-    familyCounts:new Map(),interests:lanes,laneCursor:0,cacheSignature
+    familyCounts:new Map(),interests:lanes,laneCursor:0,cacheSignature,startupRecoveryAttempt:recoveryAttempt
   };
 
   // A new curated visit must draw fresh inventory and rank unseen offers first.
@@ -6158,7 +6166,9 @@ async function performLoadMorePersonalisedListings(){
         appendFeedItems(fresh,currentFeedData);writePersonalisedCache();if(currentFeedItems.length>before)return;
       }
     }
-    if(feedState===state&&!document.getElementById('wishwaveHomeMoreRetry'))$('#personalFeed')?.insertAdjacentHTML('beforeend','<div id="wishwaveHomeMoreRetry" class="feed-status"><button class="retry-btn" onclick="this.parentElement.remove();loadMorePersonalisedListings()">Find more products</button></div>');
+    if(feedState===state&&!currentFeedItems.length){
+      if(!state.initialPool?.pending)recoverPersonalisedStartup(state,feedRequestController,state.startupRecoveryAttempt||0);
+    }else if(feedState===state&&!document.getElementById('wishwaveHomeMoreRetry'))$('#personalFeed')?.insertAdjacentHTML('beforeend','<div id="wishwaveHomeMoreRetry" class="feed-status"><button class="retry-btn" onclick="this.parentElement.remove();loadMorePersonalisedListings()">Find more products</button></div>');
   }finally{if(feedState===state)state.loading=false;}
 }
 function showFeedHeader(){
@@ -7146,6 +7156,11 @@ function appendFeedItems(items,data){
     requestAnimationFrame(()=>{ feed.scrollTop=keepTop; });
     setTimeout(()=>recordWishWaveSearchImpressions(items),30);
     return;
+  }
+  if(start===0){
+    // A late first result replaces startup chrome instead of sitting below it.
+    feed.querySelectorAll('.plain-feed-loading,.feed-status').forEach(node=>node.remove());
+    feed.scrollTop=0;activeReelIndex=0;
   }
   feed.insertAdjacentHTML('beforeend',items.map((item,index)=>renderReelCard(item,start+index,data)).join(''));
   if(reelObserver){
