@@ -85,15 +85,15 @@
  <section class="ww-discovery-group"><h3>Your interests</h3><p class="ww-discovery-hint">Add or remove topics to shape your feed.</p><div class="ww-discovery-chips" data-more></div></section>
  <section class="ww-discovery-editor" data-editor hidden><h3 data-editor-title></h3><div data-actions></div></section>
  <section class="ww-discovery-add" data-add-form hidden><label for="wwDiscoveryTopic">Add an interest</label><div><input id="wwDiscoveryTopic" maxlength="64" placeholder="Brand, franchise or collectible" list="wwDiscoverySuggestions" autocomplete="off"><button type="button" data-add>Add</button><button type="button" data-cancel-add aria-label="Cancel adding interest">×</button></div><datalist id="wwDiscoverySuggestions"></datalist><p data-add-feedback role="status"></p></section>
- <p class="ww-discovery-autosave">Changes save automatically</p><p data-save-error role="alert"></p><div class="ww-discovery-status" role="status" hidden><span data-status></span><button type="button" data-undo>Undo</button></div>`;
+ <p data-save-error role="alert"></p><div class="ww-discovery-status" role="status" hidden><span data-status></span><button type="button" data-undo>Undo</button></div>`;
  document.body.append(dialog);for(const topic of suggestions){const o=document.createElement('option');o.value=topic;dialog.querySelector('datalist').append(o);}
- let draft=null,focusBefore=null,draftOwner='',dirty=false,undoState=null,addPreference='more',expanded={more:false,less:false};const el=s=>dialog.querySelector(s);
+ let draft=null,focusBefore=null,draftOwner='',feedSaveTimer=0,undoState=null,addPreference='more',expanded={more:false,less:false};const el=s=>dialog.querySelector(s);
  function button(text,action,label){const b=document.createElement('button');b.type='button';b.textContent=text;if(label)b.setAttribute('aria-label',label);b.onclick=action;return b;}
  function commit(next,message='Preferences updated'){
   if(owner()!==draftOwner){dialog.close();return false;}
-  const previous=valid(read());next={...next,observations:previous.observations};
+  const previous=valid(read());next={...next,observations:previous.observations};if(JSON.stringify(valid(next))===JSON.stringify(previous))return true;
   if(!persist(next)){el('[data-save-error]').textContent='Could not save your choices. Please try again.';return false;}
-  undoState=previous;draft=valid(read());dirty=true;el('[data-save-error]').textContent='';el('[data-status]').textContent=message;el('.ww-discovery-status').hidden=false;changed();paintTopics();return true;
+  undoState=previous;draft=valid(read());el('[data-save-error]').textContent='';el('[data-status]').textContent=message;el('.ww-discovery-status').hidden=false;paintTopics();refresh();return true;
  }
  function choose(topic,preference){const k=normal(topic),next=valid(read());
   // Replace old full-title choices belonging to this grouped topic as well.
@@ -124,7 +124,7 @@
   /* Legacy hidden/less choices remain effective, without extra control sections. */
 
  }
- function open(){closing=false;root.wishwaveMotion?.cancel(dialog);draft=valid(read());draftOwner=owner();dirty=false;undoState=null;expanded={more:false,less:false};focusBefore=document.activeElement;el('[data-save-error]').textContent='';el('.ww-discovery-status').hidden=true;el('[data-editor]').hidden=true;el('[data-add-form]').hidden=true;for(const d of dialog.querySelectorAll('details'))d.open=false;el('[data-feed-min]').value=draft.feed.min;el('[data-feed-max]').value=draft.feed.max;el('[data-feed-error]').textContent='';paintTopics();document.querySelector('#discover .ww-home-filter')?.setAttribute('aria-expanded','true');if(!dialog.open)dialog.showModal();root.wishwaveMotion?.enter(dialog,'sheet');el('#wwDiscoveryTitle').focus();}
+ function open(){clearTimeout(feedSaveTimer);closing=false;dialog.classList.remove('ww-discovery-closing');root.wishwaveMotion?.cancel(dialog);draft=valid(read());draftOwner=owner();undoState=null;expanded={more:false,less:false};focusBefore=document.activeElement;el('[data-save-error]').textContent='';el('.ww-discovery-status').hidden=true;el('[data-editor]').hidden=true;el('[data-add-form]').hidden=true;for(const d of dialog.querySelectorAll('details'))d.open=false;el('[data-feed-min]').value=draft.feed.min;el('[data-feed-max]').value=draft.feed.max;el('[data-feed-error]').textContent='';paintTopics();document.querySelector('#discover .ww-home-filter')?.setAttribute('aria-expanded','true');if(!dialog.open)dialog.showModal();root.wishwaveMotion?.enter(dialog,'sheet');el('#wwDiscoveryTitle').focus();}
  function saveFeed(){
   const min=el('[data-feed-min]').value,max=el('[data-feed-max]').value;
   const inputs=[el('[data-feed-min]'),el('[data-feed-max]')];
@@ -132,14 +132,14 @@
   el('[data-feed-error]').textContent='';const next=valid(read());next.feed={...next.feed,min,max};commit(next);
  }
  for(const b of dialog.querySelectorAll('[data-location]'))b.onclick=()=>{const next=valid(read());next.feed.location=b.dataset.location;commit(next);};
- for(const input of dialog.querySelectorAll('[data-feed-min],[data-feed-max]'))input.addEventListener('change',saveFeed);
- el('[data-close]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{document.querySelector('#discover .ww-home-filter')?.setAttribute('aria-expanded',String(!!document.getElementById('wwHomeFilters')?.open));if(dirty&&owner()===draftOwner){dirty=false;refresh();}focusBefore?.focus();});
+ for(const input of dialog.querySelectorAll('[data-feed-min],[data-feed-max]')){input.addEventListener('input',()=>{clearTimeout(feedSaveTimer);feedSaveTimer=setTimeout(saveFeed,300);});input.addEventListener('change',()=>{clearTimeout(feedSaveTimer);saveFeed();});}
+ el('[data-close]').onclick=()=>dialog.close();dialog.addEventListener('close',()=>{document.querySelector('#discover .ww-home-filter')?.setAttribute('aria-expanded',String(!!document.getElementById('wwHomeFilters')?.open));focusBefore?.focus();});
  dialog.addEventListener('click',event=>{if(event.target!==dialog)return;const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();});
  function add(){const topic=clean(el('#wwDiscoveryTopic').value);if(topic.length<2){el('[data-add-feedback]').textContent='Enter at least two characters.';return;}if(choose(topic,addPreference)){el('[data-add-form]').hidden=true;el('[data-'+addPreference+'] button')?.focus();}}
  el('[data-add]').onclick=add;el('[data-cancel-add]').onclick=()=>{el('[data-add-form]').hidden=true;el('[data-'+addPreference+'] button')?.focus();};el('#wwDiscoveryTopic').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();add();}});
  el('[data-undo]').onclick=()=>{if(undoState){const previous=undoState;if(commit({...previous,observations:read().observations},'Change undone')){undoState=null;el('.ww-discovery-status').hidden=true;el('[data-feed-min]').value=draft.feed.min;el('[data-feed-max]').value=draft.feed.max;el('[data-more] button')?.focus();}}};
  const nativeClose=dialog.close.bind(dialog);let closing=false;
- dialog.close=function(){if(!dialog.open)return;if(owner()!==draftOwner||!root.wishwaveMotion){nativeClose();return;}if(closing)return;closing=true;root.wishwaveMotion.leave(dialog,()=>{closing=false;nativeClose();},'sheet').then(ok=>{if(!ok)closing=false;});};
+ dialog.close=function(){clearTimeout(feedSaveTimer);if(!dialog.open)return;if(owner()===draftOwner)saveFeed();if(owner()!==draftOwner||!root.wishwaveMotion){nativeClose();return;}if(closing)return;closing=true;dialog.classList.add('ww-discovery-closing');root.wishwaveMotion.leave(dialog,()=>{closing=false;nativeClose();dialog.classList.remove('ww-discovery-closing');},'sheet').then(ok=>{if(!ok){closing=false;dialog.classList.remove('ww-discovery-closing');}});};
  dialog.addEventListener('cancel',event=>{event.preventDefault();dialog.close();});
  root.wishwaveOpenDiscoveryPreferences=open;
  document.addEventListener('wishwave-recommendation-account-change',()=>{cacheRaw=null;if(dialog.open)dialog.close();changed();});

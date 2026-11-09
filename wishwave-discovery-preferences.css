@@ -91,11 +91,18 @@ html.findai-light #wwDiscoveryPreferences .ww-discovery-location button[aria-pre
 #wwDiscoveryPreferences .ww-discovery-location::before{content:'';position:absolute;inset:3px auto 3px 3px;width:calc(50% - 3px);border-radius:999px;background:#535861;transform:translateX(0);transition:transform var(--ww-motion-duration,280ms) var(--ww-motion-ease,cubic-bezier(.22,.8,.22,1));pointer-events:none;z-index:-1;}
 #wwDiscoveryPreferences .ww-discovery-location[data-location=AU]::before{transform:translateX(100%);}
 #wwDiscoveryPreferences .ww-discovery-location button[aria-pressed=true],html.findai-light #wwDiscoveryPreferences .ww-discovery-location button[aria-pressed=true]{background:transparent;}
-#wwDiscoveryPreferences .ww-discovery-topic-chip{background:#ef174b14;border-color:#ef174b70;}
-#wwDiscoveryPreferences .ww-discovery-topic-label{color:#fff;}
-#wwDiscoveryPreferences .ww-discovery-dismiss{color:#c6a8b0;}
+#wwDiscoveryPreferences .ww-discovery-topic-chip{background:var(--dp-panel);border-color:var(--dp-line);}
+#wwDiscoveryPreferences .ww-discovery-topic-label{color:#ff4776;}
+#wwDiscoveryPreferences .ww-discovery-dismiss{color:var(--dp-muted);}
 html.findai-light #wwDiscoveryPreferences .ww-discovery-location::before{background:#dfe2e7;}
-html.findai-light #wwDiscoveryPreferences .ww-discovery-topic-chip{background:#fff0f3;border-color:#e5224b70;}
-html.findai-light #wwDiscoveryPreferences .ww-discovery-topic-label{color:#202126;}
-html.findai-light #wwDiscoveryPreferences .ww-discovery-dismiss{color:#87626d;}
+html.findai-light #wwDiscoveryPreferences .ww-discovery-topic-chip{background:var(--dp-panel);border-color:var(--dp-line);}
+html.findai-light #wwDiscoveryPreferences .ww-discovery-topic-label{color:#ff4776;}
+html.findai-light #wwDiscoveryPreferences .ww-discovery-dismiss{color:var(--dp-muted);}
 @media(prefers-reduced-motion:reduce){#wwDiscoveryPreferences .ww-discovery-location::before{transition:none;}}
+
+/* The modal scrim exits with the panel, never as a second dimmed frame. */
+#wwDiscoveryPreferences[open]::backdrop{animation:ww-discovery-scrim-in var(--ww-motion-duration,280ms) var(--ww-motion-ease,ease) both;}
+#wwDiscoveryPreferences.ww-discovery-closing::backdrop{animation:ww-discovery-scrim-out var(--ww-motion-duration,280ms) var(--ww-motion-ease,ease) both;}
+@keyframes ww-discovery-scrim-in{from{background-color:transparent}to{background-color:#0009}}
+@keyframes ww-discovery-scrim-out{from{background-color:#0009}to{background-color:transparent}}
+@media(prefers-reduced-motion:reduce){#wwDiscoveryPreferences[open]::backdrop{animation:none;}}
