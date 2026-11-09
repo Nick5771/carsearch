@@ -34935,12 +34935,15 @@ html body .app:has(#wwCheckout.show) #wishwaveMainNav{visibility:visible!importa
  const icons={back:'<path d="m15 18-6-6 6-6"/>',pin:'<path d="M20 10c0 6-8 11-8 11S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="3"/>',truck:'<path d="M2 5h12v12H2zM14 9h4l4 4v4h-8"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>',card:'<rect x="2" y="4" width="20" height="16" rx="3"/><path d="M2 9h20M6 15h4"/>',arrow:'<path d="m9 5 7 7-7 7"/>',lock:'<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>'};
  const icon=key=>'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+icons[key]+'</svg>';
  const cash=minor=>appMpMoney(Number(minor)/100,state.listing.currency);
+ function addressSummary(){const a=state.deliveryAddress;if(!a)return state.postal?escapeHTML(state.postal+' · '+countryName(state.country)):'Add your address · '+escapeHTML(countryName(state.country));return [a.name,a.address.line1,a.address.line2,[a.address.city,a.address.state,a.address.postal_code].filter(Boolean).join(' '),countryName(a.address.country)].filter(Boolean).map(escapeHTML).join('<br>');}
+ function addressField(id,label,autocomplete,value,required=true,max=150){return '<label class="wwc-address-field" for="'+id+'"><span>'+label+'</span><input id="'+id+'" name="'+autocomplete+'" autocomplete="shipping '+autocomplete+'" maxlength="'+max+'" '+(required?'required':'')+' value="'+escapeAttr(value||'')+'"></label>';}
+
  function render(){
   if(!state)return;cleanElements();const l=state.listing,q=state.quote,title=escapeHTML(l.title||'WishWave listing'),image=(l.images||[])[0]||l.image||'',shipping=state.shippingMinor,known=Number.isFinite(shipping),free=known&&shipping===0;
   const ready=!!state.config?.stripeTestMode&&/^pk_test_/.test(state.config?.stripeTestPublishableKey||'');
   root.innerHTML='<header class="wwc-head"><button class="wwc-back" onclick="wishwaveCloseCheckout()" aria-label="Back to listing">'+icon('back')+'</button><h1>Checkout</h1><span></span></header><div class="wwc-scroll">'+
    '<section class="wwc-item">'+(image?'<img src="'+escapeAttr(image)+'" alt="'+escapeAttr(l.title||'Listing image')+'">':'')+'<div class="wwc-copy"><h2>'+title+'</h2><div class="wwc-muted">'+escapeHTML(l.condition||'')+' · Qty: 1</div></div><div class="wwc-item-price">'+cash(Math.round(Number(l.price)*100))+'</div></section>'+
-   '<section class="wwc-section"><h2>Delivery</h2><button class="wwc-delivery wwc-address" onclick="wishwaveCheckoutLocation()">'+icon('pin')+'<span><b>Delivery address</b><span class="wwc-muted">'+(state.postal?escapeHTML(state.postal+' · '+countryName(state.country)):'Add your address · '+escapeHTML(countryName(state.country)))+'</span></span>'+icon('arrow')+'</button><div id="wwCheckoutLocation"></div>'+
+   '<section class="wwc-section"><h2>Delivery</h2><button class="wwc-delivery wwc-address" onclick="wishwaveCheckoutLocation()">'+icon('pin')+'<span><b>Delivery address</b><span class="wwc-muted">'+addressSummary()+'</span></span>'+icon('arrow')+'</button><div id="wwCheckoutLocation"></div>'+
    '<div class="wwc-delivery wwc-shipping">'+icon('truck')+'<div><b>Shipping</b>'+(!free||state.deliveryEstimate?'<div class="wwc-muted">'+escapeHTML(state.deliveryEstimate||[state.shippingCarrier,state.shippingService].filter(Boolean).join(' · ')||(known?'Seller delivery':'Enter a postal code for a quote'))+'</div>':'')+'</div><b class="'+(free?'wwc-free':'')+'">'+(free?'Free':known?cash(shipping):'Calculated')+'</b></div></section>'+
    '<section class="wwc-section" id="wwCheckoutPayment"><h2>Payment</h2><button class="wwc-delivery wwc-payment-open" onclick="wishwaveCheckoutContinue()" '+(!q||!ready||state.busy?'disabled':'')+'>'+icon('card')+'<span><b>Add payment method</b><span class="wwc-muted">'+(ready?'Choose securely in the next step · Test mode':'Payments are not available yet')+'</span></span>'+icon('arrow')+'</button></section>'+
    '<section class="wwc-section wwc-summary"><h2>Order summary</h2><div class="wwc-total-row"><span>Item</span><strong>'+cash(Math.round(Number(l.price)*100))+'</strong></div><div class="wwc-total-row"><span>Shipping</span><strong class="'+(free?'wwc-free':'')+'">'+(free?'Free':known?cash(shipping):'To calculate')+'</strong></div><div class="wwc-total-row"><span>Buyer fee</span><strong>'+(q?cash(q.buyerFeeMinor):'—')+'</strong></div></section>'+
@@ -34961,14 +34964,38 @@ html body .app:has(#wwCheckout.show) #wishwaveMainNav{visibility:visible!importa
   if(wishwaveIsOwnMarketplaceListing(appMpListing,appMpContext)){wishwaveCloseCheckout();return openAppMarketplaceListing(appMpListing);}
   if(appMpListing.deliveryMode==='pickup'){wishwaveCloseCheckout();return openAppMarketplaceMessages();}
   const l={...appMpListing};if(String(l.status||'active')!=='active'&&!(l.listingType==='auction'&&l._auctionWinnerVerified&&l.status==='reserved')){wishwaveCloseCheckout();toast('Listing is unavailable');return;}
-  cleanElements();state={listing:l,country:'US',postal:'',shippingMinor:null,shippingCarrier:String(l.shippingCarrier||''),shippingService:String(l.shippingService||''),deliveryEstimate:String(l.deliveryEstimate||''),quote:null,error:'',busy:false,config:{},elements:[]};root.classList.add('show');root.scrollTop=0;render();const current=state;marketplaceFetch('/marketplace/config',{method:'GET'}).then(data=>{if(state!==current)return;current.config=data.marketplace||{};current.country=countryCode(current.config.detectedCountry);quote();}).catch(()=>{if(state===current)quote();});
+  cleanElements();state={listing:l,country:'US',postal:'',shippingMinor:null,shippingCarrier:String(l.shippingCarrier||''),shippingService:String(l.shippingService||''),deliveryEstimate:String(l.deliveryEstimate||''),quote:null,error:'',busy:false,config:{},elements:[],deliveryAddress:null};root.classList.add('show');root.scrollTop=0;render();const current=state;marketplaceFetch('/marketplace/config',{method:'GET'}).then(data=>{if(state!==current)return;current.config=data.marketplace||{};current.country=countryCode(current.config.detectedCountry);quote();}).catch(()=>{if(state===current)quote();});
  };
  window.wishwaveCloseCheckout=function(){version++;cleanElements();state=null;root.classList.remove('show');root.innerHTML='';};
- window.wishwaveCheckoutLocation=function(){if(!state)return;if(state.actions){toast('Return to checkout to change the quoted delivery location');return;}document.getElementById('wwCheckoutLocation').innerHTML='<form class="wwc-location-form" onsubmit="return wishwaveCheckoutSetLocation(event)"><select id="wwCheckoutCountry" aria-label="Delivery country">'+[...new Set(['US','AU','GB','CA','NZ','FR','DE',state.country])].map(code=>[code,countryName(code)]).map(([v,n])=>'<option value="'+v+'" '+(v===state.country?'selected':'')+'>'+n+'</option>').join('')+'</select><input id="wwCheckoutPostal" aria-label="Delivery postal code" autocomplete="postal-code" maxlength="16" required placeholder="ZIP / postal code" value="'+escapeAttr(state.postal)+'"><button>Update delivery</button></form>';};
- window.wishwaveCheckoutSetLocation=function(event){event.preventDefault();if(!state)return false;state.country=document.getElementById('wwCheckoutCountry').value;state.postal=document.getElementById('wwCheckoutPostal').value.trim();quote();return false;};
- window.wishwaveCheckoutTerms=function(){openAppMpSheet('Checkout terms','<p class="app-mp-muted">Review the item, delivery cost and buyer fee before continuing. Payment is completed securely with Stripe. Confirm your full delivery details with the seller before paying. Returns follow the seller’s stated return policy. A buyer fee does not imply payment is held until delivery.</p>');};
+ window.wishwaveCheckoutLocation=function(){
+  if(!state)return;if(state.actions){toast('Return to checkout to change the quoted delivery location');return;}
+  const saved=state.deliveryAddress||{},address=saved.address||{},host=document.getElementById('wwCheckoutLocation');
+  host.innerHTML='<form class="wwc-location-form" onsubmit="return wishwaveCheckoutSetLocation(event)">'+
+   addressField('wwCheckoutName','Full name','name',saved.name)+
+   '<label class="wwc-address-field" for="wwCheckoutCountry"><span>Country</span><select id="wwCheckoutCountry" name="country" autocomplete="shipping country">'+[...new Set(['AU','US','GB','CA','NZ','FR','DE',state.country])].map(code=>'<option value="'+code+'" '+(code===state.country?'selected':'')+'>'+escapeHTML(countryName(code))+'</option>').join('')+'</select></label>'+
+   addressField('wwCheckoutLine1','Street address','address-line1',address.line1)+
+   addressField('wwCheckoutLine2','Apartment, unit or building (optional)','address-line2',address.line2,false)+
+   addressField('wwCheckoutCity','Suburb / city','address-level2',address.city)+
+   '<div class="wwc-address-pair">'+addressField('wwCheckoutState','State / province','address-level1',address.state,['AU','US','CA'].includes(state.country),80)+addressField('wwCheckoutPostal','Postcode / ZIP code','postal-code',state.postal,true,16)+'</div>'+
+   '<p class="wwc-address-help">Include your street number and apartment or unit, if applicable.</p><button type="submit">Save delivery address</button><button class="wwc-address-cancel" type="button">Cancel</button></form>';
+  host.querySelector('.wwc-address-cancel').onclick=()=>{host.innerHTML='';};
+  host.querySelector('#wwCheckoutCountry').onchange=event=>{host.querySelector('#wwCheckoutState').required=['AU','US','CA'].includes(event.target.value);};
+  host.querySelector('#wwCheckoutName').focus({preventScroll:true});
+  host.scrollIntoView?.({block:'nearest',behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+ };
+ window.wishwaveCheckoutSetLocation=function(event){
+  event.preventDefault();if(!state)return false;const form=document.querySelector('#wwCheckoutLocation form');if(!form)return false;
+  const value=id=>document.getElementById(id).value.trim();
+  for(const input of form.querySelectorAll('input')){input.value=input.value.trim();input.setCustomValidity('');}
+  const country=value('wwCheckoutCountry'),postal=value('wwCheckoutPostal'),patterns={AU:/^\d{4}$/,US:/^\d{5}(?:-\d{4})?$/,NZ:/^\d{4}$/};
+  if(patterns[country]&&!patterns[country].test(postal))document.getElementById('wwCheckoutPostal').setCustomValidity('Enter a valid '+countryName(country)+' postcode / ZIP code.');
+  if(!form.reportValidity())return false;
+  state.country=country;state.postal=postal;state.deliveryAddress={name:value('wwCheckoutName'),address:{line1:value('wwCheckoutLine1'),line2:value('wwCheckoutLine2'),city:value('wwCheckoutCity'),state:value('wwCheckoutState'),postal_code:postal,country}};
+  document.activeElement?.blur();quote();return false;
+ };
+ window.wishwaveCheckoutTerms=function(){openAppMpSheet('Checkout terms','<p class="app-mp-muted">Review the item, delivery cost and buyer fee before continuing. Payment is completed securely with Stripe. Check your full delivery address before paying. Returns follow the seller’s stated return policy. A buyer fee does not imply payment is held until delivery.</p>');};
  window.wishwaveCheckoutContinue=async function(){
-  if(!state?.quote||state.busy)return;const current=state;
+  if(!state?.quote||state.busy)return;if(!state.deliveryAddress){wishwaveCheckoutLocation();return;}const current=state;
   if(!current.config?.stripeTestMode||!/^pk_test_/.test(current.config?.stripeTestPublishableKey||'')){current.error='Connect Stripe test mode to enable payment controls';render();return;}
   current.busy=true;current.error='';render();
   try{
@@ -34978,7 +35005,7 @@ html body .app:has(#wwCheckout.show) #wishwaveMainNav{visibility:visible!importa
    const stripe=window.Stripe(data.publishableKey),sdk=stripe.initCheckoutElementsSdk({clientSecret:data.clientSecret,elementsOptions:{appearance:{theme:document.documentElement.classList.contains('findai-light')?'stripe':'night',variables:{fontFamily:'system-ui, sans-serif',borderRadius:'10px'}}}});
    current.sdk=sdk;const loaded=await sdk.loadActions();if(state!==current)return;if(loaded.type!=='success')throw new Error(loaded.error?.message||'Could not initialise test payment');current.actions=loaded.actions;
    const delivery=document.getElementById('wwCheckoutLocation');delivery.innerHTML='<div id="wwCheckoutStripeAddress"></div>';
-   const address=sdk.createShippingAddressElement();address.mount('#wwCheckoutStripeAddress');current.addressElement=address;
+   const address=sdk.createShippingAddressElement({contacts:[current.deliveryAddress],autocomplete:{mode:'automatic'}});address.mount('#wwCheckoutStripeAddress');current.addressElement=address;
    const payment=document.getElementById('wwCheckoutPayment');payment.innerHTML='<h2 class="wwc-method-title">Payment method <span class="wwc-muted">· Test mode</span></h2><div id="wwCheckoutStripeExpress"></div><div id="wwCheckoutStripeCard"></div>';
    const express=sdk.createExpressCheckoutElement({buttonTheme:{applePay:'white',googlePay:'white'},layout:{maxColumns:1,maxRows:1}}),card=sdk.createPaymentElement({layout:'accordion'});express.mount('#wwCheckoutStripeExpress');card.mount('#wwCheckoutStripeCard');current.elements=[address,express,card];
    express.on('confirm',event=>confirm(current,event));express.on('availablepaymentmethodschange',event=>{const host=document.getElementById('wwCheckoutStripeExpress');if(host)host.hidden=!event.paymentMethods;});
@@ -36988,7 +37015,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-reel-commerce.js?v=360"></script>
 <link rel="stylesheet" href="wishwave-coral-theme.css?v=444">
 <script src="wishwave-search-follow.js?v=432"></script>
-<link rel="stylesheet" href="wishwave-purchase-ui.css?v=372">
+<link rel="stylesheet" href="wishwave-purchase-ui.css?v=474">
 <script src="wishwave-offer.js?v=372"></script>
 <link rel="stylesheet" href="wishwave-chat-offers.css?v=371">
 <script src="wishwave-chat-offers.js?v=372"></script>
