@@ -34978,6 +34978,7 @@ html body .app:has(#wwCheckout.show) #wishwaveMainNav{visibility:visible!importa
    addressField('wwCheckoutCity','Suburb / city','address-level2',address.city)+
    '<div class="wwc-address-pair">'+addressField('wwCheckoutState','State / province','address-level1',address.state,['AU','US','CA'].includes(state.country),80)+addressField('wwCheckoutPostal','Postcode / ZIP code','postal-code',state.postal,true,16)+'</div>'+
    '<p class="wwc-address-help">Include your street number and apartment or unit, if applicable.</p><button type="submit">Save delivery address</button><button class="wwc-address-cancel" type="button">Cancel</button></form>';
+  host.querySelector('form').addEventListener('input',event=>{event.target.setCustomValidity?.('');});
   host.querySelector('.wwc-address-cancel').onclick=()=>{host.innerHTML='';};
   host.querySelector('#wwCheckoutCountry').onchange=event=>{host.querySelector('#wwCheckoutState').required=['AU','US','CA'].includes(event.target.value);};
   host.querySelector('#wwCheckoutName').focus({preventScroll:true});
