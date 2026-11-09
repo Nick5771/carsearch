@@ -85,3 +85,17 @@ html.findai-light #wwDiscoveryPreferences [data-save-error]{color:#ad2443;}
 html.findai-light #wwDiscoveryPreferences .ww-discovery-location button[aria-pressed=true]{background:#dfe2e7}
 
 #wwDiscoveryPreferences .ww-discovery-interest-accent{color:#ff4776}
+
+/* One moving selection rather than two instant background swaps. */
+#wwDiscoveryPreferences .ww-discovery-location{position:relative;isolation:isolate;padding:3px;}
+#wwDiscoveryPreferences .ww-discovery-location::before{content:'';position:absolute;inset:3px auto 3px 3px;width:calc(50% - 3px);border-radius:999px;background:#535861;transform:translateX(0);transition:transform var(--ww-motion-duration,280ms) var(--ww-motion-ease,cubic-bezier(.22,.8,.22,1));pointer-events:none;z-index:-1;}
+#wwDiscoveryPreferences .ww-discovery-location[data-location=AU]::before{transform:translateX(100%);}
+#wwDiscoveryPreferences .ww-discovery-location button[aria-pressed=true],html.findai-light #wwDiscoveryPreferences .ww-discovery-location button[aria-pressed=true]{background:transparent;}
+#wwDiscoveryPreferences .ww-discovery-topic-chip{background:#ef174b14;border-color:#ef174b70;}
+#wwDiscoveryPreferences .ww-discovery-topic-label{color:#fff;}
+#wwDiscoveryPreferences .ww-discovery-dismiss{color:#c6a8b0;}
+html.findai-light #wwDiscoveryPreferences .ww-discovery-location::before{background:#dfe2e7;}
+html.findai-light #wwDiscoveryPreferences .ww-discovery-topic-chip{background:#fff0f3;border-color:#e5224b70;}
+html.findai-light #wwDiscoveryPreferences .ww-discovery-topic-label{color:#202126;}
+html.findai-light #wwDiscoveryPreferences .ww-discovery-dismiss{color:#87626d;}
+@media(prefers-reduced-motion:reduce){#wwDiscoveryPreferences .ww-discovery-location::before{transition:none;}}

@@ -62,3 +62,10 @@ html body .app #search #wwFilteredSearchStatus:not([hidden]){display:flex!import
 html.findai-light body .app #search #wwFilteredSearchStatus{color:#17181b}
 @keyframes ww-filter-progress-spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){#wwFilteredSearchStatus .ww-filter-progress{animation:none}}
+
+.ww-filter-location{position:relative;isolation:isolate;}
+.ww-filter-location::before{content:'';position:absolute;inset:2px auto 2px 2px;width:calc(50% - 2px);border-radius:9px;background:#33363c;transform:translateX(0);transition:transform var(--ww-motion-duration,280ms) var(--ww-motion-ease,cubic-bezier(.22,.8,.22,1));pointer-events:none;z-index:-1;}
+.ww-filter-location:has(input[value=AU]:checked)::before{transform:translateX(100%);}
+.ww-filter-location input:checked+span,html.findai-light .ww-filter-location input:checked+span{background:transparent;}
+html.findai-light .ww-filter-location::before{background:#e5e7eb;}
+@media(prefers-reduced-motion:reduce){.ww-filter-location::before{transition:none;}}

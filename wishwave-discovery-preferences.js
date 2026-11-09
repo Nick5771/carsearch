@@ -82,16 +82,9 @@
  dialog.innerHTML=`<div class="ww-discovery-handle"></div><header><div><h2 id="wwDiscoveryTitle" tabindex="-1">Your discovery</h2></div><button type="button" data-close aria-label="Close Your discovery">×</button></header>
  <p class="ww-discovery-summary" data-summary></p>
  <section class="ww-discovery-feed"><h3>Feed preferences</h3><p class="ww-discovery-hint">Applies to your For You feed.</p><div class="ww-discovery-location" role="group" aria-label="Item location"><button type="button" data-location="worldwide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><ellipse cx="12" cy="12" rx="4" ry="9"/><path d="M3 12h18"/></svg>Worldwide</button><button type="button" data-location="AU"><span aria-hidden="true">🇦🇺</span>Australia only</button></div><p class="ww-discovery-price-title">Price range · AUD</p><div class="ww-discovery-price"><label><span>A$</span><input data-feed-min type="number" min="0" step="0.01" inputmode="decimal" placeholder="Min" aria-label="Minimum feed price in AUD"></label><label><span>A$</span><input data-feed-max type="number" min="0" step="0.01" inputmode="decimal" placeholder="Max" aria-label="Maximum feed price in AUD"></label></div><p class="ww-discovery-hint">Leave blank for any price. AUD estimates, shipping excluded.</p><p data-feed-error role="alert"></p></section>
- <section class="ww-discovery-group"><h3>More of this</h3><p class="ww-discovery-hint">Tap a topic to adjust it.</p><div class="ww-discovery-chips" data-more></div></section>
- <section class="ww-discovery-group"><h3>Less of this</h3><div class="ww-discovery-chips" data-less></div></section>
+ <section class="ww-discovery-group"><h3>Your interests</h3><p class="ww-discovery-hint">Add or remove topics to shape your feed.</p><div class="ww-discovery-chips" data-more></div></section>
  <section class="ww-discovery-editor" data-editor hidden><h3 data-editor-title></h3><div data-actions></div></section>
  <section class="ww-discovery-add" data-add-form hidden><label for="wwDiscoveryTopic">Add an interest</label><div><input id="wwDiscoveryTopic" maxlength="64" placeholder="Brand, franchise or collectible" list="wwDiscoverySuggestions" autocomplete="off"><button type="button" data-add>Add</button><button type="button" data-cancel-add aria-label="Cancel adding interest">×</button></div><datalist id="wwDiscoverySuggestions"></datalist><p data-add-feedback role="status"></p></section>
- <section class="ww-discovery-group"><h3>Try something new</h3><div class="ww-discovery-chips" data-suggested></div></section>
- <details class="ww-discovery-advanced"><summary><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M2 6h4m4 0h12M2 18h12m4 0h4"/><rect x="6" y="2" width="4" height="8" rx="2"/><rect x="14" y="14" width="4" height="8" rx="2"/></svg><span>More controls</span></summary>
- <details data-managed><summary>Hidden &amp; removed interests</summary><div data-managed-list></div></details>
- <fieldset class="ww-discovery-variety"><legend>Room for new discoveries</legend><div></div></fieldset>
- <details class="ww-discovery-shopping"><summary>Shopping filters</summary><p>Price, condition and listing type.</p><button type="button" data-shopping>Open shopping filters</button></details>
- <button type="button" class="ww-discovery-reset" data-reset>Reset recommendations</button><div data-confirm hidden><p>Start fresh on this device? Your saves, follows and listings stay.</p><button type="button" data-cancel-reset>Cancel</button><button type="button" data-confirm-reset>Start fresh</button></div></details>
  <p class="ww-discovery-autosave">Changes save automatically</p><p data-save-error role="alert"></p><div class="ww-discovery-status" role="status" hidden><span data-status></span><button type="button" data-undo>Undo</button></div>`;
  document.body.append(dialog);for(const topic of suggestions){const o=document.createElement('option');o.value=topic;dialog.querySelector('datalist').append(o);}
  let draft=null,focusBefore=null,draftOwner='',dirty=false,undoState=null,addPreference='more',expanded={more:false,less:false};const el=s=>dialog.querySelector(s);
@@ -109,14 +102,14 @@
   next.entries.push({topic:clean(topic),preference});return commit(next,preference==='neutral'?'Interest removed':'Preferences updated');
  }
  function editor(row,trigger){el('[data-add-form]').hidden=true;el('[data-editor]').hidden=false;el('[data-editor-title]').textContent=row.topic;const area=el('[data-actions]');area.replaceChildren();
-  for(const [value,text] of [['more','More of this'],['less','Less of this'],['hidden','Hide from feed'],['neutral','Remove interest']])area.append(button(text,()=>{if(choose(row.topic,value)){el('[data-editor]').hidden=true;el('[data-more] button')?.focus();}},text+' '+row.topic));
+  for(const [value,text] of [['more','More of this'],['hidden','Hide from feed'],['neutral','Remove interest']])area.append(button(text,()=>{if(choose(row.topic,value)){el('[data-editor]').hidden=true;el('[data-more] button')?.focus();}},text+' '+row.topic));
   area.append(button('Cancel',()=>{el('[data-editor]').hidden=true;trigger.focus();}));area.querySelector('button').focus();
  }
  function addForm(preference){addPreference=preference;el('[data-editor]').hidden=true;el('[data-add-form]').hidden=false;el('[data-add-form] label').textContent=preference==='less'?'See less of an interest':'Add an interest';el('[data-add-feedback]').textContent='';el('#wwDiscoveryTopic').value='';el('#wwDiscoveryTopic').focus();}
  function paintTopics(){
-  for(const b of dialog.querySelectorAll('[data-location]'))b.setAttribute('aria-pressed',String(b.dataset.location===draft.feed.location));
+  el('.ww-discovery-location').dataset.location=draft.feed.location;for(const b of dialog.querySelectorAll('[data-location]'))b.setAttribute('aria-pressed',String(b.dataset.location===draft.feed.location));
   const grouped=new Map();for(const row of topics(draft,inferred())){const topic=topicLabel(row.topic),k=normal(topic),old=grouped.get(k);if(!old||row.preference!=='auto')grouped.set(k,{...row,topic});}
-  const rows=[...grouped.values()];for(const pref of ['more','less']){
+  const rows=[...grouped.values()];for(const pref of ['more']){
    const list=el('[data-'+pref+']'),group=rows.filter(r=>pref==='less'?r.preference==='less':r.preference!=='less');list.replaceChildren();
    for(const row of (expanded[pref]?group:group.slice(0,4))){
     const chip=document.createElement('div');chip.className='ww-discovery-chip ww-discovery-topic-chip';
@@ -128,11 +121,10 @@
    if(group.length>4){const toggle=button(expanded[pref]?'Show less':'Show '+(group.length-4)+' more',()=>{expanded[pref]=!expanded[pref];paintTopics();el('[data-'+pref+'] [data-expand]')?.focus();});toggle.className='ww-discovery-expand';toggle.dataset.expand=pref;toggle.setAttribute('aria-expanded',String(expanded[pref]));list.append(toggle);}
   }
   const recent=rows.filter(t=>t.source==='activity'&&t.preference!=='less').slice(0,3).map(t=>t.topic);const summary=el('[data-summary]');summary.replaceChildren();if(recent.length){summary.append('Recently exploring ');recent.forEach((topic,index)=>{if(index)summary.append(index===recent.length-1?' and ':', ');const name=document.createElement('span');name.className='ww-discovery-interest-accent';name.textContent=topic;summary.append(name);});summary.append('.');}else summary.textContent='Add your interests to shape what you discover.';
-  const area=el('[data-suggested]');area.replaceChildren();const picks=['Resident Evil','Vintage cameras','Vinyl records','Trading Cards','Diecast cars','Comics','Watches'].filter(t=>!rows.some(r=>match(t,r.topic)||match(r.topic,t))&&!draft.entries.some(e=>normal(topicLabel(e.topic))===normal(t))).slice(0,2);for(const topic of picks){const b=button('+  '+topic,()=>choose(topic,'more'),'Explore '+topic);b.className='ww-discovery-chip ww-discovery-outline';area.append(b);}
-  const managed=draft.entries.filter(e=>['hidden','neutral'].includes(e.preference));el('[data-managed]').hidden=!managed.length;const managedArea=el('[data-managed-list]');managedArea.replaceChildren();for(const row of managed){const line=document.createElement('div');line.className='ww-discovery-managed-row';const text=document.createElement('span');text.textContent=topicLabel(row.topic)+' · '+(row.preference==='hidden'?'Hidden':'Removed');line.append(text,button('Restore',()=>choose(topicLabel(row.topic),'more'),'Restore '+topicLabel(row.topic)));managedArea.append(line);}
-  const variety=el('.ww-discovery-variety>div');variety.replaceChildren();for(const [value,text] of [['focused','Familiar'],['balanced','Balanced'],['adventurous','Explore more']]){const b=button(text,()=>commit({...valid(read()),variety:value}));b.setAttribute('aria-pressed',String(draft.variety===value));variety.append(b);}
+  /* Legacy hidden/less choices remain effective, without extra control sections. */
+
  }
- function open(){draft=valid(read());draftOwner=owner();dirty=false;undoState=null;expanded={more:false,less:false};focusBefore=document.activeElement;el('[data-save-error]').textContent='';el('.ww-discovery-status').hidden=true;el('[data-confirm]').hidden=true;el('[data-reset]').hidden=false;el('[data-editor]').hidden=true;el('[data-add-form]').hidden=true;for(const d of dialog.querySelectorAll('details'))d.open=false;el('[data-feed-min]').value=draft.feed.min;el('[data-feed-max]').value=draft.feed.max;el('[data-feed-error]').textContent='';paintTopics();document.querySelector('#discover .ww-home-filter')?.setAttribute('aria-expanded','true');if(!dialog.open)dialog.showModal();el('#wwDiscoveryTitle').focus();}
+ function open(){closing=false;root.wishwaveMotion?.cancel(dialog);draft=valid(read());draftOwner=owner();dirty=false;undoState=null;expanded={more:false,less:false};focusBefore=document.activeElement;el('[data-save-error]').textContent='';el('.ww-discovery-status').hidden=true;el('[data-editor]').hidden=true;el('[data-add-form]').hidden=true;for(const d of dialog.querySelectorAll('details'))d.open=false;el('[data-feed-min]').value=draft.feed.min;el('[data-feed-max]').value=draft.feed.max;el('[data-feed-error]').textContent='';paintTopics();document.querySelector('#discover .ww-home-filter')?.setAttribute('aria-expanded','true');if(!dialog.open)dialog.showModal();root.wishwaveMotion?.enter(dialog,'sheet');el('#wwDiscoveryTitle').focus();}
  function saveFeed(){
   const min=el('[data-feed-min]').value,max=el('[data-feed-max]').value;
   const inputs=[el('[data-feed-min]'),el('[data-feed-max]')];
@@ -146,17 +138,9 @@
  function add(){const topic=clean(el('#wwDiscoveryTopic').value);if(topic.length<2){el('[data-add-feedback]').textContent='Enter at least two characters.';return;}if(choose(topic,addPreference)){el('[data-add-form]').hidden=true;el('[data-'+addPreference+'] button')?.focus();}}
  el('[data-add]').onclick=add;el('[data-cancel-add]').onclick=()=>{el('[data-add-form]').hidden=true;el('[data-'+addPreference+'] button')?.focus();};el('#wwDiscoveryTopic').addEventListener('keydown',event=>{if(event.key==='Enter'){event.preventDefault();add();}});
  el('[data-undo]').onclick=()=>{if(undoState){const previous=undoState;if(commit({...previous,observations:read().observations},'Change undone')){undoState=null;el('.ww-discovery-status').hidden=true;el('[data-feed-min]').value=draft.feed.min;el('[data-feed-max]').value=draft.feed.max;el('[data-more] button')?.focus();}}};
- el('[data-shopping]').onclick=()=>{dialog.close();root.wishwaveOpenHomeFilters?.();};
- el('[data-reset]').onclick=()=>{el('[data-confirm]').hidden=false;el('[data-reset]').hidden=true;el('[data-confirm-reset]').focus();};
- el('[data-cancel-reset]').onclick=()=>{el('[data-confirm]').hidden=true;el('[data-reset]').hidden=false;el('[data-reset]').focus();};
- el('[data-confirm-reset]').onclick=()=>{
-  if(owner()!==draftOwner){dialog.close();return;}const next={...blank(),resetAt:Date.now()};if(!persist(next)){el('[data-save-error]').textContent='Could not reset. Please try again.';return;}
-  for(const k of ['fa_interest_profile_v1','fa_interest_history_v1','fa_behavior_profile_v125','fa_dwell_history_v125','findai_priority_search_v130','ww_shopping_sync_v228','ww_product_preferences_v226','ww_exposure_window_v226'])try{localStorage.removeItem(k);}catch(_){}
-  for(const k of ['ww_topic_session_v227','ww_shopping_intents_v228','ww_mission_v229','fa_session_taste_v125'])try{sessionStorage.removeItem(k);}catch(_){}
-  // Notify existing learning caches without modifying auth, saved items or follows.
-  try{localStorage.setItem('ww_topic_evidence_v227',JSON.stringify({profile:{},journal:{},shoppingImported:true}));window.dispatchEvent(new StorageEvent('storage',{key:'ww_topic_evidence_v227'}));}catch(_){}
-  dirty=true;dialog.close();
- };
+ const nativeClose=dialog.close.bind(dialog);let closing=false;
+ dialog.close=function(){if(!dialog.open)return;if(owner()!==draftOwner||!root.wishwaveMotion){nativeClose();return;}if(closing)return;closing=true;root.wishwaveMotion.leave(dialog,()=>{closing=false;nativeClose();},'sheet').then(ok=>{if(!ok)closing=false;});};
+ dialog.addEventListener('cancel',event=>{event.preventDefault();dialog.close();});
  root.wishwaveOpenDiscoveryPreferences=open;
  document.addEventListener('wishwave-recommendation-account-change',()=>{cacheRaw=null;if(dialog.open)dialog.close();changed();});
  root.addEventListener('storage',event=>{if(event.key?.startsWith('ww_discovery_choices_v1:')){cacheRaw=null;changed();}});

@@ -12676,7 +12676,7 @@ window.addEventListener('load', function(){
   function sellerBadgeMarkup(n,index){
     const count=n.completedSales,preview=Math.max(0,Number(n.previewOffset)||0),known=Number.isInteger(count)||preview>0,amount=known?Math.max(0,Math.min(10,(Number(count)||0)+preview)):0;
     const points=Array.from({length:24},(_,i)=>{const a=(i*15-90)*Math.PI/180,r=i%2?9.7:11;return (12+Math.cos(a)*r).toFixed(2)+','+(12+Math.sin(a)*r).toFixed(2);}).join(' ');
-    return '<button type="button" class="findai-notification-item ww-seller-badge-notice" onclick="wishwaveOpenSellerBadgeNotice('+index+')" aria-label="Earn your Experienced Seller badge. Complete 10 sales to unlock your badge."><span class="ww-seller-badge-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="'+points+'" fill="currentColor"/><path d="m7.2 12 3.1 3.1 6.5-6.4" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ww-seller-badge-copy"><strong>Earn your Experienced Seller badge</strong><span>Complete 10 sales to unlock your badge.</span>'+(known?'<small>'+amount+' out of 10 completed sales</small>'+(preview?'<small class="ww-seller-badge-preview">Preview progress · real sales are unchanged</small>':'')+'<progress max="10" value="'+amount+'" aria-label="Completed sales toward seller badge"></progress>':'')+'</span></button>';
+    return '<button type="button" class="findai-notification-item ww-seller-badge-notice" onclick="wishwaveOpenSellerBadgeNotice('+index+')" aria-label="Earn your Experienced Seller badge. Complete 10 sales to unlock your badge."><span class="ww-seller-badge-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="'+points+'" fill="currentColor"/><path d="m7.2 12 3.1 3.1 6.5-6.4" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ww-seller-badge-copy"><strong>Earn your Experienced Seller badge</strong><span>Complete 10 sales to unlock your badge.</span>'+(known?'<small>'+amount+' out of 10 completed sales</small>'+'<progress max="10" value="'+amount+'" aria-label="Completed sales toward seller badge"></progress>':'')+'</span></button>';
   }
   window.wishwaveOpenSellerBadgeNotice=function(index){
     const n=appNotificationCache[Number(index)];if(n?.notification_type!=='seller_badge_milestone')return;
@@ -34407,8 +34407,8 @@ html body #findaiContextualReelV168 .reel-card:has(.wishwave-promote-button) .re
     content.innerHTML=header('Review promotion')+product()+'<div class="wwp-review"><dl><dt>Total budget</dt><dd>A$'+state.budget+'</dd><dt>Duration</dt><dd>'+state.days+' days</dd><dt>Audience</dt><dd>'+escapeHTML(state.audience==='smart'?'Smart match':state.keywords)+'</dd><dt>Location</dt><dd>'+escapeHTML(state.audience==='smart'?'Matched shoppers':state.location==='AU'?'Australia':'All available locations')+'</dd></dl></div><p class="wwp-notice">Draft only. No payment is taken or promotion launched.</p><footer class="wwp-footer"><button type="button" id="wwpSave">Save promotion draft</button></footer>';
     root.scrollTop=0;content.querySelector('.wwp-back').onclick=render;content.querySelector('#wwpSave').onclick=()=>{if(save()){toast('Promotion draft saved');closeWishWavePromotion();}else toast('Could not save the draft on this device');};
   }
-  window.openWishWavePromotion=function(id){const item=profileOwnedListingById(id);if(!owned(item)){toast('You can only promote your own active listings');return;}returnFocus=document.activeElement;state={item,budget:20,days:3,audience:'smart',keywords:'',location:'AU'};try{const d=JSON.parse(localStorage.getItem(key())||'null');if(d){state.budget=Math.max(5,Math.min(100,Number(d.budget)||20));state.days=Math.max(1,Math.min(30,Number(d.days)||3));state.audience=d.audience==='custom'?'custom':'smart';state.keywords=String(d.keywords||'').slice(0,200);state.location=d.location==='all'?'all':'AU';}}catch(_){}root.hidden=false;render();root.scrollTop=0;content.querySelector('.wwp-back').focus();};
-  window.closeWishWavePromotion=function(){root.hidden=true;state=null;if(returnFocus&&returnFocus.isConnected)returnFocus.focus();};
+  window.openWishWavePromotion=function(id){window.wishwaveMotion?.cancel(root);root.inert=false;const item=profileOwnedListingById(id);if(!owned(item)){toast('You can only promote your own active listings');return;}returnFocus=document.activeElement;state={item,budget:20,days:3,audience:'smart',keywords:'',location:'AU'};try{const d=JSON.parse(localStorage.getItem(key())||'null');if(d){state.budget=Math.max(5,Math.min(100,Number(d.budget)||20));state.days=Math.max(1,Math.min(30,Number(d.days)||3));state.audience=d.audience==='custom'?'custom':'smart';state.keywords=String(d.keywords||'').slice(0,200);state.location=d.location==='all'?'all':'AU';}}catch(_){}root.hidden=false;render();window.wishwaveMotion?.enter(root);root.scrollTop=0;content.querySelector('.wwp-back').focus();};
+  window.closeWishWavePromotion=function(){const finish=()=>{root.hidden=true;state=null;if(returnFocus&&returnFocus.isConnected)returnFocus.focus();};if(!root.hidden&&window.wishwaveMotion)window.wishwaveMotion.leave(root,finish);else finish();};
   document.addEventListener('keydown',e=>{if(root.hidden)return;if(e.key==='Escape'){e.preventDefault();closeWishWavePromotion();}if(e.key==='Tab'){const nodes=[...root.querySelectorAll('button,input,select')].filter(n=>!n.closest('[hidden]'));const first=nodes[0],last=nodes[nodes.length-1];if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus();}}});
 })();
 </script>
@@ -34520,8 +34520,8 @@ html.findai-light body #wwDashboard .wwd-cta{color:#fff;}
   function link(x){return isFindAIListing(x)?'https://findai.ai/findai-app.html?listing='+encodeURIComponent(id(x)):getListingUrl(x);}
   root.addEventListener('change',e=>{if(e.target.matches('[data-tool-index]')){const i=Number(e.target.dataset.toolIndex);if(e.target.checked)state.selected.add(i);else state.selected.delete(i);}});
   root.addEventListener('click',async e=>{const b=e.target.closest('[data-wwd-action]');if(!b||!state)return;const a=b.dataset.wwdAction;if(a==='close'){closeWishWaveDashboard();return;}if(a==='back'){state.page='main';render();root.scrollTop=0;return;}if(a==='selling'||a==='creator'){state.mode=a;render();return;}if(a==='refresh'){state.page='main';await load();return;}if(a==='share-profile'){shareFindAIProfile();return;}if(a==='messages'){closeWishWaveDashboard();openAppMarketplaceInbox();return;}if(a==='promote'){openWishWavePromotion(b.dataset.id);return;}if(a==='listing'){const item=state.listings.find(x=>id(x)===b.dataset.id);if(item){closeWishWaveDashboard();const list=socialProfileListings.filter(x=>item.status==='sold'?x.status==='sold':x.status!=='sold');const index=list.findIndex(x=>id(x)===id(item));if(index>=0)openProfileListingItem(index,item.status==='sold'?'sold':'listings');else openAppMarketplaceListing(item);}return;}if(a==='share-link'){const x=state.tools[Number(b.dataset.index)];if(x)await share({title:x.title||'WishWave find',url:link(x)});return;}if(a==='share-collection'){const chosen=[...state.selected].map(i=>state.tools[i]).filter(Boolean);if(!chosen.length){toast('Choose at least one find');return;}state.collectionName=out.querySelector('#wwdCollectionName').value.trim()||'My finds';await share({title:state.collectionName,text:state.collectionName+'\n\n'+chosen.map(x=>x.title+'\n'+link(x)).join('\n\n')});return;}if(a==='order')state.orderId=b.dataset.id;state.page=a;render();root.scrollTop=0;});
-  window.openWishWaveDashboard=function(){if(!getAccountProfile()||!marketplaceSession()){openLogin();return;}returnFocus=document.activeElement;if(typeof setMainNavActive==='function')setMainNavActive('profile');state={mode:'selling',page:'main',listings:getMarketplaceListings().slice(),orders:[],conversations:[],selected:new Set(),loading:true,error:'',orderError:true,conversationError:true};root.hidden=false;root.scrollTop=0;render();out.querySelector('.wwd-back').focus();load();};
-  window.closeWishWaveDashboard=function(){request++;root.hidden=true;state=null;if(returnFocus?.isConnected)returnFocus.focus();};
+  window.openWishWaveDashboard=function(){window.wishwaveMotion?.cancel(root);root.inert=false;if(!getAccountProfile()||!marketplaceSession()){openLogin();return;}returnFocus=document.activeElement;if(typeof setMainNavActive==='function')setMainNavActive('profile');state={mode:'selling',page:'main',listings:getMarketplaceListings().slice(),orders:[],conversations:[],selected:new Set(),loading:true,error:'',orderError:true,conversationError:true};root.hidden=false;root.scrollTop=0;render();window.wishwaveMotion?.enter(root);out.querySelector('.wwd-back').focus();load();};
+  window.closeWishWaveDashboard=function(){request++;const finish=()=>{root.hidden=true;state=null;if(returnFocus?.isConnected)returnFocus.focus();};if(!root.hidden&&window.wishwaveMotion)window.wishwaveMotion.leave(root,finish);else finish();};
   document.addEventListener('click',e=>{if(!root.hidden&&e.target.closest('#wishwaveMainNav button[data-tab]'))closeWishWaveDashboard();},true);
   document.addEventListener('keydown',e=>{if(!root.hidden&&e.key==='Escape'&&document.getElementById('wwPromotion').hidden){e.preventDefault();if(state.page==='main')closeWishWaveDashboard();else{state.page='main';render();}}});
 })();
@@ -34984,9 +34984,9 @@ html body .app:has(#wwCheckout.show) #wishwaveMainNav{visibility:visible!importa
   if(wishwaveIsOwnMarketplaceListing(appMpListing,appMpContext)){wishwaveCloseCheckout();return openAppMarketplaceListing(appMpListing);}
   if(appMpListing.deliveryMode==='pickup'){wishwaveCloseCheckout();return openAppMarketplaceMessages();}
   const l={...appMpListing};if(String(l.status||'active')!=='active'&&!(l.listingType==='auction'&&l._auctionWinnerVerified&&l.status==='reserved')){wishwaveCloseCheckout();toast('Listing is unavailable');return;}
-  cleanElements();state={listing:l,country:'US',postal:'',shippingMinor:null,shippingCarrier:String(l.shippingCarrier||''),shippingService:String(l.shippingService||''),deliveryEstimate:String(l.deliveryEstimate||''),quote:null,error:'',busy:false,config:{},elements:[],deliveryAddress:null};root.classList.add('show');root.scrollTop=0;render();const current=state;marketplaceFetch('/marketplace/config',{method:'GET'}).then(data=>{if(state!==current)return;current.config=data.marketplace||{};current.country=countryCode(current.config.detectedCountry);quote();}).catch(()=>{if(state===current)quote();});
+  window.wishwaveMotion?.cancel(root);root.inert=false;cleanElements();state={listing:l,country:'US',postal:'',shippingMinor:null,shippingCarrier:String(l.shippingCarrier||''),shippingService:String(l.shippingService||''),deliveryEstimate:String(l.deliveryEstimate||''),quote:null,error:'',busy:false,config:{},elements:[],deliveryAddress:null};root.classList.add('show');root.scrollTop=0;render();window.wishwaveMotion?.enter(root);const current=state;marketplaceFetch('/marketplace/config',{method:'GET'}).then(data=>{if(state!==current)return;current.config=data.marketplace||{};current.country=countryCode(current.config.detectedCountry);quote();}).catch(()=>{if(state===current)quote();});
  };
- window.wishwaveCloseCheckout=function(){version++;cleanElements();state=null;root.classList.remove('show');root.innerHTML='';};
+ window.wishwaveCloseCheckout=function(){version++;cleanElements();state=null;const finish=()=>{root.classList.remove('show');root.innerHTML='';root.inert=false;};if(root.classList.contains('show')&&window.wishwaveMotion)window.wishwaveMotion.leave(root,finish);else finish();};
  window.wishwaveCheckoutLocation=function(){
   if(!state)return;if(state.actions){toast('Return to checkout to change the quoted delivery location');return;}
   const saved=state.deliveryAddress||{},address=saved.address||{},host=document.getElementById('wwCheckoutLocation');
@@ -37037,19 +37037,19 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <link rel="stylesheet" href="wishwave-coral-theme.css?v=444">
 <script src="wishwave-search-follow.js?v=432"></script>
 <link rel="stylesheet" href="wishwave-purchase-ui.css?v=475">
-<script src="wishwave-offer.js?v=475"></script>
+<script src="wishwave-offer.js?v=476"></script>
 <link rel="stylesheet" href="wishwave-chat-offers.css?v=371">
 <script src="wishwave-chat-offers.js?v=372"></script>
 <link rel="stylesheet" href="wishwave-home-controls.css?v=458">
 <script src="wishwave-tab-motion.js?v=426"></script>
 <link rel="stylesheet" href="wishwave-tab-motion.css?v=433">
-<link rel="stylesheet" href="wishwave-discovery-preferences.css?v=421">
-<script src="wishwave-discovery-preferences.js?v=421"></script>
+<link rel="stylesheet" href="wishwave-discovery-preferences.css?v=476">
+<script src="wishwave-discovery-preferences.js?v=476"></script>
 <script src="wishwave-home-controls.js?v=424"></script>
 <link rel="stylesheet" href="wishwave-inbox.css?v=475">
 <script src="wishwave-inbox.js?v=475"></script>
-<link rel="stylesheet" href="wishwave-search-filters.css?v=434">
-<script src="wishwave-search-filters.js?v=421"></script>
+<link rel="stylesheet" href="wishwave-search-filters.css?v=476">
+<script src="wishwave-search-filters.js?v=476"></script>
 <link rel="stylesheet" href="wishwave-profile-badges.css?v=430">
 <script src="wishwave-profile-badges.js?v=430"></script>
 <link rel="stylesheet" href="wishwave-reel-title.css?v=449">
@@ -37058,6 +37058,8 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <link rel="stylesheet" href="wishwave-nav-collapse.css?v=462">
 <script src="wishwave-nav-collapse.js?v=462"></script>
 <link rel="stylesheet" href="wishwave-seller-badge-notice.css?v=475">
+<link rel="stylesheet" href="wishwave-ui-motion.css?v=476">
+<script src="wishwave-ui-motion.js?v=476"></script>
 </body>
 </html>
 

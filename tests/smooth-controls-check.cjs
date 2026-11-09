@@ -1,0 +1,18 @@
+const fs=require('fs'),assert=require('assert'),{JSDOM}=require('jsdom');
+(async()=>{
+ const dom=new JSDOM('<div class="app"><div id="discover" data-home-feed="for-you"></div></div>',{url:'https://wishwave.test',runScripts:'outside-only',pretendToBeVisual:true}),w=dom.window;let reduced=true,refreshes=0;
+ w.matchMedia=()=>({matches:reduced});w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'))};
+ Object.assign(w,{wishwaveRecommendationAccount:()=>'test',getInterestProfile:()=>[{query:'Resident Evil',weight:12,lastAt:Date.now()}],wishwaveSetHomeFeed:()=>refreshes++});
+ w.eval(fs.readFileSync('wishwave-ui-motion.js','utf8'));w.eval(fs.readFileSync('wishwave-discovery-preferences.js','utf8'));w.wishwaveOpenDiscoveryPreferences();const dialog=w.document.getElementById('wwDiscoveryPreferences');
+ assert(dialog.open);assert(dialog.textContent.includes('Your interests'));assert(!dialog.querySelector('[data-less]'));assert(!dialog.querySelector('[data-suggested]'));assert(!dialog.querySelector('.ww-discovery-advanced'));
+ dialog.querySelector('[data-location=AU]').click();assert.equal(w.wishwaveDiscoveryFeedFilters().location,'AU');assert.equal(dialog.querySelector('.ww-discovery-location').dataset.location,'AU');assert.equal(dialog.querySelector('[data-location=AU]').getAttribute('aria-pressed'),'true');
+ dialog.querySelector('[data-location=worldwide]').click();assert.equal(w.wishwaveDiscoveryFeedFilters().location,'worldwide');
+ dialog.querySelector('[aria-label="Add more interest"]').click();dialog.querySelector('#wwDiscoveryTopic').value='Vintage cameras';dialog.querySelector('[data-add]').click();assert(w.wishwaveDiscoveryChoices().state.entries.some(e=>e.topic==='Vintage cameras'));dialog.querySelector('[data-undo]').click();assert(!w.wishwaveDiscoveryChoices().state.entries.some(e=>e.topic==='Vintage cameras'));
+ dialog.close();assert(!dialog.open);assert.equal(refreshes,1,'saved choices refresh once after closing');
+ reduced=false;const node=w.document.createElement('div'),animations=[];w.document.body.append(node);node.animate=(frames,options)=>{let resolve,reject;const finished=new Promise((a,b)=>{resolve=a;reject=b}),animation={finished,cancel:()=>reject(Error('cancelled'))};animations.push({frames,options,resolve,animation});return animation};
+ const opening=w.wishwaveMotion.enter(node);assert.equal(animations[0].options.duration,280);assert.equal(animations[0].frames[0].opacity,0);animations[0].resolve();await opening;
+ let closed=0;const leaving=w.wishwaveMotion.leave(node,()=>closed++);assert.equal(closed,0,'close waits for visual transition');const reopen=w.wishwaveMotion.enter(node);assert.equal(await leaving,false);assert.equal(closed,0,'cancelled close cannot remove reopened screen');animations.at(-1).resolve();await reopen;
+ const close=w.wishwaveMotion.leave(node,()=>closed++);animations.at(-1).resolve();await close;assert.equal(closed,1);assert(!node.inert);
+ reduced=true;await w.wishwaveMotion.leave(node,()=>closed++);assert.equal(closed,2,'Reduce Motion completes immediately');
+ dom.window.close();console.log('PASS: simplified interests, location state, add/Undo, single refresh, progressive panel entry/exit, interrupted-close safety and Reduce Motion');
+})().catch(e=>{console.error(e);process.exitCode=1});

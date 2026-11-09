@@ -11,7 +11,7 @@ const html=fs.readFileSync('findai-app.html','utf8'),code=html.slice(html.indexO
  assert.equal(first.completedSales,1);assert.equal(renders,1);assert(ctx.sellerBadgeMarkup(first,0).includes('1 out of 10 completed sales'));
  read[first.id]=Date.now();assert(ctx.sellerBadgeNotifications()[0].read_at,'read state persists');
  account='two';const second=ctx.sellerBadgeNotifications()[0];assert.notEqual(first.id,second.id);assert.equal(second.completedSales,null);account='three';ctx.sellerBadgeNotifications();resolve({orders:[]});await new Promise(setImmediate);account='';assert.equal(ctx.sellerBadgeNotifications().length,0);
- account='preview-session';ctx.getAccountProfile=()=>({username:'nick1'});const preview=ctx.sellerBadgeNotifications()[0];assert.equal(preview.previewOffset,5);assert(ctx.sellerBadgeMarkup(preview,0).includes('5 out of 10'));assert(ctx.sellerBadgeMarkup(preview,0).includes('value="5"'));assert(ctx.sellerBadgeMarkup(preview,0).includes('Preview progress'));
+ account='preview-session';ctx.getAccountProfile=()=>({username:'nick1'});const preview=ctx.sellerBadgeNotifications()[0];assert.equal(preview.previewOffset,5);assert(ctx.sellerBadgeMarkup(preview,0).includes('5 out of 10'));assert(ctx.sellerBadgeMarkup(preview,0).includes('value="5"'));assert(!ctx.sellerBadgeMarkup(preview,0).includes('Preview progress'));
  resolve({orders:[{id:'real',relationship:'seller',status:'completed'}]});await new Promise(setImmediate);assert(ctx.sellerBadgeMarkup(ctx.sellerBadgeNotifications()[0],0).includes('6 out of 10'));
  account='not-nick1';ctx.getAccountProfile=()=>({username:'someoneelse'});assert.equal(ctx.sellerBadgeNotifications()[0].previewOffset,0);
 
