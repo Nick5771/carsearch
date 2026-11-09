@@ -88,14 +88,15 @@
   const focused=document.activeElement,editing=target.contains(focused)&&/^(INPUT|TEXTAREA|SELECT)$/.test(focused.tagName),app=document.querySelector('.app').getBoundingClientRect(),v=window.visualViewport;
   const visible=v?Math.min(app.height,v.height+v.offsetTop-app.top):app.height,keyboard=editing&&visible>0&&app.height-visible>120;
   target.style.height=keyboard?visible+'px':'';
+  if(!state)checkout.classList.toggle('wwc-editing',editing);
   if(state){
    root.querySelector('.wwo-keyboard-bar').hidden=!editing;root.classList.toggle('wwo-editing',editing);
    if(!keyboard&&root.dataset.keyboard==='true'){root.querySelector('.wwo-scroll').scrollTop=0;root.scrollTop=0;}root.dataset.keyboard=String(keyboard);
    if(editing){const scroll=root.querySelector('.wwo-scroll'),field=focused.getBoundingClientRect(),wrap=scroll.getBoundingClientRect();if(field.bottom>wrap.bottom-12)scroll.scrollTop+=field.bottom-wrap.bottom+12;else if(field.top<wrap.top+12)scroll.scrollTop-=wrap.top+12-field.top;}
-  }
+  }else if(editing){const scroll=checkout.querySelector('.wwc-scroll'),field=focused.getBoundingClientRect(),wrap=scroll?.getBoundingClientRect();if(scroll&&wrap){if(field.bottom>wrap.bottom-16)scroll.scrollTop+=field.bottom-wrap.bottom+16;else if(field.top<wrap.top+16)scroll.scrollTop-=wrap.top+16-field.top;}}
  }
  document.addEventListener('focusin',()=>requestAnimationFrame(resize));document.addEventListener('focusout',()=>requestAnimationFrame(resize));window.visualViewport?.addEventListener('resize',resize);window.visualViewport?.addEventListener('scroll',resize);window.addEventListener('resize',resize);
- const closeCheckout=window.wishwaveCloseCheckout;window.wishwaveCloseCheckout=function(){const checkout=document.getElementById('wwCheckout');if(checkout)checkout.style.height='';return closeCheckout.apply(this,arguments);};
+ const closeCheckout=window.wishwaveCloseCheckout;window.wishwaveCloseCheckout=function(){const checkout=document.getElementById('wwCheckout');if(checkout){checkout.style.height='';checkout.classList.remove('wwc-editing');}return closeCheckout.apply(this,arguments);};
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&state){event.preventDefault();window.appMpCloseMessageOffer();}});
  const buyBefore=window.appMpBuy;window.appMpBuy=function(){hideConfirmation();return buyBefore.apply(this,arguments);};
  window.openAppMarketplaceOfferInMessages=function(){if(!appMpListing||appMpContext?.viewer?.isSeller)return;return window.appMpOpenMessageOffer(undefined,undefined,undefined,{listing:{...appMpListing},context:appMpContext});};

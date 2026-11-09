@@ -4439,7 +4439,7 @@ async function renderPurchases(){
   }catch(error){root.innerHTML=`<div class="my-listings-empty"><b>Could not load purchases</b>${escapeHTML(error.message||'Try again.')}</div>`;}
 }
 async function confirmPurchaseReceived(orderId){
-  try{await marketplaceFetch('/marketplace/orders/'+encodeURIComponent(orderId)+'/complete',{method:'POST'});toast('Order completed — you can now rate the seller');await renderPurchases();}
+  try{await marketplaceFetch('/marketplace/orders/'+encodeURIComponent(orderId)+'/complete',{method:'POST'});document.dispatchEvent(new Event('wishwave-orders-changed'));toast('Order completed — you can now rate the seller');await renderPurchases();}
   catch(error){toast(error.message||'Could not complete the order');}
 }
 function setAppReviewRating(value){
@@ -12650,6 +12650,11 @@ window.addEventListener('load', function(){
   // One persistent account-scoped milestone notice. Refresh sales independently
   // so Activity can paint immediately even when the orders endpoint is slow.
   let sellerBadgeOwner='',sellerBadgeCount=null,sellerBadgeAt=0,sellerBadgePending=false;
+  function sellerBadgePreviewOffset(){
+    // Requested UI preview for the signed-in nick1 account only. Never alters orders or badge eligibility.
+    let profile=null;try{profile=typeof getAccountProfile==='function'?getAccountProfile():JSON.parse(localStorage.getItem('findai_user')||'null');}catch(_){}
+    return String(profile?.username||'').replace(/^@/,'').trim().toLowerCase()==='nick1'?5:0;
+  }
   function sellerBadgeNotifications(){
     const owner=marketplaceSession();if(!owner)return [];
     if(owner!==sellerBadgeOwner){sellerBadgeOwner=owner;sellerBadgeCount=null;sellerBadgeAt=0;sellerBadgePending=false;}
@@ -12666,12 +12671,12 @@ window.addEventListener('load', function(){
         if(notice){notice.completedSales=sellerBadgeCount;renderHomeNotifications();}
       }).catch(()=>{}).finally(()=>{if(owner===sellerBadgeOwner)sellerBadgePending=false;});
     }
-    return [{id,notification_type:'seller_badge_milestone',title:'Earn your Experienced Seller badge',body:'Complete 10 sales to unlock your badge.',completedSales:sellerBadgeCount,created_at:new Date(read[createdKey]).toISOString(),local:true,read_at:read[id]?new Date(read[id]).toISOString():''}];
+    return [{id,notification_type:'seller_badge_milestone',title:'Earn your Experienced Seller badge',body:'Complete 10 sales to unlock your badge.',completedSales:sellerBadgeCount,previewOffset:sellerBadgePreviewOffset(),created_at:new Date(read[createdKey]).toISOString(),local:true,read_at:read[id]?new Date(read[id]).toISOString():''}];
   }
   function sellerBadgeMarkup(n,index){
-    const count=n.completedSales,known=Number.isInteger(count),amount=known?Math.max(0,Math.min(10,count)):0;
+    const count=n.completedSales,preview=Math.max(0,Number(n.previewOffset)||0),known=Number.isInteger(count)||preview>0,amount=known?Math.max(0,Math.min(10,(Number(count)||0)+preview)):0;
     const points=Array.from({length:24},(_,i)=>{const a=(i*15-90)*Math.PI/180,r=i%2?9.7:11;return (12+Math.cos(a)*r).toFixed(2)+','+(12+Math.sin(a)*r).toFixed(2);}).join(' ');
-    return '<button type="button" class="findai-notification-item ww-seller-badge-notice" onclick="wishwaveOpenSellerBadgeNotice('+index+')" aria-label="Earn your Experienced Seller badge. Complete 10 sales to unlock your badge."><span class="ww-seller-badge-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="'+points+'" fill="currentColor"/><path d="m7.2 12 3.1 3.1 6.5-6.4" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ww-seller-badge-copy"><strong>Earn your Experienced Seller badge</strong><span>Complete 10 sales to unlock your badge.</span>'+(known?'<small>'+amount+' of 10 completed sales</small><progress max="10" value="'+amount+'" aria-label="Completed sales toward seller badge"></progress>':'')+'</span></button>';
+    return '<button type="button" class="findai-notification-item ww-seller-badge-notice" onclick="wishwaveOpenSellerBadgeNotice('+index+')" aria-label="Earn your Experienced Seller badge. Complete 10 sales to unlock your badge."><span class="ww-seller-badge-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><polygon points="'+points+'" fill="currentColor"/><path d="m7.2 12 3.1 3.1 6.5-6.4" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ww-seller-badge-copy"><strong>Earn your Experienced Seller badge</strong><span>Complete 10 sales to unlock your badge.</span>'+(known?'<small>'+amount+' out of 10 completed sales</small>'+(preview?'<small class="ww-seller-badge-preview">Preview progress · real sales are unchanged</small>':'')+'<progress max="10" value="'+amount+'" aria-label="Completed sales toward seller badge"></progress>':'')+'</span></button>';
   }
   window.wishwaveOpenSellerBadgeNotice=function(index){
     const n=appNotificationCache[Number(index)];if(n?.notification_type!=='seller_badge_milestone')return;
@@ -13040,9 +13045,11 @@ window.addEventListener('load', function(){
       if(seen.has(key))return false;
       seen.add(key);return true;
     }).sort((a,b)=>Date.parse(b.created_at||0)-Date.parse(a.created_at||0)).slice(0,40);
+    const seenLocally=readLocalNoticeState();appNotificationCache.forEach(n=>{if(!n.read_at&&seenLocally['activity-seen:'+owner+':'+n.id]){n.read_at=new Date(seenLocally['activity-seen:'+owner+':'+n.id]).toISOString();if(!n.local)marketplaceFetch('/marketplace/notifications/read',{method:'POST',body:JSON.stringify({id:n.id})}).catch(()=>{});}});
     appNotificationUnread=appNotificationCache.reduce((sum,n)=>sum+(!n.read_at?1:0),0);
     if(typeof setHomeNotificationState==='function')setHomeNotificationState(appNotificationUnread);
     renderHomeNotifications();
+    if(document.body.dataset.activeTab==='notifications'&&document.getElementById('findaiNotificationPanel')?.dataset.inboxSection==='activity')window.findaiNotificationState?.markViewed?.();
     return appNotificationCache;
   }
   window.openHomeNotifications=async function(event){
@@ -13165,6 +13172,14 @@ window.addEventListener('load', function(){
      Do not duplicate this state in later scripts. */
   window.findaiNotificationState={
     getCache:()=>appNotificationCache,
+    refreshSellerProgress:()=>{sellerBadgeAt=0;},
+    markViewed:()=>{
+      const owner=marketplaceSession();if(!owner)return;
+      const read=readLocalNoticeState(),now=Date.now(),unread=appNotificationCache.filter(n=>!n.read_at);if(!unread.length)return;
+      unread.forEach(n=>{n.read_at=new Date(now).toISOString();if(n.local)read[n.id]=now;else read['activity-seen:'+owner+':'+n.id]=now;});
+      writeLocalNoticeState(read);appNotificationUnread=0;setHomeNotificationState(0);renderHomeNotifications();
+      unread.filter(n=>!n.local&&n.id).forEach(n=>{marketplaceFetch('/marketplace/notifications/read',{method:'POST',body:JSON.stringify({id:n.id})}).catch(()=>{});});
+    },
     removeActor:username=>{
       const target=String(username||'').replace(/^@/,'').trim().toLowerCase();if(!target)return;
       notificationFollowVersion++;
@@ -13196,6 +13211,11 @@ window.addEventListener('load', function(){
     render:renderHomeNotifications,
     close:closeHomeNotifications
   };
+  setInterval(()=>{
+    if(document.visibilityState!=='visible'||document.body.dataset.activeTab!=='notifications'||document.getElementById('findaiNotificationPanel')?.dataset.inboxSection!=='activity')return;
+    sellerBadgeAt=0;sellerBadgeNotifications();
+  },15000);
+  document.addEventListener('wishwave-orders-changed',()=>{sellerBadgeAt=0;if(marketplaceSession())sellerBadgeNotifications();});
   window.renderHomeNotifications=renderHomeNotifications;
 })();
 </script>
@@ -34982,7 +35002,7 @@ html body .app:has(#wwCheckout.show) #wishwaveMainNav{visibility:visible!importa
   host.querySelector('.wwc-address-cancel').onclick=()=>{host.innerHTML='';};
   host.querySelector('#wwCheckoutCountry').onchange=event=>{host.querySelector('#wwCheckoutState').required=['AU','US','CA'].includes(event.target.value);};
   host.querySelector('#wwCheckoutName').focus({preventScroll:true});
-  host.scrollIntoView?.({block:'nearest',behavior:window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+  const scroll=root.querySelector('.wwc-scroll');if(scroll)scroll.scrollTop+=Math.max(0,host.getBoundingClientRect().top-scroll.getBoundingClientRect().top-12);
  };
  window.wishwaveCheckoutSetLocation=function(event){
   event.preventDefault();if(!state)return false;const form=document.querySelector('#wwCheckoutLocation form');if(!form)return false;
@@ -37016,8 +37036,8 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-reel-commerce.js?v=360"></script>
 <link rel="stylesheet" href="wishwave-coral-theme.css?v=444">
 <script src="wishwave-search-follow.js?v=432"></script>
-<link rel="stylesheet" href="wishwave-purchase-ui.css?v=474">
-<script src="wishwave-offer.js?v=372"></script>
+<link rel="stylesheet" href="wishwave-purchase-ui.css?v=475">
+<script src="wishwave-offer.js?v=475"></script>
 <link rel="stylesheet" href="wishwave-chat-offers.css?v=371">
 <script src="wishwave-chat-offers.js?v=372"></script>
 <link rel="stylesheet" href="wishwave-home-controls.css?v=458">
@@ -37026,8 +37046,8 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <link rel="stylesheet" href="wishwave-discovery-preferences.css?v=421">
 <script src="wishwave-discovery-preferences.js?v=421"></script>
 <script src="wishwave-home-controls.js?v=424"></script>
-<link rel="stylesheet" href="wishwave-inbox.css?v=459">
-<script src="wishwave-inbox.js?v=459"></script>
+<link rel="stylesheet" href="wishwave-inbox.css?v=475">
+<script src="wishwave-inbox.js?v=475"></script>
 <link rel="stylesheet" href="wishwave-search-filters.css?v=434">
 <script src="wishwave-search-filters.js?v=421"></script>
 <link rel="stylesheet" href="wishwave-profile-badges.css?v=430">
@@ -37037,7 +37057,7 @@ html body :is(#profile,#wishwavePublicProfilePage) .social-profile-tabs button:i
 <script src="wishwave-search-tabs.js?v=458"></script>
 <link rel="stylesheet" href="wishwave-nav-collapse.css?v=462">
 <script src="wishwave-nav-collapse.js?v=462"></script>
-<link rel="stylesheet" href="wishwave-seller-badge-notice.css?v=462">
+<link rel="stylesheet" href="wishwave-seller-badge-notice.css?v=475">
 </body>
 </html>
 
